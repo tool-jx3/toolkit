@@ -1,0 +1,1417 @@
+{
+ "rig-test": {
+  "noise": {
+   "noisy": 1,
+   "layers": 14
+  },
+  "canvas": {
+   "w": 512,
+   "h": 512
+  },
+  "synth": {
+   "eye": true,
+   "mouth": true
+  },
+  "warnings": [
+   {
+    "code": "emptyLayer",
+    "args": [
+     "blank"
+    ]
+   },
+   {
+    "code": "unknownLayer",
+    "args": [
+     "ribbon",
+     "head"
+    ]
+   },
+   {
+    "code": "synthEye",
+    "args": []
+   },
+   {
+    "code": "synthMouth",
+    "args": []
+   }
+  ],
+  "anchors": {
+   "face": {
+    "cx": 255.5,
+    "cy": 199.5,
+    "x0": 163,
+    "x1": 348,
+    "y0": 86,
+    "y1": 313
+   },
+   "mouth": {
+    "x0": 235,
+    "x1": 276,
+    "y0": 252,
+    "y1": 271,
+    "cx": 255.5,
+    "cy": 261.5
+   },
+   "neckPivot": {
+    "cx": 255.5,
+    "cy": 348.65
+   },
+   "neckTop": 290,
+   "neckBottom": 359,
+   "bodyPivot": {
+    "cx": 255.5,
+    "cy": 512
+   },
+   "faceScale": 0.5555555555555556,
+   "hairRootY": 146,
+   "eyeL": {
+    "x0": 197,
+    "x1": 246,
+    "y0": 185,
+    "y1": 214,
+    "icx": 223.5,
+    "icy": 201.5,
+    "closeY": 202.98
+   },
+   "eyeR": {
+    "x0": 265,
+    "x1": 314,
+    "y0": 185,
+    "y1": 214,
+    "icx": 287.5,
+    "icy": 201.5,
+    "closeY": 202.98
+   }
+  },
+  "layers": [
+   {
+    "name": "back hair",
+    "source": "back hair",
+    "x": 148,
+    "y": 88,
+    "w": 216,
+    "h": 244,
+    "z": 0,
+    "depth": 0.55,
+    "group": "head",
+    "phys": "hair",
+    "opacity": 1,
+    "fade": null,
+    "side": null,
+    "strands": [
+     {
+      "x": 180,
+      "tipY": 329,
+      "rootY": 90
+     },
+     {
+      "x": 219,
+      "tipY": 329,
+      "rootY": 90
+     },
+     {
+      "x": 255,
+      "tipY": 329,
+      "rootY": 90
+     },
+     {
+      "x": 292,
+      "tipY": 329,
+      "rootY": 90
+     },
+     {
+      "x": 331,
+      "tipY": 329,
+      "rootY": 90
+     }
+    ],
+    "img": "216x244:33780-ff2c64c5-9b583505"
+   },
+   {
+    "name": "neck",
+    "source": "neck",
+    "x": 234,
+    "y": 288,
+    "w": 44,
+    "h": 74,
+    "z": 1,
+    "depth": 0.95,
+    "group": "body",
+    "phys": null,
+    "opacity": 1,
+    "fade": null,
+    "side": null,
+    "strands": null,
+    "img": "44x74:32e0-895fcae5-d6eb2b05"
+   },
+   {
+    "name": "topwear",
+    "source": "topwear",
+    "x": 148,
+    "y": 338,
+    "w": 216,
+    "h": 174,
+    "z": 2,
+    "depth": 0.9,
+    "group": "body",
+    "phys": null,
+    "opacity": 1,
+    "fade": null,
+    "side": null,
+    "strands": null,
+    "img": "216x174:24b40-95a46205-746b7105"
+   },
+   {
+    "name": "handwear",
+    "source": "handwear",
+    "x": 108,
+    "y": 358,
+    "w": 296,
+    "h": 144,
+    "z": 3,
+    "depth": 0.86,
+    "group": "body",
+    "phys": null,
+    "opacity": 1,
+    "fade": null,
+    "side": null,
+    "strands": null,
+    "img": "296x144:29a00-c609f445-72bc7d05"
+   },
+   {
+    "name": "face",
+    "source": "face",
+    "x": 161,
+    "y": 84,
+    "w": 190,
+    "h": 232,
+    "z": 4,
+    "depth": 1,
+    "group": "head",
+    "phys": null,
+    "opacity": 1,
+    "fade": null,
+    "side": null,
+    "strands": null,
+    "img": "190x232:2b0c0-7d79a2d5-b37d6005"
+   },
+   {
+    "name": "earwear",
+    "source": "earwear",
+    "x": 154,
+    "y": 219,
+    "w": 24,
+    "h": 42,
+    "z": 5,
+    "depth": 0.97,
+    "group": "head",
+    "phys": "sway",
+    "opacity": 1,
+    "fade": null,
+    "side": null,
+    "strands": [
+     {
+      "x": 165,
+      "tipY": 258,
+      "rootY": 221
+     }
+    ],
+    "img": "24x42:fc0-b137f95d-58b5c505"
+   },
+   {
+    "name": "eyewhite_l",
+    "source": "白目",
+    "x": 195,
+    "y": 183,
+    "w": 54,
+    "h": 34,
+    "z": 6,
+    "depth": 1.06,
+    "group": "head",
+    "phys": null,
+    "opacity": 1,
+    "fade": "eyeOpen",
+    "side": "L",
+    "strands": null,
+    "img": "54x34:1cb0-5d518485-8c679a05"
+   },
+   {
+    "name": "eyewhite_r",
+    "source": "白目",
+    "x": 263,
+    "y": 183,
+    "w": 54,
+    "h": 34,
+    "z": 7,
+    "depth": 1.06,
+    "group": "head",
+    "phys": null,
+    "opacity": 1,
+    "fade": "eyeOpen",
+    "side": "R",
+    "strands": null,
+    "img": "54x34:1cb0-5d518485-8c679a05"
+   },
+   {
+    "name": "irides_l",
+    "source": "irides",
+    "x": 211,
+    "y": 188,
+    "w": 26,
+    "h": 28,
+    "z": 8,
+    "depth": 1.08,
+    "group": "head",
+    "phys": null,
+    "opacity": 1,
+    "fade": "eyeOpen",
+    "side": "L",
+    "strands": null,
+    "img": "26x28:b60-30c4d8c5-e1473405"
+   },
+   {
+    "name": "irides_r",
+    "source": "irides",
+    "x": 275,
+    "y": 188,
+    "w": 26,
+    "h": 28,
+    "z": 9,
+    "depth": 1.08,
+    "group": "head",
+    "phys": null,
+    "opacity": 1,
+    "fade": "eyeOpen",
+    "side": "R",
+    "strands": null,
+    "img": "26x28:b60-30c4d8c5-e1473405"
+   },
+   {
+    "name": "eyelash_l",
+    "source": "まつ毛",
+    "x": 194,
+    "y": 180,
+    "w": 58,
+    "h": 10,
+    "z": 10,
+    "depth": 1.12,
+    "group": "head",
+    "phys": null,
+    "opacity": 1,
+    "fade": "eyeOpen",
+    "side": "L",
+    "strands": null,
+    "img": "58x10:910-a7a5cf6d-53381b85"
+   },
+   {
+    "name": "eyelash_r",
+    "source": "まつ毛",
+    "x": 260,
+    "y": 180,
+    "w": 58,
+    "h": 10,
+    "z": 11,
+    "depth": 1.12,
+    "group": "head",
+    "phys": null,
+    "opacity": 1,
+    "fade": "eyeOpen",
+    "side": "R",
+    "strands": null,
+    "img": "58x10:910-a7a5cf6d-53381b85"
+   },
+   {
+    "name": "eye_close_l",
+    "source": "",
+    "x": 195,
+    "y": 189,
+    "w": 54,
+    "h": 26,
+    "z": 12,
+    "depth": 1.12,
+    "group": "head",
+    "phys": null,
+    "fade": "eyeClose",
+    "side": "L",
+    "strands": null,
+    "synthetic": true,
+    "img": "54x26:15f0-959a7643-7e5a6ccf"
+   },
+   {
+    "name": "eye_close_r",
+    "source": "",
+    "x": 263,
+    "y": 193,
+    "w": 54,
+    "h": 18,
+    "z": 13,
+    "depth": 1.12,
+    "group": "head",
+    "phys": null,
+    "fade": "eyeClose",
+    "side": "R",
+    "strands": null,
+    "synthetic": true,
+    "img": "54x18:f30-3b6328d2-6396ba12"
+   },
+   {
+    "name": "eyebrow_l",
+    "source": "eyebrow",
+    "x": 198,
+    "y": 158,
+    "w": 48,
+    "h": 10,
+    "z": 14,
+    "depth": 1.14,
+    "group": "head",
+    "phys": null,
+    "opacity": 1,
+    "fade": null,
+    "side": "L",
+    "strands": null,
+    "img": "48x10:780-75899f45-8f799405"
+   },
+   {
+    "name": "eyebrow_r",
+    "source": "eyebrow",
+    "x": 266,
+    "y": 158,
+    "w": 48,
+    "h": 10,
+    "z": 15,
+    "depth": 1.14,
+    "group": "head",
+    "phys": null,
+    "opacity": 1,
+    "fade": null,
+    "side": "R",
+    "strands": null,
+    "img": "48x10:780-75899f45-8f799405"
+   },
+   {
+    "name": "mouth_open",
+    "source": "mouth",
+    "x": 233,
+    "y": 250,
+    "w": 46,
+    "h": 24,
+    "z": 16,
+    "depth": 1.08,
+    "group": "head",
+    "phys": null,
+    "opacity": 1,
+    "fade": "mouthOpen",
+    "side": null,
+    "strands": null,
+    "img": "46x24:1140-a2c62e75-97792305"
+   },
+   {
+    "name": "mouth_close",
+    "source": "",
+    "x": 233,
+    "y": 252,
+    "w": 45,
+    "h": 11,
+    "z": 17,
+    "depth": 1.08,
+    "group": "head",
+    "phys": null,
+    "fade": "mouthClose",
+    "side": null,
+    "strands": null,
+    "synthetic": true,
+    "img": "45x11:7bc-c4ac365c-58d303a2"
+   },
+   {
+    "name": "front hair",
+    "source": "front hair",
+    "x": 148,
+    "y": 68,
+    "w": 216,
+    "h": 110,
+    "z": 18,
+    "depth": 1.28,
+    "group": "head",
+    "phys": "hair",
+    "opacity": 1,
+    "fade": null,
+    "side": null,
+    "strands": [
+     {
+      "x": 171,
+      "tipY": 174,
+      "rootY": 70
+     },
+     {
+      "x": 215,
+      "tipY": 172,
+      "rootY": 70
+     },
+     {
+      "x": 256,
+      "tipY": 175,
+      "rootY": 70
+     },
+     {
+      "x": 300,
+      "tipY": 171,
+      "rootY": 70
+     },
+     {
+      "x": 341,
+      "tipY": 174,
+      "rootY": 70
+     }
+    ],
+    "img": "216x110:17340-b354cb38-ac1c1ed2"
+   },
+   {
+    "name": "ribbon",
+    "source": "ribbon",
+    "x": 305,
+    "y": 93,
+    "w": 50,
+    "h": 34,
+    "z": 19,
+    "depth": 1,
+    "group": "head",
+    "phys": null,
+    "opacity": 1,
+    "fade": null,
+    "side": null,
+    "strands": null,
+    "unknown": true,
+    "img": "50x34:1a90-66257585-50832105"
+   }
+  ]
+ },
+ "see-through-v3": {
+  "noise": {
+   "noisy": 0,
+   "layers": 14
+  },
+  "canvas": {
+   "w": 256,
+   "h": 256
+  },
+  "synth": {
+   "eye": true,
+   "mouth": true
+  },
+  "warnings": [
+   {
+    "code": "synthEye",
+    "args": []
+   },
+   {
+    "code": "synthMouth",
+    "args": []
+   }
+  ],
+  "anchors": {
+   "face": {
+    "cx": 127.5,
+    "cy": 99.5,
+    "x0": 80,
+    "x1": 175,
+    "y0": 42,
+    "y1": 157
+   },
+   "mouth": {
+    "x0": 118,
+    "x1": 137,
+    "y0": 127,
+    "y1": 136,
+    "cx": 127.5,
+    "cy": 131.5
+   },
+   "neckPivot": {
+    "cx": 127.5,
+    "cy": 179.75
+   },
+   "neckTop": 150,
+   "neckBottom": 185,
+   "bodyPivot": {
+    "cx": 127.5,
+    "cy": 256
+   },
+   "faceScale": 0.2852852852852853,
+   "hairRootY": 102,
+   "eyeL": {
+    "x0": 98,
+    "x1": 121,
+    "y0": 97,
+    "y1": 110,
+    "icx": 110.5,
+    "icy": 104.5,
+    "closeY": 105.06
+   },
+   "eyeR": {
+    "x0": 134,
+    "x1": 157,
+    "y0": 97,
+    "y1": 110,
+    "icx": 144.5,
+    "icy": 104.5,
+    "closeY": 105.06
+   }
+  },
+  "layers": [
+   {
+    "name": "back hair",
+    "source": "back hair",
+    "x": 64,
+    "y": 38,
+    "w": 128,
+    "h": 140,
+    "z": 0,
+    "depth": 0.55,
+    "group": "head",
+    "phys": "hair",
+    "opacity": 1,
+    "fade": null,
+    "side": null,
+    "strands": [
+     {
+      "x": 97,
+      "tipY": 156,
+      "rootY": 40
+     },
+     {
+      "x": 128,
+      "tipY": 156,
+      "rootY": 40
+     },
+     {
+      "x": 159,
+      "tipY": 156,
+      "rootY": 40
+     }
+    ],
+    "img": "128x140:11800-614bab15-316e4d85"
+   },
+   {
+    "name": "topwear",
+    "source": "topwear",
+    "x": 82,
+    "y": 174,
+    "w": 92,
+    "h": 82,
+    "z": 1,
+    "depth": 0.9,
+    "group": "body",
+    "phys": null,
+    "opacity": 1,
+    "fade": null,
+    "side": null,
+    "strands": null,
+    "img": "92x82:75e0-1b655d45-a477a105"
+   },
+   {
+    "name": "neck",
+    "source": "neck",
+    "x": 114,
+    "y": 148,
+    "w": 28,
+    "h": 40,
+    "z": 2,
+    "depth": 0.95,
+    "group": "body",
+    "phys": null,
+    "opacity": 1,
+    "fade": null,
+    "side": null,
+    "strands": null,
+    "img": "28x40:1180-18254905-f7aaa905"
+   },
+   {
+    "name": "handwear",
+    "source": "handwear",
+    "x": 60,
+    "y": 178,
+    "w": 136,
+    "h": 72,
+    "z": 3,
+    "depth": 0.86,
+    "group": "body",
+    "phys": null,
+    "opacity": 1,
+    "fade": null,
+    "side": null,
+    "strands": null,
+    "img": "136x72:9900-a40cc1e5-57cbdb05"
+   },
+   {
+    "name": "ears",
+    "source": "ears",
+    "x": 71,
+    "y": 90,
+    "w": 114,
+    "h": 28,
+    "z": 4,
+    "depth": 0.96,
+    "group": "head",
+    "phys": null,
+    "opacity": 1,
+    "fade": null,
+    "side": null,
+    "strands": null,
+    "img": "114x28:31e0-348b1085-d99ec705"
+   },
+   {
+    "name": "face",
+    "source": "face",
+    "x": 78,
+    "y": 40,
+    "w": 100,
+    "h": 120,
+    "z": 5,
+    "depth": 1,
+    "group": "head",
+    "phys": null,
+    "opacity": 1,
+    "fade": null,
+    "side": null,
+    "strands": null,
+    "img": "100x120:bb80-897d4b5d-872c185"
+   },
+   {
+    "name": "eyewhite_l",
+    "source": "eyewhite",
+    "x": 96,
+    "y": 95,
+    "w": 28,
+    "h": 18,
+    "z": 6,
+    "depth": 1.06,
+    "group": "head",
+    "phys": null,
+    "opacity": 1,
+    "fade": "eyeOpen",
+    "side": "L",
+    "strands": null,
+    "img": "28x18:7e0-cb3744f5-c6740805"
+   },
+   {
+    "name": "eyewhite_r",
+    "source": "eyewhite",
+    "x": 132,
+    "y": 95,
+    "w": 28,
+    "h": 18,
+    "z": 7,
+    "depth": 1.06,
+    "group": "head",
+    "phys": null,
+    "opacity": 1,
+    "fade": "eyeOpen",
+    "side": "R",
+    "strands": null,
+    "img": "28x18:7e0-cb3744f5-c6740805"
+   },
+   {
+    "name": "irides_l",
+    "source": "irides",
+    "x": 104,
+    "y": 97,
+    "w": 14,
+    "h": 16,
+    "z": 8,
+    "depth": 1.08,
+    "group": "head",
+    "phys": null,
+    "opacity": 1,
+    "fade": "eyeOpen",
+    "side": "L",
+    "strands": null,
+    "img": "14x16:380-7a3d21c5-9f2c5105"
+   },
+   {
+    "name": "irides_r",
+    "source": "irides",
+    "x": 138,
+    "y": 97,
+    "w": 14,
+    "h": 16,
+    "z": 9,
+    "depth": 1.08,
+    "group": "head",
+    "phys": null,
+    "opacity": 1,
+    "fade": "eyeOpen",
+    "side": "R",
+    "strands": null,
+    "img": "14x16:380-7a3d21c5-9f2c5105"
+   },
+   {
+    "name": "eyelash_l",
+    "source": "eyelash",
+    "x": 95,
+    "y": 93,
+    "w": 31,
+    "h": 7,
+    "z": 10,
+    "depth": 1.12,
+    "group": "head",
+    "phys": null,
+    "opacity": 1,
+    "fade": "eyeOpen",
+    "side": "L",
+    "strands": null,
+    "img": "31x7:364-4445680e-ddfcdfd8"
+   },
+   {
+    "name": "eyelash_r",
+    "source": "eyelash",
+    "x": 130,
+    "y": 93,
+    "w": 31,
+    "h": 7,
+    "z": 11,
+    "depth": 1.12,
+    "group": "head",
+    "phys": null,
+    "opacity": 1,
+    "fade": "eyeOpen",
+    "side": "R",
+    "strands": null,
+    "img": "31x7:364-4445680e-ddfcdfd8"
+   },
+   {
+    "name": "eye_close_l",
+    "source": "",
+    "x": 97,
+    "y": 98,
+    "w": 25,
+    "h": 12,
+    "z": 12,
+    "depth": 1.12,
+    "group": "head",
+    "phys": null,
+    "fade": "eyeClose",
+    "side": "L",
+    "strands": null,
+    "synthetic": true,
+    "img": "25x12:4b0-1df80fad-43e58a3f"
+   },
+   {
+    "name": "eye_close_r",
+    "source": "",
+    "x": 133,
+    "y": 100,
+    "w": 25,
+    "h": 9,
+    "z": 13,
+    "depth": 1.12,
+    "group": "head",
+    "phys": null,
+    "fade": "eyeClose",
+    "side": "R",
+    "strands": null,
+    "synthetic": true,
+    "img": "25x9:384-20144672-51e49a12"
+   },
+   {
+    "name": "eyebrow_l",
+    "source": "eyebrow",
+    "x": 96,
+    "y": 82,
+    "w": 28,
+    "h": 7,
+    "z": 14,
+    "depth": 1.14,
+    "group": "head",
+    "phys": null,
+    "opacity": 1,
+    "fade": null,
+    "side": "L",
+    "strands": null,
+    "img": "28x7:310-3ccd7485-59efc605"
+   },
+   {
+    "name": "eyebrow_r",
+    "source": "eyebrow",
+    "x": 132,
+    "y": 82,
+    "w": 28,
+    "h": 7,
+    "z": 15,
+    "depth": 1.14,
+    "group": "head",
+    "phys": null,
+    "opacity": 1,
+    "fade": null,
+    "side": "R",
+    "strands": null,
+    "img": "28x7:310-3ccd7485-59efc605"
+   },
+   {
+    "name": "nose",
+    "source": "nose",
+    "x": 122,
+    "y": 113,
+    "w": 12,
+    "h": 10,
+    "z": 16,
+    "depth": 1.15,
+    "group": "head",
+    "phys": null,
+    "opacity": 1,
+    "fade": null,
+    "side": null,
+    "strands": null,
+    "img": "12x10:1e0-af5d8a35-969a0b05"
+   },
+   {
+    "name": "mouth_open",
+    "source": "mouth",
+    "x": 116,
+    "y": 125,
+    "w": 24,
+    "h": 14,
+    "z": 17,
+    "depth": 1.08,
+    "group": "head",
+    "phys": null,
+    "opacity": 1,
+    "fade": "mouthOpen",
+    "side": null,
+    "strands": null,
+    "img": "24x14:540-11bef45-3d00e905"
+   },
+   {
+    "name": "mouth_close",
+    "source": "",
+    "x": 117,
+    "y": 127,
+    "w": 21,
+    "h": 5,
+    "z": 18,
+    "depth": 1.08,
+    "group": "head",
+    "phys": null,
+    "fade": "mouthClose",
+    "side": null,
+    "strands": null,
+    "synthetic": true,
+    "img": "21x5:1a4-ee99b9d9-32120419"
+   },
+   {
+    "name": "headwear",
+    "source": "headwear",
+    "x": 139,
+    "y": 35,
+    "w": 38,
+    "h": 22,
+    "z": 19,
+    "depth": 1.2,
+    "group": "head",
+    "phys": null,
+    "opacity": 1,
+    "fade": null,
+    "side": null,
+    "strands": null,
+    "img": "38x22:d10-6e8f6e1d-1d95f05"
+   },
+   {
+    "name": "front hair",
+    "source": "front hair",
+    "x": 80,
+    "y": 38,
+    "w": 96,
+    "h": 56,
+    "z": 20,
+    "depth": 1.28,
+    "group": "head",
+    "phys": "hair",
+    "opacity": 1,
+    "fade": null,
+    "side": null,
+    "strands": [
+     {
+      "x": 105,
+      "tipY": 70,
+      "rootY": 40
+     },
+     {
+      "x": 151,
+      "tipY": 70,
+      "rootY": 40
+     }
+    ],
+    "img": "96x56:5400-c0a85845-ef83385"
+   }
+  ]
+ },
+ "renamed": {
+  "noise": {
+   "noisy": 1,
+   "layers": 14
+  },
+  "canvas": {
+   "w": 512,
+   "h": 512
+  },
+  "synth": {
+   "eye": true,
+   "mouth": true
+  },
+  "warnings": [
+   {
+    "code": "emptyLayer",
+    "args": [
+     "blank"
+    ]
+   },
+   {
+    "code": "unknownLayer",
+    "args": [
+     "ribbon 3",
+     "head"
+    ]
+   },
+   {
+    "code": "synthEye",
+    "args": []
+   },
+   {
+    "code": "synthMouth",
+    "args": []
+   }
+  ],
+  "anchors": {
+   "face": {
+    "cx": 255.5,
+    "cy": 199.5,
+    "x0": 163,
+    "x1": 348,
+    "y0": 86,
+    "y1": 313
+   },
+   "mouth": {
+    "x0": 235,
+    "x1": 276,
+    "y0": 252,
+    "y1": 271,
+    "cx": 255.5,
+    "cy": 261.5
+   },
+   "neckPivot": {
+    "cx": 255.5,
+    "cy": 348.65
+   },
+   "neckTop": 290,
+   "neckBottom": 359,
+   "bodyPivot": {
+    "cx": 255.5,
+    "cy": 512
+   },
+   "faceScale": 0.5555555555555556,
+   "hairRootY": 146,
+   "eyeL": {
+    "x0": 197,
+    "x1": 246,
+    "y0": 185,
+    "y1": 214,
+    "icx": 223.5,
+    "icy": 201.5,
+    "closeY": 202.98
+   },
+   "eyeR": {
+    "x0": 265,
+    "x1": 314,
+    "y0": 185,
+    "y1": 214,
+    "icx": 287.5,
+    "icy": 201.5,
+    "closeY": 202.98
+   }
+  },
+  "layers": [
+   {
+    "name": "back hair",
+    "source": "Hair",
+    "x": 148,
+    "y": 88,
+    "w": 216,
+    "h": 244,
+    "z": 0,
+    "depth": 0.55,
+    "group": "head",
+    "phys": "hair",
+    "opacity": 1,
+    "fade": null,
+    "side": null,
+    "strands": [
+     {
+      "x": 180,
+      "tipY": 329,
+      "rootY": 90
+     },
+     {
+      "x": 219,
+      "tipY": 329,
+      "rootY": 90
+     },
+     {
+      "x": 255,
+      "tipY": 329,
+      "rootY": 90
+     },
+     {
+      "x": 292,
+      "tipY": 329,
+      "rootY": 90
+     },
+     {
+      "x": 331,
+      "tipY": 329,
+      "rootY": 90
+     }
+    ],
+    "img": "216x244:33780-ff2c64c5-9b583505"
+   },
+   {
+    "name": "neck",
+    "source": "neck",
+    "x": 234,
+    "y": 288,
+    "w": 44,
+    "h": 74,
+    "z": 1,
+    "depth": 0.95,
+    "group": "body",
+    "phys": null,
+    "opacity": 1,
+    "fade": null,
+    "side": null,
+    "strands": null,
+    "img": "44x74:32e0-895fcae5-d6eb2b05"
+   },
+   {
+    "name": "topwear",
+    "source": "topwear",
+    "x": 148,
+    "y": 338,
+    "w": 216,
+    "h": 174,
+    "z": 2,
+    "depth": 0.9,
+    "group": "body",
+    "phys": null,
+    "opacity": 1,
+    "fade": null,
+    "side": null,
+    "strands": null,
+    "img": "216x174:24b40-95a46205-746b7105"
+   },
+   {
+    "name": "handwear",
+    "source": "Arms",
+    "x": 108,
+    "y": 358,
+    "w": 296,
+    "h": 144,
+    "z": 3,
+    "depth": 0.86,
+    "group": "body",
+    "phys": null,
+    "opacity": 1,
+    "fade": null,
+    "side": null,
+    "strands": null,
+    "img": "296x144:29a00-c609f445-72bc7d05"
+   },
+   {
+    "name": "face",
+    "source": "顔 のコピー 2",
+    "x": 161,
+    "y": 84,
+    "w": 190,
+    "h": 232,
+    "z": 4,
+    "depth": 1,
+    "group": "head",
+    "phys": null,
+    "opacity": 1,
+    "fade": null,
+    "side": null,
+    "strands": null,
+    "img": "190x232:2b0c0-7d79a2d5-b37d6005"
+   },
+   {
+    "name": "earwear",
+    "source": "ピアス",
+    "x": 154,
+    "y": 219,
+    "w": 24,
+    "h": 42,
+    "z": 5,
+    "depth": 0.97,
+    "group": "head",
+    "phys": "sway",
+    "opacity": 1,
+    "fade": null,
+    "side": null,
+    "strands": [
+     {
+      "x": 165,
+      "tipY": 258,
+      "rootY": 221
+     }
+    ],
+    "img": "24x42:fc0-b137f95d-58b5c505"
+   },
+   {
+    "name": "eyewhite_l",
+    "source": "白目",
+    "x": 195,
+    "y": 183,
+    "w": 54,
+    "h": 34,
+    "z": 6,
+    "depth": 1.06,
+    "group": "head",
+    "phys": null,
+    "opacity": 1,
+    "fade": "eyeOpen",
+    "side": "L",
+    "strands": null,
+    "img": "54x34:1cb0-5d518485-8c679a05"
+   },
+   {
+    "name": "eyewhite_r",
+    "source": "白目",
+    "x": 263,
+    "y": 183,
+    "w": 54,
+    "h": 34,
+    "z": 7,
+    "depth": 1.06,
+    "group": "head",
+    "phys": null,
+    "opacity": 1,
+    "fade": "eyeOpen",
+    "side": "R",
+    "strands": null,
+    "img": "54x34:1cb0-5d518485-8c679a05"
+   },
+   {
+    "name": "irides_l",
+    "source": "瞳",
+    "x": 211,
+    "y": 188,
+    "w": 26,
+    "h": 28,
+    "z": 8,
+    "depth": 1.08,
+    "group": "head",
+    "phys": null,
+    "opacity": 1,
+    "fade": "eyeOpen",
+    "side": "L",
+    "strands": null,
+    "img": "26x28:b60-30c4d8c5-e1473405"
+   },
+   {
+    "name": "irides_r",
+    "source": "瞳",
+    "x": 275,
+    "y": 188,
+    "w": 26,
+    "h": 28,
+    "z": 9,
+    "depth": 1.08,
+    "group": "head",
+    "phys": null,
+    "opacity": 1,
+    "fade": "eyeOpen",
+    "side": "R",
+    "strands": null,
+    "img": "26x28:b60-30c4d8c5-e1473405"
+   },
+   {
+    "name": "eyelash_l",
+    "source": "まつ毛",
+    "x": 194,
+    "y": 180,
+    "w": 58,
+    "h": 10,
+    "z": 10,
+    "depth": 1.12,
+    "group": "head",
+    "phys": null,
+    "opacity": 1,
+    "fade": "eyeOpen",
+    "side": "L",
+    "strands": null,
+    "img": "58x10:910-a7a5cf6d-53381b85"
+   },
+   {
+    "name": "eyelash_r",
+    "source": "まつ毛",
+    "x": 260,
+    "y": 180,
+    "w": 58,
+    "h": 10,
+    "z": 11,
+    "depth": 1.12,
+    "group": "head",
+    "phys": null,
+    "opacity": 1,
+    "fade": "eyeOpen",
+    "side": "R",
+    "strands": null,
+    "img": "58x10:910-a7a5cf6d-53381b85"
+   },
+   {
+    "name": "eye_close_l",
+    "source": "",
+    "x": 195,
+    "y": 189,
+    "w": 54,
+    "h": 26,
+    "z": 12,
+    "depth": 1.12,
+    "group": "head",
+    "phys": null,
+    "fade": "eyeClose",
+    "side": "L",
+    "strands": null,
+    "synthetic": true,
+    "img": "54x26:15f0-959a7643-7e5a6ccf"
+   },
+   {
+    "name": "eye_close_r",
+    "source": "",
+    "x": 263,
+    "y": 193,
+    "w": 54,
+    "h": 18,
+    "z": 13,
+    "depth": 1.12,
+    "group": "head",
+    "phys": null,
+    "fade": "eyeClose",
+    "side": "R",
+    "strands": null,
+    "synthetic": true,
+    "img": "54x18:f30-3b6328d2-6396ba12"
+   },
+   {
+    "name": "eyebrow_l",
+    "source": "Brows",
+    "x": 198,
+    "y": 158,
+    "w": 48,
+    "h": 10,
+    "z": 14,
+    "depth": 1.14,
+    "group": "head",
+    "phys": null,
+    "opacity": 1,
+    "fade": null,
+    "side": "L",
+    "strands": null,
+    "img": "48x10:780-75899f45-8f799405"
+   },
+   {
+    "name": "eyebrow_r",
+    "source": "Brows",
+    "x": 266,
+    "y": 158,
+    "w": 48,
+    "h": 10,
+    "z": 15,
+    "depth": 1.14,
+    "group": "head",
+    "phys": null,
+    "opacity": 1,
+    "fade": null,
+    "side": "R",
+    "strands": null,
+    "img": "48x10:780-75899f45-8f799405"
+   },
+   {
+    "name": "mouth_open",
+    "source": "mouth",
+    "x": 233,
+    "y": 250,
+    "w": 46,
+    "h": 24,
+    "z": 16,
+    "depth": 1.08,
+    "group": "head",
+    "phys": null,
+    "opacity": 1,
+    "fade": "mouthOpen",
+    "side": null,
+    "strands": null,
+    "img": "46x24:1140-a2c62e75-97792305"
+   },
+   {
+    "name": "mouth_close",
+    "source": "",
+    "x": 233,
+    "y": 252,
+    "w": 45,
+    "h": 11,
+    "z": 17,
+    "depth": 1.08,
+    "group": "head",
+    "phys": null,
+    "fade": "mouthClose",
+    "side": null,
+    "strands": null,
+    "synthetic": true,
+    "img": "45x11:7bc-c4ac365c-58d303a2"
+   },
+   {
+    "name": "front hair_2",
+    "source": "hair_2",
+    "x": 148,
+    "y": 68,
+    "w": 216,
+    "h": 110,
+    "z": 18,
+    "depth": 1.28,
+    "group": "head",
+    "phys": "hair",
+    "opacity": 1,
+    "fade": null,
+    "side": null,
+    "strands": [
+     {
+      "x": 171,
+      "tipY": 174,
+      "rootY": 70
+     },
+     {
+      "x": 256,
+      "tipY": 175,
+      "rootY": 70
+     }
+    ],
+    "img": "216x110:17340-b354cb38-ac1c1ed2"
+   },
+   {
+    "name": "ribbon 3",
+    "source": "Ribbon 3",
+    "x": 305,
+    "y": 93,
+    "w": 50,
+    "h": 34,
+    "z": 19,
+    "depth": 1,
+    "group": "head",
+    "phys": null,
+    "opacity": 1,
+    "fade": null,
+    "side": null,
+    "strands": null,
+    "unknown": true,
+    "img": "50x34:1a90-66257585-50832105"
+   }
+  ]
+ }
+}

@@ -29,7 +29,8 @@ import {
   type PresetId,
   TOOL_ID,
 } from './params';
-import { cancelPsd, cleanPsdBytes, loadPsd } from './psdClient';
+import type { DepthInput, DepthResult } from './psd.worker';
+import { cancelPsd, cleanPsdBytes, loadPsd, measureDepthFiles } from './psdClient';
 import type { Rig } from './rigger';
 import {
   type LayerSetting,
@@ -38,16 +39,27 @@ import {
   parseSettings,
   SETTINGS_FORMAT,
   SETTINGS_VERSION,
+  type SeeThroughSetting,
   type SettingsFile,
   safeFileName,
   sanitizeAnchors,
   validateHeader,
 } from './runtime';
 import {
+  blendDepth,
+  type DepthMap,
+  type DepthPart,
+  isGrayPsdHeader,
+  isSeeThroughJson,
+  mapSeeThroughDepth,
+  rebaseDepth,
+} from './seeThrough';
+import {
   type EditState,
   edit,
   type LayerInfo,
   type ModelInfo,
+  type StatusTone,
   setPrefs,
   setStatus,
   useAuto,
@@ -84,19 +96,42 @@ export function setSectionRevealer(fn: ((id: SectionId) => void) | null): void {
 
 let loadTicket = 0;
 
-/** 拖放、選檔：`.json` 當設定 JSON，其他當 PSD（規格 F01） */
+/** 拖放、選檔：`.json` 當設定 JSON，其他當 PSD（規格 F01）；`_depth.psd` 是 see-through 的深度 PSD（F103） */
 export function openFile(file: File): void {
   if (/\.json$/i.test(file.name)) void importSettingsFile(file);
+  else if (isDepthPsdName(file.name)) void addDepthFiles({ depth: file, json: null });
   else void loadPsdFile(file);
 }
 
-/** 開啟 PSD 的選檔視窗（Ctrl＋O、按鈕） */
-export async function pickPsd(): Promise<void> {
-  const [file] = await pickFiles({ accept: '.psd,.json,application/json' });
-  if (file) openFile(file);
+/**
+ * 一次給好幾個檔案（拖放、選檔；規格 F01、F103）：裡面有 see-through 的深度 PSD（`_depth.psd`，或兩個 PSD 裡唯一的灰階 PSD）
+ * 或 `.psd.json` 時，彩色的 PSD 和它們一起讀入（只有深度檔時加到目前的模型）；沒有時照以前只讀第一個檔案。
+ */
+export async function openFiles(files: readonly File[]): Promise<void> {
+  if (!files.length) return;
+  const psds = files.filter((f) => /\.psd$/i.test(f.name));
+  let depth = psds.find((f) => isDepthPsdName(f.name)) ?? null;
+  if (!depth && psds.length >= 2) {
+    const gray = await Promise.all(psds.map(sniffGray));
+    if (gray.filter(Boolean).length === 1) depth = psds[gray.indexOf(true)];
+  }
+  const json = files.find((f) => isSeeThroughJsonName(f.name)) ?? null;
+  if (!depth && !json) {
+    openFile(files[0]);
+    return;
+  }
+  const color = psds.find((f) => f !== depth) ?? null;
+  if (color) await loadPsdFile(color, { depth, json });
+  else await addDepthFiles({ depth, json });
 }
 
-export async function loadPsdFile(file: File): Promise<void> {
+/** 開啟 PSD 的選檔視窗（Ctrl＋O、按鈕）；可以同時選彩色 PSD 與深度 PSD／.psd.json */
+export async function pickPsd(): Promise<void> {
+  const files = await pickFiles({ accept: '.psd,.json,application/json', multiple: true });
+  if (files.length) await openFiles(files);
+}
+
+export async function loadPsdFile(file: File, extra?: DepthFiles): Promise<void> {
   const ticket = ++loadTicket;
   cancelPsd();
   useSession.setState({ loading: S.loadReading(file.name) });
@@ -107,11 +142,17 @@ export async function loadPsdFile(file: File): Promise<void> {
     const buffer = await file.arrayBuffer();
     if (ticket !== loadTicket) return;
     validateHeader(buffer);
-    const parsed = await loadPsd(buffer, (msg) => {
-      if (ticket !== loadTicket) return;
-      useSession.setState({ loading: msg });
-      setStatus(msg);
-    });
+    const depthIn = extra && (extra.depth || extra.json) ? await readDepthInputs(extra) : null;
+    if (ticket !== loadTicket) return;
+    const parsed = await loadPsd(
+      buffer,
+      (msg) => {
+        if (ticket !== loadTicket) return;
+        useSession.setState({ loading: msg });
+        setStatus(msg);
+      },
+      depthIn?.input,
+    );
     if (ticket !== loadTicket) return;
     const engine = getEngine();
     if (!engine) throw new Error(S.errWebgl);
@@ -122,6 +163,7 @@ export async function loadPsdFile(file: File): Promise<void> {
       model: modelInfo(parsed.id, name, parsed.rig, thumbs, parsed.noise),
       anchorMode: false,
       highlight: null,
+      depthReport: null,
     });
     /* 參數回到預設、自動動作回到預設，再套用這個模型已儲存的設定（F09、F82） */
     const keepBg = useEdit.getState().data.background;
@@ -130,15 +172,22 @@ export async function loadPsdFile(file: File): Promise<void> {
       preset: null,
       background: keepBg,
       anchors: {},
-      layers: defaultLayers(),
+      layers: defaultLayers(null),
+      seeThrough: null,
     });
     useAuto.setState({ ...AUTO_DEFAULTS });
     restoreSaved(true);
+    /* 「未儲存」以已儲存的狀態為準：一起讀的深度和存過的不同時，標示有未儲存的變更（F104） */
+    const baseline = comparableSettings();
+    const depthDone = depthIn
+      ? applyDepthResult(parsed.depth, depthIn.label, depthIn.error, name)
+      : null;
     engine.snap();
     useEdit.temporal.getState().clear();
-    useSession.setState({ savedSnapshot: comparableSettings(), loading: null });
+    useSession.setState({ savedSnapshot: baseline, loading: null });
     document.title = `${name}｜2.5D 動態立繪｜TRPG Toolkit`;
-    setStatus(S.loadDone(name), 'success');
+    if (depthDone) setStatus(depthDone.text, depthDone.tone);
+    else setStatus(S.loadDone(name), 'success');
   } catch (err) {
     if (ticket !== loadTicket || (err as { name?: string })?.name === 'AbortError') return;
     useSession.setState({ loading: null });
@@ -184,6 +233,7 @@ function modelInfo(
       thumb: thumbs.get(lid) ?? '',
       defaultOpacity: p.opacity ?? 1,
       defaultDepth: p.depth,
+      src: rig.sources[p.z] ?? -1,
     };
   });
   return {
@@ -196,17 +246,246 @@ function modelInfo(
     noise: noise.noisy > 0 ? noise : null,
     hasTopwear: layers.some((l) => l.bn === 'topwear'),
     eyes: { L: !!rig.anchors.eyeL, R: !!rig.anchors.eyeR },
+    presplit: rig.presplit,
   };
 }
 
-/** 綁定時的圖層設定（依繪製順序） */
-function defaultLayers(): LayerSetting[] {
-  return (model()?.layers ?? []).map((l) => ({
+/** 綁定時的圖層設定（依繪製順序）；深度＝部位表，有 see-through 的深度時依開關與強度混合（規格 3.7） */
+function defaultLayers(
+  cfg: SeeThroughSetting | null = useEdit.getState().data.seeThrough,
+): LayerSetting[] {
+  const m = model();
+  if (!m) return [];
+  const depths = depthDefaults(m, cfg);
+  return m.layers.map((l) => ({
     id: l.id,
     visible: true,
     opacity: l.defaultOpacity,
-    depth: l.defaultDepth,
+    depth: depths.get(l.id) ?? l.defaultDepth,
   }));
+}
+
+/* ---------- see-through 的深度（規格 1.15） ---------- */
+
+export interface DepthFiles {
+  depth: File | null;
+  json: File | null;
+}
+
+const isDepthPsdName = (name: string) => /_depth\.psd$/i.test(name);
+const isSeeThroughJsonName = (name: string) => /\.psd\.json$/i.test(name);
+
+async function sniffGray(file: File): Promise<boolean> {
+  try {
+    return isGrayPsdHeader(new Uint8Array(await file.slice(0, 26).arrayBuffer()));
+  } catch {
+    return false;
+  }
+}
+
+const depthPart = (l: LayerInfo): DepthPart => ({
+  id: l.id,
+  bn: l.bn,
+  unknown: l.unknown,
+  synthetic: l.synthetic,
+  table: l.defaultDepth,
+});
+
+/** see-through 的深度換算成轉頭的深度（強度 1 的值；規格 3.7） */
+export function depthMapOf(m: ModelInfo, cfg: SeeThroughSetting): DepthMap {
+  return mapSeeThroughDepth(m.layers.map(depthPart), cfg.values);
+}
+
+/** 每個部件的綁定時的深度（部位表，或依開關與強度混合的 see-through 的深度） */
+export function depthDefaults(m: ModelInfo, cfg: SeeThroughSetting | null): Map<string, number> {
+  const out = new Map(m.layers.map((l) => [l.id, l.defaultDepth]));
+  if (!cfg) return out;
+  const { mapped } = depthMapOf(m, cfg);
+  for (const l of m.layers)
+    out.set(l.id, blendDepth(l.defaultDepth, mapped[l.id], cfg.on, cfg.strength));
+  return out;
+}
+
+/** 換 see-through 的深度設定（一步復原）：圖層的深度跟著移動，手動改過的差距保留 */
+function setSeeThrough(next: SeeThroughSetting | null): void {
+  const m = model();
+  if (!m) return;
+  const prev = useEdit.getState().data.seeThrough;
+  const before = depthDefaults(m, prev);
+  const after = depthDefaults(m, next);
+  edit((d) => {
+    for (const l of d.layers) {
+      const a = before.get(l.id);
+      const b = after.get(l.id);
+      if (a !== undefined && b !== undefined) l.depth = rebaseDepth(l.depth, a, b);
+    }
+    d.seeThrough = next;
+  });
+}
+
+export function setSeeThroughOn(on: boolean): void {
+  const cur = useEdit.getState().data.seeThrough;
+  if (cur && cur.on !== on) setSeeThrough({ ...cur, on });
+}
+
+export function setSeeThroughStrength(v: number): void {
+  const cur = useEdit.getState().data.seeThrough;
+  const strength = Math.max(0, Math.min(1, Math.round(v * 100) / 100));
+  if (cur && cur.strength !== strength) setSeeThrough({ ...cur, strength });
+}
+
+/** 拿掉 see-through 的深度（圖層的深度回到部位表＋手動的差距） */
+export function removeSeeThrough(): void {
+  if (!useEdit.getState().data.seeThrough) return;
+  setSeeThrough(null);
+  useSession.setState({ depthReport: null });
+  setStatus(S.depth.removed, 'success');
+}
+
+interface DepthRead {
+  input: DepthInput;
+  /** 檔名（顯示用） */
+  label: string;
+  /** 主執行緒這邊讀不了的原因 */
+  error: string | null;
+}
+
+async function readDepthInputs(f: DepthFiles, preparsed?: { json: unknown; name: string }) {
+  const out: DepthRead = { input: {}, label: '', error: null };
+  const names: string[] = [];
+  const errors: string[] = [];
+  if (f.depth) {
+    names.push(f.depth.name);
+    if (f.depth.size > MAX_FILE_BYTES) errors.push(S.depth.tooLarge);
+    else out.input.depth = await f.depth.arrayBuffer();
+  }
+  if (preparsed) {
+    names.push(preparsed.name);
+    out.input.json = preparsed.json;
+  } else if (f.json) {
+    names.push(f.json.name);
+    try {
+      if (f.json.size > JSON_MAX_BYTES) throw new Error(S.jsonTooLarge);
+      let value: unknown;
+      try {
+        value = JSON.parse(await f.json.text());
+      } catch {
+        throw new Error(S.jsonInvalid);
+      }
+      if (!isSeeThroughJson(value)) throw new Error(S.depth.notJson);
+      out.input.json = value;
+    } catch (err) {
+      errors.push(err instanceof Error ? err.message : String(err));
+    }
+  }
+  out.label = names.join('＋');
+  out.error = errors.join(' ') || null;
+  return out;
+}
+
+/**
+ * 深度檔的結果套到目前的模型（每個部件取它的圖層的深度；規格 F101～F104）。回傳要顯示的訊息。
+ * loadedName：和彩色 PSD 一起讀入時的檔名（讀入的訊息帶上深度的結果）。
+ */
+function applyDepthResult(
+  res: DepthResult | null,
+  label: string,
+  readError: string | null,
+  loadedName: string | null,
+): { text: string; tone: StatusTone } {
+  const m = model();
+  const head = loadedName ? `${S.loadDone(loadedName)}。` : '';
+  if (!m) return { text: head, tone: 'success' };
+  const measure = res?.measure ?? null;
+  const error = [readError, res?.error].filter(Boolean).join(' ') || null;
+  const values: Record<string, number> = {};
+  if (measure)
+    for (const l of m.layers) {
+      const v = l.src >= 0 ? measure.values[l.src] : null;
+      if (typeof v === 'number') values[l.id] = v;
+    }
+  const issues = measure?.issues ?? [];
+  useSession.setState({
+    depthReport: {
+      file: label,
+      matched: measure?.matched ?? 0,
+      total: measure?.total ?? 0,
+      issues,
+      error,
+    },
+  });
+  if (!Object.keys(values).length) {
+    const why = error ?? (issues.length ? S.depth.issue(issues[0]) : S.depth.noMatch);
+    return { text: head + S.depth.notUsed(why), tone: 'warning' };
+  }
+  const prev = useEdit.getState().data.seeThrough;
+  const next: SeeThroughSetting = {
+    on: prev?.on ?? true,
+    strength: prev?.strength ?? 1,
+    file: label,
+    values,
+  };
+  setSeeThrough(next);
+  const map = depthMapOf(m, next);
+  const n = measure?.matched ?? 0;
+  const total = measure?.total ?? 0;
+  let text = loadedName ? head + S.depth.loaded(n, total) : S.depth.added(label, n, total);
+  let tone: StatusTone = 'success';
+  if (map.reason) {
+    text += `但${S.depth.mapFailed(S.depth.reasons[map.reason])}`;
+    tone = 'warning';
+  } else if (issues.length || error) {
+    text += S.depth.someIssues;
+    tone = 'warning';
+  }
+  return { text, tone };
+}
+
+/** 目前的模型加入 see-through 的深度 PSD／.psd.json（「加入深度 PSD」、拖放、選檔；規格 F103） */
+export async function addDepthFiles(
+  f: DepthFiles,
+  preparsed?: { json: unknown; name: string },
+): Promise<void> {
+  const m = model();
+  if (!m) {
+    setStatus(S.depth.needColor, 'warning');
+    return;
+  }
+  if (useSession.getState().depthBusy) return;
+  useSession.setState({ depthBusy: true });
+  setStatus(S.depth.reading);
+  try {
+    const read = await readDepthInputs(f, preparsed);
+    if (!read.input.depth && read.input.json == null) {
+      useSession.setState({
+        depthReport: { file: read.label, matched: 0, total: 0, issues: [], error: read.error },
+      });
+      setStatus(S.depth.notUsed(read.error ?? S.depth.noMatch), 'warning');
+      return;
+    }
+    const res = await measureDepthFiles(read.input);
+    if (model()?.id !== m.id) return;
+    const done = applyDepthResult(res, read.label, read.error, null);
+    setStatus(done.text, done.tone);
+  } catch (err) {
+    setStatus(S.depth.failed(err instanceof Error ? err.message : String(err)), 'danger');
+  } finally {
+    useSession.setState({ depthBusy: false });
+  }
+}
+
+/** 「加入深度 PSD」的選檔視窗（深度 PSD 與／或 .psd.json） */
+export async function pickDepthFiles(): Promise<void> {
+  const files = await pickFiles({ accept: '.psd,.json,application/json', multiple: true });
+  if (!files.length) return;
+  const psds = files.filter((x) => /\.psd$/i.test(x.name));
+  const depth = psds.find((x) => isDepthPsdName(x.name)) ?? psds[0] ?? null;
+  const json = files.find((x) => /\.json$/i.test(x.name)) ?? null;
+  if (!depth && !json) {
+    setStatus(S.depth.notUsed(S.depth.wrongFile), 'warning');
+    return;
+  }
+  await addDepthFiles({ depth, json });
 }
 
 /* ---------- 設定 ---------- */
@@ -227,6 +506,8 @@ export function settingsSnapshot(): SettingsFile {
     background: d.background,
     layers: d.layers.map((l) => ({ ...l })),
     anchors: structuredClone(d.anchors),
+    /* 沒有深度時不寫（與以前的設定 JSON 相同） */
+    ...(d.seeThrough ? { seeThrough: structuredClone(d.seeThrough) } : {}),
   };
 }
 
@@ -247,7 +528,8 @@ function applySettingsValue(value: unknown, options: { auto?: boolean } = {}): P
     defaultParams(),
     { anchorLimit: Math.max(m.width, m.height) },
   );
-  const defaults = defaultLayers();
+  const seeThrough = data.seeThrough ?? null;
+  const defaults = defaultLayers(seeThrough);
   const byId = new Map(defaults.map((l) => [l.id, l]));
   const records = new Map(data.layers.map((r) => [r.id, r]));
   const order = mergeLayerOrder(
@@ -263,6 +545,7 @@ function applySettingsValue(value: unknown, options: { auto?: boolean } = {}): P
     background: data.background,
     anchors: data.anchors,
     layers,
+    seeThrough,
   };
   useEdit.getState().replace(next);
   if (options.auto !== false) useAuto.setState({ ...data.auto });
@@ -324,8 +607,12 @@ export async function pickSettingsJson(): Promise<void> {
   if (file) await importSettingsFile(file);
 }
 
-/** 讀入設定 JSON（規格 F80） */
+/** 讀入設定 JSON（規格 F80）；see-through 的 `.psd.json` 當深度讀入（F103） */
 export async function importSettingsFile(file: File): Promise<void> {
+  if (isSeeThroughJsonName(file.name)) {
+    await addDepthFiles({ depth: null, json: file });
+    return;
+  }
   const id = model()?.id;
   try {
     if (!id) throw new Error(S.needModel);
@@ -338,6 +625,11 @@ export async function importSettingsFile(file: File): Promise<void> {
       throw new Error(S.jsonInvalid);
     }
     if (model()?.id !== id) throw new Error(S.modelChanged);
+    /* see-through 的 .psd.json（改過檔名的）：當深度讀入（F103） */
+    if (isSeeThroughJson(value)) {
+      await addDepthFiles({ depth: null, json: null }, { json: value, name: file.name });
+      return;
+    }
     const data = applySettingsValue(value);
     setStatus(S.imported(layerDiffNote(data)), 'success');
   } catch (err) {
@@ -871,6 +1163,7 @@ export function debugState() {
     params: { ...useEdit.getState().data.params },
     anchors: structuredClone(useEdit.getState().data.anchors),
     layers: useEdit.getState().data.layers.map((l) => ({ ...l })),
+    seeThrough: structuredClone(useEdit.getState().data.seeThrough),
     auto: { ...useAuto.getState() },
     unsaved: !!s.model && s.savedSnapshot !== comparableSettings(),
     cam: s.cam,

@@ -22,6 +22,7 @@ import { getTool, outputDir } from '../../src/registry';
 import { FACE_LANDMARKER_MODEL } from '../../src/tools/anime-rig/faceModel';
 import { fingerprint } from '../../src/tools/anime-rig/runtime';
 import { rigTestPsdBytes } from '../helpers/animeRig';
+import { writeGrayPsd } from '../helpers/animeRigSeeThrough';
 
 const URL = `/${outputDir(getTool('anime-rig') ?? { id: 'anime-rig', status: 'next' })}/`;
 
@@ -1051,6 +1052,276 @@ test('設定搜尋、全部收合／展開', async ({ page }) => {
     'aria-expanded',
     'false',
   );
+});
+
+/* ---------- see-through の輸出（規格 1.15） ---------- */
+
+const fixture = (name: string) =>
+  new Uint8Array(
+    readFileSync(new globalThis.URL(`../unit/fixtures/anime-rig/${name}`, import.meta.url)),
+  );
+const ST_COLOR = fixture('see-through.psd');
+const ST_DEPTH = fixture('see-through_depth.psd');
+const ST_JSON = fixture('see-through.psd.json');
+const ST_ID = fingerprint(ST_COLOR);
+const b64 = (b: Uint8Array) => Buffer.from(b).toString('base64');
+
+/** 用 DataTransfer 把檔案拖放到頁面（WindowDrop） */
+async function dropFiles(page: Page, files: { name: string; bytes: Uint8Array }[]) {
+  await page.evaluate(
+    (list) => {
+      const dt = new DataTransfer();
+      for (const f of list) {
+        const bin = atob(f.b64);
+        const bytes = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+        dt.items.add(new File([bytes], f.name, { type: 'application/octet-stream' }));
+      }
+      window.dispatchEvent(new DragEvent('dragenter', { dataTransfer: dt, bubbles: true }));
+      window.dispatchEvent(
+        new DragEvent('drop', { dataTransfer: dt, bubbles: true, cancelable: true }),
+      );
+    },
+    files.map((f) => ({ name: f.name, b64: b64(f.bytes) })),
+  );
+}
+
+type Centers = Record<string, [number, number]>;
+const centers = (page: Page) =>
+  page.evaluate(() =>
+    (
+      window as unknown as { __animeRig: { centers(): Record<string, [number, number]> } }
+    ).__animeRig.centers(),
+  ) as Promise<Centers>;
+
+async function setAngleX(page: Page, v: number) {
+  const input = settings(page).locator('[data-param="angleX"]').getByRole('spinbutton');
+  await input.fill(String(v));
+  await input.press('Enter');
+  await still(page);
+}
+
+const depthOf = (s: RigState & { seeThrough?: unknown }, id: string) =>
+  s.layers.find((l) => l.id === id)?.depth;
+
+/** PNG 裡某個範圍的瞳孔色（[40, 90, 200]）的像素數 */
+async function irisPixels(png: Uint8Array, x0: number, x1: number, y0: number, y1: number) {
+  const img = await decodePng(png);
+  let n = 0;
+  for (let y = y0; y < y1; y++)
+    for (let x = x0; x < x1; x++) {
+      const i = (y * img.width + x) * 4;
+      const [r, g, b, a] = img.rgba.slice(i, i + 4);
+      if (a > 200 && Math.abs(r - 40) < 25 && Math.abs(g - 90) < 25 && b > 170) n++;
+    }
+  return n;
+}
+
+test('see-through：彩色＋深度 PSD 一起拖進來 → 左右分好的部件、深度、轉頭的位移、眨眼', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  await dropFiles(page, [
+    { name: 'see-through.psd', bytes: ST_COLOR },
+    { name: 'see-through_depth.psd', bytes: ST_DEPTH },
+  ]);
+  await expect(status(page)).toHaveText(
+    '已讀入 see-through.psd。深度 PSD 對上 20／20 個圖層，按「儲存調整」就能記住深度。',
+    { timeout: 30_000 },
+  );
+  const s = (await state(page)) as RigState & {
+    seeThrough: { on: boolean; strength: number; file: string; values: Record<string, number> };
+  };
+  expect(s.model).toEqual({ id: ST_ID, name: 'see-through.psd', layers: 23 });
+  /* 左右：see-through 的 -r（畫面左邊）＝左 */
+  const layers = page.getByRole('list', { name: '圖層（上面在後、下面在前）' });
+  await expect(layers.locator('[data-layer="7:eyewhite_l"]')).toContainText('eyewhite-r');
+  await expect(layers.locator('[data-layer="7:eyewhite_l"]')).toContainText('眼白 · 左');
+  await expect(layers.locator('[data-layer="10:irides_r"]')).toContainText('irides-l');
+  await expect(layers.locator('[data-layer="1:handwear_l"]')).toContainText('手臂與手 · 左');
+  await expect(layers.locator('[data-layer="13:eye_close_l"]')).toContainText('自動產生');
+  const info = page.getByTestId('rig-info');
+  await expect(info).toContainText('名稱已分好左右的圖層：12 個（依名稱分左右，不再自動分）');
+  await expect(info).toContainText('深度（see-through）：20／20 個圖層，倍率 2.23');
+  await expect(page.getByTestId('depth-summary')).toContainText(
+    'see-through_depth.psd：20／20 個圖層有深度',
+  );
+  /* 深度：瀏海、後髮、頭飾、手、耳朵依深度 PSD；臉與眼睛維持部位表 */
+  expect(s.seeThrough).toMatchObject({ on: true, strength: 1, file: 'see-through_depth.psd' });
+  expect(Object.keys(s.seeThrough.values)).toHaveLength(20);
+  expect(s.seeThrough.values['22:front hair']).toBe(0.3294);
+  const want: Record<string, number> = {
+    '0:back hair': 0.511,
+    '1:handwear_l': 0.729,
+    '4:ears_l': 0.93,
+    '6:face': 1,
+    '7:eyewhite_l': 1.06,
+    '17:nose': 1.15,
+    '20:handwear_r': 1.087,
+    '21:headwear': 1.105,
+    '22:front hair': 1.157,
+  };
+  for (const [id, d] of Object.entries(want)) expect(depthOf(s, id), id).toBe(d);
+  /* 轉頭（角度 X＝1）：瀏海往同一邊移動得比臉多、後髮往反方向 */
+  await setAngleX(page, 0);
+  const c0 = await centers(page);
+  await setAngleX(page, 1);
+  const c1 = await centers(page);
+  const dx = (c: Centers, id: string) => c[id][0] - c0[id][0];
+  expect(dx(c1, '22:front hair')).toBeGreaterThan(dx(c1, '6:face'));
+  expect(dx(c1, '6:face')).toBeGreaterThan(0);
+  expect(dx(c1, '0:back hair')).toBeLessThan(0);
+  /* 關掉深度（部位表）：位移的差＝FS × 40 × 深度的差（臉、眼睛不變） */
+  await settings(page).getByRole('switch', { name: '用深度 PSD 決定轉頭的深度' }).click();
+  const off = (await state(page)) as RigState;
+  expect(depthOf(off, '22:front hair')).toBe(1.28);
+  expect(depthOf(off, '0:back hair')).toBe(0.55);
+  await still(page);
+  const c2 = await centers(page);
+  const delta = (id: string) => dx(c1, id) - dx(c2, id);
+  expect(Math.abs(delta('6:face'))).toBeLessThan(1e-4);
+  expect(Math.abs(delta('9:irides_l'))).toBeLessThan(1e-4);
+  const fs40 = delta('22:front hair') / (1.157 - 1.28);
+  expect(fs40).toBeGreaterThan(0);
+  expect(delta('0:back hair') / (0.511 - 0.55)).toBeCloseTo(fs40, 2);
+  expect(delta('21:headwear') / (1.105 - 1.2)).toBeCloseTo(fs40, 2);
+  await settings(page).getByRole('switch', { name: '用深度 PSD 決定轉頭的深度' }).click();
+  expect(depthOf((await state(page)) as RigState, '22:front hair')).toBe(1.157);
+  /* 眨眼：左眼眨眼 → 畫面左邊（see-through 的 irides-r）的瞳孔不見、右邊的還在 */
+  await setAngleX(page, 0);
+  await settings(page).locator('[data-preset="winkL"]').click();
+  expect((await state(page)).params).toMatchObject({ eyeOpenL: 0, eyeOpenR: 1 });
+  await still(page);
+  const dl = page.waitForEvent('download');
+  await page.getByRole('button', { name: '儲存 PNG' }).first().click();
+  const png = await readDownload(await dl);
+  expect(await irisPixels(png, 100, 122, 96, 114)).toBe(0);
+  expect(await irisPixels(png, 134, 156, 96, 114)).toBeGreaterThan(30);
+  expect(errors).toEqual([]);
+});
+
+test('see-through：之後再加入深度 PSD、對不上的提示、復原、強度、存起來下次只讀彩色 PSD', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  /* 沒有模型時只給深度 PSD */
+  await dropFiles(page, [{ name: 'see-through_depth.psd', bytes: ST_DEPTH }]);
+  await expect(status(page)).toHaveText(
+    '請先讀入彩色的 PSD，再加入深度 PSD（也可以兩個檔案一起拖進來）。',
+  );
+  await loadPsd(page, ST_COLOR, 'see-through.psd');
+  let s = (await state(page)) as RigState & { seeThrough: unknown };
+  expect(s.seeThrough).toBeNull();
+  expect(depthOf(s, '22:front hair')).toBe(1.28);
+  const panel = page.getByTestId('depth-panel');
+  await expect(panel).toContainText('沒有深度 PSD：轉頭的深度依部位表。');
+  /* 尺寸不同的深度 PSD：提示、模型與深度不變 */
+  let chooser = page.waitForEvent('filechooser');
+  await panel.getByRole('button', { name: '加入深度 PSD' }).click();
+  await (await chooser).setFiles({
+    name: 'small_depth.psd',
+    mimeType: 'application/octet-stream',
+    buffer: Buffer.from(writeGrayPsd(128, 128, [])),
+  });
+  await expect(status(page)).toHaveText(
+    '深度沒有使用：深度 PSD 的尺寸（128 × 128）和彩色 PSD（256 × 256）不同，沒有使用。',
+  );
+  await expect(panel.locator('[data-depth-issue="size"]')).toBeVisible();
+  expect(((await state(page)) as RigState & { seeThrough: unknown }).seeThrough).toBeNull();
+  /* 正確的深度 PSD（按鈕）：一步復原 */
+  chooser = page.waitForEvent('filechooser');
+  await panel.getByRole('button', { name: '加入深度 PSD' }).click();
+  await (await chooser).setFiles({
+    name: 'see-through_depth.psd',
+    mimeType: 'application/octet-stream',
+    buffer: Buffer.from(ST_DEPTH),
+  });
+  await expect(status(page)).toHaveText(
+    '已加入深度（see-through_depth.psd，20／20 個圖層）。按「儲存調整」就能記住。',
+  );
+  s = (await state(page)) as RigState & { seeThrough: unknown };
+  expect(depthOf(s, '22:front hair')).toBe(1.157);
+  expect(s.unsaved).toBe(true);
+  await page.keyboard.press('Control+z');
+  s = (await state(page)) as RigState & { seeThrough: unknown };
+  expect(s.seeThrough).toBeNull();
+  expect(depthOf(s, '22:front hair')).toBe(1.28);
+  await page.keyboard.press('Control+Shift+z');
+  expect(depthOf((await state(page)) as RigState, '22:front hair')).toBe(1.157);
+  /* 強度 0.5：部位表與換算值的中間；手動改過的圖層保留差距 */
+  const row = page.locator('[data-layer="0:back hair"]');
+  await row.getByRole('button', { name: 'back hair 的詳細設定' }).click();
+  await expect(row).toContainText('see-through 的深度 0.620（換算 0.511，部位表 0.55）');
+  const depthInput = row.getByRole('spinbutton', { name: 'back hair的深度' });
+  await depthInput.fill('0.61');
+  await depthInput.press('Enter');
+  const strength = panel.getByRole('spinbutton', { name: '深度的強度' });
+  await strength.fill('0.5');
+  await strength.press('Enter');
+  s = (await state(page)) as RigState & { seeThrough: unknown };
+  /* 瀏海：1.28 + 0.5 ×（1.157 − 1.28）；後髮：手動的 0.61 ＋（0.55 + 0.5 ×（0.511 − 0.55）− 0.511） */
+  const fh = depthOf(s, '22:front hair') as number;
+  const bh = depthOf(s, '0:back hair') as number;
+  expect(fh).toBeCloseTo(1.2185, 2);
+  expect(bh).toBeCloseTo(0.6295, 2);
+  /* 儲存 → 重新整理 → 只讀彩色 PSD：深度從儲存的調整還原 */
+  await page.keyboard.press('Control+s');
+  const saved = JSON.parse(
+    (await page.evaluate(
+      (id) => localStorage.getItem(`trpg-toolkit:anime-rig:model:${id}`),
+      ST_ID,
+    )) ?? '{}',
+  );
+  expect(saved.seeThrough).toMatchObject({
+    on: true,
+    strength: 0.5,
+    file: 'see-through_depth.psd',
+  });
+  expect(Object.keys(saved.seeThrough.values)).toHaveLength(20);
+  await page.reload();
+  await loadPsd(page, ST_COLOR, 'see-through.psd');
+  s = (await state(page)) as RigState & { seeThrough: unknown };
+  expect(s.seeThrough).toMatchObject({ strength: 0.5 });
+  expect(depthOf(s, '22:front hair')).toBe(fh);
+  expect(depthOf(s, '0:back hair')).toBe(bh);
+  expect(s.unsaved).toBe(false);
+  await expect(page.getByTestId('depth-summary')).toContainText(
+    '已從儲存的調整還原 20 個圖層的深度',
+  );
+  /* 移除深度：回到部位表（手動的差距保留） */
+  await page.getByTestId('depth-panel').getByRole('button', { name: '移除深度' }).click();
+  await expect(status(page)).toHaveText('已移除深度，轉頭的深度回到部位表。');
+  s = (await state(page)) as RigState & { seeThrough: unknown };
+  expect(s.seeThrough).toBeNull();
+  expect(depthOf(s, '22:front hair')).toBe(1.28);
+  expect(depthOf(s, '0:back hair')).toBe(0.649); /* 0.63 + 0.55 − 0.531 */
+  /* .psd.json 也可以（拖放）；設定 JSON 的匯出帶著 seeThrough */
+  await dropFiles(page, [{ name: 'see-through.psd.json', bytes: ST_JSON }]);
+  await expect(status(page)).toHaveText(
+    '已加入深度（see-through.psd.json，20／20 個圖層）。按「儲存調整」就能記住。',
+  );
+  const dl = page.waitForEvent('download');
+  await settings(page).getByRole('button', { name: '匯出設定 JSON' }).click();
+  const json = JSON.parse(new TextDecoder().decode(await readDownload(await dl)));
+  expect(json.seeThrough).toMatchObject({ on: true, strength: 1, file: 'see-through.psd.json' });
+  expect(errors).toEqual([]);
+});
+
+test('see-through：沒有深度時設定 JSON 沒有 seeThrough、拖放兩個 PSD 照舊只讀第一個', async ({
+  page,
+}) => {
+  await open(page);
+  await dropFiles(page, [
+    { name: 'test-avatar.psd', bytes: PSD },
+    { name: 'see-through.psd', bytes: ST_COLOR },
+  ]);
+  await expect(status(page)).toHaveText('已讀入 test-avatar.psd', { timeout: 30_000 });
+  expect((await state(page)).model?.name).toBe('test-avatar.psd');
+  const dl = page.waitForEvent('download');
+  await settings(page).getByRole('button', { name: '匯出設定 JSON' }).click();
+  const json = JSON.parse(new TextDecoder().decode(await readDownload(await dl)));
+  expect('seeThrough' in json).toBe(false);
+  await expect(page.getByTestId('rig-info')).not.toContainText('深度（see-through）');
 });
 
 async function noHorizontalScroll(page: Page) {

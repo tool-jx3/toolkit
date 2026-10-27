@@ -23,7 +23,8 @@ import {
 } from './params';
 import type { PartGroup, PartPhys, Side } from './rigger';
 import type { RigWarning } from './rigText';
-import type { LayerSetting } from './runtime';
+import type { LayerSetting, SeeThroughSetting } from './runtime';
+import type { DepthIssue } from './seeThrough';
 
 /* ---------- 模型的調整（復原／重做） ---------- */
 
@@ -34,6 +35,8 @@ export interface EditState {
   anchors: AnchorOffsets;
   /** 繪製順序（第一個在最後面） */
   layers: LayerSetting[];
+  /** see-through 的深度（深度 PSD／.psd.json 讀進來的值與開關、強度；規格 1.15）；沒有時 null */
+  seeThrough: SeeThroughSetting | null;
 }
 
 export const initialEdit = (): EditState => ({
@@ -42,6 +45,7 @@ export const initialEdit = (): EditState => ({
   background: 'checker',
   anchors: {},
   layers: [],
+  seeThrough: null,
 });
 
 export const useEdit = createToolStore<EditState>(TOOL_ID, initialEdit(), {
@@ -121,7 +125,10 @@ export interface LayerInfo {
   /** 縮圖（data URL，最長 64 px） */
   thumb: string;
   defaultOpacity: number;
+  /** 部位表的深度（綁定時的深度；see-through 的深度另外混合，規格 3.7） */
   defaultDepth: number;
+  /** 來自第幾個圖像圖層（深度 PSD 的對應；內建差分 -1） */
+  src: number;
 }
 
 export interface ModelInfo {
@@ -135,6 +142,18 @@ export interface ModelInfo {
   hasTopwear: boolean;
   /** 眼睛的錨點（錨點編輯的閉眼位置用） */
   eyes: { L: boolean; R: boolean };
+  /** 名稱已經分好左右的部件數（規格 F99） */
+  presplit: number;
+}
+
+/** 這次讀的深度檔和彩色 PSD 的對應結果（畫面顯示用，不存） */
+export interface DepthReport {
+  file: string;
+  matched: number;
+  total: number;
+  issues: DepthIssue[];
+  /** 深度 PSD 讀不了的原因 */
+  error: string | null;
 }
 
 export type StatusTone = 'info' | 'success' | 'warning' | 'danger';
@@ -165,6 +184,10 @@ export interface SessionState {
   search: string;
   /** 「要先下載臉部追蹤模型」 */
   needFaceModel: boolean;
+  /** 最近一次讀的深度檔（換模型時清掉） */
+  depthReport: DepthReport | null;
+  /** 正在讀深度檔 */
+  depthBusy: boolean;
 }
 
 export const useSession = create<SessionState>(() => ({
@@ -185,6 +208,8 @@ export const useSession = create<SessionState>(() => ({
   micRaw: 0,
   search: '',
   needFaceModel: false,
+  depthReport: null,
+  depthBusy: false,
 }));
 
 let statusId = 0;

@@ -35,7 +35,8 @@ export type RigWarningCode =
   | 'eyeAnchor'
   | 'noMouth'
   | 'synthEye'
-  | 'synthMouth';
+  | 'synthMouth'
+  | 'sideSwapped';
 
 /** 警告（args：圖層名稱，unknownLayer 的第二個是 'head'／'body'） */
 export interface RigWarning {
@@ -64,6 +65,8 @@ export function warningText(w: RigWarning): string {
       return '已自動放上缺少的閉眼（可以用「眼睛」的差分滑桿調整）。';
     case 'synthMouth':
       return '沒有 mouth_close，已自動放上通用的閉嘴（可以用「嘴巴」的滑桿調整）。';
+    case 'sideSwapped':
+      return `「${a}」的左右名稱和位置相反，已依實際位置判斷左右。`;
   }
 }
 
@@ -83,3 +86,13 @@ export const LOAD_STEPS = {
   denoising: '正在去除雜訊…',
   building: '正在產生部件與錨點…',
 } as const;
+
+/** 深度 PSD 的檔頭（seeThrough.validateDepthHeader） */
+export const DEPTH_ERRORS = {
+  short: '深度 PSD 的檔案太短。',
+  notPsd: '深度 PSD 不是支援的 PSD 檔案（不支援 PSB）。',
+  mode: '深度 PSD 要是灰階（或 RGB）、8 位元／色版。',
+} as const;
+
+/** 讀深度 PSD 的進度（Worker 送出） */
+export const DEPTH_STEP = '正在讀取深度 PSD…';

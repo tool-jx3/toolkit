@@ -1,9 +1,9 @@
 /**
  * 主執行緒這邊的 PSD Worker：每次讀入開一個新的 Worker（中止＝結束它）；讀入成功後留著目前模型的 Worker，
- * 「儲存輕量 PSD」時向它要清過的 PSD。讀入失敗或中止時目前的模型與它的 Worker 不受影響（規格 F06、F07）。
+ * 「儲存輕量 PSD」與「加入深度 PSD」時向它要清過的 PSD。讀入失敗或中止時目前的模型與它的 Worker 不受影響（規格 F06、F07）。
  */
 import { proxy, transfer, type WorkerHandle, wrapWorker } from '@/core/worker';
-import type { LoadResult, PsdWorkerApi } from './psd.worker';
+import type { DepthInput, DepthResult, LoadResult, PsdWorkerApi } from './psd.worker';
 import { S } from './strings';
 
 let current: WorkerHandle<PsdWorkerApi> | null = null;
@@ -15,10 +15,18 @@ function spawn(): WorkerHandle<PsdWorkerApi> {
   );
 }
 
-/** 讀入 PSD（buffer 轉移給 Worker，之後不能再用；進度訊息由 onProgress 收到）；中止時以 AbortError 拒絕 */
+/** 深度 PSD 的 buffer 轉移給 Worker */
+const depthArgs = (extra?: DepthInput): DepthInput | undefined =>
+  extra?.depth ? transfer(extra, [extra.depth]) : extra;
+
+/**
+ * 讀入 PSD（buffer 轉移給 Worker，之後不能再用；進度訊息由 onProgress 收到）；中止時以 AbortError 拒絕。
+ * extra：一起給的 see-through 深度 PSD／`.psd.json`（規格 F103）。
+ */
 export async function loadPsd(
   buffer: ArrayBuffer,
   onProgress: (message: string) => void,
+  extra?: DepthInput,
 ): Promise<LoadResult> {
   cancelPsd();
   let handle: WorkerHandle<PsdWorkerApi>;
@@ -33,7 +41,11 @@ export async function loadPsd(
   aborted.catch(() => {});
   try {
     const result = await Promise.race([
-      handle.api.load(transfer(buffer, [buffer]), proxy(onProgress)) as Promise<LoadResult>,
+      handle.api.load(
+        transfer(buffer, [buffer]),
+        proxy(onProgress),
+        depthArgs(extra),
+      ) as Promise<LoadResult>,
       aborted,
     ]);
     current?.terminate();
@@ -61,4 +73,10 @@ export function cancelPsd(): boolean {
 export async function cleanPsdBytes(): Promise<ArrayBuffer> {
   if (!current) throw new Error(S.needModel);
   return (await current.api.writeClean()) as ArrayBuffer;
+}
+
+/** 目前的模型加入深度 PSD／`.psd.json`（規格 F103） */
+export async function measureDepthFiles(input: DepthInput): Promise<DepthResult> {
+  if (!current) throw new Error(S.needModel);
+  return (await current.api.depth(depthArgs(input) as DepthInput)) as DepthResult;
 }

@@ -11,6 +11,8 @@ import type {
   PresetId,
 } from './params';
 import type { PartGroup } from './rigger';
+import { DEPTH_STEP } from './rigText';
+import type { DepthIssue, DepthMapReason } from './seeThrough';
 
 /** 臉部特徵點模型的大小（3,758,596 位元組）：下載卡的說明、按鈕、刪除確認與使用說明都用同一個寫法 */
 const MODEL_SIZE = '約 3.8 MB'; // 3,758,596 bytes；和其他工具一樣 1 MB＝10⁶ bytes
@@ -26,7 +28,7 @@ export const S = {
   dropTitle: '讓插畫動起來',
   dropLead: '拖進分好部件的 PSD，自動找出眼睛、嘴巴和頭髮，當場動起來。',
   dropHint:
-    'RGB／8 位元的 PSD，最大 128 MB。圖層名稱用 face、eyewhite、mouth_open，或「顔・白目・前髪」等日文名稱；資料夾裡的圖層也讀得到。',
+    'RGB／8 位元的 PSD，最大 128 MB。圖層名稱用 face、eyewhite、mouth_open，或「顔・白目・前髪」等日文名稱；資料夾裡的圖層也讀得到。see-through 的輸出可以和 _depth.psd 一起拖進來。',
   dropPick: '選擇 PSD 檔案',
   dropHelp: '使用說明',
   helpTitle: '2.5D 動態立繪：使用方式',
@@ -357,6 +359,66 @@ export const S = {
     ahoge: '呆毛',
   } as Record<string, string>,
 
+  /* see-through 的深度（規格 1.15） */
+  depth: {
+    title: '深度（see-through）',
+    hint: '拖進 see-through 的 _depth.psd（或 .psd.json），轉頭時頭髮、頭飾、手等部件的移動量就依照實際的前後。',
+    none: '沒有深度 PSD：轉頭的深度依部位表。',
+    add: '加入深度 PSD',
+    remove: '移除深度',
+    on: '用深度 PSD 決定轉頭的深度',
+    onHint: '關掉時依部位表（臉 1.0、瀏海 1.28、後髮 0.55）。',
+    strength: '深度的強度',
+    strengthHint: '0＝部位表、1＝依深度 PSD 換算的深度。',
+    summary: (file: string, n: number, total: number) =>
+      file ? `${file}：${n}／${total} 個圖層有深度` : `${n}／${total} 個圖層有深度`,
+    restored: (n: number) => `已從儲存的調整還原 ${n} 個圖層的深度（這次沒有讀深度 PSD）`,
+    scale: (k: number, face: number) =>
+      `倍率 ${k.toFixed(2)}（臉的深度 ${face.toFixed(3)}，深度差 0.1 ＝ 轉頭的深度差 ${(k * 0.1).toFixed(2)}）`,
+    layerValue: (v: number, mapped: number | undefined, table: number) =>
+      mapped === undefined
+        ? `see-through 的深度 ${v.toFixed(3)}（這個部位維持部位表 ${table}）`
+        : `see-through 的深度 ${v.toFixed(3)}（換算 ${mapped}，部位表 ${table}）`,
+    reading: DEPTH_STEP,
+    loaded: (n: number, total: number) =>
+      `深度 PSD 對上 ${n}／${total} 個圖層，按「儲存調整」就能記住深度。`,
+    added: (file: string, n: number, total: number) =>
+      `已加入深度（${file}，${n}／${total} 個圖層）。按「儲存調整」就能記住。`,
+    removed: '已移除深度，轉頭的深度回到部位表。',
+    someIssues: '（有些圖層對不上，詳見「圖層」）',
+    mapFailed: (why: string) => `${why}，轉頭的深度沿用部位表。`,
+    notUsed: (why: string) => `深度沒有使用：${why}`,
+    failed: (msg: string) => `無法讀入深度：${msg}`,
+    noMatch: '沒有一個圖層對得上（圖層名稱要和彩色 PSD 相同）。',
+    needColor: '請先讀入彩色的 PSD，再加入深度 PSD（也可以兩個檔案一起拖進來）。',
+    tooLarge: '深度 PSD 請控制在 128 MB 以下。',
+    notJson: '不是 see-through 的 .psd.json。',
+    wrongFile: '請選擇 see-through 的 _depth.psd 或 .psd.json。',
+    reasons: {
+      noFace: '找不到臉（face）的深度',
+      noHair: '找不到頭髮（front hair／back hair）的深度，無法決定倍率',
+      flat: '頭髮和臉的深度幾乎一樣，無法決定倍率',
+      reversed: '頭髮的前後和深度相反（瀏海比臉遠，或後髮比臉近）',
+    } satisfies Record<DepthMapReason, string>,
+    issue: (i: DepthIssue): string => {
+      const [a = '', b = ''] = i.args;
+      switch (i.code) {
+        case 'size':
+          return `深度 PSD 的尺寸（${a}）和彩色 PSD（${b}）不同，沒有使用。`;
+        case 'jsonSize':
+          return `.psd.json 的尺寸（${a}）和彩色 PSD（${b}）不同，沒有使用。`;
+        case 'notGray':
+          return '深度 PSD 不是灰階的深度圖（可能放錯了彩色的 PSD），沒有使用。';
+        case 'missing':
+          return `沒有深度的圖層 ${i.args.length} 個：${i.args.join('、')}（沿用部位表的深度）`;
+        case 'extra':
+          return `深度 PSD 多出 ${a} 個彩色 PSD 沒有的圖層（略過）`;
+        case 'offset':
+          return `位置或大小和彩色 PSD 不同的圖層：${i.args.join('、')}（照畫布上的位置取深度）`;
+      }
+    },
+  },
+
   /* 模型資訊與診斷 */
   infoNone: '未讀入模型',
   infoSummary: (parts: number, strands: number) =>
@@ -388,6 +450,12 @@ export const S = {
     hairNone: '找不到 front hair／back hair（瀏海、後髮）',
     unknown: (n: number) => `未分類的圖層 ${n} 個`,
     unknownNote: (names: string) => `${names}（依照命名規則改名就會動起來）`,
+    presplit: '名稱已分好左右的圖層',
+    presplitNote: (n: number) => `${n} 個（依名稱分左右，不再自動分）`,
+    depth: '深度（see-through）',
+    depthNote: (n: number, total: number, k: number) =>
+      `${n}／${total} 個圖層，倍率 ${k.toFixed(2)}`,
+    depthOff: '已關閉（依部位表）',
   },
   diagLevels: { ok: '有', warn: '注意', bad: '缺少', auto: '自動' },
 
@@ -432,8 +500,23 @@ export const SECTION_IDS = [
 ] as const;
 export type SectionId = (typeof SECTION_IDS)[number];
 
-/** 使用方式（依原作 Anime2.5DRig 的說明〔MIT〕改寫；規格 F91、D4） */
-export const USAGE = {
+/** 使用方式的一個段落（links：外部連結，例如 see-through 的程式與線上試用） */
+export interface UsageSection {
+  title: string;
+  items: string[];
+  links?: { label: string; href: string }[];
+}
+
+/** 使用方式（依原作 Anime2.5DRig 的說明〔MIT〕改寫；規格 F91、D4；see-through 的段落是本站寫的，規格 F106） */
+export const USAGE: {
+  intro: string;
+  steps: string[];
+  sections: UsageSection[];
+  namingTitle: string;
+  namingIntro: string;
+  namingHead: string[];
+  naming: [string, string, string][];
+} = {
   intro:
     '把分好部件的 PSD 拖進來，就會自動綁定並動起來（待機、眨眼、嘴型、頭髮物理）。調整表情與動作後，可以匯出透明背景的 PNG 或影片。PSD 與攝影機畫面都只在這個瀏覽器裡處理，不會上傳。',
   steps: [
@@ -490,9 +573,31 @@ export const USAGE = {
       ],
     },
     {
+      title: '用 see-through 拆好的 PSD',
+      items: [
+        'see-through 是把一張動漫插圖自動拆成最多 23 層（頭髮、臉、眼睛、衣服、配件…）、連被遮住的部分也補好的研究專案（SIGGRAPH 2026，Apache-2.0）。它要 Python、PyTorch 與 8～16 GB 顯示記憶體的 GPU，不能在這個網頁裡執行：用下面的線上試用或在自己的電腦上跑出 PSD，再拖進來。',
+        '線上試用（Hugging Face、ModelScope）每天能用的次數（GPU 時間）有限，通常要先登入帳號；排隊或額度用完時請隔天再試，或在自己的電腦上跑。',
+        '圖層名稱就是部位（front hair、back hair、face、irides、eyewhite、eyelash、eyebrow、mouth…），讀入後直接綁定；mouth 是張嘴，舊版的 hair 依繪製順序分成瀏海與後髮，hairf／hairb 也認得。',
+        '建議加上 --tblr_split：眼白、瞳孔、睫毛、眉毛、手、耳朵會分成左右兩層（名稱的 -r 是角色的右邊＝畫面的左邊、-l 是畫面的右邊）。這裡照名稱分左右、不再自動分，側臉或轉身時也不會分錯；名稱的左右和位置相反時以位置為準，並在「模型資訊與診斷」提示。',
+        'see-through 同時輸出 <名稱>_depth.psd（每個部件的深度，灰階）與 <名稱>.psd.json。把彩色的 PSD 和 _depth.psd（或 .psd.json）一起拖進來或一起選，或讀入後在「圖層」按「加入深度 PSD」：轉頭時頭髮、頭飾、耳朵、手、小物的移動量就依照實際的前後（臉、眼睛、嘴巴與身體維持原本的設定）。',
+        '「圖層」裡可以關掉深度或調整強度（0＝原本的部位表、1＝依深度 PSD），每個圖層的深度也可以再微調。按「儲存調整」後，下次只讀彩色的 PSD 也會還原深度；設定 JSON 也帶著深度。',
+      ],
+      links: [
+        { label: 'see-through（GitHub）', href: 'https://github.com/shitagaki-lab/see-through' },
+        {
+          label: '線上試用（Hugging Face）',
+          href: 'https://huggingface.co/spaces/24yearsold/see-through-demo',
+        },
+        {
+          label: '線上試用（ModelScope）',
+          href: 'https://modelscope.cn/studios/ljsabc/See-Through',
+        },
+      ],
+    },
+    {
       title: '自動處理的項目',
       items: [
-        '直接接受 see-through 輸出的 PSD（mouth 視為張嘴；hair 在臉的上層視為瀏海、下層視為後髮）。',
+        '直接接受 see-through 輸出的 PSD（見上一段；mouth 視為張嘴；hair 在臉的上層視為瀏海、下層視為後髮）。',
         '自動辨認英文與日文的圖層名稱（前髪、白目、瞳、まつ毛、閉じ目、bangs、iris…）；全形、大小寫、「のコピー」「copy」、底線與空白的差異都會忽略。中文名稱不辨認。',
         '沒有閉眼、閉嘴圖層時，自動放上通用的差分（依錨點縮放擺放，顏色配合睫毛、嘴巴；可以用差分滑桿微調）。',
         '去除低透明度的雜點；資料夾裡的圖層也讀（隱藏的不讀）；眼睛、眉毛、睫毛、閉眼自動分左右；偵測頭髮的髮束（每個圖層最多 6 束）；耳飾與尾巴像鐘擺一樣擺動。',
@@ -503,7 +608,7 @@ export const USAGE = {
     {
       title: '已知限制',
       items: [
-        '不會拆解單張插圖：請先用 see-through 等工具把插圖分成部件的 PSD。',
+        '不會拆解單張插圖：請先用 see-through 等工具把插圖分成部件的 PSD（見「用 see-through 拆好的 PSD」）。',
         '支援 RGB、8 位元／色版、128 MB 以下、2,400 萬像素以下、單邊 16,384 px 以下的 PSD；還受圖層總像素、記憶體與顯示卡上限的限制。',
         '只用圖層本身的像素：群組的不透明度、特殊混合模式、調整圖層、遮色片不會套用，需要的效果請先合併進部件。',
         '建議使用正方形畫布（768 × 768～2048 × 2048）。脖子與身體的交界容易破圖時，把脖子合併進上身圖層（不用 neck）比較好。',
@@ -533,11 +638,16 @@ export const USAGE = {
     ['headwear', '帽子、髪飾り、カチューシャ', '頭飾'],
     [
       'front hair／side hair／ahoge',
-      '前髪、bangs／横髪、もみあげ／アホ毛',
+      '前髪、bangs、hairf／横髪、もみあげ／アホ毛',
       '瀏海、側髮、呆毛（髮束物理）',
     ],
-    ['back hair', '後ろ髪、後髪', '後髮（髮束物理）'],
+    ['back hair', '後ろ髪、後髪、hairb', '後髮（髮束物理）'],
     ['hair', '髪', '頭髮（在臉的上層＝瀏海、下層＝後髮）'],
+    [
+      '<部位>-r／<部位>-l',
+      'irides-r、eyebrow_l、handwear-1-r',
+      '已分好左右（see-through：-r＝畫面左邊、-l＝畫面右邊）',
+    ],
     ['tail／wings', '尻尾／羽、翼', '尾巴（擺動）、翅膀'],
   ],
 };

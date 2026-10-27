@@ -20,6 +20,21 @@ export function Usage() {
               <li key={t}>{t}</li>
             ))}
           </ul>
+          {sec.links ? (
+            <p className="m-0 flex flex-wrap gap-x-3 gap-y-1">
+              {sec.links.map((l) => (
+                <a
+                  key={l.href}
+                  href={l.href}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  className="text-accent underline"
+                >
+                  {l.label}
+                </a>
+              ))}
+            </p>
+          ) : null}
         </div>
       ))}
       <p className="mt-3 font-semibold">{USAGE.namingTitle}</p>

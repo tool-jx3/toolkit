@@ -26,10 +26,10 @@ export interface TestPsd {
   children: TestLayer[];
 }
 
-type Rgba = [number, number, number, number];
+export type Rgba = [number, number, number, number];
 
 /** 整張畫布大小的圖層，用 paint(x, y) 決定每個像素（null＝透明），再裁到內容的範圍 */
-function layer(
+export function layer(
   name: string,
   W: number,
   H: number,
@@ -82,7 +82,13 @@ function layer(
 }
 
 /** 邊緣半透明的橢圓（看得出抗鋸齒） */
-function ellipse(cx: number, cy: number, rx: number, ry: number, c: [number, number, number]) {
+export function ellipse(
+  cx: number,
+  cy: number,
+  rx: number,
+  ry: number,
+  c: [number, number, number],
+) {
   return (x: number, y: number): Rgba | null => {
     const d = Math.sqrt(((x + 0.5 - cx) / rx) ** 2 + ((y + 0.5 - cy) / ry) ** 2);
     if (d > 1.04) return null;
@@ -91,12 +97,12 @@ function ellipse(cx: number, cy: number, rx: number, ry: number, c: [number, num
   };
 }
 
-const rect =
+export const rect =
   (x0: number, y0: number, x1: number, y1: number, c: [number, number, number]) =>
   (x: number, y: number): Rgba | null =>
     x >= x0 && x < x1 && y >= y0 && y < y1 ? [c[0], c[1], c[2], 255] : null;
 
-const union =
+export const union =
   (...fs: ((x: number, y: number) => Rgba | null)[]) =>
   (x: number, y: number): Rgba | null => {
     for (const f of fs) {

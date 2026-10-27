@@ -411,6 +411,25 @@ export class RigEngine {
     this.dirty = true;
   }
 
+  /** 測試入口：目前這一格每個部件的網格中心（頂點的平均，畫布座標） */
+  layerCenters(): Record<string, [number, number]> {
+    const out: Record<string, [number, number]> = {};
+    if (!this.lastFrame || !this.pose) return out;
+    const ctx = { ...this.pose, phys: useAuto.getState().phys, bounceDy: this.bounce.dy };
+    for (const L of this.layers) {
+      deform(L, this.lastFrame, ctx);
+      let sx = 0;
+      let sy = 0;
+      const n = L.cur.length / 2;
+      for (let k = 0; k < L.cur.length; k += 2) {
+        sx += L.cur[k];
+        sy += L.cur[k + 1];
+      }
+      out[L.id] = [sx / n, sy / n];
+    }
+    return out;
+  }
+
   /** 目前的參數（自動動作、追蹤之後）；測試、狀態檢查用 */
   currentFrame(): Readonly<Frame> | null {
     return this.lastFrame;
