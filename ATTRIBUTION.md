@@ -176,7 +176,7 @@
 
 `log-converter` 的 EPUB 匯出（2026-10）參考 sotsotssi/CcfoliaLogConverter 的功能（原作沒有授權條款：只照功能與做法，程式、介面文字與版面都由本站自做）；原作在控制字元、`<wbr>`、`<font>` 與新格式的日誌會產生不合規的電子書或遺失內容，本站的輸出都通過 epubcheck。
 
-`anime-rig` 參考 852wa/Anime2.5DRig（MIT，原作 commit `7ddbd99`，授權全文在通知檔）的程式改寫：自動綁定、物理與繪製的演算法和數值照原作，舊版與新版拿同一個 PSD 綁定的結果相同（單元測試並排比對過）。原作的範例 PSD（圖畫權利屬於各自的作者）不收，測試用的 PSD 由程式自己畫；原作需要本機 Python 中繼伺服器的 OBS 連動不移植，改成綠幕背景與透明影片的說明。臉部追蹤用 npm 的 @mediapipe/tasks-vision（Apache-2.0）；特徵點模型 `face_landmarker.task`（Apache-2.0，約 3.8 MB）**不在本 repo**：使用者第一次開攝影機追蹤時，瀏覽器從 Google 的 MediaPipe 官方模型網址下載，驗證 SHA-256 後存在瀏覽器裡。
+`anime-rig` 參考 852wa/Anime2.5DRig（MIT，原作 commit `7ddbd99`，授權全文在通知檔）的程式改寫：自動綁定、物理與繪製的演算法和數值照原作，舊版與新版拿同一個 PSD 綁定的結果相同（單元測試並排比對過）。原作的範例 PSD（圖畫權利屬於各自的作者）不收，測試用的 PSD 由程式自己畫；原作需要本機 Python 中繼伺服器的 OBS 連動不移植，改成綠幕背景與透明影片的說明。臉部追蹤用 npm 的 @mediapipe/tasks-vision（Apache-2.0）；特徵點模型 `face_landmarker.task`（Apache-2.0，約 3.8 MB）**不在本 repo**：使用者第一次開攝影機追蹤時，瀏覽器從 Google 的 MediaPipe 官方模型網址下載，驗證 SHA-256 後存在瀏覽器裡。2026-10 起相容 [shitagaki-lab/see-through](https://github.com/shitagaki-lab/see-through)（Apache-2.0）從單張插圖拆出來的 PSD：只照它的輸出格式（圖層名稱、左右分割、深度 PSD 與 `.psd.json`）對應，沒有使用它的程式或模型；測試用的 see-through 風格 PSD 由程式合成。
 
 `coc-dice`、`coc-npc`、`coc-sheet`、`map-editor`、`grid-maker`、`range-ruler` 由違法建築的 TRPG 實驗室拆開改寫，見下面「trpg-lab」一節。
 
