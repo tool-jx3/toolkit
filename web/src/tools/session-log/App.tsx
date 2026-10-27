@@ -14,6 +14,7 @@ import { ExportSection } from './ExportSection';
 import { ImportDialog } from './ImportDialog';
 import { ADD_BUTTON_ID, exportJsonWithNotice, LogPanel, SEARCH_INPUT_ID } from './LogPanel';
 import { NotifyBridge, notify } from './notify';
+import { CalendarPending } from './receive';
 import { SessionDialog } from './SessionDialog';
 import { Stats } from './Stats';
 import { REPORT_TOOL_HREF, SendBridge } from './send';
@@ -112,6 +113,7 @@ function Workspace() {
     <>
       <NotifyBridge />
       <SendBridge />
+      <CalendarPending />
       <FlashTimer />
       <SaveErrorWatcher />
       <Stats />
