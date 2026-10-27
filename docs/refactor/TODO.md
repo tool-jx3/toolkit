@@ -12,6 +12,9 @@
 - 團期行事曆（新工具，G6）：參考 KumachanSteps 的卓準備カレンダー（v0.13，[trpg-web-tools](https://github.com/KumachanSteps/trpg-web-tools) 的 `tools/session-check-calendar/`）
   與 [utiyoso/taku_calendar](https://github.com/utiyoso/taku_calendar)，皆未授權——場次＋準備事項、月曆與年曆、多日預定與配色、
   空檔日期清單、本月截圖、iCal／JSON 匯入匯出、台灣的國定假日、送到跑團紀錄簿。
+- UI 框素材產生器（新工具，G4）：參考 KIIN 的ノベワク STUDIO（https://novewaku-studio.pages.dev ，條款禁止再散布程式，視同未授權）——
+  選世界觀預設與主色，產生一整套透明 UI 框 PNG：TRPG・直播模式（角色框、狀態、骰子面板、留言板，給 CCFOLIA 畫面面板與 OBS）、
+  文字冒險模式（訊息框、名字框、四種狀態的按鈕、翻頁游標＋TyranoScript 配置碼），ZIP 匯出。之後可以把「直播版面產生器」候選併進來。
 - 線索道具產生器（新工具，G6）：參考 [KKumuu/trpgforkk](https://github.com/KKumuu/trpgforkk) 的 `D.html`（핸드아웃 편집기，未授權）——
   報紙、通緝令、便條、便利貼、拍立得、系統視窗、遊戲狀態視窗、終端機、簡訊、電子郵件等 handout，塗黑、印章、紙張質感，匯出 PNG。
 
@@ -101,3 +104,4 @@
 - 2026-10-27：開始團期行事曆與線索道具產生器。開始前檢查原作：trpgforkk 最後更新 2026-08-08、taku_calendar 2026-10-20，沒有新東西；
   卓準備カレンダー v0.11 → v0.13（10-24，紙本手帳風的新設計、精簡說明文字，功能沒變）。
 - 2026-10-27：使用者提供 img2threejs，評估後不收（見「不收的」）。
+- 2026-10-27：使用者提供 KIIN 的ノベワク STUDIO，做成新工具「UI 框素材產生器」（兩種模式都做）。
