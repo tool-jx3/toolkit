@@ -63,6 +63,14 @@ export function edit(recipe: (d: DocState) => void): void {
   });
 }
 
+/**
+ * 結束還開著的手勢（文字欄打到一半就切分頁、換用途時，欄位直接卸載、收不到離開事件）：
+ * 打的字先記成一步，之後的變更才不會被併進去。
+ */
+export function settleGesture(): void {
+  if (useDoc.inGesture()) useDoc.endGesture();
+}
+
 export function historyStep(kind: 'undo' | 'redo'): void {
   if (useDoc.inGesture()) return;
   const t = useDoc.temporal.getState();
@@ -163,6 +171,7 @@ export const bump = (): void => useSession.setState((s) => ({ tick: s.tick + 1 }
 
 export function setMode(mode: Mode): void {
   if (docNow().mode === mode) return;
+  settleGesture();
   useSession.setState({ hover: null, pressed: null });
   edit((d) => {
     d.mode = mode;
@@ -171,6 +180,7 @@ export function setMode(mode: Mode): void {
 
 export function setResolution(res: Resolution): void {
   if (docNow().resolution === res) return;
+  settleGesture();
   edit((d) => {
     d.resolution = res;
   });
@@ -180,6 +190,7 @@ export function setResolution(res: Resolution): void {
 export function applyPreset(id: string): void {
   const p = presetById(id);
   if (!p) return;
+  settleGesture();
   edit((d) => {
     d.design = cloneDesign(p.design);
     d.base = baseFromPreset(p, presetName(p.id));
@@ -191,6 +202,7 @@ export function applyPreset(id: string): void {
 export function applyMine(id: string): void {
   const m = mineOf(id);
   if (!m) return;
+  settleGesture();
   edit((d) => {
     d.design = cloneDesign(m.design);
     d.texts = { ...m.texts };
@@ -202,6 +214,7 @@ export function applyMine(id: string): void {
 export function resetField(key: keyof Design): void {
   const s = docNow();
   if (s.design[key] === s.base.design[key]) return;
+  settleGesture();
   edit((d) => {
     (d.design as unknown as Record<string, unknown>)[key] = s.base.design[key];
   });
@@ -209,6 +222,7 @@ export function resetField(key: keyof Design): void {
 
 /** 外觀全部回到原始值 */
 export function resetDesignToBase(): void {
+  settleGesture();
   edit((d) => {
     d.design = cloneDesign(d.base.design);
   });
@@ -265,6 +279,7 @@ export function importMine(parsed: readonly ParsedPreset[]): { added: number; dr
 
 /** 開啟專案檔、重設：換掉整份內容（可以復原） */
 export function replaceDoc(next: DocState): void {
+  settleGesture();
   useSession.setState({ hover: null, pressed: null });
   useDoc.getState().replace(next);
 }

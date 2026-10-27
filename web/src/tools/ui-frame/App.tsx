@@ -26,6 +26,7 @@ import {
   prefsNow,
   replaceDoc,
   setPrefs,
+  settleGesture,
   type TabId,
   useDoc,
   usePrefs,
@@ -76,7 +77,10 @@ function ProjectActions() {
           toast({ title: S.projectOpenFailed, description: n.message, tone: 'danger' });
         else toast({ title: S.projectReset });
       }}
-      onReset={() => replaceDoc(initialState())}
+      onReset={() =>
+        /* 重設外觀與文字；畫面大小保留（規格 F46） */
+        replaceDoc({ ...initialState(), resolution: docNow().resolution })
+      }
       resetText={{ title: S.resetTitle, description: S.resetDesc }}
       savedAt={savedAt}
       statusText={saveError ? S.saveFailed : undefined}
@@ -117,7 +121,11 @@ function Settings() {
       <Tabs<TabId>
         aria-label={S.tabsAria}
         value={tab}
-        onValueChange={(v) => setPrefs({ tab: v })}
+        onValueChange={(v) => {
+          /* 打字中直接換分頁：先把這一筆編輯收尾（不然之後的復原會卡住） */
+          settleGesture();
+          setPrefs({ tab: v });
+        }}
         items={[
           { value: 'style', label: S.tabs.style, icon: <Palette />, content: <StylePanel /> },
           {

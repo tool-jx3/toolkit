@@ -22,8 +22,8 @@ export const S = {
   modes: { novel: '文字冒險', trpg: 'TRPG・直播' } as Record<Mode, string>,
   modeHints: {
     novel:
-      '做 TyranoScript 等文字冒險遊戲的訊息框、名字框、選項與系統按鈕（各 4 種狀態），附配置程式碼。',
-    trpg: '做 CCFOLIA 的螢幕面板、OBS 的影像來源用的透明框：畫面外框、角色框、狀態、骰子面板、留言板。',
+      '遊戲用：訊息框、名字框、翻頁游標、選項與 8 個系統按鈕，按鈕都有 4 種狀態；另附 TyranoScript 的設定。',
+    trpg: '跑團與直播畫面用：畫面外框、角色框、狀態徽章、骰子面板、留言板，文字可以一起畫進去。',
   } as Record<Mode, string>,
 
   /* ---------- 分頁 ---------- */
@@ -32,14 +32,14 @@ export const S = {
 
   /* ---------- 世界觀預設 ---------- */
   presetSection: '世界觀預設',
-  presetNote: '先挑一個接近作品氣氛的預設，再到「外觀」分頁調整。套用時用途與測試文字不變。',
+  presetNote: '每一組都是一套完整的外觀；套用之後再到「外觀」細調。用途與測試文字會保留。',
   presets: {
-    manor: { name: '舊宅調查', desc: 'CoC 古典・洋館・懸疑' },
-    afterschool: { name: '放學後', desc: '學園・日常・雜談直播' },
-    terminal: { name: '霓虹終端', desc: '近未來 SF・賽博龐克' },
-    kaidan: { name: '和風怪談', desc: '和風・大正浪漫・Emoklore' },
-    nocturne: { name: '深夜哥德', desc: '哥德恐怖・吸血鬼・謀殺之謎' },
-    pixel: { name: '像素冒險', desc: '復古 RPG・點陣風' },
+    casefile: { name: '案件卷宗', desc: '泛黃的調查報告，適合 CoC 這類追查線索的劇本' },
+    orbital: { name: '軌道站', desc: '白色艙壁配藍色指示燈的太空站' },
+    indigo: { name: '藍染夜話', desc: '藍染布與紙燈籠，夜裡說的和風怪談' },
+    clubroom: { name: '社辦筆記', desc: '筆記本與螢光筆的校園日常' },
+    archive: { name: '禁書庫', desc: '燭光下被封起來的書庫，恐怖劇本' },
+    retro: { name: '點陣冒險', desc: '老遊戲機的點陣字視窗' },
   } as Record<string, { name: string; desc: string }>,
   presetAria: '世界觀預設',
   baseStatus: (name: string, changed: boolean) =>
@@ -49,12 +49,12 @@ export const S = {
   backToBase: '全部回到原始值',
   backToBaseDone: (name: string) => `已回到「${name}」的設定`,
   resetValue: (label: string) => `${label}：回到原始值`,
-  resetValueHint: '按兩下滑桿也會回到原始值（套用的預設或我的預設的值）。',
+  resetValueHint: '在滑桿上連按兩下，也會回到套用時的數值。',
 
   /* ---------- 我的預設 ---------- */
   mine: {
     title: '我的預設',
-    note: '把目前的外觀與測試文字存在這個瀏覽器（最多 30 組），也可以匯出成 JSON 帶到別台電腦。試看的背景與立繪不會存進去。',
+    note: '幫調好的外觀（連同測試文字）取個名字，留在這個瀏覽器裡，最多 30 組；換電腦時先匯出 JSON。試看的背景與人物圖不包含在內。',
     listLabel: '我的預設',
     add: '存成我的預設',
     unnamed: '未命名',
@@ -69,8 +69,8 @@ export const S = {
     empty: '還沒有我的預設。調整好外觀後按「存成我的預設」。',
     full: (max: number) => `我的預設已經有 ${max} 組，請先刪掉不用的。`,
     saved: (name: string) => `已存成我的預設「${name}」`,
-    dropLabel: '把我的預設的 JSON 檔拖到這裡',
-    dropButton: '讀入 JSON',
+    dropLabel: '也可以把 JSON 檔拖到這一區',
+    dropButton: '讀入 JSON…',
     imported: (n: number) => `已讀入 ${n} 組我的預設`,
     importedPart: (ok: number, bad: number) => `已讀入 ${ok} 組，${bad} 個檔案讀不進來`,
     importFailed: (n: number) => (n > 1 ? `${n} 個檔案都讀不進來` : '讀不進來'),
@@ -87,8 +87,9 @@ export const S = {
   /* ---------- 外觀 ---------- */
   colorSection: '配色',
   keyColor: '主色',
-  keyColorHint: '只要選一個顏色，框底、框線、裝飾、文字與按鈕的光暈會自動配好。',
+  keyColorHint: '框底、框線、裝飾、文字與光暈的顏色都從這個顏色推算出來。',
   quickColors: '推薦的主色',
+  hexInvalid: (v: string) => `看不懂「${v}」，已改回原本的顏色（色碼的例子：#9a6b3f、#abc）`,
   quickColor: (c: string) => `主色改成 ${c}`,
   polarity: '框底',
   polarities: { dark: '深色', light: '淺色' } as Record<Polarity, string>,
@@ -151,7 +152,7 @@ export const S = {
 
   novelSection: '翻頁游標與系統按鈕',
   cursor: '翻頁游標',
-  cursorHint: '顯示在訊息框右下，等玩家點下一句（cursor_next.png）。',
+  cursorHint: '等玩家按下一句時，訊息框右下角出現的記號；檔名是 cursor_next.png。',
   cursors: {
     diamond: '菱形',
     quill: '羽毛筆',
@@ -163,9 +164,9 @@ export const S = {
   buttonLangs: { en: '英文（SAVE…）', zh: '中文（存檔…）' } as Record<ButtonLang, string>,
 
   /* ---------- 測試文字 ---------- */
-  textNote: '在預覽上試試名字、台詞的長度。背景、立繪與測試文字只用來預覽，匯出的是框本身。',
+  textNote: '填入實際會用到的名字與台詞，看看框的大小夠不夠。',
   novelTextSection: '文字冒險的測試文字',
-  novelTextHint: '名字框與選項的 PNG 不含文字，遊戲裡會顯示文字。',
+  novelTextHint: '名字框與選項按鈕的圖裡沒有字，遊戲執行時才把字疊上去；這裡的字只用來看長度。',
   trpgTextSection: 'TRPG・直播的文字',
   textLabels: {
     charName: '角色名',
@@ -183,21 +184,21 @@ export const S = {
   count: (n: number, max: number) => `${n}／${max}`,
   bake: '文字畫進 PNG',
   bakeHint:
-    '關：匯出空白的框（5 張）。開：名字、狀態、骰子面板、留言板的文字畫進 PNG，三個狀態各一張（7 張）。',
+    '關閉時下載沒有字的框（5 張）；打開後，名字、狀態、骰子面板與留言板的字會畫進圖裡，三個狀態各自一張（共 7 張）。',
 
   /* ---------- 預覽 ---------- */
   stageAria: '預覽：整個遊戲畫面',
-  stageHint: '滑過、按住選項與系統按鈕可以看滑過與按下的樣子。',
-  stageHintTouch: '點一下選項或系統按鈕，下方會切到它的四種狀態。',
-  hovering: '滑過中：放開滑鼠前按住看按下的樣子',
-  pressing: '按下中：按鈕往下沉',
+  stageHint: '把滑鼠移到選項或系統按鈕上，可以看滑過與按下的樣子。',
+  stageHintTouch: '點選項或系統按鈕，下方的「四種狀態」會換成那一顆。',
+  hovering: '滑過中：按住滑鼠可以看按下的樣子',
+  pressing: '按下中：放開滑鼠就回到滑過的樣子',
   magnifier: '放大鏡',
   magnifierZoom: '放大鏡的倍率',
   lensZooms: { 1: '100%', 2: '200%' } as Record<1 | 2, string>,
-  lensLabel: (z: number) => (z === 1 ? '原寸 100%' : '細節 200%'),
+  lensLabel: (z: number) => (z === 1 ? '實際大小 100%' : '放大 200%'),
   snapshot: '存成截圖',
   snapshotDone: (name: string) => `已存成截圖：${name}`,
-  previewNote: '背景、立繪與測試文字只用來預覽；匯出的 PNG 只有框（透明背景）。',
+  previewNote: '這裡的背景、人物與文字是為了看效果；下載的 PNG 只包含框，其餘都是透明的。',
   scene: '預覽背景',
   scenes: {
     study: '夜之書房',
@@ -215,6 +216,8 @@ export const S = {
   imageFailed: (name: string) => `「${name}」讀不出來，請用 PNG、JPEG 或 WebP。`,
   imageTooLarge: '圖片太大了（上限 30 MB、5,000 萬像素）。',
   imagesRemoved: '已拿掉試看的背景圖與立繪',
+  bgReplaced: (scene: string) => `已拿掉試看背景圖，預覽改用「${scene}」`,
+  presetKeepsBg: (scene: string) => `預覽仍顯示試看背景圖；拿掉之後會是「${scene}」`,
   bgWhat: '背景圖',
   charWhat: '立繪',
   currentBg: (name: string) => `背景圖：${name}`,
@@ -222,7 +225,7 @@ export const S = {
 
   /* ---------- 四種狀態 ---------- */
   stateSection: '按鈕的四種狀態',
-  stateNote: '四張大小相同。點一張存成 PNG。',
+  stateNote: '同一顆按鈕的四種樣子尺寸一致，在遊戲裡可以直接換圖；想下載哪一張就點哪一張。',
   stateTarget: '要看的按鈕',
   choiceButton: '選項按鈕',
   states: { normal: '一般', hover: '滑過', active: '按下', disabled: '停用' } as Record<
@@ -233,9 +236,8 @@ export const S = {
   stateDownload: (name: string) => `存成 PNG：${name}`,
 
   /* ---------- 匯出 ---------- */
-  exportSection: '匯出',
+  exportBar: '匯出：畫面大小與下載',
   resolution: '畫面大小',
-  resolutionHint: '和遊戲或直播畫面的解析度相同。PNG 的大小是部件本身（四周留透明邊）。',
   resolutions: { 1920: '1920 × 1080', 1280: '1280 × 720' } as Record<1920 | 1280, string>,
   zip: (n: number, novel: boolean) =>
     novel ? `下載 ZIP（${n} 張＋程式碼）` : `下載 ZIP（${n} 張）`,
@@ -244,7 +246,7 @@ export const S = {
   zipFailed: '匯出失敗',
   codeButton: '配置程式碼',
   assetList: '素材清單',
-  assetNote: '點一列存成那一張 PNG。',
+  assetNote: '只要其中一張時，點那一列。',
   assetCount: (n: number) => `${n} 張 PNG`,
   assetGroups: {
     frames: '框',
@@ -273,7 +275,7 @@ export const S = {
   /* ---------- TyranoScript 程式碼 ---------- */
   codeDialog: 'TyranoScript 配置程式碼',
   codeLead:
-    '把 ZIP 裡的 data 資料夾複製到遊戲專案之後再貼上。座標、大小都依照目前的設定與畫面大小算好。',
+    '三個檔案的內容跟著目前的外觀與畫面大小即時更新。用之前，先把 ZIP 的 data 資料夾放進專案。',
   codeFiles: {
     quick: 'Tyrano_QuickPaste.ks',
     choice: 'Choice_Example.ks',
@@ -282,25 +284,24 @@ export const S = {
   codeDownload: '下載這個檔案',
   codeCopied: '已複製程式碼',
   code: {
-    title: 'UI 框素材產生器（TRPG Toolkit）── TyranoScript 配置程式碼',
-    choiceTitle: 'UI 框素材產生器（TRPG Toolkit）── 選項按鈕的範例',
+    title: 'TRPG Toolkit「UI 框素材產生器」產生的 TyranoScript 設定',
+    choiceTitle: 'TRPG Toolkit「UI 框素材產生器」：三個選項的寫法',
     meta: (preset: string, w: number, h: number) =>
-      `預設：${preset}　畫面：${w} × ${h}（請和遊戲的解析度相同）`,
+      `外觀：${preset}／座標是為 ${w} × ${h} 的專案計算的`,
     steps: [
-      '1. 把 ZIP 裡的 data 資料夾整個複製到遊戲專案（和原本的 data 合併）。',
-      '2. 把這段貼在第一個場景、顯示第一句台詞之前。',
-      '台詞、角色名、選項的文字都由遊戲顯示；字型請在遊戲那邊另外設定。',
+      '圖片要先就位：ZIP 的 data 資料夾和專案的 data 合在一起，下面的路徑才找得到。',
+      '整段在角色開口之前執行一次就好，例如放在第一個場景的最上面。',
+      '人名、台詞、選項的字由遊戲畫上去；想換字型，請在專案裡設定。',
     ],
-    cssNote: '補充樣式：選項按鈕的文字置中、系統按鈕的點擊範圍',
-    message: '訊息框',
-    name: '名字框與角色名',
-    nameNote: '台詞前一行寫「#角色名」，名字就會顯示在名字框上。',
-    cursor: '翻頁游標',
-    system: '系統按鈕（一般／滑過／按下）',
+    cssNote: '讀入補充樣式（決定選項文字的位置）',
+    message: '訊息框（左、上的邊距已扣掉 TyranoScript 內建的 10 px）',
+    name: '名字框：圖片放在 message0 層，人名寫在 chara_name_area（台詞前一行寫 #名字）',
+    cursor: '翻頁游標：固定在訊息框的右下角',
+    system: '系統按鈕：graphic 平常、enterimg 滑鼠在上面、activeimg 按住',
     systemNotes: [
-      '自動、快進進行中時換成按下的樣子。「設定」打開 TyranoScript 的標準選單；',
-      '專案裡有自己的設定畫面時，可以改成 role="sleepgame" storage="config.ks"。',
-      '停用的樣子（*_disabled.png）也在資料夾裡，什麼時候停用由遊戲自己決定。',
+      'AUTO 與 SKIP 執行中改顯示按住的圖（autoimg、skipimg）。',
+      'CONFIG 用 role="menu"，會開 TyranoScript 的標準選單；換成自製的設定畫面時可以改用 sleepgame。',
+      '*_disabled.png 沒有用在這段裡，需要「不能按」的樣子時自己換 graphic。',
     ],
     hints: {
       save: '存檔',
@@ -313,39 +314,39 @@ export const S = {
       close: '隱藏訊息框',
     } as Record<SystemButton, string>,
     choiceNotes: [
-      '先在第一個場景貼上 Tyrano_QuickPaste.ks 的內容（裡面的 [loadcss] 讓按鈕的大小等於 PNG、文字置中）。',
-      '一般與滑過的樣子用 graphic／enterimg 指定；按下與停用的 PNG 也在資料夾裡，要用的話由遊戲自己切換。',
-      '跳到哪裡（target）請換成作品裡的標籤。',
+      'graphic 是平常的樣子、enterimg 是滑鼠移上去的樣子。',
+      '文字擺在哪裡由 Tyrano_QuickPaste.ks 讀入的 uiframe.css 決定，所以那一段要先執行。',
+      '每個 target 都換成作品裡真正要跳去的標籤。',
     ],
     choiceFallback: (i: number) => `選項 ${i}`,
-    afterChoice: (i: number) => `（選了第 ${i} 個選項之後的劇情）`,
-    cssTitle: 'UI 框素材產生器（TRPG Toolkit）：TyranoScript 用的補充樣式',
-    cssChoice: '選項按鈕：按鈕的大小＝PNG 的大小，文字置中',
-    cssSystem: '系統按鈕：PNG 左右的透明邊不接受點擊，相鄰的按鈕不會互相擋住',
+    afterChoice: (i: number) => `（第 ${i} 個選項後面的劇情）`,
+    cssTitle: 'TRPG Toolkit「UI 框素材產生器」：給 TyranoScript 的補充樣式',
+    cssChoice: '選項：按鈕和 PNG 一樣大，文字只排在左右裝飾之間，一行放不下時以「…」結尾',
   },
 
   /* ---------- 說明檔（ZIP 裡的 說明.txt） ---------- */
   readMe: {
-    title: 'UI 框素材產生器（TRPG Toolkit）',
+    title: 'TRPG Toolkit「UI 框素材產生器」',
     meta: (preset: string, w: number, h: number, n: number) =>
-      `預設：${preset}／畫面：${w} × ${h}／PNG ${n} 張（都是透明背景）`,
+      `外觀：${preset}／畫面 ${w} × ${h}／共 ${n} 張背景透明的 PNG`,
     novel: [
-      '【TyranoScript】',
-      '1. 把 data 資料夾複製到遊戲專案，和原本的 data 合併：圖片在 data/image/uiframe/，補充樣式在 data/others/uiframe/。',
-      '2. 打開 Tyrano_QuickPaste.ks，把內容貼在第一個場景、顯示第一句台詞之前。',
-      '3. 選項按鈕的寫法見 Choice_Example.ks。',
-      '4. 按鈕的停用樣子（*_disabled.png）也附上了，什麼時候停用由遊戲決定。',
-      '5. 遊戲原本就有訊息框或固定按鈕時，請先拿掉，免得疊在一起。',
+      '這個 ZIP 裡有什麼',
+      '・data/image/uiframe/：訊息框、名字框、翻頁游標、選項與系統按鈕的圖（按鈕各 4 種狀態）',
+      '・data/others/uiframe/uiframe.css：選項文字的位置',
+      '・Tyrano_QuickPaste.ks：把上面的圖裝進遊戲的設定',
+      '・Choice_Example.ks：三個選項的寫法',
+      '',
+      '怎麼用',
+      '・data 資料夾與專案的 data 合併。',
+      '・Tyrano_QuickPaste.ks 的內容在角色開口前執行一次；選項照 Choice_Example.ks 寫。',
+      '・專案的解析度要和上面的畫面大小相同。',
     ],
     trpg: [
-      '【CCFOLIA】',
-      '1. 把 PNG 拖進房間的圖片清單。',
-      '2. 新增螢幕面板，選這張圖，照圖片的比例設定寬高，放到想要的位置。',
-      '3. 01_screen_frame.png 中間是透明的，拉成和整個畫面一樣大。',
+      '這個 ZIP 裡有什麼',
+      '・01 畫面外框（中間透明）、02 留言板、03 角色框（放頭像的地方透明）、04 狀態徽章、05 骰子／資訊面板',
       '',
-      '【OBS】',
-      '1. 來源按「＋」→「影像」，選這張 PNG。',
-      '2. 放在遊戲畫面、攝影機的上面（來源清單裡越上面越前面）。',
+      'CCFOLIA：每張圖都可以當成一個螢幕面板的圖片，面板的寬高照圖片的比例換算成格數（1 格＝24 px，1920 × 1080 的畫面外框是 80 × 45 格）。',
+      'OBS：用「影像」來源讀這些 PNG，在來源清單裡排在要被框住的畫面之上。',
     ],
   },
 
@@ -358,35 +359,35 @@ export const S = {
   projectOpenFailed: '無法開啟專案檔',
   projectReset: '已重設',
   resetTitle: '全部重設？',
-  resetDesc: '用途、外觀與測試文字回到第一次開啟的樣子（我的預設與試看的圖不受影響）。可以復原。',
+  resetDesc:
+    '用途、外觀與測試文字回到第一次開啟的樣子；畫面大小、我的預設與試看的圖不變。可以復原。',
   saveFailed: '自動儲存失敗：這個瀏覽器不能存資料，關掉分頁後設定會不見。',
   usage: {
     title: '使用方式',
     steps: [
-      '選「用途」：文字冒險（TyranoScript 等）或 TRPG・直播（CCFOLIA、OBS）。',
-      '在「世界觀」挑一個預設，再到「外觀」換主色、外框形狀、四角裝飾、質感與字型。只換主色，其他顏色也會跟著配好。',
-      '預覽是整個遊戲畫面；可以換背景、放自己的背景圖與立繪試看，用放大鏡看細節。文字冒險可以把滑鼠移到選項、系統按鈕上看滑過與按下的樣子。',
-      '在下方「匯出」選畫面大小，按「下載 ZIP」一次拿到全部 PNG；也可以在素材清單點一列只存那一張。',
-      '調好的外觀可以「存成我的預設」，匯出成 JSON 帶到別台電腦。',
+      '「用途」決定做哪一套：遊戲用（TyranoScript 等），或跑團與直播畫面用（CCFOLIA、OBS）。',
+      '「世界觀」的預設是起點；在「外觀」改過的地方，狀態會標成「已調整」，可以整套或一項一項回到原始值。',
+      '主色是所有顏色的來源，框底、框線、裝飾、文字與光暈都由它推算。',
+      '預覽是一整個畫面，可以換背景、放自己的圖；滑鼠移到按鈕上會出現狀態的變化。下載的只有框本身。',
+      '預覽上方那一列選畫面大小、下載整套 ZIP；只要某一張時，到下方的素材清單點那一列。',
     ],
-    tyranoTitle: '放進 TyranoScript',
+    tyranoTitle: 'TyranoScript 專案',
     tyrano: [
-      '用途選「文字冒險」，畫面大小選和遊戲相同的解析度，下載 ZIP。',
-      '把 ZIP 裡的 data 資料夾複製到遊戲專案（和原本的 data 合併）。',
-      'Tyrano_QuickPaste.ks 的內容貼在第一個場景、第一句台詞之前（TyranoBuilder 就放一個「TyranoScript」元件貼上）。',
-      '選項按鈕照 Choice_Example.ks 的寫法；角色名在台詞前一行寫「#角色名」。',
-      '遊戲原本就有訊息框或固定按鈕時先拿掉，免得疊在一起；字型要在遊戲那邊設定。',
+      'ZIP 的 data 資料夾和專案的 data 合在一起：圖片在 image/uiframe，補充樣式在 others/uiframe。',
+      'Tyrano_QuickPaste.ks 是一段設定用的標籤（訊息框、名字、翻頁游標、系統按鈕），在角色開口前執行一次就好，例如放在第一個場景的最上面。',
+      'Choice_Example.ks 示範三個選項的寫法，需要選項時照著寫，換掉 text 與 target。',
+      '專案的解析度（Config.tjs 的 scWidth、scHeight）要和這裡選的畫面大小一樣，位置才會對；人名在台詞的前一行寫「#名字」。',
     ],
-    ccfoliaTitle: '放進 CCFOLIA',
+    ccfoliaTitle: 'CCFOLIA',
     ccfolia: [
-      '用途選「TRPG・直播」，畫面大小選 1920 × 1080，下載 ZIP 後解開。',
-      '把 PNG 拖進房間的圖片清單；新增螢幕面板、選這張圖，照圖片的比例設定寬高，放到想要的位置。',
-      '畫面外框中間是透明的，拉成和整個畫面一樣大；角色框、狀態徽章可以各放一個面板。',
+      '畫面大小選 1920 × 1080；每張 PNG 都能當一個螢幕面板的圖片。',
+      '面板的寬高照圖片的比例換算成格數（1 格＝24 px），例如畫面外框是 80 × 45 格。',
+      '角色框、狀態徽章、骰子面板各是獨立的一張，可以分開擺。',
     ],
-    obsTitle: '放進 OBS',
+    obsTitle: 'OBS',
     obs: [
-      '來源按「＋」→「影像」，選 PNG，放在遊戲畫面、攝影機的上面。',
-      '透明 PNG 不必另外去背；畫面外框和畫面一樣是 16:9。',
+      '加一個「影像」來源讀 PNG；畫面外框和輸出畫面一樣大，直接蓋滿。',
+      '在來源清單裡，它要排在被框住的畫面之上。',
     ],
     privacy: '圖片都在這台電腦裡處理，不會上傳。',
     unofficial: '本工具與 TyranoScript、TyranoBuilder、CCFOLIA、OBS 都沒有關係，是非官方的工具。',

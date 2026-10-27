@@ -16,6 +16,7 @@ import {
   uniqueName,
 } from '../../src/tools/ui-frame/mine';
 import { DEFAULT_TEXTS, PRESETS } from '../../src/tools/ui-frame/model';
+import { S } from '../../src/tools/ui-frame/strings';
 
 const texts = { ...DEFAULT_TEXTS, charName: '綾', line: '第一行\n第二行', bake: true };
 
@@ -44,6 +45,8 @@ describe('我的預設', () => {
     const a = makeMine([], '霓虹', PRESETS[2].design, texts);
     expect(presetsFileBase([a])).toBe('UI框預設_霓虹');
     expect(presetsFileBase([a, a, a])).toBe('UI框我的預設_3組');
+    /* 名稱是空白時用「未命名」 */
+    expect(presetsFileBase([{ ...a, name: '   ' }])).toBe(`UI框預設_${S.mine.unnamed}`);
   });
 
   it('讀檔：單一組（沒有 format）、壞值整理、BOM；不完整的略過', () => {

@@ -7,7 +7,7 @@
  * - TRPG・直播：畫面外框、留言板、角色框、狀態徽章、骰子面板＝5 張；「文字畫進 PNG」時狀態徽章三個各一張＝7 張。
  */
 import {
-  BUTTON_PAD,
+  CHOICE_PAD,
   CURSOR_SIZE,
   FRAME_PAD,
   MSG_TEXT,
@@ -15,6 +15,8 @@ import {
   novelLayout,
   px,
   type Rect,
+  SCREEN_FRAME,
+  SYS_PAD,
   trpgLayout,
 } from './layout';
 import {
@@ -97,7 +99,20 @@ function framePart(
     width: px(baseW, res),
     height: px(baseH, res),
     draw: (ctx, env) => {
-      drawFrame(ctx, { x: pad, y: pad, w: r.w, h: r.h, design: doc.design, ...extra }, env);
+      drawFrame(
+        ctx,
+        {
+          x: pad,
+          y: pad,
+          w: r.w,
+          h: r.h,
+          design: doc.design,
+          room: pad,
+          clip: { x: 0, y: 0, w: baseW, h: baseH },
+          ...extra,
+        },
+        env,
+      );
       after?.(ctx, env);
     },
   };
@@ -149,7 +164,7 @@ export function novelParts(doc: DocState): PartDef[] {
         S.parts.choice(S.states[st]),
         'choice',
         { x: 0, y: 0, w: c.w, h: c.h },
-        BUTTON_PAD,
+        CHOICE_PAD,
         { state: st },
       ),
     );
@@ -164,7 +179,7 @@ export function novelParts(doc: DocState): PartDef[] {
           S.parts.system(SYSTEM_LABELS[d.buttonLang][b], S.states[st]),
           'system',
           { x: 0, y: 0, w: sb.w, h: sb.h },
-          BUTTON_PAD,
+          SYS_PAD,
           {
             state: st,
             label: SYSTEM_LABELS[d.buttonLang][b],
@@ -210,7 +225,12 @@ export function trpgParts(doc: DocState): PartDef[] {
       baseH: 1080,
       width: px(1920, res),
       height: px(1080, res),
-      draw: (ctx, env) => drawFrame(ctx, { ...L.screen, design: d, hole: L.screenHole }, env),
+      draw: (ctx, env) =>
+        drawFrame(
+          ctx,
+          { ...L.screen, design: d, hole: L.screenHole, room: SCREEN_FRAME.inset },
+          env,
+        ),
     },
     framePart(
       doc,

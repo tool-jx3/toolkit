@@ -149,9 +149,10 @@ export function paletteRgba(d: PaletteInput, state: ButtonState = 'normal'): Pal
       }),
       inner: oklchToRgb({ l: clamp(L0 - 0.08, 0.5, 0.72), c: c(C0 * 0.7), h }, 0.55),
       ornament: oklchToRgb({ l: clamp(L0 + 0.12, 0.76, 0.95), c: c(Math.max(C0 * 0.95, 0.05)), h }),
+      /* 停用：灰色的字（整顆按鈕再變淡；框底 80% 以上時，在黑、白、灰的背景上和框底的對比仍至少 3:1） */
       text:
         state === 'disabled'
-          ? { r: 196, g: 198, b: 206, a: 0.5 }
+          ? oklchToRgb({ l: 0.92, c: 0, h })
           : oklchToRgb({ l: 0.975, c: Math.min(C0, 0.02), h }),
       textEdge: oklchToRgb({ l: 0.12, c: Math.min(C0, 0.08) * 0.6, h }, 0.9),
       glow: oklchToRgb({ l: clamp(L0 + 0.1, 0.72, 0.9), c: Math.max(C0, 0.12), h }, 0.9),
@@ -175,7 +176,7 @@ export function paletteRgba(d: PaletteInput, state: ButtonState = 'normal'): Pal
     ornament: oklchToRgb({ l: clamp(L0 - 0.06, 0.45, 0.62), c: c(Math.max(C0, 0.09)), h }),
     text:
       state === 'disabled'
-        ? { r: 96, g: 98, b: 108, a: 0.5 }
+        ? oklchToRgb({ l: 0.3, c: 0, h })
         : oklchToRgb({ l: 0.25, c: Math.min(C0, 0.07), h }),
     textEdge: { r: 255, g: 255, b: 255, a: 0.95 },
     glow: oklchToRgb({ l: clamp(L0, 0.6, 0.78), c: Math.max(C0, 0.14), h }, 0.8),

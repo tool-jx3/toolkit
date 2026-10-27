@@ -100,6 +100,51 @@ describe('預設集（3.10，本站自己設計）', () => {
     }
   });
 
+  it('和原作的 5 組都不一樣：搭配至少差三項、數值與主色都不沿用', () => {
+    /* 原作 5 組的搭配（外框、裝飾、質感、字型、深淺；換成本站的選項名稱）與用到的數值——只用來比對 */
+    const original = [
+      ['concave', 'classic', 'noise', 'serif', 'dark'],
+      ['round', 'star', 'dots', 'round', 'light'],
+      ['bevel', 'circuit', 'lines', 'future', 'dark'],
+      ['square', 'wave', 'washi', 'mincho', 'dark'],
+      ['concave', 'gothic', 'noise', 'serif', 'dark'],
+    ];
+    const usedNumbers: Partial<Record<keyof (typeof PRESETS)[number]['design'], number[]>> = {
+      bgOpacity: [90, 94, 85, 92],
+      cornerSize: [18, 24, 16, 8, 20],
+      borderWidth: [2.5, 3.5, 2],
+      innerOffset: [6, 5, 7, 8],
+      ornamentScale: [105, 100, 115],
+      textureAlpha: [18, 16, 22, 20, 24],
+      msgW: [1560],
+      msgH: [272],
+      choiceW: [680],
+      hoverGlow: [14],
+      activeShift: [2],
+    };
+    const originalColors = [
+      '#c8a464',
+      '#ff5e8e',
+      '#00f0ff',
+      '#d64550',
+      '#9d4edd',
+      '#38b000',
+      '#3a86ff',
+    ];
+    for (const p of PRESETS) {
+      const d = p.design;
+      const mine = [d.corner, d.ornament, d.texture, d.font, d.polarity];
+      for (const o of original) {
+        const diff = mine.filter((v, i) => v !== o[i]).length;
+        expect(diff, `${p.id} vs ${o.join('/')}`).toBeGreaterThanOrEqual(3);
+      }
+      for (const [k, list] of Object.entries(usedNumbers))
+        expect(list, `${p.id}.${k}`).not.toContain(d[k as keyof typeof d]);
+      expect(originalColors).not.toContain(d.keyColor);
+    }
+    for (const c of QUICK_COLORS) expect(originalColors).not.toContain(c);
+  });
+
   it('涵蓋深色與淺色、像素字型、和風的質感', () => {
     expect(new Set(PRESETS.map((p) => p.design.polarity))).toEqual(new Set(['dark', 'light']));
     expect(PRESETS.some((p) => p.design.font === 'pixel')).toBe(true);
@@ -118,7 +163,7 @@ describe('初始值與整理', () => {
     expect(s.mode).toBe('novel');
     expect(s.resolution).toBe(1280);
     expect(s.design).toEqual(PRESETS[0].design);
-    expect(s.base).toMatchObject({ kind: 'preset', id: PRESETS[0].id, name: '舊宅調查' });
+    expect(s.base).toMatchObject({ kind: 'preset', id: 'casefile', name: '案件卷宗' });
     expect(s.texts.bake).toBe(false);
   });
 

@@ -2,13 +2,13 @@
  * 設定欄（規格 1.1～1.6）：用途、世界觀預設與我的預設、外觀（配色、外框、質感與字型、尺寸與按鈕、翻頁游標與系統按鈕）、測試文字。
  */
 import { Download, FileJson, RotateCcw } from 'lucide-react';
-import { useCallback } from 'react';
-import { downloadText, fileNameWithExt } from '@/core/files';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { formatHex, parseColor } from '@/core/color';
+import { downloadText, fileNameWithExt, pickFiles } from '@/core/files';
 import {
   Button,
   ColorField,
   Field,
-  FileDrop,
   GestureScope,
   IconButton,
   ItemListEditor,
@@ -65,12 +65,14 @@ import {
   edit,
   gesture,
   importMine,
+  prefsNow,
   removeMine,
   renameMine,
   resetDesignToBase,
   resetField,
   saveMine,
   setMode,
+  settleGesture,
   useDoc,
   useSession,
 } from './store';
@@ -193,6 +195,13 @@ function BaseStatus() {
 function PresetSection() {
   const base = useDoc((s) => s.data.base);
   const tick = useSession((s) => s.tick);
+  const toast = useToast();
+  /* 外觀會換預覽背景；有試看背景圖時圖留著（和原作一樣），提醒預覽的背景沒有變 */
+  const choose = (id: string) => {
+    applyPreset(id);
+    const p = prefsNow();
+    if (p.bg) toast({ title: S.presetKeepsBg(S.scenes[p.scene]) });
+  };
   // biome-ignore lint/correctness/useExhaustiveDependencies: 字型載好（tick）時重畫縮圖
   const draw = useCallback(
     (ctx: CanvasRenderingContext2D, id: string) => {
@@ -211,7 +220,7 @@ function PresetSection() {
           description: S.presets[p.id].desc,
         }))}
         value={base.kind === 'preset' ? base.id : ''}
-        onValueChange={applyPreset}
+        onValueChange={choose}
         draw={draw}
         thumbWidth={THUMB_W}
         thumbHeight={THUMB_H}
@@ -239,9 +248,11 @@ function MineSection() {
   const unchanged = useDoc((s) => sameDesign(s.data.design, s.data.base.design));
   const activeId = base.kind === 'mine' && unchanged ? base.id : null;
 
+  const [dragOver, setDragOver] = useState(false);
   const onFiles = async (files: File[]) => {
+    const json = files.filter((f) => /\.json$/i.test(f.name) || f.type === 'application/json');
     if (!files.length) return;
-    const r = await readPresetFiles(files);
+    const r = await readPresetFiles(json.length ? json : files);
     const { added, dropped } = importMine(r.parsed);
     const lines: string[] = [];
     if (r.skipped) lines.push(S.mine.skipped(r.skipped));
@@ -321,7 +332,24 @@ function MineSection() {
         )}
         emptyText={S.mine.empty}
       />
-      <div className="flex flex-wrap items-center gap-2">
+      {/* 讀入：按鈕開選檔視窗（鍵盤用這個）；檔案也可以拖到這一區 */}
+      {/* biome-ignore lint/a11y/noStaticElementInteractions: 拖放是滑鼠的捷徑，鍵盤用「讀入 JSON…」按鈕 */}
+      <div
+        data-testid="mine-drop"
+        data-over={dragOver || undefined}
+        className="flex flex-wrap items-center gap-2 rounded-md border border-dashed border-border-strong p-2 data-over:border-accent data-over:bg-accent-soft"
+        onDragOver={(e) => {
+          if (!e.dataTransfer.types.includes('Files')) return;
+          e.preventDefault();
+          setDragOver(true);
+        }}
+        onDragLeave={() => setDragOver(false)}
+        onDrop={(e) => {
+          e.preventDefault();
+          setDragOver(false);
+          void onFiles(Array.from(e.dataTransfer.files));
+        }}
+      >
         <Button
           size="sm"
           icon={<Download />}
@@ -330,18 +358,17 @@ function MineSection() {
         >
           {S.mine.exportAll(items.length)}
         </Button>
+        <Button
+          size="sm"
+          icon={<FileJson />}
+          onClick={() =>
+            void pickFiles({ accept: '.json,application/json', multiple: true }).then(onFiles)
+          }
+        >
+          {S.mine.dropButton}
+        </Button>
+        <span className="text-xs text-muted">{S.mine.dropLabel}</span>
       </div>
-      <FileDrop
-        compact
-        multiple
-        accept=".json,application/json"
-        paste="off"
-        icon={<FileJson />}
-        label={S.mine.dropLabel}
-        buttonLabel={S.mine.dropButton}
-        aria-label={S.mine.dropLabel}
-        onFiles={(files) => void onFiles(files)}
-      />
     </Section>
   );
 }
@@ -366,23 +393,82 @@ function useThumb<V extends string>(
   return useCallback((ctx, v) => fn(ctx, design, v), [design, tick, fn]);
 }
 
+/** 主色的色碼欄：打字中寫得對就套用；Enter 或離開時看不懂的寫出錯誤並改回原本的顏色（Esc 也改回） */
+function useHexDraft(keyColor: string) {
+  const [draft, setDraft] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  /* 用別的方式換了顏色（選色器、推薦的主色、復原）：錯誤訊息拿掉 */
+  // biome-ignore lint/correctness/useExhaustiveDependencies: 主色變了才清
+  useEffect(() => setError(null), [keyColor]);
+  const commit = () => {
+    if (draft === null) return;
+    const c = parseColor(/^#|^rgb/i.test(draft.trim()) ? draft : `#${draft.trim()}`);
+    if (c) setDesign('keyColor', formatHex({ ...c, a: 1 }, false));
+    else setError(S.hexInvalid(draft.trim()));
+    setDraft(null);
+  };
+  return {
+    value: draft ?? keyColor,
+    error,
+    onFocus: () => gesture.begin(),
+    onChange: (v: string) => {
+      setDraft(v);
+      setError(null);
+      if (/^#?[0-9a-f]{6}$/i.test(v.trim())) {
+        const hex = v.trim().replace(/^#?/, '#').toLowerCase();
+        setDesign('keyColor', hex);
+      }
+    },
+    onBlur: () => {
+      commit();
+      gesture.commit();
+    },
+    onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (e.key === 'Enter') commit();
+      if (e.key === 'Escape' && draft !== null) {
+        e.preventDefault();
+        e.stopPropagation();
+        setDraft(null);
+        setError(null);
+      }
+    },
+  };
+}
+
 function ColorSection() {
   const keyColor = useDoc((s) => s.data.design.keyColor);
   const polarity = useDoc((s) => s.data.design.polarity);
+  const hex = useHexDraft(keyColor);
   return (
     <Section title={S.colorSection} persistKey="ui-frame:color">
       <Field
         label={S.keyColor}
         hint={S.keyColorHint}
+        error={hex.error ?? undefined}
         labelSuffix={<ResetButton k="keyColor" label={S.keyColor} />}
       >
-        <GestureScope gesture={gesture}>
-          <ColorField
-            value={keyColor}
-            onChange={(v) => setDesign('keyColor', v.slice(0, 7).toLowerCase())}
-            swatches={QUICK_COLORS}
+        <div className="flex min-w-0 items-center gap-2">
+          <GestureScope gesture={gesture} className="shrink-0">
+            <ColorField
+              aria-label={S.keyColor}
+              value={keyColor}
+              onChange={(v) => setDesign('keyColor', v.slice(0, 7).toLowerCase())}
+              swatches={QUICK_COLORS}
+              showInput={false}
+              className="w-auto"
+            />
+          </GestureScope>
+          <TextInput
+            className="h-8 min-w-[6.5rem] flex-1 font-mono"
+            spellCheck={false}
+            autoComplete="off"
+            value={hex.value}
+            onFocus={hex.onFocus}
+            onChange={(e) => hex.onChange(e.target.value)}
+            onBlur={hex.onBlur}
+            onKeyDown={hex.onKeyDown}
           />
-        </GestureScope>
+        </div>
       </Field>
       {/* biome-ignore lint/a11y/useSemanticElements: 一組按鈕（不是表單欄位） */}
       <div role="group" aria-label={S.quickColors} className="flex flex-wrap gap-1.5">
@@ -561,10 +647,24 @@ export function DesignPanel() {
 function TextField({ k }: { k: TextKey }) {
   const value = useDoc((s) => s.data.texts[k]);
   const multi = MULTILINE_TEXTS.includes(k);
+  const focused = useRef(false);
+  /* 打到一半就切分頁或換用途：欄位直接卸載、收不到離開事件，這裡把打的字記成一步 */
+  useEffect(
+    () => () => {
+      if (focused.current) settleGesture();
+    },
+    [],
+  );
   const props = {
     value,
-    onFocus: gesture.begin,
-    onBlur: gesture.commit,
+    onFocus: () => {
+      focused.current = true;
+      gesture.begin();
+    },
+    onBlur: () => {
+      focused.current = false;
+      gesture.commit();
+    },
     onChange: (e: { target: { value: string } }) => {
       const v = tidyText(k, e.target.value);
       edit((d) => {

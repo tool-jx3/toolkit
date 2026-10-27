@@ -1,16 +1,19 @@
 /**
  * UI 框素材產生器：版面與匯出的檔名清單（規格 3.4、3.8）——各部件的位置與大小、1280 × 720 的等比縮放、
- * 兩種用途的 PNG 清單（文字冒險 39 張；TRPG 5 或 7 張）、四種狀態同大小。
+ * 兩種用途的 PNG 清單（文字冒險 39 張；TRPG 5 或 7 張）、四種狀態同大小、按鈕的 PNG 範圍互不重疊。
  */
 import { describe, expect, it } from 'vitest';
 import {
-  BUTTON_PAD,
   CHOICE,
+  CHOICE_PAD,
   FRAME_PAD,
   messageLines,
   novelLayout,
+  padRect,
   pos,
   px,
+  type Rect,
+  SYS_PAD,
   scaleOf,
   trpgLayout,
 } from '../../src/tools/ui-frame/layout';
@@ -48,7 +51,7 @@ describe('文字冒險的版面（1920 基準）', () => {
     expect(L.msg).toEqual({ x: 180, y: 768, w: 1560, h: 272 });
     expect(L.name).toEqual({ x: 220, y: 732, w: 320, h: 60 });
     expect(L.cursor).toEqual({ cx: 1688, cy: 998 });
-    expect(L.choices.map((c) => c.y)).toEqual([200, 300, 400]);
+    expect(L.choices.map((c) => c.y)).toEqual([200, 316, 432]);
     expect(L.choices[0]).toMatchObject({ x: 620, w: 680, h: 68 });
   });
 
@@ -56,6 +59,8 @@ describe('文字冒險的版面（1920 基準）', () => {
     const wide = novelLayout({ msgW: 1560, msgH: 272, choiceW: 680 });
     expect(wide.sys).toHaveLength(8);
     expect(wide.sys[7].x + wide.sys[7].w).toBe(180 + 1560 - 20);
+    expect(wide.sys.map((r) => r.x)).toEqual([656, 792, 928, 1064, 1200, 1336, 1472, 1608]);
+    expect(wide.sys[0]).toMatchObject({ w: 112, h: 40 });
     expect(wide.sys[0].y).toBe(768 - 40 - 14);
     const narrow = novelLayout({ msgW: 1100, msgH: 272, choiceW: 680 });
     expect(narrow.sys[0].y).toBe(narrow.name.y - 40 - 16);
@@ -64,13 +69,25 @@ describe('文字冒險的版面（1920 基準）', () => {
     expect(narrow.sys[0].x).toBeLessThan(narrow.name.x + narrow.name.w);
   });
 
-  it('選項的 PNG（含透明邊）上下不重疊；最大的訊息框也不碰到選項', () => {
-    expect(CHOICE.gap).toBeGreaterThanOrEqual(CHOICE.h + BUTTON_PAD);
-    for (const msgW of [RANGES.msgW.min, RANGES.msgW.max]) {
-      const L = novelLayout({ msgW, msgH: RANGES.msgH.max, choiceW: 960 });
-      const lastChoice = L.choices[2].y + L.choices[2].h + BUTTON_PAD;
-      expect(lastChoice).toBeLessThan(Math.min(L.sys[0].y - BUTTON_PAD, L.name.y - FRAME_PAD));
-    }
+  it('選項、系統按鈕的 PNG（含透明邊）互不重疊；最大的訊息框也不碰到選項', () => {
+    const overlap = (a: Rect, b: Rect) =>
+      a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+    expect(CHOICE.gap).toBeGreaterThanOrEqual(CHOICE.h + CHOICE_PAD * 2);
+    for (const msgW of [RANGES.msgW.min, 1100, 1560, RANGES.msgW.max])
+      for (const choiceW of [RANGES.choiceW.min, RANGES.choiceW.max]) {
+        const L = novelLayout({ msgW, msgH: RANGES.msgH.max, choiceW });
+        const boxes = [
+          ...L.choices.map((r) => padRect(r, CHOICE_PAD)),
+          ...L.sys.map((r) => padRect(r, SYS_PAD)),
+        ];
+        for (let i = 0; i < boxes.length; i++)
+          for (let j = i + 1; j < boxes.length; j++)
+            expect(overlap(boxes[i], boxes[j]), `${msgW}/${choiceW}: ${i}×${j}`).toBe(false);
+        /* 系統按鈕相鄰的 PNG 剛好相接 */
+        expect(boxes[3].x + boxes[3].w).toBe(boxes[4].x);
+        const lastChoice = L.choices[2].y + L.choices[2].h + CHOICE_PAD;
+        expect(lastChoice).toBeLessThan(Math.min(L.sys[0].y - SYS_PAD, L.name.y - FRAME_PAD));
+      }
   });
 
   it('訊息框放得下的行數', () => {
@@ -137,27 +154,28 @@ describe('匯出的檔名清單（3.8）', () => {
     expect(partsOf(doc({ mode: 'trpg' }))).toHaveLength(5);
   });
 
-  it('PNG 的大小（1920）：框四周 24、按鈕四周 32；1280 時各自乘 2/3 四捨五入', () => {
+  it('PNG 的大小（1920）：框與選項四周 24、系統按鈕四周 12；1280 時各自乘 2/3 四捨五入', () => {
     const big = novelParts(doc({ resolution: 1920 }));
     const size = (id: string, list = big) => {
       const p = list.find((x) => x.id === id)!;
       return [p.width, p.height];
     };
-    expect(size('message')).toEqual([1560 + 48, 272 + 48]);
+    /* 預設的外觀（案件卷宗）：訊息框 1520 × 264、選項 640 */
+    expect(size('message')).toEqual([1520 + 48, 264 + 48]);
     expect(size('name')).toEqual([368, 108]);
     expect(size('cursor')).toEqual([40, 40]);
-    expect(size('choice:normal')).toEqual([680 + 64, 68 + 64]);
-    expect(size('sys:save:normal')).toEqual([184, 104]);
+    expect(size('choice:normal')).toEqual([640 + 48, 68 + 48]);
+    expect(size('sys:save:normal')).toEqual([136, 64]);
     const small = novelParts(doc({ resolution: 1280 }));
-    expect(size('message', small)).toEqual([1072, 213]);
+    expect(size('message', small)).toEqual([1045, 208]);
     expect(size('name', small)).toEqual([245, 72]);
     expect(size('cursor', small)).toEqual([27, 27]);
-    expect(size('choice:normal', small)).toEqual([496, 88]);
-    expect(size('sys:save:normal', small)).toEqual([123, 69]);
+    expect(size('choice:normal', small)).toEqual([459, 77]);
+    expect(size('sys:save:normal', small)).toEqual([91, 43]);
     const trpg = trpgParts(doc({ mode: 'trpg', resolution: 1920 }));
     expect(trpg.map((p) => [p.width, p.height])).toEqual([
       [1920, 1080],
-      [1608, 320],
+      [1568, 312],
       [408, 568],
       [348, 124],
       [468, 308],
@@ -172,7 +190,7 @@ describe('匯出的檔名清單（3.8）', () => {
       const parts = novelParts(s);
       const choice = parts.filter((x) => x.group === 'choice');
       expect(new Set(choice.map((x) => `${x.width}x${x.height}`)).size).toBe(1);
-      expect(choice[0].width).toBe(px(p.design.choiceW + 64, 1280));
+      expect(choice[0].width).toBe(px(p.design.choiceW + CHOICE_PAD * 2, 1280));
       for (const b of SYSTEM_BUTTONS) {
         const four = parts.filter((x) => x.id.startsWith(`sys:${b}:`));
         expect(four).toHaveLength(4);

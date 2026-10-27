@@ -2,7 +2,18 @@
  * 預覽的整個畫面（規格 F26～F31）：背景（範例背景或自己的圖）、立繪（範例或自己的圖）、再疊上這個用途的所有框，
  * 文字冒險另有滑過與按下的互動（回傳可以點的範圍）。座標以 1920 × 1080 為準。
  */
-import { MSG_TEXT, messageLines, novelLayout, trpgLayout } from './layout';
+import {
+  CHOICE_PAD,
+  FRAME_PAD,
+  MSG_TEXT,
+  messageLines,
+  novelLayout,
+  padRect,
+  type Rect,
+  SCREEN_FRAME,
+  SYS_PAD,
+  trpgLayout,
+} from './layout';
 import { type DocState, type Scene, SYSTEM_BUTTONS, SYSTEM_LABELS } from './model';
 import {
   CHOICE_FONT_SIZE,
@@ -72,6 +83,9 @@ export function drawBackdrop(
   else if (env.samplePortrait) drawSamplePortrait(ctx);
 }
 
+/** 和匯出的 PNG 一樣：陰影與光暈只畫在透明邊的範圍內 */
+const boxed = (r: Rect, pad: number) => ({ ...r, room: pad, clip: padRect(r, pad) });
+
 const stateOf = (id: string, env: Pick<StageEnv, 'hover' | 'pressed'>) =>
   env.pressed === id ? 'active' : env.hover === id ? 'hover' : 'normal';
 
@@ -90,12 +104,18 @@ export function drawStage(ctx: Ctx, doc: DocState, env: StageEnv): HitRegion[] {
       const label = [t.choice1, t.choice2, t.choice3][i];
       drawFrame(
         ctx,
-        { ...r, design: d, state: stateOf(id, env), label, fontSize: CHOICE_FONT_SIZE },
+        {
+          ...boxed(r, CHOICE_PAD),
+          design: d,
+          state: stateOf(id, env),
+          label,
+          fontSize: CHOICE_FONT_SIZE,
+        },
         renv,
       );
       hits.push({ id, ...r });
     });
-    drawFrame(ctx, { ...L.msg, design: d, crest: true }, renv);
+    drawFrame(ctx, { ...boxed(L.msg, FRAME_PAD), design: d, crest: true }, renv);
     drawParagraph(
       ctx,
       d,
@@ -107,7 +127,11 @@ export function drawStage(ctx: Ctx, doc: DocState, env: StageEnv): HitRegion[] {
       MSG_TEXT.size,
       MSG_TEXT.lineHeight,
     );
-    drawFrame(ctx, { ...L.name, design: d, label: t.charName, fontSize: NAME_FONT_SIZE }, renv);
+    drawFrame(
+      ctx,
+      { ...boxed(L.name, FRAME_PAD), design: d, label: t.charName, fontSize: NAME_FONT_SIZE },
+      renv,
+    );
     drawCursor(ctx, d, L.cursor.cx, L.cursor.cy);
     SYSTEM_BUTTONS.forEach((b, i) => {
       const r = L.sys[i];
@@ -115,10 +139,7 @@ export function drawStage(ctx: Ctx, doc: DocState, env: StageEnv): HitRegion[] {
       drawFrame(
         ctx,
         {
-          x: r.x,
-          y: r.y,
-          w: r.w,
-          h: r.h,
+          ...boxed({ x: r.x, y: r.y, w: r.w, h: r.h }, SYS_PAD),
           design: d,
           state: stateOf(id, env),
           label: SYSTEM_LABELS[d.buttonLang][b],
@@ -131,8 +152,8 @@ export function drawStage(ctx: Ctx, doc: DocState, env: StageEnv): HitRegion[] {
     return hits;
   }
   const L = trpgLayout(d);
-  drawFrame(ctx, { ...L.screen, design: d, hole: L.screenHole }, renv);
-  drawFrame(ctx, { ...L.portrait, design: d, hole: L.portraitHole }, renv);
+  drawFrame(ctx, { ...L.screen, design: d, hole: L.screenHole, room: SCREEN_FRAME.inset }, renv);
+  drawFrame(ctx, { ...boxed(L.portrait, FRAME_PAD), design: d, hole: L.portraitHole }, renv);
   drawCenteredText(
     ctx,
     d,
@@ -143,10 +164,18 @@ export function drawStage(ctx: Ctx, doc: DocState, env: StageEnv): HitRegion[] {
     PORTRAIT_FONT_SIZE,
   );
   [t.status1, t.status2, t.status3].forEach((label, i) => {
-    drawFrame(ctx, { ...L.status[i], design: d, label, fontSize: STATUS_FONT_SIZE }, renv);
+    drawFrame(
+      ctx,
+      { ...boxed(L.status[i], FRAME_PAD), design: d, label, fontSize: STATUS_FONT_SIZE },
+      renv,
+    );
   });
-  drawFrame(ctx, { ...L.dice, design: d, label: t.dice, fontSize: DICE_FONT_SIZE }, renv);
-  drawFrame(ctx, { ...L.board, design: d, crest: true }, renv);
+  drawFrame(
+    ctx,
+    { ...boxed(L.dice, FRAME_PAD), design: d, label: t.dice, fontSize: DICE_FONT_SIZE },
+    renv,
+  );
+  drawFrame(ctx, { ...boxed(L.board, FRAME_PAD), design: d, crest: true }, renv);
   drawParagraph(
     ctx,
     d,

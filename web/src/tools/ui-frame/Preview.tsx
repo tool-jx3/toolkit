@@ -1,6 +1,6 @@
 /**
- * 預覽欄（規格 1.7、1.8）：整個遊戲畫面的預覽（滑過與按下、放大鏡、截圖）、預覽背景與試看的圖、按鈕的四種狀態、匯出
- * （畫面大小、ZIP、單張 PNG、TyranoScript 配置程式碼）。
+ * 預覽欄（規格 1.7、1.8）：最上面是匯出列（畫面大小、ZIP、TyranoScript 配置程式碼），接著是整個遊戲畫面的預覽
+ * （滑過與按下、放大鏡、截圖）、預覽背景與試看的圖、按鈕的四種狀態、素材清單（單張 PNG）。
  */
 import {
   Camera,
@@ -65,6 +65,7 @@ import {
   type ImageRef,
   INSPECT_TARGETS,
   type InspectTarget,
+  type Prefs,
   prefsNow,
   setPrefs,
   setResolution,
@@ -132,6 +133,29 @@ export function useFontLoading() {
 /* ---------- 預覽畫面 ---------- */
 
 const LENS = 240;
+
+const HOVER_QUERY = '(any-hover: hover)';
+
+/** 有沒有可以「停在上面」的指標（滑鼠、觸控板）；只有觸控時放大鏡沒有用 */
+function useCanHover(): boolean {
+  const [can, setCan] = useState(() =>
+    typeof window === 'undefined' || typeof window.matchMedia !== 'function'
+      ? true
+      : window.matchMedia(HOVER_QUERY).matches,
+  );
+  useEffect(() => {
+    if (typeof window.matchMedia !== 'function') return;
+    const m = window.matchMedia(HOVER_QUERY);
+    const on = () => setCan(m.matches);
+    m.addEventListener?.('change', on);
+    return () => m.removeEventListener?.('change', on);
+  }, []);
+  return can;
+}
+
+const dialogOpen = () =>
+  typeof document !== 'undefined' &&
+  !!document.querySelector('[role="dialog"],[role="alertdialog"]');
 
 function Lens({
   canvas,
@@ -203,6 +227,22 @@ function StageView({ images }: { images: ReturnType<typeof usePreviewImages> }) 
   const [lens, setLens] = useState<{ x: number; y: number; cx: number; cy: number } | null>(null);
   const { width, height } = screenSize(doc.resolution);
   const toast = useToast();
+  const canHover = useCanHover();
+
+  /* 放大鏡：捲動、改變視窗大小、切到別的視窗時收起來（指標的位置已經不對了） */
+  const lensOn = !!lens;
+  useEffect(() => {
+    if (!lensOn) return;
+    const hide = () => setLens(null);
+    window.addEventListener('scroll', hide, true);
+    window.addEventListener('resize', hide);
+    window.addEventListener('blur', hide);
+    return () => {
+      window.removeEventListener('scroll', hide, true);
+      window.removeEventListener('resize', hide);
+      window.removeEventListener('blur', hide);
+    };
+  }, [lensOn]);
 
   /* 背景＋立繪先畫在另一張畫布上（只在背景、圖、解析度改變時重畫；拖曳滑桿時只重畫框） */
   const backdrop = useMemo(() => {
@@ -257,11 +297,14 @@ function StageView({ images }: { images: ReturnType<typeof usePreviewImages> }) 
 
   const onMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
     const p = locate(e);
-    if (prefs.magnifier && e.pointerType !== 'touch' && p)
+    if (canHover && prefs.magnifier && e.pointerType === 'mouse' && p && !dialogOpen())
       setLens({ x: p.px, y: p.py, cx: e.clientX, cy: e.clientY });
     else setLens(null);
     const id = p ? hitAt(hitsRef.current, p.bx, p.by) : null;
-    if (id !== useSession.getState().hover) useSession.setState({ hover: id });
+    const s = useSession.getState();
+    /* 按住拖到按鈕外面（包括畫面外）：立刻取消按下 */
+    if (s.pressed && s.pressed !== id) useSession.setState({ pressed: null, hover: id });
+    else if (id !== s.hover) useSession.setState({ hover: id });
   };
 
   const onDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
@@ -294,17 +337,13 @@ function StageView({ images }: { images: ReturnType<typeof usePreviewImages> }) 
     toast({ title: S.snapshotDone(name), tone: 'success' });
   };
 
-  const touchOnly =
-    typeof window !== 'undefined' &&
-    typeof window.matchMedia === 'function' &&
-    !window.matchMedia('(any-hover: hover)').matches;
   const status = pressed
     ? S.pressing
     : hover
       ? S.hovering
-      : touchOnly
-        ? S.stageHintTouch
-        : S.stageHint;
+      : canHover
+        ? S.stageHint
+        : S.stageHintTouch;
   return (
     <div className="flex flex-col gap-2">
       <Stage
@@ -315,27 +354,31 @@ function StageView({ images }: { images: ReturnType<typeof usePreviewImages> }) 
         background={{ kind: 'checker' }}
         toolbarExtra={
           <div className="flex items-center gap-1">
-            <IconButton
-              size="sm"
-              icon={<ZoomIn />}
-              label={S.magnifier}
-              pressed={prefs.magnifier}
-              onClick={() => {
-                setPrefs({ magnifier: !prefs.magnifier });
-                setLens(null);
-              }}
-            />
-            <Segmented<'1' | '2'>
-              size="sm"
-              aria-label={S.magnifierZoom}
-              value={String(prefs.lensZoom) as '1' | '2'}
-              onValueChange={(v) => setPrefs({ lensZoom: v === '2' ? 2 : 1 })}
-              options={[
-                { value: '1', label: S.lensZooms[1] },
-                { value: '2', label: S.lensZooms[2] },
-              ]}
-              disabled={!prefs.magnifier}
-            />
+            {canHover ? (
+              <>
+                <IconButton
+                  size="sm"
+                  icon={<ZoomIn />}
+                  label={S.magnifier}
+                  pressed={prefs.magnifier}
+                  onClick={() => {
+                    setPrefs({ magnifier: !prefs.magnifier });
+                    setLens(null);
+                  }}
+                />
+                <Segmented<'1' | '2'>
+                  size="sm"
+                  aria-label={S.magnifierZoom}
+                  value={String(prefs.lensZoom) as '1' | '2'}
+                  onValueChange={(v) => setPrefs({ lensZoom: v === '2' ? 2 : 1 })}
+                  options={[
+                    { value: '1', label: S.lensZooms[1] },
+                    { value: '2', label: S.lensZooms[2] },
+                  ]}
+                  disabled={!prefs.magnifier}
+                />
+              </>
+            ) : null}
             <IconButton
               size="sm"
               icon={<Camera />}
@@ -369,7 +412,7 @@ function StageView({ images }: { images: ReturnType<typeof usePreviewImages> }) 
           }}
         />
       </Stage>
-      {prefs.magnifier ? (
+      {canHover && prefs.magnifier ? (
         <Lens canvas={canvasRef.current} point={lens} zoom={prefs.lensZoom} />
       ) : null}
       {doc.mode === 'novel' ? (
@@ -405,6 +448,20 @@ async function pickPreviewImage(): Promise<{ ref: ImageRef } | { error: string }
   return { ref: { id: r.id, name: file.name } };
 }
 
+/** 拿掉試看的圖：同時從這個瀏覽器的資料庫刪掉（另一格還在用同一張時留著） */
+export function dropPreviewImages(which: ('bg' | 'char')[]): void {
+  const p = prefsNow();
+  const patch: Partial<Prefs> = {};
+  for (const k of which) patch[k] = null;
+  setPrefs(patch);
+  const left = prefsNow();
+  const keep = new Set([left.bg?.id, left.char?.id].filter(Boolean));
+  for (const k of which) {
+    const id = p[k]?.id;
+    if (id && !keep.has(id)) void assets.remove(id).catch(() => undefined);
+  }
+}
+
 function StagingBar() {
   const prefs = usePrefs((s) => s.data);
   const toast = useToast();
@@ -415,7 +472,12 @@ function StagingBar() {
       toast({ title: r.error, tone: 'danger' });
       return;
     }
+    /* 換掉的那張不再用時刪掉 */
+    const old = prefsNow()[kind];
     setPrefs(kind === 'bg' ? { bg: r.ref } : { char: r.ref });
+    const now = prefsNow();
+    if (old && old.id !== now.bg?.id && old.id !== now.char?.id)
+      void assets.remove(old.id).catch(() => undefined);
     toast({
       title: S.imageLoaded(kind === 'bg' ? S.bgWhat : S.charWhat, r.ref.name),
       tone: 'success',
@@ -427,7 +489,14 @@ function StagingBar() {
         <Field label={S.scene} className="min-w-44 flex-1">
           <Select<Scene>
             value={prefs.scene}
-            onValueChange={(v) => setPrefs({ scene: v })}
+            onValueChange={(v) => {
+              setPrefs({ scene: v });
+              /* 選了範例背景就拿掉試看背景圖（不然看不到選的背景） */
+              if (prefsNow().bg) {
+                dropPreviewImages(['bg']);
+                toast({ title: S.bgReplaced(S.scenes[v]) });
+              }
+            }}
             options={SCENES.map((s) => ({ value: s, label: S.scenes[s] }))}
             size="sm"
           />
@@ -444,7 +513,7 @@ function StagingBar() {
           icon={<Trash2 />}
           disabled={!prefs.bg && !prefs.char}
           onClick={() => {
-            setPrefs({ bg: null, char: null });
+            dropPreviewImages(['bg', 'char']);
             toast({ title: S.imagesRemoved });
           }}
         >
@@ -612,7 +681,7 @@ function CodeDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (v: b
   );
 }
 
-/* ---------- 匯出 ---------- */
+/* ---------- 匯出與素材清單 ---------- */
 
 const GROUPS: PartGroup[] = ['frames', 'choice', 'system'];
 
@@ -620,13 +689,12 @@ function AssetList({ parts, doc }: { parts: PartDef[]; doc: DocState }) {
   const toast = useToast();
   return (
     <div className="flex flex-col gap-2" data-testid="asset-list">
-      <p className="m-0 flex items-baseline justify-between gap-2 text-sm">
-        <span className="font-medium">{S.assetList}</span>
-        <span className="text-xs text-muted" data-testid="asset-count">
+      <p className="m-0 flex items-baseline justify-between gap-2 text-xs text-muted">
+        <span>{S.assetNote}</span>
+        <span className="shrink-0" data-testid="asset-count">
           {S.assetCount(parts.length)}
         </span>
       </p>
-      <p className="m-0 text-xs text-muted">{S.assetNote}</p>
       {GROUPS.map((g) => {
         const items = parts.filter((p) => p.group === g);
         if (!items.length) return null;
@@ -667,16 +735,17 @@ function AssetList({ parts, doc }: { parts: PartDef[]; doc: DocState }) {
   );
 }
 
-function ExportSection() {
+/** 匯出列：畫面大小、下載 ZIP、配置程式碼——放在預覽的最上面，寬畫面時捲動預覽欄也固定在頂端 */
+function ExportBar() {
   const doc = useDoc((s) => s.data);
   const busy = useSession((s) => s.busy);
   const toast = useToast();
   const [codeOpen, setCodeOpen] = useState(false);
-  const parts = useMemo(() => partsOf(doc), [doc]);
+  const count = useMemo(() => partsOf(doc).length, [doc]);
   const novel = doc.mode === 'novel';
   const zip = async () => {
     if (useSession.getState().busy) return;
-    useSession.setState({ busy: { done: 0, total: parts.length } });
+    useSession.setState({ busy: { done: 0, total: count } });
     try {
       const r = await buildZip(doc, doc.base.name, (done, total) =>
         useSession.setState({ busy: { done, total } }),
@@ -694,34 +763,43 @@ function ExportSection() {
     }
   };
   return (
-    <Section title={S.exportSection} persistKey="ui-frame:export" fixed>
-      <Field label={S.resolution} hint={S.resolutionHint}>
+    <section
+      aria-label={S.exportBar}
+      data-testid="export-bar"
+      className="z-10 flex flex-col gap-2 rounded-lg border border-border bg-surface p-2 shadow-1 lg:sticky lg:top-0"
+    >
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-sm text-muted" id="ui-frame-resolution">
+          {S.resolution}
+        </span>
         <Segmented<'1920' | '1280'>
+          size="sm"
+          aria-labelledby="ui-frame-resolution"
           value={String(doc.resolution) as '1920' | '1280'}
           onValueChange={(v) => setResolution(Number(v) as Resolution)}
           options={RESOLUTIONS.map((r) => ({
             value: String(r) as '1920' | '1280',
             label: S.resolutions[r],
           }))}
-          fullWidth
         />
-      </Field>
-      <div className="flex flex-wrap gap-2">
-        <Button
-          variant="primary"
-          icon={<PackageOpen />}
-          loading={!!busy}
-          disabled={!!busy}
-          onClick={() => void zip()}
-          data-testid="zip-button"
-        >
-          {S.zip(parts.length, novel)}
-        </Button>
-        {novel ? (
-          <Button icon={<Code2 />} onClick={() => setCodeOpen(true)}>
-            {S.codeButton}
+        <div className="ml-auto flex flex-wrap gap-2">
+          {novel ? (
+            <Button size="sm" icon={<Code2 />} onClick={() => setCodeOpen(true)}>
+              {S.codeButton}
+            </Button>
+          ) : null}
+          <Button
+            size="sm"
+            variant="primary"
+            icon={<PackageOpen />}
+            loading={!!busy}
+            disabled={!!busy}
+            onClick={() => void zip()}
+            data-testid="zip-button"
+          >
+            {S.zip(count, novel)}
           </Button>
-        ) : null}
+        </div>
       </div>
       {busy ? (
         <Notice tone="progress">
@@ -729,8 +807,18 @@ function ExportSection() {
           <ProgressBar value={busy.total ? busy.done / busy.total : 0} />
         </Notice>
       ) : null}
+      {novel ? <CodeDialog open={codeOpen} onOpenChange={setCodeOpen} /> : null}
+    </section>
+  );
+}
+
+/** 素材清單：一張一張下載（在預覽的下面） */
+function AssetSection() {
+  const doc = useDoc((s) => s.data);
+  const parts = useMemo(() => partsOf(doc), [doc]);
+  return (
+    <Section title={S.assetList} persistKey="ui-frame:assets">
       <AssetList parts={parts} doc={doc} />
-      <CodeDialog open={codeOpen} onOpenChange={setCodeOpen} />
     </Section>
   );
 }
@@ -741,10 +829,11 @@ export function Preview() {
   useFontLoading();
   return (
     <div className="flex min-w-0 flex-col gap-3">
+      <ExportBar />
       <StageView images={images} />
       <StagingBar />
       {mode === 'novel' ? <StateTray /> : null}
-      <ExportSection />
+      <AssetSection />
     </div>
   );
 }

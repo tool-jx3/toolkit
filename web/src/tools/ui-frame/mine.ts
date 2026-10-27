@@ -123,7 +123,9 @@ export function presetsFileText(items: readonly MyPreset[], now = new Date()): s
 }
 
 export function presetsFileBase(items: readonly MyPreset[]): string {
-  return items.length === 1 ? S.mine.fileBase(items[0].name) : S.mine.fileBaseAll(items.length);
+  return items.length === 1
+    ? S.mine.fileBase(items[0].name.trim() || S.mine.unnamed)
+    : S.mine.fileBaseAll(items.length);
 }
 
 export interface ParsedPreset {

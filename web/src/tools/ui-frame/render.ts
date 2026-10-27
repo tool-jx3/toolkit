@@ -1,7 +1,7 @@
 /**
  * 畫框（規格 3.3～3.7，自訂）：一個框依序畫「陰影或光暈＋框底漸層 → 質感 → 上緣的光澤 → 框線（有窗時窗也描邊） → 內框線 →
  * 四角裝飾 → 大框上下緣的紋章 → 文字」。四種狀態：滑過＝框底變亮、框線變亮、外面一圈光暈；按下＝往下沉、陰影變小、框底變暗；
- * 停用＝彩度拿掉、整體半透明。
+ * 停用＝彩度拿掉、整體淡一點（文字和框底的對比仍至少 3:1）。
  *
  * 座標一律以 1920 × 1080 為準；輸出 1280 × 720 時呼叫端先把 context 縮放 2/3。陰影、光暈的模糊不跟著 context 縮放，
  * 所以乘上 env.scale。
@@ -44,7 +44,14 @@ export interface FrameOptions extends Rect {
   crest?: boolean;
   /** 中間透明的窗（畫面外框、角色框） */
   hole?: Rect | null;
+  /** 框外可以畫陰影、光暈的空間（PNG 的透明邊）：光暈與陰影的模糊不超過它 */
+  room?: number;
+  /** 剪裁範圍（PNG 的範圍）：陰影與光暈不畫到這個範圍外（預覽與匯出一致） */
+  clip?: Rect | null;
 }
+
+/** 停用狀態的整體不透明度 */
+export const DISABLED_ALPHA = 0.8;
 
 /* ---------- 質感 ---------- */
 
@@ -96,6 +103,35 @@ export function ornamentScaleFor(
   return Math.max(0, Math.min(want, room, ring));
 }
 
+/** 四角裝飾從框的左右邊往內佔多寬（沒有裝飾時 0）：文字不壓到裝飾 */
+export function ornamentExtent(d: Design, w: number, h: number): number {
+  if (d.ornament === 'none') return 0;
+  const r = frameRadius(d, w, h);
+  const inset = cornerDiagonalInset(d.corner, r);
+  return inset + ORNAMENT_REACH[d.ornament] * ornamentScaleFor(d, w, h, inset);
+}
+
+/** 置中的文字左右要留的距離：裝飾＋8，至少 16 */
+export const labelInset = (d: Design, w: number, h: number): number =>
+  Math.max(16, Math.ceil(ornamentExtent(d, w, h)) + 8);
+
+/** 一行字放不下時：先縮小字級（最小 70%），還放不下就截斷加「…」 */
+export function fitLine(
+  measure: (s: string, size: number) => number,
+  text: string,
+  maxWidth: number,
+  size: number,
+): { text: string; size: number } {
+  const min = Math.max(10, Math.round(size * 0.7));
+  const w = measure(text, size);
+  if (w <= maxWidth) return { text, size };
+  const scaled = Math.max(min, Math.floor((size * maxWidth) / w));
+  if (measure(text, scaled) <= maxWidth) return { text, size: scaled };
+  let chars = Array.from(text);
+  while (chars.length && measure(`${chars.join('')}…`, min) > maxWidth) chars = chars.slice(0, -1);
+  return { text: `${chars.join('')}…`, size: min };
+}
+
 /* ---------- 一個框 ---------- */
 
 /** 窗的角半徑（比外框小一點） */
@@ -129,8 +165,15 @@ export function drawFrame(ctx: Ctx, o: FrameOptions, env: RenderEnv): void {
   const bw = frameBorder(d, o.h);
   const fillRule: CanvasFillRule = o.hole ? 'evenodd' : 'nonzero';
 
+  const room = o.room ?? Number.POSITIVE_INFINITY;
+
   ctx.save();
-  if (state === 'disabled') ctx.globalAlpha = 0.5;
+  if (o.clip) {
+    ctx.beginPath();
+    ctx.rect(o.clip.x, o.clip.y, o.clip.w, o.clip.h);
+    ctx.clip();
+  }
+  if (state === 'disabled') ctx.globalAlpha = DISABLED_ALPHA;
 
   /*
    * 1. 陰影或光暈：只畫在框的外面——剪掉框的內部再畫，所以半透明的框底不會被自己的陰影弄暗，有窗的框窗裡也沒有陰影。
@@ -141,14 +184,15 @@ export function drawFrame(ctx: Ctx, o: FrameOptions, env: RenderEnv): void {
   ctx.rect(o.x - 400, y - 400, o.w + 800, o.h + 800);
   traceFrame(ctx, o.x, y, o.w, o.h, d.corner, r, false);
   ctx.clip('evenodd');
+  /* 透明邊不夠時縮小模糊（系統按鈕的透明邊只有 12） */
   if (state === 'hover') {
     ctx.shadowColor = pal.glow;
-    ctx.shadowBlur = d.hoverGlow * sc;
+    ctx.shadowBlur = Math.min(d.hoverGlow, room) * sc;
   } else {
     ctx.shadowColor = pal.shadow;
     ctx.globalAlpha *= d.bgOpacity / 100;
-    ctx.shadowBlur = (state === 'active' ? 4 : 14) * sc;
-    ctx.shadowOffsetY = (state === 'active' ? 1 : 5) * sc;
+    ctx.shadowBlur = Math.min(state === 'active' ? 4 : 14, room * 0.6) * sc;
+    ctx.shadowOffsetY = Math.min(state === 'active' ? 1 : 5, room * 0.25) * sc;
   }
   ctx.fillStyle = '#000000';
   traceFrame(ctx, o.x, y, o.w, o.h, d.corner, r);
@@ -188,7 +232,7 @@ export function drawFrame(ctx: Ctx, o: FrameOptions, env: RenderEnv): void {
   ctx.lineJoin = 'round';
   if (state === 'hover') {
     ctx.shadowColor = pal.glow;
-    ctx.shadowBlur = d.hoverGlow * 0.6 * sc;
+    ctx.shadowBlur = Math.min(d.hoverGlow, room) * 0.6 * sc;
   }
   traceFrame(ctx, o.x, y, o.w, o.h, d.corner, r);
   ctx.stroke();
@@ -268,20 +312,53 @@ function drawCorners(ctx: Ctx, o: FrameOptions, y: number, r: number, bw: number
 function drawLabel(ctx: Ctx, o: FrameOptions, y: number, pal: Palette) {
   const size = o.fontSize ?? 24;
   const align = o.align ?? 'center';
-  ctx.save();
-  ctx.font = fontCssOf(o.design.font, size);
-  ctx.textBaseline = 'middle';
-  ctx.textAlign = align;
-  const pad = align === 'center' ? 24 : 36;
+  const pad = align === 'center' ? labelInset(o.design, o.w, o.h) : 36;
   const tx = align === 'center' ? o.x + o.w / 2 : o.x + pad;
   const ty = y + o.h / 2 + 1;
-  const maxW = Math.max(20, o.w - pad * 2);
+  drawFittedText(
+    ctx,
+    o.design,
+    pal,
+    o.label ?? '',
+    tx,
+    ty,
+    Math.max(20, o.w - pad * 2),
+    size,
+    align,
+  );
+}
+
+/** 一行字：放不下時縮小、再截斷（不橫向壓扁） */
+function drawFittedText(
+  ctx: Ctx,
+  design: Design,
+  pal: Palette,
+  text: string,
+  x: number,
+  y: number,
+  maxWidth: number,
+  size: number,
+  align: 'center' | 'left',
+) {
+  ctx.save();
+  ctx.textBaseline = 'middle';
+  ctx.textAlign = align;
+  const fit = fitLine(
+    (t, sz) => {
+      ctx.font = fontCssOf(design.font, sz);
+      return ctx.measureText(t).width;
+    },
+    text,
+    maxWidth,
+    size,
+  );
+  ctx.font = fontCssOf(design.font, fit.size);
   ctx.lineJoin = 'round';
   ctx.strokeStyle = pal.textEdge;
-  ctx.lineWidth = Math.max(3, size * 0.18);
-  ctx.strokeText(o.label ?? '', tx, ty, maxW);
+  ctx.lineWidth = Math.max(3, fit.size * 0.18);
+  ctx.strokeText(fit.text, x, y);
   ctx.fillStyle = pal.text;
-  ctx.fillText(o.label ?? '', tx, ty, maxW);
+  ctx.fillText(fit.text, x, y);
   ctx.restore();
 }
 
@@ -354,18 +431,17 @@ export function drawCenteredText(
 ): void {
   const t = text.replace(/\n/g, ' ');
   if (!t.trim()) return;
-  const pal = palette(design);
-  ctx.save();
-  ctx.font = fontCssOf(design.font, size);
-  ctx.textBaseline = 'middle';
-  ctx.textAlign = 'center';
-  ctx.lineJoin = 'round';
-  ctx.strokeStyle = pal.textEdge;
-  ctx.lineWidth = Math.max(3, size * 0.18);
-  ctx.strokeText(t, cx, cy + 1, Math.max(20, maxWidth));
-  ctx.fillStyle = pal.text;
-  ctx.fillText(t, cx, cy + 1, Math.max(20, maxWidth));
-  ctx.restore();
+  drawFittedText(
+    ctx,
+    design,
+    palette(design),
+    t,
+    cx,
+    cy + 1,
+    Math.max(20, maxWidth),
+    size,
+    'center',
+  );
 }
 
 /* ---------- 翻頁游標 ---------- */

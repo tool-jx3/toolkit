@@ -1,12 +1,13 @@
 /**
- * 測試與對等驗證用的入口 window.__uiFrame：讀狀態、素材清單、畫一張素材（PNG 的 data URL）、TyranoScript 程式碼、預覽的按鈕範圍。
+ * 測試與對等驗證用的入口 window.__uiFrame：讀狀態、素材清單、畫一張素材（PNG 的 data URL）、TyranoScript 程式碼、
+ * 資產庫裡的圖片 id。
  */
 import { useEffect } from 'react';
 import { makeCanvas } from '@/core/image';
 import { ensureAssetFonts } from './exporter';
 import { useMine } from './mine';
 import { partsOf, renderPart } from './parts';
-import { docNow, prefsNow, useSession } from './store';
+import { assets, docNow, prefsNow, useSession } from './store';
 import { tyranoCode } from './tyrano';
 
 declare global {
@@ -43,6 +44,8 @@ export function useTestHook() {
         return c.toDataURL('image/png');
       },
       code: () => tyranoCode(docNow(), docNow().base.name),
+      /** 資產庫（IndexedDB）裡的圖片 id */
+      assetIds: () => assets.ids(),
     };
   }, []);
 }

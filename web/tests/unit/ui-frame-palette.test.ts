@@ -11,6 +11,7 @@ import {
   rgbToOklch,
   tyranoColor,
 } from '../../src/tools/ui-frame/palette';
+import { DISABLED_ALPHA } from '../../src/tools/ui-frame/render';
 
 const opaque = (c: { r: number; g: number; b: number }) => ({ ...c, a: 1 });
 
@@ -100,7 +101,41 @@ describe('自動調色', () => {
       expect(rgbToOklch(h.panelMid).l).toBeGreaterThan(rgbToOklch(n.panelMid).l);
       expect(rgbToOklch(a.panelMid).l).toBeLessThan(rgbToOklch(n.panelMid).l);
       expect(rgbToOklch(x.border).c).toBeLessThan(rgbToOklch(n.border).c);
-      expect(x.text.a).toBeLessThan(1);
+      expect(rgbToOklch(x.text).c).toBeLessThan(0.01);
+    }
+  });
+
+  it('停用的字：整顆按鈕變淡（DISABLED_ALPHA）之後，和框底的對比仍 ≥ 3（黑、白、灰的背景上；所有色相、深淺，框底 80% 以上）', () => {
+    /* 和畫布一樣在 sRGB 上混色 */
+    const over = (top: { r: number; g: number; b: number }, a: number, bottom: typeof top) => ({
+      r: top.r * a + bottom.r * (1 - a),
+      g: top.g * a + bottom.g * (1 - a),
+      b: top.b * a + bottom.b * (1 - a),
+      a: 1,
+    });
+    const grounds = [
+      { r: 0, g: 0, b: 0 },
+      { r: 255, g: 255, b: 255 },
+      { r: 128, g: 128, b: 128 },
+    ];
+    const designs = [
+      ...PRESETS.map((p) => p.design),
+      ...KEYS.flatMap((keyColor) =>
+        (['dark', 'light'] as const).flatMap((polarity) =>
+          [80, 90, 100].map((bgOpacity) => ({ ...base, keyColor, polarity, bgOpacity })),
+        ),
+      ),
+    ];
+    for (const d of designs) {
+      const x = paletteRgba(d, 'disabled');
+      for (const g of grounds) {
+        const panel = over(x.panelMid, x.panelMid.a * DISABLED_ALPHA, g);
+        const text = over(x.text, x.text.a * DISABLED_ALPHA, panel);
+        expect(
+          contrastRatio(text, panel),
+          `${d.keyColor} ${d.polarity} ${d.bgOpacity}`,
+        ).toBeGreaterThanOrEqual(3);
+      }
     }
   });
 

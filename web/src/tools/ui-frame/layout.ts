@@ -2,7 +2,8 @@
  * 版面（規格 3.1、3.4，自訂）：所有部件的位置與大小都以 1920 × 1080 為準（原圖 px），
  * 1280 × 720 時乘上 2/3（尺寸、座標各自四捨五入）。
  *
- * 每個部件匯出成 PNG 時四周留透明邊（陰影、光暈、按下時往下沉的空間）：框類 24 px、按鈕 32 px；
+ * 每個部件匯出成 PNG 時四周留透明邊（陰影、光暈、按下時往下沉的空間）：框類 24 px、選項 24 px、系統按鈕 12 px
+ * （＝按鈕間隔的一半：相鄰的 PNG 剛好相接，可以點的範圍不重疊）；光暈與陰影畫在 PNG 的範圍內（預覽也一樣）。
  * 同一個按鈕的四種狀態大小相同。
  */
 import type { Design, Resolution } from './model';
@@ -11,8 +12,10 @@ export const BASE_W = 1920;
 export const BASE_H = 1080;
 /** 框類（訊息框、名字框、TRPG 的各種框）四周的透明邊 */
 export const FRAME_PAD = 24;
-/** 按鈕（選項、系統按鈕）四周的透明邊 */
-export const BUTTON_PAD = 32;
+/** 選項按鈕四周的透明邊（上下的間隔＝兩倍，PNG 不重疊） */
+export const CHOICE_PAD = 24;
+/** 系統按鈕四周的透明邊（＝按鈕間隔的一半，PNG 不重疊） */
+export const SYS_PAD = 12;
 /** 翻頁游標的 PNG 大小 */
 export const CURSOR_SIZE = 40;
 
@@ -36,8 +39,8 @@ export const screenSize = (res: Resolution) => ({ width: res, height: Math.round
 /* ---------- 文字冒險 ---------- */
 
 export const NAME_PLATE = { w: 320, h: 60, dx: 40, dy: -36 };
-export const SYS_BUTTON = { w: 120, h: 40, gap: 8, right: 20, above: 14 };
-export const CHOICE = { h: 68, top: 200, gap: 100 };
+export const SYS_BUTTON = { w: 112, h: 40, gap: 24, right: 20, above: 14 };
+export const CHOICE = { h: 68, top: 200, gap: 68 + 2 * 24 };
 /** 訊息框裡文字的範圍（相對於框） */
 export const MSG_TEXT = { left: 64, right: 64, top: 56, bottom: 40, size: 28, lineHeight: 46 };
 export const MSG_BOTTOM = 40;
@@ -72,7 +75,7 @@ export function novelLayout(d: Pick<Design, 'msgW' | 'msgH' | 'choiceW'>): Novel
   const total = n * SYS_BUTTON.w + (n - 1) * SYS_BUTTON.gap;
   const startX = msg.x + msg.w - SYS_BUTTON.right - total;
   /* 系統按鈕（含透明邊）碰到名字框時，整排移到名字框上方 */
-  const overlapsName = startX - BUTTON_PAD < name.x + name.w + FRAME_PAD + 8;
+  const overlapsName = startX - SYS_PAD < name.x + name.w + FRAME_PAD + 8;
   const sysY = overlapsName ? name.y - SYS_BUTTON.h - 16 : msg.y - SYS_BUTTON.h - SYS_BUTTON.above;
   const sys = Array.from({ length: n }, (_, i) => ({
     x: startX + i * (SYS_BUTTON.w + SYS_BUTTON.gap),
