@@ -907,6 +907,15 @@ export const TOOLS: readonly ToolEntry[] = [
       url: 'https://map-stage.pages.dev/',
     },
   },
+  {
+    id: 'handout-maker',
+    name: '線索道具產生器',
+    summary:
+      '做跑團用的線索道具圖：報紙剪報、通緝令、便條、便利貼、拍立得、系統視窗、遊戲的系統通知、終端機、手機簡訊、電子郵件，可以塗黑、蓋狀態印章、換紙張質感，匯出 PNG 或直接複製貼到 CCFOLIA。',
+    group: 'G6',
+    status: 'next',
+    inspiration: { name: 'KKumuu/trpgforkk', url: 'https://github.com/KKumuu/trpgforkk' },
+  },
 ];
 
 export function getTool(id: string): ToolEntry | undefined {
