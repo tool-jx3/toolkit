@@ -13,7 +13,7 @@ import {
 import {
   cycleBackground,
   debugState,
-  openFile,
+  openFiles,
   pickPsd,
   presetByNumber,
   redo,
@@ -60,6 +60,8 @@ export function App() {
       value: Object.freeze({
         state: debugState,
         still: () => getEngine()?.still(),
+        /* 每個部件目前的網格中心（轉頭時的移動量；see-through 的深度的 e2e 用） */
+        centers: () => getEngine()?.layerCenters() ?? {},
       }),
     });
     /* ?cam=1：開頁就開攝影機追蹤（F61） */
@@ -188,7 +190,7 @@ export function App() {
             onClick={redo}
             disabled={!canRedo}
           />
-          <WindowDrop label={S.dropOverlay} onDrop={(files) => files[0] && openFile(files[0])} />
+          <WindowDrop label={S.dropOverlay} onDrop={(files) => void openFiles(files)} />
         </>
       }
       settings={<SettingsPanel faceModel={faceModel} />}

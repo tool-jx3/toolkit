@@ -129,6 +129,10 @@ export interface Rig {
   anchors: RigAnchors;
   warnings: RigWarning[];
   synth: { eye: boolean; mouth: boolean };
+  /** 每個部件來自第幾個圖像圖層（imageLayersOf 的順序；內建差分是 -1）：深度 PSD 依這個對應（規格 F101） */
+  sources: number[];
+  /** 名稱已經分好左右、沒有再自動分左右的部件數（規格 F99） */
+  presplit: number;
 }
 
 /** 內建的閉眼／閉嘴差分（左眼、右眼、嘴巴） */
@@ -154,8 +158,8 @@ export class RigError extends Error {
  * 所以 Front_Hair、front-hair、前髪、bangs 都對到同一個部位。
  */
 export const ALIAS_GROUPS: Readonly<Record<string, string>> = {
-  'front hair': 'fronthair hairfront bangs fringe 前髪 まえがみ',
-  'back hair': 'backhair hairback 後ろ髪 後髪 うしろがみ',
+  'front hair': 'fronthair hairfront hairf bangs fringe 前髪 まえがみ',
+  'back hair': 'backhair hairback hairb 後ろ髪 後髪 うしろがみ',
   'side hair': 'sidehair hairside sidelock sidelocks 横髪 サイド髪 もみあげ',
   ahoge: 'ahoge アホ毛 あほ毛',
   hair: 'hair 髪 髪の毛 かみ',
@@ -239,6 +243,35 @@ export const SLOT_NAMES = Object.keys(SLOTS);
 
 const hasSlot = (name: string) => Object.hasOwn(SLOTS, name);
 
+/**
+ * 名稱裡可以帶左右的部位（規格 F98）：see-through 的 `--tblr_split` 把 handwear、eyewhite、irides、eyelash、eyebrow、ears
+ * 分成 `<標籤>-r`／`<標籤>-l`；閉眼、長閉眼是本站自己會分左右的部位，一起認。
+ */
+export const SIDE_SLOTS: ReadonlySet<string> = new Set([
+  'eyewhite',
+  'irides',
+  'eyelash',
+  'eyebrow',
+  'eye_close',
+  'eye_close2',
+  'handwear',
+  'ears',
+]);
+
+/** 名稱（不含左右）→ 部位與編號；認不得時 null */
+function slotOf(head: string): { base: string; num: string } | null {
+  if (/^(eye_?close|eye close|閉じ目)2$/.test(head)) return { base: 'eye_close2', num: '' };
+  const direct = canonical(head);
+  if (direct) return { base: direct, num: '' };
+  const m = /^(.+?)[ _-]?(\d+)$/.exec(head);
+  if (m) {
+    const h = m[1].trim();
+    const base = canonical(h) ?? (hasSlot(h) ? h : null);
+    if (base) return { base, num: m[2] };
+  }
+  return null;
+}
+
 /** 圖層名稱 → 正規名稱（規格 F13） */
 export function normName(raw: unknown): string {
   const n = String(raw ?? '')
@@ -262,6 +295,18 @@ export function normName(raw: unknown): string {
     const head = m[1].trim();
     const base = canonical(head) ?? (hasSlot(head) ? head : null);
     if (base) return `${base}_${m[2]}`;
+  }
+  /*
+   * 已經分好左右（規格 F98）：`irides-l`、`handwear-1-r`、`handwear-r-0`、`Eyebrow_L`…。
+   * see-through 的 `-r` 是角色的右邊＝畫面左邊，本站的 `_l` 是畫面左邊，所以 `-r`→`_l`、`-l`→`_r`。
+   */
+  const sm = /^(.+?)[ _-](l|r)(?:[ _-]?(\d+))?$/.exec(n);
+  if (sm) {
+    const slot = slotOf(sm[1].trim());
+    if (slot && SIDE_SLOTS.has(slot.base) && !(slot.num && sm[3])) {
+      const num = slot.num || sm[3] || '';
+      return `${slot.base}${num ? `_${num}` : ''}_${sm[2] === 'r' ? 'l' : 'r'}`;
+    }
   }
   return n;
 }
@@ -869,16 +914,16 @@ export function buildRig(psd: PsdRoot, opts: BuildRigOptions = {}): Rig {
   if (kids.length * W * H > 128_000_000) throw new RigError('memory');
 
   /* 整張畫布的透明度（去掉雜點） */
-  const entries: { name: string; layer: PsdNode; alpha: Uint8Array }[] = [];
-  for (const kid of kids) {
+  const entries: Entry[] = [];
+  kids.forEach((kid, src) => {
     const name = normName(kid.name);
     const fa = cleanAlpha(fullAlphaOf(kid, W, H), W, H, 40);
     if (!bboxOf(fa, W, H, 8)) {
       warnings.push({ code: 'emptyLayer', args: [name] });
-      continue;
+      return;
     }
-    entries.push({ name, layer: kid, alpha: fa });
-  }
+    entries.push({ name, layer: kid, alpha: fa, src });
+  });
   if (!entries.length) throw new RigError('noPixels');
   /* 單純的「hair」依繪製順序：在臉的上層＝瀏海、下層＝後髮（see-through 都叫 hair） */
   const faceIndex = entries.findIndex((e) => baseName(e.name) === 'face');
@@ -907,11 +952,36 @@ export function buildRig(psd: PsdRoot, opts: BuildRigOptions = {}): Rig {
     FACE = { cx: W / 2, cy: H * 0.3, x0: W * 0.35, x1: W * 0.65, y0: H * 0.1, y1: H * 0.5 };
   }
 
+  /* 名稱已經分好左右的圖層：有臉時依位置決定左右（規格 F98～F100） */
+  markPresplit(entries, W, H, faceAlpha ? FACE : null, warnings);
+
   /* 部件 */
   const parts: RigPart[] = [];
+  const srcOf = new Map<RigPart, number>();
   let z = 0;
+  let presplit = 0;
   const sided: Record<string, Uint8Array> = {};
+  const addSided = (key: string, a: Uint8Array) => {
+    const prev = sided[key];
+    if (!prev) sided[key] = a;
+    else for (let q = 0; q < a.length; q++) if (a[q] > prev[q]) prev[q] = a[q];
+  };
   for (const e of entries) {
+    if (e.side && e.stem) {
+      /* 名稱已經分好左右：整個圖層就是那一邊，不再分（規格 F99） */
+      const bn = baseName(e.stem);
+      const s = e.side === 'L' ? 'l' : 'r';
+      const slot = SLOTS[bn] as SlotInfo & { group: PartGroup };
+      const rec = makePart(`${e.stem}_${s}`, e.layer, e.alpha, null, W, H, slot, z, e.side, null);
+      if (rec) {
+        parts.push(rec);
+        srcOf.set(rec, e.src);
+        z++;
+        presplit++;
+        addSided(`${bn}|${s}`, new Uint8Array(e.alpha));
+      }
+      continue;
+    }
     const bn = baseName(e.name);
     const known = hasSlot(bn) ? SLOTS[bn] : null;
     let slot: {
@@ -940,13 +1010,11 @@ export function buildRig(psd: PsdRoot, opts: BuildRigOptions = {}): Rig {
         const rec = makePart(`${e.name}_${s}`, e.layer, e.alpha, m, W, H, slot, z, side, null);
         if (rec) {
           parts.push(rec);
+          srcOf.set(rec, e.src);
           z++;
           const ma = new Uint8Array(W * H);
           for (let q = 0; q < W * H; q++) ma[q] = m[q] ? e.alpha[q] : 0;
-          const sideKey = `${bn}|${s}`;
-          const prev = sided[sideKey];
-          if (!prev) sided[sideKey] = ma;
-          else for (let q = 0; q < ma.length; q++) if (ma[q] > prev[q]) prev[q] = ma[q];
+          addSided(`${bn}|${s}`, ma);
           got = true;
         }
       }
@@ -961,6 +1029,7 @@ export function buildRig(psd: PsdRoot, opts: BuildRigOptions = {}): Rig {
       const rec = makePart(e.name, e.layer, e.alpha, null, W, H, slot, z, null, strands);
       if (rec) {
         parts.push(rec);
+        srcOf.set(rec, e.src);
         z++;
       }
     } else if (slot.phys === 'sway') {
@@ -972,6 +1041,7 @@ export function buildRig(psd: PsdRoot, opts: BuildRigOptions = {}): Rig {
       const rec = makePart(e.name, e.layer, e.alpha, null, W, H, slot, z, null, sway);
       if (rec) {
         parts.push(rec);
+        srcOf.set(rec, e.src);
         z++;
       }
     } else {
@@ -979,6 +1049,7 @@ export function buildRig(psd: PsdRoot, opts: BuildRigOptions = {}): Rig {
       if (rec) {
         if (slot.unknown) rec.unknown = true;
         parts.push(rec);
+        srcOf.set(rec, e.src);
         z++;
       }
     }
@@ -1110,7 +1181,83 @@ export function buildRig(psd: PsdRoot, opts: BuildRigOptions = {}): Rig {
   }
   for (let i = 0; i < parts.length; i++) parts[i].z = i;
 
-  return { canvas: { w: W, h: H }, layers: parts, anchors, warnings, synth };
+  return {
+    canvas: { w: W, h: H },
+    layers: parts,
+    anchors,
+    warnings,
+    synth,
+    sources: parts.map((p) => srcOf.get(p) ?? -1),
+    presplit,
+  };
+}
+
+interface Entry {
+  name: string;
+  layer: PsdNode;
+  alpha: Uint8Array;
+  /** 第幾個圖像圖層（imageLayersOf 的順序） */
+  src: number;
+  /** 名稱已經分好左右時：哪一邊、去掉左右的名稱（`handwear_1`） */
+  side?: Side;
+  stem?: string;
+}
+
+/** 單層的部件：重心離臉中心在臉寬的這個比例以內時，左右照名稱（規格 F100） */
+export const SIDE_NAME_MARGIN = 0.05;
+
+/**
+ * 名稱已經分好左右的圖層（`eyewhite_l`…，normName 已經把 see-through 的方向換成本站的；規格 F99、F100）。
+ * - 同一部位（含編號）兩邊的名稱都有：比兩邊的重心（透明度加權）x，小的是左（畫面左邊），不看臉中心；
+ *   和名稱相反時整個部位對調，警告一次（args：部位、'pair'）。
+ * - 只有一邊（單層，或同一邊好幾層）：每一層的重心在臉中心的左邊＝左、右邊＝右（和 F21 同一個基準）；
+ *   沒有臉、或重心離臉中心在臉寬 × 0.05 以內時照名稱。和名稱不同時警告一次（args：部位、實際的 'L'／'R'）。
+ */
+function markPresplit(
+  entries: Entry[],
+  W: number,
+  H: number,
+  face: FaceAnchor | null,
+  warnings: RigWarning[],
+): void {
+  const stems = new Map<string, Entry[]>();
+  const named = new Map<Entry, Side>();
+  for (const e of entries) {
+    const m = /^(.+)_(l|r)$/.exec(e.name);
+    if (!m || !SIDE_SLOTS.has(baseName(m[1]))) continue;
+    e.stem = m[1];
+    e.side = m[2] === 'l' ? 'L' : 'R';
+    named.set(e, e.side);
+    const list = stems.get(m[1]) ?? [];
+    list.push(e);
+    stems.set(m[1], list);
+  }
+  const margin = face ? Math.max(1, face.x1 - face.x0) * SIDE_NAME_MARGIN : 0;
+  for (const [stem, list] of stems) {
+    const left = list.filter((e) => named.get(e) === 'L');
+    const right = list.filter((e) => named.get(e) === 'R');
+    if (left.length && right.length) {
+      const cx = (group: Entry[]) => {
+        const a = mergeAlphas(group, W, H);
+        return a ? (centroidOf(a, W, H)?.cx ?? null) : null;
+      };
+      const l = cx(left);
+      const r = cx(right);
+      if (l === null || r === null || l <= r) continue;
+      for (const e of list) e.side = named.get(e) === 'L' ? 'R' : 'L';
+      warnings.push({ code: 'sideSwapped', args: [stem, 'pair'] });
+      continue;
+    }
+    let flipped: Side | null = null;
+    for (const e of list) {
+      if (!face) continue;
+      const c = centroidOf(e.alpha, W, H);
+      if (!c || Math.abs(c.cx - face.cx) <= margin) continue;
+      e.side = c.cx < face.cx ? 'L' : 'R';
+      if (e.side !== named.get(e)) flipped = e.side;
+    }
+    if (flipped) warnings.push({ code: 'sideSwapped', args: [stem, flipped] });
+  }
 }
 
 /**

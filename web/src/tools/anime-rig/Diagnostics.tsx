@@ -3,8 +3,11 @@
  */
 import { CircleAlert, CircleCheck, Sparkles, TriangleAlert } from 'lucide-react';
 import type { ReactNode } from 'react';
+import { depthMapOf } from './actions';
+import { baseName } from './rigger';
 import { warningText } from './rigText';
-import { type ModelInfo, useSession } from './store';
+import type { SeeThroughSetting } from './runtime';
+import { type ModelInfo, useEdit, useSession } from './store';
 import { S } from './strings';
 
 export type DiagLevel = 'ok' | 'warn' | 'bad' | 'auto';
@@ -15,8 +18,11 @@ export interface DiagItem {
   note?: string;
 }
 
-/** 檢查清單（順序、判斷照原作） */
-export function diagnose(m: ModelInfo): DiagItem[] {
+/**
+ * 檢查清單（順序、判斷照原作）。see-through 相容（規格 1.15）的項目放在最後，只有用到時才出現：
+ * 名稱已分好左右的圖層、左右名稱和位置相反的警告、深度。
+ */
+export function diagnose(m: ModelInfo, seeThrough: SeeThroughSetting | null = null): DiagItem[] {
   const out: DiagItem[] = [];
   const real = (bn: string) => m.layers.filter((l) => l.bn === bn && !l.synthetic);
   const synth = (bn: string) => m.layers.some((l) => l.bn === bn && l.synthetic);
@@ -70,7 +76,34 @@ export function diagnose(m: ModelInfo): DiagItem[] {
   for (const w of m.warnings) {
     if (w.code === 'emptyLayer' || w.code === 'eyeAnchor') add('warn', warningText(w));
   }
+  if (m.presplit) add('ok', S.diag.presplit, S.diag.presplitNote(m.presplit));
+  for (const w of m.warnings) {
+    if (w.code !== 'sideSwapped') continue;
+    const [stem = '', actual = ''] = w.args;
+    add('warn', S.diag.sideSwapped(stemLabel(stem, actual), actual));
+  }
+  if (seeThrough) {
+    const map = depthMapOf(m, seeThrough);
+    const n = Object.keys(seeThrough.values).length;
+    if (map.reason) add('warn', S.diag.depth, S.depth.mapFailed(S.depth.reasons[map.reason]));
+    else if (!seeThrough.on) add('ok', S.diag.depth, S.diag.depthOff);
+    else
+      add(
+        'ok',
+        S.diag.depth,
+        S.diag.depthNote(n, m.layers.filter((l) => !l.synthetic).length, map.scale ?? 0),
+      );
+  }
   return out;
+}
+
+/** 部位（`handwear_1` 等）在介面上的名稱：中文部位名＋編號（＋單層時的左右） */
+export function stemLabel(stem: string, side = ''): string {
+  const bn = baseName(stem);
+  const num = stem.slice(bn.length).replace(/^_/, '');
+  const role = S.roles[bn] ?? bn;
+  const lr = side === 'L' ? ` · ${S.sideL}` : side === 'R' ? ` · ${S.sideR}` : '';
+  return `${role}${num ? ` ${num}` : ''}${lr}`;
 }
 
 const ICON: Record<DiagLevel, ReactNode> = {
@@ -82,6 +115,7 @@ const ICON: Record<DiagLevel, ReactNode> = {
 
 export function DiagnosticsPanel() {
   const m = useSession((s) => s.model);
+  const seeThrough = useEdit((s) => s.data.seeThrough);
   if (!m) return <p className="m-0 text-sm text-muted">{S.infoNone}</p>;
   const nStrands = m.layers.reduce((s, l) => s + l.strands, 0);
   return (
@@ -100,7 +134,7 @@ export function DiagnosticsPanel() {
         ) : null}
       </p>
       <ul className="m-0 flex list-none flex-col gap-1 p-0" aria-label={S.diagAria}>
-        {diagnose(m).map((d) => (
+        {diagnose(m, seeThrough).map((d) => (
           <li
             key={`${d.text}|${d.note ?? ''}`}
             className="flex items-start gap-1.5 text-sm"

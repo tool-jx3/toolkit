@@ -90,6 +90,7 @@ export const SETTINGS_ERRORS = {
   param: (k: string) => `數值設定不正確：${k}`,
   auto: '自動動作的設定不正確。',
   layers: '圖層設定不正確。',
+  seeThrough: '深度的設定不正確。',
 } as const;
 
 /**
@@ -130,6 +131,21 @@ export interface LayerSetting {
   depth: number;
 }
 
+/**
+ * see-through 的深度（規格 1.15、3.3）：讀進來的每個部件的深度（0＝近、1＝遠）與開關、強度。
+ * 存在設定裡，下次只讀彩色的 PSD 也還原得到。
+ */
+export interface SeeThroughSetting {
+  /** 用深度 PSD 決定轉頭的深度 */
+  on: boolean;
+  /** 0＝部位表、1＝換算後的深度 */
+  strength: number;
+  /** 讀入的檔名（顯示用） */
+  file: string;
+  /** 部件代號（「繪製順序:名稱」）→ see-through 的深度 */
+  values: Record<string, number>;
+}
+
 /** 設定 JSON（規格 3.3） */
 export interface SettingsFile {
   format: typeof SETTINGS_FORMAT;
@@ -144,6 +160,8 @@ export interface SettingsFile {
   /** 繪製順序（第一個在最後面） */
   layers: LayerSetting[];
   anchors?: AnchorOffsets;
+  /** see-through 的深度（本站新增；沒有深度時不寫） */
+  seeThrough?: SeeThroughSetting;
 }
 
 export interface ParsedSettings {
@@ -157,6 +175,8 @@ export interface ParsedSettings {
   missingLayers: number;
   /** 設定寫了、這個模型沒有的圖層數 */
   unknownLayers: number;
+  /** see-through 的深度（沒有、或沒有一個圖層對得上時不寫） */
+  seeThrough?: SeeThroughSetting;
 }
 
 export interface ParseSettingsOptions {
@@ -239,7 +259,37 @@ export function parseSettings(
   out.missingLayers = layerIds.filter((id) => !seen.has(id)).length;
   if (isBackground(v.background)) out.background = v.background;
   out.anchors = sanitizeAnchors(v.anchors, options.anchorLimit);
+  const st = parseSeeThrough(v.seeThrough, known);
+  if (st) out.seeThrough = st;
   return out;
+}
+
+/** 設定裡的 see-through 深度：結構不對時丟 Error；值夾 0～1、只留這個模型有的圖層 */
+function parseSeeThrough(value: unknown, known: ReadonlySet<string>): SeeThroughSetting | null {
+  if (value == null) return null;
+  const st = value as Partial<Record<keyof SeeThroughSetting, unknown>>;
+  if (
+    typeof st !== 'object' ||
+    Array.isArray(st) ||
+    typeof st.on !== 'boolean' ||
+    !isNum(st.strength) ||
+    !st.values ||
+    typeof st.values !== 'object' ||
+    Array.isArray(st.values)
+  )
+    throw new Error(SETTINGS_ERRORS.seeThrough);
+  const values: Record<string, number> = {};
+  for (const [id, n] of Object.entries(st.values as Record<string, unknown>)) {
+    if (!isNum(n)) throw new Error(SETTINGS_ERRORS.seeThrough);
+    if (known.has(id)) values[id] = clamp(n, 0, 1);
+  }
+  if (!Object.keys(values).length) return null;
+  return {
+    on: st.on,
+    strength: clamp(st.strength, 0, 1),
+    file: typeof st.file === 'string' ? st.file.slice(0, 200) : '',
+    values,
+  };
 }
 
 /** 存檔裡的圖層順序併進目前的圖層：存檔沒提到的圖層留在原本的鄰居後面 */

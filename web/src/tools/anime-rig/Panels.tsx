@@ -44,7 +44,7 @@ import {
 } from './actions';
 import { DiagnosticsPanel } from './Diagnostics';
 import { faceModelSpec } from './faceModel';
-import { LayersPanel } from './LayersPanel';
+import { DEPTH_TEXTS, LayersPanel } from './LayersPanel';
 import { BackgroundPicker } from './Preview';
 import {
   AUTO_KEYS,
@@ -123,7 +123,10 @@ function sectionTexts(id: SectionId): string[] {
     case 'background':
       return Object.values(S.backgrounds);
     case 'layers':
-      return (model?.layers ?? []).flatMap((l) => [l.source, l.name, S.roles[l.bn] ?? '']);
+      return [
+        ...(model?.layers ?? []).flatMap((l) => [l.source, l.name, S.roles[l.bn] ?? '']),
+        ...(model ? DEPTH_TEXTS : []),
+      ];
     case 'info':
       return [];
   }

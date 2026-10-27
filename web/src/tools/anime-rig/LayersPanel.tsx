@@ -1,6 +1,7 @@
 /**
  * 圖層清單（規格 1.11）：上面在後、下面在前；縮圖、原名、角色；顯示／隱藏、拖曳或按鈕調整順序、
  * 展開調整濃度與深度、滑過時在預覽上標出範圍、重設圖層設定。
+ * see-through 的深度（規格 1.15）：加入深度 PSD、開關、強度、對應的結果。
  */
 import {
   ArrowDown,
@@ -13,11 +14,22 @@ import {
 } from 'lucide-react';
 import { useContext, useState } from 'react';
 import { historyGesture } from '@/core/storage';
-import { Button, Field, IconButton, Slider, SortableList, ThumbnailImage } from '@/ui';
-import { moveLayer, resetLayers, setLayer } from './actions';
+import { Button, Field, IconButton, Slider, SortableList, ThumbnailImage, Toggle } from '@/ui';
+import {
+  depthDefaults,
+  depthMapOf,
+  moveLayer,
+  pickDepthFiles,
+  removeSeeThrough,
+  resetLayers,
+  setLayer,
+  setSeeThroughOn,
+  setSeeThroughStrength,
+} from './actions';
+import { stemLabel } from './Diagnostics';
 import type { LayerSetting } from './runtime';
-import { SearchCtx } from './search';
-import { type LayerInfo, useEdit, useSession } from './store';
+import { hit, SearchCtx } from './search';
+import { type LayerInfo, type ModelInfo, useEdit, useSession } from './store';
 import { S } from './strings';
 
 const g = historyGesture(useEdit);
@@ -39,11 +51,14 @@ function LayerRow({
   info,
   index,
   count,
+  depthNote,
 }: {
   setting: LayerSetting;
   info: LayerInfo;
   index: number;
   count: number;
+  /** see-through 的深度（有時） */
+  depthNote?: string;
 }) {
   const [open, setOpen] = useState(false);
   const name = info.source || info.name;
@@ -134,8 +149,132 @@ function LayerRow({
               precision={2}
             />
           </Field>
+          {depthNote ? <p className="m-0 text-xs text-muted">{depthNote}</p> : null}
         </div>
       ) : null}
+    </div>
+  );
+}
+
+/** 部件在介面上的名稱（中文部位名＋編號＋左右；未分類的用原名） */
+export function partLabel(info: LayerInfo): string {
+  if (!S.roles[info.bn]) return info.source || info.name;
+  return stemLabel(info.name.replace(/_(l|r)$/, ''), info.side ?? '');
+}
+
+/** 深度區塊裡可以搜尋的文字 */
+export const DEPTH_TEXTS = [
+  S.depth.title,
+  S.depth.add,
+  S.depth.on,
+  S.depth.strength,
+  'see-through',
+];
+
+/** see-through 的深度（規格 F103～F105） */
+function DepthPanel({ model }: { model: ModelInfo }) {
+  const st = useEdit((s) => s.data.seeThrough);
+  const report = useSession((s) => s.depthReport);
+  const busy = useSession((s) => s.depthBusy);
+  const map = st ? depthMapOf(model, st) : null;
+  const n = st ? Object.keys(st.values).length : 0;
+  const infoById = new Map(model.layers.map((l) => [l.id, l]));
+  /* 換算的部件：目前的開關、強度下和臉相比的前後（由前到後） */
+  const defaults = st?.on ? depthDefaults(model, st) : null;
+  const offsets =
+    map && defaults
+      ? Object.keys(map.mapped)
+          .map((id) => ({ id, d: (defaults.get(id) ?? 1) - 1 }))
+          .sort((a, b) => b.d - a.d)
+          .map(({ id, d }) => S.depth.offsetItem(partLabel(infoById.get(id) as LayerInfo), d))
+      : [];
+  const clamped = (map?.clamped ?? []).map((c) =>
+    S.depth.clampedItem(partLabel(infoById.get(c.id) as LayerInfo), c.from, c.to),
+  );
+  return (
+    <div
+      className="flex flex-col gap-2 rounded-md border border-border p-2"
+      data-testid="depth-panel"
+    >
+      <div className="flex flex-col gap-0.5">
+        <span className="text-sm font-semibold text-fg">{S.depth.title}</span>
+        <span className="text-xs text-muted">{S.depth.hint}</span>
+      </div>
+      {st ? (
+        <div className="flex flex-col gap-1">
+          <p className="m-0 text-xs text-fg" data-testid="depth-summary">
+            {report
+              ? S.depth.summary(report.file, report.matched, report.total)
+              : S.depth.restored(n)}
+          </p>
+          {offsets.length ? (
+            <p className="m-0 text-xs text-fg" data-testid="depth-offsets">
+              {S.depth.offsets(offsets.join('、'))}
+            </p>
+          ) : null}
+          {map?.limit ? (
+            <p className="m-0 text-xs text-warning" data-depth-issue={`limit-${map.limit}`}>
+              {S.depth.limit(map.limit === 'max')}
+            </p>
+          ) : null}
+          {clamped.length ? (
+            <p className="m-0 text-xs text-muted" data-testid="depth-clamped">
+              {S.depth.clamped(clamped.join('、'))}（{S.depth.clampNote}）
+            </p>
+          ) : null}
+          {map?.scale != null && map.face != null ? (
+            <details className="text-xs">
+              <summary className="cursor-pointer text-muted">{S.depth.details}</summary>
+              <p className="m-0 mt-1 text-muted" data-testid="depth-scale">
+                {S.depth.scale(map.scale, map.face)}
+              </p>
+            </details>
+          ) : null}
+        </div>
+      ) : (
+        <p className="m-0 text-xs text-muted">{S.depth.none}</p>
+      )}
+      {report?.error ? <p className="m-0 text-xs text-warning">{report.error}</p> : null}
+      {report?.issues.map((i) => (
+        <p key={i.code} className="m-0 text-xs text-warning" data-depth-issue={i.code}>
+          {S.depth.issue(i)}
+        </p>
+      ))}
+      {map?.reason ? (
+        <p className="m-0 text-xs text-warning" data-depth-issue={map.reason}>
+          {S.depth.mapFailed(S.depth.reasons[map.reason])}
+        </p>
+      ) : null}
+      {st ? (
+        <>
+          <Field label={S.depth.on} layout="inline" hint={S.depth.onHint}>
+            <Toggle checked={st.on} onCheckedChange={setSeeThroughOn} />
+          </Field>
+          <Field label={S.depth.strength} hint={S.depth.strengthHint}>
+            <Slider
+              aria-label={S.depth.strength}
+              value={st.strength}
+              disabled={!st.on}
+              onChange={g.live((v: number) => setSeeThroughStrength(v))}
+              onCommit={g.commit}
+              min={0}
+              max={1}
+              step={0.05}
+              precision={2}
+            />
+          </Field>
+        </>
+      ) : null}
+      <div className="flex flex-wrap gap-1.5">
+        <Button size="sm" variant="secondary" disabled={busy} onClick={() => void pickDepthFiles()}>
+          {S.depth.add}
+        </Button>
+        {st ? (
+          <Button size="sm" variant="secondary" onClick={removeSeeThrough}>
+            {S.depth.remove}
+          </Button>
+        ) : null}
+      </div>
     </div>
   );
 }
@@ -143,8 +282,16 @@ function LayerRow({
 export function LayersPanel() {
   const model = useSession((s) => s.model);
   const layers = useEdit((s) => s.data.layers);
+  const st = useEdit((s) => s.data.seeThrough);
   const { q, all } = useContext(SearchCtx);
   if (!model) return <p className="m-0 text-sm text-muted">{S.layersEmpty}</p>;
+  const mapped = st ? depthMapOf(model, st).mapped : null;
+  const depthNote = (info: LayerInfo) => {
+    const v = st?.values[info.id];
+    return v === undefined
+      ? undefined
+      : S.depth.layerValue(v, mapped?.[info.id], info.defaultDepth);
+  };
   const infoById = new Map(model.layers.map((l) => [l.id, l]));
   const matches = (info: LayerInfo) =>
     !q || all || [info.source, info.name, layerRole(info)].some((t) => t.toLowerCase().includes(q));
@@ -153,6 +300,7 @@ export function LayersPanel() {
     return info && matches(info);
   });
   const filtered = items.length !== layers.length;
+  const showDepth = !q || all || hit(q, ...DEPTH_TEXTS);
   return (
     <div className="flex flex-col gap-2">
       <div>
@@ -160,6 +308,7 @@ export function LayersPanel() {
           {S.layersReset}
         </Button>
       </div>
+      {showDepth ? <DepthPanel model={model} /> : null}
       <SortableList<LayerSetting>
         aria-label={S.layersAria}
         items={items}
@@ -175,6 +324,7 @@ export function LayersPanel() {
             info={infoById.get(l.id) as LayerInfo}
             index={filtered ? layers.indexOf(l) : index}
             count={layers.length}
+            depthNote={depthNote(infoById.get(l.id) as LayerInfo)}
           />
         )}
       />
