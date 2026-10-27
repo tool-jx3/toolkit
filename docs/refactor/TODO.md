@@ -9,7 +9,9 @@
 
 ## 進行中
 
-（目前沒有）
+- color-palette 併入「色票櫃」與配色卡：[saturn97v/Color-shelf](https://github.com/saturn97v/Color-shelf)（캐릭터 컬러 정리함，未授權）——圓形頭像、髮色／瞳色、
+  依顏色排序的總覽櫃、點色塊複製色碼、個人色碼表、備份還原；[dearmysn1p3r/Colorpalettecard_Maker](https://github.com/dearmysn1p3r/Colorpalettecard_Maker)（未授權）——
+  k-means 自動取 N 色、色名、一鍵複製 HEX、「照片色票卡」版型。和現有的配色條共用角色清單與滴管。
 
 ## 一、已收錄工具的原作更新
 
@@ -45,7 +47,6 @@
 | scenario-text | [kanokanochan/scenario-to-ccfolia](https://github.com/kanokanochan/scenario-to-ccfolia)、[kai-maru9/ccfolia-paste](https://github.com/kai-maru9/ccfolia-paste) | 未授權（前者內含 AGPL 的 MuPDF，只參考功能，PDF 用 pdf.js） | PDF／TXT 匯入、整理貼上的文字 | 中 |
 | cutin、coc-typesetter | [G909G09/Cocofolia-Setter](https://github.com/G909G09/Cocofolia-Setter) | 未授權 | 配合演出長度的無聲 MP3（cutin）；CoC 6 版 → 7 版數值換算（coc-typesetter） | 小 |
 | （簡轉繁） | [756y/TXT-](https://github.com/756y/TXT-) | 未授權 | 簡體轉繁體（scenario-text 或 log-converter） | 小 |
-| color-palette | [dearmysn1p3r/Colorpalettecard_Maker](https://github.com/dearmysn1p3r/Colorpalettecard_Maker) | 未授權 | k-means 自動取 N 色、色名、一鍵複製 HEX；「照片色票卡」版型 | 小～中 |
 | pair-maker | [dearmysn1p3r/DearMySn1p3r_24](https://github.com/dearmysn1p3r/DearMySn1p3r_24)、[_25](https://github.com/dearmysn1p3r/DearMySn1p3r_25) | 未授權 | PC 設定資料表、自我介紹卡兩個版型 | 小～中 |
 | prose-card | [dearmysn1p3r/DearMySn1p3r_12](https://github.com/dearmysn1p3r/DearMySn1p3r_12)、[_47](https://github.com/dearmysn1p3r/DearMySn1p3r_47) | 未授權 | 尺寸、對話行樣式、筆記本橫線與裝飾、作品組；原作 10-24 還在加自訂 HTML／CSS 裝飾層，等穩定再讀 | 小～中 |
 | anime-rig | [shinshin86/mesh-avatar-studio](https://github.com/shinshin86/mesh-avatar-studio)（Player：https://shinshin86.github.io/mesh-avatar-studio/play/） | MIT（範例角色 Miko 另有條款，不放進本站） | 光照（拖曳光源、跟著動的陰影、最多 8 組預設與快捷鍵）；讀入 .mavatar 檔播放（可用 npm 的 mesh-avatar 執行環境，MIT）。做 .mavatar 本身要原作的本機 Studio＋程式助手＋Python，網頁上做不到；使用者 2026-10-25 決定先不做 | 小～中 |
@@ -100,3 +101,4 @@
 - 2026-10-27：使用者提供 KIIN 的ノベワク STUDIO，做成新工具「UI 框素材產生器」（兩種模式都做）。
 - 2026-10-27：完成並移出清單——線索道具產生器（handout-maker）、團期行事曆（session-calendar，台灣假日共用模組 core/holidays、送到跑團紀錄簿）、
   UI 框素材產生器（ui-frame）。
+- 2026-10-27：使用者提供 saturn97v/Color-shelf（當天建立），併進 color-palette，並一起做待做清單裡的 Colorpalettecard_Maker（最後更新 2026-09-14）。
