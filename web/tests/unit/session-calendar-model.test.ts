@@ -134,7 +134,10 @@ describe('多日的預定', () => {
     expect(huge.size).toBe(365);
     expect(huge.get('2026-12-31')).toMatchObject({ head: false, tail: false });
     /* 很長的預定裡的一天場次照樣看得到 */
-    const inside = yearMarks([plan('2025-01-01', '2027-06-30', 'huge'), plan('2026-10-14', '2026-10-14', 'one')], 2026);
+    const inside = yearMarks(
+      [plan('2025-01-01', '2027-06-30', 'huge'), plan('2026-10-14', '2026-10-14', 'one')],
+      2026,
+    );
     expect(inside.get('2026-10-14')?.entry.title).toBe('one');
     expect(inside.get('2026-10-13')?.entry.title).toBe('huge');
   });
