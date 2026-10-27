@@ -127,6 +127,35 @@ export function pushColorHistory(c: EntryColor): void {
   usePrefs.getState().patch({ colorHistory: [c, ...list].slice(0, COLOR_HISTORY_MAX) });
 }
 
+/* ---------- 今天（過了午夜、頁面重新顯示時更新） ---------- */
+
+export const useTodayStore = create<{ today: string }>(() => ({ today: today() }));
+/** 畫面上用的「今天」：TodayTicker 在過午夜與頁面重新顯示時更新 */
+export const useToday = (): string => useTodayStore((s) => s.today);
+export function refreshToday(): void {
+  const t = today();
+  if (useTodayStore.getState().today !== t) useTodayStore.setState({ today: t });
+}
+
+/* ---------- 對話框關閉後的焦點 ---------- */
+
+let returnFocusEl: HTMLElement | null = null;
+/**
+ * 從選單（「新增 ▾」「匯入匯出 ▾」）打開的對話框：選單項目在對話框打開時已經不在了，關閉後焦點會掉到頁面上，
+ * 所以記下選單的按鈕，關閉時把焦點放回去。
+ */
+export function returnFocusTo(el: HTMLElement | null): void {
+  returnFocusEl = el;
+}
+export function restoreFocus(): void {
+  const el = returnFocusEl;
+  returnFocusEl = null;
+  if (el)
+    window.setTimeout(() => {
+      if (el.isConnected) el.focus();
+    }, 0);
+}
+
 /* ---------- 畫面狀態 ---------- */
 
 export type EntryDialogState =
@@ -202,14 +231,21 @@ export const openNewEntry = (kind: EntryKind, start?: string, end?: string): voi
 };
 export const openEditEntry = (id: string): void =>
   useUi.setState({ entryDialog: { mode: 'edit', id } });
-export const closeEntryDialog = (): void => useUi.setState({ entryDialog: null });
-export const closeTaskDialog = (): void => useUi.setState({ taskDialog: null });
+export const closeEntryDialog = (): void => {
+  useUi.setState({ entryDialog: null });
+  restoreFocus();
+};
+export const closeTaskDialog = (): void => {
+  useUi.setState({ taskDialog: null });
+  restoreFocus();
+};
 
 /* ---------- 一筆的操作（每次都是一步復原） ---------- */
 
 /**
  * 一次的操作（新增、刪除、移動、勾選…）各自記成一步復原：包成只有一次變更的手勢
- * （不然 0.4 秒內接連的操作會併成一步）。外觀的滑桿、文字欄這類連續的變更用 patchLook／patchData（0.4 秒內合成一步）。
+ * （不然 0.4 秒內接連的操作會併成一步）。外觀與設定的變更用 patchLook／patchData：和上一次變更相隔不到 0.4 秒就併進同一步
+ * （連續拖滑桿、打字是一步）。
  */
 const update = (recipe: (d: CalData) => void) => {
   if (useCal.inGesture()) {

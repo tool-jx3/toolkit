@@ -147,16 +147,43 @@ export function logStatusOf(status: unknown): string {
   return s ? canonicalStatus(s) : '';
 }
 
+/** PC 空白時的佔位（紀錄簿的 PL、PC 欄依順序配對，空白會被拆分略過，所以要佔位才不會錯位） */
+export const PC_PLACEHOLDER = '—';
+
+/**
+ * 參加者 → 紀錄簿的 PL 欄與 PC 欄（「、」連接、同順序一一對應）：
+ * 有 PL 的排前面、只有 PC 的排最後（PL 欄不放佔位，同團玩家的人數才不會多算）；
+ * PC 空白而後面還有 PC 時寫佔位「—」，最後面連續空白的 PC 不寫（紀錄簿配對時本來就補空白）。
+ */
+export function pairedPeople(players: readonly Partial<LogImportPlayer>[]): {
+  players: string;
+  pcs: string;
+} {
+  const list = players
+    .map((p) => ({ pl: str(p?.pl).trim(), pc: str(p?.pc).trim() }))
+    .filter((p) => p.pl || p.pc);
+  const ordered = [...list.filter((p) => p.pl), ...list.filter((p) => !p.pl)];
+  const pcs = ordered.map((p) => p.pc);
+  while (pcs.length && !pcs[pcs.length - 1]) pcs.pop();
+  return {
+    players: ordered
+      .filter((p) => p.pl)
+      .map((p) => p.pl)
+      .join('、'),
+    pcs: pcs.map((pc) => pc || PC_PLACEHOLDER).join('、'),
+  };
+}
+
 /**
  * 交接資料的一個項目 → 紀錄簿的一團（部分欄位；之後由紀錄簿照匯入的規則補身分、識別碼）：
- * 日期清單、劇本、系統（匯入別名 → 正規值）、GM、PL（「、」連接）、PC（與 PL 同順序，「、」連接）、狀態、
+ * 日期清單、劇本、系統（匯入別名 → 正規值）、GM、PL 與 PC（pairedPeople：一一對應、PC 空白時佔位）、狀態、
  * 時間（開始到結束的小時數）、備註、主題標籤（空白連接）、貼文／連結（有網址的相關連結）、形式（原文，表格不顯示、照樣保留）。
  */
 export function logRowFromImportItem(item: Partial<LogImportItem>): Partial<SessionRow> {
   const dates = normalizeDates(Array.isArray(item.dates) ? item.dates : [item.latestDate]);
-  const players = Array.isArray(item.players) ? item.players : [];
-  const pls = players.map((p) => str(p?.pl).trim());
-  const pcs = players.map((p) => str(p?.pc).trim());
+  const { players: plText, pcs: pcText } = pairedPeople(
+    Array.isArray(item.players) ? item.players : [],
+  );
   const media: SessionMedia[] = (Array.isArray(item.links) ? item.links : [])
     .filter((l) => str(l?.url).trim())
     .map((l) => ({ type: 'link', url: str(l.url).trim(), caption: str(l.label).trim() }));
@@ -166,8 +193,8 @@ export function logRowFromImportItem(item: Partial<LogImportItem>): Partial<Sess
     scenario: str(item.scenario).trim(),
     system: item.system ? importSystem(str(item.system)) : '',
     gm: str(item.gm).trim(),
-    players: pls.filter(Boolean).join('、'),
-    pc: pcs.filter(Boolean).join('、'),
+    players: plText,
+    pc: pcText,
     status: logStatusOf(item.status),
     time: hoursBetween(item.startTime, item.endTime),
     note: str(item.memo).trim(),

@@ -2,9 +2,10 @@
  * 右側（窄畫面在下方）：選取的那一筆的詳細或選取那一天的清單（F31～F33）、今天的預定（F26）、準備事項清單（F27～F30）。
  */
 import { ExternalLink, GripVertical, Pencil, Send, Trash2, X } from 'lucide-react';
+import { type RefObject, useEffect, useRef } from 'react';
 import { holidayOf } from '@/core/holidays';
 import { Button, Checkbox, cn, IconButton, Segmented, SortableList, useConfirm } from '@/ui';
-import { formatDay, formatRange, formatShort, today, weekRange } from './dates';
+import { formatDay, formatRange, formatShort, weekRange } from './dates';
 import { entriesOn } from './layout';
 import { colorCss, type Entry, entryTitle, timeRange } from './model';
 import { notify } from './notify';
@@ -18,6 +19,7 @@ import {
   setTaskDone,
   useCal,
   usePrefs,
+  useToday,
   useUi,
 } from './store';
 import { S } from './strings';
@@ -79,7 +81,7 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
 
 function EntryDetail({ entry }: { entry: Entry }) {
   const confirm = useConfirm();
-  const t = today();
+  const t = useToday();
   const session = entry.kind === 'session';
   const remove = async () => {
     const ok = await confirm({
@@ -245,17 +247,53 @@ function EntryDetail({ entry }: { entry: Entry }) {
   );
 }
 
+/** 窄畫面選取一筆後，等多久再把詳細捲進畫面（雙擊的第二下要先落在原處） */
+export const REVEAL_DELAY_MS = 450;
+
+/**
+ * 窄畫面（詳細欄在月曆下面）選取一筆時，詳細看不到就捲進畫面。等一下才捲：雙擊（開編輯）時不捲，
+ * 選取換了、對話框開著也不捲。
+ */
+function useRevealDetail(ref: RefObject<HTMLElement | null>, selectedId: string | null) {
+  useEffect(() => {
+    if (!selectedId || typeof window === 'undefined') return;
+    if (window.matchMedia?.('(min-width: 1024px)').matches) return;
+    const timer = window.setTimeout(() => {
+      if (useUi.getState().selectedId !== selectedId) return;
+      if (
+        useUi.getState().entryDialog ||
+        document.querySelector('[role="dialog"],[role="alertdialog"]')
+      )
+        return;
+      const el = ref.current?.querySelector<HTMLElement>('[data-testid="entry-detail"]');
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      if (r.top >= 56 && r.top < window.innerHeight - 96) return;
+      const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+      el.scrollIntoView({ block: 'start', behavior: reduce ? 'auto' : 'smooth' });
+    }, REVEAL_DELAY_MS);
+    return () => window.clearTimeout(timer);
+  }, [ref, selectedId]);
+}
+
 export function DetailPanel() {
   const entries = useCal((s) => s.data.entries);
   const showHolidays = useCal((s) => s.data.showHolidays);
   const selectedId = useUi((s) => s.selectedId);
   const selectedDate = useUi((s) => s.selectedDate);
+  const ref = useRef<HTMLElement>(null);
   const entry = selectedId ? entries.find((e) => e.id === selectedId) : undefined;
+  useRevealDetail(ref, entry ? entry.id : null);
   if (!entry && !selectedDate) return null;
   const day = selectedDate ? entriesOn(entries, selectedDate) : [];
   const h = selectedDate && showHolidays ? holidayOf(selectedDate) : null;
   return (
-    <section aria-label={S.detail.title} className={panel} data-testid="detail-panel">
+    <section
+      ref={ref}
+      aria-label={S.detail.title}
+      className={cn(panel, '[&_[data-testid=entry-detail]]:scroll-mt-16')}
+      data-testid="detail-panel"
+    >
       <div className="flex items-center gap-2">
         <h2 className="m-0 flex-1 text-sm font-bold">
           {selectedDate ? formatDay(selectedDate) : S.detail.title}
@@ -298,7 +336,7 @@ export function DetailPanel() {
 
 export function TodayPanel() {
   const entries = useCal((s) => s.data.entries);
-  const t = today();
+  const t = useToday();
   const list = entriesOn(entries, t);
   return (
     <section aria-label={S.today.title} className={panel} data-testid="today-panel">
@@ -342,7 +380,7 @@ export function TaskPanel({ onAdd }: { onAdd: () => void }) {
   const weekStart = useCal((s) => s.data.weekStart);
   const range = usePrefs((s) => s.data.taskRange);
   const selectedId = useUi((s) => s.selectedId);
-  const t = today();
+  const t = useToday();
   const items: TaskItem[] = range === 'week' ? weekTasks(entries, t, weekStart) : allTasks(entries);
   const [ws, we] = weekRange(t, weekStart);
   return (

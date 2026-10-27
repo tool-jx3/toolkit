@@ -7,10 +7,12 @@
  * - 匯出入：JSON、iCal（解析下載的檔案）；讀入卓準備カレンダー、taku_calendar 的 JSON、Google 日曆匯出的 ZIP（選行事曆）。
  * - 空檔日期（條件、格式、複製）；存成 PNG（月曆、年曆，檢查 PNG 與尺寸）；外觀（花紋背景、自動配色）。
  * - 送到跑團紀錄簿（新分頁的紀錄簿問要不要加入、加入後的列）與團報產生器（交接資料）。
+ * - 雙擊（沒有選取時）日子、小卡、今天的預定、日子清單都直接打開；第一下不推動版面（1280、390）。
+ * - 拖到月曆外放開＝取消；選單打開的對話框關掉後焦點回到選單按鈕；連結網址的檢查；讀入超過 5000 筆。
  * - 390 寬沒有橫向捲動；1280 與 390 的視覺回歸基準。
  */
 import { readFileSync } from 'node:fs';
-import { expect, type Page, test } from '@playwright/test';
+import { expect, type Locator, type Page, test } from '@playwright/test';
 import { strFromU8, strToU8, unzipSync, zipSync } from 'fflate';
 import { encodePng } from '../../src/core/encode/png';
 import { getTool, outputDir } from '../../src/registry';
@@ -66,6 +68,26 @@ async function dragBetween(
   await page.mouse.move(from.x + 8, from.y + 2, { steps: 2 });
   await page.mouse.move(to.x, to.y, { steps: 8 });
   await page.mouse.up();
+}
+
+/** 用滑鼠在元素中心雙擊（先捲進畫面）；跟使用者一樣，兩下之間版面不能動 */
+async function dblclickCenter(page: Page, loc: Locator) {
+  await loc.scrollIntoViewIfNeeded();
+  const b = await loc.boundingBox();
+  if (!b) throw new Error('no box');
+  await page.mouse.dblclick(b.x + b.width / 2, b.y + b.height / 2);
+}
+
+/** 開頁前先放好資料（只放一次；重新整理不會蓋掉） */
+async function seedEntries(page: Page, entries: object[]) {
+  await page.addInitScript(
+    ([k, v]) => {
+      if (sessionStorage.getItem('seeded')) return;
+      sessionStorage.setItem('seeded', '1');
+      localStorage.setItem(k, v);
+    },
+    [STORE_KEY, JSON.stringify({ state: { data: { entries } }, version: 1 })],
+  );
 }
 
 async function center(page: Page, date: string, dy = 0.75) {
@@ -566,6 +588,12 @@ test('送到跑團紀錄簿：新分頁的紀錄簿問要不要加入；送到�
 }) => {
   const errors = await open(page);
   await entryEl(page, '霧港燈塔的最後一夜').click();
+  /* 第二位（小鹿）的 PC 清空：紀錄簿的 PC 欄用「—」占位，跟 PL 一一對上 */
+  await page.getByTestId('entry-detail').getByRole('button', { name: '編輯' }).click();
+  const edit = page.getByRole('dialog', { name: '編輯場次' });
+  await edit.getByRole('textbox', { name: 'PC 2' }).fill('');
+  await edit.getByTestId('entry-save').click();
+  await expect(edit).toHaveCount(0);
   await page.getByTestId('send-log').click();
   const confirm = page.getByRole('alertdialog', { name: '送到跑團紀錄簿' });
   await expect(confirm).toBeVisible();
@@ -586,6 +614,7 @@ test('送到跑團紀錄簿：新分頁的紀錄簿問要不要加入；送到�
     startTime: '20:00',
     endTime: '23:30',
   });
+  expect(payload.items[0].players[1]).toEqual({ pl: '小鹿', pc: '' });
   await popup.waitForLoadState();
   expect(popup.url()).toContain('/tools/session-log/');
   const ask = popup.getByRole('alertdialog', { name: '團期行事曆送來一團' });
@@ -607,7 +636,7 @@ test('送到跑團紀錄簿：新分頁的紀錄簿問要不要加入；送到�
       status: '予定',
       time: '3.5',
       players: '阿樹、小鹿、貓又',
-      pc: '林曉舟、程雨、沈墨',
+      pc: '林曉舟、—、沈墨',
     },
   );
   expect(await popup.evaluate((k) => localStorage.getItem(k), LOG_KEY)).toBeNull();
@@ -634,6 +663,213 @@ test('送到跑團紀錄簿：新分頁的紀錄簿問要不要加入；送到�
     latestDate: '2026-10-30',
     status: 'ongoing',
   });
+  expect(errors).toEqual([]);
+});
+
+test('雙擊（沒有選取時）：日子、場次小卡直接打開對話框；第一下不推動版面（1280、390）', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  for (const width of [1280, 390]) {
+    await page.setViewportSize({ width, height: width === 390 ? 844 : 900 });
+    await page.reload();
+    const grid = page.locator('[data-cal-month]');
+    const bar = page.getByTestId('focus-bar');
+    const before = await grid.boundingBox();
+    const barBefore = await bar.boundingBox();
+    /* 單擊選日子：聚焦列一直都在，高度不變，月曆不往下推 */
+    await day(page, '2026-10-21').click();
+    await expect(bar).toContainText('2026年10月21日（三）');
+    expect((await grid.boundingBox())?.y, `${width}：選日子後月曆不動`).toBe(before?.y);
+    expect((await bar.boundingBox())?.height, `${width}：聚焦列高度不變`).toBe(barBefore?.height);
+    await page.keyboard.press('Escape');
+    await expect(bar).toHaveAttribute('data-empty', 'true');
+    expect((await grid.boundingBox())?.y).toBe(before?.y);
+
+    /* 沒有選取時雙擊日子（中心）→ 新增場次，日期是雙擊的那天 */
+    await page.reload();
+    await dblclickCenter(page, day(page, '2026-10-14'));
+    const add = page.getByRole('dialog', { name: '新增場次' });
+    await expect(add.getByLabel('開始日'), `${width}：雙擊的日子`).toHaveValue('2026-10-14');
+    await add.getByRole('button', { name: '取消' }).click();
+
+    /* 沒有選取時雙擊場次小卡 → 編輯 */
+    await page.reload();
+    await dblclickCenter(page, entryEl(page, '霧港燈塔的最後一夜'));
+    const edit = page.getByRole('dialog', { name: '編輯場次' });
+    await expect(edit.getByRole('textbox', { name: '劇本名稱' })).toHaveValue('霧港燈塔的最後一夜');
+    await edit.getByRole('button', { name: '取消' }).click();
+    await expect(edit).toHaveCount(0);
+  }
+  expect(errors).toEqual([]);
+});
+
+test('雙擊（沒有選取時）：「今天的預定」與日子清單的一筆直接打開編輯（1280、390）', async ({
+  page,
+}) => {
+  await seedEntries(page, [
+    {
+      id: 'session_today',
+      kind: 'session',
+      title: '今日團',
+      start: '2026-10-27',
+      end: '2026-10-27',
+      startTime: '20:00',
+      system: 'CoC 7版',
+    },
+    {
+      id: 'plan_today',
+      kind: 'plan',
+      title: '涵蓋今天的預定',
+      start: '2026-10-26',
+      end: '2026-10-29',
+    },
+  ]);
+  const errors = await open(page);
+  for (const width of [1280, 390]) {
+    await page.setViewportSize({ width, height: width === 390 ? 844 : 900 });
+    await page.reload();
+    await dblclickCenter(page, page.getByTestId('today-panel').getByText('今日團'));
+    const edit = page.getByRole('dialog', { name: '編輯場次' });
+    await expect(
+      edit.getByRole('textbox', { name: '劇本名稱' }),
+      `${width}：今天的預定`,
+    ).toHaveValue('今日團');
+    await edit.getByRole('button', { name: '取消' }).click();
+    await expect(edit).toHaveCount(0);
+
+    /* 選一天 → 詳細欄列出那天的筆；雙擊其中一筆 → 編輯 */
+    await page.reload();
+    await day(page, '2026-10-28').click({ position: { x: 8, y: 6 } });
+    const item = page.getByTestId('day-list').locator('[data-list-entry]').first();
+    await expect(item).toContainText('涵蓋今天的預定');
+    await dblclickCenter(page, item);
+    const editPlan = page.getByRole('dialog', { name: '編輯預定' });
+    await expect(editPlan.getByRole('textbox', { name: '標題' }), `${width}：日子清單`).toHaveValue(
+      '涵蓋今天的預定',
+    );
+    await editPlan.getByRole('button', { name: '取消' }).click();
+    await expect(editPlan).toHaveCount(0);
+  }
+  expect(errors).toEqual([]);
+});
+
+test('拖到月曆外放開＝取消；選單打開的對話框關掉後焦點回到選單按鈕；連結網址', async ({ page }) => {
+  const errors = await open(page);
+  const before = await page.locator('[data-cal-entry]').count();
+  /* 拖過幾天後拖到月曆外放開：不新增 */
+  const from = await center(page, '2026-10-13');
+  await page.mouse.move(from.x, from.y);
+  await page.mouse.down();
+  await page.mouse.move(from.x + 8, from.y + 2, { steps: 2 });
+  const to = await center(page, '2026-10-15');
+  await page.mouse.move(to.x, to.y, { steps: 8 });
+  await expect(day(page, '2026-10-14')).toHaveAttribute('data-in-drag', 'true');
+  const title = await page.getByRole('heading', { level: 1, name: '團期行事曆' }).boundingBox();
+  if (!title) throw new Error('no title');
+  await page.mouse.move(title.x + 10, title.y + title.height / 2, { steps: 8 });
+  await page.mouse.up();
+  await expect(day(page, '2026-10-14')).not.toHaveAttribute('data-in-drag', 'true');
+  /* 色條也一樣：拖到月曆外放開不移動 */
+  const bar = entryEl(page, '霧港燈塔的最後一夜');
+  const bb = await bar.boundingBox();
+  if (!bb) throw new Error('no chip');
+  await page.mouse.move(bb.x + bb.width / 2, bb.y + bb.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(bb.x + bb.width / 2 + 10, bb.y + bb.height / 2, { steps: 2 });
+  const to2 = await center(page, '2026-10-22');
+  await page.mouse.move(to2.x, to2.y, { steps: 8 });
+  await expect(day(page, '2026-10-22')).toHaveAttribute('data-in-drag', 'true');
+  await page.mouse.move(title.x + 10, title.y + title.height / 2, { steps: 8 });
+  await page.mouse.up();
+  await expect(day(page, '2026-10-22')).not.toHaveAttribute('data-in-drag', 'true');
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(page.locator('[data-cal-entry]')).toHaveCount(before);
+  await expect(page.getByText('已移動', { exact: true })).toHaveCount(0);
+  const chipBox = await entryEl(page, '霧港燈塔的最後一夜').boundingBox();
+  const cell = await day(page, '2026-10-30').boundingBox();
+  if (!chipBox || !cell) throw new Error('no box');
+  expect(chipBox.x).toBeGreaterThanOrEqual(cell.x);
+  expect(chipBox.x + chipBox.width).toBeLessThanOrEqual(cell.x + cell.width);
+
+  /* 「新增」選單打開的對話框，關掉後焦點回到「新增」 */
+  await page.getByTestId('add-menu').click();
+  await page.getByTestId('add-plan').click();
+  const dlg = page.getByRole('dialog', { name: '新增預定' });
+  await expect(dlg).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(dlg).toHaveCount(0);
+  await expect(page.getByTestId('add-menu')).toBeFocused();
+
+  /* 連結網址：省略 https:// 時補上；javascript: 之類的不收 */
+  await page.getByTestId('add-menu').click();
+  await page.getByTestId('add-session').click();
+  const sdlg = page.getByRole('dialog', { name: '新增場次' });
+  await sdlg.getByRole('textbox', { name: '劇本名稱' }).fill('連結測試');
+  await sdlg.getByRole('button', { name: '加一個連結' }).click();
+  await sdlg.getByRole('button', { name: '加一個連結' }).click();
+  await sdlg.getByRole('textbox', { name: '第 1 個連結的名稱' }).fill('房間');
+  await sdlg.getByRole('textbox', { name: '第 1 個連結的網址' }).fill('ccfolia.com/rooms/x');
+  await sdlg.getByRole('textbox', { name: '第 2 個連結的名稱' }).fill('壞的');
+  const bad = sdlg.getByRole('textbox', { name: '第 2 個連結的網址' });
+  await bad.fill('javascript:alert(1)');
+  await sdlg.getByTestId('entry-save').click();
+  await expect(sdlg.getByTestId('link-error')).toBeVisible();
+  await expect(bad).toBeFocused();
+  await expect(bad).toHaveAttribute('aria-invalid', 'true');
+  await bad.fill('mailto:gm@example.com');
+  await sdlg.getByTestId('entry-save').click();
+  await expect(sdlg).toHaveCount(0);
+  await expect(page.getByTestId('add-menu')).toBeFocused();
+  const saved = (await stored(page)).entries.find((e: { title: string }) => e.title === '連結測試');
+  expect(saved.links).toEqual([
+    { label: '房間', url: 'https://ccfolia.com/rooms/x' },
+    { label: '壞的', url: 'mailto:gm@example.com' },
+  ]);
+  expect(errors).toEqual([]);
+});
+
+test('讀入超過 5000 筆的 iCal：說明實際的筆數、多的不讀；焦點回到「匯出入」', async ({ page }) => {
+  const errors = await open(page);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const events: string[] = [];
+  const t0 = Date.UTC(2020, 0, 1);
+  for (let i = 0; i < 5003; i++) {
+    const d = new Date(t0 + i * 86_400_000);
+    const ymd = `${d.getUTCFullYear()}${pad(d.getUTCMonth() + 1)}${pad(d.getUTCDate())}`;
+    events.push(
+      'BEGIN:VEVENT',
+      `UID:big-${i}`,
+      `DTSTART;VALUE=DATE:${ymd}`,
+      `SUMMARY:第 ${i + 1} 筆`,
+      'END:VEVENT',
+    );
+  }
+  const ics = ['BEGIN:VCALENDAR', 'VERSION:2.0', ...events, 'END:VCALENDAR'].join('\r\n');
+  await chooseFiles(page, 'read-ical', [
+    { name: 'big.ics', mimeType: 'text/calendar', buffer: Buffer.from(ics) },
+  ]);
+  const dlg = page.getByRole('dialog', { name: '讀入「big.ics」' });
+  /* 加在現有（範例 4 筆）的後面：放得下 4996 筆 */
+  await expect(dlg.getByTestId('import-over')).toHaveText(
+    '一個行事曆最多 5000 筆：目前已有 4 筆，這次選了 5003 筆，只讀入日期最早的 4996 筆，其餘 7 筆不讀。',
+  );
+  await expect(dlg.getByTestId('import-summary')).toHaveText('會讀入 4996 筆');
+  await dlg.getByRole('radio', { name: '取代全部' }).click();
+  await expect(dlg.getByTestId('import-over')).toHaveText(
+    '一個行事曆最多 5000 筆：這次選了 5003 筆，只讀入日期最早的 5000 筆，其餘 3 筆不讀。',
+  );
+  await dlg.getByRole('radio', { name: '加在現有的後面' }).click();
+  await dlg.getByTestId('import-confirm').click();
+  await expect(dlg).toHaveCount(0);
+  await expect(page.getByText('已讀入 4996 筆').first()).toBeVisible();
+  await expect(page.getByText('超過 5000 筆的上限，7 筆沒有讀入。').first()).toBeVisible();
+  const data = await stored(page);
+  expect(data.entries).toHaveLength(5000);
+  /* 早的先讀：最後 7 筆（2033 年）沒讀 */
+  expect(data.entries.some((e: { title: string }) => e.title === '第 4996 筆')).toBe(true);
+  expect(data.entries.some((e: { title: string }) => e.title === '第 4997 筆')).toBe(false);
+  await expect(page.getByTestId('io-menu')).toBeFocused();
   expect(errors).toEqual([]);
 });
 

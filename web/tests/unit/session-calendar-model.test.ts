@@ -20,6 +20,7 @@ import {
   newEntry,
   normalizeData,
   normalizeEntry,
+  normalizeLinkUrl,
   spanDays,
   timeRange,
 } from '@/tools/session-calendar/model';
@@ -126,6 +127,10 @@ describe('多日的預定', () => {
     const cross = yearMarks([plan('2025-12-30', '2026-01-02')], 2026);
     expect([...cross.keys()]).toEqual(['2026-01-01', '2026-01-02']);
     expect(entriesOn([long, short], '2026-03-03').map((e) => e.title)).toEqual(['long', 'short']);
+    /* 很長的預定（兩年多）：塗滿這一年的每一天 */
+    const huge = yearMarks([plan('2025-01-01', '2027-06-30')], 2026);
+    expect(huge.size).toBe(365);
+    expect(huge.get('2026-12-31')).toMatchObject({ head: false, tail: false });
   });
 });
 
@@ -203,5 +208,31 @@ describe('讀檔的整理', () => {
     expect(d?.entries).toHaveLength(1);
     expect(d?.look.bg).toBe('theme');
     expect(normalizeData([], '2026-10-27')).toBeNull();
+  });
+
+  it('連結的網址：只收 http、https、mailto；沒有開頭的補 https://', () => {
+    expect(normalizeLinkUrl('https://ccfolia.com/rooms/x')).toBe('https://ccfolia.com/rooms/x');
+    expect(normalizeLinkUrl('  ccfolia.com/rooms/x ')).toBe('https://ccfolia.com/rooms/x');
+    expect(normalizeLinkUrl('//example.com/a')).toBe('https://example.com/a');
+    expect(normalizeLinkUrl('localhost:3000/room')).toBe('https://localhost:3000/room');
+    expect(normalizeLinkUrl('HTTP://Example.com')).toBe('HTTP://Example.com');
+    expect(normalizeLinkUrl('mailto:gm@example.com')).toBe('mailto:gm@example.com');
+    expect(normalizeLinkUrl('')).toBe('');
+    expect(normalizeLinkUrl('javascript:alert(1)')).toBeNull();
+    expect(normalizeLinkUrl('data:text/html,hi')).toBeNull();
+    expect(normalizeLinkUrl('vbscript:x')).toBeNull();
+    expect(normalizeLinkUrl('https://exa mple.com')).toBeNull();
+    /* 讀檔時：看不懂、不收的網址換成空白（名稱留著） */
+    const e = normalizeEntry({
+      start: '2026-10-30',
+      links: [
+        { label: '房間', url: 'ccfolia.com/rooms/x' },
+        { label: '壞的', url: 'javascript:alert(1)' },
+      ],
+    });
+    expect(e?.links).toEqual([
+      { label: '房間', url: 'https://ccfolia.com/rooms/x' },
+      { label: '壞的', url: '' },
+    ]);
   });
 });

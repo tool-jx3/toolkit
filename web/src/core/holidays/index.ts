@@ -3,7 +3,8 @@
  *
  * - 2017～2027：人事行政總處公告的辦公日曆表（`official.ts`；名稱照公告原文）。
  * - 2028～2099：依現行《紀念日及節日實施條例》（2025-05-28 公布）與補假的慣例推算（`estimateHolidays`），標示「推算」；
- *   調整放假與補行上班要看每年的公告，推算不會有。
+ *   調整放假與補行上班要看每年的公告，推算不會有。同一套推算（依年份換成當年的規則）算 2017～2027 年，
+ *   除了調整放假與補行上班，和公告逐日一致（單元測試）。
  * - 2016 年以前、2100 年以後：沒有資料（`yearHolidays` 回傳 null）。
  *
  * 日期一律是 `YYYY-MM-DD`（國曆、臺灣的日期）。星期用 UTC 的日序算，不受執行環境的時區影響。
@@ -88,16 +89,33 @@ interface BaseHoliday {
   hidden?: boolean;
 }
 
+/**
+ * 那一年適用的規則（推算 2028 年以後用「現行」；2017～2025 年的規則只用來和公告比對推算的方法）：
+ * - 2026 起（《紀念日及節日實施條例》）：小年夜、勞動節放假，「清明節」「孔子誕辰紀念日/教師節」的名稱。
+ * - 2025：孔子誕辰紀念日、臺灣光復暨金門古寧頭大捷紀念日、行憲紀念日開始放假（條例 2025-05-28 公布）。
+ * - 2024 以前（《紀念日及節日實施辦法》）：沒有上面這些；「民族掃墓節」。
+ */
+function rulesOf(year: number) {
+  return {
+    xiaoNian: year >= 2026,
+    labor: year >= 2026,
+    newDays: year >= 2025,
+    qingming: year >= 2026 ? '清明節' : '民族掃墓節',
+    confucius: year >= 2026 ? '孔子誕辰紀念日/教師節' : '孔子誕辰紀念日',
+  };
+}
+
 /** 一年的節日（還沒補假）；表外的年份空陣列 */
 function baseHolidays(year: number): BaseHoliday[] {
   const f = lunarFestivals(year);
   if (!f) return [];
+  const r = rulesOf(year);
   const md = (mmdd: string) => `${year}-${mmdd}`;
   const list: BaseHoliday[] = [{ date: md('01-01'), name: '開國紀念日', spring: false }];
   /* 春節：除夕是正月初一的前一天、小年夜是除夕的前一天（都在國曆一月底到二月） */
   const eve = addDays(f.newYear, -1);
+  if (r.xiaoNian) list.push({ date: addDays(eve, -1), name: '小年夜', spring: true });
   list.push(
-    { date: addDays(eve, -1), name: '小年夜', spring: true },
     { date: eve, name: '農曆除夕', spring: true },
     { date: f.newYear, name: '春節', spring: true },
     { date: addDays(f.newYear, 1), name: '春節', spring: true },
@@ -107,35 +125,40 @@ function baseHolidays(year: number): BaseHoliday[] {
   /* 兒童節與清明：同一天時兒童節移到前一天（逢星期四移到後一天），移過去的日子以「補假」顯示 */
   const children = md('04-04');
   if (f.qingming === children) {
-    list.push({ date: children, name: '兒童節及清明節', spring: false });
+    list.push({ date: children, name: `兒童節及${r.qingming}`, spring: false });
     const moved = addDays(children, weekdayOf(children) === 4 ? 1 : -1);
     list.push({ date: moved, name: '補假', spring: false, hidden: isWeekend(moved) });
   } else {
     list.push(
       { date: children, name: '兒童節', spring: false },
-      { date: f.qingming, name: '清明節', spring: false },
+      { date: f.qingming, name: r.qingming, spring: false },
     );
   }
+  if (r.labor) list.push({ date: md('05-01'), name: '勞動節', spring: false });
   list.push(
-    { date: md('05-01'), name: '勞動節', spring: false },
     { date: f.dragonBoat, name: '端午節', spring: false },
     { date: f.midAutumn, name: '中秋節', spring: false },
-    { date: md('09-28'), name: '孔子誕辰紀念日/教師節', spring: false },
-    { date: md('10-10'), name: '國慶日', spring: false },
-    { date: md('10-25'), name: '臺灣光復暨金門古寧頭大捷紀念日', spring: false },
-    { date: md('12-25'), name: '行憲紀念日', spring: false },
   );
+  if (r.newDays) list.push({ date: md('09-28'), name: r.confucius, spring: false });
+  list.push({ date: md('10-10'), name: '國慶日', spring: false });
+  if (r.newDays)
+    list.push(
+      { date: md('10-25'), name: '臺灣光復暨金門古寧頭大捷紀念日', spring: false },
+      { date: md('12-25'), name: '行憲紀念日', spring: false },
+    );
   return list;
 }
 
 /**
- * 推算一年的放假日（現行規則）：
+ * 推算一年的放假日（依那一年的規則，見 rulesOf；2028 年以後是現行規則）：
  * - 節日：開國紀念日、小年夜、農曆除夕、春節（初一～初三）、和平紀念日、兒童節、清明節、勞動節、端午節、中秋節、
  *   孔子誕辰紀念日／教師節、國慶日、臺灣光復暨金門古寧頭大捷紀念日、行憲紀念日。
  * - 補假：逢星期六補前一個上班日、逢星期日補後一個上班日；春節連假（小年夜、除夕、初一～初三）逢週末時，
- *   依序補在連假之後的上班日。同一天有兩個節日時只放一天。補假可以落在前後一年（例：1 月 1 日是星期六 → 前一年 12 月 31 日）。
+ *   依序補在連假之後的上班日。補假可以落在前後一年（例：1 月 1 日是星期六 → 前一年 12 月 31 日）。
+ * - 兩個節日同一天：名稱以「、」連接；落在週末時各補一天（照 2020 年兒童節與民族掃墓節同在星期六、補兩天的先例：
+ *   星期六往前、星期日往後依序找上班日）。
  * - 兒童節與清明同一天：兒童節移到前一天（4 月 4 日是星期四時移到後一天），以「補假」顯示；移過去的日子是週末時再照上一條補。
- * 表外的年份回傳空的 Map。
+ * 不推算調整放假與補行上班。表外的年份回傳空的 Map。
  */
 export function estimateHolidays(year: number): Map<string, HolidayDay> {
   const out = new Map<string, HolidayDay>();
@@ -159,11 +182,21 @@ export function estimateHolidays(year: number): Map<string, HolidayDay> {
     for (let i = 0; i < 60 && !isWorkday(d); i++) d = addDays(d, step);
     comps.add(d);
   };
-  /* 依日期順序處理：一般節日逢週末各補一天；春節連假在最後一天處理（連假裡有幾天週末就往後補幾天） */
+  /*
+   * 依日期順序處理：一般節日逢週末，那天有幾個節日就補幾天；
+   * 春節連假在最後一天處理（連假裡有幾天週末就往後補幾天）
+   */
   const jobs: { at: string; run: () => void }[] = [];
   for (const [date, list] of byDate) {
     if (!isWeekend(date) || list.some((b) => b.spring)) continue;
-    jobs.push({ at: date, run: () => seek(date, weekdayOf(date) === 6 ? -1 : 1) });
+    const count = list.length;
+    const step = weekdayOf(date) === 6 ? -1 : 1;
+    jobs.push({
+      at: date,
+      run: () => {
+        for (let i = 0; i < count; i++) seek(date, step);
+      },
+    });
   }
   for (const y of [year - 1, year, year + 1]) {
     const block = [

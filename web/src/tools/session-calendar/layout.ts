@@ -3,7 +3,7 @@
  * 純函式，畫面（MonthView）與截圖（shot.ts）共用。
  */
 import { dateOfDay, dayNumber } from '@/core/holidays';
-import { compareEntries, type Entry, spanDays, type Task } from './model';
+import { compareEntries, type Entry, type Task } from './model';
 
 /** 一週裡的一段色條 */
 export interface BarSegment {
@@ -117,10 +117,12 @@ export function yearMarks(entries: readonly Entry[], year: number): Map<string, 
   const map = new Map<string, YearDayMark>();
   const list = entries.filter((e) => e.start <= to && e.end >= from).sort(compareEntries);
   for (const entry of list) {
-    const n = spanDays(entry);
-    for (let i = 0; i < n && i < 400; i++) {
-      const date = dateOfDay(dayNumber(entry.start) + i);
-      if (date < from || date > to || map.has(date)) continue;
+    /* 只走這一年的範圍（很長的預定也不會漏掉後面的日子） */
+    const a = dayNumber(entry.start < from ? from : entry.start);
+    const b = dayNumber(entry.end > to ? to : entry.end);
+    for (let n = a; n <= b; n++) {
+      const date = dateOfDay(n);
+      if (map.has(date)) continue;
       map.set(date, { entry, head: date === entry.start, tail: date === entry.end });
     }
   }

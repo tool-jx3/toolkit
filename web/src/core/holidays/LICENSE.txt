@@ -1,0 +1,26 @@
+本資料夾的 official.ts（2017～2027 年的國定假日、補假、調整放假與補行上班）取自下列資料，本站只節錄
+「不是平常的日子」並改寫成自己的格式。2028 年以後的推算與 lunar.ts 的農曆節日表是本站自己算的，不在此列。
+
+一、原始資料
+
+  名稱：中華民國政府行政機關辦公日曆表
+  提供機關：行政院人事行政總處
+  出處：政府資料開放平台（https://data.gov.tw/），https://data.gov.tw/dataset/14718
+  授權：政府資料開放授權條款－第 1 版（https://data.gov.tw/license）
+        依第三條第二項標示出處如上。此授權條款與「創用 CC 姓名標示 4.0 國際」相容。
+
+二、整理後的資料
+
+  名稱：TaiwanCalendar（https://github.com/ruyut/TaiwanCalendar，data/<年>.json）
+  整理者：ruyut
+  授權：創用 CC 姓名標示 4.0 國際（Creative Commons Attribution 4.0 International，CC BY 4.0）
+        https://creativecommons.org/licenses/by/4.0/
+        授權條款全文：https://creativecommons.org/licenses/by/4.0/legalcode
+  整理者的授權說明（照 README 原文）：
+        原始資料使用政府資料開放授權條款-第1版授權，依照第三條第二項要求標示出處為政府資料開放平台，
+        且依第四條第二項說明使用「創用CC授權 姓名標示 4.0 國際版本」授權釋出。
+
+三、本站做的變更
+
+  只保留放假的日子、有名稱的國定假日與週末的補行上班，改寫成 `MMDD 名稱` 的字串；名稱照公告原文。
+  本站的改寫依 CC BY 4.0 提供，不另加限制。

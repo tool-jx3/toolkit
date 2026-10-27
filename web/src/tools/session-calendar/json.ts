@@ -245,7 +245,9 @@ export function parseImportJson(text: string): ImportBatch {
     throw new ImportFormatError('這不是有效的 JSON 檔。');
   }
   const o = obj(data);
-  const keep = (list: (Entry | null)[]) => list.filter((e): e is Entry => e !== null);
+  /* 每一筆都經過 normalizeEntry：範圍、網址（只留 http(s)／mailto）等和存檔一樣整理 */
+  const keep = (list: (Entry | null)[]) =>
+    list.map((e) => (e ? normalizeEntry(e) : null)).filter((e): e is Entry => e !== null);
 
   /* 本工具：匯出的 JSON、專案檔 */
   const self =
@@ -295,7 +297,7 @@ export function parseImportJson(text: string): ImportBatch {
         ? o.records
         : null;
   if (rows) {
-    const { entries, dropped } = limit(rows.flatMap(fromLogRow));
+    const { entries, dropped } = limit(keep(rows.flatMap(fromLogRow)));
     return { format: 'log', entries, cpColors: [], dropped };
   }
   /* 交接資料 */

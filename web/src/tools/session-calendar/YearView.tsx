@@ -6,17 +6,17 @@ import { useMemo } from 'react';
 import { readableTextColor } from '@/core/color';
 import { dayNumber, holidayOf, weekdayOf } from '@/core/holidays';
 import { cn } from '@/ui';
-import { addDays, daysInMonth, firstOfMonth, today, WEEKDAY_NAMES, weekOrder } from './dates';
+import { addDays, daysInMonth, firstOfMonth, WEEKDAY_NAMES, weekOrder } from './dates';
 import { yearMarks } from './layout';
 import { colorCss, colorSlice, spanDays } from './model';
-import { openMonth, useCal, useUi } from './store';
+import { openMonth, useCal, useToday, useUi } from './store';
 import { S } from './strings';
 
 export function YearView() {
   const data = useCal((s) => s.data);
   const year = useUi((s) => s.cursor.year);
   const marks = useMemo(() => yearMarks(data.entries, year), [data.entries, year]);
-  const t = today();
+  const t = useToday();
   const order = weekOrder(data.weekStart);
 
   return (

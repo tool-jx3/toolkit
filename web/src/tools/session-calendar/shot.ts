@@ -46,6 +46,8 @@ import { type CalData, colorSlice, type EntryColor, entryTitle, spanDays } from 
 
 const FAMILY = 'Noto Sans TC';
 const font = (size: number, weight = 400): TextFont => ({ family: FAMILY, size, weight });
+/** 月曆 PNG 一格比這窄（px）時，單日場次不寫開始時間（畫面在手機寬度也不寫） */
+export const CHIP_TIME_MIN_COL = 88;
 
 /** 背景圖（圖片背景時的 ImageBitmap） */
 export type ShotImage = CanvasImageSource | null;
@@ -212,6 +214,8 @@ export function monthShotLayout(data: CalData, ym: YearMonth, pal: Palette) {
   const P = Math.round(Math.max(16, W * 0.025));
   const gridW = W - P * 2;
   const colW = gridW / 7;
+  /* 跟畫面一樣：格子窄（約手機寬度）時，單日場次不寫開始時間，留給標題 */
+  const chipTime = colW >= CHIP_TIME_MIN_COL;
   const nodes: SceneNode[] = [];
   const head = header(data.title, monthTitle(ym), P, P, gridW, pal);
   nodes.push(...head.nodes);
@@ -390,7 +394,7 @@ export function monthShotLayout(data: CalData, ym: YearMonth, pal: Palette) {
               text:
                 c.type === 'task'
                   ? `${c.task.done ? '☑' : '☐'} ${c.task.title}`
-                  : `${e.startTime ? `${e.startTime} ` : ''}${e.status === 'completed' ? '✓ ' : ''}${entryTitle(e)}`,
+                  : `${chipTime && e.startTime ? `${e.startTime} ` : ''}${e.status === 'completed' ? '✓ ' : ''}${entryTitle(e)}`,
               font: font(11, c.type === 'task' ? 400 : 500),
               color: c.type === 'task' ? pal.muted : pal.text,
               valign: 'middle',

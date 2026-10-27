@@ -30,6 +30,7 @@ import {
   deleteEntry,
   goToday,
   openNewEntry,
+  refreshToday,
   selectDate,
   setView,
   shiftCursor,
@@ -225,6 +226,41 @@ const SHORTCUTS: Shortcut[] = [
   },
 ];
 
+/** 「今天」：過了午夜、頁面重新顯示（切回分頁、從背景回來）時更新 */
+function TodayTicker(): null {
+  useEffect(() => {
+    let timer = 0;
+    const schedule = () => {
+      window.clearTimeout(timer);
+      const now = new Date();
+      const next = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 1);
+      timer = window.setTimeout(
+        () => {
+          refreshToday();
+          schedule();
+        },
+        Math.max(1000, next.getTime() - now.getTime()),
+      );
+    };
+    const onShow = () => {
+      if (document.visibilityState === 'hidden') return;
+      refreshToday();
+      schedule();
+    };
+    schedule();
+    document.addEventListener('visibilitychange', onShow);
+    window.addEventListener('focus', onShow);
+    window.addEventListener('pageshow', onShow);
+    return () => {
+      window.clearTimeout(timer);
+      document.removeEventListener('visibilitychange', onShow);
+      window.removeEventListener('focus', onShow);
+      window.removeEventListener('pageshow', onShow);
+    };
+  }, []);
+  return null;
+}
+
 function SaveErrorWatcher() {
   const failing = Boolean(useSaveError(TOOL_ID));
   useEffect(() => {
@@ -240,6 +276,7 @@ function Workspace() {
       <SendBridge />
       <DeleteBridge />
       <SaveErrorWatcher />
+      <TodayTicker />
       <WindowDrop
         accept=".json,.ics,.ical,.zip,application/json,text/calendar,application/zip"
         label={S.importDialog.drop}
@@ -249,8 +286,9 @@ function Workspace() {
       <div className="flex min-w-0 flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start">
         <CalendarArea actions={actions} />
         <aside aria-label={S.detail.title} className="flex min-w-0 flex-col gap-3">
-          <DetailPanel />
+          {/* 今天的預定在詳細之上：點今天的一筆時詳細出現在它下面，雙擊的第二下才不會落空 */}
           <TodayPanel />
+          <DetailPanel />
           <TaskPanel onAdd={openTaskDialog} />
           <LookPanel />
         </aside>

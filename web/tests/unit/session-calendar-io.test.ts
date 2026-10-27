@@ -13,6 +13,8 @@ import {
   LOG_PENDING_IMPORT_KEY,
   logRowFromImportItem,
   logStatusOf,
+  PC_PLACEHOLDER,
+  pairedPeople,
   readPendingLogImport,
   writePendingLogImport,
 } from '@/core/sessions';
@@ -469,6 +471,40 @@ describe('送到跑團紀錄簿、團報產生器', () => {
     expect(
       logRowFromImportItem({ system: 'クトゥルフ神話TRPG', dates: ['2026-01-01'] }).system,
     ).toBe('CoC 6版');
+  });
+
+  it('PL 與 PC 一一對應：PC 空白時佔位、只有 PC 的排最後、PL 欄不放佔位', () => {
+    expect(PC_PLACEHOLDER).toBe('—');
+    expect(
+      pairedPeople([
+        { pl: '阿樹', pc: '林曉舟' },
+        { pl: '小鹿', pc: '' },
+        { pl: '貓又', pc: '沈墨' },
+      ]),
+    ).toEqual({ players: '阿樹、小鹿、貓又', pcs: '林曉舟、—、沈墨' });
+    /* 最後面連續空白的 PC 不寫 */
+    expect(
+      pairedPeople([
+        { pl: 'A', pc: 'a' },
+        { pl: 'B', pc: '' },
+      ]),
+    ).toEqual({ players: 'A、B', pcs: 'a' });
+    /* 只有 PC 的排最後：紀錄簿配對成（A,a）（C,—）（空白,b） */
+    const r = pairedPeople([
+      { pl: 'A', pc: 'a' },
+      { pl: '', pc: 'b' },
+      { pl: 'C', pc: '' },
+    ]);
+    expect(r).toEqual({ players: 'A、C', pcs: 'a、—、b' });
+    const row = logRowFromImportItem({
+      dates: ['2026-01-01'],
+      players: [
+        { pl: '阿樹', pc: '林曉舟' },
+        { pl: '小鹿', pc: '' },
+        { pl: '貓又', pc: '沈墨' },
+      ],
+    });
+    expect([row.players, row.pc]).toEqual(['阿樹、小鹿、貓又', '林曉舟、—、沈墨']);
   });
 
   describe('瀏覽器儲存空間', () => {

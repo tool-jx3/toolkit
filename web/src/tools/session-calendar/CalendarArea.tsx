@@ -14,6 +14,7 @@ import {
   clearSamples,
   goToday,
   openNewEntry,
+  returnFocusTo,
   selectDate,
   setView,
   shiftCursor,
@@ -24,8 +25,13 @@ import {
 import { S } from './strings';
 import { YearView } from './YearView';
 
+/** 選單的按鈕（關閉從選單打開的對話框後，焦點放回這裡） */
+const menuTrigger = (testId: string) =>
+  document.querySelector<HTMLElement>(`[data-testid="${testId}"]`);
+
 export interface CalendarActions {
-  addTask: () => void;
+  /** 打開新增準備事項；沒有場次（打不開）時回傳 false */
+  addTask: () => boolean;
   openFree: () => void;
   shotMonth: () => void;
   shotYear: () => void;
@@ -111,21 +117,30 @@ function Toolbar({ actions }: { actions: CalendarActions }) {
               label: S.toolbar.addSession,
               description: S.toolbar.addSessionDesc,
               shortcut: 'alt+n',
-              onSelect: () => openNewEntry('session'),
+              onSelect: () => {
+                returnFocusTo(menuTrigger('add-menu'));
+                openNewEntry('session');
+              },
               'data-testid': 'add-session',
             },
             {
               label: S.toolbar.addPlan,
               description: S.toolbar.addPlanDesc,
               shortcut: 'alt+p',
-              onSelect: () => openNewEntry('plan'),
+              onSelect: () => {
+                returnFocusTo(menuTrigger('add-menu'));
+                openNewEntry('plan');
+              },
               'data-testid': 'add-plan',
             },
             {
               label: S.toolbar.addTask,
               description: S.toolbar.addTaskDesc,
               shortcut: 'alt+t',
-              onSelect: actions.addTask,
+              onSelect: () => {
+                returnFocusTo(menuTrigger('add-menu'));
+                if (!actions.addTask()) returnFocusTo(null);
+              },
               'data-testid': 'add-task',
             },
           ]}
@@ -154,13 +169,19 @@ function Toolbar({ actions }: { actions: CalendarActions }) {
             {
               label: S.toolbar.readJson,
               description: S.toolbar.readJsonDesc,
-              onSelect: actions.readJson,
+              onSelect: () => {
+                returnFocusTo(menuTrigger('io-menu'));
+                actions.readJson();
+              },
               'data-testid': 'read-json',
             },
             {
               label: S.toolbar.readIcal,
               description: S.toolbar.readIcalDesc,
-              onSelect: actions.readIcal,
+              onSelect: () => {
+                returnFocusTo(menuTrigger('io-menu'));
+                actions.readIcal();
+              },
               'data-testid': 'read-ical',
             },
             {
@@ -190,26 +211,71 @@ function Toolbar({ actions }: { actions: CalendarActions }) {
   );
 }
 
+/**
+ * 聚焦列：一直佔著同樣的高度（沒有選取日期時寫提示、按鈕停用），點日子的第一下不會把月曆往下推
+ * （雙擊的第二下才不會點到別的日子）。寬畫面一行，窄畫面兩行（日期一行、按鈕一行）。
+ */
 function FocusBar({ actions }: { actions: CalendarActions }) {
   const date = useUi((s) => s.selectedDate);
-  if (!date) return null;
   return (
     <div
-      className="flex flex-wrap items-center gap-2 rounded-md border border-border bg-surface-2 px-3 py-2"
+      className="flex flex-col gap-1.5 rounded-md border border-border bg-surface-2 px-3 py-2 sm:flex-row sm:items-center sm:gap-2"
       data-testid="focus-bar"
+      data-empty={date ? undefined : 'true'}
     >
-      <span className="sr-only">{S.focus.label}</span>
-      <strong className="mr-auto text-sm">{formatFullDay(date)}</strong>
-      <Button size="sm" variant="secondary" onClick={() => openNewEntry('session', date)}>
-        {S.focus.addSession}
-      </Button>
-      <Button size="sm" variant="secondary" onClick={actions.addTask}>
-        {S.focus.addTask}
-      </Button>
-      <Button size="sm" variant="secondary" onClick={() => openNewEntry('plan', date)}>
-        {S.focus.addPlan}
-      </Button>
-      <IconButton label={S.focus.clear} icon={<X />} onClick={() => selectDate(null)} size="sm" />
+      <div className="flex min-w-0 flex-1 items-center gap-2">
+        <span className="sr-only">{S.focus.label}</span>
+        <strong
+          className={
+            date
+              ? 'min-w-0 flex-1 truncate text-sm'
+              : 'min-w-0 flex-1 truncate text-sm font-normal text-muted'
+          }
+          data-testid="focus-date"
+        >
+          {date ? formatFullDay(date) : S.focus.none}
+        </strong>
+        <IconButton
+          label={S.focus.clear}
+          icon={<X />}
+          onClick={() => selectDate(null)}
+          size="sm"
+          disabled={!date}
+          className={date ? 'sm:order-last' : 'invisible sm:order-last'}
+        />
+      </div>
+      <div className="flex shrink-0 flex-nowrap items-center gap-1.5">
+        <Button
+          size="sm"
+          variant="secondary"
+          disabled={!date}
+          aria-label={S.focus.addSession}
+          title={S.focus.addSession}
+          onClick={() => date && openNewEntry('session', date)}
+        >
+          {S.focus.addSessionShort}
+        </Button>
+        <Button
+          size="sm"
+          variant="secondary"
+          disabled={!date}
+          aria-label={S.focus.addTask}
+          title={S.focus.addTask}
+          onClick={actions.addTask}
+        >
+          {S.focus.addTaskShort}
+        </Button>
+        <Button
+          size="sm"
+          variant="secondary"
+          disabled={!date}
+          aria-label={S.focus.addPlan}
+          title={S.focus.addPlan}
+          onClick={() => date && openNewEntry('plan', date)}
+        >
+          {S.focus.addPlanShort}
+        </Button>
+      </div>
     </div>
   );
 }

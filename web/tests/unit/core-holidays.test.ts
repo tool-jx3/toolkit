@@ -172,10 +172,33 @@ describe('推算', () => {
     expect(seen.size).toBeGreaterThanOrEqual(4);
   });
 
-  it('同一天兩個節日只放一天、名稱合併', () => {
-    /* 2042：中秋 9/28 和孔子誕辰紀念日同一天 */
+  it('兩個節日同一天：名稱合併；落在週末時各補一天（照 2020 年兒童節與民族掃墓節的先例）', () => {
+    /* 2042：中秋 9/28 和孔子誕辰紀念日同一天，星期日 → 往後補 9/29、9/30 */
     expect(lunarFestivals(2042)?.midAutumn).toBe('2042-09-28');
-    expect(estimateHolidays(2042).get('2042-09-28')?.name).toBe('中秋節、孔子誕辰紀念日/教師節');
+    expect(weekdayOf('2042-09-28')).toBe(0);
+    const h42 = estimateHolidays(2042);
+    expect(h42.get('2042-09-28')?.name).toBe('中秋節、孔子誕辰紀念日/教師節');
+    expect(h42.get('2042-09-29')?.name).toBe('補假');
+    expect(h42.get('2042-09-30')?.name).toBe('補假');
+    expect(h42.has('2042-10-01')).toBe(false);
+    /* 2080：同一天，星期六 → 往前補 9/27、9/26 */
+    expect(lunarFestivals(2080)?.midAutumn).toBe('2080-09-28');
+    expect(weekdayOf('2080-09-28')).toBe(6);
+    const h80 = estimateHolidays(2080);
+    expect(h80.get('2080-09-28')?.name).toBe('中秋節、孔子誕辰紀念日/教師節');
+    expect(h80.get('2080-09-27')?.name).toBe('補假');
+    expect(h80.get('2080-09-26')?.name).toBe('補假');
+    expect(h80.has('2080-09-25')).toBe(false);
+  });
+
+  it('同一套推算（依年份換成當年的規則）算 2017～2027：除了調整放假與補行上班，和公告逐日一致', () => {
+    /* 公告才有、推算不會有的：調整放假（含 2025 年以前的小年夜）、2020-04-03 的名稱「放假」（推算叫「補假」） */
+    for (let y = 2017; y <= 2027; y++) {
+      const official = [...(yearHolidays(y)?.values() ?? [])]
+        .filter((h) => h.off && h.name !== '調整放假' && !(h.name === '小年夜' && y < 2026))
+        .map((h) => `${h.date} ${h.date === '2020-04-03' ? '補假' : h.name}`);
+      expect(estimated(y), `${y}`).toEqual(official);
+    }
   });
 
   it('推算的年份：週末放假、補假放假、平日上班', () => {

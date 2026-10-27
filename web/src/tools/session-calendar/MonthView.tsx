@@ -13,7 +13,7 @@ import {
 import { readableTextColor } from '@/core/color';
 import { addDays, dayNumber, type HolidayDay, holidayOf, weekdayOf } from '@/core/holidays';
 import { cn } from '@/ui';
-import { formatDay, monthTitle, monthWeeks, today, WEEKDAY_NAMES, weekOrder, ymOf } from './dates';
+import { formatDay, monthTitle, monthWeeks, WEEKDAY_NAMES, weekOrder, ymOf } from './dates';
 import { type BarSegment, type DayChip, entriesOn, layoutWeek } from './layout';
 import { colorCss, colorSlice, type Entry, entryTitle, spanDays, timeRange } from './model';
 import { notify } from './notify';
@@ -25,6 +25,7 @@ import {
   selectEntry,
   setCursor,
   useCal,
+  useToday,
   useUi,
 } from './store';
 import { S } from './strings';
@@ -119,10 +120,11 @@ function useCalendarDrag() {
   function onUp(e: PointerEvent) {
     const d = ref.current;
     if (!d || e.pointerId !== d.pointerId) return;
-    const at = (d.active && dateAt(e.clientX, e.clientY)) || d.current;
     const wasActive = d.active;
+    /* 在月曆外放開＝取消（照 taku_calendar） */
+    const at = wasActive ? dateAt(e.clientX, e.clientY) : d.current;
     stop();
-    if (!wasActive) return;
+    if (!wasActive || !at) return;
     if (d.kind === 'range') {
       if (at === d.origin) return;
       suppress();
@@ -212,7 +214,7 @@ export function MonthView() {
   const focusDate = useUi((s) => s.focusDate);
   const grid = useRef<HTMLDivElement>(null);
   const { begin, suppressClick } = useCalendarDrag();
-  const t = today();
+  const t = useToday();
 
   const weeks = useMemo(() => monthWeeks(cursor, data.weekStart), [cursor, data.weekStart]);
   const layouts = useMemo(

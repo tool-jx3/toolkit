@@ -9,9 +9,9 @@ import { Button, Checkbox, Dialog, Field, Notice, Segmented } from '@/ui';
 import { today } from './dates';
 import { convertKinds, parseIcal } from './ical';
 import { type ImportBatch, type ImportFormat, ImportFormatError, parseImportJson } from './json';
-import type { Entry, EntryKind } from './model';
+import { ENTRY_LIMIT, type Entry, type EntryKind } from './model';
 import { notify } from './notify';
-import { applyImport } from './store';
+import { applyImport, restoreFocus, useCal } from './store';
 import { S } from './strings';
 
 export interface PendingImport extends ImportBatch {
@@ -51,7 +51,13 @@ export async function readImportFiles(files: readonly File[]): Promise<PendingIm
   for (const file of files) {
     const bytes = await readAsBytes(file);
     if (isZip(bytes)) {
-      const ics = unzipFiles(bytes).filter((f) => /\.(ics|ical|ifb)$/i.test(f.name));
+      let unzipped: { name: string; data: Uint8Array }[];
+      try {
+        unzipped = unzipFiles(bytes);
+      } catch {
+        throw new ImportFormatError(S.importDialog.badZip);
+      }
+      const ics = unzipped.filter((f) => /\.(ics|ical|ifb)$/i.test(f.name));
       if (!ics.length) throw new ImportFormatError(S.importDialog.noIcs);
       for (const f of ics) addIcal(decode(f.data), f.name);
       continue;
@@ -83,9 +89,11 @@ export async function startImport(files: readonly File[]): Promise<void> {
     const pending = await readImportFiles(files);
     useImport.setState({ pending });
   } catch (e) {
+    restoreFocus();
     notify({
       title: S.importDialog.failed,
-      description: e instanceof Error ? e.message : String(e),
+      /* 本工具的說明照原文；其他（瀏覽器丟的英文錯誤）一律寫「讀不到這個檔案」 */
+      description: e instanceof ImportFormatError ? e.message : S.importDialog.unreadable,
       tone: 'danger',
     });
   }
@@ -97,6 +105,10 @@ export async function pickImport(kind: 'json' | 'ical'): Promise<void> {
       kind === 'json' ? '.json,application/json' : '.ics,.ical,.zip,text/calendar,application/zip',
     multiple: kind === 'ical',
   });
+  if (!files.length) {
+    restoreFocus();
+    return;
+  }
   await startImport(files);
 }
 
@@ -116,14 +128,30 @@ function Body({ pending }: { pending: PendingImport }) {
   }, [converted]);
   const [checked, setChecked] = useState<Set<string>>(() => new Set(groups.map(([n]) => n)));
   const t = today();
+  const current = useCal((s) => s.data.entries.length);
   const selected: Entry[] = converted.filter(
     (e) => checked.has(e.calendar) && (period === 'all' || e.end >= t),
   );
-  const close = () => useImport.setState({ pending: null });
+  /* 一個行事曆最多 5000 筆：放不下的不讀（依日期，早的先讀） */
+  const room = Math.max(0, ENTRY_LIMIT - (mode === 'replace' ? 0 : current));
+  const over = Math.max(0, selected.length - room);
+  const toRead = over
+    ? [...selected]
+        .sort((a, b) => (a.start < b.start ? -1 : a.start > b.start ? 1 : 0))
+        .slice(0, room)
+    : selected;
+  const close = () => {
+    useImport.setState({ pending: null });
+    restoreFocus();
+  };
   const run = () => {
-    applyImport(selected, pending.cpColors, { replace: mode === 'replace', title: pending.title });
+    applyImport(toRead, pending.cpColors, { replace: mode === 'replace', title: pending.title });
     close();
-    notify({ title: S.importDialog.done(selected.length), tone: 'success' });
+    notify({
+      title: S.importDialog.done(toRead.length),
+      description: over ? S.importDialog.overDone(over) : undefined,
+      tone: over ? 'warning' : 'success',
+    });
   };
   return (
     <Dialog
@@ -142,7 +170,7 @@ function Body({ pending }: { pending: PendingImport }) {
           <Button
             variant="primary"
             onClick={run}
-            disabled={!selected.length}
+            disabled={!toRead.length}
             data-testid="import-confirm"
           >
             {S.importDialog.confirm}
@@ -219,8 +247,17 @@ function Body({ pending }: { pending: PendingImport }) {
         {pending.dropped ? (
           <Notice tone="warning">{S.importDialog.dropped(pending.dropped)}</Notice>
         ) : null}
+        {over ? (
+          <Notice tone="warning">
+            <span data-testid="import-over">
+              {mode === 'replace'
+                ? S.importDialog.overReplace(selected.length, over)
+                : S.importDialog.overAppend(current, selected.length, over)}
+            </span>
+          </Notice>
+        ) : null}
         <p className="m-0 text-sm font-semibold" data-testid="import-summary">
-          {selected.length ? S.importDialog.summary(selected.length) : S.importDialog.nothing}
+          {toRead.length ? S.importDialog.summary(toRead.length) : S.importDialog.nothing}
         </p>
       </div>
     </Dialog>

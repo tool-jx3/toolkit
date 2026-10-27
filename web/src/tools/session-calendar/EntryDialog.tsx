@@ -27,6 +27,7 @@ import {
   entryTitle,
   newEntry,
   newId,
+  normalizeLinkUrl,
   PLAN_CALENDAR,
   PLAN_COLOR,
   SESSION_CALENDAR,
@@ -214,6 +215,8 @@ function DialogBody() {
   const [{ draft: initial, isNew }] = useState(makeDraft);
   const [d, setD] = useState<Draft>(initial);
   const [error, setError] = useState('');
+  /** 網址看不懂（或不是 http、https、mailto）的連結（第幾列） */
+  const [badLinks, setBadLinks] = useState<number[]>([]);
   const titleRef = useRef<HTMLInputElement>(null);
   const confirm = useConfirm();
   const session = d.kind === 'session';
@@ -239,6 +242,13 @@ function DialogBody() {
       setError(S.entry.startRequired);
       return;
     }
+    const urls = d.links.map((l) => normalizeLinkUrl(l.url));
+    const bad = urls.flatMap((u, i) => (u === null ? [i] : []));
+    setBadLinks(bad);
+    if (bad.length) {
+      document.querySelector<HTMLInputElement>(`[data-link-url="${bad[0]}"]`)?.focus();
+      return;
+    }
     let start = d.start;
     let end = d.end || d.start;
     if (end < start) [start, end] = [end, start];
@@ -254,7 +264,7 @@ function DialogBody() {
         .map((p) => ({ pl: p.pl.trim(), pc: p.pc.trim() }))
         .filter((p) => p.pl || p.pc),
       links: d.links
-        .map((l) => ({ label: l.label.trim(), url: l.url.trim() }))
+        .map((l, i) => ({ label: l.label.trim(), url: urls[i] ?? '' }))
         .filter((l) => l.label || l.url),
       tasks: d.tasks.map((t) => ({ ...t, title: t.title.trim() })).filter((t) => t.title),
     };
@@ -313,6 +323,7 @@ function DialogBody() {
     >
       <form
         className="flex flex-col gap-3"
+        noValidate
         data-testid="entry-form"
         onSubmit={(e) => {
           e.preventDefault();
@@ -509,7 +520,10 @@ function DialogBody() {
                   <TextInput
                     aria-label={S.entry.linkUrlAria(i + 1)}
                     placeholder="https://"
-                    type="url"
+                    inputMode="url"
+                    autoComplete="url"
+                    data-link-url={i}
+                    invalid={badLinks.includes(i)}
                     value={l.url}
                     onChange={(e) =>
                       set(
@@ -542,6 +556,13 @@ function DialogBody() {
               >
                 {S.entry.addLink}
               </Button>
+              {badLinks.length ? (
+                <p className="m-0 text-xs text-danger" role="alert" data-testid="link-error">
+                  {S.entry.linkInvalid}
+                </p>
+              ) : (
+                <p className="m-0 text-xs text-muted">{S.entry.linkHint}</p>
+              )}
             </fieldset>
             <fieldset className="m-0 flex flex-col gap-1.5 border-0 p-0">
               <legend className="mb-1 text-sm font-medium">{S.entry.tasks}</legend>

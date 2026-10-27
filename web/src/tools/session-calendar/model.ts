@@ -311,6 +311,24 @@ export function normalizeTask(raw: unknown, index: number): Task | null {
   };
 }
 
+const LINK_SCHEMES = new Set(['http:', 'https:', 'mailto:']);
+
+/**
+ * 連結的網址：http、https、mailto 照原樣；沒有寫 scheme 時補 `https://`（例：ccfolia.com/rooms/x）；
+ * 其他 scheme（javascript: 等）或看不懂時 null。空白時空字串。
+ */
+export function normalizeLinkUrl(raw: string): string | null {
+  const v = raw.trim();
+  if (!v) return '';
+  /* `名稱:` 後面接數字的是主機名稱＋埠號（localhost:3000），不是 scheme */
+  const url = /^[a-z][a-z0-9+.-]*:(?!\d)/i.test(v) ? v : `https://${v.replace(/^\/+/, '')}`;
+  try {
+    return LINK_SCHEMES.has(new URL(url).protocol) ? url : null;
+  } catch {
+    return null;
+  }
+}
+
 const STATUS_SET = new Set<string>(SESSION_STATUSES);
 
 export function normalizeEntry(raw: unknown): Entry | null {
@@ -361,7 +379,8 @@ export function normalizeEntry(raw: unknown): Entry | null {
         if (!l || typeof l !== 'object') return null;
         const o = l as Record<string, unknown>;
         const label = str(o.label, 100).trim();
-        const url = str(o.url, 2000).trim();
+        /* 網址只留 http(s)、mailto（讀入的檔案裡的 javascript: 等丟掉，名稱留著） */
+        const url = normalizeLinkUrl(str(o.url, 2000)) ?? '';
         return label || url ? { label, url } : null;
       },
       30,

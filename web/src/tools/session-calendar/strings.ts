@@ -13,7 +13,7 @@ export const S = {
     ],
     notesTitle: '假日、讀入與儲存',
     notes: [
-      '國定假日、補假與補行上班：2017～2027 年照行政院人事行政總處公告的辦公日曆表（政府資料開放平台，政府資料開放授權條款－第 1 版）；2028 年以後依現行的《紀念日及節日實施條例》推算，標示「推算」，以每年的公告為準。',
+      '國定假日、補假與補行上班：2017～2027 年照行政院人事行政總處公告的「中華民國政府行政機關辦公日曆表」（政府資料開放平台，政府資料開放授權條款－第 1 版；由 ruyut/TaiwanCalendar 整理，CC BY 4.0）；2028 年以後依現行的《紀念日及節日實施條例》推算，標示「推算」，以每年的公告為準。',
       'Google 日曆：用電腦開 Google 日曆 → 右上角齒輪「設定」→「匯入與匯出」→「匯出」，會下載一個 ZIP（每個日曆一個 .ics）；在這裡「讀入 iCal」選這個 ZIP 或其中的 .ics，再勾要讀的日曆。只要一個日曆時，在設定左側點那個日曆 →「匯出日曆」。',
       '讀得進來的 JSON：本工具、卓準備カレンダー、taku_calendar、跑團紀錄簿匯出的檔案。',
       '資料自動存在這個瀏覽器裡；要換電腦或備份時用「專案」選單存成專案檔，或匯出 JSON／iCal。',
@@ -59,6 +59,10 @@ export const S = {
 
   focus: {
     label: '選取的日期',
+    none: '點日子選取；雙擊新增場次',
+    addSessionShort: '＋場次',
+    addTaskShort: '＋準備事項',
+    addPlanShort: '＋預定',
     addSession: '這天新增場次',
     addTask: '這天新增準備事項',
     addPlan: '這天新增預定',
@@ -184,6 +188,8 @@ export const S = {
     linkLabelAria: (n: number) => `第 ${n} 個連結的名稱`,
     linkUrlAria: (n: number) => `第 ${n} 個連結的網址`,
     addLink: '加一個連結',
+    linkHint: '網址可以省略 https://；只接受 http、https、mailto。',
+    linkInvalid: '有看不懂的網址：只接受 http、https 或 mailto 開頭的網址（可以省略 https://）。',
     removeLink: (n: number) => `刪除第 ${n} 個連結`,
     tasks: '準備事項',
     taskTitle: '名稱',
@@ -374,7 +380,7 @@ export const S = {
     replaceHint: '目前所有的場次與預定都會換掉（可以復原）。',
     recurring: (n: number) => `有 ${n} 筆是重複的預定，只讀入第一次。`,
     skipped: (n: number) => `略過 ${n} 筆（已取消或日期看不懂）。`,
-    dropped: (n: number) => `超過上限，${n} 筆沒有讀入。`,
+    dropped: (n: number) => `檔案超過 5000 筆的上限，多的 ${n} 筆不讀。`,
     summary: (n: number) => `會讀入 ${n} 筆`,
     nothing: '沒有可以讀入的筆。',
     confirm: '讀入',
@@ -382,6 +388,15 @@ export const S = {
     done: (n: number) => `已讀入 ${n} 筆`,
     failed: '無法讀入',
     noIcs: 'ZIP 裡沒有 .ics 檔。',
+    badZip: 'ZIP 檔損壞，解不開。',
+    unreadable: '讀不到這個檔案。',
+    overReplace: (n: number, over: number) =>
+      `一個行事曆最多 5000 筆：這次選了 ${n} 筆，只讀入日期最早的 5000 筆，其餘 ${over} 筆不讀。`,
+    overAppend: (current: number, n: number, over: number) =>
+      n > over
+        ? `一個行事曆最多 5000 筆：目前已有 ${current} 筆，這次選了 ${n} 筆，只讀入日期最早的 ${n - over} 筆，其餘 ${over} 筆不讀。`
+        : `一個行事曆最多 5000 筆：目前已有 ${current} 筆，已經滿了，這次選的 ${n} 筆都不讀（可以改用「取代全部」）。`,
+    overDone: (over: number) => `超過 5000 筆的上限，${over} 筆沒有讀入。`,
     unknown: '看不懂這個檔案：請選 JSON、.ics 或 Google 日曆匯出的 ZIP。',
     drop: '放開就讀入',
     dropHint: 'JSON、.ics 或 Google 日曆匯出的 ZIP',
@@ -399,7 +414,7 @@ export const S = {
     overwrite: '瀏覽器裡還有一筆還沒被讀取的資料，這次會覆寫它。',
     confirm: '送出並開啟',
     failedTitle: '無法寫入瀏覽器的儲存空間',
-    failedDesc: '請複製下面的交接資料自己保存；目標工具這次讀不到。',
+    failedDesc: '請複製下面的交接資料自己儲存；目標工具這次讀不到。',
     failedData: '交接資料',
     sentLog: '已送出，正在開啟跑團紀錄簿',
     sentReport: '已送出，正在開啟團報產生器',

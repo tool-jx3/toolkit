@@ -1066,7 +1066,11 @@ test('團期行事曆送來的團（F117）：稍後再說、不要了、加入�
         latestDate: '2026-10-30',
         sessionCount: 1,
         gm: '白鷺',
-        players: [{ pl: '阿樹', pc: '林曉舟' }],
+        /* 第一位沒有 PC：PC 欄用「—」占位，跟 PL 一一對上 */
+        players: [
+          { pl: '阿樹', pc: '' },
+          { pl: '小鹿', pc: '程雨' },
+        ],
         format: '線上・語音',
         status: 'completed',
         memo: '備註',
@@ -1113,8 +1117,8 @@ test('團期行事曆送來的團（F117）：稍後再說、不要了、加入�
     dates: ['2026-10-30'],
     system: 'CoC 6版',
     gm: '白鷺',
-    players: '阿樹',
-    pc: '林曉舟',
+    players: '阿樹、小鹿',
+    pc: '—、程雨',
     status: '完結',
     time: '3.5',
     note: '備註',

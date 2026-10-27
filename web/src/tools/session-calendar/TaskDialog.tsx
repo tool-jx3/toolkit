@@ -11,11 +11,11 @@ import { S } from './strings';
 import { nextTaskOrder } from './tasks';
 
 /** 打開新增準備事項（選取的日期當期限；所屬場次預設是選取的場次，沒有時是最近一個還沒到的場次） */
-export function openTaskDialog(): void {
+export function openTaskDialog(): boolean {
   const sessions = calNow().entries.filter((e) => e.kind === 'session');
   if (!sessions.length) {
     notify({ title: S.tasks.noSession, tone: 'warning' });
-    return;
+    return false;
   }
   const { selectedId, selectedDate } = useUi.getState();
   const due = selectedDate ?? today();
@@ -23,6 +23,7 @@ export function openTaskDialog(): void {
   const sorted = [...sessions].sort(compareEntries);
   const upcoming = sorted.find((e) => e.end >= due) ?? sorted[sorted.length - 1];
   useUi.setState({ taskDialog: { due, entryId: (selected ?? upcoming).id } });
+  return true;
 }
 
 function Body({ due: initialDue, entryId }: { due: string; entryId: string | null }) {
