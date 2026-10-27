@@ -4,6 +4,7 @@ import {
   BookHeart,
   BookOpen,
   Box,
+  CalendarDays,
   Camera,
   CassetteTape,
   ChartNoAxesColumnIncreasing,
@@ -133,6 +134,7 @@ const ICONS: Record<string, LucideIcon> = {
   'lock-screen': Smartphone,
   'id-ticket': IdCardLanyard,
   'clue-map': MousePointerClick,
+  'session-calendar': CalendarDays,
   /* G7 介紹圖與宣傳 */
   'pair-maker': HeartHandshake,
   'character-select': Users,

@@ -1050,6 +1050,95 @@ test('長清單：只畫捲動範圍內的列；捲動、搜尋、匯入後捲�
   expect(errors).toEqual([]);
 });
 
+test('團期行事曆送來的團（F117）：稍後再說、不要了、加入、損壞的資料', async ({ page }) => {
+  const CAL_KEY = 'trpgWebTools.sessionLogTracker.pendingImport';
+  const payload = {
+    source: 'session-check-calendar',
+    version: '1.0',
+    createdAt: '2026-10-27T02:00:00.000Z',
+    items: [
+      {
+        id: 'calendar_import_1',
+        sourceCalendarId: 's1',
+        scenario: '燈塔的夜',
+        system: 'クトゥルフ神話TRPG',
+        dates: ['2026-10-30'],
+        latestDate: '2026-10-30',
+        sessionCount: 1,
+        gm: '白鷺',
+        players: [{ pl: '阿樹', pc: '林曉舟' }],
+        format: '線上・語音',
+        status: 'completed',
+        memo: '備註',
+        links: [{ label: 'CCFOLIA', url: 'https://ccfolia.com/rooms/x' }],
+        hashtags: ['TRPG'],
+        startTime: '20:00',
+        endTime: '23:30',
+      },
+    ],
+  };
+  await page.addInitScript(
+    ([k, v]) => {
+      if (sessionStorage.getItem('seeded')) return;
+      sessionStorage.setItem('seeded', '1');
+      localStorage.setItem(k, v);
+    },
+    [CAL_KEY, JSON.stringify(payload)],
+  );
+  /* 開頁就跳出對話框（頁面其他部分對輔助技術隱藏），所以不用 open() 等標題 */
+  const errors: string[] = [];
+  page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
+  page.on('console', (m) => {
+    if (m.type() === 'error') errors.push(`console: ${m.text()}`);
+  });
+  await page.route(/fonts\.(googleapis|gstatic)\.com/, (r) =>
+    r.fulfill({ status: 200, contentType: 'text/css', body: '' }),
+  );
+  await page.goto(URL);
+  const ask = page.getByRole('alertdialog', { name: '團期行事曆送來一團' });
+  await expect(ask).toBeVisible();
+  await expect(ask.getByTestId('calendar-pending-items')).toHaveText('燈塔的夜（2026-10-30）');
+  /* 稍後再說：不刪，下次開頁再問 */
+  await ask.getByRole('button', { name: '稍後再說' }).click();
+  expect(await page.evaluate((k) => localStorage.getItem(k), CAL_KEY)).not.toBeNull();
+  await page.reload();
+  await expect(ask).toBeVisible();
+  await ask.getByRole('button', { name: '加進紀錄簿' }).click();
+  const row = rowByScenario(page, '燈塔的夜');
+  await expect(row).toHaveCount(1);
+  await expect(row).toHaveAttribute('aria-current', 'true');
+  expect(await page.evaluate((k) => localStorage.getItem(k), CAL_KEY)).toBeNull();
+  const saved = (await storedRows(page)).find((r) => r.scenario === '燈塔的夜');
+  expect(saved).toMatchObject({
+    dates: ['2026-10-30'],
+    system: 'CoC 6版',
+    gm: '白鷺',
+    players: '阿樹',
+    pc: '林曉舟',
+    status: '完結',
+    time: '3.5',
+    note: '備註',
+    hashtag: '#TRPG',
+    format: '線上・語音',
+    role: 'PL',
+  });
+  /* 主題標籤欄自動加進表格 */
+  expect(await headerKeys(page)).toContain('hashtag');
+  /* 不要了：刪掉、不加 */
+  await page.evaluate(([k, v]) => localStorage.setItem(k, v), [CAL_KEY, JSON.stringify(payload)]);
+  await page.reload();
+  await ask.getByRole('button', { name: '不要了' }).click();
+  expect(await page.evaluate((k) => localStorage.getItem(k), CAL_KEY)).toBeNull();
+  await expect(rowByScenario(page, '燈塔的夜')).toHaveCount(1);
+  /* 損壞的資料：問要不要刪 */
+  await page.evaluate((k) => localStorage.setItem(k, '{bad'), CAL_KEY);
+  await page.reload();
+  const broken = page.getByRole('alertdialog', { name: '團期行事曆送來的資料讀不懂' });
+  await broken.getByRole('button', { name: '刪除' }).click();
+  expect(await page.evaluate((k) => localStorage.getItem(k), CAL_KEY)).toBeNull();
+  expect(errors).toEqual([]);
+});
+
 test.describe('視覺回歸', () => {
   async function prepare(page: Page) {
     const errors = await open(page);

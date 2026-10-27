@@ -1,0 +1,660 @@
+/**
+ * 團期行事曆（建置產物 next/session-calendar/）的端對端測試：
+ * - 開頁沒有 pageerror／console error；範例、國定假日與補假、頁尾只放靈感來源。
+ * - 新增場次（對話框）、準備事項（新增、勾選、清單拖曳排序）、詳細、刪除與復原。
+ * - 拖曳：在日子上拖過幾天新增預定、拖曳色條換日子（天數不變）；Shift＋方向鍵移動；雙擊新增場次。
+ * - 年曆／月曆：切換、點月份打開月曆、PageDown、週一開始；推算年份的說明。
+ * - 匯出入：JSON、iCal（解析下載的檔案）；讀入卓準備カレンダー、taku_calendar 的 JSON、Google 日曆匯出的 ZIP（選行事曆）。
+ * - 空檔日期（條件、格式、複製）；存成 PNG（月曆、年曆，檢查 PNG 與尺寸）；外觀（花紋背景、自動配色）。
+ * - 送到跑團紀錄簿（新分頁的紀錄簿問要不要加入、加入後的列）與團報產生器（交接資料）。
+ * - 390 寬沒有橫向捲動；1280 與 390 的視覺回歸基準。
+ */
+import { readFileSync } from 'node:fs';
+import { expect, type Page, test } from '@playwright/test';
+import { strFromU8, strToU8, unzipSync, zipSync } from 'fflate';
+import { encodePng } from '../../src/core/encode/png';
+import { getTool, outputDir } from '../../src/registry';
+
+const URL = `/${outputDir(getTool('session-calendar') ?? { id: 'session-calendar', status: 'next' })}/`;
+const STORE_KEY = 'trpg-toolkit:session-calendar';
+const LOG_KEY = 'trpgWebTools.sessionLogTracker.pendingImport';
+const REPORT_KEY = 'trpgWebTools.sessionReportGenerator.pendingImport';
+const NOW = new Date('2026-10-27T10:00:00+08:00');
+
+async function open(page: Page) {
+  const errors: string[] = [];
+  page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
+  page.on('console', (m) => {
+    if (m.type() === 'error') errors.push(`console: ${m.text()}`);
+  });
+  await page.route(/fonts\.(googleapis|gstatic)\.com/, (r) =>
+    r.fulfill({ status: 200, contentType: 'text/css', body: '' }),
+  );
+  await page.clock.install({ time: NOW });
+  await page.goto(URL);
+  await expect(page.getByRole('heading', { level: 1, name: '團期行事曆' })).toBeVisible();
+  return errors;
+}
+
+const day = (page: Page, date: string) => page.locator(`[data-cal-day="${date}"]`);
+const entryEl = (page: Page, title: string) =>
+  page.locator('[data-cal-entry]').filter({ hasText: title }).first();
+
+async function stored(page: Page) {
+  return page.evaluate(
+    (k) => JSON.parse(localStorage.getItem(k) ?? '{"state":{"data":{"entries":[]}}}').state.data,
+    STORE_KEY,
+  );
+}
+
+async function noHorizontalScroll(page: Page) {
+  const [sw, cw] = await page.evaluate(() => [
+    document.documentElement.scrollWidth,
+    document.documentElement.clientWidth,
+  ]);
+  expect(sw, '不應出現橫向捲動').toBeLessThanOrEqual(cw);
+}
+
+/** 拖曳：從一格的中心到另一格的中心（滑鼠） */
+async function dragBetween(
+  page: Page,
+  from: { x: number; y: number },
+  to: { x: number; y: number },
+) {
+  await page.mouse.move(from.x, from.y);
+  await page.mouse.down();
+  await page.mouse.move(from.x + 8, from.y + 2, { steps: 2 });
+  await page.mouse.move(to.x, to.y, { steps: 8 });
+  await page.mouse.up();
+}
+
+async function center(page: Page, date: string, dy = 0.75) {
+  const b = await day(page, date).boundingBox();
+  if (!b) throw new Error(`沒有 ${date}`);
+  return { x: b.x + b.width / 2, y: b.y + b.height * dy };
+}
+
+test('開頁：範例、國定假日、今天；頁尾只放靈感來源', async ({ page }) => {
+  const errors = await open(page);
+  await expect(page.getByTestId('cal-title')).toHaveText('2026年10月');
+  await expect(day(page, '2026-10-27')).toHaveAttribute('data-today', 'true');
+  await expect(day(page, '2026-10-10')).toHaveAttribute('data-holiday', '國慶日');
+  await expect(day(page, '2026-10-09')).toHaveAttribute('data-holiday', '補假');
+  await expect(day(page, '2026-10-25')).toHaveAttribute(
+    'data-holiday',
+    '臺灣光復暨金門古寧頭大捷紀念日',
+  );
+  await expect(day(page, '2026-10-26')).toHaveAttribute('data-holiday', '補假');
+  /* 範例：10/30 的場次、準備事項 */
+  await expect(entryEl(page, '霧港燈塔的最後一夜')).toBeVisible();
+  await expect(page.getByTestId('sample-note')).toBeVisible();
+  await expect(page.locator('[data-cal-task]')).toHaveCount(3);
+  await expect(page.getByTestId('today-panel')).toContainText('今天沒有預定');
+  const tasks = page.getByRole('list', { name: '準備事項清單' });
+  await expect(tasks.locator('li')).toHaveCount(3);
+  await expect(tasks.locator('[data-task-state="today"]')).toHaveCount(1);
+  /* 頁尾：靈感來源一行 */
+  const footer = page.locator('footer');
+  await expect(footer).toContainText('靈感來源：くま。／卓準備カレンダー');
+  await expect(footer.getByRole('link')).toHaveAttribute(
+    'href',
+    'https://kumachansteps.github.io/trpg-web-tools/tools/session-check-calendar/',
+  );
+  /* 刪除範例（可以復原） */
+  await page.getByRole('button', { name: '刪除範例' }).click();
+  await expect(page.locator('[data-cal-entry]')).toHaveCount(0);
+  await page.keyboard.press('Control+z');
+  await expect(entryEl(page, '霧港燈塔的最後一夜')).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
+test('新增場次：對話框的欄位、詳細、準備事項（新增、勾選、拖曳排序）、刪除與復原', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  await day(page, '2026-10-21').click();
+  await expect(page.getByTestId('focus-bar')).toContainText('2026年10月21日（三）');
+  await page.getByRole('button', { name: '這天新增場次' }).click();
+  const dlg = page.getByRole('dialog', { name: '新增場次' });
+  await expect(dlg.getByRole('textbox', { name: '劇本名稱' })).toBeFocused();
+  await dlg.getByRole('textbox', { name: '劇本名稱' }).fill('深海站的訊號');
+  await expect(dlg.getByLabel('開始日')).toHaveValue('2026-10-21');
+  await dlg.getByLabel('開始時間').fill('19:30');
+  await dlg.getByLabel('結束時間').fill('23:00');
+  await dlg.getByRole('button', { name: 'CoC 7版' }).click();
+  await expect(dlg.getByRole('textbox', { name: '系統' })).toHaveValue('CoC 7版');
+  await dlg.getByRole('textbox', { name: 'GM／KP' }).fill('海鷗');
+  await dlg.getByRole('button', { name: '線上・語音' }).click();
+  await dlg.getByRole('radio', { name: '調整中' }).click();
+  await dlg.getByRole('textbox', { name: '主題標籤' }).fill('TRPG, CoC');
+  await dlg.getByRole('button', { name: '加一位參加者' }).click();
+  await dlg.getByRole('textbox', { name: 'PL 1' }).fill('阿樹');
+  await dlg.getByRole('textbox', { name: 'PC 1' }).fill('林曉舟');
+  await dlg.getByRole('button', { name: '加一個連結' }).click();
+  await dlg.getByRole('textbox', { name: '第 1 個連結的名稱' }).fill('CCFOLIA');
+  await dlg
+    .getByRole('textbox', { name: '第 1 個連結的網址' })
+    .fill('https://ccfolia.com/rooms/test');
+  await dlg.getByRole('button', { name: '加一項準備事項' }).click();
+  await dlg.getByRole('textbox', { name: '第 1 項準備事項', exact: true }).fill('畫地圖');
+  await dlg.getByRole('radio', { name: '兩色漸層' }).click();
+  await dlg.getByRole('textbox', { name: '備註' }).fill('第一行\n第二行');
+  await dlg.getByTestId('entry-save').click();
+  await expect(dlg).toHaveCount(0);
+
+  const chip = entryEl(page, '深海站的訊號');
+  await expect(chip).toHaveAttribute('data-status', 'tentative');
+  const detail = page.getByTestId('entry-detail');
+  await expect(detail).toContainText('深海站的訊號');
+  await expect(detail).toContainText('19:30–23:00');
+  await expect(detail).toContainText('海鷗');
+  await expect(detail).toContainText('調整中');
+  await expect(detail.getByRole('link', { name: 'CCFOLIA' })).toHaveAttribute(
+    'href',
+    'https://ccfolia.com/rooms/test',
+  );
+  const saved = (await stored(page)).entries.find(
+    (e: { title: string }) => e.title === '深海站的訊號',
+  );
+  expect(saved).toMatchObject({
+    kind: 'session',
+    start: '2026-10-21',
+    end: '2026-10-21',
+    startTime: '19:30',
+    endTime: '23:00',
+    system: 'CoC 7版',
+    format: '線上・語音',
+    status: 'tentative',
+    tags: ['TRPG', 'CoC'],
+    players: [{ pl: '阿樹', pc: '林曉舟' }],
+    memo: '第一行\n第二行',
+  });
+  expect(saved.color.mode).toBe('gradient');
+  expect(saved.tasks[0]).toMatchObject({ title: '畫地圖', due: '2026-10-21', done: false });
+
+  /* 準備事項：從工具列新增（期限＝選取的日期、所屬＝選取的場次） */
+  await page.getByTestId('add-menu').click();
+  await page.getByTestId('add-task').click();
+  const tdlg = page.getByRole('dialog', { name: '新增準備事項' });
+  await tdlg.getByRole('textbox', { name: '名稱' }).fill('列印角色卡');
+  await tdlg.getByTestId('task-save').click();
+  await expect(tdlg).toHaveCount(0);
+  await page.getByRole('radio', { name: '全部' }).click();
+  const list = page.getByRole('list', { name: '準備事項清單' });
+  await expect(list.locator('li')).toHaveCount(6);
+  await expect(list.locator('li').last()).toContainText('列印角色卡');
+  /* 勾選完成 */
+  await list.getByRole('checkbox', { name: '列印角色卡' }).click();
+  await expect(list.getByRole('checkbox', { name: '列印角色卡' })).toBeChecked();
+  /* 拖曳把手：最後一項拖到第一項 */
+  const handle = list.locator('li').last().locator('[data-drag-handle]');
+  const first = await list.locator('li').first().boundingBox();
+  const hb = await handle.boundingBox();
+  if (!first || !hb) throw new Error('no box');
+  await page.mouse.move(hb.x + hb.width / 2, hb.y + hb.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(hb.x + hb.width / 2, hb.y - 10, { steps: 3 });
+  await page.mouse.move(hb.x + hb.width / 2, first.y + 4, { steps: 10 });
+  await page.mouse.up();
+  await expect(list.locator('li').first()).toContainText('列印角色卡');
+
+  /* 刪除（確認、可以復原） */
+  await chip.click();
+  await detail.getByRole('button', { name: '刪除' }).click();
+  await page
+    .getByRole('alertdialog', { name: '刪除這一筆？' })
+    .getByRole('button', { name: '刪除' })
+    .click();
+  await expect(entryEl(page, '深海站的訊號')).toHaveCount(0);
+  await page.getByRole('button', { name: /^復原/ }).click();
+  await expect(entryEl(page, '深海站的訊號')).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
+test('拖曳：拖過幾天新增預定、拖曳色條換日子、Shift＋方向鍵、雙擊新增場次', async ({ page }) => {
+  const errors = await open(page);
+  await dragBetween(page, await center(page, '2026-10-13'), await center(page, '2026-10-15'));
+  const dlg = page.getByRole('dialog', { name: '新增預定' });
+  await expect(dlg).toBeVisible();
+  await expect(dlg.getByLabel('開始日')).toHaveValue('2026-10-13');
+  await expect(dlg.getByLabel('結束日')).toHaveValue('2026-10-15');
+  await dlg.getByRole('textbox', { name: '標題' }).fill('期中考');
+  await dlg.getByTestId('entry-save').click();
+  const bar = entryEl(page, '期中考');
+  await expect(bar).toHaveAttribute('data-kind', 'plan');
+  /* 拖曳色條：抓 10/13 放到 10/20 → 10/20～10/22 */
+  const bb = await bar.boundingBox();
+  if (!bb) throw new Error('no bar');
+  await dragBetween(
+    page,
+    { x: bb.x + 20, y: bb.y + bb.height / 2 },
+    await center(page, '2026-10-20'),
+  );
+  await expect(page.getByText('已移動', { exact: true }).first()).toBeVisible();
+  let plan = (await stored(page)).entries.find((e: { title: string }) => e.title === '期中考');
+  expect([plan.start, plan.end]).toEqual(['2026-10-20', '2026-10-22']);
+  /* 選取後 Shift＋→ 往後一天、Shift＋↓ 往後一週 */
+  await entryEl(page, '期中考').click();
+  await page.keyboard.press('Shift+ArrowRight');
+  await page.keyboard.press('Shift+ArrowDown');
+  plan = (await stored(page)).entries.find((e: { title: string }) => e.title === '期中考');
+  expect([plan.start, plan.end]).toEqual(['2026-10-28', '2026-10-30']);
+  /* 雙擊日子：新增場次 */
+  await day(page, '2026-10-06').dblclick();
+  const sdlg = page.getByRole('dialog', { name: '新增場次' });
+  await expect(sdlg.getByLabel('開始日')).toHaveValue('2026-10-06');
+  await expect(sdlg.getByLabel('開始時間')).toHaveValue('20:00');
+  await sdlg.getByRole('button', { name: '取消' }).click();
+  /* 方向鍵在日子間移動（跨月時換月） */
+  await day(page, '2026-10-31').focus();
+  await page.keyboard.press('ArrowRight');
+  await expect(page.getByTestId('cal-title')).toHaveText('2026年11月');
+  await expect(day(page, '2026-11-01')).toBeFocused();
+  expect(errors).toEqual([]);
+});
+
+test('年曆與月曆：切換、點月份、PageDown、週一開始、推算年份的說明', async ({ page }) => {
+  const errors = await open(page);
+  await page.getByRole('radio', { name: '年曆' }).click();
+  await expect(page.getByTestId('cal-title')).toHaveText('2026年');
+  await expect(page.locator('[data-cal-mini]')).toHaveCount(12);
+  /* 範例的多日預定塗上顏色 */
+  await expect(page.locator('[data-mini-day="2026-11-08"][data-marked]')).toHaveCount(1);
+  await page.getByRole('button', { name: /^打開11月的月曆/ }).click();
+  await expect(page.getByTestId('cal-title')).toHaveText('2026年11月');
+  await page.keyboard.press('PageDown');
+  await expect(page.getByTestId('cal-title')).toHaveText('2026年12月');
+  await page.keyboard.press('Home');
+  await expect(page.getByTestId('cal-title')).toHaveText('2026年10月');
+  /* 週一開始 */
+  await page.getByRole('button', { name: '外觀與設定' }).click();
+  await page.getByRole('radio', { name: '星期一' }).click();
+  const firstCell = page.locator('[data-week]').first().locator('[data-cal-day]').first();
+  await expect(firstCell).toHaveAttribute('data-cal-day', '2026-09-28');
+  /* 2028 年：推算 */
+  await page.getByRole('radio', { name: '年曆' }).click();
+  await page.getByTestId('cal-next').click();
+  await page.getByTestId('cal-next').click();
+  await expect(page.getByTestId('holiday-note')).toContainText('2028 年的國定假日還沒公告');
+  expect(errors).toEqual([]);
+});
+
+test('匯出 JSON 與 iCal（解析下載的檔案）', async ({ page }) => {
+  const errors = await open(page);
+  const [dl] = await Promise.all([
+    page.waitForEvent('download'),
+    (async () => {
+      await page.getByTestId('io-menu').click();
+      await page.getByTestId('export-json').click();
+    })(),
+  ]);
+  expect(dl.suggestedFilename()).toBe('團期行事曆_20261027.json');
+  const json = JSON.parse(readFileSync((await dl.path()) as string, 'utf8'));
+  expect(json).toMatchObject({ format: 'trpg-toolkit/session-calendar', version: 1 });
+  expect(json.entries).toHaveLength(4);
+  const [dl2] = await Promise.all([
+    page.waitForEvent('download'),
+    (async () => {
+      await page.getByTestId('io-menu').click();
+      await page.getByTestId('export-ical').click();
+    })(),
+  ]);
+  expect(dl2.suggestedFilename()).toBe('團期行事曆_20261027.ics');
+  const ics = readFileSync((await dl2.path()) as string, 'utf8');
+  expect(ics.startsWith('BEGIN:VCALENDAR\r\n')).toBe(true);
+  expect(ics.match(/BEGIN:VEVENT/g)).toHaveLength(4);
+  /* 10/30 20:00（臺灣）＝ 12:00Z */
+  expect(ics).toContain('DTSTART:20261030T120000Z');
+  expect(ics).toContain('DTEND:20261030T153000Z');
+  /* 多日的預定：整天、結束日的隔天 */
+  expect(ics).toContain('DTSTART;VALUE=DATE:20261108');
+  expect(ics).toContain('DTEND;VALUE=DATE:20261111');
+  expect(errors).toEqual([]);
+});
+
+async function chooseFiles(
+  page: Page,
+  menuItem: string,
+  files: { name: string; mimeType: string; buffer: Buffer }[],
+) {
+  const [chooser] = await Promise.all([
+    page.waitForEvent('filechooser'),
+    (async () => {
+      await page.getByTestId('io-menu').click();
+      await page.getByTestId(menuItem).click();
+    })(),
+  ]);
+  await chooser.setFiles(files);
+}
+
+test('讀入：卓準備カレンダー、taku_calendar 的 JSON、Google 日曆匯出的 ZIP（選行事曆）', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  const kuma = {
+    version: '0.13',
+    sessions: [
+      {
+        id: 'k1',
+        sourceCalendar: 'TRPG予定',
+        scenario: '測試的劇本',
+        system: 'クトゥルフ神話TRPG',
+        start: '2026-10-16T20:00',
+        end: '23:00',
+        gm: 'GM甲',
+        status: 'scheduled',
+        players: [{ pl: 'P', pc: 'C' }],
+        links: [],
+        hashtags: ['TRPG'],
+        tasks: [
+          { id: 't', title: '準備', due: '2026-10-15', status: '未着手', done: false, order: 10 },
+        ],
+      },
+    ],
+  };
+  await chooseFiles(page, 'read-json', [
+    {
+      name: 'session-check-calendar.json',
+      mimeType: 'application/json',
+      buffer: Buffer.from(JSON.stringify(kuma)),
+    },
+  ]);
+  let dlg = page.getByRole('dialog', { name: '讀入「session-check-calendar.json」' });
+  await expect(dlg).toContainText('卓準備カレンダー的 JSON');
+  await expect(dlg.getByTestId('import-summary')).toHaveText('會讀入 1 筆');
+  await dlg.getByTestId('import-confirm').click();
+  await expect(entryEl(page, '測試的劇本')).toBeVisible();
+
+  const taku = {
+    title: '我的團曆',
+    events: [
+      {
+        id: 'e1',
+        title: '旅行',
+        memo: '',
+        start: '2026-10-19',
+        end: '2026-10-21',
+        colorMode: 'gradient',
+        color1: '#f08aa8',
+        color2: '#d9547e',
+      },
+    ],
+    cpColors: [{ id: 'cp', name: 'A×B', c1: '#111111', c2: '#eeeeee' }],
+  };
+  await chooseFiles(page, 'read-json', [
+    {
+      name: 'taku_calendar_events.json',
+      mimeType: 'application/json',
+      buffer: Buffer.from(JSON.stringify(taku)),
+    },
+  ]);
+  dlg = page.getByRole('dialog', { name: '讀入「taku_calendar_events.json」' });
+  await expect(dlg).toContainText('taku_calendar 的 JSON');
+  await dlg.getByRole('radio', { name: '取代全部' }).click();
+  await dlg.getByTestId('import-confirm').click();
+  await expect(entryEl(page, '旅行')).toBeVisible();
+  await expect(entryEl(page, '霧港燈塔的最後一夜')).toHaveCount(0);
+  const data = await stored(page);
+  expect(data.title).toBe('我的團曆');
+  expect(data.cpColors).toHaveLength(1);
+
+  /* Google 日曆匯出的 ZIP：兩個日曆，只讀「工作」 */
+  const ics = (name: string, body: string[]) =>
+    ['BEGIN:VCALENDAR', 'VERSION:2.0', `X-WR-CALNAME:${name}`, ...body, 'END:VCALENDAR'].join(
+      '\r\n',
+    );
+  const zip = zipSync({
+    'calendar/個人_abc@group.calendar.google.com.ics': strToU8(
+      ics('個人', [
+        'BEGIN:VEVENT',
+        'DTSTART;VALUE=DATE:20261005',
+        'DTEND;VALUE=DATE:20261006',
+        'SUMMARY:看牙醫',
+        'END:VEVENT',
+      ]),
+    ),
+    'calendar/工作_def@group.calendar.google.com.ics': strToU8(
+      ics('工作', [
+        'BEGIN:VEVENT',
+        'DTSTART:20261007T013000Z',
+        'DTEND:20261007T023000Z',
+        'SUMMARY:週會',
+        'END:VEVENT',
+        'BEGIN:VEVENT',
+        'DTSTART;VALUE=DATE:20261012',
+        'DTEND;VALUE=DATE:20261014',
+        'SUMMARY:出差',
+        'RRULE:FREQ=MONTHLY;COUNT=2',
+        'END:VEVENT',
+      ]),
+    ),
+  });
+  await chooseFiles(page, 'read-ical', [
+    { name: 'takeout.zip', mimeType: 'application/zip', buffer: Buffer.from(zip) },
+  ]);
+  dlg = page.getByRole('dialog', { name: '讀入「takeout.zip」' });
+  await expect(dlg).toContainText('有 1 筆是重複的預定，只讀入第一次');
+  await dlg.getByRole('checkbox', { name: /個人/ }).click();
+  await expect(dlg.getByTestId('import-summary')).toHaveText('會讀入 2 筆');
+  await dlg.getByRole('radio', { name: '預定', exact: true }).click();
+  await dlg.getByTestId('import-confirm').click();
+  await expect(entryEl(page, '週會')).toHaveAttribute('data-kind', 'plan');
+  await expect(entryEl(page, '出差')).toBeVisible();
+  await expect(page.locator('[data-cal-entry]').filter({ hasText: '看牙醫' })).toHaveCount(0);
+  const week = (await stored(page)).entries.find((e: { title: string }) => e.title === '週會');
+  expect(week).toMatchObject({
+    start: '2026-10-07',
+    startTime: '09:30',
+    endTime: '10:30',
+    calendar: '工作',
+  });
+  expect(errors).toEqual([]);
+});
+
+test('空檔日期：條件與格式、複製', async ({ page, context }) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  const errors = await open(page);
+  await page.getByTestId('open-free').click();
+  const dlg = page.getByRole('dialog', { name: '空檔日期' });
+  const out = dlg.getByRole('textbox', { name: '空檔日期' });
+  /* 10 月：範例的 10/30 有場次 */
+  await expect(out).not.toHaveValue(/10\/30（五）/);
+  await expect(out).toHaveValue(/^10\/1（四）\n10\/2（五）/);
+  await dlg.getByRole('radio', { name: '週末與放假日' }).click();
+  await expect(out).toHaveValue(
+    '10/3（六）\n10/4（日）\n10/9（五）\n10/10（六）\n10/11（日）\n10/17（六）\n10/18（日）\n10/24（六）\n10/25（日）\n10/26（一）\n10/31（六）',
+  );
+  await dlg.getByRole('button', { name: '排除星期六' }).click();
+  await dlg.getByRole('checkbox', { name: '連續的日子合併成「起～迄」' }).click();
+  await dlg.getByRole('radio', { name: '「、」' }).click();
+  await expect(out).toHaveValue(
+    '10/4（日）、10/9（五）、10/11（日）、10/18（日）、10/25（日）～10/26（一）',
+  );
+  /* 排除日期：小月曆點 10/4 */
+  await dlg.locator('[data-free-day="2026-10-04"]').click();
+  await expect(out).toHaveValue('10/9（五）、10/11（日）、10/18（日）、10/25（日）～10/26（一）');
+  await dlg.getByRole('button', { name: '複製' }).click();
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
+    '10/9（五）、10/11（日）、10/18（日）、10/25（日）～10/26（一）',
+  );
+  /* 還原星期六（條件記在這台裝置） */
+  await dlg.getByRole('button', { name: '排除星期六' }).click();
+  expect(errors).toEqual([]);
+});
+
+test('存成 PNG：這個月與整年', async ({ page }) => {
+  const errors = await open(page);
+  const grab = async (item: string) => {
+    const [dl] = await Promise.all([
+      page.waitForEvent('download'),
+      (async () => {
+        await page.getByTestId('shot-menu').click();
+        await page.getByTestId(item).click();
+      })(),
+    ]);
+    const buf = readFileSync((await dl.path()) as string);
+    expect(buf.subarray(1, 4).toString()).toBe('PNG');
+    return {
+      name: dl.suggestedFilename(),
+      width: buf.readUInt32BE(16),
+      height: buf.readUInt32BE(20),
+    };
+  };
+  const m = await grab('shot-month');
+  expect(m).toMatchObject({ name: '團期行事曆_2026年10月.png', width: 2400 });
+  expect(m.height).toBeGreaterThan(1000);
+  const y = await grab('shot-year');
+  expect(y).toMatchObject({ name: '團期行事曆_2026年.png', width: 2400 });
+  /* 截圖寬度改成 800 */
+  await page.getByRole('button', { name: '外觀與設定' }).click();
+  const width = page.getByRole('spinbutton', { name: '截圖的寬度' });
+  await width.fill('800');
+  await width.press('Enter');
+  expect((await grab('shot-month')).width).toBe(1600);
+  expect(errors).toEqual([]);
+});
+
+test('外觀：花紋背景與自動配色、圖片背景', async ({ page }) => {
+  const errors = await open(page);
+  await page.getByRole('button', { name: '外觀與設定' }).click();
+  const panel = page.getByTestId('look-panel');
+  await panel.getByRole('radio', { name: '花紋' }).click();
+  await expect(page.getByTestId('calendar-board')).toHaveAttribute('data-bg', 'pattern');
+  const bg = await page
+    .getByTestId('calendar-board')
+    .evaluate((el) => getComputedStyle(el).backgroundImage);
+  expect(bg).toContain('data:image/svg+xml');
+  await panel.getByTestId('auto-colors').click();
+  expect((await stored(page)).look.colors.card).toBe('#ffffff');
+  await panel.getByRole('textbox', { name: '行事曆標題' }).fill('週末團');
+  await expect(page.getByTestId('cal-board-title')).toHaveText('週末團');
+  /* 圖片背景：讀入圖片 → 背景是那張圖；專案檔存成 ZIP（含圖片） */
+  await panel.getByRole('radio', { name: '圖片' }).click();
+  const rgba = new Uint8Array(64 * 48 * 4).map((_, i) =>
+    i % 4 === 3 ? 255 : i % 4 === 0 ? 200 : 90,
+  );
+  const png = await encodePng(rgba, 64, 48);
+  await panel.locator('input[type="file"]').setInputFiles({
+    name: 'bg.png',
+    mimeType: 'image/png',
+    buffer: Buffer.from(png),
+  });
+  await expect(page.getByTestId('calendar-board')).toHaveAttribute('data-bg', 'image');
+  await expect
+    .poll(() =>
+      page.getByTestId('calendar-board').evaluate((el) => getComputedStyle(el).backgroundImage),
+    )
+    .toContain('blob:');
+  expect((await stored(page)).look.image.id).toBeTruthy();
+  const [dl] = await Promise.all([
+    page.waitForEvent('download'),
+    (async () => {
+      await page.getByRole('button', { name: '專案' }).click();
+      await page.getByRole('menuitem', { name: /存成專案檔/ }).click();
+    })(),
+  ]);
+  expect(dl.suggestedFilename()).toMatch(/^週末團_20261027\.zip$/);
+  const zip = unzipSync(readFileSync((await dl.path()) as string));
+  expect(Object.keys(zip).some((n) => n.startsWith('files/'))).toBe(true);
+  expect(JSON.parse(strFromU8(zip['project.json'])).data.look.bg).toBe('image');
+  expect(errors).toEqual([]);
+});
+
+test('送到跑團紀錄簿：新分頁的紀錄簿問要不要加入；送到團報產生器的交接資料', async ({
+  page,
+  context,
+}) => {
+  const errors = await open(page);
+  await entryEl(page, '霧港燈塔的最後一夜').click();
+  await page.getByTestId('send-log').click();
+  const confirm = page.getByRole('alertdialog', { name: '送到跑團紀錄簿' });
+  await expect(confirm).toBeVisible();
+  await expect(confirm.getByTestId('send-overwrite')).toHaveCount(0);
+  const [popup] = await Promise.all([
+    context.waitForEvent('page'),
+    confirm.getByRole('button', { name: '送出並開啟' }).click(),
+  ]);
+  const payload = await page.evaluate(
+    (k) => JSON.parse(localStorage.getItem(k) ?? 'null'),
+    LOG_KEY,
+  );
+  expect(payload).toMatchObject({ source: 'session-check-calendar', version: '1.0' });
+  expect(payload.items[0]).toMatchObject({
+    scenario: '霧港燈塔的最後一夜',
+    dates: ['2026-10-30'],
+    gm: '白鷺',
+    startTime: '20:00',
+    endTime: '23:30',
+  });
+  await popup.waitForLoadState();
+  expect(popup.url()).toContain('/tools/session-log/');
+  const ask = popup.getByRole('alertdialog', { name: '團期行事曆送來一團' });
+  await expect(ask).toBeVisible();
+  await expect(ask.getByTestId('calendar-pending-items')).toContainText(
+    '霧港燈塔的最後一夜（2026-10-30）',
+  );
+  await ask.getByRole('button', { name: '加進紀錄簿' }).click();
+  const row = popup.locator('tbody tr[data-row-id]').filter({ hasText: '霧港燈塔的最後一夜' });
+  await expect(row).toHaveCount(1);
+  await expect(row).toContainText('白鷺');
+  const rows = await popup.evaluate(
+    () => JSON.parse(localStorage.getItem('trpg-toolkit:session-log') ?? 'null').state.data.rows,
+  );
+  expect(rows.find((r: { scenario: string }) => r.scenario === '霧港燈塔的最後一夜')).toMatchObject(
+    {
+      dates: ['2026-10-30'],
+      system: 'CoC 7版',
+      status: '予定',
+      time: '3.5',
+      players: '阿樹、小鹿、貓又',
+      pc: '林曉舟、程雨、沈墨',
+    },
+  );
+  expect(await popup.evaluate((k) => localStorage.getItem(k), LOG_KEY)).toBeNull();
+  await popup.close();
+
+  /* 團報產生器 */
+  await page.getByTestId('send-report').click();
+  const rconfirm = page.getByRole('alertdialog', { name: '送到團報產生器' });
+  const [rpopup] = await Promise.all([
+    context.waitForEvent('page'),
+    rconfirm.getByRole('button', { name: '送出並開啟' }).click(),
+  ]);
+  expect(rpopup.url()).toContain('/tools/session-report/');
+  await rpopup.close();
+  const report = await page.evaluate(
+    (k) => JSON.parse(localStorage.getItem(k) ?? 'null'),
+    REPORT_KEY,
+  );
+  expect(report).toMatchObject({ source: 'session-check-calendar', version: '1.0' });
+  expect(report.items[0]).toMatchObject({
+    scenario: '霧港燈塔的最後一夜',
+    system: 'CoC 7版',
+    format: 'voice',
+    latestDate: '2026-10-30',
+    status: 'ongoing',
+  });
+  expect(errors).toEqual([]);
+});
+
+test('版面：390 寬沒有橫向捲動；1280 與 390 的視覺基準', async ({ page }) => {
+  const errors = await open(page);
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.mouse.move(0, 0);
+  await expect(page).toHaveScreenshot('session-calendar-1280.png', { fullPage: true });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await noHorizontalScroll(page);
+  await page.getByRole('radio', { name: '年曆' }).click();
+  await noHorizontalScroll(page);
+  await page.getByRole('radio', { name: '月曆' }).click();
+  await entryEl(page, '霧港燈塔的最後一夜').click();
+  await noHorizontalScroll(page);
+  await page.getByTestId('open-free').click();
+  await noHorizontalScroll(page);
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await page.keyboard.press('Escape');
+  await page.mouse.move(0, 0);
+  await expect(page).toHaveScreenshot('session-calendar-390.png', { fullPage: true });
+  expect(errors).toEqual([]);
+});

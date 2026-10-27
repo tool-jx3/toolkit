@@ -907,6 +907,18 @@ export const TOOLS: readonly ToolEntry[] = [
       url: 'https://map-stage.pages.dev/',
     },
   },
+  {
+    id: 'session-calendar',
+    name: '團期行事曆',
+    summary:
+      '把跑團的場次、準備事項和其他預定排在同一張月曆上：標出臺灣的國定假日與補假，拖曳新增多日的預定、換日子，算出空檔日期拿去揪團，整個月或整年存成 PNG，匯出入 JSON／iCal（可讀 Google 日曆匯出的檔案），也能把一團送到跑團紀錄簿。',
+    group: 'G6',
+    status: 'next',
+    inspiration: {
+      name: 'くま。／卓準備カレンダー',
+      url: 'https://kumachansteps.github.io/trpg-web-tools/tools/session-check-calendar/',
+    },
+  },
 ];
 
 export function getTool(id: string): ToolEntry | undefined {

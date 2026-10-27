@@ -43,7 +43,8 @@ export interface ReportImportItem {
 }
 
 export interface ReportPendingImport {
-  source: 'session-log-tracker';
+  /** 送出的工具：跑團紀錄簿（舊版沿用的值）或團期行事曆（原作卓準備カレンダー的值） */
+  source: 'session-log-tracker' | 'session-check-calendar';
   version: '1.0';
   createdAt: string;
   items: ReportImportItem[];

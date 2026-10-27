@@ -485,6 +485,23 @@ export const S = {
     sent: '已送出，正在開啟團報產生器',
   },
 
+  /** 團期行事曆送來的團（F117） */
+  calendar: {
+    title: (n: number) => (n > 1 ? `團期行事曆送來 ${n} 團` : '團期行事曆送來一團'),
+    lead: '要加進紀錄簿的表格嗎？加在最後面，之後可以照常修改或復原。',
+    item: (scenario: string, date: string) =>
+      `${scenario || '（沒有劇本名稱）'}${date ? `（${date}）` : ''}`,
+    duplicate: '紀錄簿裡已經有同一天、同一個劇本的團，加進去會重複。',
+    add: '加進紀錄簿',
+    discard: '不要了',
+    later: '稍後再說',
+    added: (n: number) => `已加入 ${n} 團`,
+    brokenTitle: '團期行事曆送來的資料讀不懂',
+    brokenDescription: '瀏覽器裡有一筆交接資料，但內容損壞了。要刪除它嗎？',
+    brokenConfirm: '刪除',
+    brokenCancel: '先留著',
+  },
+
   keys: {
     groupEdit: '紀錄',
     groupFile: '匯入與匯出',
