@@ -916,6 +916,15 @@ export const TOOLS: readonly ToolEntry[] = [
     status: 'next',
     inspiration: { name: 'KKumuu/trpgforkk', url: 'https://github.com/KKumuu/trpgforkk' },
   },
+  {
+    id: 'ui-frame',
+    name: 'UI 框素材產生器',
+    summary:
+      '選一個主色，做出整套透明 PNG 的 UI 框：文字冒險的訊息框、名字框、選項與系統按鈕（一般、滑過、按下、停用）附 TyranoScript 配置程式碼，或 CCFOLIA 螢幕面板、OBS 用的畫面外框、角色框、狀態徽章、骰子面板與留言板。',
+    group: 'G4',
+    status: 'next',
+    inspiration: { name: 'KIIN／ノベワク STUDIO', url: 'https://novewaku-studio.pages.dev' },
+  },
 ];
 
 export function getTool(id: string): ToolEntry | undefined {

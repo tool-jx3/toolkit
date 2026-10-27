@@ -54,6 +54,7 @@ import {
   NotebookTabs,
   Orbit,
   Palette,
+  PanelBottom,
   Puzzle,
   Route,
   Ruler,
@@ -115,6 +116,7 @@ const ICONS: Record<string, LucideIcon> = {
   'chat-window': MessagesSquare,
   'message-box': MessageSquareText,
   'obs-tachie': SquareUser,
+  'ui-frame': PanelBottom,
   /* G5 CCFOLIA 資料 */
   'character-editor': IdCard,
   'room-zip': FolderArchive,
