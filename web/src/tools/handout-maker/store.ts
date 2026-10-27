@@ -4,6 +4,8 @@
  * - usePrefs：目前編輯的那一張、分頁、匯出的倍率與範圍（自動儲存，不列入復原）；
  * - 附圖與背景圖存在 IndexedDB 的資產庫（core/assets），狀態只記 id。
  */
+
+import { useShallow } from 'zustand/react/shallow';
 import { createAssetStore, referencedAssetIds } from '@/core/assets';
 import { createPreviewStore, createToolStore, historyGesture } from '@/core/storage';
 import { EXAMPLES, exampleHandout } from './examples';
@@ -106,10 +108,18 @@ export function activeOf(s: HandoutState, id: string): Handout {
 
 export const activeNow = (): Handout => activeOf(docNow(), prefsNow().active);
 
-/** React：目前這一張 */
+/** React：目前這張 */
 export function useActive(): Handout {
   const id = usePrefs((p) => p.data.active);
   return useDoc((s) => activeOf(s.data, id));
+}
+
+/**
+ * React：目前這張的幾個欄位（淺比較：只在這些欄位變的時候重畫）。打字時其他區塊不跟著重畫（清單 60 張時每一鍵的工作量）。
+ */
+export function useActiveSel<T>(pick: (h: Handout) => T): T {
+  const id = usePrefs((p) => p.data.active);
+  return useDoc(useShallow((s) => pick(activeOf(s.data, id))));
 }
 
 /** 改某一張（一次變更＝一步復原，手勢中除外）；找不到時不做事 */
@@ -130,6 +140,27 @@ export function editActive(recipe: (h: Handout) => void): void {
 
 export const select = (id: string): void => setPrefs({ active: id });
 
+/** 新增的那一張 → 新增時正在編輯的那一張（復原「新增」時選回去） */
+const addedFrom = new Map<string, string>();
+
+/*
+ * 目前這張不見了（復原新增、重做刪除、讀檔…）：是新增出來的就選回新增前的那一張，否則選同一個位置的那張。
+ * 「目前這張」不列入復原（在 prefs 裡），所以要跟著清單調整。
+ */
+useDoc.subscribe((s, prev) => {
+  const id = prefsNow().active;
+  const list = s.data.items;
+  if (!list.length || list.some((h) => h.id === id)) return;
+  const back = addedFrom.get(id);
+  if (back && list.some((h) => h.id === back)) {
+    select(back);
+    return;
+  }
+  const at = prev.data.items.findIndex((h) => h.id === id);
+  const next = list[Math.min(Math.max(0, at), list.length - 1)];
+  if (next && id) select(next.id);
+});
+
 /** 加一張（放在目前這一張後面）並選取；滿了回傳 null */
 export function addHandout(make: (id: string) => Handout): string | null {
   const s = docNow();
@@ -137,6 +168,7 @@ export function addHandout(make: (id: string) => Handout): string | null {
   const id = newHandoutId(s.items.map((h) => h.id));
   const cur = activeNow();
   const at = s.items.findIndex((h) => h.id === cur.id) + 1;
+  addedFrom.set(id, cur.id);
   useDoc.getState().update((d) => {
     d.items.splice(at, 0, make(id));
   });

@@ -4,6 +4,7 @@
  * 存讀往返、範例、清單上的名稱、要下載的字、終端機的標頭、背景圖的色調矩陣。
  */
 import { describe, expect, it } from 'vitest';
+import { applyFilterOps } from '@/core/image';
 import {
   applyExample,
   EXAMPLE_LIST,
@@ -275,6 +276,30 @@ describe('濾鏡', () => {
     const out = [0, 4, 8].map((o) => r[o] * red[0] + r[o + 1] * red[1] + r[o + 2] * red[2]);
     expect(out[0]).toBeLessThan(out[1]);
     expect(out[0]).toBeLessThan(out[2]);
+  });
+
+  it('附圖的濾鏡和 CSS 濾鏡同一套算式（grayscale(100%) 用 Rec.709 的係數、sepia(80%)、brightness(1.2) contrast(1.2)、invert(100%)）', () => {
+    const px = (ops: ReturnType<typeof filterOps>, rgb: number[]) =>
+      Array.from(applyFilterOps(new Uint8ClampedArray([...rgb, 255]), 1, 1, ops)).slice(0, 3);
+    /* CSS：0.2126 × 220 ＋ 0.7152 × 30 ＋ 0.0722 × 30 ＝ 70.4 */
+    expect(px(filterOps('gray'), [220, 30, 30])).toEqual([70, 70, 70]);
+    expect(px(filterOps('gray'), [30, 60, 220])).toEqual([65, 65, 65]);
+    /* sepia(0.8)：(1 − 0.8) × 原色 ＋ 0.8 × 褐色矩陣 */
+    const sep = (r: number, g: number, b: number) => [
+      0.2 * r + 0.8 * (0.393 * r + 0.769 * g + 0.189 * b),
+      0.2 * g + 0.8 * (0.349 * r + 0.686 * g + 0.168 * b),
+      0.2 * b + 0.8 * (0.272 * r + 0.534 * g + 0.131 * b),
+    ];
+    const s1 = px(filterOps('sepia'), [220, 30, 30]);
+    for (const [i, v] of sep(220, 30, 30).entries())
+      expect(Math.abs(s1[i] - v)).toBeLessThanOrEqual(1);
+    /* brightness(1.2) 再 contrast(1.2)：(v × 1.2 − 127.5) × 1.2 ＋ 127.5，每步夾在 0～255 */
+    const viv = (v: number) =>
+      Math.min(255, Math.max(0, (Math.min(255, v * 1.2) - 127.5) * 1.2 + 127.5));
+    const v1 = px(filterOps('vivid'), [220, 30, 100]);
+    for (const [i, v] of [220, 30, 100].entries())
+      expect(Math.abs(v1[i] - viv(v))).toBeLessThanOrEqual(1);
+    expect(px(filterOps('invert'), [220, 30, 30])).toEqual([35, 225, 225]);
   });
 
   it('附圖的濾鏡：原圖沒有步驟；反相是 255 − 值', () => {

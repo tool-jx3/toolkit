@@ -50,17 +50,23 @@ export function hueRotateMatrix(deg: number): number[] {
   ];
 }
 
-/** 附圖濾鏡的調色步驟（模糊另外做）：黑白、懷舊（八成）、鮮明（亮度、對比各 1.2）、反相 */
+/** CSS 的 grayscale(100%)（Filter Effects 規格的係數，Rec.709）：三個色版都換成同一個亮度 */
+const GRAY_709 = [0.2126, 0.7152, 0.0722, 0] as const;
+
+/**
+ * 附圖濾鏡的調色步驟（模糊另外做），和 CSS 濾鏡相同的算式：黑白＝grayscale(100%)、懷舊＝sepia(80%)、
+ * 鮮明＝brightness(1.2) contrast(1.2)（對比以 0.5 ＝ 127.5 為中心）、反相＝invert(100%)。
+ */
 export function filterOps(id: ImageFilterId): FilterOp[] {
   switch (id) {
     case 'gray':
-      return [{ op: 'gray', amount: 1 }];
+      return [{ op: 'matrix', m: [...GRAY_709, ...GRAY_709, ...GRAY_709] }];
     case 'sepia':
       return [{ op: 'sepia', amount: 0.8 }];
     case 'vivid':
       return [
         { op: 'brightness', amount: 1.2 },
-        { op: 'contrast', amount: 1.2 },
+        { op: 'contrast', amount: 1.2, pivot: 127.5 },
       ];
     case 'invert':
       return [{ op: 'matrix', m: [-1, 0, 0, 255, 0, -1, 0, 255, 0, 0, -1, 255] }];

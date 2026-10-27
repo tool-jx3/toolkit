@@ -3,7 +3,7 @@
  * - 開頁沒有錯誤、預設一張基本主題的範例、頁尾只有靈感來源、說明連到本站的相關工具；
  * - 11 種主題都畫得出來（外形的透明角、主題專用的欄位、換主題時的配色）、套用範例（加成新的一張／取代）；
  * - 塗黑（文字顏色的條、跳脫的不塗黑）、簡訊的泡泡（自己發的靠右藍色）、狀態印章；
- * - 背景色（半透明）、紙張質感、背景圖（擺法、不透明度、色調）；附圖與濾鏡（黑白、反相）、附圖大小；
+ * - 背景色（半透明）、紙張質感、背景圖（擺法、不透明度、色調）；附圖與濾鏡（和瀏覽器的 CSS 濾鏡同色）、附圖大小；
  * - 匯出 PNG（倍率與尺寸、和預覽相同、透明的角）、清單裡全部（ZIP）、對齊 24 px、複製圖片；
  * - 道具清單（新增、副本、刪除、切換、排序）、自動儲存與重新整理（含圖片）、專案檔 ZIP；
  * - 390 寬沒有橫向捲動；1280 與 390 的視覺基準。
@@ -346,11 +346,12 @@ test('11 種主題都畫得出來：外形、主題專用的欄位、換主題�
   await expect(titleBox(page)).toBeHidden();
   await expect(page.getByTestId('stamp-select')).toBeHidden();
   await expect(page.getByRole('textbox', { name: '對話對象' })).toBeVisible();
-  await expect(page.getByTestId('marker-hint')).toHaveText('||文字|| 自己發的');
+  await expect(page.getByTestId('align-hint')).toContainText('依發訊的方向自動靠左');
+  await expect(page.getByTestId('marker-hint')).toHaveText('自己發的：||…||');
   await setTheme(page, '報紙', 'newspaper');
   await expect(page.getByRole('textbox', { name: '報紙名稱' })).toBeVisible();
   await expect(page.getByRole('textbox', { name: '日期列' })).toBeVisible();
-  await expect(page.getByTestId('marker-hint')).toHaveText('||文字|| 塗黑');
+  await expect(page.getByTestId('marker-hint')).toHaveText('塗黑：||…||');
   await setTheme(page, '終端機', 'terminal');
   await expect(page.getByRole('textbox', { name: '使用者與主機' })).toHaveValue('kp@archive');
   await setTheme(page, '電子郵件', 'email');
@@ -529,7 +530,7 @@ test('背景：背景色（可以透明）、紙張質感、背景圖的擺法�
   expect(errors).toEqual([]);
 });
 
-test('附圖：載入、大小、濾鏡（黑白、反相）、拿掉；換新的圖時大小與濾鏡回到預設（F15～F17）', async ({
+test('附圖：載入、大小、濾鏡（和 CSS 濾鏡同色）、拿掉；換新的圖時大小與濾鏡回到預設（F15～F17）', async ({
   page,
 }) => {
   const errors = await open(page);
@@ -543,18 +544,43 @@ test('附圖：載入、大小、濾鏡（黑白、反相）、拿掉；換新�
   const blue = () => pixel(page, 320, 60);
   await expect.poll(async () => near(await red(), [220, 30, 30])).toBe(true);
   expect(near(await blue(), [30, 60, 220])).toBe(true);
-  /* 黑白 */
+  /* 每種濾鏡和瀏覽器的 CSS 濾鏡（畫布的 filter）算出來的顏色相同 */
+  const viaCss = (rgb: number[], filter: string) =>
+    page.evaluate(
+      ([rgb, filter]) => {
+        const a = document.createElement('canvas');
+        a.width = a.height = 8;
+        const ca = a.getContext('2d') as CanvasRenderingContext2D;
+        ca.fillStyle = `rgb(${(rgb as number[]).join(',')})`;
+        ca.fillRect(0, 0, 8, 8);
+        const b = document.createElement('canvas');
+        b.width = b.height = 8;
+        const cb = b.getContext('2d') as CanvasRenderingContext2D;
+        cb.filter = filter as string;
+        cb.drawImage(a, 0, 0);
+        return Array.from(cb.getImageData(4, 4, 1, 1).data).slice(0, 3);
+      },
+      [rgb, filter] as const,
+    );
+  for (const [label, css] of [
+    ['黑白', 'grayscale(100%)'],
+    ['懷舊', 'sepia(80%)'],
+    ['鮮明', 'brightness(1.2) contrast(1.2)'],
+    ['反相', 'invert(100%)'],
+  ]) {
+    await choose(page, page.getByTestId('filter-select'), label);
+    for (const [probe, rgb] of [
+      [red, [220, 30, 30]],
+      [blue, [30, 60, 220]],
+    ] as const) {
+      const want = await viaCss([...rgb], css);
+      await expect.poll(async () => near(await probe(), want, 3), `${label} ${css}`).toBe(true);
+    }
+  }
+  /* 黑白：三個色版相同（Rec.709 的係數：0.2126 × 220 ＋ 0.7152 × 30 ＋ 0.0722 × 30 ≈ 70） */
   await choose(page, page.getByTestId('filter-select'), '黑白');
-  await expect
-    .poll(async () => {
-      const [r, g, b] = await red();
-      return Math.max(r, g, b) - Math.min(r, g, b);
-    })
-    .toBeLessThan(4);
-  /* 反相 */
-  await choose(page, page.getByTestId('filter-select'), '反相');
-  await expect.poll(async () => near(await red(), [35, 225, 225])).toBe(true);
-  for (const f of ['懷舊', '模糊', '鮮明', '原圖']) {
+  await expect.poll(async () => near(await red(), [70, 70, 70], 2)).toBe(true);
+  for (const f of ['模糊', '原圖']) {
     await choose(page, page.getByTestId('filter-select'), f);
   }
   await expect.poll(async () => near(await red(), [220, 30, 30])).toBe(true);
@@ -690,6 +716,8 @@ test('道具清單：新增、副本、切換、排序、刪除（可以復原�
   expect(all.map((h) => h.title)).toEqual(['線索一：停在三點十七分的懷錶', '第二張', '第二張']);
   expect(new Set(all.map((h) => h.id)).size).toBe(3);
   await expect(page.getByTestId('list-count')).toHaveText('3 / 60 張');
+  /* 每一張都有縮圖（閒置時畫好） */
+  await expect(list.locator('canvas')).toHaveCount(3);
   /* 點縮圖切換 */
   await list.getByText('線索一：停在三點十七分的懷錶').click();
   expect((await active(page)).id).toBe(all[0].id);

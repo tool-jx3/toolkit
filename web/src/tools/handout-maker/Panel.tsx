@@ -67,7 +67,7 @@ import {
   setSize,
   setSnap,
   setTheme,
-  useActive,
+  useActiveSel,
   usePrefs,
 } from './store';
 import { S } from './strings';
@@ -86,7 +86,7 @@ export function useImageLoader() {
 /* ---------- 內容 ---------- */
 
 export function ThemeSection() {
-  const h = useActive();
+  const h = useActiveSel((x) => ({ theme: x.theme }));
   const [open, setOpen] = useState(false);
   return (
     <Section title={S.secTheme}>
@@ -113,7 +113,7 @@ export function ThemeSection() {
 }
 
 function ExtraField({ k }: { k: ExtraKey }) {
-  const value = useActive().extra[k];
+  const value = useActiveSel((x) => x.extra[k]);
   return (
     <Field label={S.extras[k]} hint={S.extraHint[k] || undefined}>
       <TextInput
@@ -131,71 +131,88 @@ function ExtraField({ k }: { k: ExtraKey }) {
   );
 }
 
-export function TextSection() {
-  const h = useActive();
+function TitleField() {
+  const h = useActiveSel((x) => ({ theme: x.theme, title: x.title }));
   const fields = THEME_FIELDS[h.theme];
-  const sms = fields.marker === 'sent';
+  return (
+    <Field
+      label={S.title}
+      hidden={!fields.title}
+      hint={
+        h.theme === 'window'
+          ? S.titleHintWindow
+          : h.theme === 'terminal'
+            ? S.titleHintTerminal
+            : undefined
+      }
+    >
+      <TextInput
+        value={h.title}
+        placeholder={S.titlePlaceholder}
+        data-field="title"
+        {...textGesture}
+        onChange={(e) =>
+          editActive((d) => {
+            d.title = clipChars(e.target.value.replace(/[\r\n]/g, ' '), TITLE_MAX);
+          })
+        }
+      />
+    </Field>
+  );
+}
+
+/** 本文（打字時只有這一塊重畫） */
+function BodyField() {
+  const h = useActiveSel((x) => ({ theme: x.theme, body: x.body }));
+  const sms = THEME_FIELDS[h.theme].marker === 'sent';
   const count = Array.from(h.body).length;
   return (
-    <Section title={S.secText}>
-      <Field
-        label={S.title}
-        hidden={!fields.title}
-        hint={
-          h.theme === 'window'
-            ? S.titleHintWindow
-            : h.theme === 'terminal'
-              ? S.titleHintTerminal
-              : undefined
-        }
-      >
-        <TextInput
-          value={h.title}
-          placeholder={S.titlePlaceholder}
-          data-field="title"
-          {...textGesture}
-          onChange={(e) =>
-            editActive((d) => {
-              d.title = clipChars(e.target.value.replace(/[\r\n]/g, ' '), TITLE_MAX);
-            })
-          }
-        />
-      </Field>
-      {fields.extras.map((k) => (
-        <ExtraField key={k} k={k} />
-      ))}
-      <Field
-        label={S.body}
-        labelSuffix={
-          <span
-            className="rounded-sm border border-border px-1.5 text-xs text-accent"
-            data-testid="marker-hint"
-          >
-            {sms ? S.markerSent : S.markerCensor}
+    <Field
+      label={S.body}
+      labelSuffix={
+        <span
+          className="rounded-sm border border-border px-1.5 text-xs text-accent"
+          data-testid="marker-hint"
+        >
+          {sms ? S.markerSent : S.markerCensor}
+        </span>
+      }
+      hint={
+        <span className="flex flex-wrap justify-between gap-x-3">
+          <span>{sms ? S.bodyHintSms : S.bodyHint}</span>
+          <span className="tabular-nums" data-testid="body-count">
+            {S.bodyCount(count, BODY_MAX)}
           </span>
+        </span>
+      }
+    >
+      <TextArea
+        value={h.body}
+        rows={8}
+        placeholder={sms ? S.bodyPlaceholderSms : S.bodyPlaceholder}
+        data-field="body"
+        {...textGesture}
+        onChange={(e) =>
+          editActive((d) => {
+            d.body = clipChars(unifyNewlines(e.target.value), BODY_MAX);
+          })
         }
-        hint={
-          <span className="flex flex-wrap justify-between gap-x-3">
-            <span>{sms ? S.bodyHintSms : S.bodyHint}</span>
-            <span className="tabular-nums" data-testid="body-count">
-              {S.bodyCount(count, BODY_MAX)}
-            </span>
-          </span>
-        }
-      >
-        <TextArea
-          value={h.body}
-          rows={8}
-          placeholder={sms ? S.bodyPlaceholderSms : S.bodyPlaceholder}
-          data-field="body"
-          {...textGesture}
-          onChange={(e) =>
-            editActive((d) => {
-              d.body = clipChars(unifyNewlines(e.target.value), BODY_MAX);
-            })
-          }
-        />
-      </Field>
+      />
+    </Field>
+  );
+}
+
+function SizeStampAlign() {
+  const h = useActiveSel((x) => ({
+    theme: x.theme,
+    fontSize: x.fontSize,
+    stamp: x.stamp,
+    align: x.align,
+  }));
+  const fields = THEME_FIELDS[h.theme];
+  const sms = fields.marker === 'sent';
+  return (
+    <>
       <FieldRow columns={2}>
         <Field label={S.fontSize}>
           <NumberInput
@@ -236,10 +253,26 @@ export function TextSection() {
             fullWidth
           />
         </Field>
-      ) : !sms ? (
-        <p className="m-0 text-xs text-muted">{S.alignHintFixed}</p>
-      ) : null}
+      ) : (
+        <p className="m-0 text-xs text-muted" data-testid="align-hint">
+          {sms ? S.alignHintSms : S.alignHintFixed}
+        </p>
+      )}
       {fields.stamp ? <p className="m-0 text-xs text-muted">{S.stampHint}</p> : null}
+    </>
+  );
+}
+
+export function TextSection() {
+  const theme = useActiveSel((x) => x.theme);
+  return (
+    <Section title={S.secText}>
+      <TitleField />
+      {THEME_FIELDS[theme].extras.map((k) => (
+        <ExtraField key={k} k={k} />
+      ))}
+      <BodyField />
+      <SizeStampAlign />
     </Section>
   );
 }
@@ -247,7 +280,7 @@ export function TextSection() {
 /* ---------- 外觀 ---------- */
 
 export function FontSection() {
-  const h = useActive();
+  const h = useActiveSel((x) => ({ theme: x.theme, font: x.font }));
   const themeFont = S.fonts[THEME_DEFAULTS[h.theme].font];
   return (
     <Section title={S.secFont}>
@@ -271,7 +304,7 @@ const BG_SWATCHES = ['#ffffff', '#f4f1ea', '#fdfd96', '#e8dcc6', '#0f1928', '#00
 const TEXT_SWATCHES = ['#333333', '#3b2a1a', '#44ddff', '#00ff00', '#b91c1c', '#ffffff'] as const;
 
 export function ColorSection() {
-  const h = useActive();
+  const h = useActiveSel((x) => ({ theme: x.theme, bgColor: x.bgColor, textColor: x.textColor }));
   const d = THEME_DEFAULTS[h.theme];
   return (
     <Section title={S.secColor}>
@@ -338,7 +371,7 @@ export function ColorSection() {
 }
 
 export function TextureSection() {
-  const h = useActive();
+  const h = useActiveSel((x) => ({ texture: x.texture }));
   return (
     <Section title={S.secTexture}>
       <Field label={S.texture}>
@@ -358,7 +391,7 @@ export function TextureSection() {
 }
 
 export function SizeSection() {
-  const h = useActive();
+  const h = useActiveSel((x) => ({ snap: x.snap, width: x.width, height: x.height }));
   const scale = usePrefs((p) => p.data.scale);
   const step = h.snap ? GRID_PX : SIZE_STEP;
   return (
@@ -411,8 +444,7 @@ function ImageDropField({
   onFiles: (files: File[]) => void;
   paste: 'document' | 'off';
 }) {
-  const h = useActive();
-  const ref = slot === 'image' ? h.image : h.bg.image;
+  const ref = useActiveSel((x) => (slot === 'image' ? x.image : x.bg.image));
   const t =
     slot === 'image'
       ? {
@@ -472,7 +504,12 @@ function ImageDropField({
 }
 
 export function ImageSection({ onFiles }: { onFiles: (files: File[]) => void }) {
-  const h = useActive();
+  const h = useActiveSel((x) => ({
+    theme: x.theme,
+    image: x.image,
+    imageSize: x.imageSize,
+    imageFilter: x.imageFilter,
+  }));
   const fields = THEME_FIELDS[h.theme];
   return (
     <Section title={S.secImage}>
@@ -510,7 +547,7 @@ export function ImageSection({ onFiles }: { onFiles: (files: File[]) => void }) 
 }
 
 export function BgSection({ onFiles }: { onFiles: (files: File[]) => void }) {
-  const h = useActive();
+  const h = useActiveSel((x) => ({ bg: x.bg }));
   const off = !h.bg.image;
   return (
     <Section title={S.secBg}>

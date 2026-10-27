@@ -84,19 +84,18 @@ export function useFontTick(): number {
   return useTick((s) => s.tick);
 }
 
-/** 確保這組字型載好（載好後計數加 1） */
+/**
+ * 確保這組字型載好（載好後計數加 1）。計數是全頁共用的：打字很快、這次的載入在下一次之後才完成時也照樣加 1
+ * （不然新的字載好了卻沒有重畫）。
+ */
 export function useEnsureFonts(needs: readonly FontNeed[]): void {
   const key = needs.map((x) => `${x.family}|${x.weight}|${x.text}`).join('\u0000');
   // biome-ignore lint/correctness/useExhaustiveDependencies: key 已包含 needs 的內容
   useEffect(() => {
-    let alive = true;
     void loadFonts(needs)
       .catch(() => false)
       .then((changed) => {
-        if (alive && changed) bumpFontTick();
+        if (changed) bumpFontTick();
       });
-    return () => {
-      alive = false;
-    };
   }, [key]);
 }

@@ -84,6 +84,26 @@ describe('清單', () => {
     expect(ids()).toEqual(['a', b, c]);
   });
 
+  it('復原「新增一張」時選回新增前的那一張（不是第一張）', () => {
+    const b = addBlank() as string;
+    addBlank();
+    select(b);
+    const added = addBlank() as string;
+    expect(prefsNow().active).toBe(added);
+    historyStep('undo');
+    expect(ids()).not.toContain(added);
+    expect(prefsNow().active).toBe(b);
+    expect(activeNow().id).toBe(b);
+  });
+
+  it('目前這張不見了（不是新增出來的）時，選同一個位置的那張', () => {
+    resetAll({ items: ['x', 'y', 'z'].map((id) => blankHandout('basic', id)) });
+    select('y');
+    /* 直接換掉清單（例如讀檔）：y 不在了，選第 2 個位置的那張 */
+    useDoc.getState().replace({ items: docNow().items.filter((h) => h.id !== 'y') });
+    expect(prefsNow().active).toBe('z');
+  });
+
   it('排序（一步復原）；超出範圍不做事', () => {
     const b = addBlank() as string;
     const c = addBlank() as string;

@@ -105,6 +105,27 @@ describe('對齊', () => {
     expect(rows[1].cells.map((c) => c.x)).toEqual([0, 10, 20]);
   });
 
+  it('左右對齊：英文字與緊接的 ASCII 標點不拉開（「dog.」「Hello,」），撐開的是空白與中文字之間', () => {
+    const rows = flowText(parseBody('Hello, dog. 一二三四五六七八九十'), {
+      width: 125,
+      measure,
+      align: 'justify',
+    });
+    const cells = rows[0].cells;
+    const at = (i: number) => cells[i];
+    const gapAfter = (i: number) => at(i + 1).x - (at(i).x + at(i).adv);
+    expect(text(rows[0]).startsWith('Hello, dog.')).toBe(true);
+    /* o→, 與 g→. 之間沒有空隙 */
+    expect(gapAfter(4)).toBe(0);
+    expect(gapAfter(9)).toBe(0);
+    /* 空白後面、中文字之間有撐開 */
+    expect(gapAfter(6)).toBeGreaterThan(0);
+    expect(gapAfter(12)).toBeGreaterThan(0);
+    /* 這一行撐滿 */
+    const last = cells.filter((c) => c.ch !== ' ').at(-1);
+    expect((last?.x ?? 0) + (last?.adv ?? 0)).toBeCloseTo(125);
+  });
+
   it('標題（flowPlain）的左右對齊當成靠左不用處理：照給的對齊排', () => {
     const [row] = flowPlain('標題', { width: 100, measure, align: 'center' });
     expect(row.cells[0].x).toBe(40);
