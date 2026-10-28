@@ -17,6 +17,7 @@ import {
   collectAssetIds,
   duplicatePost,
   duplicateStory,
+  friendGroups,
   initialState,
   LIMITS,
   MAX,
@@ -24,7 +25,9 @@ import {
   movePhoto,
   movePost,
   moveStory,
+  myStoryList,
   normalizeState,
+  ownerOf,
   removeComment,
   removePhoto,
   removePost,
@@ -32,6 +35,7 @@ import {
   type SocialState,
   STORY_LAYOUTS,
   setCellImage,
+  setMyStory,
   setPostRatio,
   setStoryGap,
   setStoryLayout,
@@ -50,16 +54,21 @@ const asset = (id: string) => ({
 });
 
 describe('預設內容（D2）', () => {
-  it('範例：2 則貼文、1 則限時動態、2 個精選動態連到存在的限時動態', () => {
+  it('範例：2 則貼文、2 則限時動態（第 2 則是朋友的）、2 個精選動態連到存在的限時動態', () => {
     const s = initialState();
     expect(s.theme).toBe('light');
     expect(s.posts).toHaveLength(2);
     expect(s.posts[0].photos).toHaveLength(3);
     expect(s.posts[1].photos).toHaveLength(1);
     expect(s.posts[0].sheet.items).toHaveLength(3);
-    expect(s.stories).toHaveLength(1);
+    expect(s.stories).toHaveLength(2);
     expect(s.stories[0].layout).toBe('4');
     expect(s.stories[0].cells).toHaveLength(6);
+    expect(s.stories[0].friend).toBe(false);
+    expect(s.stories[1]).toMatchObject({ friend: true, layout: '1', time: '2 小時' });
+    expect(s.stories[1].owner.username).toBe('kai.archive');
+    expect(s.feed).toEqual({ logo: 'Moments', heartDot: true, dmBadge: '2', myStories: ['s1'] });
+    expect(s.posts.every((p) => !p.friend && p.inFeed)).toBe(true);
     expect(s.account.highlights).toHaveLength(2);
     const storyIds = new Set(s.stories.map((x) => x.id));
     for (const h of s.account.highlights) if (h.story) expect(storyIds.has(h.story)).toBe(true);
@@ -82,7 +91,7 @@ describe('預設內容（D2）', () => {
     expect(p.sheet.items.length).toBeGreaterThan(0);
   });
 
-  it('空白限時動態：4 格、6 格都空、間距 0.5 白色、進度 3 段第 1 段 40%', () => {
+  it('空白限時動態：4 格、6 格都空、間距 0.5 白色、進度 1 段第 1 段 40%（原作 7b7411a 改成 1 段）', () => {
     const st = blankStory('s9');
     expect(st.layout).toBe('4');
     expect(st.cells).toHaveLength(6);
@@ -90,7 +99,7 @@ describe('預設內容（D2）', () => {
     expect(st).toMatchObject({
       gap: 0.5,
       gapColor: '#ffffff',
-      count: 3,
+      count: 1,
       current: 1,
       progress: 40,
       bottom: 'reply',
@@ -234,6 +243,9 @@ describe('限時動態清單與精選動態的連結（F48）', () => {
     removeStory(s, first);
     expect(s.account.highlights[0].story).toBeNull();
     expect(s.account.highlights[1].story).toBe(second);
+    /* 我的限時動態也拿掉 */
+    expect(s.feed.myStories).toEqual([]);
+    removeStory(s, 's2');
     expect(removeStory(s, second)).toBeNull();
   });
 
@@ -242,11 +254,14 @@ describe('限時動態清單與精選動態的連結（F48）', () => {
     const first = s.stories[0].id;
     const second = addStory(s) as string;
     moveStory(s, second, -1);
-    expect(s.stories.map((x) => x.id)).toEqual([second, first]);
+    moveStory(s, second, -1);
+    expect(s.stories.map((x) => x.id)).toEqual([second, first, 's2']);
     expect(s.account.highlights[0].story).toBe(first);
     const dup = duplicateStory(s, first);
-    expect(s.stories.map((x) => x.id)).toEqual([second, first, dup]);
+    expect(s.stories.map((x) => x.id)).toEqual([second, first, dup, 's2']);
     expect(s.account.highlights[0].story).toBe(first);
+    /* 我的限時動態以 id 記：換位置、複製後仍是同一則（複製的不放進去，同原作） */
+    expect(s.feed.myStories).toEqual([first]);
   });
 });
 
@@ -460,7 +475,9 @@ describe('整理存檔（3.9）', () => {
     setCellImage(s.stories[0], 0, asset('cell'));
     s.account.grid.push({ id: 'g1', image: asset('grid') });
     s.posts[0].sheet.items[0].avatar = asset('cm');
-    expect(collectAssetIds(s).sort()).toEqual(['av', 'cell', 'cm', 'grid', 'ph']);
+    s.posts[1].owner.avatar = asset('po');
+    s.stories[1].owner.avatar = asset('so');
+    expect(collectAssetIds(s).sort()).toEqual(['av', 'cell', 'cm', 'grid', 'ph', 'po', 'so']);
   });
 });
 
@@ -472,7 +489,115 @@ describe('在 store 的 Immer draft 裡操作', () => {
       stickerAction(d.stories[0], 'k1', 'dup');
     });
     expect(next.posts).toHaveLength(3);
-    expect(next.stories).toHaveLength(2);
+    expect(next.stories).toHaveLength(3);
     expect(next.stories[0].stickers).toHaveLength(3);
+  });
+});
+
+describe('朋友身分（F111～F115）', () => {
+  it('新增朋友的貼文、限時動態：friend_N（N＝朋友的貼文與限時動態數＋1）', () => {
+    const s = clone(initialState());
+    const p = addPost(s, true) as string;
+    const post = s.posts.find((x) => x.id === p);
+    /* 範例已有一則朋友的限時動態 → friend_2 */
+    expect(post).toMatchObject({ friend: true, inFeed: true });
+    expect(post?.owner).toEqual({ username: 'friend_2', avatar: null, verified: false });
+    const st = addStory(s, 'friend') as string;
+    expect(s.stories.find((x) => x.id === st)).toMatchObject({
+      friend: true,
+      layout: '1',
+      bg: 'dusk',
+      owner: { username: 'friend_3' },
+    });
+    const mine = addStory(s, 'mine') as string;
+    expect(s.feed.myStories).toEqual(['s1', mine]);
+  });
+
+  it('帳號：朋友的用 owner（沒有帳號時 friend、沒有動態外圈），否則是自己的帳號', () => {
+    const s = clone(initialState());
+    s.profile.ring = true;
+    expect(ownerOf(s, s.posts[0])).toBe(s.profile);
+    s.posts[0].friend = true;
+    s.posts[0].owner = { username: '', avatar: null, verified: true };
+    expect(ownerOf(s, s.posts[0])).toMatchObject({
+      username: 'friend',
+      verified: true,
+      ring: false,
+    });
+  });
+
+  it('首頁動態的圈：我的限時動態照清單的順序、不放朋友的；同一個帳號的朋友合成一個圈', () => {
+    const s = clone(initialState());
+    const a = addStory(s, 'mine') as string;
+    moveStory(s, a, -1);
+    moveStory(s, a, -1);
+    expect(myStoryList(s).map((x) => x.id)).toEqual([a, 's1']);
+    setMyStory(s, 's1', false);
+    expect(myStoryList(s).map((x) => x.id)).toEqual([a]);
+    /* 朋友的限時動態放進「我的」也不算 */
+    setMyStory(s, 's2', true);
+    expect(myStoryList(s).map((x) => x.id)).toEqual([a]);
+    const b = addStory(s, 'friend') as string;
+    const c = addStory(s, 'friend') as string;
+    (s.stories.find((x) => x.id === c) as { owner: { username: string } }).owner.username =
+      ' KAI.archive ';
+    const g = friendGroups(s);
+    expect(g.map((x) => x.stories.map((y) => y.id))).toEqual([['s2', c], [b]]);
+  });
+});
+
+describe('資料版本 3 與舊的存檔（3.9）', () => {
+  /** 版本 2 的存檔：沒有 friend、owner、inFeed、seen、feed */
+  function v2() {
+    const s = clone(initialState()) as unknown as Record<string, unknown>;
+    const strip = (o: Record<string, unknown>, keys: string[]) => {
+      for (const k of keys) delete o[k];
+    };
+    for (const p of s.posts as Record<string, unknown>[]) strip(p, ['friend', 'owner', 'inFeed']);
+    const stories = (s.stories as Record<string, unknown>[]).slice(0, 1);
+    for (const st of stories) {
+      strip(st, ['friend', 'owner', 'seen']);
+      Object.assign(st, { count: 3, current: 1, progress: 40 });
+    }
+    s.stories = stories;
+    delete s.feed;
+    return s;
+  }
+
+  it('版本 2 的存檔照常讀：自己的貼文與限時動態、在首頁動態顯示、我的限時動態是第一則', () => {
+    const n = normalizeState(v2(), 2);
+    expect(n.posts.every((p) => !p.friend && p.inFeed)).toBe(true);
+    expect(n.posts[0].owner).toEqual({ username: 'friend_1', avatar: null, verified: false });
+    expect(n.stories).toHaveLength(1);
+    expect(n.stories[0]).toMatchObject({ friend: false, seen: false });
+    expect(n.feed).toEqual({ logo: 'Moments', heartDot: true, dmBadge: '2', myStories: ['s1'] });
+  });
+
+  it('版本 3 以前還是舊預設（3 段、第 1 段、40%）的限時動態改成 1 段；改過的不動', () => {
+    expect(normalizeState(v2(), 2).stories[0].count).toBe(1);
+    const changed = v2();
+    Object.assign((changed.stories as Record<string, unknown>[])[0], { count: 3, current: 2 });
+    expect(normalizeState(changed, 2).stories[0].count).toBe(3);
+    /* 版本 3 的存檔不轉換 */
+    expect(normalizeState(v2(), 3).stories[0].count).toBe(3);
+  });
+
+  it('整理：我的限時動態只留存在、不是朋友的；文字截到上限；owner 壞掉時用預設', () => {
+    const s = clone(initialState()) as unknown as Record<string, unknown>;
+    s.feed = {
+      logo: 'x'.repeat(50),
+      heartDot: 'yes',
+      dmBadge: 12,
+      myStories: ['s2', 's1', 'zz', 's1'],
+    };
+    (s.posts as Record<string, unknown>[])[0].owner = 'bad';
+    const n = normalizeState(s);
+    expect(n.feed).toEqual({
+      logo: 'x'.repeat(20),
+      heartDot: true,
+      dmBadge: '2',
+      myStories: ['s1'],
+    });
+    expect(n.posts[0].owner.username).toBe('friend_1');
   });
 });

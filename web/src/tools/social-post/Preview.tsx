@@ -5,7 +5,7 @@
  * - 個人頁：點貼文縮圖到那則貼文、點有連結的精選動態到那則限時動態；
  * - 限時動態：格子（點一下選取、空格子開選檔、拖曳與縮放照片）、貼紙（LayoutCanvas：拖曳、控點、滾輪、捏合、方向鍵、Delete）。
  */
-import { ArrowUpToLine, Copy, Trash2 } from 'lucide-react';
+import { ArrowUpToLine, ChevronLeft, ChevronRight, Copy, Trash2 } from 'lucide-react';
 import { useLayoutEffect, useMemo, useRef } from 'react';
 import { useAssetBitmaps } from '@/core/assets';
 import { pickFiles } from '@/core/files';
@@ -101,6 +101,32 @@ function PostOverlay({ post, layout }: { post: Post; layout: ScreenLayout }) {
       const ph = p.photos.find((x) => x.id === cur.id);
       if (ph) ph.place = place;
     });
+  const n = post.photos.length;
+  /* 兩張以上時照片左右的「‹」「›」：換上一張／下一張（只在編輯時，PNG 不畫；F129） */
+  const step = (d: -1 | 1) =>
+    editPost(post.id, (p) => {
+      p.current = Math.max(0, Math.min(p.photos.length - 1, p.current + d));
+    });
+  const size = 30 * K;
+  const cy = (media.y + media.height / 2) * K - size / 2;
+  const nav = (d: -1 | 1) => (
+    <button
+      type="button"
+      aria-label={d < 0 ? S.photoPrev : S.photoNext}
+      data-testid={d < 0 ? 'photo-prev' : 'photo-next'}
+      className="absolute flex items-center justify-center rounded-full border border-border bg-surface text-fg opacity-90 shadow-2 hover:opacity-100 focus-ring [&_svg]:size-[60%]"
+      style={{
+        left: d < 0 ? (media.x + 10) * K : (media.x + media.width - 10) * K - size,
+        top: cy,
+        width: size,
+        height: size,
+      }}
+      onPointerDown={(e) => e.stopPropagation()}
+      onClick={() => step(d)}
+    >
+      {d < 0 ? <ChevronLeft /> : <ChevronRight />}
+    </button>
+  );
   return (
     <div className="absolute inset-0">
       <PanZone
@@ -114,12 +140,39 @@ function PostOverlay({ post, layout }: { post: Post; layout: ScreenLayout }) {
         onChange={set}
         onStep={set}
       />
+      {n > 1 && post.current > 0 ? nav(-1) : null}
+      {n > 1 && post.current < n - 1 ? nav(1) : null}
     </div>
   );
 }
 
+/** 預覽上可以點的地方（底部分頁列只在 HTML 有作用） */
+const editRegions = (layout: ScreenLayout) =>
+  layout.hits
+    .filter((h) => !h.key.startsWith('nav:'))
+    .map((h) => ({ ...h, box: scaleRect(h.box) }));
+
+/** 首頁動態：點限時動態的圈 → 那則限時動態（同一個帳號的好幾則時第一則） */
+function FeedOverlay({ layout }: { layout: ScreenLayout }) {
+  return (
+    <LayoutCanvas
+      width={Math.round(layout.width * K)}
+      height={Math.round(layout.height * K)}
+      aria-label={S.previewLabel(S.screenName.feed)}
+      regions={editRegions(layout).filter((h) => h.key.startsWith('tray:'))}
+      onPick={(key) => {
+        if (key.startsWith('tray:')) {
+          const id = key.slice(5).split(',')[0];
+          setPrefs({ storyId: id, sticker: null, cell: 0 });
+          setTab('story');
+        }
+      }}
+    />
+  );
+}
+
 function ProfileOverlay({ layout }: { layout: ScreenLayout }) {
-  const regions = layout.hits.map((h) => ({ ...h, box: scaleRect(h.box) }));
+  const regions = editRegions(layout);
   return (
     <LayoutCanvas
       width={Math.round(layout.width * K)}
@@ -317,7 +370,7 @@ export function Preview() {
       ? `${S.screenName[screen]} ${posts.indexOf(post) + 1}`
       : screen === 'story'
         ? `${S.screenName.story} ${stories.indexOf(story) + 1}`
-        : S.screenName.profile;
+        : S.screenName[screen];
 
   const settings: ExportSettings = {
     format: prefs.format,
@@ -371,6 +424,7 @@ export function Preview() {
         />
         {screen === 'post' ? <PostOverlay post={post} layout={layout} /> : null}
         {screen === 'profile' ? <ProfileOverlay layout={layout} /> : null}
+        {screen === 'feed' ? <FeedOverlay layout={layout} /> : null}
         {screen === 'story' ? <StoryOverlay story={story} layout={layout} /> : null}
       </Stage>
       <p className="m-0 px-1 text-xs text-muted">{S.previewHint[screen]}</p>

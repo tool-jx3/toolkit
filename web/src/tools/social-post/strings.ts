@@ -15,7 +15,7 @@ import type {
   Theme,
 } from './model';
 
-export type TabId = 'post' | 'comments' | 'story' | 'profile' | 'common';
+export type TabId = 'post' | 'comments' | 'story' | 'profile' | 'feed' | 'common';
 export type ScreenId = Exclude<TabId, 'common'>;
 
 export const S = {
@@ -52,6 +52,8 @@ export const S = {
     ownSend: '傳送',
     ownMore: '更多',
     postsTitle: '貼文',
+    myStory: '我的限時動態',
+    feedEmpty: '首頁沒有要顯示的貼文。',
   },
   hits: {
     media: '照片：拖曳移動、滾輪縮放',
@@ -59,6 +61,11 @@ export const S = {
     post: (n: number) => `貼文 ${n}`,
     story: (title: string) => `精選動態「${title}」`,
     cell: (n: number) => `第 ${n} 格`,
+    navFeed: '首頁',
+    navDm: '訊息',
+    navProfile: '個人頁',
+    feedDm: '訊息',
+    tray: (n: number) => (n > 1 ? `限時動態（${n} 則）` : '限時動態'),
   },
 
   /* ---------- 介面 ---------- */
@@ -68,6 +75,7 @@ export const S = {
     comments: '留言',
     story: '限時動態',
     profile: '個人頁',
+    feed: '首頁動態',
     common: '帳號與畫面',
   } satisfies Record<TabId, string>,
   screenName: {
@@ -75,6 +83,7 @@ export const S = {
     comments: '留言',
     story: '限時動態',
     profile: '個人頁',
+    feed: '首頁動態',
   } satisfies Record<ScreenId, string>,
   previewTitle: (name: string) => `預覽：${name}`,
   previewLabel: (name: string) => `${name}的預覽`,
@@ -86,6 +95,7 @@ export const S = {
     story:
       '貼紙：拖曳移動、兩指捏合或滾輪縮放、Shift＋滾輪旋轉；格子的照片也可以拖曳、縮放，點空的格子放入照片。',
     profile: '點貼文的縮圖會到那則貼文、點有連結的精選動態會到那則限時動態。',
+    feed: '點限時動態的圈會到那則限時動態；照片的位置在貼文分頁調整。',
   } satisfies Record<ScreenId, string>,
   missingImages: (n: number) => `有 ${n} 張圖片讀不到（可能已從這個瀏覽器清除），請重新加入。`,
 
@@ -109,6 +119,21 @@ export const S = {
   fontScale: '字級',
   fontScaleHint: '所有畫面的文字一起放大縮小。',
   resetCommon: '帳號與畫面回到預設',
+
+  /* 誰的貼文／限時動態 */
+  sectionPostOwner: '誰的貼文',
+  sectionStoryOwner: '誰的限時動態',
+  friendPost: '朋友的貼文',
+  friendStory: '朋友的限時動態',
+  friendPostHint: '開著時帳號列、內文與作者的留言用下面朋友的帳號；個人頁的格狀不放朋友的貼文。',
+  friendStoryHint:
+    '開著時帳號列用下面朋友的帳號；首頁動態裡同一個帳號的限時動態合成一個圈、接著看。',
+  friendMine: '用自己的帳號（帳號與畫面分頁）。',
+  friendAvatar: '朋友的大頭貼',
+  friendUsername: '朋友的帳號',
+  friendVerified: '朋友的認證徽章',
+  inFeed: '在首頁動態顯示',
+  seen: '看過了（首頁動態的圈是灰色的）',
 
   /* 貼文 */
   sectionPosts: '貼文清單',
@@ -135,6 +160,8 @@ export const S = {
   photoName: (n: number) => `照片 ${n}`,
   photosFull: (n: number) => `每則最多 ${n} 張。`,
   zoom: '縮放',
+  photoPrev: '上一張照片',
+  photoNext: '下一張照片',
   adjustRange: '調整範圍',
   resetPlace: '回到預設',
   thumb: '個人頁的縮圖',
@@ -200,8 +227,11 @@ export const S = {
   commentText: '內容',
   commentLikes: '讚數',
   commentMore: '隱藏的回覆數',
-  commentAuthor: '作者（我）',
-  commentAuthorHint: '用帳號與大頭貼（帳號與畫面分頁）。',
+  commentAuthor: (friend: boolean) => (friend ? '作者（朋友）' : '作者（我）'),
+  commentAuthorHint: (friend: boolean) =>
+    friend
+      ? '用這則貼文的朋友的帳號與大頭貼（貼文分頁的「誰的貼文」）。'
+      : '用帳號與大頭貼（帳號與畫面分頁）。',
   commentVerified: '認證',
   commentReply: '回覆（縮排）',
   commentLiked: '已按讚',
@@ -321,6 +351,39 @@ export const S = {
     confirmLabel: '重設',
   },
 
+  /* 首頁動態 */
+  sectionFeedTop: '上方列',
+  feedLogo: '左上角的字',
+  feedLogoHint: '空白時只畫 ⌄。',
+  feedBadge: '訊息的未讀數',
+  feedBadgeHint: '訊息圖示右上角的紅色數字；空白時不畫。',
+  feedDot: '通知的紅點',
+  sectionTray: '限時動態列',
+  trayMine: '我的限時動態',
+  trayMineHint: '勾選的限時動態照清單的順序接著看；一則都沒有時圈上沒有外框、右下角有＋。',
+  trayMineEmpty: '還沒有自己的限時動態。',
+  trayInclude: '放進我的限時動態',
+  seenShort: '看過了（灰色的圈）',
+  editThis: '編輯',
+  addMyStory: '新增我的限時動態',
+  trayFriends: '朋友的限時動態',
+  trayFriendsHint: '同一個帳號的限時動態合成一個圈，點了接著看（HTML 檔）。',
+  trayFriendsEmpty: '還沒有朋友的限時動態。',
+  addFriendStory: '新增朋友的限時動態',
+  sectionFeedPosts: '首頁的貼文',
+  feedPostsHint: '照貼文清單的順序排。',
+  friendTag: '朋友',
+  mineTag: '自己',
+  addFriendPost: '新增朋友的貼文',
+  addMyPost: '新增自己的貼文',
+  resetFeed: '首頁動態回到預設',
+  confirmResetFeed: {
+    title: '首頁動態回到預設？',
+    description:
+      '左上角的字、未讀數、紅點回到預設，我的限時動態只放第一則；限時動態與貼文不會刪除。可以用復原找回來。',
+    confirmLabel: '重設',
+  },
+
   /* 個人頁 */
   sectionProfilePage: '個人頁',
   own: '自己的帳號（編輯個人檔案）',
@@ -397,6 +460,7 @@ export const S = {
   dropOnPost: '放開以加入這則貼文的照片',
   dropOnStory: '放開以放進選取中的格子',
   dropOnProfile: '放開以加入其他照片',
+  dropOnFeed: '放開以加入目前貼文的照片',
   dropHint: '只接受圖片',
   cellsFull: '後面沒有空的格子，有圖片沒有放入。',
 
@@ -413,10 +477,14 @@ export const S = {
     html: '可以點的網頁：輪播、打開留言、看限時動態；照片都包在檔案裡。',
   },
   htmlScope: '範圍',
-  htmlScopes: { one: '只有這個畫面', all: '全部（個人頁＋貼文＋限時動態）' },
-  htmlScopeHint: '「全部」從個人頁點縮圖看貼文與留言、點精選動態看限時動態。',
+  htmlScopes: { one: '只有這個畫面', all: '全部（首頁動態＋個人頁＋貼文＋限時動態）' },
+  htmlScopeHint:
+    '「全部」從首頁動態開始：點限時動態的圈接著看、下方的大頭貼到個人頁，個人頁點縮圖看貼文與留言、點精選動態看限時動態。',
   exportSize: (w: number, h: number) => `${w} × ${h} px`,
   exporting: '畫圖中…',
+  pngFallback: '解析度',
+  pngFallbackValue: (k: number) =>
+    `畫面太大，這個瀏覽器畫不出選的倍率，改用 ${Math.round(k * 100) / 100} 倍`,
   exportingHtml: (i: number, n: number) => `畫第 ${i}／${n} 張…`,
   htmlScreens: '畫面',
   htmlScreensValue: (n: number) => `${n} 個`,
@@ -426,9 +494,15 @@ export const S = {
     comments: (u: string) => `${u}・留言`,
     story: (u: string) => `${u}・限時動態`,
     profile: (u: string) => `${u}・個人頁`,
-  },
+    feed: (u: string) => `${u}・首頁動態`,
+  } satisfies Record<ScreenId | 'all', (u: string) => string>,
   viewer: {
-    back: '回到個人頁',
+    back: '回到上一個畫面',
+    carousel: (n: number) => `照片（共 ${n} 張；左右滑動或點左右兩半換一張）`,
+    toFeed: '首頁動態',
+    toDms: '訊息',
+    toProfile: '個人頁',
+    openStories: (n: number) => (n > 1 ? `看限時動態（${n} 則接著看）` : '看限時動態'),
     close: '關閉',
     prev: '上一張',
     next: '下一張',

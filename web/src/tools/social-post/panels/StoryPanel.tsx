@@ -35,8 +35,10 @@ import {
   Check,
   ImageButtons,
   ListBar,
+  OwnerSection,
   openFrame,
   openUrlDialog,
+  ownerLabel,
   PlaceButtons,
   ResetButton,
   TextField,
@@ -120,6 +122,7 @@ function StoryListSection() {
         ids={stories.map((s) => s.id)}
         currentId={story.id}
         chip={S.storyChip}
+        labels={stories.map((s, k) => ownerLabel(S.storyChip(k + 1), s))}
         ariaLabel={S.sectionStories}
         onPick={(id) => setPrefs({ storyId: id, sticker: null, cell: 0 })}
         addLabel={S.addStory}
@@ -837,6 +840,25 @@ export function StoryPanel() {
   return (
     <div className="flex min-w-0 flex-col gap-3">
       <StoryListSection />
+      <OwnerSection
+        title={S.sectionStoryOwner}
+        friendLabel={S.friendStory}
+        friendHint={S.friendStoryHint}
+        x={story}
+        target={{ kind: 'owner-avatar', storyId: story.id }}
+        onSet={(recipe) => editStory(story.id, recipe)}
+        persistKey="social-post:story-owner"
+      >
+        <Check
+          label={S.seen}
+          checked={story.seen}
+          onChange={(v) =>
+            editStory(story.id, (s) => {
+              s.seen = v;
+            })
+          }
+        />
+      </OwnerSection>
       <LayoutSection story={story} />
       <BgSection story={story} />
       <StickerSection story={story} />
@@ -847,7 +869,13 @@ export function StoryPanel() {
         onReset={() => {
           edit((d) => {
             const i = d.stories.findIndex((s) => s.id === story.id);
-            if (i >= 0) d.stories[i] = blankStory(story.id);
+            /* 誰的限時動態照舊（同原作） */
+            if (i >= 0)
+              d.stories[i] = {
+                ...blankStory(story.id),
+                friend: d.stories[i].friend,
+                owner: d.stories[i].owner,
+              };
           });
           setPrefs({ sticker: null, cell: 0 });
         }}

@@ -130,3 +130,23 @@ describe('多段字型的換行（3.4）', () => {
     expect(badge?.x).toBeCloseTo(measure('ab', B14));
   });
 });
+
+describe('PNG：畫布太大時降低解析度再試（F131，原作 345546b）', () => {
+  it('第一個成功的倍率；全部失敗時丟出最後的錯誤', async () => {
+    const { pngScales, withScaleFallback } = await import('../../src/tools/social-post/exporter');
+    expect(pngScales(3)).toEqual([3, 2]);
+    const tried: number[] = [];
+    const ok = await withScaleFallback(pngScales(3), async (k) => {
+      tried.push(k);
+      if (k > 2) throw new Error('too big');
+      return `png@${k}`;
+    });
+    expect(ok).toEqual({ value: 'png@2', scale: 2 });
+    expect(tried).toEqual([3, 2]);
+    await expect(
+      withScaleFallback([2, 1], async (k) => {
+        throw new Error(`fail ${k}`);
+      }),
+    ).rejects.toThrow('fail 1');
+  });
+});

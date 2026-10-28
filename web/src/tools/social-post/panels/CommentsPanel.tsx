@@ -23,6 +23,7 @@ import {
   MORE_RANGE,
   moveComment,
   nextId,
+  ownerOf,
   type Post,
   removeComment,
   type SheetHeight,
@@ -33,7 +34,8 @@ import { S } from '../strings';
 import { PostListSection } from './PostPanel';
 
 function CommentCard({ post, c, i, n }: { post: Post; c: Comment; i: number; n: number }) {
-  const profile = useDoc((s) => s.data.profile);
+  /* 作者＝貼文的帳號（朋友的貼文是朋友，F111） */
+  const profile = ownerOf({ profile: useDoc((s) => s.data.profile) }, post);
   const set = (recipe: (x: Comment) => void) =>
     editPost(post.id, (p) => {
       const x = p.sheet.items.find((it) => it.id === c.id);
@@ -78,7 +80,7 @@ function CommentCard({ post, c, i, n }: { post: Post; c: Comment; i: number; n: 
         />
       </div>
       {c.author ? (
-        <p className="m-0 text-xs text-muted">{S.commentAuthorHint}</p>
+        <p className="m-0 text-xs text-muted">{S.commentAuthorHint(post.friend)}</p>
       ) : (
         <Field label={S.commentAvatar}>
           <ImageButtons
@@ -161,7 +163,7 @@ function CommentCard({ post, c, i, n }: { post: Post; c: Comment; i: number; n: 
       </FieldRow>
       <div className="grid grid-cols-1 gap-x-4 sm:grid-cols-2">
         <Check
-          label={S.commentAuthor}
+          label={S.commentAuthor(post.friend)}
           checked={c.author}
           onChange={(v) =>
             set((x) => {

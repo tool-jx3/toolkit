@@ -9,6 +9,7 @@ import type { ScreenId } from '../strings';
 import type { Measure } from '../text';
 import { commentsScreen } from './comments';
 import type { Env } from './common';
+import { feedScreen } from './feed';
 import type { Op, ScreenLayout } from './ops';
 import type { ImageSource } from './paint';
 import { postScreen } from './post';
@@ -38,6 +39,8 @@ export function buildScreen(env: Env, screen: ScreenId, sel: ScreenSelection): S
       return commentsScreen(env, post);
     case 'story':
       return storyScreen(env, story, { selectedCell: sel.cell ?? null });
+    case 'feed':
+      return feedScreen(env);
     default:
       return profileScreen(env);
   }

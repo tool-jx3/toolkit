@@ -26,14 +26,16 @@ export type ImageTarget =
   | { kind: 'cell'; storyId: string; index: number }
   | { kind: 'sticker'; storyId: string }
   | { kind: 'music'; storyId: string; stickerId: string }
-  | { kind: 'highlight'; id: string };
+  | { kind: 'highlight'; id: string }
+  /** 朋友的貼文、限時動態的大頭貼（F111、F112） */
+  | { kind: 'owner-avatar'; postId?: string; storyId?: string };
 
 /** 可以一次加好幾張的位置 */
 export const isMultiTarget = (t: ImageTarget): boolean =>
   t.kind === 'post-photos' || t.kind === 'grid' || t.kind === 'cell';
 
 const maxSide = (t: ImageTarget): number =>
-  t.kind === 'avatar' || t.kind === 'comment-avatar'
+  t.kind === 'avatar' || t.kind === 'comment-avatar' || t.kind === 'owner-avatar'
     ? IMAGE_MAX.avatar
     : t.kind === 'sticker'
       ? IMAGE_MAX.sticker
@@ -61,6 +63,14 @@ function applyRefs(target: ImageTarget, refs: AssetImage[]): { skipped: number; 
           .find((p) => p.id === target.postId)
           ?.sheet.items.find((x) => x.id === target.commentId);
         if (c) c.avatar = refs[0];
+      });
+      return { skipped: refs.length - 1 };
+    case 'owner-avatar':
+      edit((d) => {
+        const x = target.postId
+          ? d.posts.find((p) => p.id === target.postId)
+          : d.stories.find((st) => st.id === target.storyId);
+        if (x) x.owner.avatar = refs[0];
       });
       return { skipped: refs.length - 1 };
     case 'highlight':

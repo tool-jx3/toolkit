@@ -23,6 +23,7 @@ import { collectAssetIds, initialState } from './model';
 import { Preview } from './Preview';
 import { CommentsPanel } from './panels/CommentsPanel';
 import { CommonPanel } from './panels/CommonPanel';
+import { FeedPanel } from './panels/FeedPanel';
 import { PostPanel } from './panels/PostPanel';
 import { ProfilePanel } from './panels/ProfilePanel';
 import { StoryPanel } from './panels/StoryPanel';
@@ -77,6 +78,7 @@ const DROP_LABEL: Record<TabId, string> = {
   comments: S.dropOnPost,
   story: S.dropOnStory,
   profile: S.dropOnProfile,
+  feed: S.dropOnFeed,
   common: S.dropOnCommon,
 };
 
@@ -113,6 +115,7 @@ function Settings() {
     { value: 'comments', label: S.tabs.comments, content: <CommentsPanel /> },
     { value: 'story', label: S.tabs.story, content: <StoryPanel /> },
     { value: 'profile', label: S.tabs.profile, content: <ProfilePanel /> },
+    { value: 'feed', label: S.tabs.feed, content: <FeedPanel /> },
     { value: 'common', label: S.tabs.common, content: <CommonPanel /> },
   ];
   return (
@@ -146,8 +149,8 @@ function ProjectActions() {
         description: S.openConfirmDesc,
         confirmLabel: S.openConfirmLabel,
       }}
-      onLoad={async (data, _file, files) => {
-        const r = await importProject(data, files);
+      onLoad={async (data, file, files) => {
+        const r = await importProject(data, files, file.version);
         resetAll(r.state);
         return { warnings: [r.notSaved && S.projectNotSaved] };
       }}

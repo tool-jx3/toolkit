@@ -26,22 +26,33 @@ export interface VSpot {
   label: string;
 }
 
+/**
+ * 輪播（F91、F130）：照片框裡是可以左右滑的一排照片（手指滑動、滑鼠點左右兩半、焦點在上面時按 ←／→），
+ * 「目前／總數」膠囊與圓點各是每張一張的小圖，滑到哪一張就顯示哪一張。只有照片框可以滑、可以點（同原作）。
+ * 座標都是 layer 圖的座標。
+ */
+export interface VCar {
+  rect: VRect;
+  /** 每張照片（只有照片，不含膠囊） */
+  photos: VImg[];
+  /** 膠囊：共同的範圍；每張一張透明的圖（膠囊靠右） */
+  pill: { rect: VRect; imgs: VImg[] } | null;
+  /** 圓點那一條（新式：照片下的圓點列；舊式：按鈕列）；每張一張 */
+  dots: { rect: VRect; imgs: VImg[] } | null;
+  index: number;
+  label: string;
+}
+
 export interface VLayer {
   img: VImg;
   spots?: VSpot[];
   sticky?: 'top' | 'bottom';
+  cars?: VCar[];
   /**
-   * 輪播：照片框＋膠囊＋圓點那一段，每張照片一張圖；hit＝可以點的照片框（同 rect 的座標；不給時整段）。
-   * 原作只有照片可以點（左半上一張、右半下一張），照片下面的圓點列、舊式的按鈕列不換照片（F91）。
+   * 橫向捲動（首頁動態的限時動態列，F128）：圖比畫面寬時，這一層可以左右捲動；view＝畫面的寬（畫面單位），
+   * spots 的座標是整張圖的座標。
    */
-  car?: {
-    rect: VRect;
-    hit?: VRect;
-    slides: VImg[];
-    index: number;
-    prev: string;
-    next: string;
-  };
+  view?: number;
 }
 
 export interface VScreen {
@@ -68,7 +79,11 @@ export interface VStory {
   closable: boolean;
   auto: boolean;
   img: VImg;
-  bar: VRect | null;
+  /**
+   * 進度條（auto 時圖上不畫，由檢視程式畫）：位置（限時動態的座標）、這則自己的段數與目前第幾段。
+   * 一次接著看好幾則時改成一則一段（F126）。
+   */
+  bars: { rect: VRect; count: number; current: number; gap: number } | null;
   close: VRect | null;
   closeLabel: string;
 }
@@ -94,24 +109,23 @@ function spotHtml(s: VSpot, img: VImg): string {
   return `<button type="button" class="v-spot" ${s.attr} style="${box(s.rect, img)}" aria-label="${escapeHtmlAttr(s.label)}"></button>`;
 }
 
-/** 輪播的左右兩半（可以點的照片框，以輪播那一段為 100%） */
-function carSpots(c: NonNullable<VLayer['car']>): string {
-  const hit = c.hit ?? c.rect;
-  const top = pct(hit.y - c.rect.y, c.rect.height);
-  const height = pct(hit.height, c.rect.height);
-  const half = (dir: -1 | 1, label: string) =>
-    `<button type="button" class="v-spot v-half" data-car="${dir}" style="left:${dir < 0 ? '0' : '50%'};width:50%;top:${top};height:${height}" aria-label="${escapeHtmlAttr(label)}"></button>`;
-  return half(-1, c.prev) + half(1, c.next);
+function carHtml(c: VCar, img: VImg): string {
+  const many = (list: VImg[], index: number) =>
+    list.map((x, i) => image(x, i === index ? '' : ' hidden')).join('');
+  const slides = c.photos.map((x) => `<div class="v-slide">${image(x)}</div>`).join('');
+  return `<div class="v-cg"><div class="v-car" style="${box(c.rect, img)}"><div class="v-track" data-start="${c.index}" tabindex="0" role="group" aria-label="${escapeHtmlAttr(c.label)}">${slides}</div></div>${
+    c.pill
+      ? `<div class="v-pill" style="${box(c.pill.rect, img)}">${many(c.pill.imgs, c.index)}</div>`
+      : ''
+  }${c.dots ? `<div class="v-dots" style="${box(c.dots.rect, img)}">${many(c.dots.imgs, c.index)}</div>` : ''}</div>`;
 }
 
 function layerHtml(l: VLayer): string {
   const cls = `v-layer${l.sticky ? ` v-sticky-${l.sticky}` : ''}`;
-  const car = l.car
-    ? `<div class="v-car" style="${box(l.car.rect, l.img)}">${l.car.slides
-        .map((s, i) => image(s, i === l.car?.index ? '' : ' hidden'))
-        .join('')}${carSpots(l.car)}</div>`
-    : '';
-  return `<div class="${cls}">${image(l.img)}${car}${(l.spots ?? []).map((s) => spotHtml(s, l.img)).join('')}</div>`;
+  const inner = `${image(l.img)}${(l.cars ?? []).map((c) => carHtml(c, l.img)).join('')}${(l.spots ?? []).map((s) => spotHtml(s, l.img)).join('')}`;
+  if (l.view && l.img.w > l.view)
+    return `<div class="${cls} v-hscroll"><div class="v-hin" style="width:${((l.img.w / l.view) * 100).toFixed(4)}%">${inner}</div></div>`;
+  return `<div class="${cls}">${inner}</div>`;
 }
 
 function screenHtml(s: VScreen): string {
@@ -127,8 +141,8 @@ function commentsHtml(c: VComments): string {
 
 function storyHtml(s: VStory): string {
   const attrs = `${s.closable ? ' data-closable' : ''}${s.auto ? ' data-auto' : ''}${s.opened ? '' : ' hidden'}`;
-  const bar = s.bar
-    ? `<div class="v-bar" data-w="${pct(s.bar.width, s.img.w)}" style="left:${pct(s.bar.x, s.img.w)};top:${pct(s.bar.y, s.img.h)};height:${pct(s.bar.height, s.img.h)};width:0"></div>`
+  const bar = s.bars
+    ? `<div class="v-bars" data-n="${s.bars.count}" data-c="${s.bars.current}" data-gap="${((s.bars.gap / s.bars.rect.width) * 100).toFixed(4)}" style="${box(s.bars.rect, s.img)}"></div>`
     : '';
   const close =
     s.closable && s.close
@@ -150,9 +164,17 @@ img[hidden]{display:none}
 .v-sticky-top{position:sticky;top:0;z-index:3}
 .v-sticky-bottom{position:sticky;bottom:0;z-index:3}
 .v-spot{position:absolute;display:block;margin:0;padding:0;border:0;background:none;cursor:pointer;-webkit-tap-highlight-color:transparent}
-.v-spot:focus-visible{outline:2px solid #3f63e0;outline-offset:-2px}
-.v-car{position:absolute;overflow:hidden}
-.v-car img{position:absolute;inset:0;height:100%}
+.v-spot:focus-visible,.v-track:focus-visible{outline:2px solid #3f63e0;outline-offset:-2px}
+.v-hscroll{overflow-x:auto;overflow-y:hidden;scrollbar-width:none;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain}
+.v-hscroll::-webkit-scrollbar,.v-track::-webkit-scrollbar{display:none}
+.v-hin{position:relative}
+.v-cg{position:absolute;inset:0;pointer-events:none}
+.v-car{position:absolute;pointer-events:auto}
+.v-track{position:absolute;inset:0;display:flex;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;scrollbar-width:none;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain;cursor:pointer}
+.v-slide{position:relative;flex:0 0 100%;height:100%;scroll-snap-align:start;scroll-snap-stop:always}
+.v-slide img{height:100%}
+.v-pill,.v-dots{position:absolute}
+.v-pill img,.v-dots img{position:absolute;inset:0;height:100%}
 .v-ov{position:fixed;inset:0;z-index:20}
 .v-dim{position:absolute;inset:0;background:rgba(0,0,0,.5)}
 .v-sheet{position:absolute;left:50%;bottom:0;transform:translateX(-50%);width:100%;max-width:470px;height:78%;display:flex;flex-direction:column;border-radius:16px 16px 0 0;overflow:hidden}
@@ -160,21 +182,32 @@ img[hidden]{display:none}
 .v-list{flex:1;min-height:0;overflow-y:auto}
 .v-plain{min-height:100vh;min-height:100dvh;display:flex;flex-direction:column}
 .v-st{background:#000;display:flex;align-items:center;justify-content:center}
-.v-story{position:relative;width:min(100vw,56.25vh);width:min(100vw,56.25dvh)}
-.v-bar{position:absolute;background:#fff;border-radius:2px}`;
+.v-story{position:relative;width:min(100vw,56.25vh);width:min(100vw,56.25dvh);cursor:pointer}
+.v-bars{position:absolute}
+.v-bars i{position:absolute;top:0;bottom:0;background:rgba(255,255,255,.35);border-radius:9px;overflow:hidden}
+.v-bars b{display:block;height:100%;width:0;background:#fff}`;
 
-/** 檢視程式（不依賴任何東西，以 toString() 直接嵌進 HTML；進度條跑滿的寬度在 data-w） */
+/** 檢視程式（不依賴任何東西，以 toString() 直接嵌進 HTML） */
 export function viewerRuntime(): void {
-  const all = (q: string) =>
-    Array.prototype.slice.call(document.querySelectorAll(q)) as HTMLElement[];
+  const all = (q: string, root: ParentNode = document) =>
+    Array.prototype.slice.call(root.querySelectorAll(q)) as HTMLElement[];
   let timer: number | undefined;
-  function show(id: string) {
+  /* 換畫面：記著從哪裡來（‹ 回到上一個畫面） */
+  const stack: string[] = [];
+  const current = () => all('.v-scr').filter((x) => !x.hidden)[0]?.id ?? '';
+  function show(id: string, back?: boolean) {
     const el = document.getElementById(id);
     if (!el) return;
+    const c = current();
+    if (!back && c && c !== id) stack.push(c);
     all('.v-scr').forEach((x) => {
       x.hidden = x !== el;
     });
     window.scrollTo(0, 0);
+    carInit();
+    all('[data-end]', el).forEach((b) => {
+      b.scrollTop = b.scrollHeight;
+    });
   }
   function closeAll() {
     all('.v-ov[data-closable]').forEach((o) => {
@@ -182,6 +215,7 @@ export function viewerRuntime(): void {
     });
     document.body.classList.remove('v-lock');
     clearTimeout(timer);
+    seq = [];
   }
   function open(id: string) {
     const el = document.getElementById(id);
@@ -190,43 +224,144 @@ export function viewerRuntime(): void {
     document.body.classList.add('v-lock');
     return el;
   }
-  function play(el: HTMLElement) {
-    const b = el.querySelector('.v-bar') as HTMLElement | null;
-    if (!b) return;
-    b.style.transition = 'none';
-    b.style.width = '0';
-    void b.offsetWidth;
-    b.style.transition = 'width 5s linear';
-    b.style.width = b.getAttribute('data-w') || '';
+  /* 進度條：n 段、目前第 cur 段（前面的滿、目前那段 5 秒跑滿、後面的空） */
+  function bars(el: HTMLElement, n: number, cur: number, run: boolean) {
+    const g = Number(el.getAttribute('data-gap')) || 0;
+    const w = (100 - g * (n - 1)) / n;
+    let html = '';
+    for (let i = 0; i < n; i++)
+      html += `<i style="left:${i * (w + g)}%;width:${w}%"><b style="width:${i < cur - 1 ? 100 : 0}%"${i === cur - 1 ? ' data-cur' : ''}></b></i>`;
+    el.innerHTML = html;
+    const b = el.querySelector('[data-cur]') as HTMLElement | null;
+    if (b && run) {
+      void b.offsetWidth;
+      b.style.transition = 'width 5s linear';
+      b.style.width = '100%';
+    }
+  }
+  /* 接著看：同一個人的限時動態一則接一則，5 秒換下一則；看完關掉 */
+  let seq: string[] = [];
+  let pos = 0;
+  function showStory() {
     clearTimeout(timer);
-    timer = window.setTimeout(closeAll, 5000);
+    all('.v-st').forEach((o) => {
+      o.hidden = true;
+    });
+    const el = open(`ov-s-${seq[pos]}`);
+    if (!el) {
+      closeAll();
+      return;
+    }
+    const auto = el.hasAttribute('data-auto');
+    const b = el.querySelector('.v-bars') as HTMLElement | null;
+    if (b) {
+      if (seq.length > 1) bars(b, seq.length, pos + 1, auto);
+      else
+        bars(b, Number(b.getAttribute('data-n')) || 1, Number(b.getAttribute('data-c')) || 1, auto);
+    }
+    if (auto) timer = window.setTimeout(() => step(1), 5000);
   }
-  function slide(car: HTMLElement, dir: number) {
-    const imgs = car.querySelectorAll('img');
-    const n = imgs.length;
-    let cur = 0;
-    for (let i = 0; i < n; i++) if (!imgs[i].hidden) cur = i;
-    const nx = Math.max(0, Math.min(n - 1, cur + dir));
-    for (let j = 0; j < n; j++) imgs[j].hidden = j !== nx;
+  function step(d: number) {
+    pos += d;
+    if (pos >= seq.length) {
+      closeAll();
+      return;
+    }
+    if (pos < 0) pos = 0;
+    showStory();
   }
+  /* 輪播：照片可以左右滑；滑鼠點左右兩半、←／→ 換一張 */
+  const carIndex = (t: HTMLElement) => Math.round(t.scrollLeft / Math.max(1, t.clientWidth));
+  function carSync(t: HTMLElement) {
+    const i = carIndex(t);
+    const g = t.closest('.v-cg');
+    if (!g) return;
+    all('.v-pill,.v-dots', g).forEach((box) => {
+      const imgs = box.querySelectorAll('img');
+      for (let k = 0; k < imgs.length; k++) imgs[k].hidden = k !== Math.min(i, imgs.length - 1);
+    });
+  }
+  function carInit() {
+    all('.v-track').forEach((t) => {
+      const tt = t as HTMLElement & { _v?: boolean; _s?: boolean };
+      if (!tt._s && t.clientWidth) {
+        tt._s = true;
+        t.scrollLeft = (Number(t.getAttribute('data-start')) || 0) * t.clientWidth;
+      }
+      if (!tt._v) {
+        tt._v = true;
+        t.addEventListener('scroll', () => carSync(t), { passive: true });
+      }
+    });
+  }
+  function carGo(t: HTMLElement, d: number) {
+    t.scrollTo({ left: (carIndex(t) + d) * t.clientWidth, behavior: 'smooth' });
+  }
+  window.addEventListener('load', () => {
+    carInit();
+    all('[data-end]').forEach((b) => {
+      b.scrollTop = b.scrollHeight;
+    });
+  });
+  let pointer = 'mouse';
+  document.addEventListener(
+    'pointerdown',
+    (e) => {
+      pointer = e.pointerType;
+    },
+    true,
+  );
   document.addEventListener('click', (e) => {
-    const t = (e.target as Element).closest(
-      '[data-car],[data-close],[data-back],[data-go],[data-open],[data-story]',
+    const target = e.target as Element;
+    const st = target.closest('.v-st') as HTMLElement | null;
+    if (st && !target.closest('[data-close]')) {
+      if (seq.length) {
+        const r = st.getBoundingClientRect();
+        step(e.clientX < r.left + r.width / 3 ? -1 : 1);
+      }
+      return;
+    }
+    const track = target.closest('.v-track') as HTMLElement | null;
+    if (track) {
+      if (pointer !== 'mouse') return;
+      const r = track.getBoundingClientRect();
+      carGo(track, e.clientX > r.left + r.width / 2 ? 1 : -1);
+      return;
+    }
+    const t = target.closest(
+      '[data-close],[data-back],[data-go],[data-open],[data-story]',
     ) as HTMLElement | null;
     if (!t) return;
-    if (t.hasAttribute('data-car'))
-      slide(t.parentElement as HTMLElement, Number(t.getAttribute('data-car')));
-    else if (t.hasAttribute('data-close')) closeAll();
-    else if (t.hasAttribute('data-back')) show('s-home');
-    else if (t.getAttribute('data-go')) show(t.getAttribute('data-go') as string);
+    if (t.hasAttribute('data-close')) closeAll();
+    else if (t.hasAttribute('data-back')) {
+      const first = all('.v-scr')[0];
+      show(stack.pop() || first?.id || '', true);
+    } else if (t.getAttribute('data-go')) show(t.getAttribute('data-go') as string);
     else if (t.getAttribute('data-open')) open(`ov-c-${t.getAttribute('data-open')}`);
     else if (t.getAttribute('data-story')) {
-      const el = open(`ov-s-${t.getAttribute('data-story')}`);
-      if (el?.hasAttribute('data-auto')) play(el);
+      seq = (t.getAttribute('data-story') as string).split(',');
+      pos = 0;
+      showStory();
     }
   });
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') closeAll();
+    if (e.key === 'Escape') {
+      closeAll();
+      return;
+    }
+    if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+    const d = e.key === 'ArrowRight' ? 1 : -1;
+    const open1 = seq.length ? document.getElementById(`ov-s-${seq[pos]}`) : null;
+    if (open1 && !open1.hidden) {
+      e.preventDefault();
+      step(d);
+      return;
+    }
+    const t = (e.target as Element | null)?.closest?.('.v-track') as HTMLElement | null;
+    if (t) {
+      e.preventDefault();
+      carGo(t, d);
+    }
   });
 }
 

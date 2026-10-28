@@ -1,7 +1,7 @@
 /**
  * 貼文（規格 3.4）：帳號列 → 照片框（輪播膠囊）→（新式）圓點列 → 按鈕列 → 內文。畫面單位、寬 390。
  */
-import { type Post, RATIO_VALUE } from '../model';
+import { ownerOf, type Post, RATIO_VALUE } from '../model';
 import { S } from '../strings';
 import {
   collapseCaption,
@@ -29,6 +29,8 @@ export interface PostOptions {
   current?: number;
   /** HTML：沒有照片時照片框只是灰底（同原作） */
   viewer?: boolean;
+  /** 不畫「目前／總數」膠囊（HTML 的輪播另外疊一張） */
+  noPill?: boolean;
 }
 
 export interface PostLayout {
@@ -44,6 +46,10 @@ export interface PostLayout {
     body: Rect;
     /** 留言圖示（HTML 打開留言面板） */
     comment: Rect | null;
+    /** 「目前／總數」膠囊（兩張以上時） */
+    pill: Rect | null;
+    /** 圓點所在的那一條（新式：照片下的圓點列；舊式：按鈕列；兩張以上時） */
+    dots: Rect | null;
   };
 }
 
@@ -67,10 +73,41 @@ function dots(env: Env, cx: number, cy: number, n: number, idx: number): Op[] {
   return ops;
 }
 
-/** 一則貼文（不含狀態列），從 y 開始 */
+/** 「目前／總數」膠囊（右緣在 right、上緣在 top；同 3.4） */
+export function pillOps(
+  env: Env,
+  label: string,
+  right: number,
+  top: number,
+): { ops: Op[]; box: Rect } {
+  const { fs, measure } = env;
+  const f = ui(12 * fs, 600);
+  const plh = 12 * fs * INHERIT_LH;
+  const h = plh + 6;
+  const w = measure(label, f) + 18;
+  const x = right - w;
+  return {
+    ops: [
+      { t: 'rect', x, y: top, w, h, r: Math.min(13, h / 2), fill: 'rgba(18,18,18,0.7)' },
+      {
+        t: 'text',
+        x: x + w / 2,
+        y: top + 3,
+        lh: plh,
+        text: label,
+        font: f,
+        color: '#ffffff',
+        align: 'center',
+      },
+    ],
+    box: { x, y: top, width: w, height: h },
+  };
+}
+
+/** 一則貼文（不含狀態列），從 y 開始；帳號是貼文的帳號（朋友的貼文用朋友的帳號，F111） */
 export function layoutPost(env: Env, post: Post, y0: number, opts: PostOptions = {}): PostLayout {
   const { pal, fs, measure } = env;
-  const pr = env.state.profile;
+  const pr = ownerOf(env.state, post);
   const ops: Op[] = [];
   const hits: Hit[] = [];
   const photos = post.photos;
@@ -195,32 +232,20 @@ export function layoutPost(env: Env, post: Post, y0: number, opts: PostOptions =
       });
     }
   }
+  let pill: Rect | null = null;
   if (n > 1) {
-    const f = ui(12 * fs, 600);
-    const label = `${idx + 1}/${n}`;
-    const plh = 12 * fs * INHERIT_LH;
-    const h = plh + 6;
-    const w = measure(label, f) + 18;
-    const x = W - 14 - w;
-    const y = mediaTop + 14;
-    ops.push({ t: 'rect', x, y, w, h, r: Math.min(13, h / 2), fill: 'rgba(18,18,18,0.7)' });
-    ops.push({
-      t: 'text',
-      x: x + w / 2,
-      y: y + 3,
-      lh: plh,
-      text: label,
-      font: f,
-      color: '#ffffff',
-      align: 'center',
-    });
+    const p = pillOps(env, `${idx + 1}/${n}`, W - 14, mediaTop + 14);
+    if (!opts.noPill) ops.push(...p.ops);
+    pill = p.box;
   }
   hits.push({ key: 'media', label: S.hits.media, box: media });
 
   /* ---- 圓點列（新式） ---- */
   let y = mediaTop + mediaH;
+  let dotsRect: Rect | null = null;
   if (inline && n > 1) {
     ops.push(...dots(env, W / 2, y + 15, n, idx));
+    dotsRect = { x: 0, y, width: W, height: 18 };
     y += 18;
   }
 
@@ -280,7 +305,10 @@ export function layoutPost(env: Env, post: Post, y0: number, opts: PostOptions =
         }
       : { t: 'icon', name: 'bookmark', x: W - PAD - 24, y: acy - 12, size: 24, color: pal.ink },
   );
-  if (!inline && n > 1) ops.push(...dots(env, W / 2, acy, n, idx));
+  if (!inline && n > 1) {
+    ops.push(...dots(env, W / 2, acy, n, idx));
+    dotsRect = { x: 0, y: actTop, width: W, height: 46 };
+  }
   if (comment) hits.push({ key: 'open-comments', label: S.hits.openComments, box: comment });
   const actions: Rect = { x: 0, y: actTop, width: W, height: 46 };
   y = actTop + 46;
@@ -380,7 +408,7 @@ export function layoutPost(env: Env, post: Post, y0: number, opts: PostOptions =
     ops,
     hits,
     height: by - y0,
-    parts: { header, media, carousel, actions, body, comment },
+    parts: { header, media, carousel, actions, body, comment, pill, dots: dotsRect },
   };
 }
 

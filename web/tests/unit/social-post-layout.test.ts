@@ -4,7 +4,9 @@
  */
 import { describe, expect, it } from 'vitest';
 import {
+  addPost,
   addSticker,
+  addStory,
   blankStory,
   initialState,
   type SocialState,
@@ -12,6 +14,7 @@ import {
 } from '../../src/tools/social-post/model';
 import { commentsScreen } from '../../src/tools/social-post/render/comments';
 import type { Env } from '../../src/tools/social-post/render/common';
+import { feedScreen, layoutTray } from '../../src/tools/social-post/render/feed';
 import type { Op } from '../../src/tools/social-post/render/ops';
 import { postScreen } from '../../src/tools/social-post/render/post';
 import { GRID_CELL, profileScreen } from '../../src/tools/social-post/render/profile';
@@ -281,16 +284,26 @@ describe('限時動態（3.7）', () => {
     expect(texts(storyScreen(out, st, { selectedCell: 0 }).ops)).not.toContain('加入照片');
   });
 
-  it('進度條：目前那段之前滿、之後空；HTML 自動播放時目前那段從 0 開始', () => {
+  it('進度條：目前那段之前滿、之後空；HTML 自動播放時不畫（檢視程式依接著看的則數畫，F126）', () => {
     const e = env((s) => {
       Object.assign(s.stories[0], { count: 4, current: 3, progress: 50 });
     });
     const l = storyScreen(e, e.state.stories[0]);
-    expect(l.parts.bar.width).toBeCloseTo((360 - 2 * 7.92 - 3 * 3.6) / 4);
+    const segW = (360 - 2 * 7.92 - 3 * 3.6) / 4;
+    const tracks = l.ops.filter(
+      (o) => o.t === 'rect' && o.fill === 'rgba(255,255,255,0.35)' && o.h < 3,
+    );
+    expect(tracks).toHaveLength(4);
+    expect(tracks[0].t === 'rect' && tracks[0].w).toBeCloseTo(segW);
     const fills = l.ops.filter((o) => o.t === 'rect' && o.fill === '#ffffff' && o.h < 3);
     expect(fills).toHaveLength(3);
+    const b = l.parts.bars;
+    expect([b.x, b.y, b.width, b.height].map((v) => Math.round(v * 100) / 100)).toEqual([
+      7.92, 48.6, 344.16, 2.34,
+    ]);
     const v = storyScreen(e, e.state.stories[0], { viewer: { autoplay: true, closable: true } });
-    expect(v.ops.filter((o) => o.t === 'rect' && o.fill === '#ffffff' && o.h < 3)).toHaveLength(2);
+    expect(v.ops.filter((o) => o.t === 'rect' && o.h < 3 && o.y === 13.5 * 3.6)).toHaveLength(0);
+    expect(v.parts.bars).toEqual(l.parts.bars);
   });
 
   it('下方介面：傳送訊息／動態／無', () => {
@@ -535,5 +548,132 @@ describe('限時動態的狀態列圖示（F67）', () => {
     const l = postScreen(e, e.state.posts[0]);
     const bars = rects(l.ops).filter((o) => o.y < 54 && o.w === 3 && o.fill === PALETTES.light.ink);
     expect(Math.min(...bars.map((o) => o.x))).toBeCloseTo(291);
+  });
+});
+
+describe('朋友身分（F111、F112）', () => {
+  const friend = (s: SocialState) => {
+    s.posts[0].friend = true;
+    s.posts[0].owner = { username: 'kai.archive', avatar: null, verified: true };
+  };
+
+  it('朋友的貼文：帳號列、內文開頭是朋友的帳號；作者的留言與輸入列的提示也是', () => {
+    const e = env(friend);
+    const t = texts(postScreen(e, e.state.posts[0]).ops);
+    expect(t).toContain('kai.archive');
+    expect(t).not.toContain('xiaoyu.lin');
+    e.state.posts[0].sheet.items[1].author = true;
+    const c = texts(commentsScreen(e, e.state.posts[0]).ops);
+    expect(c).toContain('留言給 kai.archive…');
+    expect(c.filter((x) => x === 'kai.archive').length).toBeGreaterThan(1);
+  });
+
+  it('個人頁的格狀不放朋友的貼文；都只剩朋友的貼文有照片時補空格', () => {
+    const e = env(friend);
+    const keys = profileScreen(e).hits.map((h) => h.key);
+    expect(keys).not.toContain(`post:${e.state.posts[0].id}`);
+    expect(keys).toContain(`post:${e.state.posts[1].id}`);
+    const e2 = env((s) => {
+      friend(s);
+      s.posts[1].photos = [];
+      s.account.grid = [];
+      s.account.placeholders = 6;
+    });
+    const l = profileScreen(e2);
+    const cells = l.ops.flatMap((o) =>
+      o.t === 'group' && o.clip?.y === l.parts.grid.y ? o.ops : [],
+    );
+    /* 自己的貼文 1 格（沒有照片）＋補到 6 格 */
+    expect(cells.filter((o) => o.t === 'rect')).toHaveLength(6);
+  });
+
+  it('朋友的限時動態：帳號列是朋友的帳號', () => {
+    const e = env();
+    const st = e.state.stories[1];
+    expect(st.friend).toBe(true);
+    const t = texts(storyScreen(e, st).ops);
+    expect(t).toContain('kai.archive');
+    expect(t).not.toContain('xiaoyu.lin');
+  });
+});
+
+describe('首頁動態（3.11）', () => {
+  it('390 × 844：狀態列 54、上方列 50、限時動態列 112.2（＋線 0.5）、貼文、底部分頁列 84', () => {
+    const e = env();
+    const l = feedScreen(e);
+    expect([l.width, l.height]).toEqual([390, 844]);
+    expect(l.parts.top).toEqual({ x: 0, y: 54, width: 390, height: 50 });
+    expect(l.parts.tray.y).toBe(104);
+    expect(l.parts.tray.height).toBeCloseTo(6 + 70 + 5 + 12 * 1.6 + 12);
+    expect(l.parts.posts.y).toBeCloseTo(104 + 112.2 + 0.5);
+    expect(l.parts.nav).toEqual({ x: 0, y: 760, width: 390, height: 84 });
+    /* 貼文照清單的順序、之間 8 */
+    expect(l.posts.map((p) => p.index)).toEqual([0, 1]);
+    expect(l.posts[1].top).toBeCloseTo(l.posts[0].top + l.posts[0].layout.height + 8);
+    expect(texts(l.ops)).toEqual(
+      expect.arrayContaining(['Moments', '我的限時動態', 'kai.archive', '2']),
+    );
+  });
+
+  it('限時動態列：我的、朋友的（同一個帳號一個圈）；點了接著看的 id', () => {
+    const e = env((s) => {
+      addStory(s, 'mine');
+      const id = addStory(s, 'friend') as string;
+      const st = s.stories.find((x) => x.id === id);
+      if (st) st.owner.username = 'kai.archive';
+    });
+    const l = feedScreen(e);
+    const tray = l.hits.filter((h) => h.key.startsWith('tray:')).map((h) => h.key);
+    expect(tray).toEqual(['tray:s1,s3', 'tray:s2,s4']);
+    /* 每一項 74 寬、間隔 14、左右 12 */
+    const t = layoutTray(e, 0);
+    expect(t.items.map((it) => it.box.x)).toEqual([12, 100]);
+    expect(t.contentWidth).toBe(12 * 2 + 74 * 2 + 14);
+  });
+
+  it('圈：新的是漸層外圈、全部看過是灰色、我沒有限時動態時沒有外圈＋右下角的＋', () => {
+    const e = env((s) => {
+      s.feed.myStories = [];
+      s.stories[1].seen = true;
+    });
+    const t = layoutTray(e, 0);
+    /* 我的：大頭貼 64（沒有外圈）＋主色的＋ */
+    expect(t.ops.some((o) => o.t === 'avatar' && o.r === 32)).toBe(true);
+    expect(t.ops.some((o) => o.t === 'circle' && o.fill === e.pal.accent && o.r === 8)).toBe(true);
+    expect(t.items.map((it) => it.stories)).toEqual([['s2']]);
+    /* 朋友的：看過了 → 分隔線色的外圈 */
+    expect(t.ops.some((o) => o.t === 'circle' && o.fill === e.pal.line && o.r === 35)).toBe(true);
+    expect(t.ops.some((o) => o.t === 'circle' && typeof o.fill === 'object')).toBe(false);
+  });
+
+  it('不在首頁動態顯示的貼文不放；一則都沒有時說明；底部分頁列的首頁是實心的', () => {
+    const e = env((s) => {
+      for (const p of s.posts) p.inFeed = false;
+    });
+    const l = feedScreen(e);
+    expect(l.posts).toEqual([]);
+    expect(texts(l.ops)).toContain('首頁沒有要顯示的貼文。');
+    expect(l.ops.some((o) => o.t === 'icon' && o.name === 'home' && o.fill === e.pal.ink)).toBe(
+      true,
+    );
+    expect(icons(profileScreen(e).ops)).toContain('home');
+    expect(profileScreen(e).ops.some((o) => o.t === 'icon' && o.name === 'home' && !!o.fill)).toBe(
+      false,
+    );
+  });
+
+  it('沒有未讀數、紅點時不畫；HTML 依內容加高、底部分頁列接在最後', () => {
+    const e = env((s) => {
+      s.feed.dmBadge = '';
+      s.feed.heartDot = false;
+      addPost(s);
+    });
+    const l = feedScreen(e);
+    expect(l.ops.some((o) => o.t === 'circle' && o.fill === e.pal.red)).toBe(false);
+    const v = feedScreen(e, { viewer: true });
+    const last = v.posts.at(-1);
+    if (!last) throw new Error('post');
+    expect(v.parts.nav.y).toBeCloseTo(last.top + last.layout.height);
+    expect(v.height).toBeCloseTo(v.parts.nav.y + 84);
   });
 });

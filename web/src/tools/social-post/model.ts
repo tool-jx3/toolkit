@@ -46,6 +46,8 @@ export const LIMITS = {
   link: 100,
   mutual: 100,
   highlightTitle: 20,
+  feedLogo: 20,
+  dmBadge: 6,
 } as const;
 
 /** 清單的上限（D10） */
@@ -132,6 +134,13 @@ export interface Profile {
   ring: boolean;
 }
 
+/** 朋友的帳號（朋友的貼文、限時動態用；F111～F113） */
+export interface Owner {
+  username: string;
+  avatar: ImageRef | null;
+  verified: boolean;
+}
+
 export interface ScreenSettings {
   status: boolean;
   icons: boolean;
@@ -208,6 +217,11 @@ export interface Post {
   /** 個人頁格狀的 1:1 縮圖（第一張照片）的位置 */
   thumb: FramePlacement;
   sheet: { backdrop: boolean; height: SheetHeight; items: Comment[] };
+  /** 朋友的貼文（帳號列、內文、作者的留言用 owner；個人頁的格狀不放；F111） */
+  friend: boolean;
+  owner: Owner;
+  /** 在首頁動態顯示（F114） */
+  inFeed: boolean;
 }
 
 export const STORY_LAYOUTS = ['1', '2v', '2h', '3v', '4', '6'] as const;
@@ -345,6 +359,11 @@ export interface Story {
   progress: number;
   time: string;
   bottom: StoryBottom;
+  /** 朋友的限時動態（帳號列用 owner；F112） */
+  friend: boolean;
+  owner: Owner;
+  /** 看過了：首頁動態的圈是灰色的（F115） */
+  seen: boolean;
 }
 
 export interface Highlight {
@@ -377,6 +396,18 @@ export interface Account {
   placeholders: number;
 }
 
+/** 首頁動態（F116～F122） */
+export interface Feed {
+  /** 左上角的字 */
+  logo: string;
+  /** 通知的紅點 */
+  heartDot: boolean;
+  /** 訊息圖示的未讀數（空白時不畫） */
+  dmBadge: string;
+  /** 「我的限時動態」放哪幾則（限時動態的 id；照限時動態清單的順序接著看） */
+  myStories: string[];
+}
+
 export interface SocialState {
   theme: Theme;
   profile: Profile;
@@ -384,6 +415,7 @@ export interface SocialState {
   posts: Post[];
   stories: Story[];
   account: Account;
+  feed: Feed;
 }
 
 /* ---------- 色票（本站自己挑，D5） ---------- */
@@ -594,8 +626,22 @@ export function blankPost(id: string, commentPrefix = `${id}c`): Post {
     time: '剛剛',
     thumb: place0(),
     sheet: { backdrop: true, height: 'half', items: defaultComments(commentPrefix) },
+    friend: false,
+    owner: newOwner(1),
+    inFeed: true,
   };
 }
+
+/** 朋友帳號的預設（friend_N） */
+export const newOwner = (n = 1): Owner => ({
+  username: `friend_${n}`,
+  avatar: null,
+  verified: false,
+});
+
+/** 下一個朋友的編號：朋友的貼文與限時動態的數量＋1（同原作） */
+export const nextFriendNo = (s: Pick<SocialState, 'posts' | 'stories'>): number =>
+  s.posts.filter((p) => p.friend).length + s.stories.filter((x) => x.friend).length + 1;
 
 const emptyCells = (): Cell[] =>
   Array.from({ length: CELL_SLOTS }, () => ({ image: null, place: place0() }));
@@ -611,12 +657,24 @@ export function blankStory(id: string): Story {
     bg: DEFAULT_BG,
     stickers: [],
     showTop: true,
-    count: 3,
+    count: 1,
     current: 1,
     progress: 40,
     time: '3 小時',
     bottom: 'reply',
+    friend: false,
+    owner: newOwner(1),
+    seen: false,
   };
+}
+
+/** 朋友的限時動態（新增朋友的限時動態、範例）：1 張、暮色、2 小時 */
+export function friendStory(id: string, owner: Owner): Story {
+  return { ...blankStory(id), friend: true, owner, layout: '1', bg: 'dusk', time: '2 小時' };
+}
+
+export function defaultFeed(myStories: string[] = ['s1']): Feed {
+  return { logo: 'Moments', heartDot: true, dmBadge: '2', myStories };
 }
 
 export function defaultProfile(): Profile {
@@ -737,26 +795,53 @@ export function initialState(): SocialState {
     },
     { id: 'k2', type: 'location', x: 50, y: 57, scale: 1, rot: 0, text: '霧港鎮', style: 'white' },
   ];
+  /* 朋友的限時動態（首頁動態的限時動態列；同原作的範例有一則朋友的） */
+  const s2 = friendStory('s2', {
+    username: 'kai.archive',
+    avatar: sample('avatar-kai'),
+    verified: false,
+  });
+  s2.cells[0].image = sample('street');
+  s2.stickers = [
+    {
+      id: 'k3',
+      type: 'text',
+      x: 50,
+      y: 70,
+      scale: 1,
+      rot: 0,
+      text: '你也聽到了嗎？',
+      font: 'type',
+      color: '#ffffff',
+      bg: 'none',
+      align: 'center',
+    },
+  ];
   return {
     theme: 'light',
     profile: defaultProfile(),
     screen: defaultScreen(),
     posts: [p1, p2],
-    stories: [s1],
+    stories: [s1, s2],
     account: defaultAccount(),
+    feed: defaultFeed(['s1']),
   };
 }
 
 /* ---------- 貼文 ---------- */
 
 /** 新增空白貼文（加在最後）；滿了回傳 null */
-export function addPost(s: SocialState): string | null {
+export function addPost(s: SocialState, friend = false): string | null {
   if (s.posts.length >= MAX.posts) return null;
   const id = nextId(
     'p',
     s.posts.map((p) => p.id),
   );
   const post = blankPost(id);
+  if (friend) {
+    post.friend = true;
+    post.owner = newOwner(nextFriendNo(s));
+  }
   const used = new Set(allCommentIds(s));
   for (const c of post.sheet.items) {
     c.id = nextId('c', used);
@@ -873,13 +958,22 @@ export function removeComment(p: Post, id: string): void {
 
 /* ---------- 限時動態 ---------- */
 
-export function addStory(s: SocialState): string | null {
+/**
+ * 新增限時動態（加在最後）：'blank'＝空白；'mine'＝空白並放進「我的限時動態」；'friend'＝朋友的（friend_N）。
+ * 滿了回傳 null。
+ */
+export function addStory(
+  s: SocialState,
+  kind: 'blank' | 'mine' | 'friend' = 'blank',
+): string | null {
   if (s.stories.length >= MAX.stories) return null;
   const id = nextId(
     's',
     s.stories.map((x) => x.id),
   );
-  s.stories.push(blankStory(id));
+  const st = kind === 'friend' ? friendStory(id, newOwner(nextFriendNo(s))) : blankStory(id);
+  s.stories.push(st);
+  if (kind === 'mine') s.feed.myStories = [...s.feed.myStories.filter((x) => x !== id), id];
   return id;
 }
 
@@ -907,11 +1001,62 @@ export function removeStory(s: SocialState, id: string): string | null {
   if (i < 0 || s.stories.length <= 1) return null;
   s.stories.splice(i, 1);
   for (const h of s.account.highlights) if (h.story === id) h.story = null;
+  s.feed.myStories = s.feed.myStories.filter((x) => x !== id);
   return s.stories[Math.min(i, s.stories.length - 1)].id;
 }
 
 export const moveStory = (s: SocialState, id: string, delta: -1 | 1): boolean =>
   moveIn(s.stories, id, delta);
+
+/* ---------- 首頁動態 ---------- */
+
+/** 「我的限時動態」：放進去的、不是朋友的限時動態（照限時動態清單的順序） */
+export function myStoryList(s: Pick<SocialState, 'stories' | 'feed'>): Story[] {
+  const on = new Set(s.feed.myStories);
+  return s.stories.filter((x) => !x.friend && on.has(x.id));
+}
+
+export interface FriendGroup {
+  owner: Owner;
+  stories: Story[];
+}
+
+/** 朋友的限時動態：同一個帳號（不分大小寫、去頭尾空白）的合成一個圈（同原作），照第一則的順序 */
+export function friendGroups(s: Pick<SocialState, 'stories'>): FriendGroup[] {
+  const out: FriendGroup[] = [];
+  const by = new Map<string, FriendGroup>();
+  for (const st of s.stories) {
+    if (!st.friend) continue;
+    const key = st.owner.username.trim().toLowerCase();
+    let g = by.get(key);
+    if (!g) {
+      g = { owner: st.owner, stories: [] };
+      by.set(key, g);
+      out.push(g);
+    }
+    g.stories.push(st);
+  }
+  return out;
+}
+
+/** 放進／拿出「我的限時動態」 */
+export function setMyStory(s: SocialState, id: string, on: boolean): void {
+  const rest = s.feed.myStories.filter((x) => x !== id);
+  s.feed.myStories = on ? [...rest, id] : rest;
+}
+
+/** 貼文、限時動態的帳號：朋友的用 owner（沒有帳號時 friend；沒有動態外圈），否則是自己的帳號 */
+export function ownerOf(s: Pick<SocialState, 'profile'>, x: Post | Story): Profile {
+  return x.friend
+    ? {
+        username: x.owner.username || 'friend',
+        name: '',
+        avatar: x.owner.avatar,
+        verified: x.owner.verified,
+        ring: false,
+      }
+    : s.profile;
+}
 
 /* ---------- 格子 ---------- */
 
@@ -1077,10 +1222,12 @@ export const clampStickerPos = (v: number): number => Math.max(-10, Math.min(110
 function* imagesOf(s: SocialState): Generator<ImageRef | null> {
   yield s.profile.avatar;
   for (const p of s.posts) {
+    yield p.owner.avatar;
     for (const x of p.photos) yield x.image;
     for (const c of p.sheet.items) yield c.avatar;
   }
   for (const st of s.stories) {
+    yield st.owner.avatar;
     for (const c of st.cells) yield c.image;
     for (const k of st.stickers) {
       if (k.type === 'image' || k.type === 'music') yield k.image;
@@ -1169,6 +1316,15 @@ interface IdSets {
   grid: Set<string>;
 }
 
+function normalizeOwner(v: unknown, d: Owner): Owner {
+  if (!isObj(v)) return d;
+  return {
+    username: str(v.username, LIMITS.username, d.username),
+    avatar: normalizeImage(v.avatar),
+    verified: bool(v.verified, d.verified),
+  };
+}
+
 function normalizeComment(v: unknown, used: IdSets): Comment | null {
   if (!isObj(v)) return null;
   return {
@@ -1247,6 +1403,9 @@ function normalizePost(v: unknown, used: IdSets): Post | null {
       height: oneOf(sheet.height, ['half', 'full'] as const, 'half'),
       items,
     },
+    friend: bool(v.friend, false),
+    owner: normalizeOwner(v.owner, d.owner),
+    inFeed: bool(v.inFeed, true),
   };
 }
 
@@ -1317,7 +1476,11 @@ function normalizeSticker(v: unknown, used: IdSets): Sticker | null {
   return k;
 }
 
-function normalizeStory(v: unknown, used: IdSets): Story | null {
+/**
+ * fromVersion：存檔的資料版本。版本 3 以前的限時動態若還是舊的預設（3 段、第 1 段、40%），進度條改成 1 段
+ * （原作 7b7411a 把預設改成 1 段，也同樣轉換舊的存檔）。
+ */
+function normalizeStory(v: unknown, used: IdSets, fromVersion: number): Story | null {
   if (!isObj(v)) return null;
   const id = idFor(v.id, 's', used.stories);
   const d = blankStory(id);
@@ -1352,11 +1515,34 @@ function normalizeStory(v: unknown, used: IdSets): Story | null {
     bg,
     stickers,
     showTop: bool(v.showTop, d.showTop),
-    count: num(v.count, SEGMENTS_RANGE, d.count, true),
+    count:
+      fromVersion < 3 && v.count === 3 && v.current === 1 && v.progress === 40
+        ? 1
+        : num(v.count, SEGMENTS_RANGE, d.count, true),
     current: num(v.current, SEGMENTS_RANGE, d.current, true),
     progress: num(v.progress, [0, 100], d.progress, true),
     time: str(v.time, LIMITS.storyTime, d.time),
     bottom: oneOf(v.bottom, ['reply', 'own', 'none'] as const, d.bottom),
+    friend: bool(v.friend, false),
+    owner: normalizeOwner(v.owner, d.owner),
+    seen: bool(v.seen, false),
+  };
+}
+
+/** 首頁動態：沒有存過時「我的限時動態」是第一則自己的限時動態（同原作的預設） */
+function normalizeFeed(v: unknown, stories: readonly Story[]): Feed {
+  const mine = stories.filter((x) => !x.friend);
+  const d = defaultFeed(mine[0] ? [mine[0].id] : []);
+  if (!isObj(v)) return d;
+  const ok = new Set(mine.map((x) => x.id));
+  const list = Array.isArray(v.myStories)
+    ? [...new Set(v.myStories.filter((x): x is string => typeof x === 'string' && ok.has(x)))]
+    : d.myStories;
+  return {
+    logo: str(v.logo, LIMITS.feedLogo, d.logo),
+    heartDot: bool(v.heartDot, d.heartDot),
+    dmBadge: str(v.dmBadge, LIMITS.dmBadge, d.dmBadge),
+    myStories: list,
   };
 }
 
@@ -1401,8 +1587,11 @@ function normalizeAccount(v: unknown, used: IdSets, storyIds: Set<string>): Acco
   };
 }
 
-/** 存檔、專案檔讀回來的內容（壞掉的部分換成預設） */
-export function normalizeState(raw: unknown): SocialState {
+/** 資料版本（store、專案檔共用；3：朋友身分、首頁動態、私訊，限時動態的進度條預設 1 段） */
+export const MODEL_VERSION = 3;
+
+/** 存檔、專案檔讀回來的內容（壞掉的部分換成預設）；fromVersion＝存檔的資料版本（舊版本的轉換） */
+export function normalizeState(raw: unknown, fromVersion = MODEL_VERSION): SocialState {
   if (!isObj(raw)) return initialState();
   const init = initialState();
   const used: IdSets = {
@@ -1423,9 +1612,11 @@ export function normalizeState(raw: unknown): SocialState {
   } else posts = init.posts.map((p) => normalizePost(p, used) as Post);
   let stories: Story[];
   if (Array.isArray(raw.stories)) {
-    stories = raw.stories.slice(0, MAX.stories).flatMap((x) => normalizeStory(x, used) ?? []);
-    if (!stories.length) stories = [normalizeStory(blankStory('s1'), used) as Story];
-  } else stories = init.stories.map((x) => normalizeStory(x, used) as Story);
+    stories = raw.stories
+      .slice(0, MAX.stories)
+      .flatMap((x) => normalizeStory(x, used, fromVersion) ?? []);
+    if (!stories.length) stories = [normalizeStory(blankStory('s1'), used, MODEL_VERSION) as Story];
+  } else stories = init.stories.map((x) => normalizeStory(x, used, MODEL_VERSION) as Story);
   const storyIds = new Set(stories.map((x) => x.id));
   return {
     theme: oneOf(raw.theme, ['light', 'dark'] as const, 'light'),
@@ -1446,5 +1637,6 @@ export function normalizeState(raw: unknown): SocialState {
     posts,
     stories,
     account: normalizeAccount(raw.account, used, storyIds),
+    feed: normalizeFeed(raw.feed, stories),
   };
 }
