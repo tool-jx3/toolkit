@@ -9,9 +9,7 @@
 
 ## 進行中
 
-- color-palette 併入「色票櫃」與配色卡：[saturn97v/Color-shelf](https://github.com/saturn97v/Color-shelf)（캐릭터 컬러 정리함，未授權）——圓形頭像、髮色／瞳色、
-  依顏色排序的總覽櫃、點色塊複製色碼、個人色碼表、備份還原；[dearmysn1p3r/Colorpalettecard_Maker](https://github.com/dearmysn1p3r/Colorpalettecard_Maker)（未授權）——
-  k-means 自動取 N 色、色名、一鍵複製 HEX、「照片色票卡」版型。和現有的配色條共用角色清單與滴管。
+（沒有）
 
 ## 一、已收錄工具的原作更新
 
@@ -107,3 +105,4 @@
   UI 框素材產生器（ui-frame）。
 - 2026-10-27：使用者提供 saturn97v/Color-shelf（當天建立），併進 color-palette，並一起做待做清單裡的 Colorpalettecard_Maker（最後更新 2026-09-14）。
 - 2026-10-27：使用者提供 HTML-in-Canvas 的示範頁，評估後不收，技術本身列入「先觀察」。
+- 2026-10-28：完成並移出清單——color-palette 的色票櫃與配色卡（共用的角色清單、k-means 取色、繁中色名）。

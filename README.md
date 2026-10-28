@@ -29,6 +29,7 @@
 [KIIN](https://kiin.booth.pm/) 與
 [KKumuu](https://github.com/KKumuu) 與
 [utiyoso](https://github.com/utiyoso) 與
+[saturn97v](https://github.com/saturn97v) 與
 [SkyTNT](https://github.com/SkyTNT) 等人製作的網頁小工具與開源專案為靈感來源的 76 個 TRPG 工具合輯（「文字演出產生器」以くま。的工具為靈感，由本 repo 以無塵室方式獨立撰寫；其中三個工具的作者不明），另外連到 JIZURA 字面的原站。所有工具都由本站以共用的框架改寫，只有繁體中文介面。
 
 **https://tool-jx3.github.io/toolkit/**
@@ -75,7 +76,7 @@
 | [短文圖片產生器](https://tool-jx3.github.io/toolkit/tools/prose-card/) | 把台詞、後日談、劇本宣傳文句或心得排成 1200 × 1600 的直式圖片：封面、內文頁或照片＋文字三種版面，文字可以加粗、換色、螢光筆，放不下時自動接到下一頁，存成 PNG 或 ZIP |
 | [驗證題梗圖產生器](https://tool-jx3.github.io/toolkit/tools/captcha-card/) | 做一張「請選出所有包含 ○○ 的圖片」的驗證題梗圖：放代表圖與 3 × 3／4 × 4 的圖片格、勾選答案，匯出 PNG，或游標一格一格點選、按下驗證的 GIF 動畫 |
 | [社群貼文產生器](https://tool-jx3.github.io/toolkit/tools/social-post/) | 做出相片社群 App 的貼文、留言、限時動態與個人頁畫面：照片輪播、按讚與留言、限時動態的版面與貼紙，存成 PNG，或從個人頁點進貼文與限時動態的 HTML 檔 |
-| [角色配色條產生器](https://tool-jx3.github.io/toolkit/tools/color-palette/) | 把角色的配色排成一條色塊圖，可直接從立繪取色（手動滴管或自動抓主色），輸出 PNG |
+| [角色配色條產生器](https://tool-jx3.github.io/toolkit/tools/color-palette/) | 整理角色的配色：配色條（從立繪滴管或自動取色）、色票櫃（圓形頭像與髮色瞳色的一覽，依亮度或色系排序、點色塊複製色碼、個人色碼表）、配色卡（照片或立繪自動取 4～6 色、繁中色名、混色帶），輸出 PNG／GIF |
 | [壓克力周邊工房](https://tool-jx3.github.io/toolkit/tools/acrylic-goods/) | 用立繪做出 3D 壓克力立牌、搖搖樂與立體透視，可轉動、打光、搖晃，匯出 APNG／GIF／WebP／PNG 或 .glb 模型 |
 | [影片轉動圖工具](https://tool-jx3.github.io/toolkit/tools/video-anim/) | 把影片選定的區間轉成無損 APNG、Animated WebP 或 256 色 GIF，可裁切範圍、調影格率與逐格檢視 |
 | [GIF 接合器](https://tool-jx3.github.io/toolkit/tools/gif-combiner/) | 把多張 GIF 的影格對齊時間軸排進同一張畫面，拖曳排版後合成一張 GIF |
@@ -165,7 +166,7 @@ CI（GitHub Actions）在 pull request 與 main 上跑 `npm test`、lint、typec
 | `ccfolia-cropper` | [立繪裁切器](https://tool-jx3.github.io/toolkit/tools/ccfolia-cropper/) | [kimtaehee2018-maker/ccfolia-cropper](https://github.com/kimtaehee2018-maker/ccfolia-cropper) |
 | `icon-maker` | [簡易頭像產生器](https://tool-jx3.github.io/toolkit/tools/icon-maker/) | [くま。／TRPG WEBツール観測所](https://kumachansteps.github.io/trpg-web-tools/) |
 | `variant-manager` | [角色差分管理器](https://tool-jx3.github.io/toolkit/tools/variant-manager/) | [くま。／TRPG WEBツール観測所](https://kumachansteps.github.io/trpg-web-tools/) |
-| `color-palette` | [角色配色條產生器](https://tool-jx3.github.io/toolkit/tools/color-palette/) | [sotsotssi/CharColorPalette](https://github.com/sotsotssi/CharColorPalette) |
+| `color-palette` | [角色配色條產生器](https://tool-jx3.github.io/toolkit/tools/color-palette/) | [sotsotssi/CharColorPalette](https://github.com/sotsotssi/CharColorPalette)、[saturn97v/Color-shelf](https://github.com/saturn97v/Color-shelf)（色票櫃）、[dearmysn1p3r/Colorpalettecard_Maker](https://github.com/dearmysn1p3r/Colorpalettecard_Maker)（配色卡） |
 | `typewriter` | [打字機動畫產生器](https://tool-jx3.github.io/toolkit/tools/typewriter/) | [sotsotssi/Typewriter-apng](https://github.com/sotsotssi/Typewriter-apng) |
 | `height-board` | [立繪身高比較板](https://tool-jx3.github.io/toolkit/tools/height-board/) | [woolwag3338/character-height-board](https://github.com/woolwag3338/character-height-board) |
 | `emotion-maker` | [表情產生器](https://tool-jx3.github.io/toolkit/tools/emotion-maker/) | [sotsotssi/emotion-maker](https://github.com/sotsotssi/emotion-maker) |
