@@ -4622,7 +4622,8 @@ test('版本快照（F015）：建立（沒名字＝手動快照、命名）、�
   /* 從原作的快照取回「範例：家族樹」；統計面板照樣留著 */
   await entries.filter({ hasText: '第一份（手動）' }).click();
   await page.getByTestId('snap-pick-sheet').filter({ hasText: '範例：家族樹' }).click();
-  await expect(toast(page, '已把該分頁加入為新分頁')).toBeVisible();
+  /* 前面取回分頁的同一句通知可能還沒消失：看最新的那一則 */
+  await expect(toast(page, '已把該分頁加入為新分頁').last()).toBeVisible();
   await expect(tabs).toHaveText(['主線', '支線', '範例：家族樹']);
   await expect(title(page)).toHaveText('統計與尋路（本分頁）');
   /* 全部重設：快照不清 */
