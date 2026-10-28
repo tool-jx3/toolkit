@@ -5,11 +5,14 @@
 
 const DRIVE = /drive\.google\.com\/(?:file\/d\/|open\?id=|uc\?(?:export=\w+&)?id=)([\w-]{10,})/;
 
-/** 分享連結 → 圖片網址（其他網址去頭尾空白後原樣） */
+/**
+ * 分享連結 → 圖片網址（其他網址去頭尾空白後原樣）。Google 雲端硬碟換成 `lh3.googleusercontent.com/d/<id>=w2000`
+ * （原作 2ade338 從 `drive.google.com/thumbnail?id=…&sz=w2000` 改過來；F99 修訂）。
+ */
 export function normalizeImageUrl(raw: string): string {
   const u = raw.trim();
   const m = u.match(DRIVE);
-  if (m) return `https://drive.google.com/thumbnail?id=${m[1]}&sz=w2000`;
+  if (m) return `https://lh3.googleusercontent.com/d/${m[1]}=w2000`;
   if (/dropbox\.com\//.test(u)) {
     try {
       const x = new URL(u);

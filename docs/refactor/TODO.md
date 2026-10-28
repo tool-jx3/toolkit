@@ -15,10 +15,8 @@
 
 | 本站工具 | 原作 | 授權 | 新的東西 | 建議 | 工作量 |
 |---|---|---|---|---|---|
-| social-post | [s2ndrome/4layout](https://github.com/s2ndrome/4layout) | 未授權 | 首頁動態（朋友的限時動態圈、動態貼文）、私訊畫面（列表＋對話、泡泡色、附圖、已讀）；朋友身分、看過的灰框、多則「我的限時動態」 | 值得跟進（兩個畫面可分開上線） | 中 |
 | speech-bubble | [aokmri/dp-cardmaker](https://github.com/aokmri/dp-cardmaker) | 未授權 | 單一泡泡插圖、PDF 匯出 | 可考慮（泡泡插圖比較值得） | 小～中 |
 | geo-bloom | [al1scut/tkmizGeo](https://github.com/al1scut/tkmizGeo) | 未授權 | 三角形、摩斯環、線不跨線、把種子刻進圖形並能從圖片解碼 | 可考慮；原作還在快速改，晚點再看 | 小～大 |
-| height-board | [woolwag3338/character-height-board](https://github.com/woolwag3338/character-height-board) | MIT | 頭頂線、腳底線可以拖出圖外（蹲姿、半身立繪） | 可考慮 | 小 |
 | （共用層） | 同上 | — | 原作提到 iOS 的 IndexedDB 連線被切斷後沒重連、預先存的 Blob 取不回來；本站 `core/storage/idb.ts` 沒有重連 | 有 iPhone 時確認再決定 | 小 |
 
 ## 二、新工具候選
@@ -61,6 +59,10 @@
 - 共用的 `ImageFrameDialog` 的兩指縮放可以換成 `createPointerGesture`（`@/ui`，color-palette 的配色卡照片用的）：中點縮放、放開一指接著拖。
   換的時候要回歸測試所有用到它的工具（color-palette 併入配色卡時發現，2026-10-28）。
 - pdf-compress 打包的 pdf.js 標準字型裡，Helvetica 的後備是 Liberation Sans 1.07（GPL-2.0 with font exception，原樣單獨散布）；可以換成度量相容的 Arimo（Apache-2.0）或 Liberation 2.x（OFL），用同樣的檔名放進對照表（驗證者建議，2026-10-28）。
+- 共用 ExportPanel 換格式時把整組設定（含倍率）交回給工具：PNG 以外的格式不傳倍率的工具，切回 PNG 時倍率會變成 100%（social-post 已在工具裡修正，2026-10-28 驗證時發現）。查一遍用到 ExportPanel 的工具。
+- ToolShell 的「說明」對話框關閉後焦點沒有回到「說明」鈕（落在 body；height-board 驗證時發現，2026-10-28）。
+- relation-chart 的 e2e「畫布：拖曳、碰撞推擠…」（Esc 後 focus-active 沒消）偶發失敗：main 35 次失敗 1 次；和 hover 重新設定有關，待查。
+- pdf-compress 的大檔結果打包 ZIP 時整份放在記憶體（`fflate` 的 zipSync）；大檔無損又沒變小時可能很吃記憶體，可以改成串流寫 ZIP。WORKERFS 讀取緩衝依賴 qpdf-wasm 0.3.0 壓縮後的內部名稱（找不到時退回不緩衝，有測試），升級 qpdf-wasm 時要再看。
 - map-fx 的 e2e「進階 3D：…復原（F74～F76、F82）」（`map-fx.spec.ts:1108`）在 2026-10-28 的 main（838ddea）連續 3 次失敗：方向鍵連按 3 次後 Ctrl+Z 只復原最後一步（房間 x 是 98、應該是 96）。合併靠共用 store 的 `coalesceMs`（0.4 秒），按鍵間隔一超過就拆成兩步；前一次全部 e2e 時是通過的，像是跟機器速度有關。要查是預覽每次按鍵重畫太慢，還是測試要改成不受時間影響。
 
 ## 四、先觀察
@@ -113,3 +115,6 @@
 - 2026-10-28：完成並移出清單——color-palette 的色票櫃與配色卡（共用的角色清單、k-means 取色、繁中色名）。
 - 2026-10-28：使用者問開源的 PDF 壓縮工具。可以收的是 MIT 的 qcompress、wise-pdf（列入新工具候選）；Ghostscript／MuPDF 系列是 AGPL，不收。
 - 2026-10-28：完成並移出清單——PDF 壓縮器（pdf-compress，參考 qcompress＋wise-pdf；共用模組 core/pdf）。
+- 2026-10-28：檢查 height-board、social-post 的原作：character-height-board 10-16～10-24 三次更新（index.html 約 +3300 行）；4layout 10-17～10-26 共 11 個 commit。兩個都開始跟進。
+- 2026-10-28：完成並移出清單——PDF 壓縮器的大檔省記憶體模式（上限 200 MB → 900 MB，整頁轉圖 600 MB，依實測）、social-post 跟進原作到 beb5ef1、全站播放列的「回到開頭」。
+- 2026-10-28：完成並移出清單——height-board 跟進原作到 2407161（共用層：GuidedTour、兩指縮放、長按排序、設定欄寬度拖曳、通知修正）。

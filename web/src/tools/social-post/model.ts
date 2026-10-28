@@ -46,6 +46,16 @@ export const LIMITS = {
   link: 100,
   mutual: 100,
   highlightTitle: 20,
+  feedLogo: 20,
+  dmBadge: 6,
+  threadName: 40,
+  threadTime: 20,
+  threadActive: 30,
+  threadPreview: 100,
+  threadSeen: 20,
+  message: 1000,
+  messageTime: 30,
+  react: 8,
 } as const;
 
 /** 清單的上限（D10） */
@@ -57,6 +67,8 @@ export const MAX = {
   stickers: 40,
   highlights: 20,
   grid: 60,
+  threads: 20,
+  messages: 100,
 } as const;
 
 /** 放進資產庫時的長邊上限（F98） */
@@ -130,6 +142,13 @@ export interface Profile {
   verified: boolean;
   /** 動態外圈 */
   ring: boolean;
+}
+
+/** 朋友的帳號（朋友的貼文、限時動態用；F111～F113） */
+export interface Owner {
+  username: string;
+  avatar: ImageRef | null;
+  verified: boolean;
 }
 
 export interface ScreenSettings {
@@ -208,6 +227,11 @@ export interface Post {
   /** 個人頁格狀的 1:1 縮圖（第一張照片）的位置 */
   thumb: FramePlacement;
   sheet: { backdrop: boolean; height: SheetHeight; items: Comment[] };
+  /** 朋友的貼文（帳號列、內文、作者的留言用 owner；個人頁的格狀不放；F111） */
+  friend: boolean;
+  owner: Owner;
+  /** 在首頁動態顯示（F114） */
+  inFeed: boolean;
 }
 
 export const STORY_LAYOUTS = ['1', '2v', '2h', '3v', '4', '6'] as const;
@@ -345,6 +369,11 @@ export interface Story {
   progress: number;
   time: string;
   bottom: StoryBottom;
+  /** 朋友的限時動態（帳號列用 owner；F112） */
+  friend: boolean;
+  owner: Owner;
+  /** 看過了：首頁動態的圈是灰色的（F115） */
+  seen: boolean;
 }
 
 export interface Highlight {
@@ -377,6 +406,76 @@ export interface Account {
   placeholders: number;
 }
 
+/** 首頁動態（F116～F122） */
+export interface Feed {
+  /** 左上角的字 */
+  logo: string;
+  /** 通知的紅點 */
+  heartDot: boolean;
+  /** 訊息圖示的未讀數（空白時不畫） */
+  dmBadge: string;
+  /** 「我的限時動態」放哪幾則（限時動態的 id；照限時動態清單的順序接著看） */
+  myStories: string[];
+}
+
+/* ---------- 私訊（F134～F145） ---------- */
+
+/** 誰的訊息：我、對方、時間（中間的一行時間） */
+export const MESSAGE_FROM = ['me', 'them', 'time'] as const;
+export type MessageFrom = (typeof MESSAGE_FROM)[number];
+
+export interface Message {
+  id: string;
+  from: MessageFrom;
+  /** 內容（時間時是那一行字） */
+  text: string;
+  /** 附的照片（時間時不畫，資料留著） */
+  image: ImageRef | null;
+  /** 反應的表情符號（空白時沒有；時間時不畫） */
+  react: string;
+}
+
+export interface Thread {
+  id: string;
+  username: string;
+  /** 名稱（空白時用帳號） */
+  name: string;
+  avatar: ImageRef | null;
+  verified: boolean;
+  /** 在線上（綠點） */
+  online: boolean;
+  /** 對話上方的動態（「目前在線上」「1 小時前在線上」） */
+  active: string;
+  /** 訊息列表的時間 */
+  time: string;
+  /** 未讀（藍點、粗體） */
+  unread: boolean;
+  /** 訊息列表的預覽（空白時用最後一則訊息） */
+  preview: string;
+  /** 我的最後一則訊息下面的字（「已讀」；空白時不畫） */
+  seen: string;
+  /** 對話最上面的個人檔案介紹 */
+  intro: boolean;
+  messages: Message[];
+}
+
+export interface Dm {
+  /** 我的泡泡：最早（上面）的顏色到最新（下面）的顏色 */
+  c1: string;
+  c2: string;
+  threads: Thread[];
+}
+
+/** 我的泡泡的 6 個色票（本站自己挑，D5）：上面、下面、名稱 */
+export const BUBBLE_PRESETS: readonly (readonly [string, string, string])[] = [
+  ['#7a4fd6', '#3f63e0', '夜藍漸層'],
+  ['#3f63e0', '#3f63e0', '藍'],
+  ['#e0457b', '#d6338a', '粉紅'],
+  ['#2fa36b', '#238a58', '綠'],
+  ['#c9d6e3', '#a9bccd', '霧灰'],
+  ['#22262c', '#22262c', '黑'],
+];
+
 export interface SocialState {
   theme: Theme;
   profile: Profile;
@@ -384,6 +483,8 @@ export interface SocialState {
   posts: Post[];
   stories: Story[];
   account: Account;
+  feed: Feed;
+  dm: Dm;
 }
 
 /* ---------- 色票（本站自己挑，D5） ---------- */
@@ -594,8 +695,22 @@ export function blankPost(id: string, commentPrefix = `${id}c`): Post {
     time: '剛剛',
     thumb: place0(),
     sheet: { backdrop: true, height: 'half', items: defaultComments(commentPrefix) },
+    friend: false,
+    owner: newOwner(1),
+    inFeed: true,
   };
 }
+
+/** 朋友帳號的預設（friend_N） */
+export const newOwner = (n = 1): Owner => ({
+  username: `friend_${n}`,
+  avatar: null,
+  verified: false,
+});
+
+/** 下一個朋友的編號：朋友的貼文與限時動態的數量＋1（同原作） */
+export const nextFriendNo = (s: Pick<SocialState, 'posts' | 'stories'>): number =>
+  s.posts.filter((p) => p.friend).length + s.stories.filter((x) => x.friend).length + 1;
 
 const emptyCells = (): Cell[] =>
   Array.from({ length: CELL_SLOTS }, () => ({ image: null, place: place0() }));
@@ -611,12 +726,94 @@ export function blankStory(id: string): Story {
     bg: DEFAULT_BG,
     stickers: [],
     showTop: true,
-    count: 3,
+    count: 1,
     current: 1,
     progress: 40,
     time: '3 小時',
     bottom: 'reply',
+    friend: false,
+    owner: newOwner(1),
+    seen: false,
   };
+}
+
+/** 朋友的限時動態（新增朋友的限時動態、範例）：1 張、暮色、2 小時 */
+export function friendStory(id: string, owner: Owner): Story {
+  return { ...blankStory(id), friend: true, owner, layout: '1', bg: 'dusk', time: '2 小時' };
+}
+
+const message = (id: string, from: MessageFrom, text: string, react = ''): Message => ({
+  id,
+  from,
+  text,
+  image: null,
+  react,
+});
+
+/** 新的對話（friend_N；兩則打招呼的訊息） */
+export function newThread(id: string, n: number, ids: [string, string, string]): Thread {
+  return {
+    id,
+    username: `friend_${n}`,
+    name: '',
+    avatar: null,
+    verified: false,
+    online: false,
+    active: '1 小時前在線上',
+    time: '1 小時',
+    unread: false,
+    preview: '',
+    seen: '已讀',
+    intro: true,
+    messages: [
+      message(ids[0], 'time', '今天 下午 2:10'),
+      message(ids[1], 'them', '嗨！'),
+      message(ids[2], 'me', '嗨 😊'),
+    ],
+  };
+}
+
+/** 範例的私訊（D2：阿凱、霧港鎮觀光資訊） */
+export function defaultDm(): Dm {
+  return {
+    c1: BUBBLE_PRESETS[0][0],
+    c2: BUBBLE_PRESETS[0][1],
+    threads: [
+      {
+        ...newThread('t1', 1, ['m1', 'm2', 'm3']),
+        username: 'kai.archive',
+        name: '阿凱',
+        avatar: sample('avatar-kai'),
+        online: true,
+        active: '目前在線上',
+        unread: true,
+        messages: [
+          message('m1', 'time', '今天 下午 2:10'),
+          message('m2', 'them', '你真的要去燈塔？'),
+          message('m3', 'them', '照片我看到了，最上面那層有光'),
+          message('m4', 'me', '今晚就出發'),
+          message('m5', 'me', '要一起來嗎？', '❤️'),
+          message('m6', 'them', '……我帶手電筒'),
+        ],
+      },
+      {
+        ...newThread('t2', 2, ['m7', 'm8', 'm9']),
+        username: 'mistharbor.info',
+        avatar: sample('avatar-info'),
+        active: '3 小時前在線上',
+        time: '3 小時',
+        messages: [
+          message('m7', 'time', '昨天 晚上 9:30'),
+          message('m8', 'them', '您好，燈塔步道夜間封閉，請勿進入。'),
+          message('m9', 'me', '收到，謝謝提醒 🙏'),
+        ],
+      },
+    ],
+  };
+}
+
+export function defaultFeed(myStories: string[] = ['s1']): Feed {
+  return { logo: 'Moments', heartDot: true, dmBadge: '2', myStories };
 }
 
 export function defaultProfile(): Profile {
@@ -737,26 +934,54 @@ export function initialState(): SocialState {
     },
     { id: 'k2', type: 'location', x: 50, y: 57, scale: 1, rot: 0, text: '霧港鎮', style: 'white' },
   ];
+  /* 朋友的限時動態（首頁動態的限時動態列；同原作的範例有一則朋友的） */
+  const s2 = friendStory('s2', {
+    username: 'kai.archive',
+    avatar: sample('avatar-kai'),
+    verified: false,
+  });
+  s2.cells[0].image = sample('street');
+  s2.stickers = [
+    {
+      id: 'k3',
+      type: 'text',
+      x: 50,
+      y: 70,
+      scale: 1,
+      rot: 0,
+      text: '你也聽到了嗎？',
+      font: 'type',
+      color: '#ffffff',
+      bg: 'none',
+      align: 'center',
+    },
+  ];
   return {
     theme: 'light',
     profile: defaultProfile(),
     screen: defaultScreen(),
     posts: [p1, p2],
-    stories: [s1],
+    stories: [s1, s2],
     account: defaultAccount(),
+    feed: defaultFeed(['s1']),
+    dm: defaultDm(),
   };
 }
 
 /* ---------- 貼文 ---------- */
 
 /** 新增空白貼文（加在最後）；滿了回傳 null */
-export function addPost(s: SocialState): string | null {
+export function addPost(s: SocialState, friend = false): string | null {
   if (s.posts.length >= MAX.posts) return null;
   const id = nextId(
     'p',
     s.posts.map((p) => p.id),
   );
   const post = blankPost(id);
+  if (friend) {
+    post.friend = true;
+    post.owner = newOwner(nextFriendNo(s));
+  }
   const used = new Set(allCommentIds(s));
   for (const c of post.sheet.items) {
     c.id = nextId('c', used);
@@ -873,13 +1098,22 @@ export function removeComment(p: Post, id: string): void {
 
 /* ---------- 限時動態 ---------- */
 
-export function addStory(s: SocialState): string | null {
+/**
+ * 新增限時動態（加在最後）：'blank'＝空白；'mine'＝空白並放進「我的限時動態」；'friend'＝朋友的（friend_N）。
+ * 滿了回傳 null。
+ */
+export function addStory(
+  s: SocialState,
+  kind: 'blank' | 'mine' | 'friend' = 'blank',
+): string | null {
   if (s.stories.length >= MAX.stories) return null;
   const id = nextId(
     's',
     s.stories.map((x) => x.id),
   );
-  s.stories.push(blankStory(id));
+  const st = kind === 'friend' ? friendStory(id, newOwner(nextFriendNo(s))) : blankStory(id);
+  s.stories.push(st);
+  if (kind === 'mine') s.feed.myStories = [...s.feed.myStories.filter((x) => x !== id), id];
   return id;
 }
 
@@ -907,11 +1141,163 @@ export function removeStory(s: SocialState, id: string): string | null {
   if (i < 0 || s.stories.length <= 1) return null;
   s.stories.splice(i, 1);
   for (const h of s.account.highlights) if (h.story === id) h.story = null;
+  s.feed.myStories = s.feed.myStories.filter((x) => x !== id);
   return s.stories[Math.min(i, s.stories.length - 1)].id;
 }
 
 export const moveStory = (s: SocialState, id: string, delta: -1 | 1): boolean =>
   moveIn(s.stories, id, delta);
+
+/* ---------- 首頁動態 ---------- */
+
+/** 「我的限時動態」：放進去的、不是朋友的限時動態（照限時動態清單的順序） */
+export function myStoryList(s: Pick<SocialState, 'stories' | 'feed'>): Story[] {
+  const on = new Set(s.feed.myStories);
+  return s.stories.filter((x) => !x.friend && on.has(x.id));
+}
+
+export interface FriendGroup {
+  owner: Owner;
+  stories: Story[];
+}
+
+/** 朋友的限時動態：同一個帳號（不分大小寫、去頭尾空白）的合成一個圈（同原作），照第一則的順序 */
+export function friendGroups(s: Pick<SocialState, 'stories'>): FriendGroup[] {
+  const out: FriendGroup[] = [];
+  const by = new Map<string, FriendGroup>();
+  for (const st of s.stories) {
+    if (!st.friend) continue;
+    const key = st.owner.username.trim().toLowerCase();
+    let g = by.get(key);
+    if (!g) {
+      g = { owner: st.owner, stories: [] };
+      by.set(key, g);
+      out.push(g);
+    }
+    g.stories.push(st);
+  }
+  return out;
+}
+
+/** 放進／拿出「我的限時動態」 */
+export function setMyStory(s: SocialState, id: string, on: boolean): void {
+  const rest = s.feed.myStories.filter((x) => x !== id);
+  s.feed.myStories = on ? [...rest, id] : rest;
+}
+
+/** 貼文、限時動態的帳號：朋友的用 owner（沒有帳號時 friend；沒有動態外圈），否則是自己的帳號 */
+export function ownerOf(s: Pick<SocialState, 'profile'>, x: Post | Story): Profile {
+  return x.friend
+    ? {
+        username: x.owner.username || 'friend',
+        name: '',
+        avatar: x.owner.avatar,
+        verified: x.owner.verified,
+        ring: false,
+      }
+    : s.profile;
+}
+
+/* ---------- 私訊 ---------- */
+
+const allMessageIds = (s: Pick<SocialState, 'dm'>) =>
+  s.dm.threads.flatMap((t) => t.messages.map((m) => m.id));
+
+/** 新增對話（加在最後）；滿了回傳 null */
+export function addThread(s: SocialState): string | null {
+  if (s.dm.threads.length >= MAX.threads) return null;
+  const id = nextId(
+    't',
+    s.dm.threads.map((t) => t.id),
+  );
+  const used = new Set(allMessageIds(s));
+  const ids = [0, 1, 2].map(() => {
+    const m = nextId('m', used);
+    used.add(m);
+    return m;
+  }) as [string, string, string];
+  s.dm.threads.push(newThread(id, s.dm.threads.length + 1, ids));
+  return id;
+}
+
+/** 複製對話（放在後面；訊息換新的 id） */
+export function duplicateThread(s: SocialState, id: string): string | null {
+  const i = s.dm.threads.findIndex((t) => t.id === id);
+  if (i < 0 || s.dm.threads.length >= MAX.threads) return null;
+  const copy = cloneJson(s.dm.threads[i]);
+  copy.id = nextId(
+    't',
+    s.dm.threads.map((t) => t.id),
+  );
+  const used = new Set(allMessageIds(s));
+  for (const m of copy.messages) {
+    m.id = nextId('m', used);
+    used.add(m.id);
+  }
+  s.dm.threads.splice(i + 1, 0, copy);
+  return copy.id;
+}
+
+/** 刪除對話（至少留一則）；回傳該選取的 id */
+export function removeThread(s: SocialState, id: string): string | null {
+  const i = s.dm.threads.findIndex((t) => t.id === id);
+  if (i < 0 || s.dm.threads.length <= 1) return null;
+  s.dm.threads.splice(i, 1);
+  return s.dm.threads[Math.min(i, s.dm.threads.length - 1)].id;
+}
+
+export const moveThread = (s: SocialState, id: string, delta: -1 | 1): boolean =>
+  moveIn(s.dm.threads, id, delta);
+
+/** 新增一則訊息（加在最後；時間預設「今天 下午 3:00」）；滿了回傳 null */
+export function addMessage(
+  s: SocialState,
+  threadId: string,
+  from: MessageFrom,
+  image: ImageRef | null = null,
+): string | null {
+  const t = s.dm.threads.find((x) => x.id === threadId);
+  if (!t || t.messages.length >= MAX.messages) return null;
+  const id = nextId('m', allMessageIds(s));
+  t.messages.push({ ...message(id, from, from === 'time' ? '今天 下午 3:00' : ''), image });
+  return id;
+}
+
+export const moveMessage = (t: Thread, id: string, delta: -1 | 1): boolean =>
+  moveIn(t.messages, id, delta);
+
+export function removeMessage(t: Thread, id: string): void {
+  t.messages = t.messages.filter((m) => m.id !== id);
+}
+
+/** 對話的名稱：名稱，空白時帳號 */
+export const threadTitle = (t: Thread): string => t.name || t.username || 'friend';
+
+/** 訊息列表的預覽：設定的預覽，否則最後一則（不是時間的）訊息；照片時說明 */
+export function threadPreview(t: Thread): string {
+  if (t.preview) return t.preview;
+  const last = [...t.messages].reverse().find((m) => m.from !== 'time');
+  if (!last) return '';
+  if (last.image && !last.text) return last.from === 'me' ? '你傳送了一張相片' : '傳送了一張相片';
+  return (last.from === 'me' ? '你：' : '') + last.text;
+}
+
+/** 兩個顏色之間（t＝0～1） */
+export function mixHex(a: string, b: string, t: number): string {
+  const rgb = (h: string) => {
+    const n = Number.parseInt(h.slice(1), 16);
+    return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+  };
+  const x = rgb(a);
+  const y = rgb(b);
+  return `#${x
+    .map((v, i) =>
+      Math.round(v + (y[i] - v) * t)
+        .toString(16)
+        .padStart(2, '0'),
+    )
+    .join('')}`;
+}
 
 /* ---------- 格子 ---------- */
 
@@ -1077,10 +1463,12 @@ export const clampStickerPos = (v: number): number => Math.max(-10, Math.min(110
 function* imagesOf(s: SocialState): Generator<ImageRef | null> {
   yield s.profile.avatar;
   for (const p of s.posts) {
+    yield p.owner.avatar;
     for (const x of p.photos) yield x.image;
     for (const c of p.sheet.items) yield c.avatar;
   }
   for (const st of s.stories) {
+    yield st.owner.avatar;
     for (const c of st.cells) yield c.image;
     for (const k of st.stickers) {
       if (k.type === 'image' || k.type === 'music') yield k.image;
@@ -1088,6 +1476,10 @@ function* imagesOf(s: SocialState): Generator<ImageRef | null> {
   }
   for (const h of s.account.highlights) yield h.image;
   for (const g of s.account.grid) yield g.image;
+  for (const t of s.dm.threads) {
+    yield t.avatar;
+    for (const m of t.messages) yield m.image;
+  }
 }
 
 /** 狀態用到的資產 id（專案檔、圖片庫整理） */
@@ -1169,6 +1561,15 @@ interface IdSets {
   grid: Set<string>;
 }
 
+function normalizeOwner(v: unknown, d: Owner): Owner {
+  if (!isObj(v)) return d;
+  return {
+    username: str(v.username, LIMITS.username, d.username),
+    avatar: normalizeImage(v.avatar),
+    verified: bool(v.verified, d.verified),
+  };
+}
+
 function normalizeComment(v: unknown, used: IdSets): Comment | null {
   if (!isObj(v)) return null;
   return {
@@ -1247,6 +1648,9 @@ function normalizePost(v: unknown, used: IdSets): Post | null {
       height: oneOf(sheet.height, ['half', 'full'] as const, 'half'),
       items,
     },
+    friend: bool(v.friend, false),
+    owner: normalizeOwner(v.owner, d.owner),
+    inFeed: bool(v.inFeed, true),
   };
 }
 
@@ -1317,7 +1721,11 @@ function normalizeSticker(v: unknown, used: IdSets): Sticker | null {
   return k;
 }
 
-function normalizeStory(v: unknown, used: IdSets): Story | null {
+/**
+ * fromVersion：存檔的資料版本。版本 3 以前的限時動態若還是舊的預設（3 段、第 1 段、40%），進度條改成 1 段
+ * （原作 7b7411a 把預設改成 1 段，也同樣轉換舊的存檔）。
+ */
+function normalizeStory(v: unknown, used: IdSets, fromVersion: number): Story | null {
   if (!isObj(v)) return null;
   const id = idFor(v.id, 's', used.stories);
   const d = blankStory(id);
@@ -1352,11 +1760,79 @@ function normalizeStory(v: unknown, used: IdSets): Story | null {
     bg,
     stickers,
     showTop: bool(v.showTop, d.showTop),
-    count: num(v.count, SEGMENTS_RANGE, d.count, true),
+    count:
+      fromVersion < 3 && v.count === 3 && v.current === 1 && v.progress === 40
+        ? 1
+        : num(v.count, SEGMENTS_RANGE, d.count, true),
     current: num(v.current, SEGMENTS_RANGE, d.current, true),
     progress: num(v.progress, [0, 100], d.progress, true),
     time: str(v.time, LIMITS.storyTime, d.time),
     bottom: oneOf(v.bottom, ['reply', 'own', 'none'] as const, d.bottom),
+    friend: bool(v.friend, false),
+    owner: normalizeOwner(v.owner, d.owner),
+    seen: bool(v.seen, false),
+  };
+}
+
+function normalizeDm(v: unknown, used: Set<string>, msgUsed: Set<string>): Dm {
+  const d = defaultDm();
+  if (!isObj(v) || !Array.isArray(v.threads)) {
+    for (const t of d.threads) {
+      t.id = idFor(t.id, 't', used);
+      for (const m of t.messages) m.id = idFor(m.id, 'm', msgUsed);
+    }
+    return isObj(v) ? { ...d, c1: color(v.c1, d.c1), c2: color(v.c2, d.c2) } : d;
+  }
+  const blank = newThread('', 1, ['', '', '']);
+  const threads: Thread[] = [];
+  for (const t of v.threads) {
+    if (!isObj(t) || threads.length >= MAX.threads) continue;
+    const messages: Message[] = [];
+    for (const m of Array.isArray(t.messages) ? t.messages : []) {
+      if (!isObj(m) || messages.length >= MAX.messages) continue;
+      /* 時間的訊息只是不畫照片與反應，資料留著（改回一般的訊息時還在，同原作） */
+      messages.push({
+        id: idFor(m.id, 'm', msgUsed),
+        from: oneOf(m.from, MESSAGE_FROM, 'me'),
+        text: str(m.text, LIMITS.message, ''),
+        image: normalizeImage(m.image),
+        react: str(m.react, LIMITS.react, ''),
+      });
+    }
+    threads.push({
+      id: idFor(t.id, 't', used),
+      username: str(t.username, LIMITS.username, ''),
+      name: str(t.name, LIMITS.threadName, ''),
+      avatar: normalizeImage(t.avatar),
+      verified: bool(t.verified, false),
+      online: bool(t.online, false),
+      active: str(t.active, LIMITS.threadActive, blank.active),
+      time: str(t.time, LIMITS.threadTime, blank.time),
+      unread: bool(t.unread, false),
+      preview: str(t.preview, LIMITS.threadPreview, ''),
+      seen: str(t.seen, LIMITS.threadSeen, blank.seen),
+      intro: bool(t.intro, true),
+      messages,
+    });
+  }
+  if (!threads.length) return normalizeDm(undefined, used, msgUsed);
+  return { c1: color(v.c1, d.c1), c2: color(v.c2, d.c2), threads };
+}
+
+/** 首頁動態：沒有存過時「我的限時動態」是第一則自己的限時動態（同原作的預設） */
+function normalizeFeed(v: unknown, stories: readonly Story[]): Feed {
+  const mine = stories.filter((x) => !x.friend);
+  const d = defaultFeed(mine[0] ? [mine[0].id] : []);
+  if (!isObj(v)) return d;
+  const ok = new Set(mine.map((x) => x.id));
+  const list = Array.isArray(v.myStories)
+    ? [...new Set(v.myStories.filter((x): x is string => typeof x === 'string' && ok.has(x)))]
+    : d.myStories;
+  return {
+    logo: str(v.logo, LIMITS.feedLogo, d.logo),
+    heartDot: bool(v.heartDot, d.heartDot),
+    dmBadge: str(v.dmBadge, LIMITS.dmBadge, d.dmBadge),
+    myStories: list,
   };
 }
 
@@ -1401,8 +1877,11 @@ function normalizeAccount(v: unknown, used: IdSets, storyIds: Set<string>): Acco
   };
 }
 
-/** 存檔、專案檔讀回來的內容（壞掉的部分換成預設） */
-export function normalizeState(raw: unknown): SocialState {
+/** 資料版本（store、專案檔共用；3：朋友身分、首頁動態、私訊，限時動態的進度條預設 1 段） */
+export const MODEL_VERSION = 3;
+
+/** 存檔、專案檔讀回來的內容（壞掉的部分換成預設）；fromVersion＝存檔的資料版本（舊版本的轉換） */
+export function normalizeState(raw: unknown, fromVersion = MODEL_VERSION): SocialState {
   if (!isObj(raw)) return initialState();
   const init = initialState();
   const used: IdSets = {
@@ -1423,9 +1902,11 @@ export function normalizeState(raw: unknown): SocialState {
   } else posts = init.posts.map((p) => normalizePost(p, used) as Post);
   let stories: Story[];
   if (Array.isArray(raw.stories)) {
-    stories = raw.stories.slice(0, MAX.stories).flatMap((x) => normalizeStory(x, used) ?? []);
-    if (!stories.length) stories = [normalizeStory(blankStory('s1'), used) as Story];
-  } else stories = init.stories.map((x) => normalizeStory(x, used) as Story);
+    stories = raw.stories
+      .slice(0, MAX.stories)
+      .flatMap((x) => normalizeStory(x, used, fromVersion) ?? []);
+    if (!stories.length) stories = [normalizeStory(blankStory('s1'), used, MODEL_VERSION) as Story];
+  } else stories = init.stories.map((x) => normalizeStory(x, used, MODEL_VERSION) as Story);
   const storyIds = new Set(stories.map((x) => x.id));
   return {
     theme: oneOf(raw.theme, ['light', 'dark'] as const, 'light'),
@@ -1446,5 +1927,7 @@ export function normalizeState(raw: unknown): SocialState {
     posts,
     stories,
     account: normalizeAccount(raw.account, used, storyIds),
+    feed: normalizeFeed(raw.feed, stories),
+    dm: normalizeDm(raw.dm, new Set(), new Set()),
   };
 }

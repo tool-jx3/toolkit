@@ -10,6 +10,8 @@
  * - `cancelOutside`（drop 模式）：拖到清單範圍外放開不移動（一頁有好幾個清單時，拖到別的清單上不算）。
  * - `handleOnly`：滑鼠也只能從拖曳把手（`[data-drag-handle]`）開始拖（觸控本來就是），從列上其他地方按住只算點一下；
  *   每列有縮圖、拖放區等大塊內容時用（不給時行為不變）。
+ * - `longPress`（毫秒）：觸控時在列上按住不動這麼久就開始拖（之前移動手指＝捲動清單；把手照常立刻拖）。
+ *   height-board 跟進原作 2026-10 更新時新增，不給時行為不變。
  *
  * LayerList：SortableList＋常見的圖層列：選取、縮圖（底部對齊、左右置中）、名稱、列內數字欄、顯示／隱藏、上移／下移按鈕、緊密列距。
  *
@@ -54,6 +56,8 @@ export interface SortableListProps<T> {
   cancelOutside?: boolean;
   /** 滑鼠也只能從拖曳把手（`[data-drag-handle]`）開始拖（預設 false：從列上任何不是輸入欄、按鈕的地方都可以） */
   handleOnly?: boolean;
+  /** 觸控時在列上按住這麼久（毫秒）不動就開始拖（不給時觸控只能從把手拖） */
+  longPress?: number;
   selectedId?: string | null;
   onSelect?: (id: string) => void;
   /** 沒有項目時 */
@@ -75,6 +79,7 @@ export function SortableList<T>({
   sortDisabled,
   cancelOutside,
   handleOnly,
+  longPress,
   selectedId,
   onSelect,
   empty,
@@ -89,6 +94,7 @@ export function SortableList<T>({
     disabled: sortDisabled,
     cancelOutside,
     handleOnly,
+    longPress,
     onMove,
     onMoveStart: () => onMoveStart?.(),
     onMoveEnd: () => onMoveEnd?.(),
@@ -163,6 +169,8 @@ export function SortableList<T>({
             className={cn(
               'relative rounded-md border outline-none focus-visible:ring-2 focus-visible:ring-focus',
               state.selected ? 'border-accent bg-accent-soft' : 'border-border bg-surface',
+              /* 長按排序：長按時不選取文字、不跳出 iOS 的長按選單（拷貝、查詢） */
+              longPress && 'select-none [-webkit-touch-callout:none]',
               state.dragging && (mode === 'drop' ? 'opacity-50' : 'shadow-2'),
               state.over && 'ring-2 ring-accent',
               extra,

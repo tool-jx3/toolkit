@@ -146,8 +146,10 @@ function Player() {
   });
   const toggleRef = useRef(playback.toggle);
   toggleRef.current = playback.toggle;
+  const rewindRef = useRef(playback.onRewind);
+  rewindRef.current = playback.onRewind;
   useEffect(() => {
-    registerPreview({ el, toggle: () => toggleRef.current() });
+    registerPreview({ el, toggle: () => toggleRef.current(), rewind: () => rewindRef.current() });
     return () => registerPreview(null);
   }, [el]);
 

@@ -5,7 +5,7 @@
  * - 個人頁：點貼文縮圖到那則貼文、點有連結的精選動態到那則限時動態；
  * - 限時動態：格子（點一下選取、空格子開選檔、拖曳與縮放照片）、貼紙（LayoutCanvas：拖曳、控點、滾輪、捏合、方向鍵、Delete）。
  */
-import { ArrowUpToLine, Copy, Trash2 } from 'lucide-react';
+import { ArrowUpToLine, ChevronLeft, ChevronRight, Copy, Trash2 } from 'lucide-react';
 import { useLayoutEffect, useMemo, useRef } from 'react';
 import { useAssetBitmaps } from '@/core/assets';
 import { pickFiles } from '@/core/files';
@@ -34,6 +34,7 @@ import {
   type Story,
   stickerAction,
   type Theme,
+  threadTitle,
 } from './model';
 import { PanZone } from './PanZone';
 import type { Rect, ScreenLayout } from './render/ops';
@@ -55,6 +56,7 @@ import {
   setTab,
   useCurrentPost,
   useCurrentStory,
+  useCurrentThread,
   useDoc,
   usePrefs,
 } from './store';
@@ -85,8 +87,10 @@ export function usePreviewLayout(): ScreenLayout & { stickers?: Map<string, Stic
         postId: prefs.postId,
         storyId: prefs.storyId,
         cell: prefs.cell,
+        dmView: prefs.dmView,
+        threadId: prefs.threadId,
       }),
-    [env, prefs.screen, prefs.postId, prefs.storyId, prefs.cell],
+    [env, prefs.screen, prefs.postId, prefs.storyId, prefs.cell, prefs.dmView, prefs.threadId],
   );
 }
 
@@ -101,6 +105,32 @@ function PostOverlay({ post, layout }: { post: Post; layout: ScreenLayout }) {
       const ph = p.photos.find((x) => x.id === cur.id);
       if (ph) ph.place = place;
     });
+  const n = post.photos.length;
+  /* 兩張以上時照片左右的「‹」「›」：換上一張／下一張（只在編輯時，PNG 不畫；F129） */
+  const step = (d: -1 | 1) =>
+    editPost(post.id, (p) => {
+      p.current = Math.max(0, Math.min(p.photos.length - 1, p.current + d));
+    });
+  const size = 30 * K;
+  const cy = (media.y + media.height / 2) * K - size / 2;
+  const nav = (d: -1 | 1) => (
+    <button
+      type="button"
+      aria-label={d < 0 ? S.photoPrev : S.photoNext}
+      data-testid={d < 0 ? 'photo-prev' : 'photo-next'}
+      className="absolute flex items-center justify-center rounded-full border border-border bg-surface text-fg opacity-90 shadow-2 hover:opacity-100 focus-ring [&_svg]:size-[60%]"
+      style={{
+        left: d < 0 ? (media.x + 10) * K : (media.x + media.width - 10) * K - size,
+        top: cy,
+        width: size,
+        height: size,
+      }}
+      onPointerDown={(e) => e.stopPropagation()}
+      onClick={() => step(d)}
+    >
+      {d < 0 ? <ChevronLeft /> : <ChevronRight />}
+    </button>
+  );
   return (
     <div className="absolute inset-0">
       <PanZone
@@ -114,12 +144,58 @@ function PostOverlay({ post, layout }: { post: Post; layout: ScreenLayout }) {
         onChange={set}
         onStep={set}
       />
+      {n > 1 && post.current > 0 ? nav(-1) : null}
+      {n > 1 && post.current < n - 1 ? nav(1) : null}
     </div>
   );
 }
 
+/** 預覽上可以點的地方（底部分頁列只在 HTML 有作用） */
+const editRegions = (layout: ScreenLayout) =>
+  layout.hits
+    .filter((h) => !h.key.startsWith('nav:'))
+    .map((h) => ({ ...h, box: scaleRect(h.box) }));
+
+/** 首頁動態：點限時動態的圈 → 那則限時動態（同一個帳號的好幾則時第一則） */
+function FeedOverlay({ layout }: { layout: ScreenLayout }) {
+  return (
+    <LayoutCanvas
+      width={Math.round(layout.width * K)}
+      height={Math.round(layout.height * K)}
+      aria-label={S.previewLabel(S.screenName.feed)}
+      regions={editRegions(layout).filter((h) => h.key.startsWith('tray:') || h.key === 'feed:dm')}
+      onPick={(key) => {
+        if (key.startsWith('tray:')) {
+          const id = key.slice(5).split(',')[0];
+          setPrefs({ storyId: id, sticker: null, cell: 0 });
+          setTab('story');
+        } else if (key === 'feed:dm') {
+          /* 訊息圖示 → 私訊的訊息列表（F121） */
+          setPrefs({ dmView: 'list' });
+          setTab('dm');
+        }
+      }}
+    />
+  );
+}
+
+/** 私訊：訊息列表點一個對話 → 打開那個對話（F142） */
+function DmOverlay({ layout }: { layout: ScreenLayout }) {
+  return (
+    <LayoutCanvas
+      width={Math.round(layout.width * K)}
+      height={Math.round(layout.height * K)}
+      aria-label={S.previewLabel(S.screenName.dm)}
+      regions={editRegions(layout).filter((h) => h.key.startsWith('thread:'))}
+      onPick={(key) => {
+        if (key.startsWith('thread:')) setPrefs({ threadId: key.slice(7), dmView: 'chat' });
+      }}
+    />
+  );
+}
+
 function ProfileOverlay({ layout }: { layout: ScreenLayout }) {
-  const regions = layout.hits.map((h) => ({ ...h, box: scaleRect(h.box) }));
+  const regions = editRegions(layout);
   return (
     <LayoutCanvas
       width={Math.round(layout.width * K)}
@@ -293,6 +369,7 @@ export function Preview() {
   const theme = useDoc((s) => s.data.theme);
   const post = useCurrentPost();
   const story = useCurrentStory();
+  const thread = useCurrentThread();
   const posts = useDoc((s) => s.data.posts);
   const stories = useDoc((s) => s.data.stories);
   const layout = usePreviewLayout();
@@ -317,13 +394,18 @@ export function Preview() {
       ? `${S.screenName[screen]} ${posts.indexOf(post) + 1}`
       : screen === 'story'
         ? `${S.screenName.story} ${stories.indexOf(story) + 1}`
-        : S.screenName.profile;
+        : screen === 'dm'
+          ? prefs.dmView === 'chat'
+            ? S.dmChatName(threadTitle(thread))
+            : S.dmListName
+          : S.screenName[screen];
 
   const settings: ExportSettings = {
     format: prefs.format,
     fps: 1,
     plays: 0,
-    scale: prefs.format === 'png' ? prefs.scale : 1,
+    /* HTML 時也帶著 PNG 的倍率：切回 PNG 時不會變成 100%（ExportPanel 換格式時把整組設定交回來） */
+    scale: prefs.scale,
     quantize: false,
   };
   const formats = useMemo(
@@ -371,9 +453,13 @@ export function Preview() {
         />
         {screen === 'post' ? <PostOverlay post={post} layout={layout} /> : null}
         {screen === 'profile' ? <ProfileOverlay layout={layout} /> : null}
+        {screen === 'feed' ? <FeedOverlay layout={layout} /> : null}
+        {screen === 'dm' && prefs.dmView === 'list' ? <DmOverlay layout={layout} /> : null}
         {screen === 'story' ? <StoryOverlay story={story} layout={layout} /> : null}
       </Stage>
-      <p className="m-0 px-1 text-xs text-muted">{S.previewHint[screen]}</p>
+      {screen === 'dm' && prefs.dmView === 'chat' ? null : (
+        <p className="m-0 px-1 text-xs text-muted">{S.previewHint[screen]}</p>
+      )}
       {missing.length ? (
         <Notice tone="warning">
           <span data-testid="missing-images">{S.missingImages(missing.length)}</span>
@@ -395,6 +481,7 @@ export function Preview() {
           prefs.format === 'png' ? { width: layout.width, height: layout.height } : undefined
         }
         scaleOptions={SCALES}
+        sizeWarningHint={S.sizeWarningHint}
         resetKey={resetKey}
         extra={
           prefs.format === 'html' ? (
@@ -413,7 +500,12 @@ export function Preview() {
         }
         onExport={async (s, { signal, onProgress }) => {
           const p = prefsNow();
-          const sel = { postId: p.postId, storyId: p.storyId };
+          const sel = {
+            postId: p.postId,
+            storyId: p.storyId,
+            dmView: p.dmView,
+            threadId: p.threadId,
+          };
           const state = docNow();
           if (s.format === 'html')
             return exportHtml(state, p.screen, sel, p.htmlScope, { signal, onProgress });

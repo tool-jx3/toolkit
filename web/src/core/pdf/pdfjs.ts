@@ -7,6 +7,8 @@
  * - Worker 裡沒有 `document`：畫布用 OffscreenCanvas、濾鏡用不做事的版本、字型畫成路徑（`disableFontFace`），
  *   CMap、標準字型與 wasm 從本站打包的檔案讀（`configurePdfjs`；WP 的原作沒有提供，非內嵌的標準字型與 CJK 的 CMap 會缺字）。
  * - pdf.js 會把交給它的位元組轉移走，所以一律給複本。
+ * - 大檔（Blob／使用者的 File）：用 pdf.js 的分段讀取（`PDFDataRangeTransport`），要哪一段才讀哪一段，不整份讀進記憶體
+ *   （pdf.js 內部的緩衝區是整份長度的「空白」陣列，沒讀到的部分不佔實際的記憶體）。
  */
 import 'pdfjs-dist/legacy/build/pdf.worker.mjs';
 import type { PDFDocumentProxy, PDFPageProxy } from 'pdfjs-dist/legacy/build/pdf.mjs';
@@ -34,13 +36,61 @@ export function configurePdfjs(next: PdfjsEnv): void {
 
 export const PDFJS_VERSION: string = pdfjs.version;
 
+/** 分段讀取的大小（pdf.js 一次要的最小單位；大一點來回的次數少；自訂） */
+export const RANGE_CHUNK_BYTES = 4 * 1024 * 1024;
+
+/** 從 Blob 一段一段讀給 pdf.js */
+class BlobRangeTransport extends pdfjs.PDFDataRangeTransport {
+  readonly #blob: Blob;
+  #aborted = false;
+  /** 讀不到時（權限過期）呼叫：結束這份文件，讓等待中的呼叫失敗 */
+  onReadError: ((e: unknown) => void) | null = null;
+  constructor(blob: Blob) {
+    super(blob.size, new Uint8Array(0));
+    this.#blob = blob;
+  }
+  override requestDataRange(begin: number, end: number): void {
+    this.#blob
+      .slice(begin, end)
+      .arrayBuffer()
+      .then(
+        (buf) => {
+          if (!this.#aborted) this.onDataRange(begin, new Uint8Array(buf));
+        },
+        (e) => {
+          if (!this.#aborted) this.onReadError?.(e);
+        },
+      );
+  }
+  override abort(): void {
+    this.#aborted = true;
+  }
+}
+
+/** pdf.js 要打開的東西：記憶體裡的位元組（給複本），或 Blob（分段讀取） */
+export type PdfjsSource = Uint8Array | Blob;
+
+function sourceParams(source: PdfjsSource) {
+  if (source instanceof Blob) {
+    return {
+      range: new BlobRangeTransport(source),
+      length: source.size,
+      rangeChunkSize: RANGE_CHUNK_BYTES,
+      disableAutoFetch: true,
+      disableStream: true,
+    };
+  }
+  return { data: source.slice() };
+}
+
 /** 打開 PDF（密碼不對、需要密碼時丟 PdfError） */
 export async function openPdf(
-  bytes: Uint8Array,
+  source: PdfjsSource,
   password?: string | null,
 ): Promise<PDFDocumentProxy> {
+  const params = sourceParams(source);
   const task = pdfjs.getDocument({
-    data: bytes.slice(),
+    ...params,
     password: password || undefined,
     isEvalSupported: false,
     disableFontFace: true,
@@ -48,10 +98,21 @@ export async function openPdf(
     verbosity: 0,
     cMapPacked: true,
     ...env,
-  } as Parameters<typeof pdfjs.getDocument>[0]);
+  } as unknown as Parameters<typeof pdfjs.getDocument>[0]);
+  let readError: unknown = null;
+  if ('range' in params && params.range) {
+    params.range.onReadError = (e) => {
+      readError = e;
+      void task.destroy();
+    };
+  }
   try {
     return await task.promise;
   } catch (e) {
+    if (readError) {
+      const r = readError as { name?: string; message?: string };
+      throw new PdfError('unreadable', `${r.name ?? 'Error'}: ${r.message ?? ''}`);
+    }
     const err = e as { name?: string; code?: number; message?: string };
     if (err?.name === 'PasswordException') {
       throw new PdfError(err.code === 2 ? 'wrong-password' : 'password', err.message ?? '');
@@ -110,11 +171,31 @@ function flattenOutline(nodes: readonly OutlineNode[] | null, out: string[], dep
   }
 }
 
-/** 讀摘要。text：要不要讀文字與註解（整頁轉圖只比頁數） */
+/**
+ * 大檔（Blob）：畫這麼多頁就重新開啟一次文件。pdf.js 會留著讀過的資料（分段讀取的緩衝區、影像、字型、物件），
+ * 重新開啟就放掉，記憶體不會隨頁數一直長（自訂）。
+ */
+export const REOPEN_EVERY_PAGES = 20;
+/** 比對文字時（不解開影像，留的資料少）重新開啟的頁數（自訂） */
+export const REOPEN_EVERY_TEXT_PAGES = 100;
+
+/**
+ * 讀摘要。text：要不要讀文字與註解（整頁轉圖只比頁數）。
+ * reopen：每 REOPEN_EVERY_TEXT_PAGES 頁換成重新開啟的文件（大檔用；回傳新的文件，舊的由它關掉）。
+ */
 export async function docSignature(
-  doc: PDFDocumentProxy,
-  { text = true, signal }: { text?: boolean; signal?: { readonly aborted: boolean } } = {},
+  first: PDFDocumentProxy,
+  {
+    text = true,
+    signal,
+    reopen,
+  }: {
+    text?: boolean;
+    signal?: { readonly aborted: boolean };
+    reopen?: () => Promise<PDFDocumentProxy>;
+  } = {},
 ): Promise<DocSignature> {
+  let doc = first;
   const sig: DocSignature = {
     pages: doc.numPages,
     text: [],
@@ -125,8 +206,10 @@ export async function docSignature(
   if (!text) return sig;
   /* 表單欄位：各頁的欄位註解（Widget）的名稱，加上 getFieldObjects 的（pdf.js 有時回傳空的） */
   const fieldNames = new Set<string>();
-  for (let i = 1; i <= doc.numPages; i++) {
+  const pages = doc.numPages;
+  for (let i = 1; i <= pages; i++) {
     if (signal?.aborted) throw new PdfError('aborted');
+    if (reopen && i > 1 && (i - 1) % REOPEN_EVERY_TEXT_PAGES === 0) doc = await reopen();
     const page: PDFPageProxy = await doc.getPage(i);
     try {
       const content = await page.getTextContent();

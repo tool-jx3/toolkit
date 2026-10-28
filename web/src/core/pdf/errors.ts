@@ -68,9 +68,9 @@ export function revivePdfError(e: unknown): PdfError {
   return new PdfError('internal', message);
 }
 
-/** WebAssembly 或瀏覽器的記憶體不足訊息 */
+/** WebAssembly 或瀏覽器的記憶體不足訊息（Emscripten 的 heap 長不上去時是 `Aborted(OOM)`） */
 export function isMemoryMessage(message: string): boolean {
-  return /out of memory|memory access out of bounds|allocation failed|array buffer allocation|Cannot enlarge memory|RangeError: Array buffer|invalid array length/i.test(
+  return /out of memory|memory access out of bounds|allocation failed|array buffer allocation|Cannot enlarge memory|RangeError: Array buffer|invalid array length|Aborted\(OOM\)|\bOOM\b/i.test(
     message,
   );
 }

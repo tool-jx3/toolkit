@@ -342,7 +342,6 @@ export const S = {
 
   timeline: {
     label: '時間軸',
-    stop: '回到開頭',
     duration: '長度',
     fps: 'FPS',
     autoLayers: '依圖層排序',

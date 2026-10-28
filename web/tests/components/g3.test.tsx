@@ -722,6 +722,48 @@ describe('PanZoomViewport', () => {
   });
 });
 
+describe('PanZoomViewport 兩指捏合（height-board 修正時新增）', () => {
+  it('兩指純平移、同一批事件裡距離先變再回到原值：最後倍率沒變，畫面照樣跟著手指平移', () => {
+    function Board() {
+      const [zoom, setZoom] = useState(1);
+      return (
+        <PanZoomViewport
+          world={{ x: 0, y: 0, width: 1000, height: 1000 }}
+          baseScale={1}
+          zoom={zoom}
+          onZoomChange={setZoom}
+          minZoom={0.25}
+          maxZoom={4}
+          pinch
+          draw={() => {}}
+        />
+      );
+    }
+    render(<Board />);
+    const region = screen.getByRole('region', { name: '盤面' });
+    const canvas = region.querySelector('canvas') as HTMLCanvasElement;
+    const t = (id: number, x: number, y: number) => ({
+      pointerId: id,
+      pointerType: 'touch',
+      button: 0,
+      clientX: x,
+      clientY: y,
+    });
+    fireEvent.pointerDown(canvas, t(1, 100, 100));
+    fireEvent.pointerDown(canvas, t(2, 200, 100));
+    /* 盤面（region）本身就是捲動的元素 */
+    const el = region;
+    const before = { x: el.scrollLeft, y: el.scrollTop };
+    /* 兩指各自的 pointermove 在同一批處理（中間不重畫）：第一指動完距離變了、第二指動完回到 100 */
+    act(() => {
+      fireEvent.pointerMove(canvas, t(1, 90, 110));
+      fireEvent.pointerMove(canvas, t(2, 190, 110));
+    });
+    expect(el.scrollLeft - before.x).toBeCloseTo(10);
+    expect(el.scrollTop - before.y).toBeCloseTo(-10);
+  });
+});
+
 describe('Stage 的擴充（向下相容）', () => {
   it('wheelZoom="plain"＋zoomBase="fit"：不按 Ctrl 也縮放，倍率以符合畫面為 100%；dragPan 拖曳平移', () => {
     const onZoomChange = vi.fn();

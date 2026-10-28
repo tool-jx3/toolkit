@@ -4,6 +4,7 @@ import { useSaveStatus, useUndoRedo } from '@/core/storage';
 import {
   IconButton,
   ProjectMenu,
+  playbackShortcuts,
   type Shortcut,
   Tabs,
   ToolShell,
@@ -43,7 +44,13 @@ export function App() {
   const [tab, setTab] = useState('demo');
 
   const shortcuts: Shortcut[] = [
-    { keys: 'space', label: '播放／暫停', group: '播放', handler: () => playback.toggle() },
+    ...playbackShortcuts({
+      toggle: playback.toggle,
+      rewind: () => {
+        playback.pause();
+        playback.onTimeChange(0);
+      },
+    }),
     { keys: 'r', label: '重播', group: '播放', handler: () => playback.onRestart() },
     { keys: 'mod+z', label: '復原', group: '編輯', handler: undo },
     { keys: ['shift+mod+z', 'mod+y'], label: '重做', group: '編輯', handler: redo },

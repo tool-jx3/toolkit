@@ -1,7 +1,7 @@
 /**
  * 留言（規格 3.5）：疊在貼文上（390 × 844：貼文畫面＋半透明黑＋面板）或只有面板（高度依內容）。
  */
-import { type Comment, type Post, SHEET_EMOJI } from '../model';
+import { type Comment, ownerOf, type Post, type Profile, SHEET_EMOJI } from '../model';
 import { S } from '../strings';
 import { ellipsize, layoutLines, linkTokens, PIN, type Run } from '../text';
 import { avatar, badgeRun, type Env, linesToOps, PHONE_H, STATUS_H, W, withAlpha } from './common';
@@ -17,10 +17,14 @@ export interface SheetLayout {
 
 const LIKE_COL = 22;
 
-/** 一則留言（從 top 開始）；回傳指令與高 */
-function layoutComment(env: Env, m: Comment, top: number): { ops: Op[]; height: number } {
+/** 一則留言（從 top 開始）；pr＝貼文的帳號（作者的留言、作者按讚用；朋友的貼文是朋友，F111）；回傳指令與高 */
+function layoutComment(
+  env: Env,
+  m: Comment,
+  top: number,
+  pr: Profile,
+): { ops: Op[]; height: number } {
   const { pal, fs, measure } = env;
-  const pr = env.state.profile;
   const ops: Op[] = [];
   const size = m.reply ? 26 : 34;
   const ax = m.reply ? 60 : 16;
@@ -159,7 +163,9 @@ export function layoutSheet(
   { fixedHeight, rounded }: { fixedHeight?: number; rounded: boolean },
 ): SheetLayout {
   const { pal, fs, measure } = env;
+  /* 輸入列是自己（帳號的大頭貼）留言給貼文的帳號 */
   const pr = env.state.profile;
+  const owner = ownerOf(env.state, post);
   const off = post.commentsOff;
   const ops: Op[] = [];
   const hh = headHeight(fs);
@@ -202,7 +208,7 @@ export function layoutSheet(
   } else {
     let y = top + hh + 4;
     for (const m of post.sheet.items) {
-      const c = layoutComment(env, m, y);
+      const c = layoutComment(env, m, y, owner);
       list.push(...c.ops);
       y += c.height;
     }
@@ -280,7 +286,7 @@ export function layoutSheet(
       x: px + 16,
       y: iy,
       lh: 44,
-      text: ellipsize(S.screen.inputHint(pr.username), pw - 32, pf, measure),
+      text: ellipsize(S.screen.inputHint(owner.username), pw - 32, pf, measure),
       font: pf,
       color: pal.sec,
     });

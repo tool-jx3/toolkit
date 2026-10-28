@@ -6,10 +6,12 @@ import { produce } from 'immer';
 import { describe, expect, it } from 'vitest';
 import {
   addComment,
+  addMessage,
   addPhotos,
   addPost,
   addSticker,
   addStory,
+  addThread,
   blankPost,
   blankStory,
   cellCount,
@@ -17,26 +19,36 @@ import {
   collectAssetIds,
   duplicatePost,
   duplicateStory,
+  duplicateThread,
+  friendGroups,
   initialState,
   LIMITS,
   MAX,
+  mixHex,
   moveComment,
   movePhoto,
   movePost,
   moveStory,
+  moveThread,
+  myStoryList,
   normalizeState,
+  ownerOf,
   removeComment,
   removePhoto,
   removePost,
   removeStory,
+  removeThread,
   type SocialState,
   STORY_LAYOUTS,
   setCellImage,
+  setMyStory,
   setPostRatio,
   setStoryGap,
   setStoryLayout,
   stickerAction,
   storyCellRects,
+  threadPreview,
+  threadTitle,
 } from '../../src/tools/social-post/model';
 import { anchorOf } from '../../src/tools/social-post/place';
 
@@ -50,16 +62,21 @@ const asset = (id: string) => ({
 });
 
 describe('預設內容（D2）', () => {
-  it('範例：2 則貼文、1 則限時動態、2 個精選動態連到存在的限時動態', () => {
+  it('範例：2 則貼文、2 則限時動態（第 2 則是朋友的）、2 個精選動態連到存在的限時動態', () => {
     const s = initialState();
     expect(s.theme).toBe('light');
     expect(s.posts).toHaveLength(2);
     expect(s.posts[0].photos).toHaveLength(3);
     expect(s.posts[1].photos).toHaveLength(1);
     expect(s.posts[0].sheet.items).toHaveLength(3);
-    expect(s.stories).toHaveLength(1);
+    expect(s.stories).toHaveLength(2);
     expect(s.stories[0].layout).toBe('4');
     expect(s.stories[0].cells).toHaveLength(6);
+    expect(s.stories[0].friend).toBe(false);
+    expect(s.stories[1]).toMatchObject({ friend: true, layout: '1', time: '2 小時' });
+    expect(s.stories[1].owner.username).toBe('kai.archive');
+    expect(s.feed).toEqual({ logo: 'Moments', heartDot: true, dmBadge: '2', myStories: ['s1'] });
+    expect(s.posts.every((p) => !p.friend && p.inFeed)).toBe(true);
     expect(s.account.highlights).toHaveLength(2);
     const storyIds = new Set(s.stories.map((x) => x.id));
     for (const h of s.account.highlights) if (h.story) expect(storyIds.has(h.story)).toBe(true);
@@ -82,7 +99,7 @@ describe('預設內容（D2）', () => {
     expect(p.sheet.items.length).toBeGreaterThan(0);
   });
 
-  it('空白限時動態：4 格、6 格都空、間距 0.5 白色、進度 3 段第 1 段 40%', () => {
+  it('空白限時動態：4 格、6 格都空、間距 0.5 白色、進度 1 段第 1 段 40%（原作 7b7411a 改成 1 段）', () => {
     const st = blankStory('s9');
     expect(st.layout).toBe('4');
     expect(st.cells).toHaveLength(6);
@@ -90,7 +107,7 @@ describe('預設內容（D2）', () => {
     expect(st).toMatchObject({
       gap: 0.5,
       gapColor: '#ffffff',
-      count: 3,
+      count: 1,
       current: 1,
       progress: 40,
       bottom: 'reply',
@@ -234,6 +251,9 @@ describe('限時動態清單與精選動態的連結（F48）', () => {
     removeStory(s, first);
     expect(s.account.highlights[0].story).toBeNull();
     expect(s.account.highlights[1].story).toBe(second);
+    /* 我的限時動態也拿掉 */
+    expect(s.feed.myStories).toEqual([]);
+    removeStory(s, 's2');
     expect(removeStory(s, second)).toBeNull();
   });
 
@@ -242,11 +262,14 @@ describe('限時動態清單與精選動態的連結（F48）', () => {
     const first = s.stories[0].id;
     const second = addStory(s) as string;
     moveStory(s, second, -1);
-    expect(s.stories.map((x) => x.id)).toEqual([second, first]);
+    moveStory(s, second, -1);
+    expect(s.stories.map((x) => x.id)).toEqual([second, first, 's2']);
     expect(s.account.highlights[0].story).toBe(first);
     const dup = duplicateStory(s, first);
-    expect(s.stories.map((x) => x.id)).toEqual([second, first, dup]);
+    expect(s.stories.map((x) => x.id)).toEqual([second, first, dup, 's2']);
     expect(s.account.highlights[0].story).toBe(first);
+    /* 我的限時動態以 id 記：換位置、複製後仍是同一則（複製的不放進去，同原作） */
+    expect(s.feed.myStories).toEqual([first]);
   });
 });
 
@@ -460,7 +483,9 @@ describe('整理存檔（3.9）', () => {
     setCellImage(s.stories[0], 0, asset('cell'));
     s.account.grid.push({ id: 'g1', image: asset('grid') });
     s.posts[0].sheet.items[0].avatar = asset('cm');
-    expect(collectAssetIds(s).sort()).toEqual(['av', 'cell', 'cm', 'grid', 'ph']);
+    s.posts[1].owner.avatar = asset('po');
+    s.stories[1].owner.avatar = asset('so');
+    expect(collectAssetIds(s).sort()).toEqual(['av', 'cell', 'cm', 'grid', 'ph', 'po', 'so']);
   });
 });
 
@@ -472,7 +497,235 @@ describe('在 store 的 Immer draft 裡操作', () => {
       stickerAction(d.stories[0], 'k1', 'dup');
     });
     expect(next.posts).toHaveLength(3);
-    expect(next.stories).toHaveLength(2);
+    expect(next.stories).toHaveLength(3);
     expect(next.stories[0].stickers).toHaveLength(3);
+  });
+});
+
+describe('朋友身分（F111～F115）', () => {
+  it('新增朋友的貼文、限時動態：friend_N（N＝朋友的貼文與限時動態數＋1）', () => {
+    const s = clone(initialState());
+    const p = addPost(s, true) as string;
+    const post = s.posts.find((x) => x.id === p);
+    /* 範例已有一則朋友的限時動態 → friend_2 */
+    expect(post).toMatchObject({ friend: true, inFeed: true });
+    expect(post?.owner).toEqual({ username: 'friend_2', avatar: null, verified: false });
+    const st = addStory(s, 'friend') as string;
+    expect(s.stories.find((x) => x.id === st)).toMatchObject({
+      friend: true,
+      layout: '1',
+      bg: 'dusk',
+      owner: { username: 'friend_3' },
+    });
+    const mine = addStory(s, 'mine') as string;
+    expect(s.feed.myStories).toEqual(['s1', mine]);
+  });
+
+  it('帳號：朋友的用 owner（沒有帳號時 friend、沒有動態外圈），否則是自己的帳號', () => {
+    const s = clone(initialState());
+    s.profile.ring = true;
+    expect(ownerOf(s, s.posts[0])).toBe(s.profile);
+    s.posts[0].friend = true;
+    s.posts[0].owner = { username: '', avatar: null, verified: true };
+    expect(ownerOf(s, s.posts[0])).toMatchObject({
+      username: 'friend',
+      verified: true,
+      ring: false,
+    });
+  });
+
+  it('首頁動態的圈：我的限時動態照清單的順序、不放朋友的；同一個帳號的朋友合成一個圈', () => {
+    const s = clone(initialState());
+    const a = addStory(s, 'mine') as string;
+    moveStory(s, a, -1);
+    moveStory(s, a, -1);
+    expect(myStoryList(s).map((x) => x.id)).toEqual([a, 's1']);
+    setMyStory(s, 's1', false);
+    expect(myStoryList(s).map((x) => x.id)).toEqual([a]);
+    /* 朋友的限時動態放進「我的」也不算 */
+    setMyStory(s, 's2', true);
+    expect(myStoryList(s).map((x) => x.id)).toEqual([a]);
+    const b = addStory(s, 'friend') as string;
+    const c = addStory(s, 'friend') as string;
+    (s.stories.find((x) => x.id === c) as { owner: { username: string } }).owner.username =
+      ' KAI.archive ';
+    const g = friendGroups(s);
+    expect(g.map((x) => x.stories.map((y) => y.id))).toEqual([['s2', c], [b]]);
+  });
+});
+
+describe('資料版本 3 與舊的存檔（3.9）', () => {
+  /** 版本 2 的存檔：沒有 friend、owner、inFeed、seen、feed */
+  function v2() {
+    const s = clone(initialState()) as unknown as Record<string, unknown>;
+    const strip = (o: Record<string, unknown>, keys: string[]) => {
+      for (const k of keys) delete o[k];
+    };
+    for (const p of s.posts as Record<string, unknown>[]) strip(p, ['friend', 'owner', 'inFeed']);
+    const stories = (s.stories as Record<string, unknown>[]).slice(0, 1);
+    for (const st of stories) {
+      strip(st, ['friend', 'owner', 'seen']);
+      Object.assign(st, { count: 3, current: 1, progress: 40 });
+    }
+    s.stories = stories;
+    delete s.feed;
+    return s;
+  }
+
+  it('版本 2 的存檔照常讀：自己的貼文與限時動態、在首頁動態顯示、我的限時動態是第一則', () => {
+    const n = normalizeState(v2(), 2);
+    expect(n.posts.every((p) => !p.friend && p.inFeed)).toBe(true);
+    expect(n.posts[0].owner).toEqual({ username: 'friend_1', avatar: null, verified: false });
+    expect(n.stories).toHaveLength(1);
+    expect(n.stories[0]).toMatchObject({ friend: false, seen: false });
+    expect(n.feed).toEqual({ logo: 'Moments', heartDot: true, dmBadge: '2', myStories: ['s1'] });
+  });
+
+  it('版本 3 以前還是舊預設（3 段、第 1 段、40%）的限時動態改成 1 段；改過的不動', () => {
+    expect(normalizeState(v2(), 2).stories[0].count).toBe(1);
+    const changed = v2();
+    Object.assign((changed.stories as Record<string, unknown>[])[0], { count: 3, current: 2 });
+    expect(normalizeState(changed, 2).stories[0].count).toBe(3);
+    /* 版本 3 的存檔不轉換 */
+    expect(normalizeState(v2(), 3).stories[0].count).toBe(3);
+  });
+
+  it('整理：我的限時動態只留存在、不是朋友的；文字截到上限；owner 壞掉時用預設', () => {
+    const s = clone(initialState()) as unknown as Record<string, unknown>;
+    s.feed = {
+      logo: 'x'.repeat(50),
+      heartDot: 'yes',
+      dmBadge: 12,
+      myStories: ['s2', 's1', 'zz', 's1'],
+    };
+    (s.posts as Record<string, unknown>[])[0].owner = 'bad';
+    const n = normalizeState(s);
+    expect(n.feed).toEqual({
+      logo: 'x'.repeat(20),
+      heartDot: true,
+      dmBadge: '2',
+      myStories: ['s1'],
+    });
+    expect(n.posts[0].owner.username).toBe('friend_1');
+  });
+});
+
+describe('私訊（F134～F145）', () => {
+  it('範例：2 個對話（阿凱：在線上、未讀、反應；霧港鎮觀光資訊）、泡泡的顏色', () => {
+    const s = initialState();
+    expect(s.dm.threads.map((t) => [t.id, t.username, t.unread, t.online])).toEqual([
+      ['t1', 'kai.archive', true, true],
+      ['t2', 'mistharbor.info', false, false],
+    ]);
+    expect(s.dm.threads[0].messages.map((m) => m.from)).toEqual([
+      'time',
+      'them',
+      'them',
+      'me',
+      'me',
+      'them',
+    ]);
+    expect(s.dm.threads[0].messages[4].react).toBe('❤️');
+    expect([s.dm.c1, s.dm.c2]).toEqual(['#7a4fd6', '#3f63e0']);
+  });
+
+  it('新增（friend_N、打招呼的兩則）、複製（訊息換新的 id）、往下、刪除（至少留一個）', () => {
+    const s = clone(initialState());
+    const a = addThread(s) as string;
+    const t = s.dm.threads.find((x) => x.id === a);
+    expect(t?.username).toBe('friend_3');
+    expect(t?.messages.map((m) => [m.from, m.text])).toEqual([
+      ['time', '今天 下午 2:10'],
+      ['them', '嗨！'],
+      ['me', '嗨 😊'],
+    ]);
+    const ids = s.dm.threads.flatMap((x) => x.messages.map((m) => m.id));
+    expect(new Set(ids).size).toBe(ids.length);
+    const b = duplicateThread(s, 't1') as string;
+    expect(s.dm.threads.map((x) => x.id)).toEqual(['t1', b, 't2', a]);
+    const all = s.dm.threads.flatMap((x) => x.messages.map((m) => m.id));
+    expect(new Set(all).size).toBe(all.length);
+    moveThread(s, 't1', 1);
+    expect(s.dm.threads[1].id).toBe('t1');
+    for (const id of [b, 't2', a]) removeThread(s, id);
+    expect(removeThread(s, 't1')).toBeNull();
+  });
+
+  it('新增訊息：我、對方的是空白、時間是「今天 下午 3:00」；照片的訊息（拖放）', () => {
+    const s = clone(initialState());
+    addMessage(s, 't2', 'me');
+    addMessage(s, 't2', 'time');
+    addMessage(s, 't2', 'me', { kind: 'asset', id: 'x', name: 'x.png', width: 10, height: 10 });
+    const ms = s.dm.threads[1].messages.slice(-3);
+    expect(ms.map((m) => [m.from, m.text, m.image?.kind ?? null])).toEqual([
+      ['me', '', null],
+      ['time', '今天 下午 3:00', null],
+      ['me', '', 'asset'],
+    ]);
+  });
+
+  it('名稱與訊息列表的預覽：名稱空白時用帳號；最後一則（不是時間）；我的加「你：」；只有照片時說明', () => {
+    const s = clone(initialState());
+    const [kai, info] = s.dm.threads;
+    expect(threadTitle(kai)).toBe('阿凱');
+    expect(threadTitle(info)).toBe('mistharbor.info');
+    expect(threadPreview(kai)).toBe('……我帶手電筒');
+    expect(threadPreview(info)).toBe('你：收到，謝謝提醒 🙏');
+    info.messages.push({ id: 'z', from: 'me', text: '', image: kai.avatar, react: '' });
+    expect(threadPreview(info)).toBe('你傳送了一張相片');
+    info.messages.push({ id: 'z2', from: 'time', text: '剛剛', image: null, react: '' });
+    expect(threadPreview(info)).toBe('你傳送了一張相片');
+    info.preview = '自訂的預覽';
+    expect(threadPreview(info)).toBe('自訂的預覽');
+  });
+
+  it('泡泡的顏色從上面的色漸變到下面的色', () => {
+    expect(mixHex('#000000', '#ffffff', 0)).toBe('#000000');
+    expect(mixHex('#000000', '#ffffff', 1)).toBe('#ffffff');
+    expect(mixHex('#000000', '#ffffff', 0.5)).toBe('#808080');
+  });
+
+  it('整理：沒有私訊時用範例；時間的訊息的照片與反應留著；不認得的換預設；文字截到上限', () => {
+    const raw = clone(initialState()) as unknown as Record<string, unknown>;
+    delete raw.dm;
+    expect(normalizeState(raw, 2).dm.threads.map((t) => t.id)).toEqual(['t1', 't2']);
+    raw.dm = {
+      c1: 'red',
+      c2: '#ABCDEF',
+      threads: [
+        {
+          id: 't9',
+          username: 'x'.repeat(40),
+          messages: [
+            {
+              id: 'm1',
+              from: 'time',
+              text: 't'.repeat(50),
+              image: { kind: 'sample', key: 'moon' },
+              react: '❤️',
+            },
+            { id: 'm1', from: 'who', text: 'hi', react: '👍👍👍👍👍👍👍👍👍' },
+            'bad',
+          ],
+        },
+      ],
+    };
+    const n = normalizeState(raw);
+    expect(n.dm.c1).toBe('#7a4fd6');
+    expect(n.dm.c2).toBe('#abcdef');
+    const t = n.dm.threads[0];
+    expect(t.username).toHaveLength(30);
+    expect(t).toMatchObject({ seen: '已讀', intro: true, unread: false });
+    expect(t.messages).toHaveLength(2);
+    /* 時間的訊息只是不畫照片與反應，資料留著（改回一般的訊息時還在，同原作） */
+    expect(t.messages[0]).toMatchObject({
+      from: 'time',
+      image: { kind: 'sample', key: 'moon' },
+      react: '❤️',
+    });
+    expect(t.messages[0].text).toHaveLength(50);
+    expect(t.messages[1].from).toBe('me');
+    expect(t.messages[1].id).not.toBe('m1');
+    expect(Array.from(t.messages[1].react)).toHaveLength(8);
   });
 });

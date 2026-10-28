@@ -6,6 +6,7 @@ import { useEffect } from 'react';
 import { type FxStore, type ImportedProject, importFxProject } from '@/core/imagefx';
 import { useSaveError, useSaveStatus } from '@/core/storage';
 import { ProjectMenu } from './ProjectMenu';
+import { playbackShortcuts } from './playbackShortcuts';
 import type { Shortcut } from './shortcuts';
 import { useToast } from './Toast';
 
@@ -116,11 +117,14 @@ export interface ImageFxShortcutText {
   escViewShortcut: string;
 }
 
-/** 快捷鍵表：復原、重做、播放、複製框、刪除、方向鍵、Esc、Shift 拖曳 */
+/**
+ * 快捷鍵表：復原、重做、播放（空白鍵）、回到開頭（Home）、複製框、刪除、方向鍵、Esc、Shift 拖曳。
+ * `play`：預覽的播放／暫停與回到開頭（預覽的 `FxPlayerHandle` 有 `toggle`、`rewind`）；還沒有圖時兩個都不作用。
+ */
 export function imageFxShortcuts(
   fx: AnyFxStore,
   text: ImageFxShortcutText,
-  toggle: () => void,
+  play: { toggle: () => void; rewind: () => void },
   extra: readonly Shortcut[] = [],
 ): Shortcut[] {
   return [
@@ -136,14 +140,16 @@ export function imageFxShortcuts(
       group: text.groupEdit,
       handler: () => fx.historyStep('redo'),
     },
-    {
-      keys: 'space',
-      label: text.playShortcut,
-      group: text.groupPlay,
-      handler: () => {
-        if (fx.docNow().image) toggle();
+    ...playbackShortcuts({
+      toggle: () => {
+        if (fx.docNow().image) play.toggle();
       },
-    },
+      rewind: () => {
+        if (fx.docNow().image) play.rewind();
+      },
+      group: text.groupPlay,
+      labels: { toggle: text.playShortcut },
+    }),
     {
       keys: 'mod+d',
       label: text.dupShortcut,

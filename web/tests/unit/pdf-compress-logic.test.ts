@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest';
 import { resolveSettings } from '@/core/pdf/levels';
 import {
   DISCORD_LIMIT,
+  errorText,
   keptReason,
   MAX_NAME_LENGTH,
   needsWork,
@@ -47,6 +48,7 @@ function report(over: Partial<ReportSummary> = {}): ReportSummary {
     decrypted: false,
     signed: false,
     missingFonts: [],
+    big: false,
     durationMs: 1234,
     ...over,
   };
@@ -216,5 +218,21 @@ describe('結果的說明', () => {
     expect(keptReason(kept, 'balanced')).toContain('已經很精簡');
     expect(keptReason(kept, 'raster')).toContain('轉成圖片反而比原檔大');
     expect(resultLines(kept, 'balanced').some((l) => l.startsWith('做法'))).toBe(false);
+  });
+});
+
+describe('太大的錯誤訊息', () => {
+  const err = { kind: 'too-large' as const, detail: String(600 * 1024 * 1024) };
+  it('寫出這個等級在這台裝置上的上限；無損放得下時才建議改用', () => {
+    expect(errorText(err, 700 * 1024 * 1024, 'raster', true)).toBe(
+      '檔案太大：「整頁轉圖」在這台裝置上最多處理 600 MB，這個檔案 700 MB。可以改用「無損」（上限比較高）。',
+    );
+    expect(errorText(err, 700 * 1024 * 1024, 'raster', false)).toBe(
+      '檔案太大：「整頁轉圖」在這台裝置上最多處理 600 MB，這個檔案 700 MB。',
+    );
+    expect(errorText(err, 700 * 1024 * 1024, 'lossless', true)).not.toContain('改用');
+    expect(errorText({ kind: 'broken', detail: 'x' }, 1, 'balanced')).toBe(
+      '這個檔案打不開，可能壞掉了。',
+    );
   });
 });

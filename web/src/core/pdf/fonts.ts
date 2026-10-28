@@ -8,7 +8,7 @@
 import { PDFDict, type PDFDocument, PDFRawStream } from 'pdf-lib';
 import { arrayOf, dictOf, N, nameOf } from './objects';
 
-const CJK_ORDERINGS = new Set(['Japan1', 'GB1', 'CNS1', 'Korea1']);
+export const CJK_ORDERINGS: ReadonlySet<string> = new Set(['Japan1', 'GB1', 'CNS1', 'Korea1']);
 
 const textOf = (v: unknown): string | null => {
   const s = v as { decodeText?: () => string; asString?: () => string } | undefined;

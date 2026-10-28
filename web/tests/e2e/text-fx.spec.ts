@@ -235,6 +235,64 @@ test.describe('文字演出產生器', () => {
     await page.keyboard.press('Escape');
     expect(errors).toEqual([]);
   });
+
+  test('回到開頭：播放中按「回到開頭」或 Home → 暫停並停在第一格；重播仍是回到 0 並播放；文字欄裡的 Home 不攔截', async ({
+    page,
+  }) => {
+    const errors = await open(page);
+    const play = page.getByRole('button', { name: '播放', exact: true });
+    const pause = page.getByRole('button', { name: '暫停', exact: true });
+    const rewind = page.getByRole('button', { name: '回到開頭', exact: true });
+    const time = () => hook<number>(page, '(t) => t.t');
+
+    /* 按鈕在「重播」左邊 */
+    const names = await page
+      .getByRole('group', { name: '播放控制' })
+      .getByRole('button')
+      .evaluateAll((els) => els.map((e) => e.getAttribute('aria-label')));
+    expect(names.slice(0, 3)).toEqual(['回到開頭', '重播', '播放']);
+
+    /* 播放中按「回到開頭」→ 暫停、時間 0，之後不再前進 */
+    await play.click();
+    await expect(pause).toBeVisible();
+    await expect.poll(time).toBeGreaterThan(0.2);
+    await rewind.click();
+    await expect(play).toBeVisible();
+    expect(await time()).toBe(0);
+    await page.waitForTimeout(400);
+    expect(await time()).toBe(0);
+    await expect(page.getByTestId('transport-time')).toContainText('0.00／');
+
+    /* 「重播」＝回到 0 並播放（和「回到開頭」不同） */
+    await page.getByRole('button', { name: '重播', exact: true }).click();
+    await expect(pause).toBeVisible();
+    await expect.poll(time).toBeGreaterThan(0.1);
+
+    /* Home 快捷鍵：播放中 → 暫停並停在第一格 */
+    await page.locator('body').click({ position: { x: 5, y: 300 } });
+    await page.keyboard.press('Home');
+    await expect(play).toBeVisible();
+    expect(await time()).toBe(0);
+
+    /* 快捷鍵表列出「回到開頭」與 Home（同一個「播放」分組） */
+    await page.keyboard.press('Shift+Slash');
+    const keys = page.getByRole('dialog', { name: '快捷鍵' });
+    await expect(keys.getByText('回到開頭')).toBeVisible();
+    await expect(keys.getByText('Home', { exact: true })).toBeVisible();
+    await page.keyboard.press('Escape');
+
+    /* 文字欄裡按 Home 是移到行首，不會回到開頭 */
+    await page.getByRole('tab', { name: '文字' }).click();
+    await page.getByRole('button', { name: '播放', exact: true }).click();
+    await expect(pause).toBeVisible();
+    await expect.poll(time).toBeGreaterThan(0.1);
+    const text = page.getByRole('textbox', { name: '主文字' });
+    await text.click();
+    await page.keyboard.press('Home');
+    await expect(pause).toBeVisible();
+    expect(await time()).toBeGreaterThan(0);
+    expect(errors).toEqual([]);
+  });
 });
 
 test('字型還沒載入時先用替代字型畫，並顯示「字型載入中…」', async ({ page }) => {

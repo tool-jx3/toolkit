@@ -4451,6 +4451,30 @@ test('時間軸的預覽與模式跟著分頁：預覽中（拖過時間軸）�
   expect(errors).toEqual([]);
 });
 
+test('時間軸的播放列：「回到開頭」→ 暫停並停在第 1 格（預覽中）；「重播」仍是從頭播放', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  await openLegacyTimeline(page);
+  const time = page.getByTestId('transport-time');
+  const hint = page.getByTestId('frame-bar').locator('[aria-live=polite]');
+  const play = page.getByRole('button', { name: '播放', exact: true });
+  /* 播放到第 2 格以後 → 回到開頭 */
+  await play.click();
+  await expect(time).not.toHaveText(/^1／4/, { timeout: 15_000 });
+  await page.getByRole('button', { name: '回到開頭', exact: true }).click();
+  await expect(play).toBeVisible();
+  await expect(time).toHaveText(/^1／4/);
+  await expect(hint).toHaveText('預覽中：左鍵不能編輯，點影格標記回到編輯');
+  await page.waitForTimeout(700);
+  await expect(time).toHaveText(/^1／4/);
+  /* 「重播」＝從頭播放 */
+  await page.getByRole('button', { name: '重播', exact: true }).click();
+  await expect(page.getByRole('button', { name: '暫停', exact: true })).toBeVisible();
+  await expect(time).not.toHaveText(/^1／4/, { timeout: 15_000 });
+  expect(errors).toEqual([]);
+});
+
 test('390 寬：時間軸分頁的影格列、匯出對話框（格式多了 GIF／影片時換行、不截字）、分頁庫與快照頁籤沒有橫向捲動', async ({
   page,
 }) => {

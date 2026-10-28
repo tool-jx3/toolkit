@@ -18,6 +18,7 @@ import {
   rasterize,
   samplePages,
 } from '@/core/pdf/raster';
+import { toBytes } from '@/core/pdf/source';
 import { nodeCodec, nodeDeps } from '../helpers/pdfEngine';
 import { blankPdf, singleJpegPdf, textPdf } from '../helpers/pdfFixtures';
 
@@ -207,7 +208,7 @@ describe('整頁轉圖的等級也試只整理結構（M3）與頁數上限（M1
     if (raster?.bytes) expect(raster.bytes).toBeGreaterThan(r.outputBytes);
     /* 選的不是圖片，所以連文字一起比對 */
     expect(r.verify?.ok).toBe(true);
-    const doc = await PDFDocument.load(r.bytes);
+    const doc = await PDFDocument.load(await toBytes(r.bytes));
     expect(doc.getPageCount()).toBe(3);
   }, 120_000);
 

@@ -50,6 +50,8 @@ import { S } from './strings';
 export interface PlayHandle {
   toggle: () => void;
   restart: () => void;
+  /** 回到開頭：暫停並停在第一格 */
+  rewind: () => void;
   /** 停在某個時間（測試、對等驗證用） */
   seek: (t: number) => void;
   readonly t: number;
@@ -138,6 +140,10 @@ export function Preview({
   useImperativeHandle(playRef, () => ({
     toggle: () => pb.current.toggle(),
     restart: () => pb.current.onRestart(),
+    rewind: () => {
+      pb.current.pause();
+      pb.current.onTimeChange(0);
+    },
     seek: (t: number) => {
       pb.current.pause();
       pb.current.onTimeChange(t);

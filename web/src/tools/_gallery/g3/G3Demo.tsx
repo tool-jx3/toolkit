@@ -153,6 +153,7 @@ function BoardControls() {
       </p>
       <LayerList
         aria-label="角色清單"
+        longPress={400}
         items={rows.map((c) => ({
           id: c.id,
           name: c.name,

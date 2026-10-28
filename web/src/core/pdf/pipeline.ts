@@ -20,6 +20,14 @@
  *
  * 加密：要使用者密碼的檔案，給了密碼就解密後輸出（輸出不加密）；只有擁有者密碼（權限設定）的檔案保留加密與權限，
  * 只做 1、2（qpdf 保留原本的加密），不動影像。
+ *
+ * 大檔流程（`req.big`；呼叫端依 BIG_FILE_BYTES 決定，量測見規格「大檔實測」）：記憶體優先，少試幾個候選、一次只留一份。
+ * - 輸入是 Blob（使用者的 File）：qpdf 用 WORKERFS 直接讀、pdf.js 分段讀；結構壓縮的輸出直接存成 Blob。
+ * - 先用 qpdf 的 JSON 物件表（不含串流的內容）看數位簽章、缺字、有沒有可以壓的影像，不先攤開整份。
+ * - 不試快速網頁檢視。無損只做結構（不做移除重複：要把整份攤開讀進 pdf-lib）。
+ * - 高畫質、平衡、最小：有可以壓的影像時才攤開 → 移除重複＋影像合成一個候選；只有它沒有產生、或檢查／比對不過時才做結構。
+ * - 整頁轉圖：先轉圖；結果不到原檔的一成時不做結構（不能用時才做），否則兩個都做、留小的那一份（大的只記大小，不留）。
+ * - 檢查、比對照常；選中的不能用時換下一個，最後才做結構。
  */
 import { PDFDocument } from 'pdf-lib';
 import { type DedupeStats, dedupeStreams } from './dedupe';
@@ -27,7 +35,20 @@ import { PdfError } from './errors';
 import { nonEmbeddedCjkFonts } from './fonts';
 import type { JpegCodec } from './jpeg';
 import type { ResolvedSettings } from './levels';
-import { findPdfHeader, looksEncrypted, pdfVersion, precheck, RASTER_MAX_PAGES } from './limits';
+import {
+  findPdfHeader,
+  looksEncryptedSource,
+  pdfVersion,
+  precheckHead,
+  RASTER_MAX_PAGES,
+} from './limits';
+import {
+  hasSignatureJson,
+  mayHaveImagesJson,
+  nonEmbeddedCjkFontsJson,
+  OBJECTS_JSON_ARGS,
+  parseObjectsJson,
+} from './objectsJson';
 import type { DocSignature } from './pdfjs';
 import type { QpdfRun, QpdfRunner } from './qpdf';
 import {
@@ -43,6 +64,7 @@ import {
 } from './qpdfArgs';
 import type { RasterOutcome } from './raster';
 import { hasSignature, type ImagePassStats, recompressImages } from './recompress';
+import { type PdfSource, readHead, readTail, sourceSize } from './source';
 import { compareSignatures, type VerifyResult } from './verify';
 
 export interface InspectResult {
@@ -59,19 +81,21 @@ const isPasswordError = (r: QpdfRun) => /invalid password/i.test(`${r.stderr}\n$
 
 /** 檢視：加密、頁數（qpdf --json） */
 export async function inspectPdf(
-  bytes: Uint8Array,
+  bytes: PdfSource,
   qpdf: QpdfRunner,
   password?: string | null,
   fileName = 'PDF',
 ): Promise<InspectResult> {
-  precheck(bytes);
+  const head = await readHead(bytes, 1100);
+  precheckHead(head, sourceSize(bytes));
+  const version = pdfVersion(head);
   const r = await qpdf(bytes, INSPECT_ARGS, { password });
   const askPassword: InspectResult = {
     encrypted: true,
     needsPassword: true,
     restricted: false,
     pages: null,
-    version: pdfVersion(bytes),
+    version,
   };
   if (r.code !== 0 && r.code !== 3) {
     if (isPasswordError(r)) {
@@ -79,12 +103,12 @@ export async function inspectPdf(
       return askPassword;
     }
     /* QC 的後備：qpdf 失敗、但 trailer 寫著加密時，先問密碼（給了密碼還是失敗才算壞檔） */
-    if (!password && looksEncrypted(bytes)) return askPassword;
+    if (!password && (await looksEncryptedSource(bytes))) return askPassword;
     throw new PdfError('broken', cleanDiagnostic(r.stderr || r.stdout, fileName));
   }
   const info = parseInspectJson(r.stdout);
   if (!info) {
-    if (!password && looksEncrypted(bytes)) return askPassword;
+    if (!password && (await looksEncryptedSource(bytes))) return askPassword;
     throw new PdfError('broken', firstDiagnostic(r.stderr) ?? '');
   }
   /* 給了密碼而且對：是使用者密碼的檔案（或擁有者本人），解密輸出；沒給密碼就打得開的加密檔才是「只有權限設定」 */
@@ -92,7 +116,7 @@ export async function inspectPdf(
     ...info,
     needsPassword: info.needsPassword && !password,
     restricted: info.restricted && !password,
-    version: pdfVersion(bytes),
+    version,
   };
 }
 
@@ -136,12 +160,12 @@ export interface EngineDeps {
   codec?: () => Promise<JpegCodec>;
   /** pdf.js 的摘要（壓縮後比對用；不給就不比對） */
   signature?: (
-    bytes: Uint8Array,
+    bytes: PdfSource,
     options: { password?: string | null; text: boolean; signal?: { readonly aborted: boolean } },
   ) => Promise<DocSignature>;
   /** 整頁轉圖（不給就不能用整頁轉圖） */
   rasterize?: (
-    bytes: Uint8Array,
+    bytes: PdfSource,
     options: {
       settings: ResolvedSettings;
       password?: string | null;
@@ -159,16 +183,19 @@ export interface CompressHooks {
 }
 
 export interface CompressRequest {
-  bytes: Uint8Array;
+  /** 原檔（記憶體裡的位元組，或 Blob／使用者的 File） */
+  bytes: PdfSource;
   settings: ResolvedSettings;
   password?: string | null;
   /** 訊息裡顯示的檔名 */
   fileName?: string;
+  /** 大檔流程（見檔頭；呼叫端依 BIG_FILE_BYTES 決定） */
+  big?: boolean;
 }
 
 export interface CompressReport {
-  /** 結果（沒有變小時是原檔的位元組） */
-  bytes: Uint8Array;
+  /** 結果（沒有變小時是原檔本身：同一個陣列或同一個 Blob） */
+  bytes: PdfSource;
   originalBytes: number;
   outputBytes: number;
   /** 用了哪個候選 */
@@ -198,6 +225,8 @@ export interface CompressReport {
   signed: boolean;
   /** 沒有內嵌的中日韓字型（整頁轉圖時有的話不轉；預覽會缺字） */
   missingFonts: string[];
+  /** 走了大檔流程 */
+  big: boolean;
   candidates: CandidateSummary[];
   durationMs: number;
 }
@@ -205,7 +234,9 @@ export interface CompressReport {
 interface Candidate {
   name: Strategy;
   lossy: boolean;
-  bytes: Uint8Array | null;
+  bytes: PdfSource | null;
+  /** 大小（大檔流程裡比較大、沒有留下來的候選只記大小） */
+  size: number;
   valid: boolean | null;
   rejected?: string;
   ms: number;
@@ -237,13 +268,13 @@ function hasEof(bytes: Uint8Array): boolean {
 
 /** 候選的檢查：檔頭、%%EOF、qpdf --check、頁數 */
 export async function validateCandidate(
-  bytes: Uint8Array,
+  bytes: PdfSource,
   qpdf: QpdfRunner,
   pages: number | null,
 ): Promise<{ ok: boolean; reason?: string }> {
-  if (bytes.length < 32) return { ok: false, reason: 'too-small' };
-  if (findPdfHeader(bytes) !== 0) return { ok: false, reason: 'header' };
-  if (!hasEof(bytes)) return { ok: false, reason: 'eof' };
+  if (sourceSize(bytes) < 32) return { ok: false, reason: 'too-small' };
+  if (findPdfHeader(await readHead(bytes, 1100)) !== 0) return { ok: false, reason: 'header' };
+  if (!hasEof(await readTail(bytes, 4096))) return { ok: false, reason: 'eof' };
   const check = await qpdf(bytes, CHECK_ARGS);
   if (check.code !== 0 && check.code !== 3) return { ok: false, reason: `check-${check.code}` };
   if (pages !== null) {
@@ -262,6 +293,12 @@ const LOAD_OPTIONS = {
   ignoreEncryption: true,
   parseSpeed: Number.POSITIVE_INFINITY,
 } as const;
+
+/**
+ * 大檔流程的整頁轉圖：轉成圖片的結果不到原檔的這個比例時，不另外做結構（只整理結構要減少九成以上才贏得了；
+ * 結構要多佔一份原檔大小的記憶體；自訂）。
+ */
+export const BIG_RASTER_ALONE_RATIO = 0.1;
 
 /** 不能當成「這個候選失敗」的錯誤：取消、記憶體不足、頁數超過上限 */
 function isFatal(e: unknown): boolean {
@@ -289,6 +326,8 @@ export async function compressPdf(
 ): Promise<CompressReport> {
   const t0 = now();
   const { bytes: input, settings } = req;
+  const inputSize = sourceSize(input);
+  const big = !!req.big;
   const password = req.password || null;
   const fileName = req.fileName ?? 'PDF';
   const { onProgress, signal } = hooks;
@@ -296,6 +335,9 @@ export async function compressPdf(
   const aborted = () => {
     if (signal?.aborted) throw new PdfError('aborted');
   };
+  /** 大檔流程：大的中間結果存成 Blob（放掉陣列；Blob 的內容由瀏覽器保管） */
+  const hold = (b: PdfSource): PdfSource =>
+    big && !(b instanceof Blob) ? new Blob([b as BlobPart]) : b;
 
   onProgress?.({ stage: 'inspect' });
   const info = await inspectPdf(input, qpdf, password, fileName);
@@ -309,23 +351,26 @@ export async function compressPdf(
     throw new PdfError('too-many-pages', String(info.pages));
   }
   if (wantRaster && !deps.rasterize) throw new PdfError('internal', 'rasterizer unavailable');
+  const wantImages =
+    settings.lossy && !settings.raster && settings.images.length > 0 && !!deps.codec;
 
   const candidates: Candidate[] = [];
-  let images: ImagePassStats | null = null;
-  let imagesError: string | null = null;
-  let dedupe: DedupeStats | null = null;
-  let raster: CompressReport['raster'] = null;
+  /* 下面的 closure 會改這些值（`as` 讓 TypeScript 不要把它們收窄成 null） */
+  let images = null as ImagePassStats | null;
+  let imagesError = null as string | null;
+  let dedupe = null as DedupeStats | null;
+  let raster = null as CompressReport['raster'];
   let signed = false;
   let missingFonts: string[] = [];
 
   const attempt = async (
     name: Strategy,
     lossy: boolean,
-    make: () => Promise<Uint8Array | null>,
-  ): Promise<void> => {
+    make: () => Promise<PdfSource | null>,
+  ): Promise<Candidate> => {
     aborted();
     const start = now();
-    let out: Uint8Array | null = null;
+    let out: PdfSource | null = null;
     let reason: string | undefined;
     try {
       out = await make();
@@ -333,102 +378,94 @@ export async function compressPdf(
       if (isFatal(e)) throw e;
       reason = messageOf(e);
     }
-    if (!out) {
-      candidates.push({
-        name,
-        lossy,
-        bytes: null,
-        valid: false,
-        rejected: reason ?? 'no-output',
-        ms: now() - start,
-      });
-      return;
-    }
-    /* 檢查（qpdf --check 會解開所有 JPEG，很花時間）等到選的時候才做：由小到大，只檢查會被選中的 */
-    candidates.push({ name, lossy, bytes: out, valid: null, ms: now() - start });
+    const c: Candidate = out
+      ? /* 檢查（qpdf --check 會解開所有 JPEG，很花時間）等到選的時候才做：由小到大，只檢查會被選中的 */
+        { name, lossy, bytes: hold(out), size: sourceSize(out), valid: null, ms: now() - start }
+      : {
+          name,
+          lossy,
+          bytes: null,
+          size: 0,
+          valid: false,
+          rejected: reason ?? 'no-output',
+          ms: now() - start,
+        };
+    candidates.push(c);
+    return c;
   };
 
-  const structural = async (bytes: Uint8Array, opts = runOpts) => {
-    const r = await qpdf(bytes, structuralArgs(), opts);
-    if (!r.out) throw new Error(firstDiagnostic(r.stderr) ?? `qpdf-${r.code}`);
-    return r.out;
+  /** 結構壓縮（大檔流程：輸出直接存成 Blob） */
+  const structural = async (bytes: PdfSource, opts = runOpts): Promise<PdfSource> => {
+    const r = await qpdf(bytes, structuralArgs(), big ? { ...opts, outputAs: 'blob' } : opts);
+    const out = r.blob ?? r.out;
+    if (!out) throw new Error(firstDiagnostic(r.stderr) ?? `qpdf-${r.code}`);
+    return out;
+  };
+  const structuralCandidate = async () => {
+    onProgress?.({ stage: 'structure' });
+    return attempt('structural', false, () => structural(input));
   };
 
-  onProgress?.({ stage: 'structure' });
-  await attempt('structural', false, () => structural(input));
-  onProgress?.({ stage: 'linearize' });
-  await attempt('linearize', false, async () => (await qpdf(input, linearizeArgs(), runOpts)).out);
-
-  if (!restricted) {
-    /* pdf-lib 讀攤平的檔案：數位簽章、缺字、重複、影像（失敗時退回上面的結果） */
-    let doc: PDFDocument | null = null;
-    let readError: string | null = null;
+  /** 攤開、pdf-lib 讀檔：數位簽章、缺字、重複（失敗時記下原因，不讓整個檔案失敗） */
+  const readDoc = async (
+    withDedupe: boolean,
+  ): Promise<{ doc: PDFDocument | null; error: string | null }> => {
     try {
       aborted();
       onProgress?.({ stage: 'normalize' });
       const flat = await qpdf(input, normalizeArgs(), runOpts);
       if (!flat.out) throw new Error(firstDiagnostic(flat.stderr) ?? `qpdf-${flat.code}`);
-      doc = await PDFDocument.load(flat.out, LOAD_OPTIONS);
+      const doc = await PDFDocument.load(flat.out, LOAD_OPTIONS);
       signed = hasSignature(doc);
       missingFonts = nonEmbeddedCjkFonts(doc);
-      onProgress?.({ stage: 'dedupe' });
-      dedupe = dedupeStreams(doc);
+      if (withDedupe) {
+        onProgress?.({ stage: 'dedupe' });
+        dedupe = dedupeStreams(doc);
+      }
+      return { doc, error: null };
     } catch (e) {
       if (isFatal(e)) throw e;
-      readError = messageOf(e);
-      doc = null;
       dedupe = null;
+      return { doc: null, error: messageOf(e) };
     }
-    if (doc && dedupe?.merged) {
-      const merged = doc;
-      await attempt('dedupe', false, async () => {
-        onProgress?.({ stage: 'save' });
-        const saved = await merged.save(SAVE_OPTIONS);
-        onProgress?.({ stage: 'structure' });
-        return structural(saved, { password: null, decrypt: false });
+  };
+
+  /** 重新壓縮影像（就地修改 doc；失敗時記下原因） */
+  const recompress = async (doc: PDFDocument) => {
+    try {
+      aborted();
+      const codec = await deps.codec!();
+      onProgress?.({ stage: 'images', done: 0, total: 0 });
+      images = await recompressImages(doc, codec, {
+        attempts: settings.images,
+        convertFlate: settings.convertFlate,
+        signal,
+        onProgress: (done, total) => onProgress?.({ stage: 'images', done, total }),
       });
+    } catch (e) {
+      if (isFatal(e)) throw e;
+      imagesError = messageOf(e);
+      images = null;
     }
-    if (settings.lossy && !settings.raster && settings.images.length && deps.codec) {
-      if (!doc) {
-        imagesError = readError ?? 'unreadable';
-      } else {
-        const target = doc;
-        try {
-          aborted();
-          const codec = await deps.codec();
-          onProgress?.({ stage: 'images', done: 0, total: 0 });
-          images = await recompressImages(target, codec, {
-            attempts: settings.images,
-            convertFlate: settings.convertFlate,
-            signal,
-            onProgress: (done, total) => onProgress?.({ stage: 'images', done, total }),
-          });
-        } catch (e) {
-          if (isFatal(e)) throw e;
-          imagesError = messageOf(e);
-          images = null;
-        }
-        aborted();
-        if (images?.replaced) {
-          await attempt('images', true, async () => {
-            onProgress?.({ stage: 'save' });
-            const saved = await target.save(SAVE_OPTIONS);
-            onProgress?.({ stage: 'structure' });
-            return structural(saved, { password: null, decrypt: false });
-          });
-        }
-      }
-    }
-    doc = null;
-  }
+    aborted();
+  };
+
+  /** pdf-lib 存檔 → 結構壓縮（存完就放掉 doc） */
+  const saveThenStructural = (holder: { doc: PDFDocument | null }) => async () => {
+    onProgress?.({ stage: 'save' });
+    const saved = await holder.doc!.save(SAVE_OPTIONS);
+    holder.doc = null;
+    onProgress?.({ stage: 'structure' });
+    return structural(saved, { password: null, decrypt: false });
+  };
 
   /*
    * 整頁轉圖（WP 的 maximum）：沒有內嵌的中日韓字型畫不出來，不轉。降 DPI 的目標只看原檔（WP；不為了比只整理結構小
    * 而犧牲解析度），轉完再和上面的候選一起取最小：只整理結構比較小時就用它。
    */
-  if (wantRaster && !missingFonts.length) {
-    const target = input.length;
-    await attempt('raster', true, async () => {
+  const rasterCandidate = async () => {
+    const target = inputSize;
+    return attempt('raster', true, async () => {
       onProgress?.({ stage: 'raster', done: 0, total: info.pages ?? 0 });
       const r = await deps.rasterize!(input, {
         settings,
@@ -442,13 +479,93 @@ export async function compressPdf(
       onProgress?.({ stage: 'structure' });
       return structural(r.bytes, { password: null, decrypt: false });
     });
+  };
+
+  /** 大檔流程：還沒做、等到需要時才做的結構候選 */
+  let deferStructural = false;
+
+  if (!big) {
+    await structuralCandidate();
+    onProgress?.({ stage: 'linearize' });
+    await attempt(
+      'linearize',
+      false,
+      async () => (await qpdf(input, linearizeArgs(), runOpts)).out,
+    );
+    if (!restricted) {
+      const holder = await readDoc(true);
+      if (holder.doc && dedupe?.merged) {
+        const merged = holder.doc;
+        await attempt('dedupe', false, async () => {
+          onProgress?.({ stage: 'save' });
+          const saved = await merged.save(SAVE_OPTIONS);
+          onProgress?.({ stage: 'structure' });
+          return structural(saved, { password: null, decrypt: false });
+        });
+      }
+      if (wantImages) {
+        if (!holder.doc) {
+          imagesError = holder.error ?? 'unreadable';
+        } else {
+          await recompress(holder.doc);
+          if (images?.replaced) {
+            await attempt('images', true, saveThenStructural(holder));
+          }
+        }
+      }
+      holder.doc = null;
+    }
+    if (wantRaster && !missingFonts.length) await rasterCandidate();
+  } else {
+    /* 先看物件表（qpdf 的 JSON，不攤開整份）：數位簽章、缺字（整頁轉圖不轉、預覽的提示）、有沒有可以壓的影像 */
+    aborted();
+    onProgress?.({ stage: 'inspect' });
+    const j = await qpdf(input, OBJECTS_JSON_ARGS, { password });
+    const map = j.code === 0 || j.code === 3 ? parseObjectsJson(j.stdout) : null;
+    if (map) {
+      signed = hasSignatureJson(map);
+      missingFonts = nonEmbeddedCjkFontsJson(map);
+    }
+    /* 沒有可以壓的影像（向量、文字為主）：不攤開讀進 pdf-lib，只做結構 */
+    if (!restricted && wantImages && (!map || mayHaveImagesJson(map, settings.convertFlate))) {
+      /* 影像要 pdf-lib（攤開整份） */
+      const holder = await readDoc(true);
+      if (!holder.doc) {
+        imagesError = holder.error ?? 'unreadable';
+      } else {
+        await recompress(holder.doc);
+        /* 移除重複＋影像合成一個候選 */
+        const replaced = !!images?.replaced;
+        const merged = !!dedupe?.merged;
+        if (replaced || merged) {
+          await attempt(replaced ? 'images' : 'dedupe', replaced, saveThenStructural(holder));
+        }
+      }
+      holder.doc = null;
+    }
+    if (wantRaster && !missingFonts.length) {
+      const r = await rasterCandidate();
+      if (r.bytes && r.size <= inputSize * BIG_RASTER_ALONE_RATIO) {
+        /* 轉成圖片不到原檔的一成：只整理結構要減少九成以上才贏得了，不先做（轉圖的結果不能用時才做） */
+        deferStructural = true;
+      } else {
+        const st = await structuralCandidate();
+        /* 一次只留一份：大的那個只記大小 */
+        if (r.bytes && st.bytes) {
+          const larger = r.size <= st.size ? st : r;
+          larger.bytes = null;
+          larger.rejected = 'larger';
+        }
+      }
+    } else if (candidates.some((c) => c.bytes && c.size < inputSize)) {
+      deferStructural = true;
+    } else {
+      await structuralCandidate();
+    }
   }
 
   /* 取最小的；比對不一樣就換下一個 */
   aborted();
-  const eligible = candidates
-    .filter((c) => c.bytes && c.bytes.length < input.length && (!c.lossy || settings.lossy))
-    .sort((a, b) => a.bytes!.length - b.bytes!.length);
   let chosen: Candidate | null = null;
   let verify: VerifyResult | null = null;
   let verifySkipped: string | null = null;
@@ -465,14 +582,14 @@ export async function compressPdf(
     beforePages ??= await deps.signature!(input, { password, text: false, signal });
     return beforePages;
   };
-  for (const c of eligible) {
+  const accept = async (c: Candidate): Promise<boolean> => {
     aborted();
     onProgress?.({ stage: 'check' });
     const v = await validateCandidate(c.bytes!, qpdf, info.pages);
     c.valid = v.ok;
     if (!v.ok) {
       c.rejected = v.reason;
-      continue;
+      return false;
     }
     if (settings.verify && deps.signature && verifySkipped === null) {
       onProgress?.({ stage: 'verify' });
@@ -481,7 +598,7 @@ export async function compressPdf(
       try {
         ref = await before(text);
       } catch (e) {
-        if (e instanceof PdfError && e.kind === 'aborted') throw e;
+        if (e instanceof PdfError && (e.kind === 'aborted' || e.kind === 'unreadable')) throw e;
         verifySkipped = messageOf(e);
       }
       if (ref) {
@@ -498,25 +615,39 @@ export async function compressPdf(
         if (!res.ok) {
           c.rejected = `verify:${res.mismatches.join(',')}`;
           rejectedByVerify++;
-          continue;
+          return false;
         }
         verify = res;
       }
     }
-    chosen = c;
-    break;
+    return true;
+  };
+  const eligible = (c: Candidate) =>
+    !!c.bytes && c.size < inputSize && (!c.lossy || settings.lossy) && c.valid !== false;
+  for (const c of candidates.filter(eligible).sort((a, b) => a.size - b.size)) {
+    if (await accept(c)) {
+      chosen = c;
+      break;
+    }
+  }
+  /* 大檔流程：其他候選都不能用時才做結構 */
+  if (!chosen && deferStructural) {
+    deferStructural = false;
+    const st = await structuralCandidate();
+    aborted();
+    if (eligible(st) && (await accept(st))) chosen = st;
   }
 
   const summary = candidates.map((c) => ({
     name: c.name,
-    bytes: c.bytes?.length ?? 0,
+    bytes: c.size,
     valid: c.valid,
     lossy: c.lossy,
     rejected: c.rejected,
     ms: Math.round(c.ms),
   }));
   const base = {
-    originalBytes: input.length,
+    originalBytes: inputSize,
     pages: info.pages ?? 0,
     images,
     imagesError,
@@ -528,13 +659,14 @@ export async function compressPdf(
     decrypted: decrypt,
     signed,
     missingFonts,
+    big,
     candidates: summary,
   };
   if (!chosen?.bytes) {
     return {
       ...base,
       bytes: input,
-      outputBytes: input.length,
+      outputBytes: inputSize,
       strategy: 'original',
       lossy: false,
       kept: true,
@@ -545,7 +677,7 @@ export async function compressPdf(
   return {
     ...base,
     bytes: chosen.bytes,
-    outputBytes: chosen.bytes.length,
+    outputBytes: chosen.size,
     strategy: chosen.name,
     lossy: chosen.lossy,
     kept: false,

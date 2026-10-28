@@ -10,7 +10,7 @@ import {
 } from '../../src/tools/social-post/url';
 
 describe('分享連結的轉換', () => {
-  it('Google 雲端硬碟：file/d、open?id、uc?id、uc?export=view&id → 縮圖網址', () => {
+  it('Google 雲端硬碟：file/d、open?id、uc?id、uc?export=view&id → lh3.googleusercontent.com/d/<id>=w2000（原作 2ade338）', () => {
     const id = '1AbCdEfGhIjK_lmn-OPq';
     for (const u of [
       `https://drive.google.com/file/d/${id}/view?usp=sharing`,
@@ -18,7 +18,7 @@ describe('分享連結的轉換', () => {
       `https://drive.google.com/uc?id=${id}`,
       `https://drive.google.com/uc?export=view&id=${id}`,
     ])
-      expect(normalizeImageUrl(u)).toBe(`https://drive.google.com/thumbnail?id=${id}&sz=w2000`);
+      expect(normalizeImageUrl(u)).toBe(`https://lh3.googleusercontent.com/d/${id}=w2000`);
   });
 
   it('Dropbox：拿掉 dl、加 raw=1', () => {

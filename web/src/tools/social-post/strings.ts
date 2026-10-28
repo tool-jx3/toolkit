@@ -15,7 +15,7 @@ import type {
   Theme,
 } from './model';
 
-export type TabId = 'post' | 'comments' | 'story' | 'profile' | 'common';
+export type TabId = 'post' | 'comments' | 'story' | 'profile' | 'feed' | 'dm' | 'common';
 export type ScreenId = Exclude<TabId, 'common'>;
 
 export const S = {
@@ -52,6 +52,15 @@ export const S = {
     ownSend: '傳送',
     ownMore: '更多',
     postsTitle: '貼文',
+    myStory: '我的限時動態',
+    feedEmpty: '首頁沒有要顯示的貼文。',
+    dmSearch: '搜尋',
+    dmMessages: '訊息',
+    dmRequests: '請求',
+    dmTimeSep: ' · ',
+    dmInput: '傳送訊息…',
+    dmIntroSep: ' · ',
+    dmProfile: '查看個人檔案',
   },
   hits: {
     media: '照片：拖曳移動、滾輪縮放',
@@ -59,6 +68,14 @@ export const S = {
     post: (n: number) => `貼文 ${n}`,
     story: (title: string) => `精選動態「${title}」`,
     cell: (n: number) => `第 ${n} 格`,
+    navFeed: '首頁',
+    navDm: '訊息',
+    navProfile: '個人頁',
+    feedDm: '訊息',
+    /** 限時動態的圈：帳號的（我的：null） */
+    tray: (name: string | null, n: number) =>
+      `${name === null ? '我的限時動態' : `${name} 的限時動態`}${n > 1 ? `（${n} 則）` : ''}`,
+    thread: (name: string) => `和 ${name} 的對話`,
   },
 
   /* ---------- 介面 ---------- */
@@ -68,6 +85,8 @@ export const S = {
     comments: '留言',
     story: '限時動態',
     profile: '個人頁',
+    feed: '首頁動態',
+    dm: '私訊',
     common: '帳號與畫面',
   } satisfies Record<TabId, string>,
   screenName: {
@@ -75,8 +94,14 @@ export const S = {
     comments: '留言',
     story: '限時動態',
     profile: '個人頁',
+    feed: '首頁動態',
+    dm: '私訊',
   } satisfies Record<ScreenId, string>,
   previewTitle: (name: string) => `預覽：${name}`,
+  dmListName: '私訊・訊息列表',
+  /** 匯出超過 5 MB 時的建議（ExportPanel 的 sizeWarningHint） */
+  sizeWarningHint: '可以減少照片、貼文或限時動態，或改用「只有這個畫面」；PNG 可以降低尺寸。',
+  dmChatName: (name: string) => `私訊・${name}`,
   previewLabel: (name: string) => `${name}的預覽`,
   themeLabel: '配色',
   themes: { light: '淺色', dark: '深色' } satisfies Record<Theme, string>,
@@ -86,6 +111,8 @@ export const S = {
     story:
       '貼紙：拖曳移動、兩指捏合或滾輪縮放、Shift＋滾輪旋轉；格子的照片也可以拖曳、縮放，點空的格子放入照片。',
     profile: '點貼文的縮圖會到那則貼文、點有連結的精選動態會到那則限時動態。',
+    feed: '點限時動態的圈會到那則限時動態、點訊息圖示會到私訊；照片的位置在貼文分頁調整。放不下的貼文會裁掉，要看全部請存成 HTML 檔。',
+    dm: '在訊息列表點一個對話會打開那個對話。',
   } satisfies Record<ScreenId, string>,
   missingImages: (n: number) => `有 ${n} 張圖片讀不到（可能已從這個瀏覽器清除），請重新加入。`,
 
@@ -109,6 +136,21 @@ export const S = {
   fontScale: '字級',
   fontScaleHint: '所有畫面的文字一起放大縮小。',
   resetCommon: '帳號與畫面回到預設',
+
+  /* 誰的貼文／限時動態 */
+  sectionPostOwner: '誰的貼文',
+  sectionStoryOwner: '誰的限時動態',
+  friendPost: '朋友的貼文',
+  friendStory: '朋友的限時動態',
+  friendPostHint: '開著時帳號列、內文與作者的留言用下面朋友的帳號；個人頁的格狀不放朋友的貼文。',
+  friendStoryHint:
+    '開著時帳號列用下面朋友的帳號；首頁動態裡同一個帳號的限時動態合成一個圈、接著看。',
+  friendMine: '用自己的帳號（帳號與畫面分頁）。',
+  friendAvatar: '朋友的大頭貼',
+  friendUsername: '朋友的帳號',
+  friendVerified: '朋友的認證徽章',
+  inFeed: '在首頁動態顯示',
+  seen: '看過了（首頁動態的圈是灰色的）',
 
   /* 貼文 */
   sectionPosts: '貼文清單',
@@ -135,6 +177,8 @@ export const S = {
   photoName: (n: number) => `照片 ${n}`,
   photosFull: (n: number) => `每則最多 ${n} 張。`,
   zoom: '縮放',
+  photoPrev: '上一張照片',
+  photoNext: '下一張照片',
   adjustRange: '調整範圍',
   resetPlace: '回到預設',
   thumb: '個人頁的縮圖',
@@ -200,8 +244,11 @@ export const S = {
   commentText: '內容',
   commentLikes: '讚數',
   commentMore: '隱藏的回覆數',
-  commentAuthor: '作者（我）',
-  commentAuthorHint: '用帳號與大頭貼（帳號與畫面分頁）。',
+  commentAuthor: (friend: boolean) => (friend ? '作者（朋友）' : '作者（我）'),
+  commentAuthorHint: (friend: boolean) =>
+    friend
+      ? '用這則貼文的朋友的帳號與大頭貼（貼文分頁的「誰的貼文」）。'
+      : '用帳號與大頭貼（帳號與畫面分頁）。',
   commentVerified: '認證',
   commentReply: '回覆（縮排）',
   commentLiked: '已按讚',
@@ -321,6 +368,94 @@ export const S = {
     confirmLabel: '重設',
   },
 
+  /* 首頁動態 */
+  sectionFeedTop: '上方列',
+  feedLogo: '左上角的字',
+  feedLogoHint: '空白時只畫 ⌄。',
+  feedBadge: '訊息的未讀數',
+  feedBadgeHint: '訊息圖示右上角的紅色數字；空白時不畫。',
+  feedDot: '通知的紅點',
+  sectionTray: '限時動態列',
+  trayMine: '我的限時動態',
+  trayMineHint: '勾選的限時動態照清單的順序接著看；一則都沒有時圈上沒有外框、右下角有＋。',
+  trayMineEmpty: '還沒有自己的限時動態。',
+  trayInclude: '放進我的限時動態',
+  seenShort: '看過了（灰色的圈）',
+  editThis: '編輯',
+  addMyStory: '新增我的限時動態',
+  trayFriends: '朋友的限時動態',
+  trayFriendsHint: '同一個帳號的限時動態合成一個圈，點了接著看（HTML 檔）。',
+  trayFriendsEmpty: '還沒有朋友的限時動態。',
+  addFriendStory: '新增朋友的限時動態',
+  sectionFeedPosts: '首頁的貼文',
+  feedPostsHint: '照貼文清單的順序排。',
+  friendTag: '朋友',
+  mineTag: '自己',
+  addFriendPost: '新增朋友的貼文',
+  addMyPost: '新增自己的貼文',
+  resetFeed: '首頁動態回到預設',
+  confirmResetFeed: {
+    title: '首頁動態回到預設？',
+    description:
+      '左上角的字、未讀數、紅點回到預設，我的限時動態只放第一則；限時動態與貼文不會刪除。可以用復原找回來。',
+    confirmLabel: '重設',
+  },
+
+  /* 私訊 */
+  sectionDmView: '顯示的畫面',
+  dmViews: { list: '訊息列表', chat: '對話' },
+  sectionBubble: '我的泡泡顏色',
+  bubbleTop: '最早的訊息（上面）',
+  bubbleBottom: '最新的訊息（下面）',
+  bubbleHint: '我的訊息從上到下慢慢換成下面的顏色；兩個顏色一樣時是單色。字的黑白依底色自動選。',
+  sectionThreads: '對話',
+  threadChip: (n: number) => `對話 ${n}`,
+  addThread: '新增對話',
+  threadsFull: (n: number) => `最多 ${n} 個對話。`,
+  threadDuplicated: '已複製對話',
+  confirmRemoveThread: (name: string) => ({
+    title: `刪除和 ${name} 的對話？`,
+    description: '訊息一起刪除；可以用復原找回來。',
+    confirmLabel: '刪除',
+  }),
+  threadAvatar: '對方的大頭貼',
+  threadUsername: '對方的帳號',
+  threadName: '名稱',
+  threadNameHint: '空白時用帳號。',
+  threadTime: '訊息列表的時間',
+  threadActive: '對話上方的動態',
+  threadActivePh: '目前在線上',
+  threadPreview: '訊息列表的預覽',
+  threadPreviewHint: '空白時用最後一則訊息。',
+  threadSeen: '我的最後一則訊息下面的字',
+  threadSeenHint: '最後一則是我的訊息時才畫；空白時不畫。',
+  threadSeenPh: '已讀',
+  threadUnread: '未讀（藍點、粗體）',
+  threadOnline: '在線上（綠點）',
+  threadVerified: '認證徽章',
+  threadIntro: '對話最上面的個人檔案介紹',
+  sectionMessages: '訊息',
+  messagesHint: (name: string) => `和 ${name} 的對話。`,
+  messagesEmpty: '還沒有訊息。',
+  messageTitle: (n: number, who: string) => `訊息 ${n}：${who}`,
+  msgFrom: { me: '我', them: '對方', time: '時間' },
+  msgFromLabel: '誰的訊息',
+  msgText: '內容',
+  msgTime: '時間',
+  msgPhoto: '照片',
+  msgReact: '反應的表情符號',
+  msgReactHint: '空白時沒有。',
+  addMsgMe: '新增我的訊息',
+  addMsgThem: '新增對方的訊息',
+  addMsgTime: '新增時間',
+  messagesFull: (n: number) => `每個對話最多 ${n} 則訊息。`,
+  resetDm: '私訊回到預設',
+  confirmResetDm: {
+    title: '私訊回到預設？',
+    description: '對話與泡泡顏色回到範例；可以用復原找回來。',
+    confirmLabel: '重設',
+  },
+
   /* 個人頁 */
   sectionProfilePage: '個人頁',
   own: '自己的帳號（編輯個人檔案）',
@@ -397,6 +532,8 @@ export const S = {
   dropOnPost: '放開以加入這則貼文的照片',
   dropOnStory: '放開以放進選取中的格子',
   dropOnProfile: '放開以加入其他照片',
+  dropOnFeed: '放開以加入目前貼文的照片',
+  dropOnDm: '放開以傳送照片（加在目前對話的最後）',
   dropHint: '只接受圖片',
   cellsFull: '後面沒有空的格子，有圖片沒有放入。',
 
@@ -413,10 +550,14 @@ export const S = {
     html: '可以點的網頁：輪播、打開留言、看限時動態；照片都包在檔案裡。',
   },
   htmlScope: '範圍',
-  htmlScopes: { one: '只有這個畫面', all: '全部（個人頁＋貼文＋限時動態）' },
-  htmlScopeHint: '「全部」從個人頁點縮圖看貼文與留言、點精選動態看限時動態。',
+  htmlScopes: { one: '只有這個畫面', all: '全部（首頁動態＋個人頁＋貼文＋限時動態＋私訊）' },
+  htmlScopeHint:
+    '「全部」從首頁動態開始：點限時動態的圈接著看、訊息圖示到私訊、下方的大頭貼到個人頁，個人頁點縮圖看貼文與留言、點精選動態看限時動態。',
   exportSize: (w: number, h: number) => `${w} × ${h} px`,
   exporting: '畫圖中…',
+  pngFallback: '解析度',
+  pngFallbackValue: (k: number) =>
+    `畫面太大，這個瀏覽器畫不出選的倍率，改用 ${Math.round(k * 100) / 100} 倍`,
   exportingHtml: (i: number, n: number) => `畫第 ${i}／${n} 張…`,
   htmlScreens: '畫面',
   htmlScreensValue: (n: number) => `${n} 個`,
@@ -426,9 +567,17 @@ export const S = {
     comments: (u: string) => `${u}・留言`,
     story: (u: string) => `${u}・限時動態`,
     profile: (u: string) => `${u}・個人頁`,
-  },
+    feed: (u: string) => `${u}・首頁動態`,
+    dm: (u: string) => `${u}・私訊`,
+  } satisfies Record<ScreenId | 'all', (u: string) => string>,
   viewer: {
-    back: '回到個人頁',
+    back: '回到上一個畫面',
+    carousel: (n: number) => `照片（共 ${n} 張；左右滑動或點左右兩半換一張）`,
+    toFeed: '首頁動態',
+    toDms: '訊息',
+    toProfile: '個人頁',
+    openStories: (name: string | null, n: number) =>
+      `看${name === null ? '我的限時動態' : ` ${name} 的限時動態`}${n > 1 ? `（${n} 則接著看）` : ''}`,
     close: '關閉',
     prev: '上一張',
     next: '下一張',
@@ -459,11 +608,12 @@ export const S = {
   resetTitle: '全部重設？',
   resetDesc: '所有貼文、留言、限時動態、個人頁回到範例內容（淺色／深色不變）；可以用復原找回來。',
   usage: [
-    '上方分頁選畫面：貼文、留言、限時動態、個人頁；帳號、大頭貼、狀態列與字級在「帳號與畫面」。',
-    '貼文與限時動態都可以做好幾則；個人頁的格狀照貼文的順序排，精選動態可以連到限時動態。',
+    '上方分頁選畫面：貼文、留言、限時動態、個人頁、首頁動態、私訊；帳號、大頭貼、狀態列與字級在「帳號與畫面」。',
+    '貼文與限時動態都可以做好幾則，也可以是朋友的（「誰的貼文／限時動態」）；個人頁的格狀照貼文的順序排，精選動態可以連到限時動態。',
+    '首頁動態有我的與朋友的限時動態列和貼文；私訊有訊息列表與對話，在預覽上點一個對話就打開。',
     '照片可以選檔、拖放到視窗、貼上或用圖片網址加入；在預覽上拖曳、滾輪或兩指捏合調整位置與縮放。',
     '限時動態加貼紙後在預覽上拖曳、捏合、滾輪縮放、Shift＋滾輪旋轉，或用選取框的控點。',
-    '匯出 PNG（目前的畫面）或 HTML 檔（可以點的網頁，「全部」從個人頁連到每則貼文與限時動態）。',
+    '匯出 PNG（目前的畫面）或 HTML 檔（可以點的網頁，「全部」從首頁動態開始，連到個人頁、每則貼文、限時動態與私訊）。',
     '內容自動存在這個瀏覽器；要換電腦或備份時用頁首「專案」存成專案檔。',
   ],
 };

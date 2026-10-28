@@ -6,6 +6,7 @@ import {
   type ExportPanelHandle,
   IconButton,
   ProjectMenu,
+  playbackShortcuts,
   type Shortcut,
   Tabs,
   ToolShell,
@@ -230,7 +231,10 @@ export function App() {
   }, []);
 
   const shortcuts: Shortcut[] = [
-    { keys: 'space', label: '播放／暫停', group: '播放', handler: () => playRef.current?.toggle() },
+    ...playbackShortcuts({
+      toggle: () => playRef.current?.toggle(),
+      rewind: () => playRef.current?.rewind(),
+    }),
     { keys: 'r', label: '從頭播放', group: '播放', handler: () => playRef.current?.restart() },
     {
       keys: 'arrowleft',

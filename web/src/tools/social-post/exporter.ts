@@ -18,7 +18,7 @@ import {
   type ScreenSelection,
 } from './render/screens';
 import { assets } from './store';
-import type { ScreenId } from './strings';
+import { S, type ScreenId } from './strings';
 
 const two = (n: number) => String(n).padStart(2, '0');
 
@@ -32,6 +32,8 @@ const SLUG: Record<ScreenId, string> = {
   comments: 'comments',
   story: 'story',
   profile: 'profile',
+  feed: 'feed',
+  dm: 'dm',
 };
 
 /** 目前的畫面是第幾則（貼文、留言＝第幾則貼文；限時動態＝第幾則；個人頁沒有） */
@@ -40,7 +42,15 @@ export function screenIndex(
   screen: ScreenId,
   sel: ScreenSelection,
 ): number | null {
-  if (screen === 'profile') return null;
+  if (screen === 'profile' || screen === 'feed') return null;
+  /* 私訊：對話時是第幾個對話，訊息列表沒有 */
+  if (screen === 'dm')
+    return sel.dmView === 'chat'
+      ? Math.max(
+          0,
+          state.dm.threads.findIndex((t) => t.id === sel.threadId),
+        ) + 1
+      : null;
   if (screen === 'story')
     return (
       Math.max(
@@ -56,7 +66,7 @@ export function screenIndex(
   );
 }
 
-/** `socialpost-<post／comments／story／profile>[-<第幾則>]-<年月日-時分秒>.png` */
+/** `socialpost-<post／comments／story／profile／feed／dm>[-<第幾則>]-<年月日-時分秒>.png` */
 export function pngFileName(screen: ScreenId, index: number | null, now: Date): string {
   return `socialpost-${SLUG[screen]}${index ? `-${index}` : ''}-${stamp(now)}.png`;
 }
@@ -88,6 +98,28 @@ export function paintToCanvas(
   return canvas;
 }
 
+/**
+ * 依序試這些倍率，第一個成功的就用（畫布太大時瀏覽器建不出畫布或輸出不了圖；原作 345546b 失敗時降成 2/3 的解析度再試，F131）。
+ * 全部失敗時丟出最後一個錯誤。
+ */
+export async function withScaleFallback<T>(
+  scales: readonly number[],
+  attempt: (scale: number) => Promise<T>,
+): Promise<{ value: T; scale: number }> {
+  let last: unknown = null;
+  for (const scale of scales) {
+    try {
+      return { value: await attempt(scale), scale };
+    } catch (e) {
+      last = e;
+    }
+  }
+  throw last ?? new Error('無法輸出圖片');
+}
+
+/** PNG 試的倍率：選的倍率，失敗時 2/3 */
+export const pngScales = (scale: number): number[] => [scale, (scale * 2) / 3];
+
 export async function exportPng(
   state: SocialState,
   screen: ScreenId,
@@ -96,12 +128,18 @@ export async function exportPng(
   now = new Date(),
 ): Promise<ExportOutput> {
   const layout = await outputLayout(state, (env) => buildScreen(env, screen, sel));
-  const canvas = paintToCanvas(layout, scale);
-  const blob = await canvasToBlob(canvas, 'image/png');
+  const r = await withScaleFallback(pngScales(scale), async (k) => {
+    const canvas = paintToCanvas(layout, k);
+    return { canvas, blob: await canvasToBlob(canvas, 'image/png') };
+  });
+  const { canvas, blob } = r.value;
   return {
     blob,
     fileName: pngFileName(screen, screenIndex(state, screen, sel), now),
     width: canvas.width,
     height: canvas.height,
+    ...(r.scale !== scale
+      ? { details: [{ label: S.pngFallback, value: S.pngFallbackValue(r.scale) }] }
+      : {}),
   };
 }

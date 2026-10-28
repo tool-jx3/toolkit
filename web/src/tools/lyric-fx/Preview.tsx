@@ -24,6 +24,8 @@ import { S } from './strings';
 export interface PreviewControls {
   toggle(): void;
   restart(): void;
+  /** 回到開頭：暫停並停在第一格 */
+  rewind(): void;
   seek(t: number): void;
   time(): number;
 }
@@ -31,6 +33,7 @@ export interface PreviewControls {
 let controls: PreviewControls | null = null;
 export const togglePreview = () => controls?.toggle();
 export const restartPreview = () => controls?.restart();
+export const rewindPreview = () => controls?.rewind();
 export const seekPreview = (t: number) => controls?.seek(t);
 export const previewNow = () => controls?.time() ?? 0;
 
@@ -63,6 +66,15 @@ export function Preview() {
   }, [hasAudio]);
 
   useEffect(() => {
+    const seek = (t: number) => {
+      if (useSession.getState().audio) {
+        player.pause();
+        player.seek(Math.max(0, t));
+      } else {
+        loopRef.current.pause();
+        loopRef.current.onTimeChange(Math.max(0, Math.min(loopRef.current.duration, t)));
+      }
+    };
     controls = {
       toggle: () => {
         if (useSession.getState().exporting) return;
@@ -76,15 +88,10 @@ export function Preview() {
         if (useSession.getState().audio) void player.play(0);
         else loopRef.current.onRestart();
       },
-      seek: (t: number) => {
-        if (useSession.getState().audio) {
-          player.pause();
-          player.seek(Math.max(0, t));
-        } else {
-          loopRef.current.pause();
-          loopRef.current.onTimeChange(Math.max(0, Math.min(loopRef.current.duration, t)));
-        }
+      rewind: () => {
+        if (!useSession.getState().exporting) seek(0);
       },
+      seek,
       time: () => (useSession.getState().audio ? player.time() : loopRef.current.time),
     };
     return () => {

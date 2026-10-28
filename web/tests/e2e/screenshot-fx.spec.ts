@@ -735,6 +735,49 @@ test('時間軸：四段的秒數、分段色條、空白鍵播放、循環、�
   expect(errors).toEqual([]);
 });
 
+test('時間軸：「回到開頭」按鈕與 Home → 暫停並停在第一格（和「重播」「完成的樣子」不同）', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  await loadImage(page);
+  await tab(page, '時間軸');
+  const player = () => call<{ time: number; playing: boolean; duration: number }>(page, 'player');
+  const rewind = page.getByRole('button', { name: '回到開頭', exact: true });
+  /* 平常停在結尾；按「回到開頭」→ 0、暫停 */
+  await expect.poll(async () => (await player())?.time).toBeCloseTo(4.3, 5);
+  await rewind.click();
+  await expect.poll(async () => (await player())?.time).toBe(0);
+  expect((await player())?.playing).toBe(false);
+  await expect(page.getByTestId('transport-time')).toContainText('0.00／4.30 秒');
+  await page.waitForTimeout(300);
+  expect((await player())?.time).toBe(0);
+
+  /* 播放中按 Home → 暫停並回到第一格 */
+  await page.locator('body').click({ position: { x: 5, y: 880 } });
+  await page.keyboard.press('Space');
+  await expect.poll(async () => (await player())?.playing).toBe(true);
+  await expect.poll(async () => (await player())?.time).toBeGreaterThan(0.3);
+  await page.keyboard.press('Home');
+  await expect.poll(async () => (await player())?.playing).toBe(false);
+  expect((await player())?.time).toBe(0);
+
+  /* 播放中按按鈕 */
+  await page.keyboard.press('Space');
+  await expect.poll(async () => (await player())?.playing).toBe(true);
+  await expect.poll(async () => (await player())?.time).toBeGreaterThan(0.3);
+  await rewind.click();
+  await expect.poll(async () => (await player())?.playing).toBe(false);
+  expect((await player())?.time).toBe(0);
+
+  /* 快捷鍵表 */
+  await page.keyboard.press('Shift+Slash');
+  const keys = page.getByRole('dialog', { name: '快捷鍵' });
+  await expect(keys.getByText('回到開頭')).toBeVisible();
+  await expect(keys.getByText('Home', { exact: true })).toBeVisible();
+  await page.keyboard.press('Escape');
+  expect(errors).toEqual([]);
+});
+
 /* ---------- 匯出 ---------- */
 
 test('匯出：PNG（完成圖、與畫面相同）、複製圖片、APNG（影格、色數、只播一次）（F45～F49）', async ({

@@ -49,6 +49,8 @@ export function getGrabber(): VideoGrabber | null {
 interface PreviewPlayer {
   el: HTMLVideoElement | null;
   toggle: () => void;
+  /** 回到開頭：暫停並停在選取區間的起點 */
+  rewind: () => void;
 }
 
 let player: PreviewPlayer | null = null;
@@ -62,6 +64,8 @@ export const registerPreview = (p: PreviewPlayer | null) => {
 export const previewTime = (): number => player?.el?.currentTime ?? 0;
 
 export const togglePreview = () => player?.toggle();
+
+export const rewindPreview = () => player?.rewind();
 
 export const pausePreview = () => player?.el?.pause();
 

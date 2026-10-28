@@ -27,6 +27,7 @@ import {
   openPdf,
   type PDFDocumentProxy,
   PDFJS_VERSION,
+  REOPEN_EVERY_PAGES,
   renderPage,
 } from './pdfjs';
 import {
@@ -39,6 +40,7 @@ import {
 } from './pipeline';
 import { createQpdfRunner, type QpdfFactory } from './qpdf';
 import { rasterize } from './raster';
+import { type PdfSource, sourceSize, toBytes } from './source';
 
 const byName = (m: Record<string, string>) =>
   Object.fromEntries(Object.entries(m).map(([k, v]) => [k.slice(k.lastIndexOf('/') + 1), v]));
@@ -112,25 +114,47 @@ const deps: EngineDeps = {
   qpdf,
   codec,
   async signature(bytes, { password, text }) {
-    const doc = await openPdf(bytes, password);
+    let doc = await openPdf(bytes, password);
+    /* 大檔（Blob）：每 REOPEN_EVERY_TEXT_PAGES 頁重新開啟，放掉 pdf.js 讀過的資料 */
+    const reopen =
+      bytes instanceof Blob
+        ? async () => {
+            await closePdf(doc);
+            doc = await openPdf(bytes, password);
+            return doc;
+          }
+        : undefined;
     try {
-      return await docSignature(doc, { text });
+      return await docSignature(doc, { text, reopen });
     } finally {
       await closePdf(doc);
     }
   },
   async rasterize(bytes, { settings, password, target, onProgress, signal }) {
-    const doc = await openPdf(bytes, password);
+    let doc = await openPdf(bytes, password);
+    /* 大檔（Blob）：每畫 REOPEN_EVERY_PAGES 頁重新開啟，放掉 pdf.js 讀過的資料（影像等） */
+    let rendered = 0;
+    const current = async () => {
+      if (bytes instanceof Blob && rendered > 0 && rendered % REOPEN_EVERY_PAGES === 0) {
+        await closePdf(doc);
+        doc = await openPdf(bytes, password);
+      }
+      return doc;
+    };
     try {
       return await rasterize(
         {
           pages: doc.numPages,
           async size(n) {
-            const page = await doc.getPage(n);
+            const page = await (await current()).getPage(n);
             const vp = page.getViewport({ scale: 1 });
             return { widthPt: vp.width, heightPt: vp.height };
           },
-          render: (n, scale) => renderPage(doc, n, scale),
+          async render(n, scale) {
+            const r = await renderPage(await current(), n, scale);
+            rendered++;
+            return r;
+          },
         },
         target,
         settings.raster!,
@@ -199,9 +223,9 @@ export interface ProbeResult {
 /** 加入檔案時找沒有內嵌的中日韓字型的大小上限（pdf-lib 要讀整個檔案；自訂） */
 export const PROBE_FONT_MAX_BYTES = 50 * 1024 * 1024;
 
-async function probeFonts(bytes: Uint8Array): Promise<string[]> {
+async function probeFonts(source: PdfSource): Promise<string[]> {
   try {
-    const doc = await PDFDocument.load(bytes, {
+    const doc = await PDFDocument.load(await toBytes(source), {
       updateMetadata: false,
       throwOnInvalidObject: false,
       ignoreEncryption: true,
@@ -224,12 +248,12 @@ export interface RenderedBitmap {
 const api = {
   /** 檢視（加密、頁數）＋第一頁的縮圖 */
   async probe(
-    bytes: Uint8Array,
+    bytes: PdfSource,
     options: { password?: string | null; fileName?: string; thumbWidth?: number },
   ): Promise<ProbeResult> {
     const info = await inspectPdf(bytes, qpdf, options.password, options.fileName);
     const missingFonts =
-      !info.encrypted && bytes.length <= PROBE_FONT_MAX_BYTES ? await probeFonts(bytes) : [];
+      !info.encrypted && sourceSize(bytes) <= PROBE_FONT_MAX_BYTES ? await probeFonts(bytes) : [];
     let thumb: ProbeResult['thumb'] = null;
     if (!info.needsPassword && options.thumbWidth) {
       try {
@@ -249,24 +273,36 @@ const api = {
       : { info, thumb, missingFonts };
   },
 
-  /** 壓縮；結果的位元組以 transfer 傳回 */
+  /** 壓縮；結果的位元組以 transfer 傳回（Blob 照原樣傳回：大檔流程、沒有變小的大檔） */
   async compress(
-    bytes: Uint8Array,
-    request: { settings: ResolvedSettings; password?: string | null; fileName?: string },
+    bytes: PdfSource,
+    request: {
+      settings: ResolvedSettings;
+      password?: string | null;
+      fileName?: string;
+      big?: boolean;
+    },
     onProgress?: (p: Progress) => void,
   ): Promise<CompressReport> {
     const report = await compressPdf(
-      { bytes, settings: request.settings, password: request.password, fileName: request.fileName },
+      {
+        bytes,
+        settings: request.settings,
+        password: request.password,
+        fileName: request.fileName,
+        big: request.big,
+      },
       deps,
       { onProgress: onProgress ? throttled(onProgress) : undefined },
     );
+    if (report.bytes instanceof Blob) return report;
     /* 結果和原檔共用同一塊記憶體時（沒有變小）複製一份再傳 */
-    const out = report.bytes === bytes ? bytes.slice() : report.bytes;
+    const out = report.bytes === bytes ? report.bytes.slice() : report.bytes;
     return transfer({ ...report, bytes: out }, [out.buffer]);
   },
 
-  /** 打開一份要預覽的文件（id 由呼叫端決定；同一個 id 再開會換掉） */
-  async open(id: string, bytes: Uint8Array, password?: string | null): Promise<{ pages: number }> {
+  /** 打開一份要預覽的文件（id 由呼叫端決定；同一個 id 再開會換掉；Blob 分段讀） */
+  async open(id: string, bytes: PdfSource, password?: string | null): Promise<{ pages: number }> {
     const prev = opened.get(id);
     opened.delete(id);
     if (prev) await closePdf(prev);

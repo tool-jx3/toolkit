@@ -160,6 +160,8 @@ export function BatchAddDialog({
 
   const setRow = (i: number, patch: Partial<Row>) =>
     setRows((list) => list.map((r, k) => (k === i ? { ...r, ...patch } : r)));
+  /** 填了身高的列數（「加入」旁顯示；0 列時不能加入，原作 2026-10 更新） */
+  const filled = rows.filter((r) => r.height.trim() !== '').length;
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
@@ -169,6 +171,7 @@ export function BatchAddDialog({
       const h = Number(r.height);
       if (Number.isFinite(h)) entries.push({ file: files[i], name: r.name, height: h });
     });
+    if (!entries.length) return;
     onConfirm(entries);
   };
 
@@ -199,10 +202,17 @@ export function BatchAddDialog({
       initialFocus={firstHeight}
       footer={
         <>
+          <span
+            className="mr-auto self-center text-sm text-muted"
+            aria-live="polite"
+            data-testid="batch-count"
+          >
+            {S.batchCount(filled)}
+          </span>
           <Button variant="secondary" onClick={onCancel}>
             {S.cancel}
           </Button>
-          <Button variant="primary" type="submit" form={formId}>
+          <Button variant="primary" type="submit" form={formId} disabled={!filled}>
             {S.confirmAdd}
           </Button>
         </>

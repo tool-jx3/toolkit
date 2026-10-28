@@ -144,8 +144,13 @@ export function App() {
       imageFxShortcuts(
         fx,
         S,
-        () => {
-          if (!usePoints.getState().draft) playerRef.current?.toggle();
+        {
+          toggle: () => {
+            if (!usePoints.getState().draft) playerRef.current?.toggle();
+          },
+          rewind: () => {
+            if (!usePoints.getState().draft) playerRef.current?.rewind();
+          },
         },
         [
           { keys: 'enter', label: S.enterShortcut, group: S.groupPoints },

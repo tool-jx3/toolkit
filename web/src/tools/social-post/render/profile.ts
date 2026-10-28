@@ -5,12 +5,23 @@
 import { storyCover } from '../model';
 import { S } from '../strings';
 import { ellipsize, type FontSpec, layoutLines, linkTokens, type Run } from '../text';
-import { avatar, type Env, linesToOps, PHONE_H, STATUS_H, statusBar, W } from './common';
+import {
+  avatar,
+  type Env,
+  linesToOps,
+  NAV_H,
+  navBar,
+  PHONE_H,
+  STATUS_H,
+  statusBar,
+  W,
+} from './common';
 import type { Hit, Op, Rect, ScreenLayout } from './ops';
 import { INHERIT_LH, ui } from './theme';
 
 const PAD = 16;
-export const NAV_H = 84;
+
+export { NAV_H } from './common';
 export const GRID_GAP = 2;
 export const GRID_CELL = (W - GRID_GAP * 2) / 3;
 
@@ -355,7 +366,9 @@ export function profileScreen(env: Env, opts: ProfileOptions = {}): ScreenLayout
     width: GRID_CELL,
     height: GRID_CELL,
   });
+  /* 朋友的貼文不放（F111） */
   state.posts.forEach((p, pi) => {
+    if (p.friend) return;
     const r = cellRect(count++);
     cells.push({ t: 'rect', x: r.x, y: r.y, w: r.width, h: r.height, fill: pal.ph });
     const first = p.photos[0];
@@ -396,7 +409,7 @@ export function profileScreen(env: Env, opts: ProfileOptions = {}): ScreenLayout
       fallback: pal.ph,
     });
   }
-  const anyPhoto = state.posts.some((p) => p.photos.length) || a.grid.length > 0;
+  const anyPhoto = state.posts.some((p) => !p.friend && p.photos.length) || a.grid.length > 0;
   if (!anyPhoto)
     while (count < a.placeholders) {
       const r = cellRect(count++);
@@ -421,17 +434,9 @@ export function profileScreen(env: Env, opts: ProfileOptions = {}): ScreenLayout
   /* ---- 底部分頁列 ---- */
   if (a.nav) {
     const top = gridBottom;
-    ops.push({ t: 'rect', x: 0, y: top, w: W, h: NAV_H, fill: pal.bg });
-    ops.push({ t: 'rect', x: 0, y: top, w: W, h: 1, fill: pal.line });
-    const slot = W / 5;
-    const cy = top + 27;
-    (['home', 'play', 'send', 'search'] as const).forEach((name, i) => {
-      ops.push({ t: 'icon', name, x: slot * (i + 0.5) - 13, y: cy - 13, size: 26, color: pal.ink });
-    });
-    const ax = slot * 4.5;
-    ops.push({ t: 'circle', cx: ax, cy, r: 13 + 3.5, fill: pal.ink });
-    ops.push({ t: 'circle', cx: ax, cy, r: 13 + 2, fill: pal.bg });
-    ops.push(...avatar(pr.avatar, ax, cy, 26, pal));
+    const nav = navBar(env, top, 'profile');
+    ops.push(...nav.ops);
+    hits.push(...nav.hits);
     parts.nav = { x: 0, y: top, width: W, height: NAV_H };
   }
   return {

@@ -10,6 +10,7 @@ import {
   type ExportPanelHandle,
   IconButton,
   ProjectMenu,
+  playbackShortcuts,
   type Shortcut,
   ToolShell,
   useToast,
@@ -205,12 +206,12 @@ export function App() {
         group: S.groupEdit,
         handler: () => historyStep('redo'),
       },
-      {
-        keys: 'space',
-        label: S.playPause,
+      ...playbackShortcuts({
+        toggle: () => screenRef.current?.toggle(),
+        rewind: () => screenRef.current?.rewind(),
         group: S.groupPlay,
-        handler: () => screenRef.current?.toggle(),
-      },
+        labels: { toggle: S.playPause },
+      }),
     ],
     [],
   );

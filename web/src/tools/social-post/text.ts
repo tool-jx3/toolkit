@@ -30,6 +30,8 @@ export interface Run {
   color: string;
   /** 每個字固定的寬度（徽章等）；不給時量字 */
   advance?: number;
+  /** 底線（私訊泡泡裡的 #、@；畫的時候由呼叫端加） */
+  underline?: boolean;
 }
 
 export interface LaidRun extends Run {

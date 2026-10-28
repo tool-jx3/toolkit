@@ -715,6 +715,50 @@ test('預覽：靜態畫面、動畫的時間點、點預覽播放、播完回�
   expect(errors).toEqual([]);
 });
 
+test('預覽：播放中按「回到開頭」或 Home → 暫停並停在第一格（沒有卡片），不會自己再播', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  await setPreview(page, '手機畫面');
+  const still = await pixel(page, ...CARD_POINT);
+  expect(still[0]).toBeGreaterThan(150);
+  const rewind = page.getByRole('button', { name: '回到開頭', exact: true });
+
+  /* 播放中按按鈕 */
+  await page.getByRole('button', { name: '播放訊息跳出來的動畫' }).click();
+  await expect.poll(async () => (await playState(page)).playing).toBe(true);
+  await expect.poll(async () => (await playState(page)).t).toBeGreaterThan(0.3);
+  await rewind.click();
+  await expect.poll(async () => (await playState(page)).playing).toBe(false);
+  expect((await playState(page)).t).toBe(0);
+  await page.waitForTimeout(400);
+  expect((await playState(page)).t).toBe(0);
+  await expect(page.getByRole('button', { name: '播放', exact: true })).toBeVisible();
+  /* 第一格：還沒有卡片 */
+  expect((await pixel(page, ...CARD_POINT))[0]).toBeLessThan(100);
+
+  /* 停在別處（靜態畫面）按 Home → 第一格 */
+  await seek(page, 2.3);
+  expect(near(await pixel(page, ...CARD_POINT), still, 4)).toBe(true);
+  await page.locator('body').click({ position: { x: 5, y: 300 } });
+  await page.keyboard.press('Home');
+  await expect.poll(async () => (await playState(page)).t).toBe(0);
+  expect((await pixel(page, ...CARD_POINT))[0]).toBeLessThan(100);
+
+  /* 播放中按 Home */
+  await page.keyboard.press('Space');
+  await expect.poll(async () => (await playState(page)).playing).toBe(true);
+  await expect.poll(async () => (await playState(page)).t).toBeGreaterThan(0.3);
+  await page.keyboard.press('Home');
+  await expect.poll(async () => (await playState(page)).playing).toBe(false);
+  expect((await playState(page)).t).toBe(0);
+
+  /* 「重播」仍是回到 0 並播放 */
+  await page.getByRole('button', { name: '重播', exact: true }).click();
+  await expect.poll(async () => (await playState(page)).playing).toBe(true);
+  expect(errors).toEqual([]);
+});
+
 /* ---------- 匯出 ---------- */
 
 test('匯出 PNG：手機畫面 1080 × 2340、完整構圖 1200 × 1200，像素與預覽一致（F47、F48、F55）', async ({
