@@ -30,7 +30,9 @@
 [KKumuu](https://github.com/KKumuu) 與
 [utiyoso](https://github.com/utiyoso) 與
 [saturn97v](https://github.com/saturn97v) 與
-[SkyTNT](https://github.com/SkyTNT) 等人製作的網頁小工具與開源專案為靈感來源的 76 個 TRPG 工具合輯（「文字演出產生器」以くま。的工具為靈感，由本 repo 以無塵室方式獨立撰寫；其中三個工具的作者不明），另外連到 JIZURA 字面的原站。所有工具都由本站以共用的框架改寫，只有繁體中文介面。
+[mrflamingchad67](https://github.com/mrflamingchad67) 與
+[ECgear](https://github.com/ECgear) 與
+[SkyTNT](https://github.com/SkyTNT) 等人製作的網頁小工具與開源專案為靈感來源的 77 個 TRPG 工具合輯（「文字演出產生器」以くま。的工具為靈感，由本 repo 以無塵室方式獨立撰寫；其中三個工具的作者不明），另外連到 JIZURA 字面的原站。所有工具都由本站以共用的框架改寫，只有繁體中文介面。
 
 **https://tool-jx3.github.io/toolkit/**
 
@@ -104,6 +106,7 @@
 | [跑團紀錄簿](https://tool-jx3.github.io/toolkit/tools/session-log/) | 記錄玩過的團，整理感想、團報與已通關劇本清單；可匯入試算表或團報文字，每一團都能直接送到團報產生器 |
 | [團報產生器](https://tool-jx3.github.io/toolkit/tools/session-report/) | 填入劇本、KP／PL／PC 與結果，從 17 種範本產生可直接貼到 X 的團報文，能即時預覽、編輯 |
 | [團期行事曆](https://tool-jx3.github.io/toolkit/tools/session-calendar/) | 把場次、準備事項和其他預定排在同一張月曆：台灣的國定假日與補假、拖曳新增多日預定、配色與 CP 色、輸出空檔日期揪團、整月或整年存成 PNG、JSON／iCal 匯出入（可讀 Google 日曆匯出的檔案），一團可以直接送到跑團紀錄簿 |
+| [PDF 壓縮器](https://tool-jx3.github.io/toolkit/tools/pdf-compress/) | 在瀏覽器裡縮小劇本、手冊、角色卡的 PDF：無損整理結構、重新壓縮照片並依解析度縮小，或整頁轉成圖片；可以一次多個檔案、看前後比對、打包成 ZIP，檔案不會上傳 |
 | [角色差分管理器](https://tool-jx3.github.io/toolkit/tools/variant-manager/) | 一次檢查立繪與表情差分、整理好檔名打包成 ZIP，並產生 CCFOLIA 用的 @差分 聊天面板 |
 | [劇本資訊卡片產生器](https://tool-jx3.github.io/toolkit/tools/scenario-cards/) | 把劇本內文裡的場景、探索地點、資料、技能成功等資訊做成卡片，複製成 CCFOLIA／Discord 用的文字或 CCFOLIA 的卡片 JSON |
 | [CCFOLIA 日誌轉換器](https://tool-jx3.github.io/toolkit/tools/log-converter/) | 把 CCFOLIA 匯出的日誌 HTML 轉成小說、時間軸或 CCFOLIA 風格的網頁；可指定旁白、插入插圖、依則數分割檔案，或轉成部落格貼文用的格式；也能匯出 EPUB 電子書 |
@@ -186,6 +189,7 @@ CI（GitHub Actions）在 pull request 與 main 上跑 `npm test`、lint、typec
 | `session-log` | [跑團紀錄簿](https://tool-jx3.github.io/toolkit/tools/session-log/) | [くま。／TRPG WEBツール観測所](https://kumachansteps.github.io/trpg-web-tools/) |
 | `session-report` | [團報產生器](https://tool-jx3.github.io/toolkit/tools/session-report/) | [くま。／TRPG WEBツール観測所](https://kumachansteps.github.io/trpg-web-tools/) |
 | `session-calendar` | [團期行事曆](https://tool-jx3.github.io/toolkit/tools/session-calendar/) | [くま。／卓準備カレンダー](https://kumachansteps.github.io/trpg-web-tools/tools/session-check-calendar/)、[utiyoso/taku_calendar](https://github.com/utiyoso/taku_calendar) |
+| `pdf-compress` | [PDF 壓縮器](https://tool-jx3.github.io/toolkit/tools/pdf-compress/) | [mrflamingchad67/qcompress](https://github.com/mrflamingchad67/qcompress)、[ECgear/wise-pdf](https://github.com/ECgear/wise-pdf) |
 | `coc-typesetter` | [CoC 劇本排版工具](https://tool-jx3.github.io/toolkit/tools/coc-typesetter/) | [scenario-tool-jade.vercel.app](https://scenario-tool-jade.vercel.app/coc-typesetter.html)（作者不明） |
 | `scenario-editor` | [劇本排版台](https://tool-jx3.github.io/toolkit/tools/scenario-editor/) | [sedn14636361/trpg-scenario-editor](https://github.com/sedn14636361/trpg-scenario-editor) |
 | `gif-combiner` | [GIF 接合器](https://tool-jx3.github.io/toolkit/tools/gif-combiner/) | [sotsotssi/GIF-Combiner](https://github.com/sotsotssi/GIF-Combiner) |
