@@ -445,16 +445,25 @@ test('批次加入：Enter 跳欄、留空列不加入、不合法無法確認�
   const d3 = page.getByRole('dialog', { name: '加入 3 張圖片' });
   for (let i = 1; i <= 3; i++)
     await d3.getByRole('spinbutton', { name: `第 ${i} 張的身高` }).fill('170');
-  const seen: string[] = [];
-  const watch = setInterval(() => {
-    void status(page)
-      .textContent({ timeout: 50 })
-      .then((t) => t && seen.push(t))
-      .catch(() => undefined);
-  }, 5);
+  /* 狀態列的每一次變化都在頁面裡記下（不從測試端輪詢：負載重時會漏掉，驗證時找到的偶發失敗） */
+  await page.evaluate(() => {
+    const w = window as unknown as { __statusSeen: string[]; __statusStop: () => void };
+    w.__statusSeen = [];
+    const record = () => {
+      const t = document.querySelector('[data-testid="status-text"]')?.textContent;
+      if (t && w.__statusSeen.at(-1) !== t) w.__statusSeen.push(t);
+    };
+    const mo = new MutationObserver(record);
+    mo.observe(document.body, { subtree: true, childList: true, characterData: true });
+    w.__statusStop = () => mo.disconnect();
+  });
   await d3.getByRole('button', { name: '加入', exact: true }).click();
   await expect.poll(async () => (await chars(page)).length).toBe(5);
-  clearInterval(watch);
+  const seen = await page.evaluate(() => {
+    const w = window as unknown as { __statusSeen: string[]; __statusStop: () => void };
+    w.__statusStop();
+    return w.__statusSeen;
+  });
   expect(seen.some((t) => /第 \d／共 3 張/.test(t))).toBe(true);
   await expect(status(page)).toHaveCount(0);
   expect(errors).toEqual([]);

@@ -58,6 +58,11 @@ export interface SettingsResize {
   maxRatio?: number;
   /** 方向鍵每次（px，預設 16；Shift 四倍） */
   step?: number;
+  /**
+   * 還沒拖過（或按兩下回到預設）時的寬度，CSS 的格線欄寬（預設 `minmax(320px,400px)`，原本的版面）。
+   * height-board 驗證後新增：照原作用 `clamp(320px, 26.4vw, 380px)`。
+   */
+  defaultWidth?: string;
 }
 
 const widthKey = (k: string) => `trpg-toolkit:layout:${k}:settings-width`;
@@ -259,7 +264,9 @@ export function ToolShell({
               settingsResize
                 ? ({
                     '--settings-w':
-                      widthState.width === null ? 'minmax(320px,400px)' : `${widthState.width}px`,
+                      widthState.width === null
+                        ? (settingsResize.defaultWidth ?? 'minmax(320px,400px)')
+                        : `${widthState.width}px`,
                   } as CSSProperties)
                 : undefined
             }

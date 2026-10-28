@@ -6,7 +6,12 @@
  * - 卡片放在照亮處的旁邊、畫面裡放得下的一側：寬畫面依序右、下、左、上；窄畫面（< 768 px）上、下，都放不下時貼著空間大的那一邊
  *   （稍微蓋到照亮處）；寬畫面都放不下時疊在照亮處裡面的右上角。
  * - 導覽中後面的畫面看得到、不能操作（點不到、快捷鍵不作用：焦點留在卡片裡，卡片是 role="dialog"）。
- * - Esc 或「略過」→ onClose('skip')；最後一步的主按鈕 → onClose('done')。視窗大小改變、捲動時重新定位。
+ * - Esc 或「略過」→ onClose('skip')；最後一步的主按鈕 → onClose('done')。
+ * - 視窗大小改變、捲動時重新定位；跨過版面斷點（旋轉、縮放視窗）時工具的版面在 resize 之後才換好，
+ *   所以 resize 後接著幾個畫格（約 0.6 秒）每格再量一次，最後目標不在畫面裡時捲進來；
+ *   目標元素與 body 的大小改變（ResizeObserver）時也再量。
+ * - 關閉後焦點回到開啟前的元素；那個元素不在了、不能聚焦或開啟前焦點在 body 時，交給 `returnFocus()`
+ *   （不給或也沒有就留在 body）。
  * - 「減少動態效果」時照亮處不做移動動畫。
  *
  * ```tsx
@@ -56,6 +61,8 @@ export interface GuidedTourProps {
   step: number;
   onStepChange: (step: number) => void;
   onClose: (reason: 'skip' | 'done') => void;
+  /** 關閉後要聚焦的元素：開啟前焦點所在的元素不在了、不能聚焦或原本在 body 時才用 */
+  returnFocus?: () => HTMLElement | null | undefined;
   labels?: Partial<{
     next: string;
     back: string;
@@ -70,14 +77,19 @@ export const TOUR_PAD = 8;
 /** 照亮處與卡片的間距、卡片與畫面邊緣的距離（px） */
 const GAP = 16;
 const MARGIN = 14;
+/** 視窗大小改變之後繼續每個畫格重新定位的時間（等工具換好版面） */
+const SETTLE_MS = 600;
 
 const isRect = (t: unknown): t is TourRect =>
   !!t && typeof t === 'object' && 'left' in t && 'right' in t && !(t instanceof Element);
 
+const targetElements = (t: TourTarget): Element[] =>
+  !t || isRect(t) ? [] : (Array.isArray(t) ? t : [t]).filter((e): e is Element => !!e);
+
 function resolveRect(t: TourTarget, scroll: boolean): TourRect | null {
   if (!t) return null;
   if (isRect(t)) return t;
-  const els = (Array.isArray(t) ? t : [t]).filter((e): e is Element => !!e);
+  const els = targetElements(t);
   if (!els.length) return null;
   if (scroll) els[0].scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
   const union = () => {
@@ -157,7 +169,31 @@ export function placeTourCard(
 const FOCUSABLE =
   'button:not([disabled]),[href],input,select,textarea,[tabindex]:not([tabindex="-1"])';
 
-export function GuidedTour({ open, steps, step, onStepChange, onClose, labels }: GuidedTourProps) {
+const sameLayout = (
+  a: { spot: TourRect | null; x: number; y: number; side: TourSide } | null,
+  b: { spot: TourRect | null; x: number; y: number; side: TourSide },
+) =>
+  !!a &&
+  a.x === b.x &&
+  a.y === b.y &&
+  a.side === b.side &&
+  (a.spot === b.spot ||
+    (!!a.spot &&
+      !!b.spot &&
+      a.spot.left === b.spot.left &&
+      a.spot.top === b.spot.top &&
+      a.spot.right === b.spot.right &&
+      a.spot.bottom === b.spot.bottom));
+
+export function GuidedTour({
+  open,
+  steps,
+  step,
+  onStepChange,
+  onClose,
+  returnFocus,
+  labels,
+}: GuidedTourProps) {
   const titleId = useId();
   const bodyId = useId();
   const card = useRef<HTMLDivElement>(null);
@@ -179,12 +215,24 @@ export function GuidedTour({ open, steps, step, onStepChange, onClose, labels }:
     ...labels,
   };
 
+  /** 目前照亮的元素（大小改變時再量） */
+  const watched = useRef<Element[]>([]);
+  const observer = useRef<ResizeObserver | null>(null);
+
   /* 定位：照亮處＋卡片（換步驟時先把目標捲進畫面） */
   const place = (scroll: boolean) => {
     if (!cur) return;
     const vw = document.documentElement.clientWidth;
     const vh = document.documentElement.clientHeight;
-    const r = resolveRect(cur.target(), scroll);
+    const target = cur.target();
+    const els = targetElements(target);
+    if (els.length !== watched.current.length || els.some((e, i) => e !== watched.current[i])) {
+      const ro = observer.current;
+      for (const e of watched.current) ro?.unobserve(e);
+      for (const e of els) ro?.observe(e);
+      watched.current = els;
+    }
+    const r = resolveRect(target, scroll);
     const spot = r
       ? {
           left: Math.max(2, r.left - TOUR_PAD),
@@ -198,7 +246,8 @@ export function GuidedTour({ open, steps, step, onStepChange, onClose, labels }:
     const p = spot
       ? placeTourCard(spot, size, { width: vw, height: vh }, vw < 768)
       : { x: (vw - size.width) / 2, y: (vh - size.height) / 2, side: 'inside' as const };
-    setLayout({ spot, x: p.x, y: p.y, side: p.side });
+    const next = { spot, x: p.x, y: p.y, side: p.side };
+    setLayout((old) => (sameLayout(old, next) ? old : next));
   };
   const placeRef = useRef(place);
   placeRef.current = place;
@@ -218,12 +267,71 @@ export function GuidedTour({ open, steps, step, onStepChange, onClose, labels }:
   useEffect(() => {
     if (!open) return;
     const again = () => placeRef.current(false);
-    window.addEventListener('resize', again);
+    /* 視窗大小改變：工具的版面（媒體查詢）在 resize 之後才換，接著幾個畫格每格再量一次 */
+    let raf = 0;
+    let until = 0;
+    const tick = () => {
+      raf = 0;
+      if (performance.now() < until) {
+        again();
+        raf = requestAnimationFrame(tick);
+      } else {
+        /* 版面穩定了：目標被換到畫面外時捲回畫面裡（例如手機轉成橫向） */
+        placeRef.current(true);
+      }
+    };
+    const onResize = () => {
+      again();
+      until = performance.now() + SETTLE_MS;
+      if (!raf) raf = requestAnimationFrame(tick);
+    };
+    let frame = 0;
+    const onLayout = () => {
+      if (!frame)
+        frame = requestAnimationFrame(() => {
+          frame = 0;
+          again();
+        });
+    };
+    const ro = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(onLayout);
+    observer.current = ro;
+    ro?.observe(document.body);
+    for (const e of watched.current) ro?.observe(e);
+    window.addEventListener('resize', onResize);
     window.addEventListener('scroll', again, true);
     return () => {
-      window.removeEventListener('resize', again);
+      cancelAnimationFrame(raf);
+      cancelAnimationFrame(frame);
+      ro?.disconnect();
+      observer.current = null;
+      watched.current = [];
+      window.removeEventListener('resize', onResize);
       window.removeEventListener('scroll', again, true);
     };
+  }, [open]);
+
+  /* 關閉後焦點回到開啟前的元素（見檔頭）。開啟時記下，從開著變成關著時還回去（卡片這時已經拿掉） */
+  const returnFocusRef = useRef(returnFocus);
+  returnFocusRef.current = returnFocus;
+  const focusBefore = useRef<Element | null>(null);
+  const wasOpen = useRef(false);
+  useLayoutEffect(() => {
+    if (open && !wasOpen.current) focusBefore.current = document.activeElement;
+    if (!open && wasOpen.current) {
+      const before = focusBefore.current;
+      focusBefore.current = null;
+      const now = document.activeElement;
+      /* 工具自己把焦點移到別處時不搶 */
+      if (!now || now === document.body || !now.isConnected) {
+        const tryFocus = (el: Element | null | undefined) => {
+          if (!(el instanceof HTMLElement) || !el.isConnected || el === document.body) return false;
+          el.focus({ preventScroll: true });
+          return document.activeElement === el;
+        };
+        if (!tryFocus(before)) tryFocus(returnFocusRef.current?.());
+      }
+    }
+    wasOpen.current = open;
   }, [open]);
 
   /* 焦點：開啟時、換步驟後焦點不在卡片上（例如「上一步」消失了）時，移到主按鈕 */

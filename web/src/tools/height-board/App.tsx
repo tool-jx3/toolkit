@@ -143,6 +143,8 @@ import {
   disableAutosave,
   flushAutosave,
   getBitmapVersion,
+  isUnreadable,
+  markUnreadable,
   PROJECT_VERSION,
   prepareImage,
   requestBitmap,
@@ -172,6 +174,19 @@ const THUMB_SIZE = { width: 42, height: 58 };
 
 /** 清單長按多久開始排序（觸控；原作 400 ms） */
 const LIST_LONG_PRESS_MS = 400;
+/** 設定欄還沒拖過時的寬度（F68，驗證後跟進原作：1280 px 寬時 338 px） */
+const SETTINGS_DEFAULT_WIDTH = 'clamp(320px, 26.4vw, 380px)';
+/**
+ * 觸控螢幕（pointer: coarse；F82，驗證後新增）：輸入欄 16 px（iOS 聚焦時不會放大畫面）；清單的身高欄與眼睛鈕、
+ * 面板的分頁 44 px，滑桿把手 24 px（WCAG 2.2 的最小目標）。滑鼠操作的畫面不變。
+ */
+const COARSE_TOUCH = cn(
+  '[@media(pointer:coarse)]:[&_input]:text-[16px]',
+  '[@media(pointer:coarse)]:[&_[data-layer-row]_input]:h-11',
+  '[@media(pointer:coarse)]:[&_[data-layer-row]_button[aria-pressed]]:size-11',
+  '[@media(pointer:coarse)]:[&_[role=tab]]:min-h-11',
+  '[@media(pointer:coarse)]:[&_[role=slider]]:size-6',
+);
 
 /**
  * 面板的版面（原作 2026-10 更新）：
@@ -328,16 +343,28 @@ function afterDialogs(fn: () => void) {
   requestAnimationFrame(tick);
 }
 
-/** 開頁時只做一次：還原（略過圖片不見的角色）、清空復原紀錄、清掉沒人用的圖（呼叫第二次時回傳同一個 Promise） */
+/**
+ * 開頁時只做一次：還原、清空復原紀錄、清掉沒人用的圖（呼叫第二次時回傳同一個 Promise）。
+ * 圖片讀不到的角色留在盤面資料裡、標成讀不到（D8，驗證後修正：原本略過，自動保存就把它們洗掉了）。
+ */
 let restoring: Promise<void> | null = null;
-function restoreOnce(onMissing: (n: number) => void): Promise<void> {
-  restoring ??= restoreNow(onMissing);
+function restoreOnce(): Promise<void> {
+  restoring ??= restoreNow();
   return restoring;
 }
+/** 圖片讀得到的角色（存成專案檔、匯出 PNG 只用這些；讀不到的見 D8） */
+const readableBoard = (): Character[] => board().filter((c) => !isUnreadable(c.imageId));
+/** 存成專案檔的內容：讀不到圖片的角色不放進去（沒有圖檔，開回來也是缺的） */
+function projectData(): BoardData {
+  const data = useBoard.getState().data;
+  const list = data.characters.filter((c) => !isUnreadable(c.imageId));
+  return list.length === data.characters.length ? data : { ...data, characters: list };
+}
+
 /** 開頁時自動開始導覽的檢查只做一次 */
 let autoTourChecked = false;
 
-async function restoreNow(onMissing: (n: number) => void): Promise<void> {
+async function restoreNow(): Promise<void> {
   const t = useBoard.temporal.getState();
   const current = useBoard.getState().data;
   const clean = sanitizeBoard(current) ?? EMPTY_BOARD;
@@ -347,18 +374,9 @@ async function restoreNow(onMissing: (n: number) => void): Promise<void> {
     t.resume();
   }
   const ids = [...new Set(clean.characters.map((c) => c.imageId))];
+  /* 資料庫打不開時全部算讀不到（這次開頁不重試；資料留著，下次開頁讀得到就回來） */
   const { missing } = await assets.preload(ids).catch(() => ({ missing: ids }));
-  if (missing.length) {
-    const gone = new Set(missing);
-    const before = board();
-    const after = before.filter((c) => !gone.has(c.imageId));
-    if (after.length !== before.length) {
-      t.pause();
-      setCharacters(after);
-      t.resume();
-      onMissing(before.length - after.length);
-    }
-  }
+  markUnreadable(missing);
   useBoard.temporal.getState().clear();
   await collectGarbage();
 }
@@ -423,7 +441,7 @@ export function App() {
   /** 畫面上的選取（導覽中是練習用盤面的那一位） */
   const activeId = tour ? tour.practice.selectedId : selectedId;
 
-  const toast: Toast = (o) => toastRef.current?.(o);
+  const toast: Toast = (o) => toastRef.current?.(o) ?? (() => {});
   const confirm = (o: ConfirmOptions) => confirmRef.current?.(o) ?? Promise.resolve(false);
 
   const selected = chars.find((c) => c.id === activeId) ?? null;
@@ -721,19 +739,35 @@ export function App() {
   };
 
   /**
-   * 通知上的「復原」（刪除之後；原作 2026-10 更新：觸控螢幕沒有 Ctrl＋Z）。之後又有別的變更時不復原，
-   * 改提示用工具列的「復原」（不會退掉別的操作）。
+   * 「已刪除」通知上的「取消刪除」（F79；原作 2026-10 更新：觸控螢幕沒有 Ctrl＋Z）。
+   * 像原作：之後有任何變更或復原就關掉這則通知，按鈕只在刪除後還沒動過時有效（驗證後改：原本留著並提示用工具列的「復原」）。
    */
-  const undoAction = () => {
+  const undoToast = useRef<{ dismiss: () => void; after: BoardData } | null>(null);
+  useEffect(
+    () =>
+      useBoard.subscribe((st) => {
+        const u = undoToast.current;
+        if (!u || st.data === u.after) return;
+        undoToast.current = null;
+        u.dismiss();
+      }),
+    [],
+  );
+  const deletedToast = (title: string) => {
     const after = useBoard.getState().data;
-    return {
-      label: S.undoDelete,
-      altText: S.undoAlt,
-      onClick: () => {
-        if (useBoard.getState().data === after) undo();
-        else toast({ title: S.undoStale, tone: 'warning' });
+    undoToast.current?.dismiss();
+    const dismiss = toast({
+      title,
+      duration: 6000,
+      action: {
+        label: S.undoDelete,
+        altText: S.undoAlt,
+        onClick: () => {
+          if (useBoard.getState().data === after) undo();
+        },
       },
-    };
+    });
+    undoToast.current = { dismiss, after };
   };
 
   const remove = () => {
@@ -741,7 +775,7 @@ export function App() {
     useBoard.endGesture();
     setCharacters(board().filter((c) => c.id !== selected.id));
     setSelectedId(null);
-    toast({ title: S.deleted(selected.name), duration: 6000, action: undoAction() });
+    deletedToast(S.deleted(selected.name));
   };
 
   const reorder = (move: OrderMove) => {
@@ -891,31 +925,51 @@ export function App() {
   };
 
   const onProjectNotice = (n: ProjectNotice) => {
-    if (n.kind === 'saved')
-      toast({ title: '已存成專案檔', description: n.fileName, tone: 'success' });
+    if (n.kind === 'saved') savedToast(n.fileName ?? '');
     else if (n.kind === 'opened')
       toast({ title: S.projectOpened, description: n.fileName, tone: 'success' });
     else if (n.kind === 'open-failed')
       toast({ title: S.projectOpenFailed, description: n.message, tone: 'danger' });
-    else toast({ title: S.deletedAll, duration: 6000, action: undoAction() });
+    else deletedToast(S.deletedAll);
   };
+
+  /** 存好專案檔的通知；有角色因為圖片讀不到沒存進去時改成警告並說明 */
+  const savedToast = (fileName: string) => {
+    const skipped = board().length - readableBoard().length;
+    toast(
+      skipped
+        ? {
+            title: '已存成專案檔',
+            description: fileName
+              ? `${fileName}　${S.savedSkipped(skipped)}`
+              : S.savedSkipped(skipped),
+            tone: 'warning',
+          }
+        : { title: '已存成專案檔', description: fileName, tone: 'success' },
+    );
+  };
+  /** 存檔前的檢查：沒有角色，或角色的圖片都讀不到 */
+  const saveBlocked = () =>
+    !board().length ? S.noCharacters : readableBoard().length ? null : S.saveAllUnreadable;
 
   /** 存成專案檔（自動保存無法使用時的提示上的按鈕；內容同「專案 → 存成專案檔」） */
   const saveProjectNow = async () => {
-    if (!board().length) {
-      toast({ title: S.noCharacters, tone: 'warning' });
+    const blocked = saveBlocked();
+    if (blocked) {
+      toast({ title: blocked, tone: 'warning' });
       return;
     }
     try {
       const now = new Date();
-      const files = await assets.exportFiles(board().map((c) => c.imageId));
+      const data = projectData();
+      const files = await assets.exportFiles(data.characters.map((c) => c.imageId));
       const name = `${fileStamp(now)}.zip`;
       downloadBytes(
-        serializeProjectZip(TOOL_ID, PROJECT_VERSION, useBoard.getState().data, files, now),
+        serializeProjectZip(TOOL_ID, PROJECT_VERSION, data, files, now),
         name,
         'application/zip',
       );
-      toast({ title: '已存成專案檔', description: name, tone: 'success' });
+      savedToast(name);
     } catch (e) {
       toast({
         title: '無法存成專案檔',
@@ -934,20 +988,28 @@ export function App() {
       toast({ title: S.noCharacters, tone: 'warning' });
       return;
     }
-    const layout = exportLayout(list);
-    if (!layout) {
+    if (!exportLayout(list)) {
       toast({ title: S.exportAllHidden, tone: 'warning' });
       return;
     }
     setExporting(true);
     try {
+      /* 圖片讀不到的角色不放進圖裡（D8），通知裡說明 */
       const images = new Map<string, ImageBitmap>();
+      const lost = new Set<string>();
       for (const c of list) {
-        if (!c.visible || images.has(c.imageId)) continue;
-        const bmp = await assets.bitmap(c.imageId);
-        if (!bmp) throw new Error('missing image');
-        images.set(c.imageId, bmp);
+        if (!c.visible || images.has(c.imageId) || lost.has(c.imageId)) continue;
+        const bmp = isUnreadable(c.imageId)
+          ? undefined
+          : await assets.bitmap(c.imageId).catch(() => undefined);
+        if (bmp) images.set(c.imageId, bmp);
+        else lost.add(c.imageId);
       }
+      if (lost.size) markUnreadable(lost);
+      const use = lost.size ? list.filter((c) => !lost.has(c.imageId)) : list;
+      const skipped = list.filter((c) => c.visible && lost.has(c.imageId)).length;
+      const layout = exportLayout(use);
+      if (!layout) throw new Error(S.exportAllUnreadable);
       /* 刻度數字用介面字型（頁面通常已經載入；還沒有時才等） */
       const ready = (w: number) =>
         typeof document === 'undefined' ||
@@ -960,7 +1022,7 @@ export function App() {
         ]).catch(() => undefined);
       let blob: Blob;
       try {
-        const canvas = renderExport(list, layout, (id) => images.get(id));
+        const canvas = renderExport(use, layout, (id) => images.get(id));
         blob = await canvasToBlob(canvas, 'image/png');
         canvas.width = 0;
         canvas.height = 0;
@@ -970,7 +1032,15 @@ export function App() {
       }
       downloadBlob(blob, exportFileName(new Date()));
       /* PNG 不能再開回盤面：提醒要保留就存成專案檔（原作 2026-10 更新） */
-      toast({ title: S.exported, description: S.exportedNote, tone: 'success' });
+      toast(
+        skipped
+          ? {
+              title: S.exported,
+              description: `${S.exportSkipped(skipped)}${S.exportedNote}`,
+              tone: 'warning',
+            }
+          : { title: S.exported, description: S.exportedNote, tone: 'success' },
+      );
     } catch (e) {
       toast({
         title: S.exportFailed,
@@ -986,10 +1056,20 @@ export function App() {
 
   /* ---------- 操作導覽（原作 2026-10 更新） ---------- */
 
-  const startTour = async () => {
+  /**
+   * 導覽結束後焦點的去處（GuidedTour 先試開始前的元素）：從空盤面的「看操作導覽」開始的，那顆按鈕在導覽中
+   * 會被練習用盤面換掉、結束後重新出現，回到新的那一顆；其他（例如自動開始，焦點原本在 body）交給「選擇圖片…」。
+   */
+  const tourFromEmpty = useRef(false);
+  const tourReturnFocus = () =>
+    (tourFromEmpty.current
+      ? document.querySelector<HTMLElement>('[data-tour-start="empty"]')
+      : null) ?? document.querySelector<HTMLElement>('[data-tour="add"]');
+  /** auto：開頁時自動開始（忙著時像原作不打擾、不提示；手動開始時才提示，驗證後改） */
+  const startTour = async (auto = false) => {
     if (latest.current.tour) return;
     if (latest.current.pending || latest.current.busy) {
-      toast({ title: S.tourBusy, tone: 'warning' });
+      if (!auto) toast({ title: S.tourBusy, tone: 'warning' });
       return;
     }
     let practice: Practice;
@@ -1004,6 +1084,7 @@ export function App() {
       return;
     }
     markTourSeen();
+    tourFromEmpty.current = !!document.activeElement?.closest('[data-tour-start="empty"]');
     useBoard.endGesture();
     const v = vp.current?.getView();
     tourSaved.current = {
@@ -1047,21 +1128,19 @@ export function App() {
   /* 開頁還原（F48）；第一次開（這個瀏覽器沒看過、盤面是空的）時自動開始導覽 */
   // biome-ignore lint/correctness/useExhaustiveDependencies: 只在開頁時做一次
   useEffect(() => {
-    void restoreOnce((n) => setMessage({ tone: 'warning', text: S.restoredMissing(n) })).then(
-      () => {
-        if (autoTourChecked) return;
-        autoTourChecked = true;
-        if (tourSeen()) return;
-        /* 以前用過（自動保存還原了角色）：不打擾，記成看過 */
-        if (board().length) {
-          markTourSeen();
-          return;
-        }
-        /* 記不住「看過了」的環境（例如封鎖了網站資料）每次開頁都會跳出來：不自動開 */
-        if (!markTourSeen()) return;
-        void startTour();
-      },
-    );
+    void restoreOnce().then(() => {
+      if (autoTourChecked) return;
+      autoTourChecked = true;
+      if (tourSeen()) return;
+      /* 以前用過（自動保存還原了角色）：不打擾，記成看過 */
+      if (board().length) {
+        markTourSeen();
+        return;
+      }
+      /* 記不住「看過了」的環境（例如封鎖了網站資料）每次開頁都會跳出來：不自動開 */
+      if (!markTourSeen()) return;
+      void startTour(true);
+    });
   }, []);
 
   useEffect(() => {
@@ -1249,6 +1328,11 @@ export function App() {
           {S.deleteOne}
         </Button>
       </div>
+      {!tour && isUnreadable(selected.imageId) ? (
+        <p className="m-0 text-xs text-muted" data-testid="missing-image-hint">
+          {S.missingImageHint}
+        </p>
+      ) : null}
       <Field label={S.order}>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           <Button size="sm" icon={<ArrowDownToLine />} onClick={() => reorder('back')}>
@@ -1283,47 +1367,50 @@ export function App() {
   /** 清單：篩選列＋清單（三種版面共用） */
   const listBody = (
     <div className="flex flex-col gap-3">
-      <div className="flex items-center gap-1">
-        <div className="relative flex min-w-0 flex-1 items-center">
-          <Search aria-hidden className="pointer-events-none absolute left-2 size-4 text-muted" />
-          <TextInput
-            aria-label={S.searchLabel}
-            placeholder={S.search}
-            value={query}
-            autoComplete="off"
-            onChange={(e) => setQuery(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key !== 'Escape' || e.nativeEvent.isComposing) return;
-              e.preventDefault();
-              if (query) setQuery('');
-              else e.currentTarget.blur();
-            }}
-            className="w-full pr-8 pl-8"
-          />
-          {query ? (
-            <IconButton
-              size="sm"
-              variant="ghost"
-              label={S.clearSearch}
-              icon={<X />}
-              className="absolute right-0.5"
-              onClick={() => setQuery('')}
+      {/* 盤面是空的時不顯示篩選列（用不到；原作同樣隱藏，驗證後跟進） */}
+      {chars.length ? (
+        <div className="flex items-center gap-1" data-testid="list-tools">
+          <div className="relative flex min-w-0 flex-1 items-center">
+            <Search aria-hidden className="pointer-events-none absolute left-2 size-4 text-muted" />
+            <TextInput
+              aria-label={S.searchLabel}
+              placeholder={S.search}
+              value={query}
+              autoComplete="off"
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key !== 'Escape' || e.nativeEvent.isComposing) return;
+                e.preventDefault();
+                if (query) setQuery('');
+                else e.currentTarget.blur();
+              }}
+              className="w-full pr-8 pl-8"
             />
-          ) : null}
+            {query ? (
+              <IconButton
+                size="sm"
+                variant="ghost"
+                label={S.clearSearch}
+                icon={<X />}
+                className="absolute right-0.5"
+                onClick={() => setQuery('')}
+              />
+            ) : null}
+          </div>
+          <IconButton
+            label={S.visibleOnly}
+            icon={<Eye />}
+            pressed={visibleOnly}
+            onClick={() => setVisibleOnly(!visibleOnly)}
+          />
+          <IconButton
+            label={S.compact}
+            icon={<Rows3 />}
+            pressed={compact}
+            onClick={() => setCompact(!compact)}
+          />
         </div>
-        <IconButton
-          label={S.visibleOnly}
-          icon={<Eye />}
-          pressed={visibleOnly}
-          onClick={() => setVisibleOnly(!visibleOnly)}
-        />
-        <IconButton
-          label={S.compact}
-          icon={<Rows3 />}
-          pressed={compact}
-          onClick={() => setCompact(!compact)}
-        />
-      </div>
+      ) : null}
       <div
         ref={listBox}
         className="max-h-[min(52dvh,520px)] overflow-y-auto"
@@ -1342,6 +1429,7 @@ export function App() {
             id: c.id,
             name: c.name,
             thumbnail: thumbnailOf(c.imageId, c.crop),
+            meta: tour || !isUnreadable(c.imageId) ? undefined : S.missingImage,
             visible: c.visible,
             value: c.height,
           }))}
@@ -1533,12 +1621,18 @@ export function App() {
     );
   }
 
+  /* 圖片讀不到的角色（D8）：沒有別的訊息時一直提示，換掉圖片或刪掉之後消失 */
+  const unreadableCount = tour ? 0 : stored.filter((c) => isUnreadable(c.imageId)).length;
+  /* 拖進來的專案檔讀取中（圖多的盤面要幾秒；像原作顯示進行中，驗證後新增） */
   const status: Message | null = progress
     ? { tone: 'progress', text: S.adding(progress.i, progress.n) }
-    : message;
+    : opening
+      ? { tone: 'progress', text: S.openingFile }
+      : (message ??
+        (unreadableCount ? { tone: 'warning', text: S.unreadableNotice(unreadableCount) } : null));
 
   const preview = (
-    <div className="flex flex-col gap-2">
+    <div className={cn('flex flex-col gap-2', COARSE_TOUCH)}>
       <UiBridge api={toastRef} confirmApi={confirmRef} />
       <div
         role="toolbar"
@@ -1641,6 +1735,7 @@ export function App() {
               hoverId,
               dragLine,
               image: requestBitmap,
+              missing: isUnreadable,
               lineTargets: tour?.step === 3 ? tour.practice.targets : null,
             });
             if (!tour) noticeSlow(performance.now() - t0, items.length);
@@ -1690,7 +1785,12 @@ export function App() {
                 >
                   {S.emptyAdd}
                 </Button>
-                <Button size="sm" icon={<Compass />} onClick={() => void startTour()}>
+                <Button
+                  size="sm"
+                  icon={<Compass />}
+                  onClick={() => void startTour()}
+                  data-tour-start="empty"
+                >
                   {S.tourOpen}
                 </Button>
               </div>
@@ -1783,10 +1883,10 @@ export function App() {
     <ProjectMenu<BoardData>
       toolId={TOOL_ID}
       version={PROJECT_VERSION}
-      getData={() => useBoard.getState().data}
-      getFiles={() => assets.exportFiles(board().map((c) => c.imageId))}
+      getData={projectData}
+      getFiles={() => assets.exportFiles(projectData().characters.map((c) => c.imageId))}
       fileNameFor={fileStamp}
-      beforeSave={() => (board().length ? null : S.noCharacters)}
+      beforeSave={saveBlocked}
       confirmOpen={() =>
         board().length
           ? {
@@ -1833,9 +1933,9 @@ export function App() {
         usage={<Usage inDialog onTour={() => afterDialogs(() => void startTour())} />}
         shortcuts={tour ? [] : shortcuts}
         headerActions={headerActions}
-        settings={settings}
+        settings={<div className={cn('contents', COARSE_TOUCH)}>{settings}</div>}
         preview={preview}
-        settingsResize={{ persistKey: TOOL_ID }}
+        settingsResize={{ persistKey: TOOL_ID, defaultWidth: SETTINGS_DEFAULT_WIDTH }}
       />
       <WindowDrop
         disabled={!!pending || opening || !!tour}
@@ -1859,6 +1959,7 @@ export function App() {
         step={tour?.step ?? 0}
         onStepChange={(step) => setTour((t) => (t ? { ...t, step } : t))}
         onClose={endTour}
+        returnFocus={tourReturnFocus}
         labels={{ next: S.tourNext, back: S.tourBack, skip: S.tourSkip, done: S.tourDone }}
       />
       {pending && pending.files.length === 1 ? (

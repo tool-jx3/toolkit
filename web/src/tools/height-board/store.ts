@@ -171,26 +171,62 @@ const loading = new Set<string>();
 /** 不存進資產庫的圖（操作導覽的練習用人形）：只在記憶體裡 */
 const transient = new Map<string, ImageBitmap>();
 
-export function setTransientBitmap(id: string, bmp: ImageBitmap): void {
-  transient.set(id, bmp);
+const notifyBitmaps = () => {
   bitmapVersion++;
   for (const f of bitmapListeners) f();
+};
+
+export function setTransientBitmap(id: string, bmp: ImageBitmap): void {
+  transient.set(id, bmp);
+  notifyBitmaps();
 }
 
-/** 要畫某張圖：還沒解碼就開始解碼，好了通知重畫 */
+/**
+ * 讀不到的圖（開頁時資料庫裡沒有、資料庫暫時打不開，或解碼失敗）：角色照樣留在盤面資料裡（自動保存不會把它們洗掉），
+ * 盤面上畫成「圖片讀不到」的框、清單標示出來；這次開頁不再重讀（避免一直重試），下次開頁讀得到就回來。
+ * 之後同一張圖讀得到了（加入同一個檔、開啟含這張圖的專案檔）就自動恢復（驗證後修正，見規格 D8）。
+ */
+const unreadable = new Set<string>();
+
+/** 記下讀不到的圖（開頁還原時 preload 找不到的） */
+export function markUnreadable(ids: Iterable<string>): void {
+  let changed = false;
+  for (const id of ids) {
+    if (transient.has(id) || assets.peekBitmap(id) || unreadable.has(id)) continue;
+    unreadable.add(id);
+    changed = true;
+  }
+  if (changed) notifyBitmaps();
+}
+
+/** 這張圖讀不到（讀得到之後自動恢復） */
+export function isUnreadable(id: string): boolean {
+  if (!unreadable.has(id)) return false;
+  if (transient.has(id) || assets.peekBitmap(id)) {
+    unreadable.delete(id);
+    return false;
+  }
+  return true;
+}
+
+/** 要畫某張圖：還沒解碼就開始解碼，好了通知重畫；讀不到的圖不重讀 */
 export function requestBitmap(id: string): ImageBitmap | undefined {
   const temp = transient.get(id);
   if (temp) return temp;
   const hit = assets.peekBitmap(id);
-  if (hit || loading.has(id)) return hit;
+  if (hit) {
+    unreadable.delete(id);
+    return hit;
+  }
+  if (loading.has(id) || unreadable.has(id)) return undefined;
   loading.add(id);
   assets
     .bitmap(id)
     .catch(() => undefined)
-    .finally(() => {
+    .then((bmp) => {
       loading.delete(id);
-      bitmapVersion++;
-      for (const f of bitmapListeners) f();
+      if (!bmp) unreadable.add(id);
+      notifyBitmaps();
     });
   return undefined;
 }

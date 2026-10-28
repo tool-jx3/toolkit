@@ -30,6 +30,8 @@ export interface BoardScene {
   /** 正在拖的基準線 */
   dragLine: LineKind | null;
   image: (id: string) => CanvasImageSource | undefined;
+  /** 讀不到的圖（畫成「圖片讀不到」的框；見規格 D8） */
+  missing?: (id: string) => boolean;
   /**
    * 操作導覽第 4 步：選取的角色要對齊的位置（%）。畫成虛線，並從目前的線畫箭頭指過去（線已經對齊時不畫箭頭）。
    */
@@ -55,7 +57,14 @@ const COLORS = {
   line: '#e53935',
   lineActive: '#9f1d1a',
   tagText: '#ffffff',
+  /** 讀不到的圖：淺灰底、灰色虛線框、深灰字（字與底 7:1 以上） */
+  missingFill: '#f4f4f5',
+  missingLine: '#a1a1aa',
+  missingText: '#52525b',
 };
+
+/** 讀不到的圖的框上的字 */
+export const MISSING_LABEL = '圖片讀不到';
 
 const UI_FONT = FALLBACK_STACK;
 
@@ -155,7 +164,10 @@ export function drawBoard(ctx: CanvasRenderingContext2D, v: PanZoomView, scene: 
   ctx.imageSmoothingQuality = 'medium';
   for (const it of scene.items) {
     const img = scene.image(it.c.imageId);
-    if (!img) continue;
+    if (!img) {
+      if (scene.missing?.(it.c.imageId)) drawMissing(ctx, v, it);
+      continue;
+    }
     const p = v.toScreen(it.box.x, it.box.y);
     const { crop } = it.c;
     ctx.drawImage(
@@ -222,6 +234,34 @@ export function drawBoard(ctx: CanvasRenderingContext2D, v: PanZoomView, scene: 
     ctx.fillStyle = COLORS.tagText;
     ctx.fillText(h.kind === 'top' ? '頭頂' : '腳底', h.tag.x + h.tag.width / 2, h.y + 0.5);
   }
+}
+
+/** 讀不到的圖：在角色的範圍畫淺灰底＋虛線框，中間寫「圖片讀不到」（框太小時只畫框） */
+function drawMissing(ctx: CanvasRenderingContext2D, v: PanZoomView, it: BoardItem) {
+  const p = v.toScreen(it.box.x, it.box.y);
+  const w = it.box.width * v.scale;
+  const h = it.box.height * v.scale;
+  ctx.save();
+  ctx.fillStyle = COLORS.missingFill;
+  ctx.fillRect(p.x, p.y, w, h);
+  ctx.setLineDash([4, 3]);
+  ctx.strokeStyle = COLORS.missingLine;
+  ctx.lineWidth = 1;
+  ctx.strokeRect(
+    Math.round(p.x) + 0.5,
+    Math.round(p.y) + 0.5,
+    Math.round(w) - 1,
+    Math.round(h) - 1,
+  );
+  const px = Math.min(13, (w - 8) / MISSING_LABEL.length);
+  if (px >= 8 && h >= px + 6) {
+    ctx.fillStyle = COLORS.missingText;
+    ctx.font = `500 ${px}px ${UI_FONT}`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(MISSING_LABEL, p.x + w / 2, p.y + h / 2);
+  }
+  ctx.restore();
 }
 
 /** 操作導覽：要對齊的位置畫成虛線，從目前的線（標籤旁）畫箭頭指過去 */

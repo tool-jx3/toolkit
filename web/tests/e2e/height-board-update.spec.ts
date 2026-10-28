@@ -7,9 +7,11 @@
  * - 原作的 .hboard：拖到盤面開啟、從「專案」開啟、損壞與版本；
  * - 不是圖片的檔案提示檔名、批次對話框的「會加入 n 位」；
  * - 桌面：設定欄寬度拖曳（記住、按兩下回預設、方向鍵）、「選取的角色」收合（標題帶名稱、記住）；
- * - 名稱 NFC、篩選 NFKC。
+ * - 名稱 NFC、篩選 NFKC；空盤面不顯示篩選列（F83）；拖進專案檔時顯示讀取中（F84）；
+ * - 開頁時圖片讀不到（資料庫少一張圖、資料庫暫時打不開）：角色留著、標示並提示，下次開頁讀得到就回來（D8，驗證後修正）。
  */
 import { type CDPSession, expect, type Page, test } from '@playwright/test';
+import { strFromU8, unzipSync } from 'fflate';
 import { encodePng } from '../../src/core/encode/png';
 import { getTool, outputDir } from '../../src/registry';
 import type { BoardData, Geometry } from '../../src/tools/height-board/logic';
@@ -473,10 +475,28 @@ test('原作的 .hboard：拖到盤面開啟（確認、取代、復原清空）
   const at = await canvas(page).boundingBox();
   if (!at) throw new Error('no canvas');
   const center = { x: at.x + at.width / 2, y: at.y + at.height / 2 };
+  /* 讀取中狀態列顯示「讀取專案檔中…」（F84）：在頁面裡記下狀態列的每一次變化 */
+  await page.evaluate(() => {
+    const w = window as unknown as { __statusSeen: string[]; __statusStop: () => void };
+    w.__statusSeen = [];
+    const mo = new MutationObserver(() => {
+      const t = document.querySelector('[data-testid="status-text"]')?.textContent;
+      if (t && w.__statusSeen.at(-1) !== t) w.__statusSeen.push(t);
+    });
+    mo.observe(document.body, { subtree: true, childList: true, characterData: true });
+    w.__statusStop = () => mo.disconnect();
+  });
   await dropFiles(page, center, [
     { name: '盤面.hboard', type: '', base64: good.toString('base64') },
   ]);
   await expect.poll(async () => (await chars(page)).length).toBe(3);
+  const seen = await page.evaluate(() => {
+    const w = window as unknown as { __statusSeen: string[]; __statusStop: () => void };
+    w.__statusStop();
+    return w.__statusSeen;
+  });
+  expect(seen).toContain('讀取專案檔中…');
+  await expect(page.getByTestId('status-text')).toHaveCount(0);
   let list1 = await chars(page);
   /* 依 z 由後往前；身高、位置夾到範圍；兩條線換成 %；隱藏 */
   expect(list1.map((c) => c.name)).toEqual(['後面', '藏起來', '前面']);
@@ -566,6 +586,8 @@ test('桌面：設定欄寬度拖曳（記住、按兩下回預設、方向鍵�
   await addMany(page, [file('A.png', await imgA())], [160]);
   const aside = page.getByRole('complementary', { name: '設定' });
   const w0 = (await aside.boundingBox())?.width ?? 0;
+  /* 預設寬度照原作 clamp(320px, 26.4vw, 380px)：1280 寬時 338 px（F68，驗證後跟進） */
+  expect(w0).toBeCloseTo(338, 0);
   const sep = page.getByTestId('settings-splitter');
   const s = await sep.boundingBox();
   if (!s) throw new Error('no splitter');
@@ -621,5 +643,146 @@ test('名稱：檔名合成成 NFC；篩選不分半形全形（NFKC）', async 
   await search.fill('abc');
   await expect(rows(page)).toHaveCount(1);
   await expect(rows(page).nth(0)).toContainText('ＡＢＣ');
+  expect(errors).toEqual([]);
+});
+
+test('盤面是空的時不顯示清單的篩選列（F83）', async ({ page }) => {
+  const errors = await open(page);
+  await expect(page.getByTestId('list-tools')).toHaveCount(0);
+  await expect(page.getByRole('textbox', { name: '依名稱篩選角色' })).toHaveCount(0);
+  await addMany(page, [file('A.png', await imgA())], [160]);
+  await expect(page.getByTestId('list-tools')).toBeVisible();
+  await rows(page).nth(0).click();
+  await btn(page, '刪除').click();
+  await expect(page.getByTestId('list-tools')).toHaveCount(0);
+  expect(errors).toEqual([]);
+});
+
+/* ---------- 開頁時圖片讀不到（D8，驗證後修正） ---------- */
+
+const ASSET_DB = 'trpg-toolkit:tool:height-board:assets';
+/** 自動保存（localStorage）裡的角色名稱 */
+const savedNames = (page: Page) =>
+  page.evaluate(() => {
+    const raw = localStorage.getItem('trpg-toolkit:height-board');
+    const list = raw
+      ? (JSON.parse(raw) as { state?: { data?: { characters?: { name: string }[] } } }).state?.data
+          ?.characters
+      : undefined;
+    return (list ?? []).map((c) => c.name).sort();
+  });
+const statusText = (page: Page) => page.getByTestId('status-text');
+
+async function readDownload(dl: { path: () => Promise<string | null> }) {
+  const { readFile } = await import('node:fs/promises');
+  const p = await dl.path();
+  if (!p) throw new Error('下載失敗');
+  return new Uint8Array(await readFile(p));
+}
+
+test('開頁時資料庫少了一張圖：角色留著、標「圖片讀不到」並提示；自動保存不洗掉；匯出與存檔略過並說明；換圖片後恢復', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  await addMany(page, [file('A.png', await imgA()), file('B.png', await imgB())], [160, 120]);
+  await hb(page, 'flush');
+  const idA = (await chars(page)).find((c) => c.name === 'A')?.imageId;
+  await page.evaluate(
+    async ([name, id]) => {
+      const db = await new Promise<IDBDatabase>((res, rej) => {
+        const r = indexedDB.open(name);
+        r.onsuccess = () => res(r.result);
+        r.onerror = () => rej(r.error);
+      });
+      await new Promise<void>((res, rej) => {
+        const tx = db.transaction('kv', 'readwrite');
+        tx.objectStore('kv').delete(id);
+        tx.oncomplete = () => res();
+        tx.onerror = () => rej(tx.error);
+      });
+      db.close();
+    },
+    [ASSET_DB, idA ?? ''] as const,
+  );
+  await page.reload();
+  await expect(page.getByRole('heading', { level: 1, name: '立繪身高比較板' })).toBeVisible();
+  await expect(statusText(page)).toContainText('有 1 位角色的圖片讀不到');
+  await expect(statusText(page)).toContainText('角色資料還留著');
+  expect((await chars(page)).map((c) => c.name).sort()).toEqual(['A', 'B']);
+  /* 自動保存照常（資料沒有被改掉） */
+  await page.waitForTimeout(800);
+  await hb(page, 'flush');
+  expect(await savedNames(page)).toEqual(['A', 'B']);
+  const rowA = rows(page).filter({ has: page.getByText('A', { exact: true }) });
+  await expect(rowA).toContainText('圖片讀不到');
+  await expect(rows(page).filter({ has: page.getByText('B', { exact: true }) })).not.toContainText(
+    '圖片讀不到',
+  );
+  /* 選取時面板也說明 */
+  await rowA.click();
+  await expect(page.getByTestId('missing-image-hint')).toBeVisible();
+  /* 匯出 PNG：讀不到的不放進圖裡，通知說明 */
+  await Promise.all([page.waitForEvent('download'), btn(page, '匯出 PNG').click()]);
+  await expect(page.getByText(/有 1 位角色的圖片讀不到，沒有放進圖裡/).first()).toBeVisible();
+  /* 存成專案檔：只有讀得到的角色，通知說明 */
+  await btn(page, '專案').click();
+  const [dl] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByRole('menuitem', { name: '存成專案檔…' }).click(),
+  ]);
+  const entries = unzipSync(await readDownload(dl));
+  const project = JSON.parse(strFromU8(entries['project.json']));
+  expect(project.data.characters.map((c: { name: string }) => c.name)).toEqual(['B']);
+  await expect(page.getByText(/有 1 位角色的圖片讀不到，沒有存進專案檔/).first()).toBeVisible();
+  /* 更換圖片：恢復，提示消失 */
+  const [fc] = await Promise.all([
+    page.waitForEvent('filechooser'),
+    btn(page, '更換圖片…').click(),
+  ]);
+  await fc.setFiles([file('A2.png', await pngOf(200, 400, [50, 60, 100, 300], [20, 160, 60]))]);
+  await expect(page.getByTestId('missing-image-hint')).toHaveCount(0);
+  await expect(rowA).not.toContainText('圖片讀不到');
+  await expect(page.getByText(/位角色的圖片讀不到，先畫成/)).toHaveCount(0);
+  expect((await chars(page)).map((c) => c.name).sort()).toEqual(['A', 'B']);
+  expect(errors).toEqual([]);
+});
+
+test('開頁當下資料庫暫時打不開：角色都留著（自動保存不洗掉），下次開頁讀得到就回來', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  await addMany(page, [file('A.png', await imgA()), file('B.png', await imgB())], [160, 120]);
+  await hb(page, 'flush');
+  /* 之後的開頁：資產的資料庫打不開（像 iOS 的連線中斷），直到 sessionStorage 記了 ok */
+  await page.addInitScript((name) => {
+    const orig = indexedDB.open.bind(indexedDB);
+    indexedDB.open = ((db: string, ...rest: [number?]) => {
+      if (db !== name || sessionStorage.getItem('__idb_ok')) return orig(db, ...rest);
+      const req = {} as IDBOpenDBRequest & { error: DOMException };
+      setTimeout(() => {
+        Object.defineProperty(req, 'error', {
+          value: new DOMException('Connection to Indexed Database server lost', 'UnknownError'),
+        });
+        req.onerror?.({ target: req } as unknown as Event);
+      }, 5);
+      return req;
+    }) as typeof indexedDB.open;
+  }, ASSET_DB);
+  await page.reload();
+  await expect(page.getByRole('heading', { level: 1, name: '立繪身高比較板' })).toBeVisible();
+  await expect(statusText(page)).toContainText('有 2 位角色的圖片讀不到');
+  expect((await chars(page)).map((c) => c.name).sort()).toEqual(['A', 'B']);
+  await page.waitForTimeout(800);
+  await hb(page, 'flush');
+  expect(await savedNames(page)).toEqual(['A', 'B']);
+  await expect(rows(page).filter({ hasText: '圖片讀不到' })).toHaveCount(2);
+  /* 恢復正常後再開一次：都回來了 */
+  await page.evaluate(() => sessionStorage.setItem('__idb_ok', '1'));
+  await page.reload();
+  await expect(page.getByRole('heading', { level: 1, name: '立繪身高比較板' })).toBeVisible();
+  await expect.poll(async () => (await chars(page)).length).toBe(2);
+  await expect(rows(page)).toHaveCount(2);
+  await expect(rows(page).filter({ hasText: '圖片讀不到' })).toHaveCount(0);
+  await expect(page.getByText(/位角色的圖片讀不到/)).toHaveCount(0);
   expect(errors).toEqual([]);
 });

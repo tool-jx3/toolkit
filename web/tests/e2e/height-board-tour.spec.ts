@@ -2,7 +2,7 @@
  * 立繪身高比較板：操作導覽與第二批細節（原作 2026-10 更新，規格 1.1 節 F72 起）——
  * - 第一次開（空盤面）自動開始導覽；六個步驟、上一步／下一步、略過、Esc、完成；看過之後不再自動開；
  *   以前用過（自動保存還原了角色）不自動開；導覽中盤面的資料不變、快捷鍵不作用；從空盤面與說明重看；手機上照亮名稱與身高欄；
- * - 刪除後的通知「取消刪除」、匯出成功的提醒、重畫變慢的提示、自動保存無法使用的提示（關閉、存成專案檔）、
+ * - 刪除後的通知「取消刪除」（之後有變更或復原就關掉）、匯出成功的提醒、重畫變慢的提示、自動保存無法使用的提示（關閉、存成專案檔）、
  *   操作說明依輸入裝置、手機空盤面不顯示刻度欄。
  */
 import { expect, type Page, test } from '@playwright/test';
@@ -127,6 +127,8 @@ test('第一次開（空盤面）：自動開始導覽，六個步驟、上一�
   await btn(page, '開始使用').click();
   await expect(tour(page)).toHaveCount(0);
   await expect(page.getByTestId('board-empty')).toBeVisible();
+  /* 自動開始的（開始前焦點在 body）：結束後焦點交給「選擇圖片…」 */
+  await expect(btn(page, '選擇圖片…')).toBeFocused();
   await expect(rows(page)).toHaveCount(0);
   expect(await page.evaluate((k) => localStorage.getItem(k), SEEN)).toBe('1');
   /* 重新整理：不再自動開 */
@@ -149,6 +151,10 @@ test('略過與 Esc；從空盤面、說明對話框、使用方式重看；導�
   await expect(tour(page)).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(tour(page)).toHaveCount(0);
+  /* 結束後焦點回到開始導覽的按鈕 */
+  await expect(
+    page.getByTestId('board-empty').getByRole('button', { name: '看操作導覽' }),
+  ).toBeFocused();
   /* 有角色、選取、放大之後從說明對話框重看 */
   await addA(page, 'A');
   await addA(page, 'B', 120);
@@ -167,6 +173,8 @@ test('略過與 Esc；從空盤面、說明對話框、使用方式重看；導�
   await expect(btn(page, '復原')).toBeDisabled();
   await page.keyboard.press('Escape');
   await expect(tour(page)).toHaveCount(0);
+  /* 從說明對話框開始的：說明對話框關掉時焦點在 body（ToolShell 原本的行為），結束後交給「選擇圖片…」 */
+  await expect(btn(page, '選擇圖片…')).toBeFocused();
   expect(await chars(page)).toEqual(before);
   expect((await history(page)).past).toBe(past);
   expect(await hb(page, 'selected')).toBe(before[0].id);
@@ -178,6 +186,24 @@ test('略過與 Esc；從空盤面、說明對話框、使用方式重看；導�
   await expect(tour(page)).toBeVisible();
   await btn(page, '略過').click();
   await expect(tour(page)).toHaveCount(0);
+  expect(errors).toEqual([]);
+});
+
+test('導覽中視窗大小改變、跨過版面斷點：照亮處跟著新的版面', async ({ page }) => {
+  const errors = await open(page);
+  await expect(tour(page)).toBeVisible();
+  await btn(page, '下一步').click();
+  await expect.poll(() => spotCovers(page, '[data-tour="fields"]')).toBe(true);
+  /* 寬 → 平板直向（兩欄變上下）→ 手機橫向 → 寬 */
+  for (const size of [
+    { width: 800, height: 1000 },
+    { width: 844, height: 390 },
+    { width: 1280, height: 900 },
+  ]) {
+    await page.setViewportSize(size);
+    await expect.poll(() => spotCovers(page, '[data-tour="fields"]')).toBe(true);
+  }
+  await btn(page, '略過').click();
   expect(errors).toEqual([]);
 });
 
@@ -219,7 +245,9 @@ test('手機（390）：導覽照亮「角色設定」分頁的名稱與身高�
   expect(errors).toEqual([]);
 });
 
-test('刪除後的通知可以「取消刪除」；之後又有變更時不復原', async ({ page }) => {
+test('刪除後的通知可以「取消刪除」；之後有變更或復原就關掉通知；按過之後別的通知照常消失', async ({
+  page,
+}) => {
   const errors = await open(page, { seen: true });
   await addA(page, 'A');
   await addA(page, 'B', 120);
@@ -228,12 +256,24 @@ test('刪除後的通知可以「取消刪除」；之後又有變更時不復�
   await expect(page.getByText('已刪除「B」').first()).toBeVisible();
   await btn(page, '取消刪除').click();
   await expect.poll(async () => (await chars(page)).map((c) => c.name)).toEqual(['A', 'B']);
-  /* 刪除後又改了別的：通知的按鈕不復原，改提示 */
+  await expect(btn(page, '取消刪除')).toHaveCount(0);
+  /* 按過通知上的按鈕之後，之後的通知照常自己消失（共用 Toast 的焦點修正） */
+  await Promise.all([page.waitForEvent('download'), btn(page, '匯出 PNG').click()]);
+  await expect(page.getByText('已匯出 PNG').first()).toBeVisible();
+  await expect(page.getByText('已匯出 PNG')).toHaveCount(0, { timeout: 9000 });
+  /* 刪除後又改了別的：像原作，通知直接關掉（按鈕不在了） */
   await rows(page).nth(0).click();
   await btn(page, '刪除').click();
+  await expect(btn(page, '取消刪除')).toBeVisible();
   await rows(page).nth(0).getByRole('button', { name: '隱藏「A」' }).click();
-  await btn(page, '取消刪除').click();
-  await expect(page.getByText(/之後還有別的變更/).first()).toBeVisible();
+  await expect(btn(page, '取消刪除')).toHaveCount(0);
+  expect((await chars(page)).map((c) => c.name)).toEqual(['A']);
+  /* 刪除後用工具列「復原」：通知也關掉 */
+  await rows(page).nth(0).click();
+  await btn(page, '刪除').click();
+  await expect(btn(page, '取消刪除')).toBeVisible();
+  await btn(page, '復原').click();
+  await expect(btn(page, '取消刪除')).toHaveCount(0);
   expect((await chars(page)).map((c) => c.name)).toEqual(['A']);
   expect(errors).toEqual([]);
 });
@@ -267,6 +307,38 @@ test.describe('觸控螢幕', () => {
     await expect(page.getByTestId('board-empty')).toContainText('選擇立繪圖片');
     await page.getByRole('tab', { name: '角色設定' }).click();
     await expect(page.getByTestId('board-help')).toContainText('兩指');
+    expect(errors).toEqual([]);
+  });
+
+  test('觸控螢幕的大小：輸入欄 16 px；眼睛鈕、身高欄、分頁 44 px；滑桿把手 24 px（F82）', async ({
+    page,
+  }) => {
+    const errors = await open(page, { seen: true });
+    expect(await page.evaluate(() => matchMedia('(pointer: coarse)').matches)).toBe(true);
+    await addA(page, 'A');
+    const box = async (l: ReturnType<Page['locator']>) => {
+      const b = await l.boundingBox();
+      if (!b) throw new Error('看不到');
+      return b;
+    };
+    const fontPx = (l: ReturnType<Page['locator']>) =>
+      l.evaluate((el) => Number.parseFloat(getComputedStyle(el).fontSize));
+    await page.getByRole('tab', { name: /角色清單/ }).click();
+    expect(await fontPx(page.getByRole('textbox', { name: '依名稱篩選角色' }))).toBe(16);
+    const height = page.getByRole('spinbutton', { name: 'A的身高' });
+    expect(await fontPx(height)).toBe(16);
+    expect((await box(height)).height).toBeGreaterThanOrEqual(44);
+    const eye = btn(page, '隱藏「A」');
+    expect((await box(eye)).height).toBeGreaterThanOrEqual(44);
+    expect((await box(eye)).width).toBeGreaterThanOrEqual(44);
+    for (const tab of await page.getByRole('tab').all())
+      expect((await box(tab)).height).toBeGreaterThanOrEqual(44);
+    await page.getByRole('tab', { name: '角色設定' }).click();
+    expect(await fontPx(page.getByRole('textbox', { name: '名稱' }))).toBe(16);
+    for (const name of ['頭頂線', '腳底線']) {
+      const b = await box(page.getByRole('slider', { name }));
+      expect(Math.min(b.width, b.height)).toBeGreaterThanOrEqual(24);
+    }
     expect(errors).toEqual([]);
   });
 });

@@ -39,12 +39,22 @@ export const S = {
 
   /* 狀態列 */
   adding: (i: number, n: number) => `加入中：第 ${i}／共 ${n} 張`,
+  /** 拖進來的專案檔讀取中（用詞同專案選單） */
+  openingFile: '讀取專案檔中…',
   readFailed: (names: readonly string[]) => `無法讀取這些圖片，沒有加入：${names.join('、')}`,
   saveUnavailable:
     '這個瀏覽器不允許儲存資料，自動儲存無法使用（重新整理後內容會消失）。需要保留時請用「專案 → 存成專案檔」。',
   saveQuota:
     '瀏覽器的儲存空間不足，自動儲存無法使用（重新整理後內容會消失）。需要保留時請用「專案 → 存成專案檔」。',
-  restoredMissing: (n: number) => `有 ${n} 位角色的圖片沒有儲存在瀏覽器裡，已略過。`,
+  /* 讀不到的圖（規格 D8，驗證後修正：角色留著、不再略過） */
+  unreadableNotice: (n: number) =>
+    `有 ${n} 位角色的圖片讀不到，先畫成「圖片讀不到」的框。角色資料還留著，重新開啟頁面時讀得到就會回來；也可以選取後按「更換圖片」換一張。`,
+  missingImage: '圖片讀不到',
+  missingImageHint: '這位角色的圖片讀不到，可以按「更換圖片」換一張。',
+  exportSkipped: (n: number) => `有 ${n} 位角色的圖片讀不到，沒有放進圖裡。`,
+  exportAllUnreadable: '顯示中的角色的圖片都讀不到，沒有東西可以匯出。',
+  savedSkipped: (n: number) => `有 ${n} 位角色的圖片讀不到，沒有存進專案檔。`,
+  saveAllUnreadable: '角色的圖片都讀不到，沒有東西可以存。',
   autosaveOn: '角色會自動儲存在這個瀏覽器',
   autosaveAt: (t: string) => `已自動儲存（${t}）`,
   autosaveOff: '自動儲存無法使用',
@@ -94,7 +104,6 @@ export const S = {
   /** 通知上的按鈕（和工具列的「復原」不同名，螢幕閱讀器分得出來） */
   undoDelete: '取消刪除',
   undoAlt: '用工具列的「復原」或 Ctrl＋Z 也可以復原',
-  undoStale: '之後還有別的變更，請用工具列的「復原」一步一步退回。',
   hiddenNote: '這位角色目前隱藏中，不會畫在盤面上，也不會匯出。',
   help: [
     '點盤面上的角色或清單的一列就能選取；點盤面空白處或按 Esc 取消選取。',

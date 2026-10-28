@@ -2,9 +2,10 @@
 /**
  * GuidedTour（操作導覽，height-board 跟進原作 2026-10 更新時新增）：卡片的位置（placeTourCard）、
  * 步驟的切換（下一步、上一步、略過、Esc、完成）、焦點在主按鈕、「i／n」。
+ * 驗證後修正：視窗大小改變後工具才換好版面時，照亮處跟著重新定位；關閉後焦點回到開啟前的元素（或 returnFocus）。
  */
-import { fireEvent, render, screen } from '@testing-library/react';
-import { useState } from 'react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { useRef, useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { GuidedTour, placeTourCard, type TourStep } from '@/ui';
 
@@ -111,5 +112,101 @@ describe('GuidedTour', () => {
       <GuidedTour open={false} steps={steps} step={0} onStepChange={() => {}} onClose={() => {}} />,
     );
     expect(screen.queryByTestId('guided-tour')).toBeNull();
+  });
+});
+
+describe('GuidedTour：驗證後修正', () => {
+  it('視窗大小改變之後版面才換好（媒體查詢）：接著的畫格再量一次，照亮處對準新位置', async () => {
+    const root = document.documentElement;
+    Object.defineProperty(root, 'clientWidth', { configurable: true, value: 1280 });
+    Object.defineProperty(root, 'clientHeight', { configurable: true, value: 800 });
+    const target = document.createElement('div');
+    document.body.appendChild(target);
+    let rect = { left: 100, top: 100, right: 200, bottom: 150 };
+    target.getBoundingClientRect = () =>
+      ({
+        ...rect,
+        x: rect.left,
+        y: rect.top,
+        width: rect.right - rect.left,
+        height: rect.bottom - rect.top,
+        toJSON: () => ({}),
+      }) as DOMRect;
+    try {
+      render(
+        <GuidedTour
+          open
+          steps={[{ title: '一', body: '說明', target: () => target }]}
+          step={0}
+          onStepChange={() => {}}
+          onClose={() => {}}
+        />,
+      );
+      const spot = () => screen.getByTestId('tour-spot');
+      await waitFor(() => expect(spot().style.left).toBe('92px'));
+      /* 等開啟時排的那一格過去 */
+      const frame = () => new Promise<void>((r) => requestAnimationFrame(() => r()));
+      await act(async () => {
+        await frame();
+        await frame();
+      });
+      /* resize 事件當下版面還沒換；換好之後目標移到別處 */
+      act(() => {
+        window.dispatchEvent(new Event('resize'));
+      });
+      rect = { left: 300, top: 400, right: 420, bottom: 460 };
+      await waitFor(() => expect(spot().style.left).toBe('292px'));
+      expect(spot().style.top).toBe('392px');
+    } finally {
+      target.remove();
+      delete (root as unknown as Record<string, unknown>).clientWidth;
+      delete (root as unknown as Record<string, unknown>).clientHeight;
+    }
+  });
+
+  function FocusHarness({ fallback }: { fallback?: boolean }) {
+    const [open, setOpen] = useState(false);
+    const add = useRef<HTMLButtonElement>(null);
+    return (
+      <>
+        <button type="button" onClick={() => setOpen(true)}>
+          開始導覽
+        </button>
+        <button type="button" ref={add}>
+          加入圖片
+        </button>
+        <GuidedTour
+          open={open}
+          steps={steps}
+          step={0}
+          onStepChange={() => {}}
+          onClose={() => setOpen(false)}
+          returnFocus={fallback ? () => add.current : undefined}
+        />
+      </>
+    );
+  }
+
+  it('關閉後焦點回到開啟前的元素', () => {
+    render(<FocusHarness fallback />);
+    const start = screen.getByRole('button', { name: '開始導覽' });
+    act(() => start.focus());
+    fireEvent.click(start);
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: '下一步' }));
+    fireEvent.click(screen.getByRole('button', { name: '略過' }));
+    expect(screen.queryByTestId('guided-tour')).toBeNull();
+    expect(document.activeElement).toBe(start);
+  });
+
+  it('開啟前焦點在 body（例如自動開始）：關閉後交給 returnFocus；沒給時留在 body', () => {
+    const { unmount } = render(<FocusHarness fallback />);
+    fireEvent.click(screen.getByRole('button', { name: '開始導覽' }));
+    fireEvent.keyDown(screen.getByRole('button', { name: '下一步' }), { key: 'Escape' });
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: '加入圖片' }));
+    unmount();
+    render(<FocusHarness />);
+    fireEvent.click(screen.getByRole('button', { name: '開始導覽' }));
+    fireEvent.click(screen.getByRole('button', { name: '略過' }));
+    expect(document.activeElement).toBe(document.body);
   });
 });

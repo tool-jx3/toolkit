@@ -405,8 +405,17 @@ export function PanZoomViewport({
     const next = Math.min(maxZoom, Math.max(minZoom, z));
     const s = st.current;
     const el = scroller.current;
-    if (Math.abs(next - zoomRef.current) < 1e-9 && Math.abs(next - s.zoom) < 1e-9) {
-      /* 倍率沒變（例如已到上下限）：只平移 */
+    if (Math.abs(next - s.zoom) < 1e-9) {
+      /*
+       * 倍率等於畫面上的倍率（例如已到上下限，或兩指距離回到原值）：直接平移。
+       * 同一個影格裡先前的移動排了別的倍率、還沒重畫時（兩指各自的 pointermove 一起處理），把它改回來；
+       * 這時最後的倍率跟畫面上一樣，React 不會重畫，不能等下面的版面效果套用 pending（height-board 驗證時發現）。
+       */
+      pending.current = null;
+      if (Math.abs(next - zoomRef.current) >= 1e-9) {
+        zoomRef.current = next;
+        setZoom(next);
+      }
       if (el) {
         el.scrollLeft = s.offX + s.pad.left + (w.x - s.world.x) * s.scale - a.x;
         el.scrollTop = s.offY + s.pad.top + (w.y - s.world.y) * s.scale - a.y;
