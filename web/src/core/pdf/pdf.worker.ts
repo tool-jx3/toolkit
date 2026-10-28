@@ -69,9 +69,9 @@ configurePdfjs({
   CanvasFactory: OffscreenCanvasFactory,
   FilterFactory: NoopFilterFactory,
   BinaryDataFactory: bundledDataFactory(resources),
-  cMapUrl: 'bundled:',
-  standardFontDataUrl: 'bundled:',
-  wasmUrl: 'bundled:',
+  cMapUrl: 'bundled:/',
+  standardFontDataUrl: 'bundled:/',
+  wasmUrl: 'bundled:/',
 });
 
 const qpdf = createQpdfRunner({

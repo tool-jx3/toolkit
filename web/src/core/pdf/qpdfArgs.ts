@@ -104,7 +104,7 @@ export function cleanDiagnostic(text: string, fileName: string): string {
     .filter((l) => l && !/^For help:/i.test(l) && !/--help=/.test(l))
     .map((l) =>
       l
-        .replace(/^(?:\.\/this\.program|qpdf|\S+\.(?:m?js|ts)):\s/, '')
+        .replace(/^(?:(?:\.\/)?this\.program|qpdf|\S+\.(?:m?js|ts)):\s/, '')
         .replace(/\/?\bin_\d+\.pdf\b/g, fileName),
     )
     .join('\n');

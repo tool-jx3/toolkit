@@ -92,6 +92,9 @@ describe('qpdf 的參數', () => {
         '劇本.pdf',
       ),
     ).toBe("劇本.pdf: can't find startxref");
+    expect(cleanDiagnostic("this.program: /in_3.pdf: can't find startxref", 'a.pdf')).toBe(
+      "a.pdf: can't find startxref",
+    );
   });
 });
 

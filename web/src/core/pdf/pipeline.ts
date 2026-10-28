@@ -9,6 +9,7 @@
  * 5. 整頁轉圖（raster，只有整頁轉圖的等級）：每頁畫成一張 JPEG（`raster.ts`）。
  *
  * 每個候選都要通過檢查（檔頭 %PDF-、結尾 %%EOF、`qpdf --check`、頁數和原檔相同）；取最小、而且比原檔小的。
+ * 檢查由小到大做、選到就停（`qpdf --check` 會解開所有 JPEG，影像多的檔案一次要好幾秒；結果和全部都檢查相同）。
  * 打開「壓縮後比對」時，選中的候選還要用 pdf.js 比對文字、連結、書籤、表單（`verify.ts`），不一樣就換下一個。
  * 都沒有比原檔小時回傳原檔（不把變大的結果當成成功）。
  *
@@ -18,6 +19,7 @@
 import { PDFDocument } from 'pdf-lib';
 import { type DedupeStats, dedupeStreams } from './dedupe';
 import { PdfError } from './errors';
+import { nonEmbeddedCjkFonts } from './fonts';
 import type { JpegCodec } from './jpeg';
 import type { ResolvedSettings } from './levels';
 import { findPdfHeader, pdfVersion, precheck } from './limits';
@@ -91,7 +93,8 @@ export interface CandidateSummary {
   name: Strategy;
   /** 大小（沒有產生時 0） */
   bytes: number;
-  valid: boolean;
+  /** 通過檢查（null：沒有檢查：比它小的候選已經選中、或不比原檔小） */
+  valid: boolean | null;
   lossy: boolean;
   /** 沒有用的原因 */
   rejected?: string;
@@ -177,6 +180,8 @@ export interface CompressReport {
   decrypted: boolean;
   /** 有數位簽章（改寫之後會失效） */
   signed: boolean;
+  /** 整頁轉圖：沒有內嵌的中日韓字型（有的話不轉，保留原檔） */
+  missingFonts: string[];
   candidates: CandidateSummary[];
   durationMs: number;
 }
@@ -185,7 +190,7 @@ interface Candidate {
   name: Strategy;
   lossy: boolean;
   bytes: Uint8Array | null;
-  valid: boolean;
+  valid: boolean | null;
   rejected?: string;
   ms: number;
 }
@@ -262,6 +267,8 @@ export async function compressPdf(
   let dedupe: DedupeStats | null = null;
   let raster: CompressReport['raster'] = null;
   let signed = false;
+  /** 沒有內嵌的中日韓字型（整頁轉圖時檢查） */
+  let missingFonts: string[] = [];
 
   const attempt = async (
     name: Strategy,
@@ -289,16 +296,8 @@ export async function compressPdf(
       });
       return;
     }
-    onProgress?.({ stage: 'check' });
-    const v = await validateCandidate(out, qpdf, info.pages);
-    candidates.push({
-      name,
-      lossy,
-      bytes: out,
-      valid: v.ok,
-      rejected: v.reason,
-      ms: now() - start,
-    });
+    /* 檢查（qpdf --check 會解開所有 JPEG，很花時間）等到選的時候才做：由小到大，只檢查會被選中的 */
+    candidates.push({ name, lossy, bytes: out, valid: null, ms: now() - start });
   };
 
   const structural = async (bytes: Uint8Array, opts = runOpts) => {
@@ -311,6 +310,25 @@ export async function compressPdf(
   if (settings.raster && !restricted) {
     /* 整頁轉圖（WP 的 maximum） */
     if (!deps.rasterize) throw new PdfError('internal', 'rasterizer unavailable');
+    /* 沒有內嵌的中日韓字型畫不出來：不轉（保留原檔並說明） */
+    onProgress?.({ stage: 'normalize' });
+    const flat = await qpdf(input, normalizeArgs(), runOpts);
+    if (flat.out) {
+      try {
+        const doc = await PDFDocument.load(flat.out, {
+          updateMetadata: false,
+          throwOnInvalidObject: false,
+          ignoreEncryption: true,
+          parseSpeed: Number.POSITIVE_INFINITY,
+        });
+        missingFonts = nonEmbeddedCjkFonts(doc);
+        signed = hasSignature(doc);
+      } catch {
+        /* 讀不了就照常轉 */
+      }
+    }
+  }
+  if (settings.raster && !restricted && !missingFonts.length) {
     await attempt('raster', true, async () => {
       onProgress?.({ stage: 'raster', done: 0, total: info.pages ?? 0 });
       const r = await deps.rasterize!(input, {
@@ -323,7 +341,7 @@ export async function compressPdf(
       onProgress?.({ stage: 'structure' });
       return structural(r.bytes, { password: null, decrypt: false });
     });
-  } else {
+  } else if (!settings.raster || restricted) {
     onProgress?.({ stage: 'structure' });
     await attempt('structural', false, () => structural(input));
     onProgress?.({ stage: 'linearize' });
@@ -382,9 +400,7 @@ export async function compressPdf(
   /* 取最小的；比對不一樣就換下一個 */
   aborted();
   const eligible = candidates
-    .filter(
-      (c) => c.valid && c.bytes && c.bytes.length < input.length && (!c.lossy || settings.lossy),
-    )
+    .filter((c) => c.bytes && c.bytes.length < input.length && (!c.lossy || settings.lossy))
     .sort((a, b) => a.bytes!.length - b.bytes!.length);
   let chosen: Candidate | null = null;
   let verify: VerifyResult | null = null;
@@ -393,6 +409,14 @@ export async function compressPdf(
   let before: DocSignature | null = null;
   const textCheck = !(settings.raster && !restricted);
   for (const c of eligible) {
+    aborted();
+    onProgress?.({ stage: 'check' });
+    const v = await validateCandidate(c.bytes!, qpdf, info.pages);
+    c.valid = v.ok;
+    if (!v.ok) {
+      c.rejected = v.reason;
+      continue;
+    }
     if (settings.verify && deps.signature) {
       onProgress?.({ stage: 'verify' });
       try {
@@ -443,6 +467,7 @@ export async function compressPdf(
     restricted,
     decrypted: decrypt,
     signed,
+    missingFonts,
     candidates: summary,
   };
   if (!chosen?.bytes) {
