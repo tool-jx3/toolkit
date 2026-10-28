@@ -14,19 +14,21 @@ import { contrastText, INHERIT_LH, ui } from './theme';
 export const DM_TOP_H = 50;
 export const CHAT_TOP_H = 56;
 export const CHAT_FOOT_H = 82;
-/** 在線上的綠點（本站自己挑，D5） */
+/** 在線上的綠點的顏色（本站自己挑，D5） */
 export const ONLINE = '#3ecf6e';
 
-/** 在線上的綠點：大頭貼（左上 x、y，直徑 d）的右下角；直徑 26%（最小 11）＋3 的底色框，往外 12% */
+/**
+ * 在線上的綠點：大頭貼（左上 x、y，直徑 d）的右下角。外徑（含 3 的底色框）＝直徑的 26%（最小 11），綠色＝外徑 − 6，
+ * 再往外移外徑的 12%（原作的 .dm-on 被後面的 border-box 蓋過，實際量到：大頭貼 56 時外徑 14.5、34 時 11）。
+ */
 function onlineDot(env: Env, x: number, y: number, d: number): Op[] {
-  const inner = Math.max(11, d * 0.26);
-  const outer = inner + 6;
+  const outer = Math.max(11, d * 0.26);
   const shift = outer * 0.12;
   const cx = x + d - outer / 2 + shift;
   const cy = y + d - outer / 2 + shift;
   return [
     { t: 'circle', cx, cy, r: outer / 2, fill: env.pal.bg },
-    { t: 'circle', cx, cy, r: inner / 2, fill: ONLINE },
+    { t: 'circle', cx, cy, r: outer / 2 - 3, fill: ONLINE },
   ];
 }
 
@@ -204,7 +206,8 @@ export function dmListScreen(env: Env, opts: DmOptions = {}): ScreenLayout {
 function chatHead(env: Env, t: Thread, y: number): { ops: Op[]; hits: Hit[] } {
   const { pal, fs, measure } = env;
   const ops: Op[] = [];
-  const cy = y + CHAT_TOP_H / 2;
+  /* 下邊線 0.5 算在 56 裡（原作 border-box），內容在上面 55.5 的中央 */
+  const cy = y + (CHAT_TOP_H - 0.5) / 2;
   ops.push({ t: 'rect', x: 0, y, w: W, h: CHAT_TOP_H, fill: pal.bg });
   ops.push({ t: 'rect', x: 0, y: y + CHAT_TOP_H - 0.5, w: W, h: 0.5, fill: pal.line });
   ops.push({ t: 'icon', name: 'back', x: 10, y: cy - 13, size: 26, color: pal.ink, sw: 2.2 });
@@ -384,7 +387,12 @@ export function layoutChatBody(env: Env, t: Thread): { ops: Op[]; height: number
     const fill = me ? mixHex(state.dm.c1, state.dm.c2, mine > 1 ? k++ / (mine - 1) : 1) : pal.btn;
     const ink = me ? contrastText(fill) : pal.ink;
     /* 內容：照片（寬 210、最高 300）＋文字的泡泡（上下 9、左右 13），間隔 2 */
-    const items: { w: number; h: number; draw: (x: number, y: number) => Op[] }[] = [];
+    const items: {
+      w: number;
+      h: number;
+      stretch?: boolean;
+      draw: (x: number, y: number, w: number) => Op[];
+    }[] = [];
     if (m.image) {
       const img = m.image;
       const nat = imageSize(img);
@@ -404,7 +412,8 @@ export function layoutChatBody(env: Env, t: Thread): { ops: Op[]; height: number
         underline: tk.link,
       }));
       const lines = layoutLines(runs, maxW - 26, measure);
-      const w = Math.max(...lines.map((l) => l.width), 0) + 26;
+      /* 換行的泡泡撐滿 72%（原作 max-width:72% ＋ flex，F137） */
+      const w = lines.length > 1 ? maxW : Math.max(...lines.map((l) => l.width), 0) + 26;
       const h = lines.length * lh + 18;
       const r22 = 22;
       const radius: Radius = me
@@ -413,8 +422,9 @@ export function layoutChatBody(env: Env, t: Thread): { ops: Op[]; height: number
       items.push({
         w,
         h,
-        draw: (x, top) => [
-          { t: 'rect', x, y: top, w, h, r: radius, fill },
+        stretch: true,
+        draw: (x, top, bw) => [
+          { t: 'rect', x, y: top, w: bw, h, r: radius, fill },
           ...bubbleText(lines, x + 13, top + 9, lh, size),
         ],
       });
@@ -422,9 +432,11 @@ export function layoutChatBody(env: Env, t: Thread): { ops: Op[]; height: number
     const cw = Math.max(...items.map((it) => it.w));
     const ch = items.reduce((s, it) => s + it.h, 0) + (items.length - 1) * 2;
     const left = me ? W - 12 - cw : 12 + 28 + 8;
+    /* 對方的泡泡撐到內容的寬（原作 align-items 預設 stretch：照片比字寬時泡泡和照片一樣寬）；我的靠右、照字寬 */
+    if (!me) for (const it of items) if (it.stretch) it.w = cw;
     let iy = y;
     for (const it of items) {
-      ops.push(...it.draw(me ? W - 12 - it.w : left, iy));
+      ops.push(...it.draw(me ? W - 12 - it.w : left, iy, it.w));
       iy += it.h + 2;
     }
     if (!me && last) ops.push(...avatar(t.avatar, 12 + 14, y + ch - 14, 28, pal));

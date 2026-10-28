@@ -63,16 +63,18 @@ export interface VScreen {
    * 撐滿畫面高的三段（私訊的對話，F143）：上方、可以捲動的中間（打開時捲到最下面＝最新的訊息）、下方；
    * 給了時不看 layers。
    */
-  fill?: { head: VLayer; body: VLayer; foot: VLayer; background: string };
+  fill?: { head: VLayer; body: VLayer[]; foot: VLayer; background: string };
   /** 只有面板的留言（整頁、清單撐開） */
-  plain?: { head: VImg; list: VImg; foot: VImg | null; background: string };
+  /** 清單很長時分成好幾張（每張不超過約 8,000 px，瀏覽器畫布的上限） */
+  plain?: { head: VImg; list: VImg[]; foot: VImg | null; background: string };
 }
 
 export interface VComments {
   id: string;
   opened: boolean;
   head: VImg;
-  list: VImg;
+  /** 清單（很長時分成好幾張） */
+  list: VImg[];
   foot: VImg | null;
   background: string;
   closeLabel: string;
@@ -136,14 +138,14 @@ function layerHtml(l: VLayer): string {
 function screenHtml(s: VScreen): string {
   const hidden = s.hidden ? ' hidden' : '';
   if (s.fill)
-    return `<section class="v-scr v-fill" id="${s.id}"${hidden} style="background:${s.fill.background}"><div class="v-fhead">${layerHtml(s.fill.head)}</div><div class="v-fbody" data-end>${layerHtml(s.fill.body)}</div><div class="v-ffoot">${layerHtml(s.fill.foot)}</div></section>`;
+    return `<section class="v-scr v-fill" id="${s.id}"${hidden} style="background:${s.fill.background}"><div class="v-fhead">${layerHtml(s.fill.head)}</div><div class="v-fbody" data-end>${s.fill.body.map(layerHtml).join('')}</div><div class="v-ffoot">${layerHtml(s.fill.foot)}</div></section>`;
   if (s.plain)
-    return `<section class="v-scr" id="${s.id}"${hidden}><div class="v-plain" style="background:${s.plain.background}">${image(s.plain.head)}<div class="v-list">${image(s.plain.list)}</div>${s.plain.foot ? image(s.plain.foot) : ''}</div></section>`;
+    return `<section class="v-scr" id="${s.id}"${hidden}><div class="v-plain" style="background:${s.plain.background}">${image(s.plain.head)}<div class="v-list">${s.plain.list.map((x) => image(x)).join('')}</div>${s.plain.foot ? image(s.plain.foot) : ''}</div></section>`;
   return `<section class="v-scr" id="${s.id}"${hidden}>${s.layers.map(layerHtml).join('')}</section>`;
 }
 
 function commentsHtml(c: VComments): string {
-  return `<div class="v-ov" id="${c.id}" data-closable${c.opened ? '' : ' hidden'}><div class="v-dim" data-close></div><div class="v-sheet" style="background:${c.background}"><div class="v-head">${image(c.head)}<button type="button" class="v-spot" data-close style="left:0;top:0;width:100%;height:40%" aria-label="${escapeHtmlAttr(c.closeLabel)}"></button></div><div class="v-list">${image(c.list)}</div>${c.foot ? image(c.foot) : ''}</div></div>`;
+  return `<div class="v-ov" id="${c.id}" data-closable${c.opened ? '' : ' hidden'}><div class="v-dim" data-close></div><div class="v-sheet" style="background:${c.background}"><div class="v-head">${image(c.head)}<button type="button" class="v-spot" data-close style="left:0;top:0;width:100%;height:40%" aria-label="${escapeHtmlAttr(c.closeLabel)}"></button></div><div class="v-list">${c.list.map((x) => image(x)).join('')}</div>${c.foot ? image(c.foot) : ''}</div></div>`;
 }
 
 function storyHtml(s: VStory): string {

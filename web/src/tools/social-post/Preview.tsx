@@ -404,7 +404,8 @@ export function Preview() {
     format: prefs.format,
     fps: 1,
     plays: 0,
-    scale: prefs.format === 'png' ? prefs.scale : 1,
+    /* HTML 時也帶著 PNG 的倍率：切回 PNG 時不會變成 100%（ExportPanel 換格式時把整組設定交回來） */
+    scale: prefs.scale,
     quantize: false,
   };
   const formats = useMemo(
@@ -456,7 +457,9 @@ export function Preview() {
         {screen === 'dm' && prefs.dmView === 'list' ? <DmOverlay layout={layout} /> : null}
         {screen === 'story' ? <StoryOverlay story={story} layout={layout} /> : null}
       </Stage>
-      <p className="m-0 px-1 text-xs text-muted">{S.previewHint[screen]}</p>
+      {screen === 'dm' && prefs.dmView === 'chat' ? null : (
+        <p className="m-0 px-1 text-xs text-muted">{S.previewHint[screen]}</p>
+      )}
       {missing.length ? (
         <Notice tone="warning">
           <span data-testid="missing-images">{S.missingImages(missing.length)}</span>
@@ -478,6 +481,7 @@ export function Preview() {
           prefs.format === 'png' ? { width: layout.width, height: layout.height } : undefined
         }
         scaleOptions={SCALES}
+        sizeWarningHint={S.sizeWarningHint}
         resetKey={resetKey}
         extra={
           prefs.format === 'html' ? (

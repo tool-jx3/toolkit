@@ -319,13 +319,9 @@ function MessageCard({ t, m, i, n }: { t: Thread; m: Message; i: number; n: numb
         aria-label={`${title}：${S.msgFromLabel}`}
         value={m.from}
         onValueChange={(v) =>
+          /* 改成時間時照片、反應、長的內容只是不畫，改回來還在（同原作） */
           set((x) => {
             x.from = v;
-            if (v === 'time') {
-              x.image = null;
-              x.react = '';
-              x.text = Array.from(x.text.replace(/\n/g, ' ')).slice(0, LIMITS.messageTime).join('');
-            }
           })
         }
         options={MESSAGE_FROM.map((v) => ({ value: v, label: S.msgFrom[v] }))}
@@ -453,7 +449,7 @@ export function DmPanel() {
           edit((d) => {
             d.dm = defaultDm();
           });
-          setPrefs({ threadId: 't1' });
+          setPrefs({ threadId: 't1', dmView: 'list' });
         }}
       />
     </div>

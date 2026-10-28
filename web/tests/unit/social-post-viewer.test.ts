@@ -84,7 +84,7 @@ function doc(patch: Partial<ViewerDoc> = {}): ViewerDoc {
         id: 'ov-c-0',
         opened: false,
         head: img(390, 61),
-        list: img(390, 300),
+        list: [img(390, 300)],
         foot: img(390, 121),
         background: '#1b1e23',
         closeLabel: '關閉',
@@ -203,7 +203,7 @@ describe('HTML 檔', () => {
             },
           ],
         },
-        body: { img: img(390, 900) },
+        body: [{ img: img(390, 900) }, { img: img(390, 400) }],
         foot: { img: img(390, 82) },
         background: '#ffffff',
       },
@@ -212,7 +212,10 @@ describe('HTML 檔', () => {
     expect(html).toContain(
       '<section class="v-scr v-fill" id="s-dm-0" hidden style="background:#ffffff"><div class="v-fhead">',
     );
-    expect(html).toContain('<div class="v-fbody" data-end><div class="v-layer">');
+    /* 很長的訊息分成好幾張 */
+    expect(html).toMatch(
+      /<div class="v-fbody" data-end><div class="v-layer"><img [^>]*height="900"[^>]*><\/div><div class="v-layer"><img [^>]*height="400"/,
+    );
     expect(html).toContain('<div class="v-ffoot">');
     expect(html).toContain('.v-fbody{flex:1;min-height:0;overflow-y:auto');
   });

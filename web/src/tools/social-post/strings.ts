@@ -72,7 +72,9 @@ export const S = {
     navDm: '訊息',
     navProfile: '個人頁',
     feedDm: '訊息',
-    tray: (n: number) => (n > 1 ? `限時動態（${n} 則）` : '限時動態'),
+    /** 限時動態的圈：帳號的（我的：null） */
+    tray: (name: string | null, n: number) =>
+      `${name === null ? '我的限時動態' : `${name} 的限時動態`}${n > 1 ? `（${n} 則）` : ''}`,
     thread: (name: string) => `和 ${name} 的對話`,
   },
 
@@ -97,6 +99,8 @@ export const S = {
   } satisfies Record<ScreenId, string>,
   previewTitle: (name: string) => `預覽：${name}`,
   dmListName: '私訊・訊息列表',
+  /** 匯出超過 5 MB 時的建議（ExportPanel 的 sizeWarningHint） */
+  sizeWarningHint: '可以減少照片、貼文或限時動態，或改用「只有這個畫面」；PNG 可以降低尺寸。',
   dmChatName: (name: string) => `私訊・${name}`,
   previewLabel: (name: string) => `${name}的預覽`,
   themeLabel: '配色',
@@ -107,7 +111,7 @@ export const S = {
     story:
       '貼紙：拖曳移動、兩指捏合或滾輪縮放、Shift＋滾輪旋轉；格子的照片也可以拖曳、縮放，點空的格子放入照片。',
     profile: '點貼文的縮圖會到那則貼文、點有連結的精選動態會到那則限時動態。',
-    feed: '點限時動態的圈會到那則限時動態、點訊息圖示會到私訊；照片的位置在貼文分頁調整。',
+    feed: '點限時動態的圈會到那則限時動態、點訊息圖示會到私訊；照片的位置在貼文分頁調整。放不下的貼文會裁掉，要看全部請存成 HTML 檔。',
     dm: '在訊息列表點一個對話會打開那個對話。',
   } satisfies Record<ScreenId, string>,
   missingImages: (n: number) => `有 ${n} 張圖片讀不到（可能已從這個瀏覽器清除），請重新加入。`,
@@ -572,7 +576,8 @@ export const S = {
     toFeed: '首頁動態',
     toDms: '訊息',
     toProfile: '個人頁',
-    openStories: (n: number) => (n > 1 ? `看限時動態（${n} 則接著看）` : '看限時動態'),
+    openStories: (name: string | null, n: number) =>
+      `看${name === null ? '我的限時動態' : ` ${name} 的限時動態`}${n > 1 ? `（${n} 則接著看）` : ''}`,
     close: '關閉',
     prev: '上一張',
     next: '下一張',

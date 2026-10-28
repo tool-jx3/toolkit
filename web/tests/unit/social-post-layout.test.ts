@@ -805,3 +805,83 @@ describe('私訊（3.12）', () => {
     expect(p.head.hits.map((h) => h.key)).toEqual(['dm:back']);
   });
 });
+
+describe('對等驗證後的修正（2026-10）', () => {
+  const circles = (ops: Op[]): { cx: number; cy: number; r: number; fill: unknown }[] =>
+    ops.flatMap((o) =>
+      o.t === 'circle'
+        ? [{ cx: o.cx, cy: o.cy, r: o.r, fill: o.fill }]
+        : o.t === 'group'
+          ? circles(o.ops)
+          : [],
+    );
+
+  it('在線上的綠點：外徑（含 3 的底色框）＝大頭貼的 26%（最小 11）、往外 12%（F135、F136）', () => {
+    const e = env();
+    const list = dmListScreen(e);
+    const green = circles(list.ops).filter((c) => c.fill === '#3ecf6e');
+    expect(green).toHaveLength(1);
+    /* 大頭貼 56（左 16）：外徑 14.56、中心 x＝16 ＋ 56 − 7.28 ＋ 1.75 */
+    expect(green[0].r).toBeCloseTo(14.56 / 2 - 3, 2);
+    expect(green[0].cx).toBeCloseTo(16 + 56 - 7.28 + 14.56 * 0.12, 2);
+    const ring = circles(list.ops).find((c) => c.cx === green[0].cx && c.fill === e.pal.bg);
+    expect(ring?.r).toBeCloseTo(7.28, 2);
+    /* 對話上方的大頭貼 34：外徑 11（最小）、綠色 5 */
+    const chat = dmChatScreen(e, e.state.dm.threads[0]);
+    const g2 = circles(chat.ops).filter((c) => c.fill === '#3ecf6e');
+    expect(g2.map((c) => c.r)).toEqual([2.5]);
+    expect(g2[0].cx).toBeCloseTo(46 + 34 - 5.5 + 1.32, 2);
+  });
+
+  it('首頁動態的上方列：愛心與紙飛機之間 24（愛心 x 300）；未讀數總高 18（紅底 15）（F117）', () => {
+    const e = env();
+    const l = feedScreen(e);
+    const hearts = l.ops.filter((o) => o.t === 'icon' && o.name === 'heart' && o.y < 104);
+    expect(hearts.map((o) => o.t === 'icon' && o.x)).toEqual([300]);
+    const red = l.ops.filter((o) => o.t === 'rect' && o.fill === e.pal.red);
+    expect(red).toHaveLength(1);
+    const r = red[0];
+    if (r.t !== 'rect') throw new Error('rect');
+    expect([r.y, r.h]).toEqual([61.5, 15]);
+    const rim = l.ops.find((o) => o.t === 'rect' && o.y === 60 && o.h === 18);
+    expect(rim).toBeTruthy();
+    if (rim?.t !== 'rect') throw new Error('rim');
+    /* 右緣超出紙飛機 9 */
+    expect(rim.x + rim.w).toBe(350 + 26 + 9);
+    /* 紅點跟著愛心：右上角 */
+    const dot = circles(l.ops).find((c) => c.fill === e.pal.red);
+    expect(dot?.cx).toBe(300 + 26 + 1 - 4);
+  });
+
+  it('泡泡：換行的撐滿 72%；對方的照片比字寬時泡泡和照片一樣寬（F137）', () => {
+    const e = env((s) => {
+      const t = s.dm.threads[1];
+      t.messages = [
+        { id: 'a', from: 'them', text: '很長'.repeat(40), image: null, react: '' },
+        {
+          id: 'b',
+          from: 'them',
+          text: '短',
+          image: { kind: 'sample', key: 'moon' },
+          react: '',
+        },
+        { id: 'c', from: 'me', text: '很長'.repeat(40), image: null, react: '' },
+      ];
+    });
+    const body = layoutChatBody(e, e.state.dm.threads[1]);
+    const bubbles = body.ops.filter((o) => o.t === 'rect' && Array.isArray(o.r));
+    const ws = bubbles.map((o) => (o.t === 'rect' ? Math.round(o.w * 100) / 100 : 0));
+    expect(ws).toEqual([263.52, 210, 263.52]);
+  });
+
+  it('時間的訊息不畫照片與反應（資料留著）', () => {
+    const e = env((s) => {
+      const m = s.dm.threads[0].messages[4];
+      m.from = 'time';
+    });
+    const t = texts(layoutChatBody(e, e.state.dm.threads[0]).ops);
+    expect(t).toContain('要一起來嗎？');
+    expect(t).not.toContain('❤️');
+    expect(e.state.dm.threads[0].messages[4].react).toBe('❤️');
+  });
+});

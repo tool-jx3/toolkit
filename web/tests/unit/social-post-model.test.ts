@@ -685,7 +685,7 @@ describe('私訊（F134～F145）', () => {
     expect(mixHex('#000000', '#ffffff', 0.5)).toBe('#808080');
   });
 
-  it('整理：沒有私訊時用範例；時間的訊息沒有照片與反應；不認得的換預設；文字截到上限', () => {
+  it('整理：沒有私訊時用範例；時間的訊息的照片與反應留著；不認得的換預設；文字截到上限', () => {
     const raw = clone(initialState()) as unknown as Record<string, unknown>;
     delete raw.dm;
     expect(normalizeState(raw, 2).dm.threads.map((t) => t.id)).toEqual(['t1', 't2']);
@@ -717,8 +717,13 @@ describe('私訊（F134～F145）', () => {
     expect(t.username).toHaveLength(30);
     expect(t).toMatchObject({ seen: '已讀', intro: true, unread: false });
     expect(t.messages).toHaveLength(2);
-    expect(t.messages[0]).toMatchObject({ from: 'time', image: null, react: '' });
-    expect(t.messages[0].text).toHaveLength(30);
+    /* 時間的訊息只是不畫照片與反應，資料留著（改回一般的訊息時還在，同原作） */
+    expect(t.messages[0]).toMatchObject({
+      from: 'time',
+      image: { kind: 'sample', key: 'moon' },
+      react: '❤️',
+    });
+    expect(t.messages[0].text).toHaveLength(50);
     expect(t.messages[1].from).toBe('me');
     expect(t.messages[1].id).not.toBe('m1');
     expect(Array.from(t.messages[1].react)).toHaveLength(8);

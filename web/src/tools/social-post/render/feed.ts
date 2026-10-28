@@ -31,6 +31,8 @@ export type RingState = 'new' | 'seen' | 'none';
 export interface TrayItem {
   /** 點了接著看的限時動態（id，照順序） */
   stories: string[];
+  /** 誰的（我的：null） */
+  owner: string | null;
   box: Rect;
 }
 
@@ -120,6 +122,7 @@ export function layoutTray(env: Env, y0: number): TrayLayout {
     if (e.list.length)
       items.push({
         stories: e.list.map((s) => s.id),
+        owner: e.owner ? e.label : null,
         box: { x, y: top, width: ITEM_W, height: CIRCLE + 5 + llh },
       });
   });
@@ -147,7 +150,8 @@ function topBar(env: Env, y: number): { ops: Op[]; dm: Rect } {
   const size = 30 * fs;
   const lf = { family: LOGO_FAMILY, weight: 700, size };
   const dmX = W - 14 - 26;
-  const heartX = dmX - 20 - 26;
+  /* 兩個圖示之間 24（原作 gap 4 ＋ margin-left 20） */
+  const heartX = dmX - 24 - 26;
   const logo = ellipsize(f.logo, heartX - 20 - 16 - 16, lf, measure);
   /* 字的框（行高 1，上方多 4）垂直置中 */
   const ly = cy - (size + 4) / 2 + 4;
@@ -163,14 +167,25 @@ function topBar(env: Env, y: number): { ops: Op[]; dm: Rect } {
   }
   ops.push({ t: 'icon', name: 'send', x: dmX, y: iy, size: 26, color: pal.ink });
   if (f.dmBadge) {
-    /* 未讀數：高 18（＋1.5 的底色框）、左右 5、紅底白字 11／700；右上角超出圖示 */
+    /*
+     * 未讀數：總高 18（1.5 的底色框算在裡面，紅底 15）、寬 max(18, 字寬＋左右 5＋框)、紅底白字 11／700；
+     * 右上角超出圖示（上 6、右 9）。字的行高 18 從框下面開始（原作 border-box 的實際樣子）。
+     */
     const bf = ui(11, 700);
-    const w = Math.max(18, measure(f.dmBadge, bf) + 10) + 3;
-    const h = 21;
+    const w = Math.max(18, measure(f.dmBadge, bf) + 10 + 3);
+    const h = 18;
     const bx = dmX + 26 + 9 - w;
     const by = iy - 6;
     ops.push({ t: 'rect', x: bx, y: by, w, h, r: h / 2, fill: pal.bg });
-    ops.push({ t: 'rect', x: bx + 1.5, y: by + 1.5, w: w - 3, h: 18, r: 9, fill: pal.red });
+    ops.push({
+      t: 'rect',
+      x: bx + 1.5,
+      y: by + 1.5,
+      w: w - 3,
+      h: h - 3,
+      r: (h - 3) / 2,
+      fill: pal.red,
+    });
     ops.push({
       t: 'text',
       x: bx + w / 2,
@@ -209,7 +224,7 @@ export function feedScreen(env: Env, opts: FeedOptions = {}): FeedLayout {
     if (it.box.x < W)
       hits.push({
         key: `tray:${it.stories.join(',')}`,
-        label: S.hits.tray(it.stories.length),
+        label: S.hits.tray(it.owner, it.stories.length),
         box: { ...it.box, width: Math.min(it.box.width, W - it.box.x) },
       });
   });

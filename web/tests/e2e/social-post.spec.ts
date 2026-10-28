@@ -1566,6 +1566,89 @@ test('HTML：私訊（全部從首頁動態的訊息圖示進去、只有這個�
   expect(errors).toEqual([]);
 });
 
+test('對等驗證後的修正：圈的名稱帶帳號、對話時不顯示列表的提示、重設私訊回到列表、HTML 切回 PNG 時尺寸不變（F121、F134、F145）', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  await tab(page, '首頁動態').click();
+  await expect(page.locator('[data-region="tray:s1"]')).toHaveAttribute(
+    'aria-label',
+    '我的限時動態',
+  );
+  await expect(page.locator('[data-region="tray:s2"]')).toHaveAttribute(
+    'aria-label',
+    'kai.archive 的限時動態',
+  );
+  await expect(page.getByText('放不下的貼文會裁掉，要看全部請存成 HTML 檔。')).toBeVisible();
+  /* 私訊：列表時有「點一個對話」的提示，對話時沒有 */
+  await tab(page, '私訊').click();
+  await expect(page.getByText('在訊息列表點一個對話會打開那個對話。')).toBeVisible();
+  await page.getByRole('radio', { name: '對話', exact: true }).click();
+  await expect(page.getByText('在訊息列表點一個對話會打開那個對話。')).toHaveCount(0);
+  /* 重設私訊：列表／對話也回到列表 */
+  await page.getByRole('button', { name: '私訊回到預設' }).click();
+  await alertDialog(page).getByRole('button', { name: '重設' }).click();
+  await expect(page.getByTestId('preview-title')).toHaveText('預覽：私訊・訊息列表');
+  /* 匯出：PNG 300% → HTML 檔 → PNG，仍是 300% */
+  const panel = exportPanel(page);
+  await expect(panel.getByRole('combobox', { name: '尺寸' })).toContainText('300%');
+  await panel.getByRole('radio', { name: 'HTML 檔', exact: true }).click();
+  await panel.getByRole('radio', { name: 'PNG', exact: true }).click();
+  await expect(panel.getByRole('combobox', { name: '尺寸' })).toContainText('300%');
+  expect((await prefs(page)).scale).toBe(3);
+  expect(errors).toEqual([]);
+});
+
+test('HTML：首頁動態的貼文一則一張、長的留言清單分段畫（每張不超過約 8,000 px）；超過 5 MB 時本工具的建議（F124）', async ({
+  page,
+}) => {
+  await open(page);
+  /* 存檔裡放 22 則貼文（各 3 張照片）、第 1 則 50 則留言 */
+  await page.evaluate((key) => {
+    const raw = JSON.parse(localStorage.getItem(key) ?? 'null');
+    const d = raw.state.data;
+    const base = d.posts[0];
+    d.posts = Array.from({ length: 22 }, (_, i) => ({
+      ...JSON.parse(JSON.stringify(base)),
+      id: `p${i + 1}`,
+      photos: base.photos.map((ph: { id: string }, k: number) => ({
+        ...ph,
+        id: `ph${i * 3 + k + 1}`,
+      })),
+      sheet: {
+        ...base.sheet,
+        items: (i === 0 ? Array.from({ length: 50 }, (_, k) => k) : [0]).map((k) => ({
+          ...base.sheet.items[0],
+          id: `c${i * 100 + k + 1}`,
+        })),
+      },
+    }));
+    localStorage.setItem(key, JSON.stringify(raw));
+  }, STORAGE_KEY);
+  await page.reload();
+  await expect(canvas(page)).toBeVisible();
+  await tab(page, '首頁動態').click();
+  const html = strFromU8((await exportFile(page, 'HTML 檔', '只有這個畫面')).bytes);
+  const feed = html.slice(html.indexOf('id="s-feed"'), html.indexOf('</section>'));
+  /* 狀態列、上方列、限時動態列、22 則貼文、底部分頁列 */
+  expect(feed.match(/<div class="v-layer[ "]/g)).toHaveLength(3 + 22 + 1);
+  const heights = [...html.matchAll(/<img src="data:[^"]*" width="(\d+)" height="(\d+)"/g)].map(
+    (m) => Number(m[2]),
+  );
+  expect(Math.max(...heights)).toBeLessThanOrEqual(4000);
+  /* 第 1 則的留言清單：50 則（約 4,070 高）分成 2 張 */
+  const ov = html.slice(html.indexOf('id="ov-c-0"'));
+  const list = ov.slice(
+    ov.indexOf('<div class="v-list">'),
+    ov.indexOf('</div>', ov.indexOf('<div class="v-list">')),
+  );
+  expect(list.match(/<img /g)).toHaveLength(2);
+  /* 超過 5 MB：建議用本工具的說法（不是 FPS、減色） */
+  const result = page.getByTestId('export-result');
+  await expect(result).toContainText('可以減少照片、貼文或限時動態');
+  await expect(result).not.toContainText('FPS');
+});
+
 test('舊的專案檔（資料版本 2）照常開啟：自己的貼文與限時動態、首頁動態與私訊的預設、進度條 3 段→1 段（3.9）', async ({
   page,
 }) => {

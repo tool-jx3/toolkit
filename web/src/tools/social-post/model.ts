@@ -429,9 +429,9 @@ export interface Message {
   from: MessageFrom;
   /** 內容（時間時是那一行字） */
   text: string;
-  /** 附的照片（時間時沒有） */
+  /** 附的照片（時間時不畫，資料留著） */
   image: ImageRef | null;
-  /** 反應的表情符號（空白時沒有） */
+  /** 反應的表情符號（空白時沒有；時間時不畫） */
   react: string;
 }
 
@@ -1790,13 +1790,13 @@ function normalizeDm(v: unknown, used: Set<string>, msgUsed: Set<string>): Dm {
     const messages: Message[] = [];
     for (const m of Array.isArray(t.messages) ? t.messages : []) {
       if (!isObj(m) || messages.length >= MAX.messages) continue;
-      const from = oneOf(m.from, MESSAGE_FROM, 'me');
+      /* 時間的訊息只是不畫照片與反應，資料留著（改回一般的訊息時還在，同原作） */
       messages.push({
         id: idFor(m.id, 'm', msgUsed),
-        from,
-        text: str(m.text, from === 'time' ? LIMITS.messageTime : LIMITS.message, ''),
-        image: from === 'time' ? null : normalizeImage(m.image),
-        react: from === 'time' ? '' : str(m.react, LIMITS.react, ''),
+        from: oneOf(m.from, MESSAGE_FROM, 'me'),
+        text: str(m.text, LIMITS.message, ''),
+        image: normalizeImage(m.image),
+        react: str(m.react, LIMITS.react, ''),
       });
     }
     threads.push({

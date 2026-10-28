@@ -106,6 +106,31 @@ const slice = (layout: ScreenLayout, y: number, height: number) => ({
   part: { y, height },
 });
 
+/**
+ * 一張圖最高幾個畫面單位（2 倍時 8,000 px）：Firefox／Safari 的畫布單邊上限 32,767 px、iOS 還有面積上限，
+ * 會一直變長的地方（首頁動態的貼文、留言清單、對話的訊息）分段畫。
+ */
+export const MAX_PIECE_H = 4000;
+
+/** 畫面的一段畫成幾張圖（每張不超過 MAX_PIECE_H，接起來就是原本那一段） */
+async function pieces(
+  job: Job,
+  layout: ScreenLayout,
+  y: number,
+  height: number,
+  photo: boolean,
+): Promise<VImg[]> {
+  const n = Math.max(1, Math.ceil(height / MAX_PIECE_H));
+  const step = Math.ceil(height / n);
+  const out: VImg[] = [];
+  for (let i = 0; i < n; i++) {
+    const top = y + i * step;
+    const h = Math.min(step, y + height - top);
+    if (h > 0) out.push(await toImg(job, { ...slice(layout, top, h), photo }));
+  }
+  return out;
+}
+
 /** 指令包成一個畫面（寬 width、高 height） */
 function opsLayout(env: Env, ops: Op[], width: number, height: number): ScreenLayout {
   return { width, height, background: env.pal.bg, ops, hits: [], parts: {} };
@@ -235,7 +260,7 @@ async function commentsOverlay(
     id: `ov-c-${index}`,
     opened,
     head: await toImg(job, { ...slice(layout, head.y, head.height), photo: false, clear: true }),
-    list: await toImg(job, { ...slice(layout, list.y, list.height), photo: false }),
+    list: await pieces(job, layout, list.y, list.height, false),
     foot: foot ? await toImg(job, { ...slice(layout, foot.y, foot.height), photo: false }) : null,
     background: env.pal.elev,
     closeLabel: S.viewer.close,
@@ -360,27 +385,31 @@ async function feedLayers(job: Job): Promise<VLayer[]> {
             {
               rect: it.box,
               attr: `data-story="${j}"`,
-              label: S.viewer.openStories(it.stories.length),
+              label: S.viewer.openStories(it.owner, it.stories.length),
             },
           ]
         : [];
     }),
   });
-  /* 貼文（從限時動態列下面的線開始） */
+  /*
+   * 貼文：一則一張（從上一則的下緣或限時動態列下面的線開始，含之間的 8），貼文多時也不會變成一張超高的圖；
+   * 沒有貼文時是說明那一段。
+   */
   const posts = l.parts.posts;
-  const from = posts.y - 0.5;
-  const spots: VSpot[] = [];
-  const cars: VCar[] = [];
+  let from = posts.y - 0.5;
   for (const fp of l.posts) {
-    spots.push(...commentSpots(fp.post, fp.index, fp.layout.hits, from));
+    const to = fp.top + fp.layout.height;
     const car = await carFor(job, fp.post, fp.top, from);
-    if (car) cars.push(car);
+    layers.push({
+      img: await toImg(job, { ...slice(l, from, to - from), photo: true }),
+      spots: commentSpots(fp.post, fp.index, fp.layout.hits, from),
+      cars: car ? [car] : [],
+    });
+    from = to;
   }
-  layers.push({
-    img: await toImg(job, { ...slice(l, from, posts.height + 0.5), photo: true }),
-    spots,
-    cars,
-  });
+  const end = posts.y + posts.height;
+  if (end - from > 0.01)
+    for (const img of await pieces(job, l, from, end - from, false)) layers.push({ img });
   const nav = l.parts.nav;
   layers.push({
     img: await toImg(job, { ...slice(l, nav.y, nav.height), photo: false }),
@@ -417,7 +446,7 @@ async function dmChat(job: Job, i: number, withBack: boolean): Promise<VScreen['
       img: await toImg(job, { layout: p.head, photo: true }),
       spots: back && withBack ? [{ rect: back.box, attr: 'data-back', label: S.viewer.back }] : [],
     },
-    body: { img: await toImg(job, { layout: p.body, photo: true }) },
+    body: (await pieces(job, p.body, 0, p.body.height, true)).map((img) => ({ img })),
     foot: { img: await toImg(job, { layout: p.foot, photo: false }) },
     background: env.pal.bg,
   };
@@ -491,7 +520,7 @@ function countImages(
   const comments = (p: Post) => (p.commentsOff ? 0 : 3);
   const profile = 1 + (state.account.nav ? 1 : 0);
   const inFeed = state.posts.filter((p) => p.inFeed);
-  const feed = status + 4 + inFeed.reduce((n, p) => n + car(p), 0);
+  const feed = status + 3 + Math.max(1, inFeed.length) + inFeed.reduce((n, p) => n + car(p), 0);
   const stories = state.stories.length;
   const dm = 1 + state.dm.threads.length * 3;
   if (scope === 'all')
@@ -641,7 +670,7 @@ export async function exportHtml(
         layers: [],
         plain: {
           head: await toImg(job, { ...slice(layout, head.y, head.height), photo: false }),
-          list: await toImg(job, { ...slice(layout, list.y, list.height), photo: false }),
+          list: await pieces(job, layout, list.y, list.height, false),
           foot: foot
             ? await toImg(job, { ...slice(layout, foot.y, foot.height), photo: false })
             : null,
@@ -674,10 +703,11 @@ export async function exportHtml(
     (stories[0] ? { w: stories[0].img.w, h: stories[0].img.h } : { w: W, h: 0 });
   const plain = screens[0]?.plain;
   const fill = screens[0]?.fill;
+  const sum = (list: readonly VImg[]) => list.reduce((n, x) => n + x.h, 0);
   const h = plain
-    ? plain.head.h + plain.list.h + (plain.foot?.h ?? 0)
+    ? plain.head.h + sum(plain.list) + (plain.foot?.h ?? 0)
     : fill
-      ? fill.head.img.h + fill.body.img.h + fill.foot.img.h
+      ? fill.head.img.h + sum(fill.body.map((x) => x.img)) + fill.foot.img.h
       : main.h;
   return {
     blob,
