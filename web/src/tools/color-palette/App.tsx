@@ -1,7 +1,8 @@
-import { Download, Plus, Redo2, Scissors, Undo2 } from 'lucide-react';
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { Download, LayoutGrid, Palette, Plus, Redo2, Scissors, Undo2 } from 'lucide-react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { splitImageFiles } from '@/core/assets';
 import { downloadBlob } from '@/core/files';
-import { resetToolStore, useSaveStatus, useUndoRedo } from '@/core/storage';
+import { resetToolStore, useSaveError, useSaveStatus, useUndoRedo } from '@/core/storage';
 import {
   Button,
   ColorField,
@@ -13,28 +14,48 @@ import {
   NumberInput,
   ProjectMenu,
   Section,
+  Segmented,
   type Shortcut,
   Slider,
   Stage,
   Toggle,
   ToolShell,
   UsageSection,
+  useToast,
+  WindowDrop,
 } from '@/ui';
+import { AddFlow } from './AddFlow';
 import { BarCard } from './BarCard';
+import { CharacterDialog } from './CharacterDialog';
+import { roomLeft } from './characters';
+import { openEditor, startJob, useFlow } from './flow';
 import { Handles } from './Handles';
 import {
   FILE_CROP,
   FILE_FULL,
+  imageIds,
   layoutPalette,
   MAX_BARS,
   RANGE,
   type Settings,
-  sanitizeSettings,
   tooLarge,
 } from './logic';
 import { PickerDialog, type PickerHandle } from './PickerDialog';
+import { importProject, projectFiles } from './project';
 import { canvasToPng, drawPalette, renderCrop, renderFull } from './render';
-import { actions, TOOL_ID, useSettings } from './store';
+import { ShelfPreview, ShelfSettings } from './ShelfView';
+import {
+  actions,
+  assets,
+  DATA_VERSION,
+  referencedImages,
+  setMode,
+  settingsNow,
+  TOOL_ID,
+  useSettings,
+  useView,
+  type ViewMode,
+} from './store';
 import { S } from './strings';
 
 interface Status {
@@ -58,6 +79,12 @@ function Usage() {
           <li key={t}>{t}</li>
         ))}
       </ol>
+      <p className="mt-2 font-semibold">{S.usageShelfTitle}</p>
+      <ul>
+        {S.usageShelf.map((t) => (
+          <li key={t}>{t}</li>
+        ))}
+      </ul>
       <p className="mt-2 font-semibold">{S.usageNotesTitle}</p>
       <ul>
         {S.usageNotes.map((t) => (
@@ -68,10 +95,96 @@ function Usage() {
   );
 }
 
+/** 開頁約 5 秒後整理一次圖片庫：以前留下、目前的狀態與復原紀錄都沒用到的圖才刪 */
+function useAssetCleanup() {
+  useEffect(() => {
+    const t = setTimeout(() => {
+      void assets.gcStale(referencedImages()).catch(() => undefined);
+    }, 5000);
+    return () => clearTimeout(t);
+  }, []);
+}
+
+/**
+ * 拖進視窗、貼上的圖片（色票櫃：新增角色）。要在 ToolShell 裡面用（通知）。
+ */
+function useIncoming(mode: ViewMode) {
+  const toast = useToast();
+  return useCallback(
+    async (files: File[]) => {
+      if (!files.length) return;
+      const { images, others } = await splitImageFiles(files);
+      if (others.length)
+        toast({ title: S.notImage(others.map((f) => f.name).join('、')), tone: 'warning' });
+      if (!images.length) return;
+      if (mode === 'shelf') {
+        if (!roomLeft(settingsNow().bars)) {
+          toast({ title: S.listFull(MAX_BARS), tone: 'warning' });
+          return;
+        }
+        startJob({ kind: 'add', files: images });
+      }
+    },
+    [mode, toast],
+  );
+}
+
+/** 拖進視窗、貼上的圖片（色票櫃）；有對話框開著時不收 */
+function Incoming({ mode, disabled }: { mode: ViewMode; disabled: boolean }) {
+  const take = useIncoming(mode);
+  useEffect(() => {
+    if (disabled) return;
+    const onPaste = (e: ClipboardEvent) => {
+      const t = e.target as Element | null;
+      if (t?.closest?.('input,textarea,[contenteditable="true"],[role="dialog"]')) return;
+      const files = [...(e.clipboardData?.files ?? [])].filter((f) => f.type.startsWith('image/'));
+      if (!files.length) return;
+      e.preventDefault();
+      void take(files);
+    };
+    document.addEventListener('paste', onPaste);
+    return () => document.removeEventListener('paste', onPaste);
+  }, [take, disabled]);
+  return (
+    <WindowDrop
+      accept="image/*"
+      disabled={disabled}
+      label={S.windowDrop}
+      hint={S.windowDropHint}
+      onDrop={(files) => void take(files)}
+    />
+  );
+}
+
+/** 呈現方式（配色條／色票櫃） */
+function ModeSwitch({ mode }: { mode: ViewMode }) {
+  return (
+    <Segmented<ViewMode>
+      aria-label={S.viewLabel}
+      value={mode}
+      onValueChange={setMode}
+      fullWidth
+      options={[
+        { value: 'bar', label: S.modes.bar, ariaLabel: S.modeAria.bar, icon: <Palette /> },
+        { value: 'shelf', label: S.modes.shelf, ariaLabel: S.modeAria.shelf, icon: <LayoutGrid /> },
+      ]}
+    />
+  );
+}
+
 export function App() {
   const s = useSettings((st) => st.data);
+  const mode = useView((st) => st.data.mode);
   const { undo, redo, canUndo, canRedo, clear } = useUndoRedo(useSettings);
   const savedAt = useSaveStatus(TOOL_ID);
+  const saveError = useSaveError(TOOL_ID);
+  const flowBusy = useFlow((st) => !!st.job || !!st.editing);
+  const [shelfStatus, setShelfStatus] = useState<{
+    tone: 'success' | 'warning' | 'danger';
+    text: string;
+  } | null>(null);
+  const hasImages = imageIds(s).length > 0;
+  useAssetCleanup();
   /* 預覽倍率與畫布把手是畫面狀態，不存、不列入復原 */
   const [zoom, setZoom] = useState(1);
   const [handles, setHandles] = useState(false);
@@ -86,18 +199,19 @@ export function App() {
   const n = s.bars.length;
 
   useEffect(() => {
-    window.__colorPalette = { useSettings, layoutPalette };
+    window.__colorPalette = { useSettings, useView, useFlow, layoutPalette, assets, openEditor };
   }, []);
 
   /* ---------- 預覽畫布（與儲存用同一段繪圖程式） ---------- */
 
   const canvas = useRef<HTMLCanvasElement>(null);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: 換回配色條時畫布是新的，要重畫
   useLayoutEffect(() => {
     const c = canvas.current;
     if (!c || big) return;
     const ctx = c.getContext('2d');
     if (ctx) drawPalette(ctx, layout, s.background);
-  }, [layout, s.background, big]);
+  }, [layout, s.background, big, mode]);
 
   /* ---------- 儲存（F23～F25） ---------- */
 
@@ -137,18 +251,24 @@ export function App() {
       <IconButton label={S.redo} icon={<Redo2 />} onClick={redo} disabled={!canRedo} />
       <ProjectMenu<Settings>
         toolId={TOOL_ID}
+        version={DATA_VERSION}
         getData={() => useSettings.getState().data}
-        onLoad={(d) => {
-          /* 不是配色條的資料：回傳 false，ProjectMenu 會顯示錯誤 */
-          if (!d || typeof d !== 'object' || !Array.isArray((d as Partial<Settings>).bars))
-            return false;
-          useSettings.getState().replace(sanitizeSettings(d));
+        /* 有圖片（角色的立繪）時存成 ZIP；沒有時和以前一樣是 JSON */
+        getFiles={hasImages ? projectFiles : undefined}
+        openAccept=".zip,.json,application/zip,application/json"
+        openedMessage={S.projectOpened}
+        onLoad={async (d, _project, files) => {
+          /* 不是配色條的資料：丟出的錯誤訊息照原文顯示 */
+          const r = await importProject(d, files);
+          useSettings.getState().replace(r.settings);
           clear();
-          return true;
+          return { warnings: [r.notSaved ? S.imageNotSaved : ''] };
         }}
-        onReset={() => resetToolStore(useSettings)}
+        /* 全部重來可以復原（復原紀錄不清掉） */
+        onReset={() => resetToolStore(useSettings, { clearHistory: false })}
         savedAt={savedAt}
-        fileName="配色條"
+        statusText={saveError ? S.saveFailed : undefined}
+        fileName={S.projectFile}
         resetText={{
           label: S.resetLabel,
           title: S.resetTitle,
@@ -162,7 +282,7 @@ export function App() {
 
   const usage = <Usage />;
 
-  const settings = (
+  const barSettings = (
     <>
       <Section
         title={
@@ -196,6 +316,7 @@ export function App() {
               index={i}
               highlight={handles}
               onPick={(b, index) => picker.current?.open({ barId: b.id, number: index + 1 })}
+              onEdit={(b) => openEditor(b.id)}
             />
           ))
         ) : (
@@ -291,14 +412,20 @@ export function App() {
         </FieldRow>
         <p className="m-0 -mt-1 text-xs text-muted">{S.manualHint}</p>
       </Section>
+    </>
+  );
+
+  const settings = (
+    <>
+      {mode === 'shelf' ? <ShelfSettings onStatus={setShelfStatus} /> : barSettings}
       <UsageSection persistKey={TOOL_ID}>{usage}</UsageSection>
     </>
   );
 
   /* ---------- 預覽 ---------- */
 
-  const preview = (
-    <div className="flex flex-col gap-3">
+  const barPreview = (
+    <>
       <div className="grid items-end gap-x-4 gap-y-2 sm:grid-cols-[minmax(0,1fr)_auto]">
         <Field label={S.previewZoom}>
           <Slider
@@ -349,7 +476,7 @@ export function App() {
               bars={s.bars}
               layouts={layout.bars}
               thickness={s.thickness}
-              onChange={({ barId, k, ratios }) => actions.setPair(barId, k, ratios)}
+              onChange={({ barId, pair, ratios }) => actions.setPair(barId, pair, ratios)}
               onDragStart={useSettings.beginGesture}
               onDragEnd={useSettings.endGesture}
             />
@@ -387,7 +514,18 @@ export function App() {
           <span data-testid="status-text">{status.text}</span>
         </Notice>
       ) : null}
-      {/* 取色視窗（Portal；放在 ToolShell 裡才拿得到 UiProvider） */}
+    </>
+  );
+
+  const preview = (
+    <div className="flex flex-col gap-3">
+      <ModeSwitch mode={mode} />
+      {mode === 'shelf' ? (
+        <ShelfPreview status={shelfStatus} onStatus={setShelfStatus} />
+      ) : (
+        barPreview
+      )}
+      {/* 取色視窗、角色的編輯視窗、新增角色的流程（Portal；放在 ToolShell 裡才拿得到 UiProvider） */}
       <PickerDialog
         ref={picker}
         onApply={(barId, picks) => {
@@ -396,6 +534,9 @@ export function App() {
           setStatus({ tone: 'success', text: S.applied(index + 1, picks.length) });
         }}
       />
+      <CharacterDialog />
+      <AddFlow />
+      {mode === 'shelf' ? <Incoming mode={mode} disabled={flowBusy} /> : null}
     </div>
   );
 

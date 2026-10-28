@@ -19,6 +19,10 @@
  * - `outline="shape"`：虛線沿著形狀畫（`shape="circle"` 時畫圓、不畫方框，圓的下面先描一圈半透明的黑，淺色的圖上也看得到）；
  *   預設 `"frame"` 照舊畫方框。圓形頭像這種「只有圓裡面會用到」的框用它，對話框裡看得出圓形的範圍。
  *
+ * color-palette 的色票櫃加的選填（2026-10，不給時行為不變）：
+ * - `placementPresets`：工具列多幾個「套用某個位置」的按鈕（例：「同上一張的範圍」）；`placement` 為 null 時停用。
+ * - `extraActions`：工具列最後多放的按鈕（例：「換一張圖」——換掉 `image` 時檢視區回到初始）。
+ *
  * ```tsx
  * <ImageFrameDialog open={open} onOpenChange={setOpen} image={bmp} aspect={194 / 194} output={{ width: 194, height: 194 }}
  *   shape="circle" onConfirm={(canvas) => save(canvas)} />
@@ -90,6 +94,15 @@ export interface ImageFrameDialogProps {
   outline?: 'frame' | 'shape';
   /** 下方的說明（預設說明「整張放入」的透明留白；cover 時說明拖曳與縮放） */
   note?: ReactNode;
+  /** 工具列多幾個「套用這個位置」的按鈕（placement 為 null 時停用；color-palette 加的） */
+  placementPresets?: readonly {
+    label: string;
+    icon?: ReactNode;
+    placement: FramePlacement | null;
+    title?: string;
+  }[];
+  /** 工具列最後多放的按鈕（color-palette 加的，例：「換一張圖」） */
+  extraActions?: ReactNode;
 }
 
 const ZOOM_STEP = 1.1;
@@ -208,6 +221,8 @@ export function ImageFrameDialog({
   shape = 'rect',
   outline = 'frame',
   note,
+  placementPresets,
+  extraActions,
 }: ImageFrameDialogProps) {
   /*
    * 檢視區與畫布用 callback ref 存成 state：對話框的內容在打開後的下一次（或下下次）繪製才掛上，
@@ -626,6 +641,21 @@ export function ImageFrameDialog({
           <Button size="sm" icon={<Undo2 />} onClick={() => reset()}>
             回到初始
           </Button>
+          {placementPresets?.map((p) => (
+            <Button
+              key={p.label}
+              size="sm"
+              icon={p.icon}
+              title={p.title}
+              disabled={!p.placement || !img.width}
+              onClick={() => {
+                if (p.placement) setT(placedTransform(img, frame, p.placement));
+              }}
+            >
+              {p.label}
+            </Button>
+          ))}
+          {extraActions}
         </div>
         <p className={cn('m-0 text-center text-xs text-muted')}>
           {noteText}（輸出 <span data-testid="frame-output">{outText}</span>）

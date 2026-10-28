@@ -133,6 +133,29 @@ export function drawPlaced(
   ctx.restore();
 }
 
+/**
+ * 框（box）裡的一點對應到原圖的哪一點（原圖座標，可能在圖外）：placedTransform 的反算。
+ * 例：圓形頭像上點一下取色時，換算回原圖的像素（color-palette 的色票櫃新增，2026-10）。
+ */
+export function placedPointToImage(
+  img: Size,
+  box: Rect,
+  p: FramePlacement,
+  x: number,
+  y: number,
+): { x: number; y: number } {
+  const t = placedTransform(img, box, p);
+  const a = (t.turns * Math.PI) / 2;
+  const cos = Math.round(Math.cos(a));
+  const sin = Math.round(Math.sin(a));
+  const dx = (x - t.cx) / t.scale;
+  const dy = (y - t.cy) / t.scale;
+  return {
+    x: img.width / 2 + dx * cos + dy * sin,
+    y: img.height / 2 - dx * sin + dy * cos,
+  };
+}
+
 /** 依位置看得到的那一塊（原圖座標的矩形，還沒轉之前）與轉了幾個 90° */
 export interface PlacedCrop extends Rect {
   turns: number;

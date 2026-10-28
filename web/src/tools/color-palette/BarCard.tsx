@@ -2,7 +2,7 @@
  * 一條色條的編輯卡（F10～F17、F26 的按鈕）：標題「第 n 條」、倍率、刪除；新增一段、圖片取色；
  * 分段清單（顏色、比例、刪除，拖曳把手或整列拖曳排序，只在同一條之內）。
  */
-import { GripVertical, Pipette, Plus, Trash2, X } from 'lucide-react';
+import { GripVertical, Pipette, Plus, Trash2, UserRound, X } from 'lucide-react';
 import { useId } from 'react';
 import { Button, ColorField, cn, IconButton, NumberInput, SortableList } from '@/ui';
 import { type Bar, RANGE } from './logic';
@@ -17,9 +17,11 @@ export interface BarCardProps {
   /** 畫布把手開啟時醒目顯示 */
   highlight: boolean;
   onPick: (bar: Bar, index: number) => void;
+  /** 打開角色的編輯視窗（名字、立繪、部位；2026-10 併入色票櫃後新增） */
+  onEdit?: (bar: Bar) => void;
 }
 
-export function BarCard({ bar, index, highlight, onPick }: BarCardProps) {
+export function BarCard({ bar, index, highlight, onPick, onEdit }: BarCardProps) {
   const n = index + 1;
   const scaleId = useId();
   return (
@@ -35,6 +37,11 @@ export function BarCard({ bar, index, highlight, onPick }: BarCardProps) {
       <div className="flex min-w-0 items-center gap-2">
         <h4 className="m-0 min-w-0 flex-1 truncate text-sm font-semibold text-fg">
           {S.barTitle(n)}
+          {bar.name?.trim() ? (
+            <span className="ml-1.5 font-normal text-muted" data-testid="bar-name">
+              {bar.name.trim()}
+            </span>
+          ) : null}
         </h4>
         <label htmlFor={scaleId} className="shrink-0 text-xs text-muted" title={S.barScaleHint}>
           {S.barScale}
@@ -51,6 +58,14 @@ export function BarCard({ bar, index, highlight, onPick }: BarCardProps) {
           size="sm"
           className="w-24 shrink-0"
         />
+        {onEdit ? (
+          <IconButton
+            label={S.editCharacter(n)}
+            icon={<UserRound />}
+            size="sm"
+            onClick={() => onEdit(bar)}
+          />
+        ) : null}
         <IconButton
           label={S.removeBar(n)}
           icon={<Trash2 />}
@@ -88,12 +103,27 @@ export function BarCard({ bar, index, highlight, onPick }: BarCardProps) {
             >
               <GripVertical />
             </span>
-            <ColorField
-              aria-label={S.segmentName(k + 1)}
-              value={seg.color}
-              onChange={(color) => actions.updateSegment(bar.id, seg.id, { color })}
-              className="min-w-0 flex-1"
-            />
+            {seg.role ? (
+              <span
+                className="shrink-0 rounded-sm bg-surface-3 px-1 text-xs text-muted"
+                title={(seg.memo ?? '').trim() || undefined}
+                data-role={seg.role}
+              >
+                {(seg.memo ?? '').trim() || S.roleTag(seg.role)}
+              </span>
+            ) : null}
+            {seg.none ? (
+              <span className="min-w-0 flex-1 text-xs text-muted" data-none>
+                {S.noneInBar}
+              </span>
+            ) : (
+              <ColorField
+                aria-label={S.segmentName(k + 1)}
+                value={seg.color}
+                onChange={(color) => actions.updateSegment(bar.id, seg.id, { color })}
+                className="min-w-0 flex-1"
+              />
+            )}
             <NumberInput
               aria-label={S.segmentRatio(k + 1)}
               value={seg.ratio}

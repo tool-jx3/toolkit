@@ -143,3 +143,18 @@ export function contrastRatio(fg: Rgba | string, bg: Rgba | string): number {
 export function readableTextColor(bg: Rgba | string): '#000000' | '#ffffff' {
   return contrastRatio('#000000', bg) >= contrastRatio('#ffffff', bg) ? '#000000' : '#ffffff';
 }
+
+/**
+ * 明度 CIE L*（0～100；sRGB → 線性 → 相對亮度 Y → L*）。依「看起來多亮」排序顏色時用
+ * （color-palette 的色票櫃「亮度」排序；2026-10 新增）。
+ */
+export function cieLightness(c: Rgba | string): number {
+  const v = typeof c === 'string' ? parseColor(c) : c;
+  if (!v) return 0;
+  const lin = (x: number) => {
+    const s = x / 255;
+    return s <= 0.04045 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+  };
+  const y = 0.2126 * lin(v.r) + 0.7152 * lin(v.g) + 0.0722 * lin(v.b);
+  return y > 216 / 24389 ? 116 * Math.cbrt(y) - 16 : (24389 / 27) * y;
+}
