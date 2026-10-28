@@ -1,5 +1,5 @@
 /**
- * 色票櫃、色碼表共用的小畫法（canvas）：圓形頭像（沒有立繪時畫本站自己的剪影）、
+ * 色票櫃、色碼表、配色卡共用的小畫法（canvas）：圓形頭像（沒有立繪時畫本站自己的剪影）、
  * 色塊（一色、兩色以上分格、「無」畫成透明的格子）、圓角矩形。
  */
 import { DEFAULT_PLACEMENT, drawPlacedCrop, roundRectPath } from '@/core/image';

@@ -8,7 +8,7 @@ export const S = {
   keysGroup: '編輯',
   resetTitle: '全部重來？',
   resetDescription:
-    '角色清單、色條與色票櫃的設定都會回到剛開頁的樣子（可以按「復原」找回）。想留著的話，先「存成專案檔」備份。',
+    '角色清單、色條、色票櫃與配色卡的設定都會回到剛開頁的樣子（可以按「復原」找回）。想留著的話，先「存成專案檔」備份。',
   resetLabel: '全部重來…',
   projectFile: '配色條',
   projectOpened: '已開啟專案檔',
@@ -17,12 +17,13 @@ export const S = {
   imageNotSaved: '有圖片存不進這個瀏覽器（空間不足或被封鎖）：這次可以用，重新整理之後就不見了。',
   saveFailed: '自動儲存失敗（瀏覽器的空間不足？），請存成專案檔備份。',
 
-  /* 呈現方式 */
+  /* 三種呈現 */
   viewLabel: '呈現方式',
-  modes: { bar: '配色條', shelf: '色票櫃' },
+  modes: { bar: '配色條', shelf: '色票櫃', card: '配色卡' },
   modeAria: {
     bar: '配色條：依身高並排的膠囊色條',
     shelf: '色票櫃：圓形頭像與髮色、瞳色的總覽',
+    card: '配色卡：照片與取出的顏色排成一張卡',
   },
 
   /* 畫布 */
@@ -96,6 +97,11 @@ export const S = {
   modeLabel: '取色方式',
   modePoints: '手動滴管',
   modeSplits: '自動取色',
+  modeCluster: '依顏色分群',
+  countCluster: '要分成幾色',
+  clusterHint:
+    '把整張圖的顏色分成幾群（k-means），每群取平均色，依占的面積由多到少排列；比例＝占的面積。透明的地方不算。',
+  clusterEmpty: '這張圖沒有不透明的地方，取不到顏色。',
   countPoints: '要取幾個顏色',
   countSplits: '要分成幾段',
   reset: '重設',
@@ -213,6 +219,7 @@ export const S = {
   nothingToCopy: '「無」沒有色碼可以複製。',
   imagesMissing: '有角色的圖片讀不到（可能已從這個瀏覽器清除），請重新選擇圖片。',
   windowDrop: '放開即可加入角色',
+  windowDropCard: '放開即可放進配色卡',
   windowDropHint: '可以一次放好幾張圖片',
   notImage: (names: string) => `不是圖片：${names}。`,
   decodeError: (names: string) => `無法讀取：${names}。`,
@@ -280,6 +287,52 @@ export const S = {
   removePart: (label: string) => `刪除「${label}」`,
   noImageYet: '還沒有立繪：可以「選擇立繪」，或直接輸入色碼。',
 
+  /* 配色卡 */
+  sectionCard: '配色卡',
+  cardColumns: '照片',
+  cardColumnN: (i: number) => `第 ${i} 張`,
+  cardAddColumn: '加一張',
+  cardRemoveColumn: (i: number) => `拿掉第 ${i} 張`,
+  cardSource: '來源',
+  cardSourceCharacter: '角色',
+  cardSourcePhoto: '照片',
+  cardPickCharacter: '選擇角色',
+  cardNoCharacter: '（還沒有角色）',
+  cardPhotoChoose: '選擇照片',
+  cardPhotoName: '名字',
+  cardColors: '色票',
+  cardColorsAuto: '從圖片自動取色',
+  cardColorsParts: '用角色的顏色',
+  cardColorsPartsOnly: '這位角色沒有立繪，用角色的顏色。',
+  cardKeyHint: '點色塊設成代表色（角色的代表色會一起改）。',
+  cardKeyAuto: '自動選代表色',
+  cardSwatches: (i: number) => `第 ${i} 張的色票`,
+  cardSwatch: (name: string, hex: string, key: boolean) =>
+    `${name ? `${name} ` : ''}${hex}${key ? '（代表色）' : '，按一下設成代表色'}`,
+  cardTitle: '標題',
+  cardTitlePlaceholder: '例如 CP 名，空白不顯示',
+  cardRatio: '照片比例',
+  cardCount: '自動取幾色',
+  cardShowNames: '顯示色名',
+  cardShowMix: '混色帶',
+  cardShowMixHint: '代表色兩兩之間的漸層（只有一張時用最暗與最亮的顏色）。',
+  cardGif: 'GIF 畫質',
+  cardGifLabels: ['標準', '高', '最高'],
+  cardBlend: '綜合色',
+  cardStage: '配色卡預覽',
+  cardPhotoHint: '在預覽的照片上拖曳移動、滾輪縮放；顏色從照片露出來的範圍取。',
+  cardPhotoArea: (i: number) => `第 ${i} 張照片（拖曳移動、滾輪縮放）`,
+  cardEmpty: '先選角色或照片。',
+  cardSavePng: '存成 PNG',
+  cardSaveGif: '存成 GIF',
+  cardCopy: '複製 HEX',
+  cardCopied: '已複製色碼與色名',
+  cardFile: '配色卡',
+  cardGifBusy: (p: number) => `正在做 GIF…（${p}%）`,
+  cardGifDone: (name: string, w: number, h: number, f: number) =>
+    `已儲存「${name}」（${w} × ${h} px，${f} 格）。`,
+  cardNothing: '還沒有顏色，先選角色或照片。',
+
   /* 使用說明 */
   usageIntro:
     '替角色做「配色條」：每位角色一條直立的膠囊形色條，由上到下分成幾段顏色（例如髮色、膚色、衣服、鞋子）；色條的長度依身高換算，多條並排時底部對齊，一眼就能比較配色與身高。',
@@ -297,11 +350,12 @@ export const S = {
     '在預覽區按住 Ctrl（Mac 是 ⌘）滾動滑鼠滾輪可以縮放預覽。',
     '圖片只在你的瀏覽器裡處理，不會上傳。',
   ],
-  usageShelfTitle: '色票櫃',
+  usageShelfTitle: '色票櫃與配色卡',
   usageShelf: [
     '「色票櫃」把每位角色的圓形頭像、髮色、瞳色、代表色排成一櫃，適合整理 CoC 等跑團角色、PC 的髮色瞳色一覽；點色塊就能複製色碼。',
     '「新增角色」可以一次選好幾張立繪：先圈出頭像，再用滴管取髮色、瞳色（沒有頭髮、眼睛被遮住時按「無」）。',
-    '點頭像打開編輯視窗：補上膚色、服裝等部位、設定代表色、換立繪、存成色碼表。兩種呈現共用同一份角色清單，配色條上的每一段就是角色的部位。',
+    '點頭像打開編輯視窗：補上膚色、服裝等部位、設定代表色、換立繪、存成色碼表。三種呈現共用同一份角色清單，配色條上的每一段就是角色的部位。',
+    '「配色卡」把一位角色（或一張照片）和取出的顏色排成一張卡，可以放 2～4 張做 CP 配色；顏色名字與 HEX 一鍵複製，也能存成 PNG、GIF。',
     '換電腦或備份：頁首的「專案」→「存成專案檔」會連同圖片一起存成一個檔案。',
   ],
 } as const;

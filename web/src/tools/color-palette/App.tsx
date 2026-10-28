@@ -1,6 +1,15 @@
-import { Download, LayoutGrid, Palette, Plus, Redo2, Scissors, Undo2 } from 'lucide-react';
+import {
+  Download,
+  GalleryHorizontalEnd,
+  LayoutGrid,
+  Palette,
+  Plus,
+  Redo2,
+  Scissors,
+  Undo2,
+} from 'lucide-react';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { splitImageFiles } from '@/core/assets';
+import { addImageFiles, splitImageFiles } from '@/core/assets';
 import { downloadBlob } from '@/core/files';
 import { resetToolStore, useSaveError, useSaveStatus, useUndoRedo } from '@/core/storage';
 import {
@@ -26,6 +35,7 @@ import {
 } from '@/ui';
 import { AddFlow } from './AddFlow';
 import { BarCard } from './BarCard';
+import { CardPreview, CardSettingsPanel, useCardPaint } from './CardView';
 import { CharacterDialog } from './CharacterDialog';
 import { roomLeft } from './characters';
 import { openEditor, startJob, useFlow } from './flow';
@@ -34,6 +44,7 @@ import {
   FILE_CROP,
   FILE_FULL,
   imageIds,
+  LIMITS,
   layoutPalette,
   MAX_BARS,
   RANGE,
@@ -47,6 +58,7 @@ import { ShelfPreview, ShelfSettings } from './ShelfView';
 import {
   actions,
   assets,
+  cardOf,
   DATA_VERSION,
   referencedImages,
   setMode,
@@ -106,7 +118,7 @@ function useAssetCleanup() {
 }
 
 /**
- * 拖進視窗、貼上的圖片（色票櫃：新增角色）。要在 ToolShell 裡面用（通知）。
+ * 拖進視窗、貼上的圖片（色票櫃：新增角色；配色卡：放進空的照片欄，不夠時加欄）。要在 ToolShell 裡面用（通知）。
  */
 function useIncoming(mode: ViewMode) {
   const toast = useToast();
@@ -123,13 +135,32 @@ function useIncoming(mode: ViewMode) {
           return;
         }
         startJob({ kind: 'add', files: images });
+        return;
+      }
+      if (mode !== 'card') return;
+      const { loaded, failed } = await addImageFiles(assets, images, { maxSide: LIMITS.imageSide });
+      if (failed.length) toast({ title: S.decodeError(failed.join('、')), tone: 'danger' });
+      if (loaded.some((l) => !l.persisted)) toast({ title: S.imageNotSaved, tone: 'warning' });
+      for (const l of loaded) {
+        const cols = cardOf(settingsNow()).columns;
+        const empty = cols.find((c) => !(c.source === 'photo' ? c.image : c.characterId));
+        const patch = {
+          source: 'photo' as const,
+          image: { id: l.ref.id, width: l.ref.width, height: l.ref.height },
+          name: l.file.name.replace(/\.[^.]+$/, '').slice(0, LIMITS.cardName),
+          placement: { zoom: 1, x: 0, y: 0, turns: 0 },
+          key: null,
+        };
+        if (empty) actions.patchColumn(empty.id, patch);
+        else if (cols.length < LIMITS.cardColumns) actions.addColumn(patch);
+        else break;
       }
     },
     [mode, toast],
   );
 }
 
-/** 拖進視窗、貼上的圖片（色票櫃）；有對話框開著時不收 */
+/** 拖進視窗、貼上的圖片（色票櫃、配色卡）；有對話框開著時不收 */
 function Incoming({ mode, disabled }: { mode: ViewMode; disabled: boolean }) {
   const take = useIncoming(mode);
   useEffect(() => {
@@ -149,14 +180,14 @@ function Incoming({ mode, disabled }: { mode: ViewMode; disabled: boolean }) {
     <WindowDrop
       accept="image/*"
       disabled={disabled}
-      label={S.windowDrop}
+      label={mode === 'shelf' ? S.windowDrop : S.windowDropCard}
       hint={S.windowDropHint}
       onDrop={(files) => void take(files)}
     />
   );
 }
 
-/** 呈現方式（配色條／色票櫃） */
+/** 呈現方式（配色條／色票櫃／配色卡） */
 function ModeSwitch({ mode }: { mode: ViewMode }) {
   return (
     <Segmented<ViewMode>
@@ -167,6 +198,12 @@ function ModeSwitch({ mode }: { mode: ViewMode }) {
       options={[
         { value: 'bar', label: S.modes.bar, ariaLabel: S.modeAria.bar, icon: <Palette /> },
         { value: 'shelf', label: S.modes.shelf, ariaLabel: S.modeAria.shelf, icon: <LayoutGrid /> },
+        {
+          value: 'card',
+          label: S.modes.card,
+          ariaLabel: S.modeAria.card,
+          icon: <GalleryHorizontalEnd />,
+        },
       ]}
     />
   );
@@ -183,6 +220,8 @@ export function App() {
     tone: 'success' | 'warning' | 'danger';
     text: string;
   } | null>(null);
+  const [cardDragging, setCardDragging] = useState(false);
+  const cardPaint = useCardPaint(cardDragging);
   const hasImages = imageIds(s).length > 0;
   useAssetCleanup();
   /* 預覽倍率與畫布把手是畫面狀態，不存、不列入復原 */
@@ -253,7 +292,7 @@ export function App() {
         toolId={TOOL_ID}
         version={DATA_VERSION}
         getData={() => useSettings.getState().data}
-        /* 有圖片（角色的立繪）時存成 ZIP；沒有時和以前一樣是 JSON */
+        /* 有圖片（角色的立繪、配色卡的照片）時存成 ZIP；沒有時和以前一樣是 JSON */
         getFiles={hasImages ? projectFiles : undefined}
         openAccept=".zip,.json,application/zip,application/json"
         openedMessage={S.projectOpened}
@@ -417,7 +456,13 @@ export function App() {
 
   const settings = (
     <>
-      {mode === 'shelf' ? <ShelfSettings onStatus={setShelfStatus} /> : barSettings}
+      {mode === 'bar' ? (
+        barSettings
+      ) : mode === 'shelf' ? (
+        <ShelfSettings onStatus={setShelfStatus} />
+      ) : (
+        <CardSettingsPanel resolved={cardPaint.resolved} />
+      )}
       <UsageSection persistKey={TOOL_ID}>{usage}</UsageSection>
     </>
   );
@@ -520,10 +565,12 @@ export function App() {
   const preview = (
     <div className="flex flex-col gap-3">
       <ModeSwitch mode={mode} />
-      {mode === 'shelf' ? (
+      {mode === 'bar' ? (
+        barPreview
+      ) : mode === 'shelf' ? (
         <ShelfPreview status={shelfStatus} onStatus={setShelfStatus} />
       ) : (
-        barPreview
+        <CardPreview paint={cardPaint} onDragging={setCardDragging} />
       )}
       {/* 取色視窗、角色的編輯視窗、新增角色的流程（Portal；放在 ToolShell 裡才拿得到 UiProvider） */}
       <PickerDialog
@@ -536,7 +583,7 @@ export function App() {
       />
       <CharacterDialog />
       <AddFlow />
-      {mode === 'shelf' ? <Incoming mode={mode} disabled={flowBusy} /> : null}
+      {mode !== 'bar' ? <Incoming mode={mode} disabled={flowBusy} /> : null}
     </div>
   );
 

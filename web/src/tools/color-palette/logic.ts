@@ -3,7 +3,7 @@
  * 設定的型別與預設值、數值範圍、色條排版（規格 3.1、3.2）、裁邊範圍（3.3）、
  * 清單操作（新增／刪除條與段、排序、取色結果取代整條）、畫布把手拖動的比例換算（F18）。
  *
- * 2026-10 併入色票櫃（規格 1.1、1.3）：`bars` 就是**角色清單**（欄位名沿用舊版）——每一條是一位角色，
+ * 2026-10 併入色票櫃與配色卡（規格 1.1～1.3）：`bars` 就是**角色清單**（欄位名沿用舊版）——每一條是一位角色，
  * 多了名字、立繪、頭像範圍、代表色、色系的手動指定；每一段是角色的一個**部位**，多了部位（髮色、瞳色…）、
  * 備註與「無」。新欄位都是選填：舊的自動存檔、專案檔照樣讀，沒有用到新功能時配色條的輸出逐像素相同。
  */
@@ -74,6 +74,42 @@ export interface ShelfSettings {
   showTheme: boolean;
 }
 
+/** 配色卡的照片比例（寬：高） */
+export type CardRatio = '1:1' | '4:5' | '3:4';
+
+export interface CardColumn {
+  id: string;
+  /** 'character'＝清單裡的角色（用立繪）；'photo'＝只放在配色卡上的照片 */
+  source: 'character' | 'photo';
+  /** source 為 character 時：角色的 id（null＝還沒選） */
+  characterId: string | null;
+  /** source 為 photo 時：照片 */
+  image: ImageRef | null;
+  /** source 為 photo 時：照片下的名字（最多 20 字） */
+  name: string;
+  /** 照片在框裡的位置（拖曳、縮放） */
+  placement: FramePlacement;
+  /** source 為 photo 時：代表色（null＝自動）；角色的代表色存在角色身上 */
+  key: string | null;
+  /** 色票：'auto'＝從照片自動取 N 色（k-means）；'parts'＝用角色的部位顏色 */
+  colors: 'auto' | 'parts';
+}
+
+export interface CardSettings {
+  /** 1～4 欄 */
+  columns: CardColumn[];
+  /** 標題（最多 34 字；空白不顯示） */
+  title: string;
+  ratio: CardRatio;
+  /** 自動取幾色（4～6） */
+  count: number;
+  showNames: boolean;
+  /** 混色帶（兩個代表色之間的漸層） */
+  showMix: boolean;
+  /** GIF 的最大寬度（px） */
+  gifWidth: number;
+}
+
 export interface Settings {
   /** 背景色 */
   background: string;
@@ -94,6 +130,8 @@ export interface Settings {
   bars: Bar[];
   /** 色票櫃的設定（舊存檔沒有＝預設） */
   shelf?: ShelfSettings;
+  /** 配色卡的設定（舊存檔沒有＝預設） */
+  card?: CardSettings;
 }
 
 /** 取色結果（由上到下） */
@@ -145,7 +183,7 @@ export const RANGE = {
   pickerZoom: { min: 20, max: 500, step: 10 },
 } as const;
 
-/** 色票櫃（規格 1.1、1.3）的數值 */
+/** 色票櫃與配色卡（規格 1.1～1.3）的數值 */
 export const LIMITS = {
   /** 名字 */
   name: 80,
@@ -157,8 +195,19 @@ export const LIMITS = {
   otherParts: 30,
   /** 色票櫃每列幾位（0＝自動） */
   shelfColumns: { min: 0, max: 12 },
+  /** 配色卡最多幾欄（原作 4） */
+  cardColumns: 4,
+  /** 配色卡的標題、照片的名字（原作 34、20） */
+  cardTitle: 34,
+  cardName: 20,
+  /** 自動取幾色（原作 4／5／6） */
+  cardCounts: [4, 5, 6],
+  /** GIF 的最大寬度（原作「標準／高畫質／最高」） */
+  gifWidths: [900, 1150, 1400],
   /** 頭像範圍最多放大幾倍（以蓋滿為 1；本站自訂） */
   avatarZoom: 20,
+  /** 配色卡的照片最多放大幾倍（原作 12） */
+  cardZoom: 12,
   /** 存進圖片庫的立繪長邊上限（本站自訂；原作 3000） */
   imageSide: 2048,
 } as const;
@@ -180,6 +229,29 @@ export const DEFAULT_SHELF: ShelfSettings = {
   columns: 0,
   showNames: true,
   showTheme: true,
+};
+
+export const DEFAULT_PLACEMENT_VALUE: FramePlacement = { zoom: 1, x: 0, y: 0, turns: 0 };
+
+export const DEFAULT_CARD: CardSettings = {
+  columns: [
+    {
+      id: 'col-initial',
+      source: 'character',
+      characterId: null,
+      image: null,
+      name: '',
+      placement: DEFAULT_PLACEMENT_VALUE,
+      key: null,
+      colors: 'auto',
+    },
+  ],
+  title: '',
+  ratio: '1:1',
+  count: 5,
+  showNames: true,
+  showMix: true,
+  gifWidth: 1150,
 };
 
 /** 新的段（部位）補齊選填欄位 */
@@ -226,11 +298,12 @@ export const DEFAULT_SETTINGS: Settings = {
     ),
   ],
   shelf: DEFAULT_SHELF,
+  card: DEFAULT_CARD,
 };
 
 let seq = 0;
 /** 新的條、段 id（同一頁內唯一；存檔讀回來的 id 不會撞到，因為有亂數） */
-export function newId(prefix: 'bar' | 'seg'): string {
+export function newId(prefix: 'bar' | 'seg' | 'col'): string {
   seq += 1;
   return `${prefix}-${seq.toString(36)}${Math.random().toString(36).slice(2, 8)}`;
 }
@@ -556,6 +629,7 @@ function cleanBar(v: unknown, baseScale: number): Bar | null {
 }
 
 const SHELF_SORTS: readonly ShelfSort[] = ['light', 'hair', 'eye', 'name', 'manual'];
+const CARD_RATIOS: readonly CardRatio[] = ['1:1', '4:5', '3:4'];
 
 /** 色票櫃的設定（缺的、不合的換成預設） */
 export function sanitizeShelf(raw: unknown): ShelfSettings {
@@ -569,6 +643,51 @@ export function sanitizeShelf(raw: unknown): ShelfSettings {
     ),
     showNames: typeof o.showNames === 'boolean' ? o.showNames : d.showNames,
     showTheme: typeof o.showTheme === 'boolean' ? o.showTheme : d.showTheme,
+  };
+}
+
+function cleanColumn(v: unknown): CardColumn | null {
+  if (!v || typeof v !== 'object') return null;
+  const o = v as Record<string, unknown>;
+  const source = o.source === 'photo' ? 'photo' : 'character';
+  return {
+    id: typeof o.id === 'string' && o.id ? o.id : newId('col'),
+    source,
+    characterId:
+      source === 'character' && typeof o.characterId === 'string' && o.characterId
+        ? o.characterId
+        : null,
+    image: source === 'photo' ? cleanImage(o.image) : null,
+    name: source === 'photo' ? cleanText(o.name, LIMITS.cardName) : '',
+    placement: cleanPlacement(o.placement, LIMITS.cardZoom) ?? DEFAULT_PLACEMENT_VALUE,
+    key:
+      source === 'photo' && typeof o.key === 'string' && parseColor(o.key)
+        ? cleanColor(o.key, '')
+        : null,
+    colors: o.colors === 'parts' ? 'parts' : 'auto',
+  };
+}
+
+/** 配色卡的設定（缺的、不合的換成預設；欄數 1～4） */
+export function sanitizeCard(raw: unknown): CardSettings {
+  const d = DEFAULT_CARD;
+  const o = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {};
+  const columns = Array.isArray(o.columns)
+    ? o.columns
+        .map(cleanColumn)
+        .filter((c): c is CardColumn => !!c)
+        .slice(0, LIMITS.cardColumns)
+    : [];
+  const count = Number(o.count);
+  const gif = Number(o.gifWidth);
+  return {
+    columns: columns.length ? columns : d.columns,
+    title: cleanText(o.title, LIMITS.cardTitle),
+    ratio: CARD_RATIOS.includes(o.ratio as CardRatio) ? (o.ratio as CardRatio) : d.ratio,
+    count: (LIMITS.cardCounts as readonly number[]).includes(count) ? count : d.count,
+    showNames: typeof o.showNames === 'boolean' ? o.showNames : d.showNames,
+    showMix: typeof o.showMix === 'boolean' ? o.showMix : d.showMix,
+    gifWidth: (LIMITS.gifWidths as readonly number[]).includes(gif) ? gif : d.gifWidth,
   };
 }
 
@@ -590,7 +709,7 @@ export function sanitizeSettings(raw: unknown): Settings {
     : d.bars;
   /* id 重複（手改的專案檔）時換新的，React 的 key 與拖曳才不會混淆 */
   const seen = new Set<string>();
-  const unique = <T extends { id: string }>(x: T, prefix: 'bar' | 'seg'): T => {
+  const unique = <T extends { id: string }>(x: T, prefix: 'bar' | 'seg' | 'col'): T => {
     if (!seen.has(x.id)) {
       seen.add(x.id);
       return x;
@@ -603,6 +722,7 @@ export function sanitizeSettings(raw: unknown): Settings {
     const bar = unique(b, 'bar');
     return { ...bar, segments: bar.segments.map((s) => unique(s, 'seg')) };
   });
+  const card = sanitizeCard(o.card);
   return {
     background: cleanColor(o.background, d.background),
     thickness: clampNum(o.thickness, RANGE.thickness.min, RANGE.thickness.max, d.thickness),
@@ -614,12 +734,14 @@ export function sanitizeSettings(raw: unknown): Settings {
     padding: clampNum(o.padding, RANGE.padding.min, RANGE.padding.max, d.padding),
     bars: cleanBars,
     shelf: sanitizeShelf(o.shelf),
+    card: { ...card, columns: card.columns.map((c) => unique(c, 'col')) },
   };
 }
 
-/** 角色用到的圖片（立繪；存專案檔、整理圖片庫用） */
-export function imageIds(s: Pick<Settings, 'bars'>): string[] {
+/** 角色用到的圖片（立繪與配色卡的照片；存專案檔、整理圖片庫用） */
+export function imageIds(s: Pick<Settings, 'bars' | 'card'>): string[] {
   const ids: string[] = [];
   for (const b of s.bars) if (b.image) ids.push(b.image.id);
+  for (const c of s.card?.columns ?? []) if (c.image) ids.push(c.image.id);
   return [...new Set(ids)];
 }

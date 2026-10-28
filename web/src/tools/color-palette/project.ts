@@ -1,6 +1,6 @@
 /**
  * 專案檔（規格 1.3 F67）：沒有圖片時照舊存成 JSON（`{ format: 'trpg-toolkit-project', tool: 'color-palette', version, data }`）；
- * 有角色的立繪時存成共用格式的 ZIP（`project.json`＋`files/<圖片 id>.<副檔名>`）。
+ * 有角色的立繪或配色卡的照片時存成共用格式的 ZIP（`project.json`＋`files/<圖片 id>.<副檔名>`）。
  * 讀入時先整理（sanitizeSettings），用到的圖片都要在 ZIP 裡（或這個瀏覽器已經有）而且讀得了，才換掉目前的內容。
  * 版本 1（舊版，只有色條）的專案檔照常讀。
  */

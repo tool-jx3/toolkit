@@ -1,13 +1,43 @@
 /**
- * core/colornames（色系）、core/color 的明度、core/image 的 placedPointToImage（頭像上的點 → 原圖的點）。
- * color-palette 併入色票櫃時新增（2026-10）。
+ * core/colornames（本站自編的繁中色名、色系）、core/color 的明度與 Oklab、
+ * core/image 的 placedPointToImage（頭像上的點 → 原圖的點）。color-palette 併入色票櫃、配色卡時新增（2026-10）。
  */
 import { describe, expect, it } from 'vitest';
-import { cieLightness } from '@/core/color';
-import { COLOR_FAMILIES, COLOR_FAMILY_LABELS, colorFamily } from '@/core/colornames';
+import { cieLightness, oklabDistance, parseColor, rgbToOklab } from '@/core/color';
+import {
+  COLOR_FAMILIES,
+  COLOR_FAMILY_LABELS,
+  COLOR_NAMES,
+  colorFamily,
+  colorName,
+} from '@/core/colornames';
 import { placedPointToImage, placedTransform } from '@/core/image';
 
 describe('core/colornames', () => {
+  it('色名表：名字不重複、色碼都是小寫 #rrggbb', () => {
+    const names = COLOR_NAMES.map((c) => c.name);
+    expect(new Set(names).size).toBe(names.length);
+    for (const c of COLOR_NAMES) expect(c.hex).toMatch(/^#[0-9a-f]{6}$/);
+    expect(COLOR_NAMES.length).toBeGreaterThan(100);
+  });
+
+  it('表裡的顏色得到自己的名字；接近的顏色得到最接近的名字', () => {
+    for (const c of COLOR_NAMES) expect(colorName(c.hex)).toBe(c.name);
+    expect(colorName('#f4a08c')).toBe('鮭魚粉');
+    expect(colorName('#000000')).toBe('漆黑');
+    expect(colorName('#ffffff')).toBe('雪白');
+    expect(colorName('看不懂')).toBe('');
+  });
+
+  it('同一組不重複：用過的名字跳過、改用次接近的', () => {
+    const used = new Set<string>();
+    const a = colorName('#d42a2a', used);
+    const b = colorName('#d42a2a', used);
+    expect(a).toBe('正紅');
+    expect(b).not.toBe(a);
+    expect(used.size).toBe(2);
+  });
+
   it('色系：依 HSV 分界', () => {
     const cases: [string, string][] = [
       ['#d42a2a', 'red'],
@@ -28,11 +58,18 @@ describe('core/colornames', () => {
   });
 });
 
-describe('core/color：明度', () => {
+describe('core/color：明度、Oklab', () => {
   it('明度 L*：黑 0、白 100、中灰約 53.6', () => {
     expect(cieLightness('#000000')).toBe(0);
     expect(cieLightness('#ffffff')).toBeCloseTo(100, 3);
     expect(cieLightness('#808080')).toBeCloseTo(53.59, 1);
+  });
+
+  it('Oklab：白的 L 是 1、距離對稱', () => {
+    const w = rgbToOklab(parseColor('#ffffff')!);
+    const k = rgbToOklab(parseColor('#000000')!);
+    expect(w.L).toBeCloseTo(1, 3);
+    expect(oklabDistance(w, k)).toBeCloseTo(oklabDistance(k, w), 9);
   });
 });
 

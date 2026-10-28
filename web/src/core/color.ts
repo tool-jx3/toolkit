@@ -158,3 +158,34 @@ export function cieLightness(c: Rgba | string): number {
   const y = 0.2126 * lin(v.r) + 0.7152 * lin(v.g) + 0.0722 * lin(v.b);
   return y > 216 / 24389 ? 116 * Math.cbrt(y) - 16 : (24389 / 27) * y;
 }
+
+export interface Oklab {
+  /** 明度 0～1 */
+  L: number;
+  a: number;
+  b: number;
+}
+
+/** sRGB → Oklab（Björn Ottosson 公開的換算；找最接近的顏色時，距離比 RGB 更接近人眼的感覺） */
+export function rgbToOklab({ r, g, b }: Rgba): Oklab {
+  const lin = (x: number) => {
+    const s = x / 255;
+    return s <= 0.04045 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+  };
+  const R = lin(r);
+  const G = lin(g);
+  const B = lin(b);
+  const l = Math.cbrt(0.4122214708 * R + 0.5363325363 * G + 0.0514459929 * B);
+  const m = Math.cbrt(0.2119034982 * R + 0.6806995451 * G + 0.1073969566 * B);
+  const s = Math.cbrt(0.0883024619 * R + 0.2817188376 * G + 0.6299787005 * B);
+  return {
+    L: 0.2104542553 * l + 0.793617785 * m - 0.0040720468 * s,
+    a: 1.9779984951 * l - 2.428592205 * m + 0.4505937099 * s,
+    b: 0.0259040371 * l + 0.7827717662 * m - 0.808675766 * s,
+  };
+}
+
+/** 兩個 Oklab 顏色的距離（歐氏距離；0＝相同，黑白約 1） */
+export function oklabDistance(p: Oklab, q: Oklab): number {
+  return Math.hypot(p.L - q.L, p.a - q.a, p.b - q.b);
+}

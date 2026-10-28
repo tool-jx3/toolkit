@@ -1,6 +1,6 @@
 /**
  * 角色配色條產生器：色票櫃（規格 1.1、1.3；併入 saturn97v/Color-shelf 的功能，2026-10）。
- * - 呈現的切換（重新整理後記得）；色票櫃的預設內容；
+ * - 三種呈現的切換（重新整理後記得）；色票櫃的預設內容；
  * - 新增角色：一次選兩張 → 圈頭像（同上一張的範圍）→ 滴管取髮色、瞳色（自動換到瞳色、「無」、名字）→ 儲存；
  * - 排序（髮色、瞳色、亮度、名字、自己拖曳）與依色系分組、每列幾位、顯示名字／代表色；
  * - 點色塊複製色碼（「無」不複製）；拖曳卡片調整順序（改成自己拖曳，配色條也照這個順序）；
@@ -58,7 +58,7 @@ const bars = async (page: Page) => (await state(page)).bars;
 const named = async (page: Page, name: string) =>
   (await bars(page)).find((b) => b.name === name) as Bar;
 
-const mode = (page: Page, name: '配色條' | '色票櫃') =>
+const mode = (page: Page, name: '配色條' | '色票櫃' | '配色卡') =>
   page.getByRole('radio', { name: new RegExp(`^${name}`) }).click();
 const btn = (scope: Page | Locator, name: string) =>
   scope.getByRole('button', { name, exact: true });
@@ -97,7 +97,7 @@ async function clickCircle(page: Page, u: number, v: number) {
   await page.mouse.click(b.x + b.width * u, b.y + b.height * v);
 }
 
-test('呈現的切換；色票櫃的預設內容；重新整理後記得目前的呈現', async ({ page }) => {
+test('三種呈現的切換；色票櫃的預設內容；重新整理後記得目前的呈現', async ({ page }) => {
   const errors = await open(page);
   await expect(page.getByRole('radio', { name: /^配色條/ })).toHaveAttribute(
     'aria-checked',

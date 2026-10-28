@@ -1,13 +1,20 @@
 /**
- * 圖片取色視窗（F26～F38）：ImageSampler 放在 Dialog 裡。
+ * 圖片取色視窗（F26～F38；2026-10 多一個「依顏色分群」F99）：ImageSampler 放在 Dialog 裡。
  * - 每次開啟：清掉上次的圖片、取色點，分割線回到等分，縮放回 100%；取色方式、數量、容許值沿用上次的值（同一次開頁內）。
  * - 手動滴管：依點選順序取色，點滿 n 個才能套用（比例都是 1）。
  * - 自動取色：n − 1 條分割線，每段取一個主色（core/image 的 vividColorsBySplits），比例＝該段占圖片高度的比例。
+ * - 依顏色分群（2026-10，F99）：整張圖用 k-means（core/image 的 kmeansPalette）分成 n 色，依占的面積由多到少，比例＝面積。
  * - 結果取代該條的全部分段；取消、關閉鈕、Esc 都不改變分段。
  */
 import { Check, ImagePlus, RotateCcw } from 'lucide-react';
 import { type Ref, useEffect, useImperativeHandle, useRef, useState } from 'react';
-import { evenSplits, getImageData, vividColorsBySplits } from '@/core/image';
+import {
+  evenSplits,
+  getImageData,
+  kmeansPalette,
+  regionPixels,
+  vividColorsBySplits,
+} from '@/core/image';
 import {
   Button,
   Dialog,
@@ -22,7 +29,7 @@ import {
 import { type PickedColor, picksFromPoints, RANGE } from './logic';
 import { S } from './strings';
 
-export type PickMode = 'points' | 'splits';
+export type PickMode = 'points' | 'splits' | 'cluster';
 
 export interface PickerTarget {
   barId: string;
@@ -109,6 +116,14 @@ export function PickerDialog({ onApply, ref }: PickerDialogProps) {
         return;
       }
       picks = picksFromPoints(points.slice(0, count));
+    } else if (mode === 'cluster') {
+      const size = { width: image.width, height: image.height };
+      const px = regionPixels(image, size, { x: 0, y: 0, ...size }, 150);
+      picks = clusterPicks(kmeansPalette(px, count, { order: 'share' }));
+      if (!picks.length) {
+        setError(S.clusterEmpty);
+        return;
+      }
     } else {
       picks = vividColorsBySplits(getImageData(image), splits, { tolerance });
     }
@@ -119,7 +134,10 @@ export function PickerDialog({ onApply, ref }: PickerDialogProps) {
   const controls = (m: PickMode) => (
     <div className="flex flex-col gap-2">
       <div className="flex flex-wrap items-end gap-x-4 gap-y-2">
-        <Field label={m === 'points' ? S.countPoints : S.countSplits} layout="inline">
+        <Field
+          label={m === 'points' ? S.countPoints : m === 'cluster' ? S.countCluster : S.countSplits}
+          layout="inline"
+        >
           <NumberInput
             value={count}
             onChange={() => {}}
@@ -152,7 +170,11 @@ export function PickerDialog({ onApply, ref }: PickerDialogProps) {
         </Button>
       </div>
       <p className="m-0 text-xs text-muted">
-        {m === 'points' ? S.pointsHint : `${S.splitsHint}${S.toleranceHint}`}
+        {m === 'points'
+          ? S.pointsHint
+          : m === 'cluster'
+            ? S.clusterHint
+            : `${S.splitsHint}${S.toleranceHint}`}
       </p>
       {m === 'points' ? <Progress points={points} count={count} /> : null}
     </div>
@@ -203,6 +225,7 @@ export function PickerDialog({ onApply, ref }: PickerDialogProps) {
           items={[
             { value: 'points', label: S.modePoints, content: controls('points') },
             { value: 'splits', label: S.modeSplits, content: controls('splits') },
+            { value: 'cluster', label: S.modeCluster, content: controls('cluster') },
           ]}
         />
         {error ? (
@@ -212,7 +235,7 @@ export function PickerDialog({ onApply, ref }: PickerDialogProps) {
         ) : null}
         <ImageSampler
           image={image}
-          mode={mode}
+          mode={mode === 'cluster' ? 'none' : mode}
           points={points}
           onPointsChange={(p) => {
             setPoints(p);
@@ -231,6 +254,14 @@ export function PickerDialog({ onApply, ref }: PickerDialogProps) {
       </div>
     </Dialog>
   );
+}
+
+/** 依顏色分群的結果 → 分段：依占的面積由多到少，比例＝面積（四捨五入到小數 3 位、至少 0.01） */
+export function clusterPicks(colors: readonly { color: string; share: number }[]): PickedColor[] {
+  return colors.map((c) => ({
+    color: c.color,
+    ratio: Math.max(RANGE.segmentRatio.min, Math.round(c.share * 1000) / 1000),
+  }));
 }
 
 /** 手動滴管的進度（F31）：一列色塊（未取的是灰底問號）＋「已取 i／共 n」，點滿後改成完成樣式 */

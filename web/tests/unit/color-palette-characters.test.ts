@@ -26,6 +26,7 @@ import {
 import {
   type Bar,
   barOf,
+  DEFAULT_CARD,
   DEFAULT_SETTINGS,
   DEFAULT_SHELF,
   imageIds,
@@ -84,8 +85,9 @@ describe('舊存檔（版本 1，只有色條）的轉換', () => {
       { id: 's1', color: '#112233', ratio: 2, role: null, memo: '', none: false },
       { id: 's2', color: '#445566', ratio: 1, role: null, memo: '', none: false },
     ]);
-    /* 色票櫃的設定補預設值 */
+    /* 色票櫃、配色卡的設定補預設值 */
     expect(s.shelf).toEqual(DEFAULT_SHELF);
+    expect(s.card).toEqual(DEFAULT_CARD);
   });
 
   it('轉換前後配色條的排版完全相同', () => {
@@ -384,7 +386,7 @@ describe('取色', () => {
 });
 
 describe('專案檔的往返、色碼表與色票櫃 PNG 的大小', () => {
-  it('存成專案檔再讀回、整理後與原本相同（含部位、「無」、代表色、色票櫃的設定）', () => {
+  it('存成專案檔再讀回、整理後與原本相同（含部位、「無」、代表色、色票櫃與配色卡的設定）', () => {
     const s = sanitizeSettings({
       ...DEFAULT_SETTINGS,
       bars: [
@@ -395,6 +397,7 @@ describe('專案檔的往返、色碼表與色票櫃 PNG 的大小', () => {
         }),
       ],
       shelf: { ...DEFAULT_SHELF, sort: 'name', columns: 4 },
+      card: { ...DEFAULT_CARD, title: '標題', count: 6 },
     });
     const text = serializeProject('color-palette', 2, s, new Date(0));
     const back = parseProject<Settings>(text, 'color-palette');
