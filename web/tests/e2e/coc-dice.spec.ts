@@ -522,7 +522,7 @@ test.describe('390 寬', () => {
 test.describe('動畫', () => {
   test.use({ viewport: { width: 1280, height: 900 } });
 
-  test('跳動約 0.8 秒後揭曉；跳動中不顯示結果與成功等級', async ({ page }) => {
+  test('跳動約 0.8 秒後揭曉；跳動中不顯示結果與成功等級', { tag: '@serial' }, async ({ page }) => {
     const errors = await open(page);
     await page.getByRole('radio', { name: '懲罰骰 1 顆' }).click();
     await skillInput(page).fill('40');

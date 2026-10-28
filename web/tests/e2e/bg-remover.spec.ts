@@ -721,6 +721,7 @@ async function needsWebGpu(page: Page) {
 
 gpuTest(
   'WebGPU（SwiftShader）假模型：選「GPU（WebGPU）」跑完整流程，遮罩與前後處理＋模型的算式相同',
+  { tag: '@serial' },
   async ({ gpuPage: page }) => {
     await needsWebGpu(page);
     const { errors } = await open(page, { spec: FAKE_SPEC });
@@ -1614,9 +1615,9 @@ test('F58：快捷鍵一覽列出「Esc 取消取色」', async ({ page }) => {
   expect(errors).toEqual([]);
 });
 
-test('大圖：放進 4000 × 4000 與改設定（含去掉孤島、多個背景色）時畫面不凍住（解碼、縮圖、合成在 Worker 裡）', async ({
-  page,
-}) => {
+test('大圖：放進 4000 × 4000 與改設定（含去掉孤島、多個背景色）時畫面不凍住（解碼、縮圖、合成在 Worker 裡）', {
+  tag: '@serial',
+}, async ({ page }) => {
   test.setTimeout(120_000);
   const big = await bigPngFile(4000, 4000);
   await recordTimeline(page);
@@ -1678,7 +1679,9 @@ test('大圖：放進 4000 × 4000 與改設定（含去掉孤島、多個背景
   expect(errors).toEqual([]);
 });
 
-test('匯出：按「取消」立刻顯示「正在取消…」，停下來後「已取消匯出。」', async ({ page }) => {
+test('匯出：按「取消」立刻顯示「正在取消…」，停下來後「已取消匯出。」', { tag: '@serial' }, async ({
+  page,
+}) => {
   test.setTimeout(120_000);
   const big = await bigPngFile(4000, 4000);
   await recordTimeline(page);

@@ -650,7 +650,7 @@ test('PNG：1～3 倍、檔名、與預覽同一格逐像素相同（最近鄰�
   expect(errors).toEqual([]);
 });
 
-test('複製圖片：PNG 放進剪貼簿（F57）', async ({ page, context }) => {
+test('複製圖片：PNG 放進剪貼簿（F57）', { tag: '@serial' }, async ({ page, context }) => {
   await context.grantPermissions(['clipboard-read', 'clipboard-write']);
   const errors = await open(page);
   await loadBg(page);

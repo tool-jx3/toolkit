@@ -18,8 +18,15 @@ export default defineConfig({
   snapshotPathTemplate: '{testDir}/../__screenshots__/{arg}{ext}',
   outputDir: 'test-results',
   timeout: 90_000,
-  fullyParallel: false,
-  workers: 1,
+  /* 每個測試有自己的瀏覽器環境，可以平行跑；這台 4 核心的容器約 3 個最快（E2E_WORKERS 可以改） */
+  fullyParallel: true,
+  workers: process.env.E2E_WORKERS ?? '75%',
+  /* 量時間的測試（主執行緒長工作、每秒格數、即時播放的時間點）和吃重的匯出標 @serial，平行時會搶 CPU 誤判：
+     npm run e2e（tests/run-e2e.mjs）先跑 main，再一個一個跑 serial。直接 playwright test 時兩個專案一起跑 */
+  projects: [
+    { name: 'main', grepInvert: /@serial/ },
+    { name: 'serial', grep: /@serial/, fullyParallel: false, workers: 1 },
+  ],
   reporter: [['list']],
   expect: {
     toHaveScreenshot: { maxDiffPixelRatio: 0.02, animations: 'disabled', caret: 'hide' },
@@ -31,7 +38,9 @@ export default defineConfig({
     timezoneId: 'Asia/Taipei',
     colorScheme: 'dark',
     acceptDownloads: true,
-    trace: 'retain-on-failure',
+    /* 每個測試都錄 trace 約慢 14%；失敗要看 trace 時重跑那個測試加 --trace retain-on-failure */
+    trace: 'off',
+    screenshot: 'only-on-failure',
     /* 容器沒有設定語系時，Chromium 會把中文下載檔名換成「download」 */
     launchOptions: { env: { ...process.env, LANG: 'C.UTF-8', LC_ALL: 'C.UTF-8' } },
   },

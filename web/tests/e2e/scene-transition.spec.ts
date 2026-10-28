@@ -417,9 +417,9 @@ test.describe('一般操作', () => {
     expect(errors).toEqual([]);
   });
 
-  test('Google 字型載不到（離線、被擋）：狀態列很快附註已改用後備字型；匯出也附註（F37）', async ({
-    page,
-  }) => {
+  test('Google 字型載不到（離線、被擋）：狀態列很快附註已改用後備字型；匯出也附註（F37）', {
+    tag: '@serial',
+  }, async ({ page }) => {
     test.setTimeout(60_000);
     const errors = await open(page);
     /* open() 把字型請求換成空的樣式表；這裡改成連線失敗 */
@@ -446,7 +446,9 @@ test.describe('一般操作', () => {
 test.describe('預覽播放', () => {
   test.use({ viewport: { width: 1280, height: 900 } });
 
-  test('改設定後從頭播放；沒勾循環時每輪之間停約 1.2 秒；重播', async ({ page }) => {
+  test('改設定後從頭播放；沒勾循環時每輪之間停約 1.2 秒；重播', { tag: '@serial' }, async ({
+    page,
+  }) => {
     const errors = await open(page);
     /* 播到最後一格之後停在最後一格約 1.2 秒才從頭（E01：1.31 秒＋1.2 秒） */
     await expect.poll(() => hook<number>(page, '(t) => t.frame()'), { timeout: 5000 }).toBe(16);

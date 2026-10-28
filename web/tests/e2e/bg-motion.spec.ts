@@ -357,7 +357,9 @@ test.describe('一般操作', () => {
     expect(errors).toEqual([]);
   });
 
-  test('預覽是輸出的等比縮圖：上下震盪的黑邊、淡入的白色、透明淡化', async ({ page }) => {
+  test('預覽是輸出的等比縮圖：上下震盪的黑邊、淡入的白色、透明淡化', { tag: '@serial' }, async ({
+    page,
+  }) => {
     const errors = await open(page);
     await fileInput(page).setInputFiles([file('red.png', await pngOf(640, 360, [220, 30, 30]))]);
     await page.getByRole('button', { name: '播放', exact: true }).click();

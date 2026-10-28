@@ -604,7 +604,9 @@ test('復原／重做（按鈕與快捷鍵）；重設換新的種子、可以�
 
 /* ---------- 大畫布、Worker ---------- */
 
-test('大畫布 8000 × 8000：預覽縮小、畫的時候頁面照常反應、匯出全尺寸', async ({ page }) => {
+test('大畫布 8000 × 8000：預覽縮小、畫的時候頁面照常反應、匯出全尺寸', { tag: '@serial' }, async ({
+  page,
+}) => {
   test.setTimeout(180_000);
   const errors = await open(page);
   await page.evaluate((o) => {
@@ -641,9 +643,9 @@ test('大畫布 8000 × 8000：預覽縮小、畫的時候頁面照常反應、�
   expect(errors).toEqual([]);
 });
 
-test('很慢的預覽剛開始就改回來、之後不再改：滿 1 秒時重開 Worker，不等慢的畫完（7.1）', async ({
-  page,
-}) => {
+test('很慢的預覽剛開始就改回來、之後不再改：滿 1 秒時重開 Worker，不等慢的畫完（7.1）', {
+  tag: '@serial',
+}, async ({ page }) => {
   test.setTimeout(120_000);
   const errors = await open(page);
   const fast: Overrides = {

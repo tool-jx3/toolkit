@@ -727,9 +727,9 @@ test('畫布：拖曳、碰撞推擠、點選聚焦、框選與群組拖曳、Sh
   expect(errors).toEqual([]);
 });
 
-test('拖曳的快速路徑：拖曳中只移動角色與相連的線、不整張重畫，放開才寫回；120 位時每次移動夠快', async ({
-  page,
-}) => {
+test('拖曳的快速路徑：拖曳中只移動角色與相連的線、不整張重畫，放開才寫回；120 位時每次移動夠快', {
+  tag: '@serial',
+}, async ({ page }) => {
   const errors = await open(page);
   const s0 = emptySheet(1, 1, { W: 2400, H: 1800 });
   s0.types.push(makeType(10, '友情'));
@@ -2377,9 +2377,9 @@ test('原作的專案檔：標籤的顏色與開關、陣營框設定、群體�
   expect(errors).toEqual([]);
 });
 
-test('120 位＋6 個陣營框：拖曳仍走快速路徑（同一份 SVG、陣營框跟著），每次移動夠快', async ({
-  page,
-}) => {
+test('120 位＋6 個陣營框：拖曳仍走快速路徑（同一份 SVG、陣營框跟著），每次移動夠快', {
+  tag: '@serial',
+}, async ({ page }) => {
   const errors = await open(page);
   const s0 = emptySheet(1, 1, { W: 2400, H: 1800 });
   s0.types.push(makeType(10, '友情'));
@@ -4351,10 +4351,9 @@ test('背景層鎖住時：「匯入背景圖片」「移除背景圖片」都�
   expect(errors).toEqual([]);
 });
 
-test('影片：檔頭寫著總長（即時錄的 WebM 也補上 Duration，7.13）、時長約 4.2 秒、尺寸 1100 × 900、每一格都是畫好的畫面', async ({
-  page,
-  context,
-}) => {
+test('影片：檔頭寫著總長（即時錄的 WebM 也補上 Duration，7.13）、時長約 4.2 秒、尺寸 1100 × 900、每一格都是畫好的畫面', {
+  tag: '@serial',
+}, async ({ page, context }) => {
   const errors = await open(page);
   await openLegacyTimeline(page);
   await page.getByTestId('open-export').click();

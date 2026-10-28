@@ -391,7 +391,9 @@ test.describe('介面', () => {
     expect(errors).toEqual([]);
   });
 
-  test('預覽區段：1200 則、起始超出範圍的修正、Enter、全部（F72～F74）', async ({ page }) => {
+  test('預覽區段：1200 則、起始超出範圍的修正、Enter、全部（F72～F74）', {
+    tag: '@serial',
+  }, async ({ page }) => {
     const errors = await open(page);
     await loadFiles(page, [fileOf('長團 [main].html', longLog(ATT))]);
     const t0 = Date.now();
@@ -1086,7 +1088,9 @@ test.describe('EPUB 電子書（2026-10）', () => {
     return { exportTasks, convertTasks };
   }
 
-  test('大日誌：2 萬則在 Worker 裡產生、畫面不凍住（5. D8）', async ({ page }) => {
+  test('大日誌：2 萬則在 Worker 裡產生、畫面不凍住（5. D8）', { tag: '@serial' }, async ({
+    page,
+  }) => {
     test.setTimeout(240_000);
     const errors = await open(page);
     const workers: string[] = [];
@@ -1099,7 +1103,10 @@ test.describe('EPUB 電子書（2026-10）', () => {
     expect(errors).toEqual([]);
   });
 
-  test('大日誌：Worker 載不到時改在主執行緒分段產生（5. D8）', async ({ page, context }) => {
+  test('大日誌：Worker 載不到時改在主執行緒分段產生（5. D8）', { tag: '@serial' }, async ({
+    page,
+    context,
+  }) => {
     test.setTimeout(240_000);
     await context.route(/epub\.worker[^/]*\.js/, (r) => r.abort());
     const errors = await open(page);

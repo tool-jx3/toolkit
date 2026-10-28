@@ -1306,9 +1306,9 @@ test('進階 3D：設定自動儲存、存進專案檔；390 寬沒有橫向捲�
   expect(errors).toEqual([]);
 });
 
-test('進階 3D：離開分頁時放掉 WebGL 環境；匯出中離開分頁不會取消，回來時結果還在（N2、N11）', async ({
-  page,
-}) => {
+test('進階 3D：離開分頁時放掉 WebGL 環境；匯出中離開分頁不會取消，回來時結果還在（N2、N11）', {
+  tag: '@serial',
+}, async ({ page }) => {
   test.setTimeout(240_000);
   await page.addInitScript(() => {
     const w = window as unknown as { __gl: WebGLRenderingContext[] };
