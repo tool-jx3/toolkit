@@ -202,10 +202,22 @@ export function downscaleArea(
 
 /** 照片類的判斷用：取樣的格數上限 */
 const PHOTO_SAMPLES = 16_384;
-/** 取樣裡不同顏色至少幾種才算照片（自訂） */
+/** 彩色：取樣裡不同顏色至少幾種才算照片（自訂） */
 export const PHOTO_MIN_COLORS = 256;
+/**
+ * 灰階：取樣裡至少幾階才算照片（自訂）。灰階最多 256 階，照片、掃描常常只用到一部分
+ * （測試圖：低對比的照片 67 階、紙＋墨的掃描 39 階），所以門檻比彩色低很多；圖表、截圖另外用 PHOTO_MAX_FLAT 排除。
+ */
+export const PHOTO_MIN_GRAY_LEVELS = 32;
+/**
+ * 灰階：相鄰（左右）兩個像素完全相同的比例超過這個值，算圖表、截圖（大片平塗、邊緣銳利；自訂）。
+ * 測試圖：照片與掃描 0.02～0.16（有雜訊），圖表 0.98、反鋸齒文字的截圖 0.75、漸層填色的圖表 0.68。
+ */
+export const PHOTO_MAX_FLAT = 0.5;
 /** Flate 壓縮後至少是原始大小的幾成才算照片（圖表、截圖壓得很小；自訂） */
 export const PHOTO_MIN_RATIO = 0.15;
+
+const sampleStep = (n: number) => Math.max(1, Math.floor(n / PHOTO_SAMPLES));
 
 /** 取樣裡有幾種不同的顏色（最多算到 limit） */
 export function sampledColorCount(
@@ -215,7 +227,7 @@ export function sampledColorCount(
   limit = PHOTO_MIN_COLORS * 4,
 ): number {
   const n = width * height;
-  const step = Math.max(1, Math.floor(n / PHOTO_SAMPLES));
+  const step = sampleStep(n);
   const seen = new Set<number>();
   for (let i = 0; i < n; i += step) {
     const o = i * 4;
@@ -225,9 +237,33 @@ export function sampledColorCount(
   return seen.size;
 }
 
+/** 灰階影像的取樣：有幾階、取樣的像素和右邊的像素完全相同的比例 */
+export function sampledGrayStats(
+  rgba: Uint8ClampedArray,
+  width: number,
+  height: number,
+): { levels: number; flat: number } {
+  const n = width * height;
+  const step = sampleStep(n);
+  const seen = new Set<number>();
+  let pairs = 0;
+  let flat = 0;
+  for (let i = 0; i < n; i += step) {
+    const v = rgba[i * 4];
+    seen.add(v);
+    if (i % width < width - 1) {
+      pairs++;
+      if (rgba[(i + 1) * 4] === v) flat++;
+    }
+  }
+  return { levels: seen.size, flat: pairs ? flat / pairs : 1 };
+}
+
 /**
- * 沒有壓縮或 Flate 壓縮的影像看起來是不是照片（轉成 JPEG 不會明顯變醜）：
- * 取樣的顏色夠多、而且 Flate 壓不太下去（storedBytes ÷ 原始大小 ≥ PHOTO_MIN_RATIO）。
+ * 沒有壓縮或 Flate 壓縮的影像看起來是不是照片（轉成 JPEG 不會明顯變醜）：Flate 壓不太下去
+ * （storedBytes ÷ 原始大小 ≥ PHOTO_MIN_RATIO），而且
+ * - 彩色：取樣的顏色至少 PHOTO_MIN_COLORS 種；
+ * - 灰階：至少 PHOTO_MIN_GRAY_LEVELS 階，相鄰像素相同的比例不超過 PHOTO_MAX_FLAT。
  */
 export function looksPhotographic(
   rgba: Uint8ClampedArray,
@@ -235,8 +271,13 @@ export function looksPhotographic(
   height: number,
   storedBytes: number,
   rawBytes: number,
+  gray = false,
 ): boolean {
   if (rawBytes > 0 && storedBytes / rawBytes < PHOTO_MIN_RATIO) return false;
+  if (gray) {
+    const s = sampledGrayStats(rgba, width, height);
+    return s.levels >= PHOTO_MIN_GRAY_LEVELS && s.flat <= PHOTO_MAX_FLAT;
+  }
   return sampledColorCount(rgba, width, height) >= PHOTO_MIN_COLORS;
 }
 

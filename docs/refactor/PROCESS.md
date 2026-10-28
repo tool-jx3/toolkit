@@ -10,7 +10,7 @@ ATTRIBUTION「本站重寫的工具」表的 commit 取回——理解功能、�
 
 | 原作授權（PLAN.md 第 2 節） | 素材與文字 | 授權聲明 |
 |---|---|---|
-| **MIT、CC0 等開放授權** | 範本、預設集、範例可以沿用（翻成繁中） | 原作的授權全文放 `web/src/tools/<id>/UPSTREAM_LICENSE`，建置時併入 `assets/build/THIRD_PARTY_NOTICES.md` |
+| **MIT、CC0 等開放授權** | 範本、預設集、範例可以沿用（翻成繁中） | 原作的授權全文放 `web/src/tools/<id>/UPSTREAM_LICENSE`，建置時併入 `assets/build/THIRD_PARTY_NOTICES.md`（參考了好幾個原作時，另放 `UPSTREAM_SOURCES.json`：`[{ "name", "url" }]`，通知檔的標題列出全部原作；頁尾仍只放 registry 的 inspiration） |
 | **未授權、作者條款限制** | 圖片素材、範本文字、範例資料不沿用，自己做 | — |
 
 角色因此簡化：**實作者**讀原作程式與規格後改寫（規格還沒有功能清單時先寫第 1 節）；**驗證者**照第 4 節做對等驗證；

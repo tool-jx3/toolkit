@@ -36,6 +36,7 @@ export function App() {
           {/* 對話框與全視窗拖放放在外框裡（要外框的提示、通知等 Provider） */}
           <WindowDrop
             accept="application/pdf,.pdf"
+            readNow={false}
             icon={<FileUp />}
             label={S.dropLabel}
             onDrop={(files) => void addFiles(files)}

@@ -2,7 +2,7 @@
  * JPEG：讀檔頭（純函式）與 mozjpeg 編解碼（@jsquash/jpeg，Apache-2.0；mozjpeg 本身是 BSD／IJG／zlib 授權）。
  *
  * 編解碼器第一次用到時才 `import()`（無損的等級不會下載）。wasm 怎麼取得由呼叫端給（Worker：本站打包的網址；
- * Node：讀檔），一律先編譯成 `WebAssembly.Module` 再交給 jSquash（`init(module)`），兩個環境走同一條路。
+ * Node：讀檔），一律先編譯成 `WebAssembly.Module` 再交給 jSquash（`init(module, { print, printErr })`），兩個環境走同一條路。
  */
 
 /** JPEG 檔頭的資訊 */
@@ -79,8 +79,19 @@ export interface JpegCodec {
   encode(image: RgbaImage, options: { quality: number; gray: boolean }): Promise<Uint8Array>;
 }
 
-/** jSquash 的 init 實際上接受編譯好的模組（型別宣告只寫了選項） */
-type InitWithModule = (module: WebAssembly.Module) => Promise<void>;
+/** jSquash 的 init 實際上接受編譯好的模組＋Emscripten 模組的選項（型別宣告只寫了選項） */
+type InitWithModule = (
+  module: WebAssembly.Module,
+  overrides: { print: (text: string) => void; printErr: (text: string) => void },
+) => Promise<void>;
+
+export interface JpegCodecOptions {
+  /**
+   * libjpeg 的訊息（「Corrupt JPEG data: 2 extraneous bytes before marker」等警告；結果照常）。
+   * mozjpeg 的膠水程式預設印到 console.error；這裡接起來，預設丟掉。
+   */
+  onMessage?: (text: string) => void;
+}
 
 /** jSquash 的 MozJpegColorSpace */
 const COLOR_GRAY = 1;
@@ -104,13 +115,15 @@ function ownArrayBuffer(bytes: Uint8Array): ArrayBuffer {
  */
 export function createJpegCodec(
   loadWasm: (which: 'enc' | 'dec') => Promise<WebAssembly.Module>,
+  { onMessage = () => {} }: JpegCodecOptions = {},
 ): JpegCodec {
+  const overrides = { print: onMessage, printErr: onMessage };
   let enc: Promise<typeof import('@jsquash/jpeg/encode').default> | null = null;
   let dec: Promise<typeof import('@jsquash/jpeg/decode').default> | null = null;
   const encoder = () => {
     enc ??= (async () => {
       const [m, wasm] = await Promise.all([import('@jsquash/jpeg/encode'), loadWasm('enc')]);
-      await (m.init as unknown as InitWithModule)(wasm);
+      await (m.init as unknown as InitWithModule)(wasm, overrides);
       return m.default;
     })();
     return enc;
@@ -118,7 +131,7 @@ export function createJpegCodec(
   const decoder = () => {
     dec ??= (async () => {
       const [m, wasm] = await Promise.all([import('@jsquash/jpeg/decode'), loadWasm('dec')]);
-      await (m.init as unknown as InitWithModule)(wasm);
+      await (m.init as unknown as InitWithModule)(wasm, overrides);
       return m.default;
     })();
     return dec;

@@ -21,6 +21,8 @@ export type PdfErrorKind =
   | 'too-many-pages'
   /** 記憶體不足 */
   | 'memory'
+  /** 讀不到使用者的檔案（例如手機的相簿、雲端硬碟給的檔案，讀取權限過一陣子就失效） */
+  | 'unreadable'
   /** 取消 */
   | 'aborted'
   /** 其他 */
@@ -47,6 +49,7 @@ const KINDS: readonly PdfErrorKind[] = [
   'broken',
   'too-many-pages',
   'memory',
+  'unreadable',
   'aborted',
   'internal',
 ];

@@ -10,10 +10,10 @@ import {
   Square,
   Trash2,
 } from 'lucide-react';
-import { type FormEvent, useEffect, useState } from 'react';
+import { type FormEvent, useEffect, useMemo, useState } from 'react';
 import { diagnosticText, fileFields } from '@/core/diagnostics';
 import { formatBytes } from '@/core/files';
-import type { Progress } from '@/core/pdf';
+import { missingPdfFeatures, type Progress } from '@/core/pdf';
 import {
   Button,
   CopyDiagnostics,
@@ -136,7 +136,9 @@ function ErrorBlock({ item }: { item: Item }) {
   if (!err) return null;
   return (
     <div className="flex flex-col gap-1" data-testid="item-error">
-      <p className="m-0 text-sm text-danger">{S.errors[err.kind]}</p>
+      <p className="m-0 text-sm text-danger" role="alert">
+        {S.errors[err.kind]}
+      </p>
       {err.detail && err.kind !== 'aborted' ? (
         <p className="m-0 break-all text-xs text-muted">{S.engineSaid(err.detail)}</p>
       ) : null}
@@ -210,7 +212,23 @@ function ResultBlock({
   );
 }
 
-function RowBody({
+function RowBody(props: { item: Item; onCompare: (id: string) => void; keyNow: string }) {
+  const { item } = props;
+  const hint =
+    item.missingFonts.length && item.state !== 'password' && item.state !== 'error' ? (
+      <p className="m-0 text-xs text-muted" data-testid="fonts-hint">
+        {S.fontsHint}
+      </p>
+    ) : null;
+  return (
+    <>
+      <RowState {...props} />
+      {hint}
+    </>
+  );
+}
+
+function RowState({
   item,
   onCompare,
   keyNow,
@@ -259,11 +277,19 @@ export function MainColumn({ onCompare }: { onCompare: (id: string) => void }) {
   const confirm = useConfirm();
   const totalIn = finished.reduce((a, it) => a + (it.report?.originalBytes ?? 0), 0);
   const totalOut = finished.reduce((a, it) => a + (it.report?.outputBytes ?? 0), 0);
+  const missing = useMemo(() => missingPdfFeatures(), []);
   return (
     <div className="flex flex-col gap-3">
+      {missing.length ? (
+        <Notice tone="danger">
+          <span data-testid="unsupported">{S.unsupported(missing.join('、'))}</span>
+        </Notice>
+      ) : null}
       <FileDrop
         multiple
         clickable
+        readNow={false}
+        disabled={missing.length > 0}
         accept="application/pdf,.pdf"
         filterByAccept={false}
         icon={<FileUp />}
@@ -346,14 +372,15 @@ export function MainColumn({ onCompare }: { onCompare: (id: string) => void }) {
           ...it,
           image:
             it.thumb ?? (it.state === 'password' ? LOCK : it.state === 'probing' ? null : PAPER),
-          meta: S.meta(formatBytes(it.size), it.pages, it.encrypted),
+          meta: S.meta(formatBytes(it.size), it.pages, it.encrypted, it.version),
           status:
-            it.state === 'done'
+            it.state === 'done' || it.state === 'kept'
               ? ('done' as const)
               : it.state === 'error'
                 ? ('error' as const)
                 : undefined,
-          statusLabel: it.state === 'done' ? S.statusDone : S.statusError,
+          statusLabel:
+            it.state === 'done' ? S.statusDone : it.state === 'kept' ? S.statusKept : S.statusError,
         }))}
         onRemove={removeItem}
         removeDisabled={running}

@@ -10,20 +10,25 @@ import { S } from './strings';
 /** Discord 免費帳號的上傳上限（10 MB；自訂，以 10 × 1024 × 1024 位元組計） */
 export const DISCORD_LIMIT = 10 * 1024 * 1024;
 
-/** 壓縮後的檔名：`<原檔名>_壓縮.pdf`；保留原檔時用原檔名（檔名清理照 safeFileName） */
+/** 輸出的檔名最多幾個字（含「_壓縮.pdf」；自訂） */
+export const MAX_NAME_LENGTH = 160;
+
+/**
+ * 壓縮後的檔名：`<原檔名>_壓縮.pdf`；保留原檔時用原檔名（檔名清理照 safeFileName）。
+ * 太長時截原檔名的部分，「_壓縮.pdf」一定留著。
+ */
 export function outputName(original: string, kept: boolean): string {
-  const { base, ext } = splitExtension(original.trim());
-  const stem = (ext === 'pdf' ? base : original.trim()) || 'PDF';
-  const name = kept
-    ? ext === 'pdf'
-      ? original.trim()
-      : `${original.trim()}.pdf`
-    : `${stem}${S.outputSuffix}.pdf`;
-  const clean = safeFileName(name, {
-    fallback: kept ? 'PDF.pdf' : `PDF${S.outputSuffix}.pdf`,
-    maxLength: 160,
+  const trimmed = original.trim();
+  const { base, ext } = splitExtension(trimmed);
+  const isPdf = ext === 'pdf';
+  const stem = isPdf ? base : trimmed;
+  /* 保留原檔：副檔名照原本的寫法（.PDF 也照舊） */
+  const tail = kept ? (isPdf ? trimmed.slice(base.length) : '.pdf') : `${S.outputSuffix}.pdf`;
+  const clean = safeFileName(stem, {
+    fallback: 'PDF',
+    maxLength: MAX_NAME_LENGTH - Array.from(tail).length,
   });
-  return /\.pdf$/i.test(clean) ? clean : `${clean}.pdf`;
+  return `${clean}${tail}`;
 }
 
 /** ZIP 裡的檔名（同名時 _2、_3…） */
@@ -49,7 +54,13 @@ export function settingsKey(s: ResolvedSettings): string {
 }
 
 /** 錯誤之後重壓也沒用的種類（檔案本身的問題） */
-const PERMANENT: readonly PdfErrorKind[] = ['not-pdf', 'empty', 'too-large', 'broken'];
+const PERMANENT: readonly PdfErrorKind[] = [
+  'not-pdf',
+  'empty',
+  'too-large',
+  'broken',
+  'unreadable',
+];
 
 export type ItemState = 'probing' | 'password' | 'ready' | 'running' | 'done' | 'kept' | 'error';
 
@@ -116,6 +127,13 @@ export function resultLines(r: ReportSummary, level: ResolvedSettings['level']):
       if (r.raster.grayPages) parts.push(S.rasterGray(r.raster.grayPages));
     }
     lines.push(S.method(parts.join('；')));
+    /* 整頁轉圖的等級、結果卻不是圖片：說明為什麼 */
+    if (level === 'raster' && r.strategy !== 'raster' && !r.restricted) {
+      if (r.missingFonts.length) lines.push(S.rasterSkippedFonts(fontNames(r.missingFonts)));
+      else if (r.raster) lines.push(S.rasterNotSmaller);
+      else lines.push(S.rasterFailed);
+    }
+    if (r.imagesError) lines.push(S.imagesFailed);
   }
   if (r.images && r.strategy !== 'raster') {
     const n = skippedCount(r.images.skipped);
@@ -133,12 +151,18 @@ export function resultLines(r: ReportSummary, level: ResolvedSettings['level']):
   return lines;
 }
 
+/** 字型名稱（最多 3 個） */
+export const fontNames = (names: readonly string[]) => names.slice(0, 3).join('、');
+
 /** 保留原檔的原因 */
 export function keptReason(r: ReportSummary, level: ResolvedSettings['level']): string {
   if (r.restricted) return S.keptRestricted;
-  if (r.missingFonts.length) return S.keptMissingFonts(r.missingFonts.slice(0, 3).join('、'));
+  if (level === 'raster' && r.missingFonts.length) {
+    return S.keptMissingFonts(fontNames(r.missingFonts));
+  }
   if (r.rejectedByVerify) return S.keptVerify;
   if (level === 'lossless') return S.keptLossless;
   if (level === 'raster') return S.keptRaster;
+  if (r.imagesError) return S.keptImagesFailed;
   return S.keptCompact;
 }

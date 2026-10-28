@@ -1,0 +1,6 @@
+{
+  "name": "Emscripten 的執行環境與膠水程式（qpdf 與 MozJPEG 的 WebAssembly、qpdf.js、mozjpeg_*.js 內含）",
+  "license": "MIT OR NCSA",
+  "copyright": "Copyright (c) 2010-2014 Emscripten authors, see AUTHORS file.",
+  "url": "https://github.com/emscripten-core/emscripten"
+}

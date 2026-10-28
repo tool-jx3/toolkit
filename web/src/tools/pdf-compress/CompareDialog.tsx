@@ -5,7 +5,7 @@
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { formatBytes, readAsBytes } from '@/core/files';
-import { Dialog, DialogClose, IconButton, Segmented } from '@/ui';
+import { Dialog, DialogClose, IconButton, Notice, Segmented } from '@/ui';
 import { viewer } from './actions';
 import { getItem } from './store';
 import { S } from './strings';
@@ -59,7 +59,7 @@ export function CompareDialog({ id, onClose }: { id: string | null; onClose: () 
   const paneB = useRef<HTMLDivElement>(null);
   const syncing = useRef(false);
 
-  /* 打開兩份文件 */
+  /* 開啟兩份文件；每次開啟都從第 1 頁、符合寬度開始 */
   useEffect(() => {
     if (!id) return;
     const it = getItem(id);
@@ -68,6 +68,7 @@ export function CompareDialog({ id, onClose }: { id: string | null; onClose: () 
     setOpened(false);
     setPage(1);
     setPages(0);
+    setZoom('fit');
     (async () => {
       const v = viewer();
       const [a, b] = await Promise.all([readAsBytes(it.file), readAsBytes(it.result!)]);
@@ -161,6 +162,11 @@ export function CompareDialog({ id, onClose }: { id: string | null; onClose: () 
       footer={<DialogClose>{S.compareClose}</DialogClose>}
     >
       <div className="flex flex-col gap-3" data-testid="compare">
+        {item?.missingFonts.length ? (
+          <Notice tone="info">
+            <span data-testid="compare-fonts-hint">{S.fontsHint}</span>
+          </Notice>
+        ) : null}
         <div className="flex flex-wrap items-center gap-2">
           <IconButton
             label={S.comparePrev}

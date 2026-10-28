@@ -1,6 +1,7 @@
 /**
- * core/pdf：整頁轉圖（WP 的 maximum：120 DPI、品質 60，比原檔大時降 DPI 重畫，最低 50、最多 4 輪）＋
- * 本站的灰階頁、頁數上限；整個流程用 pdf.js 真的畫（Node 的 @napi-rs/canvas）。錯誤的還原。
+ * core/pdf：整頁轉圖（WP 的 maximum：120 DPI、品質 60，比目標大時降 DPI 重畫，最低 50、最多 4 輪）＋
+ * 本站的提早放棄（抽樣、每一輪之後）、灰階頁、頁數上限；整頁轉圖的等級也試只整理結構（M3）；
+ * 整個流程用 pdf.js 真的畫（Node 的 @napi-rs/canvas）。錯誤的還原。
  */
 import { PDFDocument } from 'pdf-lib';
 import { describe, expect, it } from 'vitest';
@@ -9,13 +10,22 @@ import { readJpegHeader } from '@/core/pdf/jpeg';
 import { resolveSettings } from '@/core/pdf/levels';
 import { RASTER_MAX_PAGES } from '@/core/pdf/limits';
 import { filtersOf, isImage, rawStreams } from '@/core/pdf/objects';
-import { compressPdf } from '@/core/pdf/pipeline';
-import { type PageSource, rasterize } from '@/core/pdf/raster';
+import { compressPdf, type EngineDeps } from '@/core/pdf/pipeline';
+import {
+  type PageSource,
+  RASTER_GIVE_UP_MARGIN,
+  RASTER_SAMPLE_PAGES,
+  rasterize,
+  samplePages,
+} from '@/core/pdf/raster';
 import { nodeCodec, nodeDeps } from '../helpers/pdfEngine';
-import { singleJpegPdf, textPdf } from '../helpers/pdfFixtures';
+import { blankPdf, singleJpegPdf, textPdf } from '../helpers/pdfFixtures';
 
-/** 假的頁面來源：每頁畫成雜訊（壓不下去）或灰階；記下每次要求的倍率 */
-function fakeSource(pages: number, gray = false): PageSource & { scales: number[] } {
+/** 假的頁面來源：每頁畫成雜訊（壓不下去）或灰階；記下每次要求的倍率。flatBelow：倍率小於它時畫成白紙 */
+function fakeSource(
+  pages: number,
+  { gray = false, flatBelow = 0 }: { gray?: boolean; flatBelow?: number } = {},
+): PageSource & { scales: number[] } {
   const scales: number[] = [];
   return {
     pages,
@@ -31,7 +41,7 @@ function fakeSource(pages: number, gray = false): PageSource & { scales: number[
       let s = 7;
       for (let i = 0; i < data.length; i += 4) {
         s = (Math.imul(s, 1103515245) + 12345) >>> 0;
-        const v = s >>> 24;
+        const v = scale < flatBelow ? 255 : s >>> 24;
         data[i] = v;
         data[i + 1] = gray ? v : (v * 7) & 255;
         data[i + 2] = gray ? v : (v * 13) & 255;
@@ -43,28 +53,34 @@ function fakeSource(pages: number, gray = false): PageSource & { scales: number[
 }
 
 const params = resolveSettings('raster').raster!;
+const MIN_SCALE = params.minDpi / 72;
+const BIG = 500_000_000;
 
 describe('整頁轉圖', () => {
-  it('畫完比原檔大：DPI 往下降重畫，最多 4 輪、最低 50', async () => {
-    const src = fakeSource(1);
-    const r = await rasterize(src, 2000, params, nodeCodec());
-    expect(r.reduced).toBe(true);
-    expect(r.dpi).toBeLessThan(120);
-    expect(r.dpi).toBeGreaterThanOrEqual(50);
-    expect(src.scales.length).toBeLessThanOrEqual(4);
-    expect(src.scales[0]).toBeCloseTo(120 / 72);
-    /* 每一輪的 DPI 一定比上一輪低 */
-    for (let i = 1; i < src.scales.length; i++)
-      expect(src.scales[i]).toBeLessThan(src.scales[i - 1]);
-  }, 60_000);
+  it('抽樣的頁碼：平均分散、不重複；頁數少時全部', () => {
+    expect(RASTER_SAMPLE_PAGES).toBe(8);
+    expect(samplePages(3)).toEqual([1, 2, 3]);
+    const s = samplePages(500);
+    expect(s).toHaveLength(8);
+    expect(new Set(s).size).toBe(8);
+    expect(s[0]).toBeGreaterThan(1);
+    expect(s[7]).toBeLessThanOrEqual(500);
+    expect(s[7]).toBeGreaterThan(450);
+  });
 
-  it('比原檔小時只畫一輪；每頁一張 JPEG、頁面大小照原本', async () => {
+  it('比目標小時只畫一輪（先用最低 DPI 抽樣）；每頁一張 JPEG、頁面大小照原本', async () => {
     const src = fakeSource(2);
-    const r = await rasterize(src, 50_000_000, params, nodeCodec());
+    const r = await rasterize(src, BIG, params, nodeCodec());
     expect(r.reduced).toBe(false);
+    expect(r.gaveUp).toBe(false);
     expect(r.dpi).toBe(120);
-    expect(src.scales.length).toBe(2);
-    const doc = await PDFDocument.load(r.bytes);
+    expect(r.passes).toBe(1);
+    /* 抽樣 2 頁（最低 DPI）＋第一輪 2 頁 */
+    expect(src.scales).toHaveLength(4);
+    expect(src.scales[0]).toBeCloseTo(MIN_SCALE);
+    expect(src.scales[2]).toBeCloseTo(120 / 72);
+    expect(r.estimate).toBeGreaterThan(0);
+    const doc = await PDFDocument.load(r.bytes!);
     expect(doc.getPageCount()).toBe(2);
     expect(doc.getPage(0).getSize()).toEqual({ width: 612, height: 792 });
     const imgs = rawStreams(doc.context).filter(([, s]) => isImage(doc.context, s.dict));
@@ -72,19 +88,64 @@ describe('整頁轉圖', () => {
     expect(filtersOf(doc.context, imgs[0][1].dict)).toEqual(['DCTDecode']);
   }, 60_000);
 
+  it('畫完比目標大：DPI 往下降重畫（以目標的 0.8 倍為準），每一輪都比上一輪低、最低 50', async () => {
+    /* 先量：120 DPI 一輪多大、抽樣估計的最低 DPI 多大 */
+    const probe = await rasterize(fakeSource(1), BIG, params, nodeCodec());
+    const at120 = probe.bytes!.length;
+    const target = Math.round((at120 + probe.estimate) / 2);
+    expect(probe.estimate * RASTER_GIVE_UP_MARGIN).toBeLessThan(target);
+    const src = fakeSource(1);
+    const r = await rasterize(src, target, params, nodeCodec());
+    expect(r.reduced).toBe(true);
+    expect(r.gaveUp).toBe(false);
+    expect(r.dpi).toBeLessThan(120);
+    expect(r.dpi).toBeGreaterThanOrEqual(50);
+    expect(r.passes).toBeLessThanOrEqual(4);
+    const passes = src.scales.slice(1);
+    expect(passes[0]).toBeCloseTo(120 / 72);
+    for (let i = 1; i < passes.length; i++) expect(passes[i]).toBeLessThan(passes[i - 1]);
+  }, 60_000);
+
+  it('提早放棄（抽樣）：最低 DPI 的估計值超過目標的 1.25 倍就不畫，沒有結果', async () => {
+    const probe = await rasterize(fakeSource(1), BIG, params, nodeCodec());
+    const src = fakeSource(20);
+    const r = await rasterize(src, probe.estimate / 2, params, nodeCodec());
+    expect(r.gaveUp).toBe(true);
+    expect(r.bytes).toBeNull();
+    expect(r.passes).toBe(0);
+    /* 只畫了抽樣的 8 頁（最低 DPI） */
+    expect(src.scales).toHaveLength(8);
+    expect(src.scales.every((x) => Math.abs(x - MIN_SCALE) < 1e-9)).toBe(true);
+  }, 60_000);
+
+  it('提早放棄（每一輪之後）：這一輪 ×（50 ÷ DPI）² 還不比目標小，就不再降', async () => {
+    /* 抽樣（最低 DPI）畫成白紙，估計值很小；120 DPI 是雜訊，很大 */
+    const probe = await rasterize(fakeSource(1, { flatBelow: 1 }), BIG, params, nodeCodec());
+    const at120 = probe.bytes!.length;
+    const target = Math.floor(at120 * (50 / 120) ** 2 * 0.9);
+    const src = fakeSource(1, { flatBelow: 1 });
+    const r = await rasterize(src, target, params, nodeCodec());
+    expect(r.gaveUp).toBe(true);
+    expect(r.passes).toBe(1);
+    expect(r.reduced).toBe(false);
+    expect(r.bytes).not.toBeNull();
+  }, 60_000);
+
   it('整頁灰階的頁存成灰階 JPEG（單一成分）', async () => {
-    const r = await rasterize(fakeSource(1, true), 50_000_000, params, nodeCodec());
+    const r = await rasterize(fakeSource(1, { gray: true }), BIG, params, nodeCodec());
     expect(r.grayPages).toBe(1);
-    const doc = await PDFDocument.load(r.bytes);
+    const doc = await PDFDocument.load(r.bytes!);
     const [, img] = rawStreams(doc.context).find(([, s]) => isImage(doc.context, s.dict))!;
     expect(readJpegHeader(img.contents)?.components).toBe(1);
   }, 60_000);
 
-  it('超過 500 頁：丟 too-many-pages', async () => {
+  it('超過 500 頁：丟 too-many-pages（不畫）', async () => {
     expect(RASTER_MAX_PAGES).toBe(500);
-    await expect(rasterize(fakeSource(501), 1, params, nodeCodec())).rejects.toMatchObject({
+    const src = fakeSource(501);
+    await expect(rasterize(src, 1, params, nodeCodec())).rejects.toMatchObject({
       kind: 'too-many-pages',
     });
+    expect(src.scales).toHaveLength(0);
   });
 
   it('整個流程：照片的 PDF 變小、頁數相同、文字沒有了', async () => {
@@ -98,18 +159,69 @@ describe('整頁轉圖', () => {
     expect(r.raster?.dpi).toBe(120);
     expect(r.verify?.ok).toBe(true);
   }, 60_000);
+});
 
-  it('文字為主的小檔案：轉成圖反而比較大時保留原檔', async () => {
+describe('整頁轉圖的等級也試只整理結構（M3）與頁數上限（M1）', () => {
+  it('文字為主的檔案：轉成圖片比只整理結構大 → 用整理結構的結果（文字仍在），目標是兩者中小的', async () => {
     const text = await textPdf();
-    const r = await compressPdf({ bytes: text, settings: resolveSettings('raster') }, nodeDeps());
-    if (r.kept) {
-      expect(r.strategy).toBe('original');
-      expect(r.bytes).toBe(text);
-    } else {
-      expect(r.outputBytes).toBeLessThan(text.length);
-      expect(r.raster?.reduced).toBe(true);
-    }
+    const deps = nodeDeps();
+    const targets: number[] = [];
+    const spy: EngineDeps = {
+      ...deps,
+      rasterize: (bytes, o) => {
+        targets.push(o.target);
+        return deps.rasterize!(bytes, o);
+      },
+    };
+    const r = await compressPdf({ bytes: text, settings: resolveSettings('raster') }, spy);
+    const structural = r.candidates.find((c) => c.name === 'structural')!;
+    expect(structural.bytes).toBeLessThan(text.length);
+    const smallestLossless = Math.min(
+      ...r.candidates.filter((c) => !c.lossy && c.bytes).map((c) => c.bytes),
+    );
+    expect(targets).toEqual([Math.min(text.length, smallestLossless)]);
+    expect(r.kept).toBe(false);
+    expect(r.strategy).not.toBe('raster');
+    expect(r.lossy).toBe(false);
+    expect(r.raster?.gaveUp).toBe(true);
+    /* 選的不是圖片，所以連文字一起比對 */
+    expect(r.verify?.ok).toBe(true);
+    const doc = await PDFDocument.load(r.bytes);
+    expect(doc.getPageCount()).toBe(3);
   }, 120_000);
+
+  it('超過 500 頁：那一列錯誤（too-many-pages），不轉、也不只整理結構', async () => {
+    const many = await blankPdf(501);
+    const deps = nodeDeps();
+    let called = false;
+    const spy: EngineDeps = {
+      ...deps,
+      rasterize: async () => {
+        called = true;
+        throw new Error('should not run');
+      },
+    };
+    await expect(
+      compressPdf({ bytes: many, settings: resolveSettings('raster') }, spy),
+    ).rejects.toMatchObject({ kind: 'too-many-pages' });
+    expect(called).toBe(false);
+    /* 其他等級照常 */
+    const r = await compressPdf({ bytes: many, settings: resolveSettings('lossless') }, deps);
+    expect(r.pages).toBe(501);
+  }, 60_000);
+
+  it('rasterize 自己丟的 too-many-pages 也不會被當成「候選失敗」吞掉', async () => {
+    const deps = nodeDeps();
+    const spy: EngineDeps = {
+      ...deps,
+      rasterize: async () => {
+        throw new PdfError('too-many-pages', '600');
+      },
+    };
+    await expect(
+      compressPdf({ bytes: await textPdf(), settings: resolveSettings('raster') }, spy),
+    ).rejects.toMatchObject({ kind: 'too-many-pages' });
+  }, 60_000);
 });
 
 describe('錯誤的還原（Worker 傳回來只剩 name 與 message）', () => {

@@ -22,7 +22,8 @@ export const S = {
       '重新壓縮照片：解析度最多留 150 DPI、JPEG 品質 72，螢幕上看得清楚、檔案小很多。文字、向量圖不動。',
     smallest:
       '重新壓縮照片：解析度最多留 120 DPI、JPEG 品質 55，照片看得出壓縮的痕跡。文字、向量圖不動。',
-    raster: '每一頁畫成一張圖片（120 DPI、JPEG 品質 60），檔案最小。',
+    raster:
+      '每一頁畫成一張圖片（120 DPI、JPEG 品質 60），檔案最小。轉成圖片反而比較大時，只整理結構（文字仍可以選）。',
   } satisfies Record<PdfLevel, string>,
   rasterWarning:
     '每一頁都會變成圖片：文字不能選取、不能搜尋，連結、書籤、表單欄位也都會消失。要保留文字請選其他等級。',
@@ -65,12 +66,21 @@ export const S = {
   rejectRead: '讀不到檔案',
 
   /* 清單的一列 */
-  meta: (size: string, pages: number | null, encrypted: boolean) =>
-    [size, pages ? `${n(pages)} 頁` : '', encrypted ? '已加密' : ''].filter(Boolean).join(' · '),
+  meta: (size: string, pages: number | null, encrypted: boolean, version: string | null) =>
+    [
+      size,
+      pages ? `${n(pages)} 頁` : '',
+      version ? `PDF ${version}` : '',
+      encrypted ? '已加密' : '',
+    ]
+      .filter(Boolean)
+      .join(' · '),
+  fontsHint:
+    '這個 PDF 有沒有內嵌的中日韓字型：預覽（縮圖、前後比對）會缺字，壓縮後的檔案在電腦上開啟不受影響。',
   probing: '讀取中…',
   waiting: '等待壓縮',
   passwordLabel: (name: string) => `「${name}」的開啟密碼`,
-  passwordNeeded: '這個 PDF 要密碼才能打開。',
+  passwordNeeded: '這個 PDF 要密碼才能開啟。',
   passwordSubmit: '確定',
   passwordWrong: '密碼不對。',
   stale: '設定改過了：按「開始壓縮」會用新的設定重新壓縮。',
@@ -133,7 +143,7 @@ export const S = {
     'color-transform': '特殊的顏色轉換',
     'no-size': '讀不出來',
     'too-large': '太大',
-    'not-jpeg': '不是 JPEG（進階設定沒有打開轉換）',
+    'not-jpeg': '不是 JPEG（進階設定沒有開啟轉換）',
     'has-mask': '有透明背景（保持無損）',
     small: '太小',
     graphic: '看起來像圖表或截圖（保持無損）',
@@ -143,13 +153,19 @@ export const S = {
   rasterDpi: (dpi: number) => `每頁畫成 ${dpi} DPI 的圖片`,
   rasterReduced: (dpi: number) => `為了比原檔小，解析度降到 ${dpi} DPI`,
   rasterGray: (count: number) => `${n(count)} 頁是灰階，存成灰階圖片`,
+  rasterNotSmaller: '轉成圖片比只整理結構大，所以只整理結構（文字仍可以選）。',
+  rasterSkippedFonts: (names: string) =>
+    `這個 PDF 有沒有內嵌的中日韓字型（${names}），轉成圖片會缺字，所以只整理結構（文字仍可以選）。`,
+  rasterFailed: '轉成圖片時發生錯誤，所以只整理結構（文字仍可以選）。',
+  imagesFailed:
+    '影像沒有處理：這個檔案的內部結構讀不懂（qpdf 修得好、但分析影像時出錯），只整理了結構。',
   verified: '已比對：頁數、文字、連結、書籤、表單欄位都和原檔相同。',
   verifiedRaster: '已比對：頁數和原檔相同。',
   verifySkipped: '沒有比對（這個檔案的文字讀不出來）。',
   rejectedByVerify: (count: number) =>
     `有 ${n(count)} 個壓縮結果和原檔的文字或連結不一樣，沒有用。`,
   noteSigned: '這個 PDF 有數位簽章：改寫之後簽章會失效。',
-  noteDecrypted: '輸出的檔案沒有加密（不需要密碼就能打開）。',
+  noteDecrypted: '輸出的檔案沒有加密（不需要密碼就能開啟）。',
   noteRestricted:
     '這個 PDF 有權限設定（例如禁止列印、複製），為了保留設定只做無損整理，不動影像、不轉成圖。',
   noteRaster: '文字已經變成圖片：不能選取、不能搜尋，連結、書籤、表單也沒有了。',
@@ -160,9 +176,10 @@ export const S = {
   keptRestricted: '這個 PDF 有權限設定，只能做無損整理，結果沒有比原檔小。',
   keptVerify: '壓縮後的文字或連結和原檔不一樣，所以保留原檔。',
   keptMissingFonts: (names: string) =>
-    `這個 PDF 有沒有內嵌的中日韓字型（${names}），轉成圖片會缺字，所以保留原檔。請改用其他等級。`,
+    `這個 PDF 有沒有內嵌的中日韓字型（${names}），轉成圖片會缺字；只整理結構也沒有變小，所以保留原檔。可以改用「平衡」或「最小」。`,
   keptLossless: '這個檔案的結構已經很精簡了。有照片的話可以試「平衡」或「最小」。',
-  keptRaster: '轉成圖片反而比原檔大（文字為主的 PDF 常這樣），所以保留原檔。',
+  keptRaster: '轉成圖片反而比原檔大（文字為主的 PDF 常這樣），只整理結構也沒有變小，所以保留原檔。',
+  keptImagesFailed: '這個檔案的內部結構讀不懂，影像沒有處理；只整理結構也沒有變小，所以保留原檔。',
   keptCompact: '這個檔案已經很精簡了（沒有可以再壓的影像或重複的內容）。',
   duration: (ms: number) => `花了 ${(ms / 1000).toFixed(1)} 秒`,
 
@@ -171,11 +188,13 @@ export const S = {
     'not-pdf': '這不是 PDF 檔案。',
     empty: '這是空的檔案。',
     'too-large': '檔案太大（上限 200 MB）。',
-    password: '這個 PDF 要密碼才能打開。',
+    password: '這個 PDF 要密碼才能開啟。',
     'wrong-password': '密碼不對。',
     broken: '這個檔案打不開，可能壞掉了。',
     'too-many-pages': '整頁轉圖最多 500 頁，這個檔案太多頁了。可以改用其他等級。',
     memory: '記憶體不足。可以試比較少頁的檔案，或先關掉其他分頁。',
+    unreadable:
+      '讀不到這個檔案（手機的相簿、雲端硬碟給的檔案，過一陣子可能就讀不到）。請移除這一列，重新選檔。',
     aborted: '已取消。',
     internal: '處理時發生錯誤。',
   } satisfies Record<PdfErrorKind, string>,
@@ -204,6 +223,10 @@ export const S = {
     `${n(count)} 個檔案：${from} → ${to}（${pct}）`,
   zipName: '壓縮後的PDF.zip',
   outputSuffix: '_壓縮',
+
+  /* 瀏覽器不支援 */
+  unsupported: (missing: string) =>
+    `這個瀏覽器不能用 PDF 壓縮器（缺少 ${missing}）。請改用最新版的 Chrome、Edge、Firefox 或 Safari。`,
 
   /* 前後比對 */
   compareTitle: (name: string) => `前後比對：${name}`,
@@ -240,7 +263,7 @@ export const S = {
   usageLevels: [
     '無損：只整理結構、合併重複的圖片與字型，內容一點都不變。',
     '高畫質／平衡／最小：重新壓縮照片，解析度依照片在頁面上畫多大來決定（超過 200／150／120 DPI 才縮小）。文字、向量圖、連結、書籤、表單都不動。',
-    '整頁轉圖：每一頁變成一張圖片，最小，但文字不能選、不能搜尋。',
+    '整頁轉圖：每一頁變成一張圖片，最小，但文字不能選、不能搜尋。轉成圖片反而比較大時（文字為主的 PDF），改成只整理結構。',
     '每個檔案都會試好幾種做法、留最小的；都沒有比原檔小時就保留原檔，不會給你變大的檔案。',
   ],
   usageNotesTitle: '注意',

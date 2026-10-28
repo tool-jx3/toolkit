@@ -167,7 +167,7 @@ export interface EncodedImage {
   height: number;
 }
 
-/** 依每一組設定縮小、編碼，回傳最小的（相同尺寸只縮一次） */
+/** 依每一組設定縮小、編碼，回傳最小的（相同尺寸只縮一次；`unmeasuredOnly` 的設定只用在量不到大小的影像） */
 export async function encodeAttempts(
   img: RgbaImage,
   placement: Placement | null,
@@ -178,6 +178,8 @@ export async function encodeAttempts(
   let best: EncodedImage | null = null;
   const resized = new Map<string, RgbaImage>();
   for (const a of attempts) {
+    /* QC 的 balanced 不看 DPI：量得到大小的影像不試（L5） */
+    if (a.unmeasuredOnly && placement) continue;
     const t = targetSize(img.width, img.height, placement, a);
     const key = `${t.width}x${t.height}`;
     let src = resized.get(key);
@@ -265,6 +267,7 @@ export async function recompressImages(
           facts.storedBytes,
           /* 沒壓縮的影像不知道壓不壓得下去，只看顏色 */
           plan.compressed ? img.width * img.height * (plan.gray ? 1 : 3) : 0,
+          plan.gray,
         )
       ) {
         skip('graphic');

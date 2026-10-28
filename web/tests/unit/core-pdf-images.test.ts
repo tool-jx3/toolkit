@@ -2,7 +2,7 @@
  * core/pdf：影像的判斷（QC 的規則＋本站的 Flate 轉 JPEG）、像素處理（預測器、面積平均縮小、照片的判斷）、
  * JPEG 檔頭、mozjpeg 的編解碼（灰階存成單一成分）。
  */
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   acceptReplacement,
   FLATE_MAX_RATIO,
@@ -11,19 +11,35 @@ import {
   MAX_IMAGE_PIXELS,
   planImage,
 } from '@/core/pdf/images';
-import { readJpegHeader } from '@/core/pdf/jpeg';
+import { createJpegCodec, type JpegCodec, readJpegHeader } from '@/core/pdf/jpeg';
+import { LEVELS } from '@/core/pdf/levels';
 import {
   downscaleArea,
   flattenOnWhite,
   isGrayRgba,
   looksPhotographic,
+  PHOTO_MAX_FLAT,
+  PHOTO_MIN_GRAY_LEVELS,
   rowBytes,
   sampledColorCount,
+  sampledGrayStats,
   samplesToRgba,
   undoPredictor,
 } from '@/core/pdf/pixels';
+import { encodeAttempts } from '@/core/pdf/recompress';
 import { nodeCodec } from '../helpers/pdfEngine';
-import { graphicRgba, photoRgba } from '../helpers/pdfFixtures';
+import {
+  graphicRgba,
+  grayGradientChartRgba,
+  grayLowContrastRgba,
+  grayScanRgba,
+  grayScreenshotRgba,
+  photoRgba,
+} from '../helpers/pdfFixtures';
+import { nodeModulePath } from '../helpers/pdfQpdf';
+
+/** 單元測試的型別沒有 Node：模組名稱放在變數裡動態載入 */
+const NODE_FS = 'node:fs';
 
 const rgb = { kind: 'rgb', components: 3, label: 'DeviceRGB' } as const;
 const gray = { kind: 'gray', components: 1, label: 'DeviceGray' } as const;
@@ -248,6 +264,35 @@ describe('像素處理', () => {
     expect(looksPhotographic(photo, 200, 150, 90_000, 0)).toBe(true);
   });
 
+  it('灰階的照片判斷（M4）：掃描、低對比的照片轉；圖表、截圖、漸層填色的圖表不轉', () => {
+    const W = 600;
+    const H = 400;
+    const raw = W * H;
+    const photo = (rgba: Uint8ClampedArray) => looksPhotographic(rgba, W, H, raw * 0.6, raw, true);
+    const scan = grayScanRgba(W, H);
+    const low = grayLowContrastRgba(W, H);
+    const shot = grayScreenshotRgba(W, H);
+    const gradient = grayGradientChartRgba(W, H);
+    /* 掃描、低對比照片的階數都不到彩色的 256，但 ≥ 32、相鄰像素很少完全相同 */
+    for (const img of [scan, low]) {
+      const st = sampledGrayStats(img, W, H);
+      expect(st.levels).toBeGreaterThanOrEqual(PHOTO_MIN_GRAY_LEVELS);
+      expect(st.levels).toBeLessThan(256);
+      expect(st.flat).toBeLessThan(PHOTO_MAX_FLAT);
+      expect(photo(img)).toBe(true);
+      /* 彩色的門檻（256 色）不變：同一張當成彩色不算照片 */
+      expect(looksPhotographic(img, W, H, raw * 1.8, raw * 3)).toBe(false);
+    }
+    /* 截圖：階數少；漸層填色：階數夠多，但大片平塗 */
+    expect(sampledGrayStats(shot, W, H).levels).toBeLessThan(PHOTO_MIN_GRAY_LEVELS);
+    expect(photo(shot)).toBe(false);
+    expect(sampledGrayStats(gradient, W, H).levels).toBeGreaterThanOrEqual(PHOTO_MIN_GRAY_LEVELS);
+    expect(sampledGrayStats(gradient, W, H).flat).toBeGreaterThan(PHOTO_MAX_FLAT);
+    expect(photo(gradient)).toBe(false);
+    /* Flate 壓得很小的（圖表）仍然不算 */
+    expect(looksPhotographic(scan, W, H, raw * 0.05, raw, true)).toBe(false);
+  });
+
   it('灰階的判斷、疊在白底上', () => {
     expect(isGrayRgba(Uint8ClampedArray.from([5, 6, 7, 255]))).toBe(true);
     expect(isGrayRgba(Uint8ClampedArray.from([5, 6, 12, 255]))).toBe(false);
@@ -279,5 +324,87 @@ describe('JPEG（mozjpeg）', () => {
   it('不是 JPEG、截斷的檔頭：null', () => {
     expect(readJpegHeader(Uint8Array.from([0x89, 0x50, 0x4e, 0x47]))).toBeNull();
     expect(readJpegHeader(Uint8Array.from([0xff, 0xd8, 0xff, 0xe0, 0x00]))).toBeNull();
+  });
+});
+
+describe('每張圖試的設定（L5、L12）', () => {
+  /** 假的編碼器：記下每次的尺寸與品質；大小＝像素數 ÷ 品質 */
+  function countingCodec() {
+    const calls: { width: number; quality: number }[] = [];
+    const codec: JpegCodec = {
+      decode: async () => {
+        throw new Error('unused');
+      },
+      encode: async (img, o) => {
+        calls.push({ width: img.width, quality: o.quality });
+        return new Uint8Array(Math.ceil((img.width * img.height) / o.quality));
+      },
+    };
+    return { calls, codec };
+  }
+  const img = { data: new Uint8ClampedArray(3000 * 2000 * 4), width: 3000, height: 2000 };
+
+  it('平衡：量得到大小的影像不試 QC 的 balanced（不看 DPI 的那一組）', async () => {
+    const a = countingCodec();
+    await encodeAttempts(img, { widthIn: 6, heightIn: 4 }, LEVELS.balanced.images, false, a.codec);
+    expect(a.calls).toEqual([{ width: 900, quality: 72 }]);
+    const b = countingCodec();
+    await encodeAttempts(img, null, LEVELS.balanced.images, false, b.codec);
+    expect(b.calls).toEqual([
+      { width: 1755, quality: 72 },
+      { width: 2480, quality: 78 },
+    ]);
+  });
+
+  it('最小：包含平衡的全部設定，每張圖的結果不會比平衡大', async () => {
+    for (const a of LEVELS.balanced.images) expect(LEVELS.smallest.images).toContainEqual(a);
+    for (const placement of [null, { widthIn: 6, heightIn: 4 }, { widthIn: 30, heightIn: 20 }]) {
+      const bal = await encodeAttempts(
+        img,
+        placement,
+        LEVELS.balanced.images,
+        false,
+        countingCodec().codec,
+      );
+      const small = await encodeAttempts(
+        img,
+        placement,
+        LEVELS.smallest.images,
+        false,
+        countingCodec().codec,
+      );
+      expect(small!.bytes.length).toBeLessThanOrEqual(bal!.bytes.length);
+    }
+  });
+});
+
+describe('mozjpeg 的警告（L2）', () => {
+  it('libjpeg 的警告不印到 console.error，交給 onMessage', async () => {
+    const good = await nodeCodec().encode(
+      { data: photoRgba(64, 48, 2), width: 64, height: 48 },
+      { quality: 80, gray: false },
+    );
+    /* SOI 後面插 2 個多的位元組：libjpeg 會警告「2 extraneous bytes before marker 0xe0」 */
+    const bad = new Uint8Array(good.length + 2);
+    bad.set(good.subarray(0, 2));
+    bad.set(good.subarray(2), 4);
+    const messages: string[] = [];
+    const fs = (await import(/* @vite-ignore */ NODE_FS)) as {
+      readFileSync(p: string): Uint8Array;
+    };
+    const codec = createJpegCodec(
+      async (which) =>
+        WebAssembly.compile(
+          fs.readFileSync(
+            nodeModulePath(`@jsquash/jpeg/codec/${which}/mozjpeg_${which}.wasm`),
+          ) as Uint8Array<ArrayBuffer>,
+        ),
+      { onMessage: (t) => messages.push(t) },
+    );
+    const spy = vi.spyOn(console, 'error');
+    const img = await codec.decode(bad);
+    expect(img.width).toBe(64);
+    expect(spy).not.toHaveBeenCalled();
+    expect(messages.join('\n')).toMatch(/Corrupt JPEG data/);
   });
 });

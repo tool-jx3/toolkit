@@ -289,16 +289,32 @@ export class NoopFilterFactory {
 
 /**
  * 讀打包好的資源（CMap、標準字型、wasm）：檔名 → 網址的表由呼叫端給（Vite 的 import.meta.glob）。
- * 用法：`configurePdfjs({ BinaryDataFactory: bundledDataFactory(urls), cMapUrl: 'cmap:', … })`。
+ * 用法：`configurePdfjs({ BinaryDataFactory: bundledDataFactory(urls), cMapUrl: 'bundled:/', … })`。
+ * 同一個 Worker 裡讀過的檔案留在記憶體（每次打開文件 pdf.js 都會再要一次）；每次給複本（pdf.js 可能轉移走）。
  */
-export function bundledDataFactory(urls: Readonly<Record<string, string>>) {
+export function bundledDataFactory(
+  urls: Readonly<Record<string, string>>,
+  load: (url: string) => Promise<Response> = (url) => fetch(url),
+) {
+  const cache = new Map<string, Promise<Uint8Array>>();
+  const read = (filename: string) => {
+    let p = cache.get(filename);
+    if (!p) {
+      const url = urls[filename];
+      if (!url) return Promise.reject(new Error(`missing ${filename}`));
+      p = load(url).then(async (res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status} ${filename}`);
+        return new Uint8Array(await res.arrayBuffer());
+      });
+      /* 讀失敗的不留（下次再試） */
+      p.catch(() => cache.delete(filename));
+      cache.set(filename, p);
+    }
+    return p;
+  };
   return class BundledDataFactory {
     async fetch({ filename }: { kind: string; filename: string }): Promise<Uint8Array> {
-      const url = urls[filename];
-      if (!url) throw new Error(`missing ${filename}`);
-      const res = await fetch(url);
-      if (!res.ok) throw new Error(`HTTP ${res.status} ${filename}`);
-      return new Uint8Array(await res.arrayBuffer());
+      return (await read(filename)).slice();
     }
   };
 }

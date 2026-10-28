@@ -3,6 +3,7 @@
  * - 開頁（頁首、頁尾的靈感來源、沒有主控台錯誤）、390 寬沒有橫向捲動、1280／390 視覺基準圖；
  * - 每個等級壓縮測試檔 → 下載的檔案 pdf.js 打得開、頁數相同、不是整頁轉圖時文字還在、確實變小；
  * - 批次與 ZIP；壞檔、不是 PDF、加密檔（密碼錯誤、密碼正確、輸出不加密）；沒有變小時保留原檔；前後比對；設定記住。
+ * - 沒有內嵌中日韓字型的提示；瀏覽器不支援時一開頁就說明。
  * 測試檔由程式產生：文字、連結、書籤、表單用 pdf-lib；照片的 JPEG 由瀏覽器的 canvas 編碼，Flate 照片在 Node 產生。
  */
 import { readFileSync } from 'node:fs';
@@ -13,6 +14,7 @@ import { closePdf, configurePdfjs, docSignature, openPdf } from '../../src/core/
 import { INSPECT_ARGS, parseInspectJson } from '../../src/core/pdf/qpdfArgs';
 import { getTool, outputDir } from '../../src/registry';
 import {
+  cjkPdf,
   flateXObject,
   jpegXObject,
   photoRgba,
@@ -233,7 +235,7 @@ test('不是 PDF、壞檔、加密檔（密碼錯誤、正確、輸出不加密�
   await expect(r.getByText('密碼不對。')).toBeVisible();
   await pw.fill('secret');
   await r.getByRole('button', { name: '確定' }).click();
-  await expect(r.getByText('3 頁 · 已加密')).toBeVisible();
+  await expect(r.getByText(/3 頁 · PDF \d\.\d · 已加密/)).toBeVisible();
   await compressAll(page);
   await expect(r.getByText('輸出的檔案沒有加密')).toBeVisible();
   const { bytes } = await download(page, r.getByTestId('download'));
@@ -257,6 +259,9 @@ test('沒有變小時保留原檔：下載的是原檔本身（原檔名）', as
   await compressAll(page);
   const r = row(page, 'again.pdf');
   await expect(r.getByText('沒有變小，保留原檔')).toBeVisible();
+  /* 名稱旁的狀態標記 */
+  await expect(r).toHaveAttribute('data-status', 'done');
+  await expect(r.getByText('保留原檔', { exact: true })).toBeVisible();
   const kept = await download(page, r.getByRole('button', { name: '下載原檔' }));
   expect(kept.name).toBe('again.pdf');
   expect(Buffer.from(kept.bytes).equals(Buffer.from(first.bytes))).toBe(true);
@@ -288,6 +293,16 @@ test('前後比對：兩邊都畫出同一頁、可以換頁；設定記住', as
   await expect(dlg.getByTestId('compare-page')).toHaveText('第 2／2 頁');
   await page.keyboard.press('ArrowLeft');
   await expect(dlg.getByTestId('compare-page')).toHaveText('第 1／2 頁');
+  /* 放大 2 倍、關掉再開：回到第 1 頁、符合寬度 */
+  await dlg.getByRole('radio', { name: '2 倍' }).click();
+  await dlg.getByRole('button', { name: '下一頁' }).click();
+  await dlg.getByRole('button', { name: '關閉' }).first().click();
+  await row(page, 'compare.pdf').getByRole('button', { name: '前後比對' }).click();
+  await expect(dlg.getByRole('radio', { name: '符合寬度' })).toHaveAttribute(
+    'aria-checked',
+    'true',
+  );
+  await expect(dlg.getByTestId('compare-page')).toHaveText('第 1／2 頁');
   await dlg.getByRole('button', { name: '關閉' }).first().click();
   /* 設定記住（等級） */
   await chooseLevel(page, '最小');
@@ -316,9 +331,49 @@ test('取消：處理中的回到等待；進階設定（關掉 PNG 轉 JPEG、�
   await toggle.click();
   await expect(toggle).toHaveAttribute('aria-checked', 'false');
   await compressAll(page);
-  await expect(r.getByTestId('item-result')).toContainText('不是 JPEG（進階設定沒有打開轉換） 1');
+  await expect(r.getByTestId('item-result')).toContainText('不是 JPEG（進階設定沒有開啟轉換） 1');
   await page.getByRole('button', { name: '進階設定回到預設' }).click();
   await expect(toggle).toHaveAttribute('aria-checked', 'true');
   await expect(r.getByText('設定改過了')).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
+test('沒有內嵌的中日韓字型：清單與前後比對提示預覽會缺字', async ({ page }) => {
+  test.setTimeout(120_000);
+  const errors = await open(page);
+  await chooseLevel(page, '無損');
+  await fileInput(page).setInputFiles(pdfFile('mincho.pdf', await cjkPdf(false)));
+  const r = row(page, 'mincho.pdf');
+  await expect(r.getByTestId('fonts-hint')).toHaveText(
+    '這個 PDF 有沒有內嵌的中日韓字型：預覽（縮圖、前後比對）會缺字，壓縮後的檔案在電腦上開啟不受影響。',
+  );
+  await compressAll(page);
+  await expect(r.getByTestId('item-result')).toBeVisible();
+  await expect(r.getByTestId('fonts-hint')).toBeVisible();
+  const compare = r.getByRole('button', { name: '前後比對' });
+  if (await compare.count()) {
+    await compare.click();
+    const dlg = page.getByRole('dialog');
+    await expect(dlg.getByTestId('compare-fonts-hint')).toBeVisible();
+    await dlg.getByRole('button', { name: '關閉' }).first().click();
+    await expect(dlg).toHaveCount(0);
+  }
+  /* 內嵌的不提示 */
+  await fileInput(page).setInputFiles(pdfFile('embedded.pdf', await cjkPdf(true)));
+  await expect(row(page, 'embedded.pdf').getByText('等待壓縮')).toBeVisible();
+  await expect(row(page, 'embedded.pdf').getByTestId('fonts-hint')).toHaveCount(0);
+  expect(errors).toEqual([]);
+});
+
+test('瀏覽器不支援（沒有 OffscreenCanvas）：一開頁就說明，不能加入檔案', async ({ page }) => {
+  await page.addInitScript(() => {
+    // biome-ignore lint/suspicious/noExplicitAny: 測試：拿掉瀏覽器的功能
+    delete (globalThis as any).OffscreenCanvas;
+  });
+  const errors = await open(page);
+  await expect(page.getByTestId('unsupported')).toHaveText(
+    '這個瀏覽器不能用 PDF 壓縮器（缺少 OffscreenCanvas）。請改用最新版的 Chrome、Edge、Firefox 或 Safari。',
+  );
+  await expect(fileInput(page)).toBeDisabled();
   expect(errors).toEqual([]);
 });

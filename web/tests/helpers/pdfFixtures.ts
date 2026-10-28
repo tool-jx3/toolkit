@@ -7,6 +7,7 @@ import {
   concatTransformationMatrix,
   drawObject,
   PDFArray,
+  type PDFDict,
   PDFDocument,
   PDFHexString,
   PDFName,
@@ -290,4 +291,166 @@ export async function singleJpegPdf(
 export function annotCount(page: PDFPage): number {
   const a = page.node.lookupMaybe(PDFName.of('Annots'), PDFArray);
   return a ? a.size() : 0;
+}
+
+/* ---------- 灰階影像（Flate 轉 JPEG 的灰階門檻，M4） ---------- */
+
+/** 灰階 RGBA（每個像素 v(x, y)） */
+function grayRgba(width: number, height: number, v: (x: number, y: number) => number) {
+  const out = new Uint8ClampedArray(width * height * 4);
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const g = Math.max(0, Math.min(255, Math.round(v(x, y))));
+      const o = (y * width + x) * 4;
+      out[o] = g;
+      out[o + 1] = g;
+      out[o + 2] = g;
+      out[o + 3] = 255;
+    }
+  }
+  return out;
+}
+
+/** 灰階的掃描：白紙（有雜訊）＋一塊塊的墨（取樣約 40 階） */
+export function grayScanRgba(width: number, height: number, seed = 5): Uint8ClampedArray {
+  const r = rng(seed);
+  const ink = new Uint8Array(Math.ceil(width / 4) * Math.ceil(height / 4));
+  for (let i = 0; i < ink.length; i++) ink[i] = r() > 0.82 ? 1 : 0;
+  const cols = Math.ceil(width / 4);
+  return grayRgba(width, height, (x, y) =>
+    ink[(y >> 2) * cols + (x >> 2)] ? 30 + r() * 25 : 238 + (r() - 0.5) * 13,
+  );
+}
+
+/** 低對比的灰階照片（平滑的明暗＋雜訊；取樣約 70 階） */
+export function grayLowContrastRgba(width: number, height: number, seed = 3): Uint8ClampedArray {
+  const r = rng(seed);
+  return grayRgba(
+    width,
+    height,
+    (x, y) => 90 + 22 * Math.sin(x / 97) + 18 * Math.cos(y / 71 + x / 233) + r() * 25,
+  );
+}
+
+/** 灰階的截圖：白底、反鋸齒的「字」（邊緣幾階灰）、標題列、框線 */
+export function grayScreenshotRgba(width: number, height: number): Uint8ClampedArray {
+  return grayRgba(width, height, (x, y) => {
+    if (y < 40) return 230;
+    if (x % 200 === 0) return 100;
+    if (y % 20 < 12 && x % 9 < 6) {
+      if (x % 9 === 0 || x % 9 === 5) return 128;
+      if (y % 20 === 0 || y % 20 === 11) return 180;
+      return 20;
+    }
+    return 255;
+  });
+}
+
+/** 漸層填色的灰階圖表（每一階都有，但大片平塗） */
+export function grayGradientChartRgba(width: number, height: number): Uint8ClampedArray {
+  return grayRgba(width, height, (x, y) =>
+    x < width / 2 ? (x / (width / 2)) * 255 : y < height / 2 ? 40 : 200,
+  );
+}
+
+/** 一頁的 PDF，只有一張灰階的 Flate 影像（畫成 6 英吋寬） */
+export async function grayFlatePdf(
+  rgba: Uint8ClampedArray,
+  width: number,
+  height: number,
+): Promise<Uint8Array> {
+  const doc = await PDFDocument.create({ updateMetadata: false });
+  const page = doc.addPage([612, 792]);
+  const ref = flateXObject(doc, rgbaToSamples(rgba, 1), width, height, 1);
+  placeXObject(page, ref, 36, 300, 432, (432 * height) / width);
+  return doc.save({ useObjectStreams: false });
+}
+
+/* ---------- 結構有問題、頁數很多的檔案 ---------- */
+
+/** 照順序的物件（1 起）組成 PDF（交叉參照表自己算） */
+export function rawPdf(objects: readonly string[], root = 1, trailerExtra = ''): Uint8Array {
+  let body = '%PDF-1.5\n';
+  const offsets: number[] = [];
+  objects.forEach((o, i) => {
+    offsets.push(body.length);
+    body += `${i + 1} 0 obj\n${o}\nendobj\n`;
+  });
+  const xref = body.length;
+  body += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
+  for (const off of offsets) body += `${String(off).padStart(10, '0')} 00000 n \n`;
+  body += `trailer\n<< /Size ${objects.length + 1} /Root ${root} 0 R ${trailerExtra}>>\nstartxref\n${xref}\n%%EOF\n`;
+  return new TextEncoder().encode(body);
+}
+
+/**
+ * 第一頁的 /Parent 指向自己（qpdf 能處理、pdf-lib 找頁面時無限遞迴；驗證時 M2 的檔案）。
+ * 3 頁，每頁一行 Helvetica 的文字。
+ */
+export function selfParentPdf(): Uint8Array {
+  const content = 'BT /F1 12 Tf 20 100 Td (Hello) Tj ET';
+  const page = (parent: number, contents: number) =>
+    `<< /Type /Page /Parent ${parent} 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents ${contents} 0 R >>`;
+  const stream = `<< /Length ${content.length} >>\nstream\n${content}\nendstream`;
+  return rawPdf([
+    '<< /Type /Catalog /Pages 2 0 R >>',
+    '<< /Type /Pages /Kids [4 0 R 5 0 R 6 0 R] /Count 3 >>',
+    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
+    page(4, 7),
+    page(2, 8),
+    page(2, 9),
+    stream,
+    stream,
+    stream,
+  ]);
+}
+
+/** 很多頁的空白 PDF（頁數上限的測試） */
+export async function blankPdf(pages: number): Promise<Uint8Array> {
+  const doc = await PDFDocument.create({ updateMetadata: false });
+  for (let i = 0; i < pages; i++) doc.addPage([200, 200]);
+  return doc.save({ useObjectStreams: false });
+}
+
+/* ---------- 字型 ---------- */
+
+/** 一頁、一個 Type0 字型（Ordering：Japan1）；embedded 時附一個字型檔 */
+export async function cjkPdf(embedded: boolean) {
+  const doc = await PDFDocument.create({ updateMetadata: false });
+  const ctx = doc.context;
+  const fd = ctx.obj({
+    Type: 'FontDescriptor',
+    FontName: 'MS-Mincho',
+    Flags: 4,
+  }) as PDFDict;
+  if (embedded) fd.set(PDFName.of('FontFile2'), ctx.register(ctx.stream(new Uint8Array(16))));
+  const cid = ctx.register(
+    ctx.obj({
+      Type: 'Font',
+      Subtype: 'CIDFontType2',
+      BaseFont: 'MS-Mincho',
+      CIDSystemInfo: {
+        Registry: PDFString.of('Adobe'),
+        Ordering: PDFString.of('Japan1'),
+        Supplement: 2,
+      },
+      FontDescriptor: ctx.register(fd),
+    }),
+  );
+  const font = ctx.register(
+    ctx.obj({
+      Type: 'Font',
+      Subtype: 'Type0',
+      BaseFont: 'MS-Mincho',
+      Encoding: 'UniJIS-UCS2-H',
+      DescendantFonts: [cid],
+    }),
+  );
+  const page = doc.addPage([300, 300]);
+  page.node.setFontDictionary(PDFName.of('F1'), font);
+  const content = ctx.register(
+    ctx.stream(new TextEncoder().encode('BT /F1 24 Tf 20 200 Td <30423044> Tj ET')),
+  );
+  page.node.set(PDFName.of('Contents'), content);
+  return doc.save({ useObjectStreams: false });
 }

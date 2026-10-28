@@ -1,12 +1,16 @@
 /**
  * 清單的動作：加入檔案（檢查、讀頁數與縮圖）、密碼、開始壓縮（依序一個一個）、取消、重試、移除、下載、ZIP。
  * PDF 的處理都在 core/pdf 的 Worker 裡：一個做壓縮（取消＝結束它），一個讀縮圖與前後比對的頁面（壓縮中也能用）。
+ *
+ * 檔案在用到時才讀（拖放區 `readNow={false}`：一次選很多個大檔時不會全部讀進記憶體）。手機的相簿、雲端硬碟給的檔案，
+ * 讀取權限過一陣子會失效（DESIGN.md 的 FileDrop），讀不到時那一列顯示「讀不到這個檔案，請重新選檔」（PdfError 'unreadable'）。
  */
 import { downloadBlob, formatBytes, readAsBytes, zipFiles } from '@/core/files';
 import {
   createPdfClient,
   MAX_FILE_BYTES,
   MAX_FILES,
+  missingPdfFeatures,
   type PdfClient,
   PdfError,
   precheck,
@@ -37,6 +41,21 @@ const nextId = () => `pdf-${++seq}`;
 
 const readHead = async (file: File) => readAsBytes(file.slice(0, 1100));
 
+/** 讀整個檔案；讀不到（NotReadableError 等）時丟 PdfError('unreadable') */
+export async function readFile(file: Blob): Promise<Uint8Array> {
+  try {
+    return await readAsBytes(file);
+  } catch (e) {
+    throw new PdfError('unreadable', e instanceof Error ? `${e.name}: ${e.message}` : String(e));
+  }
+}
+
+/**
+ * 這一輪的編號：取消時加一。讀檔、壓縮回來之後編號不一樣了，表示中途按了取消（或已經開始了新的一輪），
+ * 結果丟掉、不改那一列（開始後馬上取消，檔案還在讀時的競爭）。
+ */
+let generation = 0;
+
 /** 加入時的檢查：不合格的原因（合格時 null） */
 async function rejectReason(file: File): Promise<string | null> {
   if (file.size === 0) return S.rejectEmpty;
@@ -56,6 +75,11 @@ async function rejectReason(file: File): Promise<string | null> {
 
 /** 加入檔案（不合格的不加入，合成一則狀態） */
 export async function addFiles(files: readonly File[]): Promise<void> {
+  const missing = missingPdfFeatures();
+  if (missing.length) {
+    useQueue.setState({ note: { tone: 'danger', text: S.unsupported(missing.join('、')) } });
+    return;
+  }
   const accepted: Item[] = [];
   const problems: string[] = [];
   let room = MAX_FILES - useQueue.getState().items.length;
@@ -78,6 +102,7 @@ export async function addFiles(files: readonly File[]): Promise<void> {
       pages: null,
       version: null,
       encrypted: false,
+      missingFonts: [],
       thumb: null,
       password: null,
       passwordWrong: false,
@@ -106,8 +131,8 @@ async function probe(id: string, password: string | null = null): Promise<void> 
   const it = getItem(id);
   if (!it) return;
   try {
-    const bytes = await readAsBytes(it.file);
-    const { info, thumb } = await viewer().probe(bytes, {
+    const bytes = await readFile(it.file);
+    const { info, thumb, missingFonts } = await viewer().probe(bytes, {
       password,
       fileName: it.name,
       thumbWidth: THUMB_WIDTH,
@@ -126,6 +151,7 @@ async function probe(id: string, password: string | null = null): Promise<void> 
       pages: info.pages,
       version: info.version,
       encrypted: info.encrypted,
+      missingFonts,
       thumb: thumb?.bitmap ?? null,
       password,
       passwordWrong: false,
@@ -153,6 +179,8 @@ export async function startAll(): Promise<void> {
   const key0 = settingsKey(currentSettings());
   const total = useQueue.getState().items.filter((it) => needsWork(workOf(it), key0)).length;
   if (!total) return;
+  const gen = ++generation;
+  const live = () => gen === generation && useQueue.getState().running;
   useQueue.setState({ running: true, batch: { index: 0, total }, note: null });
   let done = 0;
   let kept = 0;
@@ -161,7 +189,7 @@ export async function startAll(): Promise<void> {
   const processed = new Set<string>();
   try {
     for (;;) {
-      if (!useQueue.getState().running) return;
+      if (!live()) return;
       const settings = currentSettings();
       const key = settingsKey(settings);
       const next = useQueue
@@ -174,7 +202,7 @@ export async function startAll(): Promise<void> {
         .getState()
         .items.filter((it) => !processed.has(it.id) && needsWork(workOf(it), key)).length;
       useQueue.setState({ batch: { index, total: index + remaining } });
-      const outcome = await compressOne(next.id, settings, key);
+      const outcome = await compressOne(next.id, settings, key, live);
       if (outcome === 'aborted') return;
       if (outcome === 'done') done++;
       else if (outcome === 'kept') kept++;
@@ -187,7 +215,9 @@ export async function startAll(): Promise<void> {
       },
     });
   } finally {
-    if (useQueue.getState().running) useQueue.setState({ running: false, batch: null });
+    if (gen === generation && useQueue.getState().running) {
+      useQueue.setState({ running: false, batch: null });
+    }
   }
 }
 
@@ -197,23 +227,26 @@ async function compressOne(
   id: string,
   settings: ReturnType<typeof currentSettings>,
   key: string,
+  live: () => boolean,
 ): Promise<'done' | 'kept' | 'error' | 'aborted'> {
   const it = getItem(id);
   if (!it) return 'error';
   patchItem(id, { state: 'running', progress: { stage: 'inspect' }, error: null });
   try {
-    const bytes = await readAsBytes(it.file);
+    const bytes = await readFile(it.file);
+    /* 讀檔的時候按了取消 */
+    if (!live()) return 'aborted';
     const report = await jobs().compress(
       bytes,
       { settings, password: it.password, fileName: it.name },
       (p) => {
-        if (getItem(id)?.state === 'running') patchItem(id, { progress: p });
+        if (live() && getItem(id)?.state === 'running') patchItem(id, { progress: p });
       },
     );
+    if (!live()) return 'aborted';
     if (!getItem(id)) return 'error';
-    const result = report.kept
-      ? it.file
-      : new Blob([report.bytes as BlobPart], { type: 'application/pdf' });
+    /* 保留原檔時也用讀出來的位元組（原本的 File 之後可能讀不到） */
+    const result = new Blob([report.bytes as BlobPart], { type: 'application/pdf' });
     const summary = summarize(report);
     patchItem(id, {
       state: report.kept ? 'kept' : 'done',
@@ -223,6 +256,7 @@ async function compressOne(
       level: settings.level,
       key,
       pages: report.pages || it.pages,
+      missingFonts: report.missingFonts.length ? report.missingFonts : it.missingFonts,
     });
     useQueue.setState({
       announce: report.kept
@@ -236,8 +270,8 @@ async function compressOne(
     return report.kept ? 'kept' : 'done';
   } catch (e) {
     const err = revivePdfError(e);
-    if (err.kind === 'aborted') {
-      if (getItem(id)) patchItem(id, { state: 'ready', progress: null });
+    if (err.kind === 'aborted' || !live()) {
+      /* 取消已經把這一列改回等待；新的一輪可能已經在處理它，不要再動 */
       return 'aborted';
     }
     if (err.kind === 'password' || err.kind === 'wrong-password') {
@@ -262,6 +296,7 @@ async function compressOne(
 /** 取消：結束壓縮的 Worker；處理中的回到等待 */
 export function cancelAll(): void {
   if (!useQueue.getState().running) return;
+  generation++;
   useQueue.setState({ running: false, batch: null, note: { tone: 'info', text: S.cancelled } });
   jobs().cancel();
   for (const it of useQueue.getState().items) {

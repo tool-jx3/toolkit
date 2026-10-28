@@ -3,7 +3,8 @@
  *
  * 數值的來源（MIT 的兩個原作，見 docs/refactor/specs/pdf-compress.md 第 3 節的表）：
  * - QC＝mrflamingchad67/qcompress：無損（只整理結構）、balanced（JPEG 品質 78、長邊 2480 px）、
- *   maximum（品質 55、長邊 1700 px，另外也試 balanced 的設定，取小的）。
+ *   maximum（品質 55、長邊 1700 px，另外也試 balanced 的設定，取小的）。QC 不看 DPI：本站只在量不到影像在頁面上的大小時
+ *   才試 QC 的 balanced（`unmeasuredOnly`；量得到時 WP 的 150 DPI 幾乎都比較小，多試一次只是多花時間）。
  * - WP＝ECgear/wise-pdf：low（200 DPI、品質 82）、recommended（150 DPI、品質 72）、
  *   maximum（整頁轉成 JPEG：120 DPI、品質 60，比原檔大時把 DPI 往下降，最低 50 DPI、最多 4 次、目標 0.8 倍）；
  *   WP 不量影像在頁面上的大小，DPI 上限換算成「A4 長邊 11.7 英吋 × DPI」的長邊上限。
@@ -33,6 +34,8 @@ export interface ImageAttempt {
   dpi: number;
   /** 量不到影像在頁面上的大小時（或 dpi 為 0）的長邊上限（px）；0＝不限 */
   longEdge: number;
+  /** 只用在量不到頁面大小的影像（量得到的不試） */
+  unmeasuredOnly?: boolean;
 }
 
 /** 整頁轉圖的參數 */
@@ -55,6 +58,7 @@ export interface LevelSpec {
   /**
    * 影像的設定，依序都試、每張圖取最小的（空的＝不動影像）。
    * 第一組是這個等級本身的設定，後面的都比它輕（品質更高或解析度更高），所以結果的品質不會低於第一組。
+   * 「最小」包含「平衡」的全部設定，所以每張圖的結果都不會比平衡大。
    */
   images: readonly ImageAttempt[];
   /** 整頁轉圖（null＝不轉） */
@@ -63,8 +67,8 @@ export interface LevelSpec {
 
 const wpLongEdge = (dpi: number) => Math.round(dpi * A4_LONG_EDGE_IN);
 
-/** QC 的 balanced（長邊 2480 px、品質 78；QC 不看 DPI） */
-const QC_BALANCED: ImageAttempt = { quality: 78, dpi: 0, longEdge: 2480 };
+/** QC 的 balanced（長邊 2480 px、品質 78；QC 不看 DPI，所以只用在量不到大小的影像） */
+const QC_BALANCED: ImageAttempt = { quality: 78, dpi: 0, longEdge: 2480, unmeasuredOnly: true };
 /** WP 的 recommended（150 DPI、品質 72） */
 const WP_RECOMMENDED: ImageAttempt = { quality: 72, dpi: 150, longEdge: wpLongEdge(150) };
 
@@ -77,15 +81,15 @@ export const LEVELS: Readonly<Record<PdfLevel, LevelSpec>> = {
     images: [{ quality: 82, dpi: 200, longEdge: wpLongEdge(200) }],
     raster: null,
   },
-  /* WP 的 recommended，另外試 QC 的 balanced */
+  /* WP 的 recommended，另外試 QC 的 balanced（量不到大小的影像） */
   balanced: { lossy: true, images: [WP_RECOMMENDED, QC_BALANCED], raster: null },
   /*
-   * QC 的 maximum（品質 55、長邊 1700 px），另外試平衡的設定（QC：maximum 也試 balanced）。
+   * QC 的 maximum（品質 55、長邊 1700 px），另外試平衡的全部設定（QC：maximum 也試 balanced），每張圖都不會比平衡大。
    * DPI 上限 120 是本站加的（取 WP 最強一級的 120 DPI）：量得到大小時，最小不能比平衡（150 DPI）留更多像素。
    */
   smallest: {
     lossy: true,
-    images: [{ quality: 55, dpi: 120, longEdge: 1700 }, WP_RECOMMENDED],
+    images: [{ quality: 55, dpi: 120, longEdge: 1700 }, WP_RECOMMENDED, QC_BALANCED],
     raster: null,
   },
   /* WP 的 maximum */

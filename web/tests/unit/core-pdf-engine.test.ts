@@ -10,12 +10,24 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { PdfError } from '@/core/pdf/errors';
 import { readJpegHeader } from '@/core/pdf/jpeg';
 import { resolveSettings } from '@/core/pdf/levels';
+import { looksEncrypted } from '@/core/pdf/limits';
 import { colorInfo, filtersOf, isImage, N, numberOf, rawStreams } from '@/core/pdf/objects';
 import { closePdf, docSignature, openPdf } from '@/core/pdf/pdfjs';
-import { type CompressReport, compressPdf, type EngineDeps } from '@/core/pdf/pipeline';
+import { type CompressReport, compressPdf, type EngineDeps, inspectPdf } from '@/core/pdf/pipeline';
 import { INSPECT_ARGS, parseInspectJson } from '@/core/pdf/qpdfArgs';
 import { nodeCodec, nodeDeps, nodeQpdf } from '../helpers/pdfEngine';
-import { imagePdf, type JpegEncoder, singleJpegPdf, textPdf } from '../helpers/pdfFixtures';
+import {
+  grayFlatePdf,
+  grayLowContrastRgba,
+  grayScanRgba,
+  grayScreenshotRgba,
+  imagePdf,
+  type JpegEncoder,
+  rawPdf,
+  selfParentPdf,
+  singleJpegPdf,
+  textPdf,
+} from '../helpers/pdfFixtures';
 import { encryptPdf } from '../helpers/pdfQpdf';
 
 const encode: JpegEncoder = (rgba, width, height, o) =>
@@ -285,5 +297,86 @@ describe('錯誤', () => {
     await expect(
       compressPdf({ bytes: text.slice(0, 600), settings: s, fileName: '壞掉.pdf' }, deps),
     ).rejects.toMatchObject({ kind: 'broken' });
+  });
+});
+
+describe('pdf-lib 讀不懂、qpdf 處理得了的檔案（M2）', () => {
+  it('第一頁的 /Parent 指向自己：有損等級退回整理結構的結果，記下影像沒有處理的原因', async () => {
+    const bad = selfParentPdf();
+    for (const level of ['balanced', 'smallest', 'high'] as const) {
+      const r = await compressPdf({ bytes: bad, settings: resolveSettings(level) }, deps);
+      expect(r.imagesError).toBeTruthy();
+      expect(r.images).toBeNull();
+      expect(['structural', 'linearize', 'original']).toContain(r.strategy);
+      expect(r.pages).toBe(3);
+    }
+    const lossless = await compressPdf({ bytes: bad, settings: resolveSettings('lossless') }, deps);
+    expect(lossless.imagesError).toBeNull();
+    expect(['structural', 'linearize', 'original']).toContain(lossless.strategy);
+  }, 60_000);
+
+  it('影像的重新壓縮中途丟錯：一樣退回，不讓整個檔案失敗', async () => {
+    const broken: EngineDeps = {
+      ...deps,
+      codec: async () => ({
+        decode: async () => {
+          throw new RangeError('Maximum call stack size exceeded');
+        },
+        encode: async () => {
+          throw new Error('unused');
+        },
+      }),
+    };
+    const r = await compressPdf(
+      { bytes: await singleJpegPdf(encode), settings: resolveSettings('balanced') },
+      broken,
+    );
+    /* 一張讀不出來只記成略過；不會丟到外面 */
+    expect(r.images?.skipped.decode).toBe(1);
+    expect(r.imagesError).toBeNull();
+  }, 60_000);
+});
+
+describe('灰階的 Flate 影像（M4）', () => {
+  it('掃描、低對比的照片轉成 JPEG；截圖保持 Flate', async () => {
+    const W = 1000;
+    const H = 700;
+    for (const rgba of [grayScanRgba(W, H), grayLowContrastRgba(W, H)]) {
+      const src = await grayFlatePdf(rgba, W, H);
+      const r = await compressPdf({ bytes: src, settings: resolveSettings('balanced') }, deps);
+      expect(r.images?.converted).toBe(1);
+      expect(r.strategy).toBe('images');
+      const [row] = await images(r.bytes);
+      expect(row.filters).toEqual(['DCTDecode']);
+      expect(row.jpegComponents).toBe(1);
+    }
+    const shot = await grayFlatePdf(grayScreenshotRgba(W, H), W, H);
+    const r = await compressPdf({ bytes: shot, settings: resolveSettings('balanced') }, deps);
+    expect(r.images?.converted).toBe(0);
+    expect(r.images?.skipped.graphic).toBe(1);
+  }, 60_000);
+});
+
+describe('要不要密碼的後備（QC：qpdf 讀不出來時看 /Encrypt）', () => {
+  const encryptedBroken = rawPdf(
+    ['<< /Type /Catalog /Pages 2 0 R >>', '<< /Type /Pages /Kids [] /Count 0 >>', '<< /Bogus 1 >>'],
+    1,
+    '/Encrypt 3 0 R /ID [<00> <00>] ',
+  );
+
+  it('looksEncrypted：trailer 有 /Encrypt n g R', () => {
+    expect(looksEncrypted(encryptedBroken)).toBe(true);
+    expect(looksEncrypted(text)).toBe(false);
+  });
+
+  it('qpdf 打不開、看起來有加密：先問密碼；給了密碼還是打不開才算壞檔', async () => {
+    const qpdf = nodeQpdf();
+    const raw = await qpdf(encryptedBroken, INSPECT_ARGS);
+    expect(raw.code === 0 || raw.code === 3).toBe(false);
+    const asked = await inspectPdf(encryptedBroken, qpdf);
+    expect(asked).toMatchObject({ needsPassword: true, encrypted: true });
+    await expect(inspectPdf(encryptedBroken, qpdf, 'x')).rejects.toMatchObject({
+      kind: expect.stringMatching(/broken|wrong-password/),
+    });
   });
 });

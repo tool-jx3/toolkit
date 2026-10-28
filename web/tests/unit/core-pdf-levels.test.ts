@@ -26,18 +26,20 @@ describe('等級的參數', () => {
     expect(Math.round(200 * A4_LONG_EDGE_IN)).toBe(2340);
   });
 
-  it('平衡＝WP 的 recommended（150 DPI、品質 72），另外試 QC 的 balanced（品質 78、長邊 2480）', () => {
+  it('平衡＝WP 的 recommended（150 DPI、品質 72），量不到大小的影像另外試 QC 的 balanced（品質 78、長邊 2480）', () => {
     expect(LEVELS.balanced.images).toEqual([
       { quality: 72, dpi: 150, longEdge: 1755 },
-      { quality: 78, dpi: 0, longEdge: 2480 },
+      { quality: 78, dpi: 0, longEdge: 2480, unmeasuredOnly: true },
     ]);
   });
 
-  it('最小＝QC 的 maximum（品質 55、長邊 1700）＋DPI 上限 120，另外試平衡的設定', () => {
+  it('最小＝QC 的 maximum（品質 55、長邊 1700）＋DPI 上限 120，另外試平衡的全部設定', () => {
     expect(LEVELS.smallest.images).toEqual([
       { quality: 55, dpi: 120, longEdge: 1700 },
       { quality: 72, dpi: 150, longEdge: 1755 },
+      { quality: 78, dpi: 0, longEdge: 2480, unmeasuredOnly: true },
     ]);
+    expect(LEVELS.smallest.images.slice(1)).toEqual(LEVELS.balanced.images);
   });
 
   it('另外試的設定都比等級本身輕（品質不低、解析度不低）', () => {

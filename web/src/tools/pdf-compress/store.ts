@@ -77,6 +77,8 @@ export interface Item {
   pages: number | null;
   version: string | null;
   encrypted: boolean;
+  /** 沒有內嵌的中日韓字型（加入時或壓縮後才知道；預覽會缺字） */
+  missingFonts: string[];
   thumb: ImageBitmap | null;
   password: string | null;
   passwordWrong: boolean;

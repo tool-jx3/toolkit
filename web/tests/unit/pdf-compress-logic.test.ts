@@ -7,6 +7,7 @@ import { resolveSettings } from '@/core/pdf/levels';
 import {
   DISCORD_LIMIT,
   keptReason,
+  MAX_NAME_LENGTH,
   needsWork,
   outputName,
   type ReportSummary,
@@ -38,6 +39,7 @@ function report(over: Partial<ReportSummary> = {}): ReportSummary {
     },
     dedupe: { merged: 2, savedBytes: 500_000 },
     raster: null,
+    imagesError: null,
     verify: { ok: true, mismatches: [], page: null },
     verifySkipped: null,
     rejectedByVerify: 0,
@@ -59,6 +61,17 @@ describe('檔名', () => {
     expect(outputName('no-ext', true)).toBe('no-ext.pdf');
     expect(outputName('a/b:c.pdf', false)).toBe('a_b_c_壓縮.pdf');
     expect(outputName('', false)).toBe('PDF_壓縮.pdf');
+  });
+
+  it('很長的檔名：截原檔名的部分，「_壓縮.pdf」一定留著（L4）', () => {
+    const long = `${'長'.repeat(200)}.pdf`;
+    const out = outputName(long, false);
+    expect(out.endsWith('_壓縮.pdf')).toBe(true);
+    expect(Array.from(out).length).toBe(MAX_NAME_LENGTH);
+    expect(out.startsWith('長'.repeat(150))).toBe(true);
+    const kept = outputName(`${'a'.repeat(300)}.PDF`, true);
+    expect(kept.endsWith('.PDF')).toBe(true);
+    expect(kept.length).toBe(MAX_NAME_LENGTH);
   });
 
   it('ZIP 裡同名時加 _2、_3', () => {
@@ -99,6 +112,7 @@ describe('哪些列要（重新）壓縮', () => {
 
   it('錯誤：檔案本身的問題（壞檔等）不重壓；其他的換了設定才重壓', () => {
     expect(needsWork({ state: 'error', key: k2, errorKind: 'broken' }, k1)).toBe(false);
+    expect(needsWork({ state: 'error', key: k2, errorKind: 'unreadable' }, k1)).toBe(false);
     expect(needsWork({ state: 'error', key: k2, errorKind: 'too-many-pages' }, k1)).toBe(true);
     expect(needsWork({ state: 'error', key: k1, errorKind: 'too-many-pages' }, k1)).toBe(false);
   });
@@ -140,7 +154,7 @@ describe('結果的說明', () => {
     const raster = resultLines(
       report({
         strategy: 'raster',
-        raster: { dpi: 86, reduced: true, grayPages: 3 },
+        raster: { dpi: 86, reduced: true, grayPages: 3, gaveUp: false },
         images: null,
         dedupe: null,
       }),
@@ -153,7 +167,38 @@ describe('結果的說明', () => {
     expect(raster).toContain('文字已經變成圖片：不能選取、不能搜尋，連結、書籤、表單也沒有了。');
     const notes = resultLines(report({ signed: true, decrypted: true }), 'balanced');
     expect(notes).toContain('這個 PDF 有數位簽章：改寫之後簽章會失效。');
-    expect(notes).toContain('輸出的檔案沒有加密（不需要密碼就能打開）。');
+    expect(notes).toContain('輸出的檔案沒有加密（不需要密碼就能開啟）。');
+  });
+
+  it('整頁轉圖的等級、結果卻是整理結構：說明原因（M3）', () => {
+    const base = { strategy: 'structural' as const, images: null, dedupe: null, lossy: false };
+    const bigger = resultLines(
+      report({ ...base, raster: { dpi: 50, reduced: false, grayPages: 0, gaveUp: true } }),
+      'raster',
+    );
+    expect(bigger[0]).toBe('做法：整理結構');
+    expect(bigger[1]).toBe('轉成圖片比只整理結構大，所以只整理結構（文字仍可以選）。');
+    expect(bigger).not.toContain(
+      '文字已經變成圖片：不能選取、不能搜尋，連結、書籤、表單也沒有了。',
+    );
+    const fonts = resultLines(report({ ...base, missingFonts: ['MS-Mincho'] }), 'raster');
+    expect(fonts[1]).toBe(
+      '這個 PDF 有沒有內嵌的中日韓字型（MS-Mincho），轉成圖片會缺字，所以只整理結構（文字仍可以選）。',
+    );
+    expect(resultLines(report(base), 'raster')[1]).toBe(
+      '轉成圖片時發生錯誤，所以只整理結構（文字仍可以選）。',
+    );
+    /* 其他等級不寫 */
+    expect(resultLines(report(base), 'lossless')).toHaveLength(3);
+  });
+
+  it('影像沒有處理的原因（M2）', () => {
+    const r = report({ strategy: 'structural', images: null, imagesError: 'Maximum call stack' });
+    expect(resultLines(r, 'balanced')).toContain(
+      '影像沒有處理：這個檔案的內部結構讀不懂（qpdf 修得好、但分析影像時出錯），只整理了結構。',
+    );
+    const kept = { ...r, kept: true, strategy: 'original' as const };
+    expect(keptReason(kept, 'balanced')).toContain('影像沒有處理');
   });
 
   it('保留原檔的原因', () => {
@@ -162,7 +207,11 @@ describe('結果的說明', () => {
     expect(keptReason({ ...kept, rejectedByVerify: 2 }, 'balanced')).toContain('不一樣');
     expect(keptReason(kept, 'lossless')).toContain('可以試「平衡」或「最小」');
     expect(keptReason({ ...kept, missingFonts: ['MS-Mincho', 'PMingLiU'] }, 'raster')).toBe(
-      '這個 PDF 有沒有內嵌的中日韓字型（MS-Mincho、PMingLiU），轉成圖片會缺字，所以保留原檔。請改用其他等級。',
+      '這個 PDF 有沒有內嵌的中日韓字型（MS-Mincho、PMingLiU），轉成圖片會缺字；只整理結構也沒有變小，所以保留原檔。可以改用「平衡」或「最小」。',
+    );
+    /* 其他等級：缺字只影響預覽，不是保留原檔的原因 */
+    expect(keptReason({ ...kept, missingFonts: ['MS-Mincho'] }, 'balanced')).toContain(
+      '已經很精簡',
     );
     expect(keptReason(kept, 'balanced')).toContain('已經很精簡');
     expect(keptReason(kept, 'raster')).toContain('轉成圖片反而比原檔大');

@@ -10,8 +10,10 @@
 import decWasmUrl from '@jsquash/jpeg/codec/dec/mozjpeg_dec.wasm?url&no-inline';
 import encWasmUrl from '@jsquash/jpeg/codec/enc/mozjpeg_enc.wasm?url&no-inline';
 import qpdfWasmUrl from '@neslinesli93/qpdf-wasm/dist/qpdf.wasm?url&no-inline';
+import { PDFDocument } from 'pdf-lib';
 import { exposeApi, transfer } from '../worker';
 import { PdfError } from './errors';
+import { nonEmbeddedCjkFonts } from './fonts';
 import { createJpegCodec, type JpegCodec } from './jpeg';
 import type { ResolvedSettings } from './levels';
 import { ENGINE_LIBRARIES } from './libraries';
@@ -98,7 +100,10 @@ async function compileWasm(url: string): Promise<WebAssembly.Module> {
 let codecPromise: Promise<JpegCodec> | null = null;
 const codec = () => {
   codecPromise ??= Promise.resolve(
-    createJpegCodec((which) => compileWasm(which === 'enc' ? encWasmUrl : decWasmUrl)),
+    /* libjpeg 的警告（例如「Corrupt JPEG data: 2 extraneous bytes」）不印到主控台：結果照常，丟掉 */
+    createJpegCodec((which) => compileWasm(which === 'enc' ? encWasmUrl : decWasmUrl), {
+      onMessage: () => {},
+    }),
   );
   return codecPromise;
 };
@@ -114,7 +119,7 @@ const deps: EngineDeps = {
       await closePdf(doc);
     }
   },
-  async rasterize(bytes, { settings, password, onProgress }) {
+  async rasterize(bytes, { settings, password, target, onProgress, signal }) {
     const doc = await openPdf(bytes, password);
     try {
       return await rasterize(
@@ -127,10 +132,10 @@ const deps: EngineDeps = {
           },
           render: (n, scale) => renderPage(doc, n, scale),
         },
-        bytes.length,
+        target,
         settings.raster!,
         await codec(),
-        { onProgress },
+        { onProgress, signal },
       );
     } finally {
       await closePdf(doc);
@@ -184,6 +189,28 @@ export interface ProbeResult {
   info: InspectResult;
   /** 第一頁的縮圖（要密碼、畫不出來時 null） */
   thumb: { bitmap: ImageBitmap; width: number; height: number } | null;
+  /**
+   * 沒有內嵌的中日韓字型（預覽會缺字）。加入時只看沒有加密、PROBE_FONT_MAX_BYTES 以下的檔案；
+   * 其他的在壓縮時才知道（CompressReport.missingFonts）。
+   */
+  missingFonts: string[];
+}
+
+/** 加入檔案時找沒有內嵌的中日韓字型的大小上限（pdf-lib 要讀整個檔案；自訂） */
+export const PROBE_FONT_MAX_BYTES = 50 * 1024 * 1024;
+
+async function probeFonts(bytes: Uint8Array): Promise<string[]> {
+  try {
+    const doc = await PDFDocument.load(bytes, {
+      updateMetadata: false,
+      throwOnInvalidObject: false,
+      ignoreEncryption: true,
+      parseSpeed: Number.POSITIVE_INFINITY,
+    });
+    return nonEmbeddedCjkFonts(doc);
+  } catch {
+    return [];
+  }
 }
 
 export interface RenderedBitmap {
@@ -201,6 +228,8 @@ const api = {
     options: { password?: string | null; fileName?: string; thumbWidth?: number },
   ): Promise<ProbeResult> {
     const info = await inspectPdf(bytes, qpdf, options.password, options.fileName);
+    const missingFonts =
+      !info.encrypted && bytes.length <= PROBE_FONT_MAX_BYTES ? await probeFonts(bytes) : [];
     let thumb: ProbeResult['thumb'] = null;
     if (!info.needsPassword && options.thumbWidth) {
       try {
@@ -215,7 +244,9 @@ const api = {
         thumb = null;
       }
     }
-    return thumb ? transfer({ info, thumb }, [thumb.bitmap]) : { info, thumb };
+    return thumb
+      ? transfer({ info, thumb, missingFonts }, [thumb.bitmap])
+      : { info, thumb, missingFonts };
   },
 
   /** 壓縮；結果的位元組以 transfer 傳回 */

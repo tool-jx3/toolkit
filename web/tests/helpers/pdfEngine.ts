@@ -63,7 +63,7 @@ export function nodeDeps(): EngineDeps {
         await closePdf(doc);
       }
     },
-    async rasterize(bytes, { settings, password, onProgress }) {
+    async rasterize(bytes, { settings, password, target, onProgress, signal }) {
       const doc = await openPdf(bytes, password);
       try {
         return await rasterize(
@@ -76,10 +76,10 @@ export function nodeDeps(): EngineDeps {
             },
             render: (n, scale) => renderPage(doc, n, scale),
           },
-          bytes.length,
+          target,
           settings.raster!,
           nodeCodec(),
-          { onProgress },
+          { onProgress, signal },
         );
       } finally {
         await closePdf(doc);
