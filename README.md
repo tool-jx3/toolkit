@@ -77,7 +77,7 @@
 | [家系圖產生器](https://tool-jx3.github.io/toolkit/tools/family-tree/) | 從始祖一路加上子女、配偶與兄弟姊妹，一代一列自動排好的家系圖：雙擊就地編輯、拖曳換順序或換父母、折疊子孫、色分類與圖例；過繼（出系／入系）、母系外孫、跨家系的婚姻、存歿與失蹤、頭像，GM 專用的人與欄位在 PL 版自動拿掉；匯出整張、某人以下或框選範圍的直式、橫式 PNG 與 SVG；舊家、遺產與血脈的劇本 handout |
 | [短文圖片產生器](https://tool-jx3.github.io/toolkit/tools/prose-card/) | 把台詞、後日談、劇本宣傳文句或心得排成 1200 × 1600 的直式圖片：封面、內文頁或照片＋文字三種版面，文字可以加粗、換色、螢光筆，放不下時自動接到下一頁，存成 PNG 或 ZIP |
 | [驗證題梗圖產生器](https://tool-jx3.github.io/toolkit/tools/captcha-card/) | 做一張「請選出所有包含 ○○ 的圖片」的驗證題梗圖：放代表圖與 3 × 3／4 × 4 的圖片格、勾選答案，匯出 PNG，或游標一格一格點選、按下驗證的 GIF 動畫 |
-| [社群貼文產生器](https://tool-jx3.github.io/toolkit/tools/social-post/) | 做出相片社群 App 的貼文、留言、限時動態與個人頁畫面：照片輪播、按讚與留言、限時動態的版面與貼紙，存成 PNG，或從個人頁點進貼文與限時動態的 HTML 檔 |
+| [社群貼文產生器](https://tool-jx3.github.io/toolkit/tools/social-post/) | 做出相片社群 App 的首頁動態、貼文、留言、限時動態、個人頁與私訊畫面：照片輪播、按讚與留言、朋友的貼文與限時動態、限時動態的版面與貼紙、訊息列表與對話，存成 PNG，或從首頁動態與個人頁點進貼文、限時動態與私訊的 HTML 檔 |
 | [角色配色條產生器](https://tool-jx3.github.io/toolkit/tools/color-palette/) | 整理角色的配色：配色條（從立繪滴管或自動取色）、色票櫃（圓形頭像與髮色瞳色的一覽，依亮度或色系排序、點色塊複製色碼、個人色碼表）、配色卡（照片或立繪自動取 4～6 色、繁中色名、混色帶），輸出 PNG／GIF |
 | [壓克力周邊工房](https://tool-jx3.github.io/toolkit/tools/acrylic-goods/) | 用立繪做出 3D 壓克力立牌、搖搖樂與立體透視，可轉動、打光、搖晃，匯出 APNG／GIF／WebP／PNG 或 .glb 模型 |
 | [影片轉動圖工具](https://tool-jx3.github.io/toolkit/tools/video-anim/) | 把影片選定的區間轉成無損 APNG、Animated WebP 或 256 色 GIF，可裁切範圍、調影格率與逐格檢視 |
