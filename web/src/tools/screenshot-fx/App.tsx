@@ -89,7 +89,11 @@ export function App() {
   useTestHook(playerRef);
 
   const shortcuts = useMemo<Shortcut[]>(
-    () => imageFxShortcuts(fx, S, () => playerRef.current?.toggle()),
+    () =>
+      imageFxShortcuts(fx, S, {
+        toggle: () => playerRef.current?.toggle(),
+        rewind: () => playerRef.current?.rewind(),
+      }),
     [],
   );
 

@@ -268,6 +268,13 @@ function View3D({
     toggle: () => {
       if (canWalk(docNow().walk.path)) state.current.toggle();
     },
+    /* 播放列的「回到開頭」同樣會把鏡頭換成沿路線（onTimeChange 的包裝） */
+    rewind: () => {
+      if (!canWalk(docNow().walk.path)) return;
+      if (useWalk.getState().camera !== 'walk') useWalk.setState({ camera: 'walk' });
+      state.current.pause();
+      state.current.onTimeChange(0);
+    },
     seek: (t: number) => state.current.onTimeChange(t),
     get time() {
       return state.current.time;

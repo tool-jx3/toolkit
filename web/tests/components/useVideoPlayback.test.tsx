@@ -120,6 +120,26 @@ describe('useVideoPlayback', () => {
     expect(v.currentTime).toBe(3);
   });
 
+  it('回到開頭：暫停並停在選取區間的起點（沒有區間時 0），不會開始播放', () => {
+    const { v, hook } = setup();
+    v.currentTime = 1.3;
+    act(() => hook.result.current.onPlayingChange(true));
+    expect(hook.result.current.playing).toBe(true);
+    act(() => hook.result.current.onRewind());
+    expect(v.paused).toBe(true);
+    expect(v.currentTime).toBe(1);
+    expect(hook.result.current.time).toBe(1);
+    expect(hook.result.current.playing).toBe(false);
+    frame();
+    expect(v.currentTime).toBe(1);
+
+    hook.rerender({ range: null, rate: 1 });
+    v.currentTime = 2;
+    act(() => hook.result.current.onRewind());
+    expect(v.currentTime).toBe(0);
+    expect(hook.result.current.time).toBe(0);
+  });
+
   it('播放速度套到影片', () => {
     const { v, hook } = setup(null, 2);
     expect(v.playbackRate).toBe(2);

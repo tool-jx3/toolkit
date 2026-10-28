@@ -48,6 +48,8 @@ export interface PlayHandle {
   setPlaying: (on: boolean) => void;
   toggle: () => void;
   restart: () => void;
+  /** 回到開頭：暫停並停在第一格 */
+  rewind: () => void;
   /** 往前／往後一格並暫停 */
   step: (dir: 1 | -1) => void;
   readonly t: number;
@@ -187,6 +189,11 @@ export function Preview({
       on ? state.current.playback.play() : state.current.playback.pause(),
     toggle: () => state.current.playback.toggle(),
     restart: () => state.current.playback.onRestart(),
+    rewind: () => {
+      const p = state.current.playback;
+      p.pause();
+      p.onTimeChange(0);
+    },
     step: (dir: 1 | -1) => {
       const p = state.current.playback;
       p.pause();

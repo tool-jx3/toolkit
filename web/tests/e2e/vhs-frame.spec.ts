@@ -744,6 +744,57 @@ test('預覽：錄影帶的播放／暫停與時間（記住）、PNG 存目前�
   expect(errors).toEqual([]);
 });
 
+test('預覽：播放中按「回到開頭」或 Home → 暫停並停在第一格（錄影帶記住暫停與 0 秒，GIF 動畫也一樣）', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  await loadPhoto(page);
+  const screenNow = () => call(page, 'screen');
+  const rewind = page.getByRole('button', { name: '回到開頭', exact: true });
+
+  /* 錄影帶：播放中 → 按鈕 */
+  await expect.poll(async () => (await screenNow()).playing).toBe(true);
+  await expect.poll(async () => (await screenNow()).t).toBeGreaterThan(0.3);
+  await rewind.click();
+  await expect.poll(async () => (await screenNow()).playing).toBe(false);
+  expect((await screenNow()).t).toBe(0);
+  await expect(canvas(page)).toHaveAttribute('data-frame', '0');
+  expect(await prefs(page)).toMatchObject({ tapePaused: true, tapeTime: 0 });
+  await page.waitForTimeout(300);
+  expect((await screenNow()).t).toBe(0);
+  await expect(page.getByTestId('png-frame')).toHaveText('存「錄影帶」0.00 秒 這一格。');
+  /* 重新整理：還停在 0 秒 */
+  await page.reload();
+  await page.waitForFunction(() => !!(window as unknown as { __vhsFrame?: unknown }).__vhsFrame);
+  expect((await screenNow()).playing).toBe(false);
+  expect((await screenNow()).t).toBe(0);
+
+  /* 錄影帶：Home */
+  await page.getByRole('button', { name: '播放', exact: true }).click();
+  await expect.poll(async () => (await screenNow()).t).toBeGreaterThan(0.3);
+  await page.locator('body').click({ position: { x: 5, y: 300 } });
+  await page.keyboard.press('Home');
+  await expect.poll(async () => (await screenNow()).playing).toBe(false);
+  expect((await screenNow()).t).toBe(0);
+  expect(await prefs(page)).toMatchObject({ tapePaused: true, tapeTime: 0 });
+
+  /* GIF 動畫：按鈕與 Home */
+  await page.getByRole('radio', { name: /^GIF 動畫/ }).click();
+  await expect(canvas(page)).toHaveAttribute('data-mode', 'gif');
+  await expect.poll(async () => (await screenNow()).playing).toBe(true);
+  await expect.poll(async () => (await screenNow()).t).toBeGreaterThan(0.2);
+  await rewind.click();
+  await expect.poll(async () => (await screenNow()).playing).toBe(false);
+  expect((await screenNow()).t).toBe(0);
+  await expect(canvas(page)).toHaveAttribute('data-frame', '0');
+  await page.getByRole('button', { name: '播放', exact: true }).click();
+  await expect.poll(async () => (await screenNow()).t).toBeGreaterThan(0.2);
+  await page.keyboard.press('Home');
+  await expect.poll(async () => (await screenNow()).playing).toBe(false);
+  expect((await screenNow()).t).toBe(0);
+  expect(errors).toEqual([]);
+});
+
 test('預覽的解析度：播放中與拖曳中以畫面顯示的大小畫、暫停後全尺寸（＝PNG）；照片層快取，切換預覽模式不重新合成（對等驗證 7.1）', async ({
   page,
 }) => {

@@ -110,6 +110,8 @@ const reducedMotion = () =>
 export interface ScreenHandle {
   /** 播放／暫停目前的預覽 */
   toggle: () => void;
+  /** 回到開頭：暫停並停在第一格（目前的預覽） */
+  rewind: () => void;
   /** 焦點移到畫面（重設位置之後） */
   focus: () => void;
   /** 「錄影帶」目前這一格的 t（PNG 用） */
@@ -276,23 +278,27 @@ function Screen({ mode, ref }: { mode: PreviewMode; ref: Ref<ScreenHandle> }) {
     c.dataset.frame = String(frameKey);
   }, [mode, frameKey, s, bitmap, tick, target.width, target.height, masterRes, moving, renderer]);
 
+  /* 暫停並停在某個時間（錄影帶的暫停與時間一併記進 prefs） */
+  const seekPaused = (t: number, m: PreviewMode = mode) => {
+    if (m === 'tape') {
+      pb.current.tape.pause();
+      pb.current.tape.onTimeChange(t);
+      setPrefs({ tapePaused: true, tapeTime: tapeFrameTime(t) });
+    } else {
+      pb.current.gif.pause();
+      pb.current.gif.onTimeChange(t);
+    }
+  };
+
   useImperativeHandle(ref, () => ({
     toggle: () => {
       if (mode === 'tape') tapePlaying(!pb.current.tape.playing);
       else pb.current.gif.toggle();
     },
+    rewind: () => seekPaused(0),
     focus: () => surface.current?.focus(),
     tapeT: () => tapeFrameTime(pb.current.tape.time),
-    seek: (t: number, m: PreviewMode = mode) => {
-      if (m === 'tape') {
-        pb.current.tape.pause();
-        pb.current.tape.onTimeChange(t);
-        setPrefs({ tapePaused: true, tapeTime: tapeFrameTime(t) });
-      } else {
-        pb.current.gif.pause();
-        pb.current.gif.onTimeChange(t);
-      }
-    },
+    seek: seekPaused,
     state: () => {
       const p = mode === 'tape' ? pb.current.tape : pb.current.gif;
       return {
@@ -502,6 +508,7 @@ function Screen({ mode, ref }: { mode: PreviewMode; ref: Ref<ScreenHandle> }) {
             tapeSeek(0);
             tapePlaying(true);
           }}
+          onRewind={() => seekPaused(0, 'tape')}
           fps={TAPE_FPS}
           legend={false}
         />
@@ -561,6 +568,7 @@ export function Preview({
   const handle = useRef<ScreenHandle | null>(null);
   useImperativeHandle(screenRef, () => ({
     toggle: () => handle.current?.toggle(),
+    rewind: () => handle.current?.rewind(),
     focus: () => handle.current?.focus(),
     tapeT: () => handle.current?.tapeT() ?? 0,
     seek: (t: number, m?: PreviewMode) => handle.current?.seek(t, m),

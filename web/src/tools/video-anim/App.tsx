@@ -1,6 +1,13 @@
 import { useEffect, useMemo } from 'react';
-import { type Shortcut, ToolShell, useToast } from '@/ui';
-import { previewTime, setEndHere, setStartHere, setToaster, togglePreview } from './actions';
+import { playbackShortcuts, type Shortcut, ToolShell, useToast } from '@/ui';
+import {
+  previewTime,
+  rewindPreview,
+  setEndHere,
+  setStartHere,
+  setToaster,
+  togglePreview,
+} from './actions';
 import { Preview } from './Preview';
 import { CropPanel, FormatGuide, FramesPanel, Landing, SizePanel, VideoPanel } from './panels';
 import { TOOL_ID, useSession, useSettings } from './store';
@@ -49,12 +56,12 @@ export function App() {
 
   const shortcuts = useMemo<Shortcut[]>(
     () => [
-      {
-        keys: 'space',
-        label: S.keys.play,
+      ...playbackShortcuts({
+        toggle: togglePreview,
+        rewind: rewindPreview,
         group: S.keys.group,
-        handler: () => togglePreview(),
-      },
+        labels: { toggle: S.keys.play },
+      }),
       {
         keys: '[',
         label: S.keys.start,

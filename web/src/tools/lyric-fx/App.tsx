@@ -4,6 +4,7 @@ import { useSaveStatus, useUndoRedo } from '@/core/storage';
 import {
   IconButton,
   ProjectMenu,
+  playbackShortcuts,
   type Shortcut,
   Tabs,
   ToolShell,
@@ -36,6 +37,7 @@ import {
   previewCanvasEl,
   previewNow,
   restartPreview,
+  rewindPreview,
   seekPreview,
   togglePreview,
 } from './Preview';
@@ -252,7 +254,12 @@ export function App() {
 
   const shortcuts = useMemo<Shortcut[]>(
     () => [
-      { keys: 'space', label: S.keys.play, group: S.keys.group, handler: free(togglePreview) },
+      ...playbackShortcuts({
+        toggle: free(togglePreview),
+        rewind: free(rewindPreview),
+        group: S.keys.group,
+        labels: { toggle: S.keys.play },
+      }),
       {
         keys: 'alt+shift+p',
         label: S.keys.playAnywhere,
