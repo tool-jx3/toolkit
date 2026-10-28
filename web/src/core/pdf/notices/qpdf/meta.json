@@ -1,0 +1,7 @@
+{
+  "name": "qpdf（@neslinesli93/qpdf-wasm 0.3.0 編成 WebAssembly）",
+  "version": "12.2.0",
+  "license": "Apache-2.0",
+  "copyright": "qpdf is copyright (c) 2005-2021 Jay Berkenbilt, 2022-2025 Jay Berkenbilt and Manfred Holger",
+  "url": "https://github.com/qpdf/qpdf"
+}

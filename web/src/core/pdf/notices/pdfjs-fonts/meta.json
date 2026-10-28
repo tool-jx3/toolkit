@@ -1,0 +1,7 @@
+{
+  "name": "pdf.js 的標準字型（pdfjs-dist 6.4.299 內含，standard_fonts/：Foxit、Liberation Sans）",
+  "version": "pdfjs-dist 6.4.299",
+  "license": "BSD-3-Clause（Foxit）、GPL-2.0 with font exception（Liberation Sans；原始檔：https://github.com/liberationfonts/liberation-fonts）",
+  "copyright": "Copyright 2014 PDFium Authors（Foxit）；Liberation：Red Hat, Inc.",
+  "url": "https://github.com/mozilla/pdf.js/tree/master/external/standard_fonts"
+}
