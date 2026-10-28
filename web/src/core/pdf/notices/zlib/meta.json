@@ -1,0 +1,7 @@
+{
+  "name": "zlib（qpdf 的 WebAssembly 內含）",
+  "version": "1.2.12（madler/zlib 21767c6）",
+  "license": "Zlib",
+  "copyright": "Copyright (C) 1995-2022 Jean-loup Gailly and Mark Adler",
+  "url": "https://github.com/madler/zlib"
+}

@@ -16,6 +16,7 @@ import {
   Dices,
   Eraser,
   Feather,
+  FileArchive,
   FileImage,
   Film,
   FlaskConical,
@@ -139,6 +140,7 @@ const ICONS: Record<string, LucideIcon> = {
   'clue-map': MousePointerClick,
   'handout-maker': Stamp,
   'session-calendar': CalendarDays,
+  'pdf-compress': FileArchive,
   /* G7 介紹圖與宣傳 */
   'pair-maker': HeartHandshake,
   'character-select': Users,

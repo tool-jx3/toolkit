@@ -1,0 +1,6 @@
+{
+  "name": "musl libc（Emscripten 的 C 標準函式庫；靜態連結進 qpdf 的 WebAssembly）",
+  "license": "MIT",
+  "copyright": "Copyright © 2005-2020 Rich Felker, et al.",
+  "url": "https://musl.libc.org/"
+}

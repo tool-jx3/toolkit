@@ -1,0 +1,7 @@
+{
+  "name": "libjpeg-turbo（qpdf 的 WebAssembly 內含）",
+  "version": "2.1.1（ImageMagick/jpeg-turbo 7aa2a89）",
+  "license": "IJG AND BSD-3-Clause AND Zlib",
+  "copyright": "This software is based in part on the work of the Independent JPEG Group. Copyright (C)2009-2021 D. R. Commander. Copyright (C)2015 Viktor Szathmáry.",
+  "url": "https://github.com/libjpeg-turbo/libjpeg-turbo"
+}

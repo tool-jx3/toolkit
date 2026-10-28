@@ -1,0 +1,7 @@
+{
+  "name": "pdf.js 的影像解碼器（pdfjs-dist 6.4.299 內含，wasm/：OpenJPEG、PDFium JBIG2）",
+  "version": "pdfjs-dist 6.4.299",
+  "license": "BSD-2-Clause（OpenJPEG）、BSD-3-Clause（PDFium）、Apache-2.0（pdf.js 的包裝）",
+  "copyright": "Copyright (c) 2002-2014, Universite catholique de Louvain (UCL), Belgium 等；Copyright 2014 The PDFium Authors；Copyright 2024-2026 Mozilla Foundation",
+  "url": "https://github.com/mozilla/pdf.js"
+}

@@ -1,0 +1,7 @@
+{
+  "name": "MozJPEG（@jsquash/jpeg 1.6.0 的 WebAssembly 內含）",
+  "version": "@jsquash/jpeg 1.6.0",
+  "license": "IJG AND BSD-3-Clause AND Zlib",
+  "copyright": "This software is based in part on the work of the Independent JPEG Group.",
+  "url": "https://github.com/mozilla/mozjpeg"
+}

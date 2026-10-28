@@ -1,0 +1,6 @@
+{
+  "name": "libc++（LLVM；Emscripten 建置時靜態連結進 qpdf 與 MozJPEG 的 WebAssembly）",
+  "license": "Apache-2.0 WITH LLVM-exception",
+  "copyright": "Copyright (c) 2009-2019 by the contributors listed in CREDITS.TXT（libc++）",
+  "url": "https://github.com/llvm/llvm-project/tree/main/libcxx"
+}

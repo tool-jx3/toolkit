@@ -119,6 +119,14 @@ function readText(file: string): string {
 
 /** 參考 MIT／CC0 原作改寫的工具：原作的授權全文放在 `web/src/tools/<id>/UPSTREAM_LICENSE`，建置時併入通知檔。 */
 const UPSTREAM_LICENSE = 'UPSTREAM_LICENSE';
+/**
+ * 參考了好幾個原作的工具：`web/src/tools/<id>/UPSTREAM_SOURCES.json`（`[{ "name", "url"? }]`）列出全部原作，
+ * 通知檔的標題照這個寫（頁尾的靈感來源仍是 registry 的 inspiration）。沒有這個檔時標題用 inspiration。
+ */
+const UPSTREAM_SOURCES = 'UPSTREAM_SOURCES.json';
+
+const sourceLink = (s: { name: string; url?: string }) =>
+  s.url ? `[${s.name}](${s.url})` : s.name;
 
 function upstreamNotices(tools: readonly ToolEntry[], srcToolsDir: string): string[] {
   const out: string[] = [];
@@ -126,11 +134,15 @@ function upstreamNotices(tools: readonly ToolEntry[], srcToolsDir: string): stri
     const file = path.join(srcToolsDir, tool.id, UPSTREAM_LICENSE);
     if (!existsSync(file)) continue;
     const body = readText(file);
-    const source = tool.inspiration
-      ? tool.inspiration.url
-        ? `[${tool.inspiration.name}](${tool.inspiration.url})`
-        : tool.inspiration.name
-      : '（未標示）';
+    const sourcesFile = path.join(srcToolsDir, tool.id, UPSTREAM_SOURCES);
+    const sources = existsSync(sourcesFile)
+      ? (JSON.parse(readFileSync(sourcesFile, 'utf8')) as { name: string; url?: string }[])
+      : null;
+    const source = sources?.length
+      ? sources.map(sourceLink).join('、')
+      : tool.inspiration
+        ? sourceLink(tool.inspiration)
+        : '（未標示）';
     out.push(`### ${tool.id}（原作：${source}）\n\n\`\`\`\n${body}\n\`\`\``);
   }
   return out;

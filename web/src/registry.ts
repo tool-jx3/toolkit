@@ -937,6 +937,18 @@ export const TOOLS: readonly ToolEntry[] = [
       url: 'https://kumachansteps.github.io/trpg-web-tools/tools/session-check-calendar/',
     },
   },
+  {
+    id: 'pdf-compress',
+    name: 'PDF 壓縮器',
+    summary:
+      '把劇本、手冊、角色卡的 PDF 縮小，方便傳 Discord（免費帳號 10 MB）、上傳 BOOTH 或雲端：整理結構、合併重複的圖片、照片依解析度重新壓縮，或整頁轉成圖片；一次可以壓很多個、留最小的、比原檔大就不換，檔案不會上傳。',
+    group: 'G6',
+    status: 'live',
+    inspiration: {
+      name: 'mrflamingchad67/qcompress',
+      url: 'https://github.com/mrflamingchad67/qcompress',
+    },
+  },
 ];
 
 export function getTool(id: string): ToolEntry | undefined {
