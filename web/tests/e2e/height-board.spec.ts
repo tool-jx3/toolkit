@@ -84,6 +84,14 @@ async function open(page: Page, { clear = true } = {}) {
   await page.route(/fonts\.(googleapis|gstatic)\.com/, (r) =>
     r.fulfill({ status: 200, contentType: 'text/css', body: '' }),
   );
+  /* 第一次開頁的操作導覽（原作 2026-10 更新）另外測（height-board-tour.spec.ts）：這裡當成看過了 */
+  await page.addInitScript(() => {
+    try {
+      localStorage.setItem('trpg-toolkit:height-board:tour-seen', '1');
+    } catch {
+      /* 不能存就算了 */
+    }
+  });
   await page.goto(URL);
   if (clear) {
     /* 每個測試從空盤面開始（瀏覽器內容是新的，這裡只是保險） */
@@ -337,7 +345,7 @@ test('單張加入：預覽、名稱預填、身高限制、略過與 Esc、Ente
   expect(errors).toEqual([]);
 });
 
-test('選檔：不是圖片的檔案靜默略過；全部不是圖片時什麼都不發生；讀不了的圖提示檔名', async ({
+test('選檔：不是圖片的檔案不加入（2026-10 起提示檔名，F64）；全部不是圖片時不開對話框；讀不了的圖提示檔名', async ({
   page,
 }) => {
   const errors = await open(page);

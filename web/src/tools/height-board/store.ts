@@ -168,9 +168,19 @@ export async function collectGarbage(): Promise<void> {
 let bitmapVersion = 0;
 const bitmapListeners = new Set<() => void>();
 const loading = new Set<string>();
+/** 不存進資產庫的圖（操作導覽的練習用人形）：只在記憶體裡 */
+const transient = new Map<string, ImageBitmap>();
+
+export function setTransientBitmap(id: string, bmp: ImageBitmap): void {
+  transient.set(id, bmp);
+  bitmapVersion++;
+  for (const f of bitmapListeners) f();
+}
 
 /** 要畫某張圖：還沒解碼就開始解碼，好了通知重畫 */
 export function requestBitmap(id: string): ImageBitmap | undefined {
+  const temp = transient.get(id);
+  if (temp) return temp;
   const hit = assets.peekBitmap(id);
   if (hit || loading.has(id)) return hit;
   loading.add(id);
