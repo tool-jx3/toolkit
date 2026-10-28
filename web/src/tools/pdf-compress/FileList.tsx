@@ -143,14 +143,17 @@ function ErrorBlock({ item }: { item: Item }) {
         <p className="m-0 break-all text-xs text-muted">{S.engineSaid(err.detail)}</p>
       ) : null}
       <div className="flex flex-wrap gap-1.5">
-        <Button
-          size="sm"
-          variant="secondary"
-          icon={<RotateCw />}
-          onClick={() => void retry(item.id)}
-        >
-          {S.retry}
-        </Button>
+        {/* 讀不到的檔案重試也一樣讀不到：只留移除（右上角）與說明 */}
+        {err.kind !== 'unreadable' ? (
+          <Button
+            size="sm"
+            variant="secondary"
+            icon={<RotateCw />}
+            onClick={() => void retry(item.id)}
+          >
+            {S.retry}
+          </Button>
+        ) : null}
         {diag ? <CopyDiagnostics text={diag} /> : null}
       </div>
     </div>

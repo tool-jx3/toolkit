@@ -377,3 +377,36 @@ test('瀏覽器不支援（沒有 OffscreenCanvas）：一開頁就說明，不�
   await expect(fileInput(page)).toBeDisabled();
   expect(errors).toEqual([]);
 });
+
+test('讀不到的檔案（手機的相簿、雲端硬碟，讀取權限過期）：說明＋移除，沒有重試', async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  await page.addInitScript(() => {
+    const read = File.prototype.arrayBuffer;
+    File.prototype.arrayBuffer = function (this: File) {
+      if (this.name === 'gone.pdf' && (globalThis as { __lost?: boolean }).__lost) {
+        return Promise.reject(new DOMException('The file could not be read', 'NotReadableError'));
+      }
+      return read.call(this);
+    };
+  });
+  const errors = await open(page);
+  await chooseLevel(page, '無損');
+  await fileInput(page).setInputFiles(pdfFile('gone.pdf', await textPdf()));
+  const r = row(page, 'gone.pdf');
+  await expect(r.getByText('等待壓縮')).toBeVisible();
+  await page.evaluate(() => {
+    (globalThis as { __lost?: boolean }).__lost = true;
+  });
+  await compressAll(page);
+  await expect(r.getByRole('alert')).toHaveText(
+    '讀不到這個檔案（手機的相簿、雲端硬碟給的檔案，過一陣子可能就讀不到）。請移除這一列，重新選檔。',
+  );
+  await expect(r.getByRole('button', { name: '重試' })).toHaveCount(0);
+  await expect(r.getByRole('button', { name: '複製錯誤資訊' })).toBeVisible();
+  await expect(page.getByTestId('start')).toBeDisabled();
+  await r.getByRole('button', { name: '移除「gone.pdf」' }).click();
+  await expect(row(page, 'gone.pdf')).toHaveCount(0);
+  expect(errors).toEqual([]);
+});

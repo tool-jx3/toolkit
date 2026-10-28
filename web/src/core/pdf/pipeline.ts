@@ -7,7 +7,7 @@
  * 3. 移除重複（dedupe）：pdf-lib 合併相同的影像、字型、內嵌檔案、中繼資料、ICC → 再做 1。
  * 4. 影像（images，高畫質、平衡、最小）：3 之後再重新壓縮影像 → 再做 1。3 沒有合併到東西時就是 QC 的「只做影像」
  *    （QC 另外有「只做影像」與「去重＋影像」兩個候選；本站的這一個在沒有重複時等於前者、有重複時等於後者）。
- * 5. 整頁轉圖（raster，只有整頁轉圖的等級）：每頁畫成一張 JPEG（`raster.ts`）；目標是比原檔與 1～3 都小。
+ * 5. 整頁轉圖（raster，只有整頁轉圖的等級）：每頁畫成一張 JPEG（`raster.ts`）；降 DPI 的目標是原檔（WP）。
  *    整頁轉圖的等級也做 1～3：轉成圖片反而比較大時，用只整理結構的結果（文字仍可以選）。
  *
  * 1、2 之後的步驟（pdf-lib 讀檔、找影像在頁面上的大小、重新壓縮）失敗時（qpdf 修得好、pdf-lib 讀不懂的檔案），
@@ -145,7 +145,7 @@ export interface EngineDeps {
     options: {
       settings: ResolvedSettings;
       password?: string | null;
-      /** 要比這個小（原檔與只整理結構的結果中小的那個） */
+      /** 要比這個小（原檔的大小；WP 的做法） */
       target: number;
       onProgress?: (done: number, total: number) => void;
       signal?: { readonly aborted: boolean };
@@ -422,12 +422,12 @@ export async function compressPdf(
     doc = null;
   }
 
-  /* 整頁轉圖（WP 的 maximum）：沒有內嵌的中日韓字型畫不出來，不轉 */
+  /*
+   * 整頁轉圖（WP 的 maximum）：沒有內嵌的中日韓字型畫不出來，不轉。降 DPI 的目標只看原檔（WP；不為了比只整理結構小
+   * 而犧牲解析度），轉完再和上面的候選一起取最小：只整理結構比較小時就用它。
+   */
   if (wantRaster && !missingFonts.length) {
-    const target = candidates.reduce(
-      (m, c) => (c.bytes && c.bytes.length < m ? c.bytes.length : m),
-      input.length,
-    );
+    const target = input.length;
     await attempt('raster', true, async () => {
       onProgress?.({ stage: 'raster', done: 0, total: info.pages ?? 0 });
       const r = await deps.rasterize!(input, {

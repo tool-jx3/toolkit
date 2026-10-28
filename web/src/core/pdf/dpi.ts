@@ -68,8 +68,8 @@ function scaled(width: number, height: number, s: number, by: TargetSize['by']):
 }
 
 /**
- * 整頁轉圖：這一輪畫出來的檔案還不比目標小時，下一輪用的 DPI（WP 的 targetRasterDpi；WP 的目標是原檔的大小，
- * 本站是原檔與只整理結構的結果中小的那個）。JPEG 的大小約和像素數（DPI²）成正比，所以 DPI 乘上
+ * 整頁轉圖：這一輪畫出來的檔案還不比目標（原檔的大小）小時，下一輪用的 DPI（WP 的 targetRasterDpi）。
+ * JPEG 的大小約和像素數（DPI²）成正比，所以 DPI 乘上
  * √(目標 × ratio ÷ 這一輪的大小)；一定比這一輪低，最低 minDpi。
  */
 export function nextRasterDpi(

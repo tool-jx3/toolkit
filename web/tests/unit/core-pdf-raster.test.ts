@@ -162,7 +162,28 @@ describe('整頁轉圖', () => {
 });
 
 describe('整頁轉圖的等級也試只整理結構（M3）與頁數上限（M1）', () => {
-  it('文字為主的檔案：轉成圖片比只整理結構大 → 用整理結構的結果（文字仍在），目標是兩者中小的', async () => {
+  it('照片的檔案：轉圖比原檔小就停在 120 DPI（不為了比整理結構小而降），再一起取最小', async () => {
+    const enc = (rgba: Uint8ClampedArray, width: number, height: number, o: { quality: number }) =>
+      nodeCodec().encode({ data: rgba, width, height }, { quality: o.quality, gray: false });
+    const src = await singleJpegPdf(enc, { width: 1600, height: 1200 });
+    const deps = nodeDeps();
+    /* 假裝只整理結構的結果非常小：轉圖仍以原檔為目標，不降 DPI */
+    const qpdf = deps.qpdf;
+    const tiny: EngineDeps = {
+      ...deps,
+      qpdf: async (bytes, args, opts) => {
+        const r = await qpdf(bytes, args, opts);
+        if (args.includes('--linearize') && r.out && bytes === src) {
+          return { ...r, out: r.out.subarray(0, 64) };
+        }
+        return r;
+      },
+    };
+    const r = await compressPdf({ bytes: src, settings: resolveSettings('raster') }, tiny);
+    expect(r.raster).toMatchObject({ dpi: 120, reduced: false, gaveUp: false });
+  }, 60_000);
+
+  it('文字為主的檔案：轉成圖片比只整理結構大 → 用整理結構的結果（文字仍在）；降 DPI 的目標只看原檔', async () => {
     const text = await textPdf();
     const deps = nodeDeps();
     const targets: number[] = [];
@@ -176,14 +197,14 @@ describe('整頁轉圖的等級也試只整理結構（M3）與頁數上限（M1
     const r = await compressPdf({ bytes: text, settings: resolveSettings('raster') }, spy);
     const structural = r.candidates.find((c) => c.name === 'structural')!;
     expect(structural.bytes).toBeLessThan(text.length);
-    const smallestLossless = Math.min(
-      ...r.candidates.filter((c) => !c.lossy && c.bytes).map((c) => c.bytes),
-    );
-    expect(targets).toEqual([Math.min(text.length, smallestLossless)]);
+    /* WP：目標是原檔，不是只整理結構的結果 */
+    expect(targets).toEqual([text.length]);
     expect(r.kept).toBe(false);
     expect(r.strategy).not.toBe('raster');
     expect(r.lossy).toBe(false);
-    expect(r.raster?.gaveUp).toBe(true);
+    /* 轉圖有沒有結果都不影響：轉完再和整理結構一起取最小 */
+    const raster = r.candidates.find((c) => c.name === 'raster');
+    if (raster?.bytes) expect(raster.bytes).toBeGreaterThan(r.outputBytes);
     /* 選的不是圖片，所以連文字一起比對 */
     expect(r.verify?.ok).toBe(true);
     const doc = await PDFDocument.load(r.bytes);
