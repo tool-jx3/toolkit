@@ -133,6 +133,29 @@ export function drawPlaced(
   ctx.restore();
 }
 
+/**
+ * 框（box）裡的一點對應到原圖的哪一點（原圖座標，可能在圖外）：placedTransform 的反算。
+ * 例：圓形頭像上點一下取色時，換算回原圖的像素（color-palette 的色票櫃新增，2026-10）。
+ */
+export function placedPointToImage(
+  img: Size,
+  box: Rect,
+  p: FramePlacement,
+  x: number,
+  y: number,
+): { x: number; y: number } {
+  const t = placedTransform(img, box, p);
+  const a = (t.turns * Math.PI) / 2;
+  const cos = Math.round(Math.cos(a));
+  const sin = Math.round(Math.sin(a));
+  const dx = (x - t.cx) / t.scale;
+  const dy = (y - t.cy) / t.scale;
+  return {
+    x: img.width / 2 + dx * cos + dy * sin,
+    y: img.height / 2 - dx * sin + dy * cos,
+  };
+}
+
 /** 依位置看得到的那一塊（原圖座標的矩形，還沒轉之前）與轉了幾個 90° */
 export interface PlacedCrop extends Rect {
   turns: number;
@@ -178,6 +201,7 @@ export function placedCrop(img: Size, box: Size, p: FramePlacement): PlacedCrop 
 /**
  * 依位置把框裡看得到的那一塊畫到 box（只取那一塊、不必 clip；高品質縮放）。沒有旋轉時是一次
  * `drawImage(img, 那一塊, box)`、不改變換；有旋轉時移到框中心再轉。框以外不會畫到（drawPlaced 則畫整張圖）。
+ * quality（選填，預設 'high'）：拖曳中一直重畫時可以用 'low' 換速度（color-palette 的配色卡新增，不給時行為不變）。
  */
 export function drawPlacedCrop(
   ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,
@@ -185,11 +209,12 @@ export function drawPlacedCrop(
   imgSize: Size,
   box: Rect,
   p: FramePlacement,
+  quality: ImageSmoothingQuality = 'high',
 ): void {
   const c = placedCrop(imgSize, box, p);
   ctx.save();
   ctx.imageSmoothingEnabled = true;
-  ctx.imageSmoothingQuality = 'high';
+  ctx.imageSmoothingQuality = quality;
   if (c.turns === 0) {
     ctx.drawImage(img, c.x, c.y, c.width, c.height, box.x, box.y, box.width, box.height);
   } else {

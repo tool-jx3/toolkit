@@ -555,6 +555,8 @@ export * from './embed';
 export * from './filterPresets';
 export * from './filters';
 export * from './islands';
+/* ---------- k-means 取主要的 N 色、代表色（color-palette 的配色卡，2026-10） ---------- */
+export * from './kmeans';
 export * from './mask';
 /* ---------- 圖片在框裡的位置（lock-screen：可以存起來、重新裁切時還原） ---------- */
 export * from './placement';

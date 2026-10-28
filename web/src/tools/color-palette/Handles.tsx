@@ -17,8 +17,8 @@ import { S } from './strings';
 
 export interface BoundaryChange {
   barId: string;
-  /** 交界上方那一段的索引（下方是 k＋1） */
-  k: number;
+  /** 交界上下兩段在 bar.segments 裡的索引（沒有標「無」的段時是 [k, k＋1]） */
+  pair: [number, number];
   ratios: [number, number];
 }
 
@@ -35,7 +35,7 @@ export interface HandlesProps {
 interface DragState {
   pointerId: number;
   barId: string;
-  k: number;
+  pair: [number, number];
   startY: number;
   a0: number;
   b0: number;
@@ -64,13 +64,14 @@ export function Handles({
     e.stopPropagation();
     e.currentTarget.focus({ preventScroll: true });
     e.currentTarget.setPointerCapture?.(e.pointerId);
+    const pair = layout.pairs[k];
     drag.current = {
       pointerId: e.pointerId,
       barId: bar.id,
-      k,
+      pair,
       startY: e.clientY,
-      a0: bar.segments[k].ratio,
-      b0: bar.segments[k + 1].ratio,
+      a0: bar.segments[pair[0]].ratio,
+      b0: bar.segments[pair[1]].ratio,
       total: layout.total,
       length: layout.length,
     };
@@ -81,7 +82,7 @@ export function Handles({
     if (!d || d.pointerId !== e.pointerId) return;
     const dy = (e.clientY - d.startY) / (scale || 1);
     const ratios = moveBoundary(d.a0, d.b0, pxToRatio(dy, d.total, d.length));
-    if (ratios) onChange({ barId: d.barId, k: d.k, ratios });
+    if (ratios) onChange({ barId: d.barId, pair: d.pair, ratios });
   };
   const up = (e: PointerEvent<HTMLDivElement>) => {
     const d = drag.current;
@@ -94,12 +95,13 @@ export function Handles({
     if (!dir || e.altKey || e.ctrlKey || e.metaKey) return;
     e.preventDefault();
     const px = dir * (e.shiftKey ? 10 : 1);
+    const pair = layout.pairs[k];
     const ratios = moveBoundary(
-      bar.segments[k].ratio,
-      bar.segments[k + 1].ratio,
+      bar.segments[pair[0]].ratio,
+      bar.segments[pair[1]].ratio,
       pxToRatio(px, layout.total, layout.length),
     );
-    if (ratios) onChange({ barId: bar.id, k, ratios });
+    if (ratios) onChange({ barId: bar.id, pair, ratios });
   };
 
   return (
@@ -108,12 +110,13 @@ export function Handles({
         const bar = bars[i];
         if (!bar || layout.total <= 0) return null;
         return layout.boundaries.map((y, k) => {
-          const a = bar.segments[k].ratio;
-          const b = bar.segments[k + 1].ratio;
+          const [ia, ib] = layout.pairs[k];
+          const a = bar.segments[ia].ratio;
+          const b = bar.segments[ib].ratio;
           const pos = layout.length > 0 ? ((y - layout.top) / layout.length) * 100 : 0;
           return (
             <div
-              key={`${bar.id}:${bar.segments[k].id}`}
+              key={`${bar.id}:${bar.segments[ia].id}`}
               role="slider"
               tabIndex={0}
               aria-label={S.handleLabel(i + 1, k + 1)}
