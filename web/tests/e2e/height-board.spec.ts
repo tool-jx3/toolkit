@@ -84,6 +84,14 @@ async function open(page: Page, { clear = true } = {}) {
   await page.route(/fonts\.(googleapis|gstatic)\.com/, (r) =>
     r.fulfill({ status: 200, contentType: 'text/css', body: '' }),
   );
+  /* 第一次開頁的操作導覽（原作 2026-10 更新）另外測（height-board-tour.spec.ts）：這裡當成看過了 */
+  await page.addInitScript(() => {
+    try {
+      localStorage.setItem('trpg-toolkit:height-board:tour-seen', '1');
+    } catch {
+      /* 不能存就算了 */
+    }
+  });
   await page.goto(URL);
   if (clear) {
     /* 每個測試從空盤面開始（瀏覽器內容是新的，這裡只是保險） */
@@ -337,7 +345,7 @@ test('單張加入：預覽、名稱預填、身高限制、略過與 Esc、Ente
   expect(errors).toEqual([]);
 });
 
-test('選檔：不是圖片的檔案靜默略過；全部不是圖片時什麼都不發生；讀不了的圖提示檔名', async ({
+test('選檔：不是圖片的檔案不加入（2026-10 起提示檔名，F64）；全部不是圖片時不開對話框；讀不了的圖提示檔名', async ({
   page,
 }) => {
   const errors = await open(page);
@@ -437,16 +445,25 @@ test('批次加入：Enter 跳欄、留空列不加入、不合法無法確認�
   const d3 = page.getByRole('dialog', { name: '加入 3 張圖片' });
   for (let i = 1; i <= 3; i++)
     await d3.getByRole('spinbutton', { name: `第 ${i} 張的身高` }).fill('170');
-  const seen: string[] = [];
-  const watch = setInterval(() => {
-    void status(page)
-      .textContent({ timeout: 50 })
-      .then((t) => t && seen.push(t))
-      .catch(() => undefined);
-  }, 5);
+  /* 狀態列的每一次變化都在頁面裡記下（不從測試端輪詢：負載重時會漏掉，驗證時找到的偶發失敗） */
+  await page.evaluate(() => {
+    const w = window as unknown as { __statusSeen: string[]; __statusStop: () => void };
+    w.__statusSeen = [];
+    const record = () => {
+      const t = document.querySelector('[data-testid="status-text"]')?.textContent;
+      if (t && w.__statusSeen.at(-1) !== t) w.__statusSeen.push(t);
+    };
+    const mo = new MutationObserver(record);
+    mo.observe(document.body, { subtree: true, childList: true, characterData: true });
+    w.__statusStop = () => mo.disconnect();
+  });
   await d3.getByRole('button', { name: '加入', exact: true }).click();
   await expect.poll(async () => (await chars(page)).length).toBe(5);
-  clearInterval(watch);
+  const seen = await page.evaluate(() => {
+    const w = window as unknown as { __statusSeen: string[]; __statusStop: () => void };
+    w.__statusStop();
+    return w.__statusSeen;
+  });
   expect(seen.some((t) => /第 \d／共 3 張/.test(t))).toBe(true);
   await expect(status(page)).toHaveCount(0);
   expect(errors).toEqual([]);

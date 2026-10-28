@@ -4,9 +4,10 @@
  * 沒有用 replace 發的通知（同一批先發出的錯誤、存檔失敗、已開啟專案檔）不會被 replace 清掉（圖片資產稽核時修正）。
  * dismissOnClick（bg-motion 修正時新增）：點通知本體立刻關閉；不給時點本體不會關（只有 ×）。
  * Esc（room-zip 修正時新增）：有對話框時 Esc 交給對話框（通知留著）；沒有對話框時照舊關閉通知。
+ * 焦點（height-board 修正時新增）：按過動作鈕之後，之後的通知照常自己消失；toast() 傳回關閉函式。
  */
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { useState } from 'react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { useRef, useState } from 'react';
 import { describe, expect, it } from 'vitest';
 import { Dialog, UiProvider, useConfirm, useToast } from '@/ui';
 
@@ -303,5 +304,170 @@ describe('useConfirm：工具在確認後自己移動焦點時不搶回來', () 
     await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
     await new Promise((r) => setTimeout(r, 50));
     expect(document.activeElement).toBe(screen.getByRole('textbox', { name: '標題' }));
+  });
+});
+
+/* ---------- 關掉焦點所在的通知之後，之後的通知照常自己消失（height-board 修正時新增） ---------- */
+
+function ActionProbe() {
+  const toast = useToast();
+  const [done, setDone] = useState(0);
+  const dismiss = useRef<(() => void) | null>(null);
+  return (
+    <>
+      <span data-testid="done">{done}</span>
+      <button
+        type="button"
+        onClick={() =>
+          toast({
+            title: '已刪除',
+            duration: 60_000,
+            action: { label: '取消刪除', onClick: () => setDone((n) => n + 1) },
+          })
+        }
+      >
+        刪除
+      </button>
+      <button type="button" onClick={() => toast({ title: '短通知', duration: 150 })}>
+        短
+      </button>
+      <button type="button" onClick={() => toast({ title: '長通知', duration: 60_000 })}>
+        長
+      </button>
+      <button
+        type="button"
+        onClick={() => {
+          dismiss.current = toast({ title: '可收回', duration: 60_000 });
+        }}
+      >
+        可收回
+      </button>
+      <button type="button" onClick={() => dismiss.current?.()}>
+        收回
+      </button>
+    </>
+  );
+}
+
+/** 跟瀏覽器一樣：按下時焦點先到按鈕上（進入通知區，Radix 暫停倒數），再觸發 click */
+function pointerClick(el: HTMLElement) {
+  fireEvent.pointerDown(el);
+  act(() => el.focus());
+  fireEvent.click(el);
+}
+
+describe('useToast：關掉焦點所在的通知', () => {
+  it('用滑鼠按過動作鈕之後，之後的通知照常自己消失；焦點交給 body', async () => {
+    render(
+      <UiProvider>
+        <ActionProbe />
+      </UiProvider>,
+    );
+    const trigger = screen.getByRole('button', { name: '刪除' });
+    act(() => trigger.focus());
+    fireEvent.click(trigger);
+    pointerClick(await screen.findByRole('button', { name: '取消刪除' }));
+    expect(screen.getByTestId('done').textContent).toBe('1');
+    await waitFor(() => expect(screen.queryByText('已刪除')).toBeNull());
+    expect(document.activeElement).toBe(document.body);
+    fireEvent.click(screen.getByRole('button', { name: '短' }));
+    expect(await screen.findByText('短通知')).toBeTruthy();
+    await waitFor(() => expect(screen.queryByText('短通知')).toBeNull(), { timeout: 2000 });
+  });
+
+  it('用鍵盤按最後一則的動作鈕：焦點回到進通知區之前的元素，之後的通知照常消失', async () => {
+    render(
+      <UiProvider>
+        <ActionProbe />
+      </UiProvider>,
+    );
+    const trigger = screen.getByRole('button', { name: '刪除' });
+    act(() => trigger.focus());
+    fireEvent.click(trigger);
+    const action = await screen.findByRole('button', { name: '取消刪除' });
+    act(() => action.focus());
+    fireEvent.click(action);
+    await waitFor(() => expect(screen.queryByText('已刪除')).toBeNull());
+    expect(document.activeElement).toBe(trigger);
+    fireEvent.click(screen.getByRole('button', { name: '短' }));
+    expect(await screen.findByText('短通知')).toBeTruthy();
+    await waitFor(() => expect(screen.queryByText('短通知')).toBeNull(), { timeout: 2000 });
+  });
+
+  it('進通知區之前的元素已經不在頁面上：焦點交給 body，之後的通知照常消失', async () => {
+    function Gone() {
+      const toast = useToast();
+      const [shown, setShown] = useState(true);
+      return (
+        <>
+          {shown ? (
+            <button
+              type="button"
+              onClick={() => {
+                setShown(false);
+                toast({
+                  title: '已刪除',
+                  duration: 60_000,
+                  action: { label: '好', onClick: () => {} },
+                });
+              }}
+            >
+              刪掉自己
+            </button>
+          ) : null}
+          <button type="button" onClick={() => toast({ title: '短通知', duration: 150 })}>
+            短
+          </button>
+        </>
+      );
+    }
+    render(
+      <UiProvider>
+        <Gone />
+      </UiProvider>,
+    );
+    const self = screen.getByRole('button', { name: '刪掉自己' });
+    act(() => self.focus());
+    fireEvent.click(self);
+    const ok = await screen.findByRole('button', { name: '好' });
+    act(() => ok.focus());
+    fireEvent.click(ok);
+    await waitFor(() => expect(screen.queryByText('已刪除')).toBeNull());
+    expect(document.activeElement).toBe(document.body);
+    fireEvent.click(screen.getByRole('button', { name: '短' }));
+    expect(await screen.findByText('短通知')).toBeTruthy();
+    await waitFor(() => expect(screen.queryByText('短通知')).toBeNull(), { timeout: 2000 });
+  });
+
+  it('鍵盤關掉一則、還有別的通知時：焦點照 Radix 留在通知區（可以 Tab 到下一則）', async () => {
+    render(
+      <UiProvider>
+        <ActionProbe />
+      </UiProvider>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: '長' }));
+    fireEvent.click(screen.getByRole('button', { name: '刪除' }));
+    const action = await screen.findByRole('button', { name: '取消刪除' });
+    act(() => action.focus());
+    fireEvent.click(action);
+    await waitFor(() => expect(screen.queryByText('已刪除')).toBeNull());
+    const region = screen.getByRole('region', { name: /通知/ });
+    expect(region.contains(document.activeElement)).toBe(true);
+    expect(screen.getByText('長通知')).toBeTruthy();
+  });
+
+  it('toast() 傳回的函式關掉那一則；已經關了再呼叫也沒事', async () => {
+    render(
+      <UiProvider>
+        <ActionProbe />
+      </UiProvider>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: '長' }));
+    fireEvent.click(screen.getByRole('button', { name: '可收回' }));
+    expect(await screen.findByText('可收回', { selector: 'li *' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: '收回' }));
+    await waitFor(() => expect(screen.queryByText('可收回', { selector: 'li *' })).toBeNull());
+    fireEvent.click(screen.getByRole('button', { name: '收回' }));
+    expect(screen.getByText('長通知')).toBeTruthy();
   });
 });

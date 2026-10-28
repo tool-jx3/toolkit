@@ -55,6 +55,12 @@ export const MIN_WIDTH_CM = 120;
 export const RIGHT_PAD_CM = 8;
 /** 兩條基準線的最小間距（%） */
 export const MIN_LINE_GAP = 5;
+/**
+ * 在盤面上拖線時可以拖到圖外的範圍（%，原作 2026-10 更新）：頭頂線最高到圖的上方一張圖高（−100%），
+ * 腳底線最低到圖的下方三張圖高（400%）——蹲姿、半身立繪用。滑桿維持 0～45／55～100（細調用）。
+ * 頭頂線不低於 95%、腳底線不高於 5%（和以前相同的內側界限）。
+ */
+export const LINE_LIMIT = { top: -100, bottom: 400 } as const;
 /** 頭頂線、腳底線滑桿的範圍（%） */
 export const TOP_SLIDER = { min: 0, max: 45, step: 0.1 } as const;
 export const BOTTOM_SLIDER = { min: 55, max: 100, step: 0.1 } as const;
@@ -82,9 +88,12 @@ export const EXPORT = {
 
 export const UNTITLED = '未命名';
 
-/** 檔名 → 預設名稱：去掉路徑與最後一個副檔名；以「.」開頭的保留全名；空白時「未命名」 */
+/**
+ * 檔名 → 預設名稱：去掉路徑與最後一個副檔名；以「.」開頭的保留全名；空白時「未命名」。
+ * 先合成成 NFC（Mac 的檔名常把濁點等拆成兩個字元，不合成的話打「ビ」篩選不到；原作 2026-10 更新）。
+ */
 export function nameFromFile(fileName: string): string {
-  const base = fileName.split(/[\\/]/).pop() ?? '';
+  const base = fileName.normalize('NFC').split(/[\\/]/).pop() ?? '';
   const dot = base.lastIndexOf('.');
   const stem = dot > 0 ? base.slice(0, dot) : base;
   return stem.trim() ? stem : UNTITLED;
@@ -264,15 +273,23 @@ export function arrangeByHeight(
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
 
-/** 頭頂線：0 ～（腳底線 − 5%） */
-export function clampTopLine(v: number, bottom: number): number {
-  return clamp(v, 0, Math.max(0, bottom - MIN_LINE_GAP));
+/**
+ * 頭頂線：min ～ min(95, 腳底線 − 5%)。min 預設 0（滑桿）；在盤面上拖線時用 LINE_LIMIT.top（−100，可以拖到圖的上方）。
+ */
+export function clampTopLine(v: number, bottom: number, min = 0): number {
+  return clamp(v, min, Math.max(min, Math.min(100 - MIN_LINE_GAP, bottom - MIN_LINE_GAP)));
 }
 
-/** 腳底線：（頭頂線 ＋ 5%）～ 100 */
-export function clampBottomLine(v: number, top: number): number {
-  return clamp(v, Math.min(100, top + MIN_LINE_GAP), 100);
+/**
+ * 腳底線：max(5, 頭頂線 ＋ 5%) ～ max。max 預設 100（滑桿）；在盤面上拖線時用 LINE_LIMIT.bottom（400，可以拖到圖的下方）。
+ */
+export function clampBottomLine(v: number, top: number, max = 100): number {
+  return clamp(v, Math.min(max, Math.max(MIN_LINE_GAP, top + MIN_LINE_GAP)), max);
 }
+
+/** 滑桿上顯示的位置：線在圖外時停在滑桿的端點（數值另外照實顯示） */
+export const sliderValue = (v: number, range: { min: number; max: number }): number =>
+  clamp(v, range.min, range.max);
 
 /* ---------- 前後順序（F34）與清單排序（F40） ---------- */
 
@@ -323,13 +340,18 @@ export interface ListFilter {
 export const isFiltering = (f: ListFilter): boolean => f.query.trim() !== '' || f.visibleOnly;
 
 /** 清單要列出的角色（最前面的在最上面） */
+/**
+ * 比對用的名稱：NFKC（拆開的濁點、半形片假名、全形英數都當成同一個字）＋不分大小寫（原作 2026-10 更新）
+ */
+export const foldName = (s: string): string => s.normalize('NFKC').toLocaleLowerCase();
+
 export function listRows(characters: readonly Character[], f: ListFilter): Character[] {
-  const q = f.query.trim().toLocaleLowerCase();
+  const q = foldName(f.query.trim());
   const out: Character[] = [];
   for (let i = characters.length - 1; i >= 0; i--) {
     const c = characters[i];
     if (f.visibleOnly && !c.visible) continue;
-    if (q && !c.name.toLocaleLowerCase().includes(q)) continue;
+    if (q && !foldName(c.name).includes(q)) continue;
     out.push(c);
   }
   return out;
@@ -447,14 +469,14 @@ export function sanitizeBoard(raw: unknown): BoardData | null {
     )
       return null;
     ids.add(c.id);
-    const top = clamp(c.top, 0, 100 - MIN_LINE_GAP);
+    const top = clamp(c.top, LINE_LIMIT.top, 100 - MIN_LINE_GAP);
     out.push({
       id: c.id,
       name: typeof c.name === 'string' ? c.name : UNTITLED,
       height: clamp(c.height, HEIGHT.min, HEIGHT.max),
       x: Math.max(0, c.x),
       top,
-      bottom: clampBottomLine(c.bottom, top),
+      bottom: clampBottomLine(c.bottom, top, LINE_LIMIT.bottom),
       visible: c.visible !== false,
       imageId: c.imageId,
       crop: { x: crop.x, y: crop.y, width: crop.width, height: crop.height },
@@ -462,3 +484,37 @@ export function sanitizeBoard(raw: unknown): BoardData | null {
   }
   return { characters: out };
 }
+
+/* ---------- 加入與拖放的檔案（原作 2026-10 更新） ---------- */
+
+/** 專案檔（本站的 .zip／.json、原作的 .hboard）：拖進視窗時開啟，不是加入 */
+export const BOARD_FILE_EXT = ['.hboard', '.zip', '.json'] as const;
+
+export const isBoardFile = (f: Pick<File, 'name'>): boolean =>
+  BOARD_FILE_EXT.some((ext) => f.name.toLowerCase().endsWith(ext));
+
+export const isImageFile = (f: Pick<File, 'type'>): boolean => f.type.startsWith('image/');
+
+/**
+ * 拖進來（或選到）的檔案分類：有專案檔時開啟第一個專案檔（取代盤面，不能和加入圖片並存，同原作）；
+ * 其餘是圖片（加入）與不能用的檔案（提示檔名）。
+ */
+export function sortDropped<T extends Pick<File, 'name' | 'type'>>(
+  files: readonly T[],
+): { board: T | null; images: T[]; rejected: T[] } {
+  const board = files.find((f) => isBoardFile(f) && !isImageFile(f)) ?? null;
+  if (board) return { board, images: [], rejected: [] };
+  return {
+    board: null,
+    images: files.filter(isImageFile),
+    rejected: files.filter((f) => !isImageFile(f)),
+  };
+}
+
+/* ---------- 盤面重畫變慢的提示（原作 2026-10 更新） ---------- */
+
+/** 一次重畫超過 150 ms、而且顯示中至少 20 位時提示一次（數量少時慢不是人數造成的） */
+export const SLOW_RENDER = { ms: 150, minVisible: 20 } as const;
+
+export const isSlowRender = (ms: number, visibleCount: number): boolean =>
+  ms >= SLOW_RENDER.ms && visibleCount >= SLOW_RENDER.minVisible;

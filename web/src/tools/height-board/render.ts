@@ -30,6 +30,12 @@ export interface BoardScene {
   /** 正在拖的基準線 */
   dragLine: LineKind | null;
   image: (id: string) => CanvasImageSource | undefined;
+  /** 讀不到的圖（畫成「圖片讀不到」的框；見規格 D8） */
+  missing?: (id: string) => boolean;
+  /**
+   * 操作導覽第 4 步：選取的角色要對齊的位置（%）。畫成虛線，並從目前的線畫箭頭指過去（線已經對齊時不畫箭頭）。
+   */
+  lineTargets?: { top: number; bottom: number } | null;
 }
 
 export type LineKind = 'top' | 'bottom';
@@ -43,13 +49,22 @@ export const BOARD_PADDING = { top: 14, bottom: 14, left: 0, right: 0 };
 
 const COLORS = {
   background: '#ffffff',
+  /** 10 cm 刻度的數字：白底上 4.74:1（原作 2026-10 更新把淺灰數字加深到 4.5:1 以上；共用的 #888888 是 3.54:1） */
+  minorText: '#737373',
   gutterLine: '#bcbcbc',
   hover: '#8a8f98',
   select: '#2563eb',
   line: '#e53935',
   lineActive: '#9f1d1a',
   tagText: '#ffffff',
+  /** 讀不到的圖：淺灰底、灰色虛線框、深灰字（字與底 7:1 以上） */
+  missingFill: '#f4f4f5',
+  missingLine: '#a1a1aa',
+  missingText: '#52525b',
 };
+
+/** 讀不到的圖的框上的字 */
+export const MISSING_LABEL = '圖片讀不到';
 
 const UI_FONT = FALLBACK_STACK;
 
@@ -149,7 +164,10 @@ export function drawBoard(ctx: CanvasRenderingContext2D, v: PanZoomView, scene: 
   ctx.imageSmoothingQuality = 'medium';
   for (const it of scene.items) {
     const img = scene.image(it.c.imageId);
-    if (!img) continue;
+    if (!img) {
+      if (scene.missing?.(it.c.imageId)) drawMissing(ctx, v, it);
+      continue;
+    }
     const p = v.toScreen(it.box.x, it.box.y);
     const { crop } = it.c;
     ctx.drawImage(
@@ -179,20 +197,26 @@ export function drawBoard(ctx: CanvasRenderingContext2D, v: PanZoomView, scene: 
   const sel = scene.items.find((it) => it.c.id === scene.selectedId);
   if (!sel) return;
   const p = v.toScreen(sel.box.x, sel.box.y);
+  const handles = lineHandles(v, sel);
+  /* 線拖到圖外時，框也延伸到線，看得出浮在外面的線是哪一位的（原作 2026-10 更新） */
+  const imgH = Math.round(sel.box.height * v.scale);
+  const y0 = Math.min(Math.round(p.y), Math.round(handles[0].y));
+  const y1 = Math.max(Math.round(p.y) + imgH, Math.round(handles[1].y));
   ctx.setLineDash([5, 4]);
   ctx.strokeStyle = COLORS.select;
   ctx.lineWidth = 1.5;
   ctx.strokeRect(
     Math.round(p.x) - 2.5,
-    Math.round(p.y) - 2.5,
+    y0 - 2.5,
     Math.round(sel.box.width * v.scale) + 5,
-    Math.round(sel.box.height * v.scale) + 5,
+    y1 - y0 + 5,
   );
   ctx.setLineDash([]);
+  if (scene.lineTargets) drawLineTargets(ctx, v, sel, handles, scene.lineTargets);
   ctx.font = `700 11px ${UI_FONT}`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  for (const h of lineHandles(v, sel)) {
+  for (const h of handles) {
     const active = scene.dragLine === h.kind;
     const color = active ? COLORS.lineActive : COLORS.line;
     ctx.strokeStyle = color;
@@ -211,6 +235,73 @@ export function drawBoard(ctx: CanvasRenderingContext2D, v: PanZoomView, scene: 
     ctx.fillText(h.kind === 'top' ? '頭頂' : '腳底', h.tag.x + h.tag.width / 2, h.y + 0.5);
   }
 }
+
+/** 讀不到的圖：在角色的範圍畫淺灰底＋虛線框，中間寫「圖片讀不到」（框太小時只畫框） */
+function drawMissing(ctx: CanvasRenderingContext2D, v: PanZoomView, it: BoardItem) {
+  const p = v.toScreen(it.box.x, it.box.y);
+  const w = it.box.width * v.scale;
+  const h = it.box.height * v.scale;
+  ctx.save();
+  ctx.fillStyle = COLORS.missingFill;
+  ctx.fillRect(p.x, p.y, w, h);
+  ctx.setLineDash([4, 3]);
+  ctx.strokeStyle = COLORS.missingLine;
+  ctx.lineWidth = 1;
+  ctx.strokeRect(
+    Math.round(p.x) + 0.5,
+    Math.round(p.y) + 0.5,
+    Math.round(w) - 1,
+    Math.round(h) - 1,
+  );
+  const px = Math.min(13, (w - 8) / MISSING_LABEL.length);
+  if (px >= 8 && h >= px + 6) {
+    ctx.fillStyle = COLORS.missingText;
+    ctx.font = `500 ${px}px ${UI_FONT}`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(MISSING_LABEL, p.x + w / 2, p.y + h / 2);
+  }
+  ctx.restore();
+}
+
+/** 操作導覽：要對齊的位置畫成虛線，從目前的線（標籤旁）畫箭頭指過去 */
+function drawLineTargets(
+  ctx: CanvasRenderingContext2D,
+  v: PanZoomView,
+  sel: BoardItem,
+  handles: readonly LineHandle[],
+  targets: { top: number; bottom: number },
+) {
+  const p = v.toScreen(sel.box.x, sel.box.y);
+  const h = sel.box.height * v.scale;
+  ctx.save();
+  ctx.strokeStyle = COLORS.line;
+  ctx.lineWidth = 1.5;
+  for (const handle of handles) {
+    const pct = handle.kind === 'top' ? targets.top : targets.bottom;
+    const to = p.y + (pct / 100) * h;
+    ctx.setLineDash([4, 3]);
+    strokeH(ctx, handle.x0 - 10, handle.x1 + 10, to);
+    ctx.setLineDash([]);
+    const dir = Math.sign(to - handle.y);
+    const ax = handle.tag.x + handle.tag.width / 2;
+    const from = handle.y + dir * (TAG.height / 2 + 4);
+    const end = to - dir * 3;
+    if ((end - from) * dir < 10) continue;
+    ctx.beginPath();
+    ctx.moveTo(ax, from);
+    ctx.lineTo(ax, end);
+    ctx.moveTo(ax - 4.5, end - dir * 5.5);
+    ctx.lineTo(ax, end);
+    ctx.lineTo(ax + 4.5, end - dir * 5.5);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+/** 刻度數字的顏色（10 cm 的淺灰數字加深，見 COLORS.minorText） */
+const labelColor = (kind: RulerTickKind) =>
+  kind === 'minor' ? COLORS.minorText : RULER_STYLE[kind].text;
 
 /** 左側固定的刻度欄（數字靠右、不帶單位；地面與 50 的倍數較深較粗） */
 export function drawRulerGutter(
@@ -236,7 +327,7 @@ export function drawRulerGutter(
     ctx.lineWidth = style.widthRatio;
     strokeH(ctx, width - 7, width, crisp(y, style.widthRatio));
     if (t.label === null) continue;
-    ctx.fillStyle = style.text;
+    ctx.fillStyle = labelColor(t.kind);
     ctx.font = `${style.weight} ${RULER_FONT_PX}px ${UI_FONT}`;
     ctx.fillText(t.label, width - 10, y);
   }
@@ -291,7 +382,7 @@ export function renderExport(
     ctx.lineWidth = base * EXPORT_LINE[t.kind];
     strokeH(ctx, gutter - tick, gutter, y);
     if (t.label === null) continue;
-    ctx.fillStyle = style.text;
+    ctx.fillStyle = labelColor(t.kind);
     ctx.font = `${style.weight} ${fontPx}px ${fontFamily}`;
     ctx.fillText(t.label, gutter - tick - Math.max(2, gutter * 0.06), y);
   }
