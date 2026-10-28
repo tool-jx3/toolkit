@@ -34,6 +34,7 @@ import {
   type Story,
   stickerAction,
   type Theme,
+  threadTitle,
 } from './model';
 import { PanZone } from './PanZone';
 import type { Rect, ScreenLayout } from './render/ops';
@@ -55,6 +56,7 @@ import {
   setTab,
   useCurrentPost,
   useCurrentStory,
+  useCurrentThread,
   useDoc,
   usePrefs,
 } from './store';
@@ -85,8 +87,10 @@ export function usePreviewLayout(): ScreenLayout & { stickers?: Map<string, Stic
         postId: prefs.postId,
         storyId: prefs.storyId,
         cell: prefs.cell,
+        dmView: prefs.dmView,
+        threadId: prefs.threadId,
       }),
-    [env, prefs.screen, prefs.postId, prefs.storyId, prefs.cell],
+    [env, prefs.screen, prefs.postId, prefs.storyId, prefs.cell, prefs.dmView, prefs.threadId],
   );
 }
 
@@ -159,13 +163,32 @@ function FeedOverlay({ layout }: { layout: ScreenLayout }) {
       width={Math.round(layout.width * K)}
       height={Math.round(layout.height * K)}
       aria-label={S.previewLabel(S.screenName.feed)}
-      regions={editRegions(layout).filter((h) => h.key.startsWith('tray:'))}
+      regions={editRegions(layout).filter((h) => h.key.startsWith('tray:') || h.key === 'feed:dm')}
       onPick={(key) => {
         if (key.startsWith('tray:')) {
           const id = key.slice(5).split(',')[0];
           setPrefs({ storyId: id, sticker: null, cell: 0 });
           setTab('story');
+        } else if (key === 'feed:dm') {
+          /* 訊息圖示 → 私訊的訊息列表（F121） */
+          setPrefs({ dmView: 'list' });
+          setTab('dm');
         }
+      }}
+    />
+  );
+}
+
+/** 私訊：訊息列表點一個對話 → 打開那個對話（F142） */
+function DmOverlay({ layout }: { layout: ScreenLayout }) {
+  return (
+    <LayoutCanvas
+      width={Math.round(layout.width * K)}
+      height={Math.round(layout.height * K)}
+      aria-label={S.previewLabel(S.screenName.dm)}
+      regions={editRegions(layout).filter((h) => h.key.startsWith('thread:'))}
+      onPick={(key) => {
+        if (key.startsWith('thread:')) setPrefs({ threadId: key.slice(7), dmView: 'chat' });
       }}
     />
   );
@@ -346,6 +369,7 @@ export function Preview() {
   const theme = useDoc((s) => s.data.theme);
   const post = useCurrentPost();
   const story = useCurrentStory();
+  const thread = useCurrentThread();
   const posts = useDoc((s) => s.data.posts);
   const stories = useDoc((s) => s.data.stories);
   const layout = usePreviewLayout();
@@ -370,7 +394,11 @@ export function Preview() {
       ? `${S.screenName[screen]} ${posts.indexOf(post) + 1}`
       : screen === 'story'
         ? `${S.screenName.story} ${stories.indexOf(story) + 1}`
-        : S.screenName[screen];
+        : screen === 'dm'
+          ? prefs.dmView === 'chat'
+            ? S.dmChatName(threadTitle(thread))
+            : S.dmListName
+          : S.screenName[screen];
 
   const settings: ExportSettings = {
     format: prefs.format,
@@ -425,6 +453,7 @@ export function Preview() {
         {screen === 'post' ? <PostOverlay post={post} layout={layout} /> : null}
         {screen === 'profile' ? <ProfileOverlay layout={layout} /> : null}
         {screen === 'feed' ? <FeedOverlay layout={layout} /> : null}
+        {screen === 'dm' && prefs.dmView === 'list' ? <DmOverlay layout={layout} /> : null}
         {screen === 'story' ? <StoryOverlay story={story} layout={layout} /> : null}
       </Stage>
       <p className="m-0 px-1 text-xs text-muted">{S.previewHint[screen]}</p>
@@ -467,7 +496,12 @@ export function Preview() {
         }
         onExport={async (s, { signal, onProgress }) => {
           const p = prefsNow();
-          const sel = { postId: p.postId, storyId: p.storyId };
+          const sel = {
+            postId: p.postId,
+            storyId: p.storyId,
+            dmView: p.dmView,
+            threadId: p.threadId,
+          };
           const state = docNow();
           if (s.format === 'html')
             return exportHtml(state, p.screen, sel, p.htmlScope, { signal, onProgress });

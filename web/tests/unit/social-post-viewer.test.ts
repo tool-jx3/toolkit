@@ -186,6 +186,37 @@ describe('HTML 檔', () => {
     );
   });
 
+  it('撐滿畫面的三段（私訊的對話）：上方、可以捲動的中間（data-end：打開時捲到最下面）、下方（F143）', () => {
+    const d = doc();
+    d.screens.push({
+      id: 's-dm-0',
+      hidden: true,
+      layers: [],
+      fill: {
+        head: {
+          img: img(390, 110),
+          spots: [
+            {
+              rect: { x: 4, y: 54, width: 38, height: 56 },
+              attr: 'data-back',
+              label: '回到上一個畫面',
+            },
+          ],
+        },
+        body: { img: img(390, 900) },
+        foot: { img: img(390, 82) },
+        background: '#ffffff',
+      },
+    });
+    const html = viewerHtml(d);
+    expect(html).toContain(
+      '<section class="v-scr v-fill" id="s-dm-0" hidden style="background:#ffffff"><div class="v-fhead">',
+    );
+    expect(html).toContain('<div class="v-fbody" data-end><div class="v-layer">');
+    expect(html).toContain('<div class="v-ffoot">');
+    expect(html).toContain('.v-fbody{flex:1;min-height:0;overflow-y:auto');
+  });
+
   it('打開的留言面板、不能關的限時動態（只有這個畫面）', () => {
     const d = doc();
     d.comments[0].opened = true;

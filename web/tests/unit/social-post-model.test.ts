@@ -6,10 +6,12 @@ import { produce } from 'immer';
 import { describe, expect, it } from 'vitest';
 import {
   addComment,
+  addMessage,
   addPhotos,
   addPost,
   addSticker,
   addStory,
+  addThread,
   blankPost,
   blankStory,
   cellCount,
@@ -17,14 +19,17 @@ import {
   collectAssetIds,
   duplicatePost,
   duplicateStory,
+  duplicateThread,
   friendGroups,
   initialState,
   LIMITS,
   MAX,
+  mixHex,
   moveComment,
   movePhoto,
   movePost,
   moveStory,
+  moveThread,
   myStoryList,
   normalizeState,
   ownerOf,
@@ -32,6 +37,7 @@ import {
   removePhoto,
   removePost,
   removeStory,
+  removeThread,
   type SocialState,
   STORY_LAYOUTS,
   setCellImage,
@@ -41,6 +47,8 @@ import {
   setStoryLayout,
   stickerAction,
   storyCellRects,
+  threadPreview,
+  threadTitle,
 } from '../../src/tools/social-post/model';
 import { anchorOf } from '../../src/tools/social-post/place';
 
@@ -599,5 +607,120 @@ describe('資料版本 3 與舊的存檔（3.9）', () => {
       myStories: ['s1'],
     });
     expect(n.posts[0].owner.username).toBe('friend_1');
+  });
+});
+
+describe('私訊（F134～F145）', () => {
+  it('範例：2 個對話（阿凱：在線上、未讀、反應；霧港鎮觀光資訊）、泡泡的顏色', () => {
+    const s = initialState();
+    expect(s.dm.threads.map((t) => [t.id, t.username, t.unread, t.online])).toEqual([
+      ['t1', 'kai.archive', true, true],
+      ['t2', 'mistharbor.info', false, false],
+    ]);
+    expect(s.dm.threads[0].messages.map((m) => m.from)).toEqual([
+      'time',
+      'them',
+      'them',
+      'me',
+      'me',
+      'them',
+    ]);
+    expect(s.dm.threads[0].messages[4].react).toBe('❤️');
+    expect([s.dm.c1, s.dm.c2]).toEqual(['#7a4fd6', '#3f63e0']);
+  });
+
+  it('新增（friend_N、打招呼的兩則）、複製（訊息換新的 id）、往下、刪除（至少留一個）', () => {
+    const s = clone(initialState());
+    const a = addThread(s) as string;
+    const t = s.dm.threads.find((x) => x.id === a);
+    expect(t?.username).toBe('friend_3');
+    expect(t?.messages.map((m) => [m.from, m.text])).toEqual([
+      ['time', '今天 下午 2:10'],
+      ['them', '嗨！'],
+      ['me', '嗨 😊'],
+    ]);
+    const ids = s.dm.threads.flatMap((x) => x.messages.map((m) => m.id));
+    expect(new Set(ids).size).toBe(ids.length);
+    const b = duplicateThread(s, 't1') as string;
+    expect(s.dm.threads.map((x) => x.id)).toEqual(['t1', b, 't2', a]);
+    const all = s.dm.threads.flatMap((x) => x.messages.map((m) => m.id));
+    expect(new Set(all).size).toBe(all.length);
+    moveThread(s, 't1', 1);
+    expect(s.dm.threads[1].id).toBe('t1');
+    for (const id of [b, 't2', a]) removeThread(s, id);
+    expect(removeThread(s, 't1')).toBeNull();
+  });
+
+  it('新增訊息：我、對方的是空白、時間是「今天 下午 3:00」；照片的訊息（拖放）', () => {
+    const s = clone(initialState());
+    addMessage(s, 't2', 'me');
+    addMessage(s, 't2', 'time');
+    addMessage(s, 't2', 'me', { kind: 'asset', id: 'x', name: 'x.png', width: 10, height: 10 });
+    const ms = s.dm.threads[1].messages.slice(-3);
+    expect(ms.map((m) => [m.from, m.text, m.image?.kind ?? null])).toEqual([
+      ['me', '', null],
+      ['time', '今天 下午 3:00', null],
+      ['me', '', 'asset'],
+    ]);
+  });
+
+  it('名稱與訊息列表的預覽：名稱空白時用帳號；最後一則（不是時間）；我的加「你：」；只有照片時說明', () => {
+    const s = clone(initialState());
+    const [kai, info] = s.dm.threads;
+    expect(threadTitle(kai)).toBe('阿凱');
+    expect(threadTitle(info)).toBe('mistharbor.info');
+    expect(threadPreview(kai)).toBe('……我帶手電筒');
+    expect(threadPreview(info)).toBe('你：收到，謝謝提醒 🙏');
+    info.messages.push({ id: 'z', from: 'me', text: '', image: kai.avatar, react: '' });
+    expect(threadPreview(info)).toBe('你傳送了一張相片');
+    info.messages.push({ id: 'z2', from: 'time', text: '剛剛', image: null, react: '' });
+    expect(threadPreview(info)).toBe('你傳送了一張相片');
+    info.preview = '自訂的預覽';
+    expect(threadPreview(info)).toBe('自訂的預覽');
+  });
+
+  it('泡泡的顏色從上面的色漸變到下面的色', () => {
+    expect(mixHex('#000000', '#ffffff', 0)).toBe('#000000');
+    expect(mixHex('#000000', '#ffffff', 1)).toBe('#ffffff');
+    expect(mixHex('#000000', '#ffffff', 0.5)).toBe('#808080');
+  });
+
+  it('整理：沒有私訊時用範例；時間的訊息沒有照片與反應；不認得的換預設；文字截到上限', () => {
+    const raw = clone(initialState()) as unknown as Record<string, unknown>;
+    delete raw.dm;
+    expect(normalizeState(raw, 2).dm.threads.map((t) => t.id)).toEqual(['t1', 't2']);
+    raw.dm = {
+      c1: 'red',
+      c2: '#ABCDEF',
+      threads: [
+        {
+          id: 't9',
+          username: 'x'.repeat(40),
+          messages: [
+            {
+              id: 'm1',
+              from: 'time',
+              text: 't'.repeat(50),
+              image: { kind: 'sample', key: 'moon' },
+              react: '❤️',
+            },
+            { id: 'm1', from: 'who', text: 'hi', react: '👍👍👍👍👍👍👍👍👍' },
+            'bad',
+          ],
+        },
+      ],
+    };
+    const n = normalizeState(raw);
+    expect(n.dm.c1).toBe('#7a4fd6');
+    expect(n.dm.c2).toBe('#abcdef');
+    const t = n.dm.threads[0];
+    expect(t.username).toHaveLength(30);
+    expect(t).toMatchObject({ seen: '已讀', intro: true, unread: false });
+    expect(t.messages).toHaveLength(2);
+    expect(t.messages[0]).toMatchObject({ from: 'time', image: null, react: '' });
+    expect(t.messages[0].text).toHaveLength(30);
+    expect(t.messages[1].from).toBe('me');
+    expect(t.messages[1].id).not.toBe('m1');
+    expect(Array.from(t.messages[1].react)).toHaveLength(8);
   });
 });

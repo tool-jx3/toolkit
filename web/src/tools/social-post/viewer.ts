@@ -59,6 +59,11 @@ export interface VScreen {
   id: string;
   hidden: boolean;
   layers: VLayer[];
+  /**
+   * 撐滿畫面高的三段（私訊的對話，F143）：上方、可以捲動的中間（打開時捲到最下面＝最新的訊息）、下方；
+   * 給了時不看 layers。
+   */
+  fill?: { head: VLayer; body: VLayer; foot: VLayer; background: string };
   /** 只有面板的留言（整頁、清單撐開） */
   plain?: { head: VImg; list: VImg; foot: VImg | null; background: string };
 }
@@ -130,6 +135,8 @@ function layerHtml(l: VLayer): string {
 
 function screenHtml(s: VScreen): string {
   const hidden = s.hidden ? ' hidden' : '';
+  if (s.fill)
+    return `<section class="v-scr v-fill" id="${s.id}"${hidden} style="background:${s.fill.background}"><div class="v-fhead">${layerHtml(s.fill.head)}</div><div class="v-fbody" data-end>${layerHtml(s.fill.body)}</div><div class="v-ffoot">${layerHtml(s.fill.foot)}</div></section>`;
   if (s.plain)
     return `<section class="v-scr" id="${s.id}"${hidden}><div class="v-plain" style="background:${s.plain.background}">${image(s.plain.head)}<div class="v-list">${image(s.plain.list)}</div>${s.plain.foot ? image(s.plain.foot) : ''}</div></section>`;
   return `<section class="v-scr" id="${s.id}"${hidden}>${s.layers.map(layerHtml).join('')}</section>`;
@@ -181,6 +188,9 @@ img[hidden]{display:none}
 .v-sheet .v-head{position:relative;flex:none}
 .v-list{flex:1;min-height:0;overflow-y:auto}
 .v-plain{min-height:100vh;min-height:100dvh;display:flex;flex-direction:column}
+.v-fill{height:100vh;height:100dvh;display:flex;flex-direction:column}
+.v-fhead,.v-ffoot{flex:none}
+.v-fbody{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain}
 .v-st{background:#000;display:flex;align-items:center;justify-content:center}
 .v-story{position:relative;width:min(100vw,56.25vh);width:min(100vw,56.25dvh);cursor:pointer}
 .v-bars{position:absolute}

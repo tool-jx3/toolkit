@@ -73,7 +73,7 @@ const settle = (page: Page) => page.waitForTimeout(450);
 const canvas = (page: Page) => page.getByTestId('sp-canvas');
 const tab = (
   page: Page,
-  name: '貼文' | '留言' | '限時動態' | '個人頁' | '首頁動態' | '帳號與畫面',
+  name: '貼文' | '留言' | '限時動態' | '個人頁' | '首頁動態' | '私訊' | '帳號與畫面',
 ) => page.getByRole('tab', { name, exact: true });
 const toast = (page: Page, text: string | RegExp) =>
   page.getByRole('region', { name: /^通知/ }).getByText(text);
@@ -133,6 +133,23 @@ interface Stored {
     count: number;
   }[];
   feed: { logo: string; heartDot: boolean; dmBadge: string; myStories: string[] };
+  dm: {
+    c1: string;
+    c2: string;
+    threads: {
+      id: string;
+      username: string;
+      name: string;
+      unread: boolean;
+      messages: {
+        id: string;
+        from: string;
+        text: string;
+        image: { kind: string; name?: string } | null;
+        react: string;
+      }[];
+    }[];
+  };
   account: {
     nav: boolean;
     highlights: { id: string; title: string; story: string | null }[];
@@ -281,7 +298,15 @@ test('開頁：沒有錯誤、範例內容、頁尾只有靈感來源、沒有�
     'https://s2ndrome.github.io/4layout/',
   );
   /* 每個分頁都沒有商標字樣 */
-  for (const t of ['貼文', '留言', '限時動態', '個人頁', '首頁動態', '帳號與畫面'] as const) {
+  for (const t of [
+    '貼文',
+    '留言',
+    '限時動態',
+    '個人頁',
+    '首頁動態',
+    '私訊',
+    '帳號與畫面',
+  ] as const) {
     await tab(page, t).click();
     expect(await page.locator('body').innerText()).not.toMatch(BRAND);
   }
@@ -963,6 +988,19 @@ test('整個視窗拖放、貼上：依分頁放到貼文照片、格子、其�
   await pasteImage('paste-avatar.png');
   s = await state(page);
   expect(s.profile.avatar?.name).toBe('paste-avatar.png');
+  /* 首頁動態 → 目前貼文的照片；私訊 → 目前對話最後一則我的照片訊息（2026-10） */
+  await tab(page, '首頁動態').click();
+  await dropImage('drop-feed.png', [40, 40, 200]);
+  s = await state(page);
+  expect(s.posts[0].photos.at(-1)?.image.name).toBe('drop-feed.png');
+  await tab(page, '私訊').click();
+  await pasteImage('paste-dm.png');
+  s = await state(page);
+  expect(s.dm.threads[0].messages.at(-1)).toMatchObject({
+    from: 'me',
+    text: '',
+    image: { name: 'paste-dm.png' },
+  });
   expect(errors).toEqual([]);
 });
 
@@ -1395,7 +1433,140 @@ test('HTML：我的限時動態好幾則接著看（一則一段、←／→、5
   expect(errors).toEqual([]);
 });
 
-test('舊的專案檔（資料版本 2）照常開啟：自己的貼文與限時動態、首頁動態的預設、進度條 3 段→1 段（3.9）', async ({
+test('私訊：訊息列表點對話打開、泡泡顏色、新增訊息與照片、時間、反應、新增對話、PNG（F134～F145）', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  /* 首頁動態的訊息圖示 → 私訊的訊息列表 */
+  await tab(page, '首頁動態').click();
+  await page.locator('[data-region="feed:dm"]').click();
+  await expect(tab(page, '私訊')).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByTestId('preview-title')).toHaveText('預覽：私訊・訊息列表');
+  await expect(canvas(page)).toHaveAttribute('data-size', '1170x2532');
+  const list = await exportFile(page, 'PNG');
+  expect(list.name).toMatch(/^socialpost-dm-\d{8}-\d{6}\.png$/);
+  /* 點第 2 個對話 → 打開 */
+  await page.locator('[data-region="thread:t2"]').click();
+  await expect(page.getByTestId('preview-title')).toHaveText('預覽：私訊・mistharbor.info');
+  await expect(page.getByRole('radio', { name: '對話', exact: true })).toBeChecked();
+  /* 泡泡顏色 */
+  await page.getByRole('radio', { name: '粉紅' }).click();
+  await settle(page);
+  let s = await state(page);
+  expect([s.dm.c1, s.dm.c2]).toEqual(['#e0457b', '#d6338a']);
+  /* 新增我的訊息、打字、反應；新增時間 */
+  await page.getByRole('button', { name: '新增我的訊息' }).click();
+  await settle(page);
+  await textbox(page, '訊息 4：我：內容').fill('明天見 #霧港鎮');
+  await textbox(page, '訊息 4：我：內容').blur();
+  await settle(page);
+  await textbox(page, '訊息 4：我：反應的表情符號').fill('👍');
+  await textbox(page, '訊息 4：我：反應的表情符號').blur();
+  await settle(page);
+  await page
+    .locator('[data-message]')
+    .last()
+    .getByRole('button', { name: /照片：選擇圖片$/ })
+    .waitFor();
+  const [chooser] = await Promise.all([
+    page.waitForEvent('filechooser'),
+    page
+      .locator('[data-message]')
+      .last()
+      .getByRole('button', { name: /照片：選擇圖片$/ })
+      .click(),
+  ]);
+  await chooser.setFiles(file('dm-photo.png', await solidPng([200, 40, 40], 80, 60)));
+  await settle(page);
+  await page.getByRole('button', { name: '新增時間' }).click();
+  await settle(page);
+  s = await state(page);
+  const ms = s.dm.threads[1].messages;
+  expect(ms.at(-2)).toMatchObject({
+    from: 'me',
+    text: '明天見 #霧港鎮',
+    react: '👍',
+    image: { name: 'dm-photo.png' },
+  });
+  expect(ms.at(-1)).toMatchObject({ from: 'time', text: '今天 下午 3:00' });
+  /* 時間 → 對方 */
+  await page
+    .getByRole('radiogroup', { name: '訊息 5：時間：誰的訊息' })
+    .getByRole('radio', { name: '對方' })
+    .click();
+  await settle(page);
+  expect((await state(page)).dm.threads[1].messages.at(-1)?.from).toBe('them');
+  /* 已讀只在最後一則是我的時：現在最後是對方的 */
+  /* 新增對話 */
+  await page.getByRole('button', { name: '新增對話' }).click();
+  await settle(page);
+  s = await state(page);
+  expect(s.dm.threads.map((t) => t.username)).toEqual([
+    'kai.archive',
+    'mistharbor.info',
+    'friend_3',
+  ]);
+  await expect(page.getByTestId('preview-title')).toHaveText('預覽：私訊・friend_3');
+  /* PNG：對話是第幾個 */
+  await page.getByRole('button', { name: 'mistharbor.info', exact: true }).click();
+  const out = await exportFile(page, 'PNG');
+  expect(out.name).toMatch(/^socialpost-dm-2-\d{8}-\d{6}\.png$/);
+  const png = readPng(out.bytes);
+  expect([png.width, png.height]).toEqual([1170, 2532]);
+  expect(near(png.at(195 * 3, 500 * 3), await pixel(page, 195, 500), 6)).toBe(true);
+  expect(errors).toEqual([]);
+});
+
+test('HTML：私訊（全部從首頁動態的訊息圖示進去、只有這個畫面的訊息列表與對話）（F143、F132）', async ({
+  page,
+  context,
+}) => {
+  const errors = await open(page);
+  const all = strFromU8((await exportFile(page, 'HTML 檔', /^全部/)).bytes);
+  expect(all).toContain('<section class="v-scr" id="s-dms" hidden>');
+  expect(all).toContain('<section class="v-scr v-fill" id="s-dm-0" hidden');
+  expect(all).toContain('<section class="v-scr v-fill" id="s-dm-1" hidden');
+  expect(textOf(all)).not.toMatch(BRAND);
+  const v = await context.newPage();
+  await v.setViewportSize({ width: 390, height: 844 });
+  await v.route('**/viewer.html', (r) =>
+    r.fulfill({ status: 200, contentType: 'text/html', body: all }),
+  );
+  await v.goto(`${new globalThis.URL(page.url()).origin}/viewer.html`);
+  /* 首頁動態的訊息圖示 → 訊息列表 → 對話 → ‹ → ‹ */
+  await v.locator('#s-feed [data-go="s-dms"]').first().click();
+  await expect(v.locator('#s-dms')).toBeVisible();
+  await v.locator('#s-dms [data-go="s-dm-0"]').click();
+  await expect(v.locator('#s-dm-0')).toBeVisible();
+  /* 對話撐滿畫面：上方、訊息（可以捲動）、下方都在畫面裡 */
+  const foot = await v.locator('#s-dm-0 .v-ffoot').boundingBox();
+  if (!foot) throw new Error('no foot');
+  expect(foot.y + foot.height).toBeCloseTo(844, 0);
+  await v.locator('#s-dm-0 [data-back]').click();
+  await expect(v.locator('#s-dms')).toBeVisible();
+  await v.locator('#s-dms [data-back]').click();
+  await expect(v.locator('#s-feed')).toBeVisible();
+  /* 底部分頁列的訊息也到訊息列表 */
+  await v.locator('#s-feed .v-sticky-bottom [data-go="s-dms"]').click();
+  await expect(v.locator('#s-dms')).toBeVisible();
+  await v.close();
+  /* 只有這個畫面：訊息列表（＋每個對話）／對話（只有那個，沒有 ‹） */
+  await tab(page, '私訊').click();
+  const one = await exportFile(page, 'HTML 檔', '只有這個畫面');
+  expect(one.name).toBe('xiaoyu.lin-dm.html');
+  const oh = strFromU8(one.bytes);
+  expect(oh).toContain('<title>xiaoyu.lin・私訊</title>');
+  expect(oh).toContain('<section class="v-scr" id="s-dms">');
+  expect(oh).toContain('id="s-dm-1"');
+  await page.getByRole('radio', { name: '對話', exact: true }).click();
+  const chat = strFromU8((await exportFile(page, 'HTML 檔', '只有這個畫面')).bytes);
+  expect(chat).toContain('<section class="v-scr v-fill" id="s-dm-0" style=');
+  expect(chat).not.toContain('id="s-dms"');
+  expect(chat).not.toContain('class="v-spot" data-back');
+  expect(errors).toEqual([]);
+});
+
+test('舊的專案檔（資料版本 2）照常開啟：自己的貼文與限時動態、首頁動態與私訊的預設、進度條 3 段→1 段（3.9）', async ({
   page,
 }) => {
   const errors = await open(page);
@@ -1410,6 +1581,7 @@ test('舊的專案檔（資料版本 2）照常開啟：自己的貼文與限時
   /* 改成版本 2 的樣子：沒有朋友身分、首頁動態；限時動態只有 1 則、還是舊的預設 3 段 */
   project.version = 2;
   delete project.data.feed;
+  delete project.data.dm;
   for (const p of project.data.posts) {
     delete p.friend;
     delete p.owner;
@@ -1441,6 +1613,7 @@ test('舊的專案檔（資料版本 2）照常開啟：自己的貼文與限時
   expect(s.stories).toHaveLength(1);
   expect(s.stories[0]).toMatchObject({ friend: false, seen: false, count: 1 });
   expect(s.feed.myStories).toEqual(['s1']);
+  expect((await state(page)).dm.threads.map((t) => t.id)).toEqual(['t1', 't2']);
   await tab(page, '首頁動態').click();
   expect((await layout(page)).hits.map((h) => h.key)).toContain('tray:s1');
   expect(errors).toEqual([]);

@@ -5,6 +5,7 @@
 import { addImageFile, ImageLoadError, splitImageFiles } from '@/core/assets';
 import {
   type AssetImage,
+  addMessage,
   addPhotos,
   addSticker,
   CELL_SLOTS,
@@ -28,14 +29,21 @@ export type ImageTarget =
   | { kind: 'music'; storyId: string; stickerId: string }
   | { kind: 'highlight'; id: string }
   /** 朋友的貼文、限時動態的大頭貼（F111、F112） */
-  | { kind: 'owner-avatar'; postId?: string; storyId?: string };
+  | { kind: 'owner-avatar'; postId?: string; storyId?: string }
+  /** 私訊：對話的大頭貼、訊息的照片、拖放的照片（每張一則我的訊息） */
+  | { kind: 'thread-avatar'; threadId: string }
+  | { kind: 'message-image'; threadId: string; messageId: string }
+  | { kind: 'dm-photos'; threadId: string };
 
 /** 可以一次加好幾張的位置 */
 export const isMultiTarget = (t: ImageTarget): boolean =>
-  t.kind === 'post-photos' || t.kind === 'grid' || t.kind === 'cell';
+  t.kind === 'post-photos' || t.kind === 'grid' || t.kind === 'cell' || t.kind === 'dm-photos';
 
 const maxSide = (t: ImageTarget): number =>
-  t.kind === 'avatar' || t.kind === 'comment-avatar' || t.kind === 'owner-avatar'
+  t.kind === 'avatar' ||
+  t.kind === 'comment-avatar' ||
+  t.kind === 'owner-avatar' ||
+  t.kind === 'thread-avatar'
     ? IMAGE_MAX.avatar
     : t.kind === 'sticker'
       ? IMAGE_MAX.sticker
@@ -73,6 +81,28 @@ function applyRefs(target: ImageTarget, refs: AssetImage[]): { skipped: number; 
         if (x) x.owner.avatar = refs[0];
       });
       return { skipped: refs.length - 1 };
+    case 'thread-avatar':
+      edit((d) => {
+        const t = d.dm.threads.find((x) => x.id === target.threadId);
+        if (t) t.avatar = refs[0];
+      });
+      return { skipped: refs.length - 1 };
+    case 'message-image':
+      edit((d) => {
+        const m = d.dm.threads
+          .find((x) => x.id === target.threadId)
+          ?.messages.find((x) => x.id === target.messageId);
+        if (m && m.from !== 'time') m.image = refs[0];
+      });
+      return { skipped: refs.length - 1 };
+    case 'dm-photos': {
+      let added = 0;
+      edit((d) => {
+        for (const ref of refs) if (addMessage(d, target.threadId, 'me', ref)) added++;
+      });
+      const skipped = refs.length - added;
+      return skipped ? { skipped, note: S.messagesFull(MAX.messages) } : { skipped: 0 };
+    }
     case 'highlight':
       edit((d) => {
         const h = d.account.highlights.find((x) => x.id === target.id);

@@ -11,6 +11,7 @@ import { loadFonts } from './fonts';
 import { ownerOf, type Post, type SocialState } from './model';
 import { layoutSheet } from './render/comments';
 import { type Env, STATUS_H, W } from './render/common';
+import { chatPieces, dmListScreen } from './render/dm';
 import { feedScreen, layoutTray } from './render/feed';
 import type { Hit, Op, Rect, ScreenLayout } from './render/ops';
 import { createCanvasMeasure } from './render/paint';
@@ -389,6 +390,39 @@ async function feedLayers(job: Job): Promise<VLayer[]> {
   return layers;
 }
 
+/** 訊息列表（依內容加高）：‹（有上一個畫面時）、每個對話 → 那個對話 */
+async function dmListLayers(job: Job, withBack: boolean): Promise<VLayer[]> {
+  const { env } = job;
+  const l = dmListScreen(env, { viewer: true });
+  const spots: VSpot[] = [];
+  for (const h of l.hits) {
+    if (h.key === 'dm:back' && withBack)
+      spots.push({ rect: h.box, attr: 'data-back', label: S.viewer.back });
+    else if (h.key.startsWith('thread:')) {
+      const i = env.state.dm.threads.findIndex((t) => t.id === h.key.slice(7));
+      if (i >= 0 && job.screens.has(`s-dm-${i}`))
+        spots.push({ rect: h.box, attr: `data-go="s-dm-${i}"`, label: h.label });
+    }
+  }
+  return [{ img: await toImg(job, { layout: l, photo: true }), spots }];
+}
+
+/** 對話：上方（‹）、訊息（可以捲動，打開時在最下面）、下方 */
+async function dmChat(job: Job, i: number, withBack: boolean): Promise<VScreen['fill']> {
+  const { env } = job;
+  const p = chatPieces(env, env.state.dm.threads[i]);
+  const back = p.head.hits.find((h) => h.key === 'dm:back');
+  return {
+    head: {
+      img: await toImg(job, { layout: p.head, photo: true }),
+      spots: back && withBack ? [{ rect: back.box, attr: 'data-back', label: S.viewer.back }] : [],
+    },
+    body: { img: await toImg(job, { layout: p.body, photo: true }) },
+    foot: { img: await toImg(job, { layout: p.foot, photo: false }) },
+    background: env.pal.bg,
+  };
+}
+
 /** 這次要用到的所有版面（等字型與照片用） */
 function allLayouts(env: Env): ScreenLayout[] {
   const out: ScreenLayout[] = [
@@ -405,6 +439,11 @@ function allLayouts(env: Env): ScreenLayout[] {
   }
   for (const st of env.state.stories)
     out.push(storyScreen(env, st, { viewer: { autoplay: true, closable: true } }));
+  out.push(dmListScreen(env, { viewer: true }));
+  for (const t of env.state.dm.threads) {
+    const p = chatPieces(env, t);
+    out.push(p.head, p.body, p.foot);
+  }
   return out;
 }
 
@@ -418,6 +457,7 @@ export function htmlFileName(
   if (scope === 'all') return `${base}-all.html`;
   if (screen === 'profile') return `${base}-profile.html`;
   if (screen === 'feed') return `${base}-feed.html`;
+  if (screen === 'dm') return `${base}-dm.html`;
   if (screen === 'story')
     return `${base}-story-${
       Math.max(
@@ -453,15 +493,21 @@ function countImages(
   const inFeed = state.posts.filter((p) => p.inFeed);
   const feed = status + 4 + inFeed.reduce((n, p) => n + car(p), 0);
   const stories = state.stories.length;
+  const dm = 1 + state.dm.threads.length * 3;
   if (scope === 'all')
     return (
-      feed + profile + state.posts.reduce((n, p) => n + post(p, true) + comments(p), 0) + stories
+      feed +
+      profile +
+      state.posts.reduce((n, p) => n + post(p, true) + comments(p), 0) +
+      stories +
+      dm
     );
   const p = state.posts[postIndex];
   if (screen === 'feed') return feed + inFeed.reduce((n, x) => n + comments(x), 0) + stories;
   if (screen === 'post') return post(p, false) + comments(p);
   if (screen === 'comments') return post(p, false) + 3;
   if (screen === 'story') return 1;
+  if (screen === 'dm') return dm;
   return profile;
 }
 
@@ -497,6 +543,18 @@ export async function exportHtml(
     });
   } else if (screen === 'feed') planned.add('s-feed');
   else if (screen === 'profile') planned.add('s-account');
+  const threadIndex = Math.max(
+    0,
+    state.dm.threads.findIndex((t) => t.id === sel.threadId),
+  );
+  /* 私訊：全部、只有這個畫面的訊息列表時有訊息列表與每個對話；只有這個畫面的對話時只有那個對話 */
+  const dmAll = scope === 'all' || (screen === 'dm' && sel.dmView !== 'chat');
+  if (dmAll) {
+    planned.add('s-dms');
+    state.dm.threads.forEach((_, i) => {
+      planned.add(`s-dm-${i}`);
+    });
+  } else if (screen === 'dm') planned.add(`s-dm-${threadIndex}`);
   const job: Job = {
     env,
     screens: planned,
@@ -524,6 +582,26 @@ export async function exportHtml(
       if (!p.commentsOff) comments.push(await commentsOverlay(job, p, i, false));
     }
     await allStories();
+    screens.push({ id: 's-dms', hidden: true, layers: await dmListLayers(job, true) });
+    for (let i = 0; i < state.dm.threads.length; i++)
+      screens.push({ id: `s-dm-${i}`, hidden: true, layers: [], fill: await dmChat(job, i, true) });
+  } else if (screen === 'dm') {
+    if (dmAll) {
+      screens.push({ id: 's-dms', hidden: false, layers: await dmListLayers(job, false) });
+      for (let i = 0; i < state.dm.threads.length; i++)
+        screens.push({
+          id: `s-dm-${i}`,
+          hidden: true,
+          layers: [],
+          fill: await dmChat(job, i, true),
+        });
+    } else
+      screens.push({
+        id: `s-dm-${threadIndex}`,
+        hidden: false,
+        layers: [],
+        fill: await dmChat(job, threadIndex, false),
+      });
   } else if (screen === 'feed') {
     screens.push({ id: 's-feed', hidden: false, layers: await feedLayers(job) });
     for (let i = 0; i < state.posts.length; i++) {
@@ -595,7 +673,12 @@ export async function exportHtml(
     screens[0]?.layers.reduce((a, l) => ({ w: W, h: a.h + l.img.h }), { w: 0, h: 0 }) ??
     (stories[0] ? { w: stories[0].img.w, h: stories[0].img.h } : { w: W, h: 0 });
   const plain = screens[0]?.plain;
-  const h = plain ? plain.head.h + plain.list.h + (plain.foot?.h ?? 0) : main.h;
+  const fill = screens[0]?.fill;
+  const h = plain
+    ? plain.head.h + plain.list.h + (plain.foot?.h ?? 0)
+    : fill
+      ? fill.head.img.h + fill.body.img.h + fill.foot.img.h
+      : main.h;
   return {
     blob,
     fileName: htmlFileName(state, screen, scope, sel),

@@ -33,6 +33,7 @@ const SLUG: Record<ScreenId, string> = {
   story: 'story',
   profile: 'profile',
   feed: 'feed',
+  dm: 'dm',
 };
 
 /** 目前的畫面是第幾則（貼文、留言＝第幾則貼文；限時動態＝第幾則；個人頁沒有） */
@@ -42,6 +43,14 @@ export function screenIndex(
   sel: ScreenSelection,
 ): number | null {
   if (screen === 'profile' || screen === 'feed') return null;
+  /* 私訊：對話時是第幾個對話，訊息列表沒有 */
+  if (screen === 'dm')
+    return sel.dmView === 'chat'
+      ? Math.max(
+          0,
+          state.dm.threads.findIndex((t) => t.id === sel.threadId),
+        ) + 1
+      : null;
   if (screen === 'story')
     return (
       Math.max(
@@ -57,7 +66,7 @@ export function screenIndex(
   );
 }
 
-/** `socialpost-<post／comments／story／profile／feed>[-<第幾則>]-<年月日-時分秒>.png` */
+/** `socialpost-<post／comments／story／profile／feed／dm>[-<第幾則>]-<年月日-時分秒>.png` */
 export function pngFileName(screen: ScreenId, index: number | null, now: Date): string {
   return `socialpost-${SLUG[screen]}${index ? `-${index}` : ''}-${stamp(now)}.png`;
 }

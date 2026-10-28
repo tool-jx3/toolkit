@@ -9,6 +9,7 @@ import type { ScreenId } from '../strings';
 import type { Measure } from '../text';
 import { commentsScreen } from './comments';
 import type { Env } from './common';
+import { dmChatScreen, dmListScreen } from './dm';
 import { feedScreen } from './feed';
 import type { Op, ScreenLayout } from './ops';
 import type { ImageSource } from './paint';
@@ -25,6 +26,9 @@ export interface ScreenSelection {
   postId: string;
   storyId: string;
   cell?: number;
+  /** 私訊：訊息列表／對話、目前的對話 */
+  dmView?: 'list' | 'chat';
+  threadId?: string;
 }
 
 /** 目前的畫面 */
@@ -41,6 +45,11 @@ export function buildScreen(env: Env, screen: ScreenId, sel: ScreenSelection): S
       return storyScreen(env, story, { selectedCell: sel.cell ?? null });
     case 'feed':
       return feedScreen(env);
+    case 'dm': {
+      if (sel.dmView !== 'chat') return dmListScreen(env);
+      const t = d.dm.threads.find((x) => x.id === sel.threadId) ?? d.dm.threads[0];
+      return dmChatScreen(env, t);
+    }
     default:
       return profileScreen(env);
   }

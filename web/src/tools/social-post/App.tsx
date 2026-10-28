@@ -23,6 +23,7 @@ import { collectAssetIds, initialState } from './model';
 import { Preview } from './Preview';
 import { CommentsPanel } from './panels/CommentsPanel';
 import { CommonPanel } from './panels/CommonPanel';
+import { DmPanel } from './panels/DmPanel';
 import { FeedPanel } from './panels/FeedPanel';
 import { PostPanel } from './panels/PostPanel';
 import { ProfilePanel } from './panels/ProfilePanel';
@@ -34,6 +35,7 @@ import {
   assets,
   currentPost,
   currentStory,
+  currentThread,
   DATA_VERSION,
   docNow,
   historyStep,
@@ -68,6 +70,8 @@ function dropTarget(): ImageTarget {
       return { kind: 'grid' };
     case 'common':
       return { kind: 'avatar' };
+    case 'dm':
+      return { kind: 'dm-photos', threadId: currentThread(d, p).id };
     default:
       return { kind: 'post-photos', postId: currentPost(d, p).id };
   }
@@ -79,6 +83,7 @@ const DROP_LABEL: Record<TabId, string> = {
   story: S.dropOnStory,
   profile: S.dropOnProfile,
   feed: S.dropOnFeed,
+  dm: S.dropOnDm,
   common: S.dropOnCommon,
 };
 
@@ -116,6 +121,7 @@ function Settings() {
     { value: 'story', label: S.tabs.story, content: <StoryPanel /> },
     { value: 'profile', label: S.tabs.profile, content: <ProfilePanel /> },
     { value: 'feed', label: S.tabs.feed, content: <FeedPanel /> },
+    { value: 'dm', label: S.tabs.dm, content: <DmPanel /> },
     { value: 'common', label: S.tabs.common, content: <CommonPanel /> },
   ];
   return (
@@ -206,6 +212,8 @@ function useTestHook() {
           postId: p.postId,
           storyId: p.storyId,
           cell: p.cell,
+          dmView: p.dmView,
+          threadId: p.threadId,
         });
         return { width: l.width, height: l.height, parts: l.parts, hits: l.hits };
       },

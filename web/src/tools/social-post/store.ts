@@ -14,6 +14,7 @@ import {
   type Post,
   type SocialState,
   type Story,
+  type Thread,
 } from './model';
 import type { ScreenId, TabId } from './strings';
 
@@ -78,6 +79,7 @@ export function historyStep(kind: 'undo' | 'redo'): void {
 /* ---------- 不列入復原的設定 ---------- */
 
 export type ExportFormat = 'png' | 'html';
+export type DmView = 'list' | 'chat';
 export type HtmlScope = 'one' | 'all';
 export const SCALES = [1, 2, 3] as const;
 
@@ -91,6 +93,10 @@ export interface Prefs {
   cell: number;
   /** 選取中的貼紙 */
   sticker: string | null;
+  /** 私訊顯示的畫面：訊息列表／對話 */
+  dmView: DmView;
+  /** 目前的對話 */
+  threadId: string;
   format: ExportFormat;
   htmlScope: HtmlScope;
   scale: number;
@@ -103,6 +109,8 @@ export const initialPrefs = (): Prefs => ({
   storyId: 's1',
   cell: 0,
   sticker: null,
+  dmView: 'list',
+  threadId: 't1',
   format: 'png',
   htmlScope: 'one',
   scale: 3,
@@ -110,8 +118,8 @@ export const initialPrefs = (): Prefs => ({
 
 export const usePrefs = createPreviewStore<Prefs>(TOOL_ID, initialPrefs());
 
-const TABS: readonly TabId[] = ['post', 'comments', 'story', 'profile', 'feed', 'common'];
-const SCREENS: readonly ScreenId[] = ['post', 'comments', 'story', 'profile', 'feed'];
+const TABS: readonly TabId[] = ['post', 'comments', 'story', 'profile', 'feed', 'dm', 'common'];
+const SCREENS: readonly ScreenId[] = ['post', 'comments', 'story', 'profile', 'feed', 'dm'];
 
 /* 存下來的設定可能被改壞：開頁時整理一次 */
 {
@@ -124,6 +132,8 @@ const SCREENS: readonly ScreenId[] = ['post', 'comments', 'story', 'profile', 'f
     storyId: typeof p.storyId === 'string' ? p.storyId : 's1',
     cell: typeof p.cell === 'number' && p.cell >= 0 && p.cell < 6 ? Math.round(p.cell) : 0,
     sticker: typeof p.sticker === 'string' ? p.sticker : null,
+    dmView: p.dmView === 'chat' ? 'chat' : 'list',
+    threadId: typeof p.threadId === 'string' ? p.threadId : 't1',
     format: p.format === 'html' ? 'html' : 'png',
     htmlScope: p.htmlScope === 'all' ? 'all' : 'one',
     scale: (SCALES as readonly number[]).includes(p.scale) ? p.scale : 3,
@@ -144,6 +154,14 @@ export const currentPost = (d: SocialState, p: Prefs): Post =>
   d.posts.find((x) => x.id === p.postId) ?? d.posts[0];
 export const currentStory = (d: SocialState, p: Prefs): Story =>
   d.stories.find((x) => x.id === p.storyId) ?? d.stories[0];
+export const currentThread = (d: SocialState, p: Pick<Prefs, 'threadId'>): Thread =>
+  d.dm.threads.find((x) => x.id === p.threadId) ?? d.dm.threads[0];
+
+export function useCurrentThread(): Thread {
+  const threads = useDoc((s) => s.data.dm.threads);
+  const id = usePrefs((p) => p.data.threadId);
+  return threads.find((x) => x.id === id) ?? threads[0];
+}
 
 export function useCurrentPost(): Post {
   const posts = useDoc((s) => s.data.posts);

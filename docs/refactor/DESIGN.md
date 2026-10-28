@@ -668,7 +668,7 @@ loading-maker 預設（透明）、不透明背景＋預設的結尾動作（最
 - G6 lock-screen（鎖定畫面訊息產生器）：圖片放進框的蓋滿模式與位置（`ImageFrameDialog` 的 `cover`／`initialPlacement`／`onApply`、`@/core/image` 的 `FramePlacement`）、
   GIF 的 `cropFrames` 與 `dither: 'luma'` 已補進共用層。沒有共用的：手機鎖定畫面的畫法（狀態列、鎖頭、通知卡片、通用的手機外框與前鏡頭、預設的夜景桌布；
   `web/src/tools/lock-screen/render.ts`）、通知卡片的堆疊與彈簧動畫、GIF 的影格表（`model.ts`）——別的工具要做手機畫面類的 handout 時可以搬進共用層。
-- G7 social-post（社群貼文產生器）：畫面的畫法是工具專屬的「畫面描述」（`web/src/tools/social-post/render/`：版面計算產生一串指令〔矩形、圓、文字、圖示、圖片、群組〕，`paint.ts` 照著畫；預覽、PNG、HTML 共用），文字的基線用字型的上下高度置中在行框裡（同 CSS 的半行距）。沒有共用的：相片社群 App 的四種畫面、本站自己畫的線條圖示（`render/icons.ts`）、HTML 檢視（每個畫面先畫成圖片＋透明按鈕，`viewer.ts`）、照片的拖曳／捏合區（`PanZone.tsx`）——別的工具要做手機 App 類的畫面或圖片版的互動網頁時可以搬進共用層。
+- G7 social-post（社群貼文產生器）：畫面的畫法是工具專屬的「畫面描述」（`web/src/tools/social-post/render/`：版面計算產生一串指令〔矩形、圓、文字、圖示、圖片、群組〕，`paint.ts` 照著畫；預覽、PNG、HTML 共用），文字的基線用字型的上下高度置中在行框裡（同 CSS 的半行距）。沒有共用的：相片社群 App 的六種畫面（貼文、留言、限時動態、個人頁、首頁動態、私訊；2026-10 加了後兩種）、本站自己畫的線條圖示（`render/icons.ts`）、HTML 檢視（每個畫面先畫成圖片＋透明按鈕；輪播是可以左右滑的 scroll-snap 照片列、可以橫向捲動的一層、撐滿畫面高的三段〔私訊的對話〕、限時動態的接著看，`viewer.ts`）、照片的拖曳／捏合區（`PanZone.tsx`）——別的工具要做手機 App 類的畫面或圖片版的互動網頁時可以搬進共用層。
 - G6 id-ticket（證件與票券產生器）：印刷尺寸（`@/core/paged` 的 `printPixels`）與 PNG 的解析度（`@/core/encode` 的 `setPngDpi`）已補進共用層。
   沒有共用的：Code 128 條碼（`web/src/tools/id-ticket/code128.ts`：B／C 字集自動切換、檢查碼，約 80 行）、QR code（`qr.ts`：npm 的
   `qrcode-generator`，中文以 UTF-8 位元組交給套件）、畫證件與票券的小工具（`kit.ts`：字距、自動縮小與「…」、欄位的點選範圍、照片格、印章），
