@@ -58,7 +58,7 @@
 | [UI 框素材產生器](https://tool-jx3.github.io/toolkit/tools/ui-frame/) | 選一組世界觀預設與主色，做出整套透明 PNG 的 UI 框：CCFOLIA 螢幕面板與 OBS 用的畫面外框、角色框、狀態徽章、骰子面板、留言板，或文字冒險遊戲的訊息框、名字框、四種狀態的選項與系統按鈕（附 TyranoScript 配置程式碼），一次打包 ZIP |
 | [立繪尺寸統一器](https://tool-jx3.github.io/toolkit/tools/portrait-size/) | 把同一角色的差分立繪裁掉透明邊並統一寬度，切換立繪時棋子圖就不會忽大忽小；也能單張拿來裁邊與轉 WebP |
 | [立繪去背工具](https://tool-jx3.github.io/toolkit/tools/bg-remover/) | 去掉立繪的背景：AI 模型（第一次使用時下載約 176 MB，之後存在瀏覽器）認得動漫角色，白底與單色底也能依顏色去掉；用筆刷修邊，可以批次處理，存成透明 PNG／WebP 或 ZIP |
-| [立繪身高比較板](https://tool-jx3.github.io/toolkit/tools/height-board/) | 填上身高就自動統一縮尺，把立繪並排比較高矮；可調頭頂與腳底線、匯出高解析 PNG、存成 .hboard 檔 |
+| [立繪身高比較板](https://tool-jx3.github.io/toolkit/tools/height-board/) | 填上身高就自動統一縮尺，把立繪並排比較高矮；可調頭頂與腳底線（蹲姿、半身可以拖到圖外）、匯出高解析 PNG、存成專案檔，也能開啟原作的 .hboard 檔；手機與平板可以兩指縮放，第一次開有操作導覽 |
 | [房間 ZIP 產生器](https://tool-jx3.github.io/toolkit/tools/room-zip/) | 放入素材、排好場景、共用部件與棋子，直接產生 CCFOLIA 房間匯入用的 ZIP；也能讀入 CCFOLIA 匯出的房間 ZIP 再編輯；工作進度可存成 .rzproj 檔 |
 | [劇本文字產生器](https://tool-jx3.github.io/toolkit/tools/scenario-text/) | 貼上台本或描寫，切成一則一則的 CCFOLIA 劇本文字（シナリオテキスト），台詞帶說話者的立繪與差分，匯出成可以直接讀入房間的 ZIP |
 | [劇本心得九宮格](https://tool-jx3.github.io/toolkit/tools/review-grid/) | 把跑過的劇本做成心得卡片：每格放劇本圖、規則、名稱與作者，選幾個心得標籤，排成九宮格或清單存成 PNG，也能把多人的心得合成比較圖 |
