@@ -145,7 +145,7 @@ describe('舊存檔（版本 1，只有色條）的轉換', () => {
     expect(imageIds(s)).toEqual(['img1']);
   });
 
-  it('髮色、瞳色各最多 5 個：讀入時多出來的段刪掉（其他部位與沒有標部位的段不動）', () => {
+  it('髮色、瞳色各最多 5 個：讀入時多出來的段改成「其他」部位（段留著；其他部位與沒有標部位的段不動）', () => {
     const segs = [
       ...Array.from({ length: 7 }, (_, i) => ({
         id: `h${i}`,
@@ -165,7 +165,10 @@ describe('舊存檔（版本 1，只有色條）的轉換', () => {
     const g = partGroups(bar.segments);
     expect(g.hair.map((s) => s.id)).toEqual(['h0', 'h1', 'h2', 'h3', 'h4']);
     expect(g.eye).toHaveLength(5);
-    expect(g.other).toHaveLength(8);
+    expect(g.other).toHaveLength(8 + 3);
+    expect(bar.segments.map((s) => s.id)).toEqual(segs.map((s) => s.id));
+    expect(bar.segments.find((s) => s.id === 'h5')?.role).toBe('other');
+    expect(bar.segments.find((s) => s.id === 'e5')?.role).toBe('other');
   });
 
   it('角色清單最多 24 位（配色條的上限）', () => {

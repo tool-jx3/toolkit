@@ -606,13 +606,16 @@ function cleanSegment(v: unknown): Segment | null {
   );
 }
 
-/** 髮色、瞳色各最多 5 個（LIMITS.roleColors）：多出來的段刪掉（手改的或舊版做出來的專案檔） */
+/**
+ * 髮色、瞳色各最多 5 個（LIMITS.roleColors）：多出來的段改成「其他」部位（手改的或舊版做出來的專案檔）。
+ * 段本身留著，配色條的畫法不變。
+ */
 function keepRoleLimit(segments: Segment[]): Segment[] {
   const seen = { hair: 0, eye: 0 };
-  return segments.filter((s) => {
-    if (s.role !== 'hair' && s.role !== 'eye') return true;
+  return segments.map((s) => {
+    if (s.role !== 'hair' && s.role !== 'eye') return s;
     seen[s.role]++;
-    return seen[s.role] <= LIMITS.roleColors;
+    return seen[s.role] <= LIMITS.roleColors ? s : { ...s, role: 'other' };
   });
 }
 
