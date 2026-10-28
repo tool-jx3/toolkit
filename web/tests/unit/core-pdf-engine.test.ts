@@ -15,6 +15,7 @@ import { colorInfo, filtersOf, isImage, N, numberOf, rawStreams } from '@/core/p
 import { closePdf, docSignature, openPdf } from '@/core/pdf/pdfjs';
 import { type CompressReport, compressPdf, type EngineDeps, inspectPdf } from '@/core/pdf/pipeline';
 import { INSPECT_ARGS, parseInspectJson } from '@/core/pdf/qpdfArgs';
+import { type PdfSource, sourceSize, toBytes } from '@/core/pdf/source';
 import { nodeCodec, nodeDeps, nodeQpdf } from '../helpers/pdfEngine';
 import {
   grayFlatePdf,
@@ -33,7 +34,7 @@ import { encryptPdf } from '../helpers/pdfQpdf';
 const encode: JpegEncoder = (rgba, width, height, o) =>
   nodeCodec().encode({ data: rgba, width, height }, { quality: o.quality, gray: !!o.gray });
 
-async function signature(bytes: Uint8Array, password?: string) {
+async function signature(bytes: PdfSource, password?: string) {
   const doc = await openPdf(bytes, password);
   try {
     return await docSignature(doc);
@@ -51,8 +52,8 @@ interface ImageRow {
   jpegComponents: number | null;
 }
 
-async function images(bytes: Uint8Array): Promise<ImageRow[]> {
-  const doc = await PDFDocument.load(bytes, { updateMetadata: false });
+async function images(bytes: PdfSource): Promise<ImageRow[]> {
+  const doc = await PDFDocument.load(await toBytes(bytes), { updateMetadata: false });
   const ctx = doc.context;
   const out: ImageRow[] = [];
   for (const [, s] of rawStreams(ctx)) {
@@ -130,7 +131,7 @@ describe('無損', () => {
     expect(again.kept).toBe(true);
     expect(again.strategy).toBe('original');
     expect(again.bytes).toBe(first.bytes);
-    expect(again.outputBytes).toBe(first.bytes.length);
+    expect(again.outputBytes).toBe(sourceSize(first.bytes));
   });
 });
 

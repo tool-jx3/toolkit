@@ -141,6 +141,10 @@ async function download(page: Page, button: ReturnType<Page['getByRole']>) {
 }
 
 test('開頁：標題、頁尾的靈感來源、等級與說明；390 寬沒有橫向捲動；視覺基準圖', async ({ page }) => {
+  /* 上限依裝置記憶體（拖放區的說明會寫）：固定成 8 GB，基準圖才不會因為機器不同而不同 */
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'deviceMemory', { value: 8, configurable: true });
+  });
   const errors = await open(page);
   await expect(page.getByRole('contentinfo')).toContainText('靈感來源：mrflamingchad67/qcompress');
   await expect(page.getByRole('radio', { name: '平衡', exact: true })).toHaveAttribute(
@@ -162,7 +166,7 @@ test('每個等級：下載的檔案打得開、頁數相同、變小；不是�
   const src = await photoPdf(page);
   await fileInput(page).setInputFiles(pdfFile('handout.pdf', src));
   const r = row(page, 'handout.pdf');
-  await expect(r.getByText('2 頁')).toBeVisible();
+  await expect(r.getByText('2 頁')).toBeVisible({ timeout: 30_000 });
   const before = await signature(src);
   const sizes: Record<string, number> = {};
   for (const level of ['無損', '高畫質', '平衡', '最小', '整頁轉圖']) {
@@ -408,5 +412,52 @@ test('讀不到的檔案（手機的相簿、雲端硬碟，讀取權限過期�
   await expect(page.getByTestId('start')).toBeDisabled();
   await r.getByRole('button', { name: '移除「gone.pdf」' }).click();
   await expect(row(page, 'gone.pdf')).toHaveCount(0);
+  expect(errors).toEqual([]);
+});
+
+test('大檔流程（測試掛鉤把門檻調低，用小檔走一遍）：結果正確、寫明省記憶體的做法', async ({
+  page,
+}) => {
+  test.setTimeout(300_000);
+  await page.addInitScript(() => {
+    (globalThis as { __pdfCompressTest?: unknown }).__pdfCompressTest = { bigFileBytes: 1 };
+  });
+  const errors = await open(page);
+  const src = await photoPdf(page);
+  await fileInput(page).setInputFiles(pdfFile('big.pdf', src));
+  const r = row(page, 'big.pdf');
+  await expect(r.getByText('2 頁')).toBeVisible({ timeout: 30_000 });
+  const before = await signature(src);
+  for (const level of ['無損', '平衡', '整頁轉圖']) {
+    await chooseLevel(page, level);
+    await compressAll(page);
+    await expect(r.getByTestId('item-result')).toBeVisible();
+    await expect(r.getByText('大檔：用了省記憶體的做法')).toBeVisible();
+    const { name, bytes } = await download(page, r.getByTestId('download'));
+    expect(name, level).toBe('big_壓縮.pdf');
+    expect(bytes.length, level).toBeLessThan(src.length);
+    const after = await signature(bytes);
+    expect(after.pages, level).toBe(2);
+    if (level !== '整頁轉圖') expect(after.text, level).toEqual(before.text);
+  }
+  /* 前後比對（File／Blob 直接交給預覽的 Worker） */
+  await r.getByRole('button', { name: '前後比對' }).click();
+  const dlg = page.getByRole('dialog');
+  await expect(dlg.getByTestId('compare-before')).toBeVisible({ timeout: 30_000 });
+  await expect(dlg.getByTestId('compare-after')).toBeVisible({ timeout: 30_000 });
+  await dlg.getByRole('button', { name: '關閉' }).first().click();
+  expect(errors).toEqual([]);
+});
+
+test('超過上限：加入時拒絕並寫出上限（測試掛鉤把上限調低）', async ({ page }) => {
+  await page.addInitScript(() => {
+    (globalThis as { __pdfCompressTest?: unknown }).__pdfCompressTest = { maxFileBytes: 1000 };
+  });
+  const errors = await open(page);
+  await expect(page.getByText('一個檔案最多 1000 B')).toBeVisible();
+  await fileInput(page).setInputFiles(pdfFile('huge.pdf', await textPdf()));
+  await expect(page.getByTestId('note')).toContainText('「huge.pdf」：檔案太大');
+  await expect(page.getByTestId('note')).toContainText('上限 1000 B');
+  await expect(row(page, 'huge.pdf')).toHaveCount(0);
   expect(errors).toEqual([]);
 });

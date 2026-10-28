@@ -5,8 +5,9 @@
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { formatBytes, readAsBytes } from '@/core/files';
+import { isBigFile } from '@/core/pdf';
 import { Dialog, DialogClose, IconButton, Notice, Segmented } from '@/ui';
-import { viewer } from './actions';
+import { bigThreshold, viewer } from './actions';
 import { getItem } from './store';
 import { S } from './strings';
 
@@ -71,7 +72,11 @@ export function CompareDialog({ id, onClose }: { id: string | null; onClose: () 
     setZoom('fit');
     (async () => {
       const v = viewer();
-      const [a, b] = await Promise.all([readAsBytes(it.file), readAsBytes(it.result!)]);
+      /* 大檔：File／Blob 照原樣交給預覽的 Worker（分段讀），不整份讀進來 */
+      const big = isBigFile(it.size, bigThreshold());
+      const [a, b] = big
+        ? [it.file, it.result!]
+        : await Promise.all([readAsBytes(it.file), readAsBytes(it.result!)]);
       const ra = await v.open(`${id}:a`, a, it.password);
       await v.open(`${id}:b`, b, null);
       if (!alive) return;

@@ -19,6 +19,7 @@ import { PdfError, revivePdfError } from './errors';
 import type { ResolvedSettings } from './levels';
 import type { PdfWorkerApi, ProbeResult, RenderedBitmap } from './pdf.worker';
 import type { CompressReport, Progress } from './pipeline';
+import type { PdfSource } from './source';
 
 export type { DedupeStats } from './dedupe';
 export * from './errors';
@@ -34,23 +35,32 @@ export type {
   Strategy,
 } from './pipeline';
 export type { ImagePassStats } from './recompress';
+export * from './source';
 export type { VerifyItem, VerifyResult } from './verify';
 export type { ProbeResult, RenderedBitmap };
 
 export interface PdfClient {
-  /** 檢視（加密、頁數、版本）＋第一頁的縮圖（thumbWidth px 寬） */
+  /** 檢視（加密、頁數、版本）＋第一頁的縮圖（thumbWidth px 寬）。Blob（使用者的 File）照原樣傳，Worker 裡直接讀 */
   probe(
-    bytes: Uint8Array,
+    bytes: PdfSource,
     options?: { password?: string | null; fileName?: string; thumbWidth?: number },
   ): Promise<ProbeResult>;
-  /** 壓縮（bytes 會轉移到 Worker，之後不要再用；要留著原檔請傳複本） */
+  /**
+   * 壓縮（位元組會轉移到 Worker，之後不要再用；要留著原檔請傳複本。Blob 照原樣傳：大檔流程用）。
+   * big：大檔流程（`isBigFile`）。結果的 bytes 是 Uint8Array 或 Blob（大檔流程、沒有變小的 Blob 原檔）。
+   */
   compress(
-    bytes: Uint8Array,
-    request: { settings: ResolvedSettings; password?: string | null; fileName?: string },
+    bytes: PdfSource,
+    request: {
+      settings: ResolvedSettings;
+      password?: string | null;
+      fileName?: string;
+      big?: boolean;
+    },
     onProgress?: (p: Progress) => void,
   ): Promise<CompressReport>;
   /** 預覽：打開、畫一頁（寬 width px）、關掉 */
-  open(id: string, bytes: Uint8Array, password?: string | null): Promise<{ pages: number }>;
+  open(id: string, bytes: PdfSource, password?: string | null): Promise<{ pages: number }>;
   render(id: string, page: number, width: number): Promise<RenderedBitmap>;
   close(id: string): Promise<void>;
   /** 用到的程式庫 */
@@ -110,19 +120,14 @@ export function createPdfClient({ name = 'PDF 處理' }: { name?: string } = {})
 
   const own = (bytes: Uint8Array) =>
     bytes.byteOffset === 0 && bytes.byteLength === bytes.buffer.byteLength ? bytes : bytes.slice();
+  /** 位元組轉移過去；Blob 照原樣（結構化複製只複製參照） */
+  const pass = (s: PdfSource): PdfSource => (s instanceof Blob ? s : transferBytes(own(s)));
 
   return {
-    probe: (bytes, options = {}) =>
-      call((api) => {
-        const b = own(bytes);
-        return api.probe(transferBytes(b), options);
-      }),
+    probe: (bytes, options = {}) => call((api) => api.probe(pass(bytes), options)),
     compress: (bytes, request, onProgress) =>
-      call((api) => {
-        const b = own(bytes);
-        return api.compress(transferBytes(b), request, onProgress ? proxy(onProgress) : undefined);
-      }),
-    open: (id, bytes, password) => call((api) => api.open(id, transferBytes(own(bytes)), password)),
+      call((api) => api.compress(pass(bytes), request, onProgress ? proxy(onProgress) : undefined)),
+    open: (id, bytes, password) => call((api) => api.open(id, pass(bytes), password)),
     render: (id, page, width) => call((api) => api.render(id, page, width)),
     close: (id) => (handle ? call((api) => api.close(id)) : Promise.resolve()),
     info: () => call((api) => api.info()),

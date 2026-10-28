@@ -26,17 +26,27 @@ import {
 } from '@/ui';
 import {
   addFiles,
+  addLimit,
   cancelAll,
   clearAll,
   downloadOne,
   downloadZip,
   finishedItems,
+  levelLimit,
   removeItem,
   retry,
   startAll,
   submitPassword,
 } from './actions';
-import { keptReason, needsWork, resultLines, savedPercent, settingsKey, sizeLine } from './logic';
+import {
+  errorText,
+  keptReason,
+  needsWork,
+  resultLines,
+  savedPercent,
+  settingsKey,
+  sizeLine,
+} from './logic';
 import { currentSettings, type Item, useQueue, useSettings } from './store';
 import { S } from './strings';
 
@@ -106,6 +116,8 @@ function PasswordForm({ item }: { item: Item }) {
 
 function ErrorBlock({ item }: { item: Item }) {
   const err = item.error;
+  /* 太大：無損的上限比較高、而且放得下時才建議改用 */
+  const higherLimit = !!item.level && item.size <= levelLimit('lossless');
   const [diag, setDiag] = useState<string | null>(null);
   const level = item.level;
   useEffect(() => {
@@ -113,7 +125,7 @@ function ErrorBlock({ item }: { item: Item }) {
     let alive = true;
     void diagnosticText({
       tool: S.diagnostics,
-      summary: S.errors[err.kind],
+      summary: errorText(err, item.size, level, higherLimit),
       items: [
         {
           title: S.diagFile,
@@ -132,15 +144,18 @@ function ErrorBlock({ item }: { item: Item }) {
     return () => {
       alive = false;
     };
-  }, [err, item.name, item.file, level]);
+  }, [err, item.name, item.file, item.size, level, higherLimit]);
   if (!err) return null;
   return (
     <div className="flex flex-col gap-1" data-testid="item-error">
       <p className="m-0 text-sm text-danger" role="alert">
-        {S.errors[err.kind]}
+        {errorText(err, item.size, level, higherLimit)}
       </p>
       {/* 頁數超過的 detail 是頁數，不是引擎的訊息 */}
-      {err.detail && err.kind !== 'aborted' && err.kind !== 'too-many-pages' ? (
+      {err.detail &&
+      err.kind !== 'aborted' &&
+      err.kind !== 'too-many-pages' &&
+      err.kind !== 'too-large' ? (
         <p className="m-0 break-all text-xs text-muted">{S.engineSaid(err.detail)}</p>
       ) : null}
       <div className="flex flex-wrap gap-1.5">
@@ -299,7 +314,7 @@ export function MainColumn({ onCompare }: { onCompare: (id: string) => void }) {
         icon={<FileUp />}
         label={S.dropLabel}
         buttonLabel={S.dropButton}
-        hint={S.dropHint}
+        hint={S.dropHint(formatBytes(addLimit()))}
         onFiles={(files) => void addFiles(files)}
       />
       <div className="flex flex-wrap items-center gap-2" data-testid="batch-bar">

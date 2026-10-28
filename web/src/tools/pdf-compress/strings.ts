@@ -52,7 +52,7 @@ export const S = {
   /* 選檔 */
   dropLabel: '選擇或拖放 PDF（可以多個）',
   dropButton: '選擇 PDF',
-  dropHint: '檔案只在這個瀏覽器裡處理，不會上傳。一個檔案最多 200 MB。',
+  dropHint: (max: string) => `檔案只在這個瀏覽器裡處理，不會上傳。一個檔案最多 ${max}。`,
   listLabel: '要壓縮的 PDF',
   listEmpty: '還沒有檔案。',
   remove: (name: string) => `移除「${name}」`,
@@ -157,6 +157,7 @@ export const S = {
   rasterSkippedFonts: (names: string) =>
     `這個 PDF 有沒有內嵌的中日韓字型（${names}），轉成圖片會缺字，所以只整理結構（文字仍可以選）。`,
   rasterFailed: '轉成圖片時發生錯誤，所以只整理結構（文字仍可以選）。',
+  bigMode: '大檔：用了省記憶體的做法（少試幾種做法，結果可能沒那麼小）。',
   imagesFailed:
     '影像沒有處理：這個檔案的內部結構讀不懂（qpdf 修得好、但分析影像時出錯），只整理了結構。',
   verified: '已比對：頁數、文字、連結、書籤、表單欄位都和原檔相同。',
@@ -187,7 +188,7 @@ export const S = {
   errors: {
     'not-pdf': '這不是 PDF 檔案。',
     empty: '這是空的檔案。',
-    'too-large': '檔案太大（上限 200 MB）。',
+    'too-large': '檔案太大，這台裝置處理不了。',
     password: '這個 PDF 要密碼才能開啟。',
     'wrong-password': '密碼不對。',
     broken: '這個檔案打不開，可能壞掉了。',
@@ -199,6 +200,8 @@ export const S = {
     internal: '處理時發生錯誤。',
   } satisfies Record<PdfErrorKind, string>,
   engineSaid: (detail: string) => `引擎的訊息：${detail}`,
+  tooLargeForLevel: (size: string, max: string, level: string, suggest: boolean) =>
+    `檔案太大：「${level}」在這台裝置上最多處理 ${max}，這個檔案 ${size}。${suggest ? '可以改用「無損」（上限比較高）。' : ''}`,
 
   /* 批次 */
   start: (count: number) => (count ? `開始壓縮（${n(count)} 個）` : '開始壓縮'),
@@ -270,7 +273,7 @@ export const S = {
   usageNotes: [
     '有數位簽章的 PDF，改寫之後簽章會失效。',
     '要開啟密碼的 PDF 輸入密碼後可以壓縮，輸出的檔案不加密。只有權限設定（禁止列印等）的 PDF 會保留設定、只做無損整理。',
-    '一個檔案最多 200 MB；整頁轉圖最多 500 頁。檔案很大或頁數很多時要花一點時間，手機上可能記憶體不夠。',
+    '一個檔案最多 900 MB（整頁轉圖 600 MB、最多 500 頁）；記憶體 4 GB 以下的裝置會更少（依瀏覽器回報的記憶體）。100 MB 以上的檔案改用省記憶體的做法（少試幾種做法，結果可能沒那麼小），檔案很大時要好幾分鐘。',
     '設定（等級、進階設定）會存在這個瀏覽器；PDF 和密碼都不會存。',
   ],
   usageLibraries: '使用的程式庫（授權見 THIRD_PARTY_NOTICES）：',

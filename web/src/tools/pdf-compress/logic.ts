@@ -4,7 +4,13 @@
  */
 
 import { formatBytes, safeFileName, splitExtension, uniqueFileName } from '@/core/files';
-import type { CompressReport, PdfErrorKind, ResolvedSettings, SkipReason } from '@/core/pdf';
+import type {
+  CompressReport,
+  PdfErrorKind,
+  PdfLevel,
+  ResolvedSettings,
+  SkipReason,
+} from '@/core/pdf';
 import { S } from './strings';
 
 /** Discord 免費帳號的上傳上限（10 MB；自訂，以 10 × 1024 × 1024 位元組計） */
@@ -53,14 +59,10 @@ export function settingsKey(s: ResolvedSettings): string {
   return JSON.stringify(s);
 }
 
-/** 錯誤之後重壓也沒用的種類（檔案本身的問題） */
-const PERMANENT: readonly PdfErrorKind[] = [
-  'not-pdf',
-  'empty',
-  'too-large',
-  'broken',
-  'unreadable',
-];
+/**
+ * 錯誤之後重壓也沒用的種類（檔案本身的問題）。太大（too-large）是那個等級、那台裝置的上限，換等級就可能可以，不算。
+ */
+const PERMANENT: readonly PdfErrorKind[] = ['not-pdf', 'empty', 'broken', 'unreadable'];
 
 export type ItemState = 'probing' | 'password' | 'ready' | 'running' | 'done' | 'kept' | 'error';
 
@@ -135,6 +137,7 @@ export function resultLines(r: ReportSummary, level: ResolvedSettings['level']):
     }
     if (r.imagesError) lines.push(S.imagesFailed);
   }
+  if (r.big) lines.push(S.bigMode);
   if (r.images && r.strategy !== 'raster') {
     const n = skippedCount(r.images.skipped);
     if (n) lines.push(`${S.skippedTitle(n)}${skippedList(r.images.skipped).join('、')}`);
@@ -165,4 +168,25 @@ export function keptReason(r: ReportSummary, level: ResolvedSettings['level']): 
   if (level === 'raster') return S.keptRaster;
   if (r.imagesError) return S.keptImagesFailed;
   return S.keptCompact;
+}
+
+/**
+ * 那一列的錯誤訊息（太大：寫出這個等級的上限，detail 是上限的位元組數；
+ * higherLimit：有沒有上限比較高的等級可以改用〔無損〕）。
+ */
+export function errorText(
+  err: { kind: PdfErrorKind; detail: string },
+  size: number,
+  level: PdfLevel | null,
+  higherLimit = false,
+): string {
+  if (err.kind === 'too-large' && /^\d+$/.test(err.detail) && level) {
+    return S.tooLargeForLevel(
+      formatBytes(size),
+      formatBytes(Number(err.detail)),
+      S.levels[level],
+      higherLimit && level !== 'lossless',
+    );
+  }
+  return S.errors[err.kind];
 }

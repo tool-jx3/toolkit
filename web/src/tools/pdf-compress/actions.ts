@@ -4,15 +4,23 @@
  *
  * 檔案在用到時才讀（拖放區 `readNow={false}`：一次選很多個大檔時不會全部讀進記憶體）。手機的相簿、雲端硬碟給的檔案，
  * 讀取權限過一陣子會失效（DESIGN.md 的 FileDrop），讀不到時那一列顯示「讀不到這個檔案，請重新選檔」（PdfError 'unreadable'）。
+ *
+ * 大檔（BIG_FILE_BYTES 以上）：不在主執行緒讀，把 File 本身交給 Worker（qpdf 用 WORKERFS 直接讀、pdf.js 分段讀），
+ * 結果是 Blob；沒有變小時結果就是原本的 File（不複製）。上限依等級與裝置記憶體（`maxFileBytes`）。
  */
 import { downloadBlob, formatBytes, readAsBytes, zipFiles } from '@/core/files';
 import {
+  BIG_FILE_BYTES,
   createPdfClient,
-  MAX_FILE_BYTES,
+  isBigFile,
   MAX_FILES,
+  maxFileBytes,
   missingPdfFeatures,
+  PDF_LEVELS,
   type PdfClient,
   PdfError,
+  type PdfLevel,
+  type PdfSource,
   precheck,
   revivePdfError,
 } from '@/core/pdf';
@@ -39,6 +47,34 @@ export const viewer = () => {
 let seq = 0;
 const nextId = () => `pdf-${++seq}`;
 
+/** 測試掛鉤（e2e 用 addInitScript 設 `globalThis.__pdfCompressTest`；正式環境沒有）：調低大檔門檻與上限 */
+interface TestHooks {
+  bigFileBytes?: number;
+  maxFileBytes?: number;
+}
+const testHooks = (): TestHooks =>
+  (globalThis as { __pdfCompressTest?: TestHooks }).__pdfCompressTest ?? {};
+
+/** 裝置記憶體（GB；Chrome、Android 才有） */
+const deviceMemory = (): number | null =>
+  (globalThis.navigator as { deviceMemory?: number } | undefined)?.deviceMemory ?? null;
+
+/** 走大檔流程的門檻 */
+export const bigThreshold = (): number => testHooks().bigFileBytes ?? BIG_FILE_BYTES;
+
+/** 這個等級、這台裝置能處理的最大檔案 */
+export const levelLimit = (level: PdfLevel): number =>
+  testHooks().maxFileBytes ?? maxFileBytes(level, deviceMemory());
+
+/** 加入檔案時的上限（所有等級裡最大的） */
+export const addLimit = (): number => Math.max(...PDF_LEVELS.map(levelLimit));
+
+/** 交給 Worker 的來源：大檔是 File 本身（Worker 直接讀），其他讀成位元組 */
+async function sourceOf(file: File): Promise<{ source: PdfSource; big: boolean }> {
+  if (isBigFile(file.size, bigThreshold())) return { source: file, big: true };
+  return { source: await readFile(file), big: false };
+}
+
 const readHead = async (file: File) => readAsBytes(file.slice(0, 1100));
 
 /** 讀整個檔案；讀不到（NotReadableError 等）時丟 PdfError('unreadable') */
@@ -59,9 +95,8 @@ let generation = 0;
 /** 加入時的檢查：不合格的原因（合格時 null） */
 async function rejectReason(file: File): Promise<string | null> {
   if (file.size === 0) return S.rejectEmpty;
-  if (file.size > MAX_FILE_BYTES) {
-    return S.rejectTooLarge(formatBytes(file.size), formatBytes(MAX_FILE_BYTES));
-  }
+  const limit = addLimit();
+  if (file.size > limit) return S.rejectTooLarge(formatBytes(file.size), formatBytes(limit));
   try {
     const head = await readHead(file);
     /* 只看檔頭（大小另外看過了）：precheck 對前 1100 位元組做同樣的檢查 */
@@ -131,8 +166,8 @@ async function probe(id: string, password: string | null = null): Promise<void> 
   const it = getItem(id);
   if (!it) return;
   try {
-    const bytes = await readFile(it.file);
-    const { info, thumb, missingFonts } = await viewer().probe(bytes, {
+    const { source } = await sourceOf(it.file);
+    const { info, thumb, missingFonts } = await viewer().probe(source, {
       password,
       fileName: it.name,
       thumbWidth: THUMB_WIDTH,
@@ -233,20 +268,29 @@ async function compressOne(
   if (!it) return 'error';
   patchItem(id, { state: 'running', progress: { stage: 'inspect' }, error: null });
   try {
-    const bytes = await readFile(it.file);
+    /* 這個等級、這台裝置的上限（換等級可能就可以） */
+    const limit = levelLimit(settings.level);
+    if (it.size > limit) throw new PdfError('too-large', String(limit));
+    const { source, big } = await sourceOf(it.file);
     /* 讀檔的時候按了取消 */
     if (!live()) return 'aborted';
     const report = await jobs().compress(
-      bytes,
-      { settings, password: it.password, fileName: it.name },
+      source,
+      { settings, password: it.password, fileName: it.name, big },
       (p) => {
         if (live() && getItem(id)?.state === 'running') patchItem(id, { progress: p });
       },
     );
     if (!live()) return 'aborted';
     if (!getItem(id)) return 'error';
-    /* 保留原檔時也用讀出來的位元組（原本的 File 之後可能讀不到） */
-    const result = new Blob([report.bytes as BlobPart], { type: 'application/pdf' });
+    /*
+     * 小檔：保留原檔時也用讀出來的位元組（原本的 File 之後可能讀不到）。
+     * 大檔：Worker 傳回 Blob（沒有變小時就是原本的 File），不複製。
+     */
+    const result =
+      report.bytes instanceof Blob
+        ? report.bytes
+        : new Blob([report.bytes as BlobPart], { type: 'application/pdf' });
     const summary = summarize(report);
     patchItem(id, {
       state: report.kept ? 'kept' : 'done',
@@ -282,6 +326,8 @@ async function compressOne(
       });
       return 'error';
     }
+    /* 記憶體不足：結束這個 Worker（放掉它的記憶體），下一個檔案用新的 Worker */
+    if (err.kind === 'memory') jobs().cancel();
     patchItem(id, {
       state: 'error',
       progress: null,
