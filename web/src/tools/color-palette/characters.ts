@@ -3,8 +3,9 @@
  * 色票櫃的排序與分組、複製色碼的文字、新增角色時的部位、色碼表與色票櫃 PNG 的內容。
  * 規格：docs/refactor/specs/color-palette.md 1.1～1.3。
  */
-import { cieLightness, parseColor } from '@/core/color';
+import { cieLightness, formatHex, parseColor } from '@/core/color';
 import { COLOR_FAMILIES, colorFamily } from '@/core/colornames';
+import { kmeansPalette } from '@/core/image';
 import {
   type Bar,
   barOf,
@@ -38,7 +39,7 @@ export function roleColors(bar: Pick<Bar, 'segments'>, role: PartRole): PartColo
 export const realColors = (list: readonly PartColor[]): string[] =>
   list.filter((c) => !c.none).map((c) => c.color);
 
-/** 雙色（髮色）／異色瞳（瞳色）：真的有顏色的有兩個以上（和原作相同；「無」不算） */
+/** 雙色（髮色）／異色瞳（瞳色）：真的有顏色的有兩個以上（「無」不算） */
 export function isMultiColor(bar: Pick<Bar, 'segments'>, role: KeyRole): boolean {
   return realColors(roleColors(bar, role)).length >= 2;
 }
@@ -53,11 +54,13 @@ export function familiesFor(role: KeyRole): FamilyKey[] {
  */
 export function autoFamily(list: readonly PartColor[], role: KeyRole): FamilyKey | null {
   if (!list.length) return null;
-  const real = realColors(list);
-  if (!real.length) return 'other';
-  if (real.length > 1) return role === 'hair' ? 'twotone' : 'oddeye';
-  return colorFamily(real[0]);
+  const [first, ...more] = realColors(list);
+  if (first === undefined) return 'other';
+  return more.length ? MULTI_FAMILY[role] : colorFamily(first);
 }
+
+/** 兩色以上時的色系 */
+const MULTI_FAMILY: Record<KeyRole, FamilyKey> = { hair: 'twotone', eye: 'oddeye' };
 
 /** 色系（有手動指定時用指定的；沒有這個部位時 null） */
 export function familyOf(bar: Bar, role: KeyRole): FamilyKey | null {
@@ -99,11 +102,13 @@ export function sortCharacters(bars: readonly Bar[], sort: ShelfSort): Bar[] {
     indexed.sort((a, b) => cmp(a.bar, b.bar) || a.i - b.i).map((x) => x.bar);
   if (sort === 'manual') return bars.slice();
   if (sort === 'name') {
+    /* 有名字的在前（依名字），沒有名字的在後（照清單的順序） */
+    const key = (b: Bar) => (b.name ?? '').trim();
     return by((a, b) => {
-      const na = (a.name ?? '').trim();
-      const nb = (b.name ?? '').trim();
-      if (!na !== !nb) return na ? -1 : 1;
-      return na ? collator.compare(na, nb) : 0;
+      const ka = key(a);
+      const kb = key(b);
+      const blank = Number(ka === '') - Number(kb === '');
+      return blank || (ka && kb ? collator.compare(ka, kb) : 0);
     });
   }
   if (sort === 'light') {
@@ -151,7 +156,7 @@ export const isGrouped = (sort: ShelfSort, group: boolean) =>
   group && (sort === 'hair' || sort === 'eye');
 
 /**
- * 點色塊複製的文字：真的有顏色的色碼（大寫，以「, 」分隔，和原作相同）；全部是「無」或沒有時 null。
+ * 點色塊複製的文字：真的有顏色的色碼（大寫，以「, 」分隔）；全部是「無」或沒有時 null。
  */
 export function copyTextOf(list: readonly PartColor[]): string | null {
   const codes = realColors(list).map((c) => c.toUpperCase());
@@ -230,11 +235,14 @@ export function partGroups(segments: readonly Segment[]): {
   };
 }
 
-/* ---------- 自動取色（圓形頭像裡最常出現的顏色） ---------- */
+/* ---------- 自動取色、滴管 ---------- */
+
+/** 圓形頭像要看的範圍：半徑是邊長的幾倍（只看圓的內側，邊緣常常是背景） */
+const AUTO_RADIUS = 0.45;
 
 /**
- * 圓形頭像裡的主色（原作的「自動取色」）：頭像縮成 size × size（原作 48）後，只看離中心 0.4 倍邊長以內、
- * 透明度 200 以上的像素，RGB 各取前 3 位元分格，出現最多的那一格的平均色。沒有可算的像素時 #888888。
+ * 圓形頭像裡的主色（「自動取色」）：只看圓的內側（半徑 0.45 倍邊長）、透明度 128 以上的像素，
+ * 用 k-means 分成 4 群，取占得最多的那一群的平均色。沒有可算的像素時 #888888。
  */
 export function dominantInCircle(px: {
   data: ArrayLike<number>;
@@ -242,86 +250,55 @@ export function dominantInCircle(px: {
   height: number;
 }): string {
   const { data, width: w, height: h } = px;
-  const s = Math.min(w, h);
-  const lim = (s * 0.4) ** 2;
-  const bins = new Map<number, [number, number, number, number]>();
-  let best: [number, number, number, number] | null = null;
+  const inside = new Uint8ClampedArray(w * h * 4);
+  const r2 = (Math.min(w, h) * AUTO_RADIUS) ** 2;
   for (let y = 0; y < h; y++) {
+    const dy = y + 0.5 - h / 2;
     for (let x = 0; x < w; x++) {
-      const dx = x - w / 2 + 0.5;
-      const dy = y - h / 2 + 0.5;
-      if (dx * dx + dy * dy > lim) continue;
-      const i = (y * w + x) * 4;
-      if (data[i + 3] < 200) continue;
-      const r = data[i];
-      const g = data[i + 1];
-      const b = data[i + 2];
-      const k = ((r >> 5) << 6) | ((g >> 5) << 3) | (b >> 5);
-      let e = bins.get(k);
-      if (!e) {
-        e = [0, 0, 0, 0];
-        bins.set(k, e);
-      }
-      e[0] += r;
-      e[1] += g;
-      e[2] += b;
-      e[3]++;
+      const dx = x + 0.5 - w / 2;
+      if (dx * dx + dy * dy > r2) continue;
+      const o = (y * w + x) * 4;
+      for (let k = 0; k < 4; k++) inside[o + k] = data[o + k];
     }
   }
-  /* 出現最多的格（同樣多時取先出現的格，和原作的 Map 走訪順序相同） */
-  for (const e of bins.values()) if (!best || e[3] > best[3]) best = e;
-  if (!best) return '#888888';
-  const hex = (v: number) =>
-    Math.round(v / best![3])
-      .toString(16)
-      .padStart(2, '0');
-  return `#${hex(best[0])}${hex(best[1])}${hex(best[2])}`;
+  const groups = kmeansPalette({ data: inside }, 4, { order: 'share' });
+  return groups[0]?.color ?? '#888888';
 }
 
+/** 滴管看的格子：點到的那一格與上下左右、斜角的八格 */
+const NEIGHBORHOOD: readonly (readonly [number, number])[] = [-1, 0, 1].flatMap((dy) =>
+  [-1, 0, 1].map((dx) => [dx, dy] as const),
+);
+/** 滴管只算夠不透明的像素（透明度 200 以上） */
+const PICK_ALPHA = 200;
+
 /**
- * 滴管：原圖 (x, y) 附近 3 × 3 的平均色（透明度 200 以上的像素才算，和原作相同）；點在圖外或周圍全是透明時 null。
+ * 滴管：原圖 (x, y) 那一格與周圍八格（3 × 3）的平均色，只算在圖內、夠不透明的像素；
+ * 點在圖外或周圍全是透明時 null。
  */
 export function sampleAverage(
   px: { data: ArrayLike<number>; width: number; height: number },
   x: number,
   y: number,
 ): string | null {
-  if (x < 0 || y < 0 || x >= px.width || y >= px.height) return null;
-  const cx = Math.floor(x);
-  const cy = Math.floor(y);
-  let r = 0;
-  let g = 0;
-  let b = 0;
-  let n = 0;
-  for (let yy = cy - 1; yy <= cy + 1; yy++) {
-    if (yy < 0 || yy >= px.height) continue;
-    for (let xx = cx - 1; xx <= cx + 1; xx++) {
-      if (xx < 0 || xx >= px.width) continue;
-      const i = (yy * px.width + xx) * 4;
-      if (px.data[i + 3] < 200) continue;
-      r += px.data[i];
-      g += px.data[i + 1];
-      b += px.data[i + 2];
-      n++;
-    }
+  if (!(x >= 0 && y >= 0 && x < px.width && y < px.height)) return null;
+  const col = Math.floor(x);
+  const row = Math.floor(y);
+  const sum = { r: 0, g: 0, b: 0 };
+  let used = 0;
+  for (const [dx, dy] of NEIGHBORHOOD) {
+    const cx = col + dx;
+    const cy = row + dy;
+    if (cx < 0 || cy < 0 || cx >= px.width || cy >= px.height) continue;
+    const o = (cy * px.width + cx) * 4;
+    if (px.data[o + 3] < PICK_ALPHA) continue;
+    sum.r += px.data[o];
+    sum.g += px.data[o + 1];
+    sum.b += px.data[o + 2];
+    used++;
   }
-  if (!n) return null;
-  const hex = (v: number) =>
-    Math.round(v / n)
-      .toString(16)
-      .padStart(2, '0');
-  return `#${hex(r)}${hex(g)}${hex(b)}`;
-}
-
-/** 色碼欄的輸入（#RGB、#RRGGBB，可以不打 #）→ 小寫 #rrggbb；看不懂時 null（和原作相同） */
-export function parseHexText(text: string): string | null {
-  let t = String(text).trim().replace(/^#/, '');
-  if (/^[0-9a-f]{3}$/i.test(t))
-    t = t
-      .split('')
-      .map((c) => c + c)
-      .join('');
-  return /^[0-9a-f]{6}$/i.test(t) ? `#${t.toLowerCase()}` : null;
+  if (!used) return null;
+  return formatHex({ r: sum.r / used, g: sum.g / used, b: sum.b / used, a: 1 }, false);
 }
 
 /** 檔名用的今天（yyyymmdd） */

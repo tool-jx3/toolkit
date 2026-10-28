@@ -87,6 +87,8 @@ export interface CardColumn {
   image: ImageRef | null;
   /** source 為 photo 時：照片下的名字（最多 20 字） */
   name: string;
+  /** 名字是選照片時自動帶入的檔名（使用者沒改過）：換照片時跟著換成新的檔名（舊資料沒有＝false） */
+  autoName?: boolean;
   /** 照片在框裡的位置（拖曳、縮放） */
   placement: FramePlacement;
   /** source 為 photo 時：代表色（null＝自動）；角色的代表色存在角色身上 */
@@ -241,6 +243,7 @@ export const DEFAULT_CARD: CardSettings = {
       characterId: null,
       image: null,
       name: '',
+      autoName: false,
       placement: DEFAULT_PLACEMENT_VALUE,
       key: null,
       colors: 'auto',
@@ -603,12 +606,22 @@ function cleanSegment(v: unknown): Segment | null {
   );
 }
 
+/** 髮色、瞳色各最多 5 個（LIMITS.roleColors）：多出來的段刪掉（手改的或舊版做出來的專案檔） */
+function keepRoleLimit(segments: Segment[]): Segment[] {
+  const seen = { hair: 0, eye: 0 };
+  return segments.filter((s) => {
+    if (s.role !== 'hair' && s.role !== 'eye') return true;
+    seen[s.role]++;
+    return seen[s.role] <= LIMITS.roleColors;
+  });
+}
+
 function cleanBar(v: unknown, baseScale: number): Bar | null {
   if (!v || typeof v !== 'object') return null;
   const o = v as Record<string, unknown>;
-  const segments = Array.isArray(o.segments)
-    ? o.segments.map(cleanSegment).filter((s): s is Segment => !!s)
-    : [];
+  const segments = keepRoleLimit(
+    Array.isArray(o.segments) ? o.segments.map(cleanSegment).filter((s): s is Segment => !!s) : [],
+  );
   const image = cleanImage(o.image);
   const hair = cleanFamily(o.hairFamily);
   const eye = cleanFamily(o.eyeFamily);
@@ -621,7 +634,7 @@ function cleanBar(v: unknown, baseScale: number): Bar | null {
       image,
       avatar: image ? cleanPlacement(o.avatar, LIMITS.avatarZoom) : null,
       theme: typeof o.theme === 'string' && parseColor(o.theme) ? cleanColor(o.theme, '') : null,
-      /* 髮色沒有「異色瞳」、瞳色沒有「雙色」：換成對應的那一個（和原作相同） */
+      /* 髮色沒有「異色瞳」、瞳色沒有「雙色」：換成對應的那一個 */
       hairFamily: hair === 'oddeye' ? 'twotone' : hair,
       eyeFamily: eye === 'twotone' ? 'oddeye' : eye,
     },
@@ -659,6 +672,7 @@ function cleanColumn(v: unknown): CardColumn | null {
         : null,
     image: source === 'photo' ? cleanImage(o.image) : null,
     name: source === 'photo' ? cleanText(o.name, LIMITS.cardName) : '',
+    autoName: source === 'photo' && o.autoName === true,
     placement: cleanPlacement(o.placement, LIMITS.cardZoom) ?? DEFAULT_PLACEMENT_VALUE,
     key:
       source === 'photo' && typeof o.key === 'string' && parseColor(o.key)

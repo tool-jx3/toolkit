@@ -201,6 +201,7 @@ export function placedCrop(img: Size, box: Size, p: FramePlacement): PlacedCrop 
 /**
  * 依位置把框裡看得到的那一塊畫到 box（只取那一塊、不必 clip；高品質縮放）。沒有旋轉時是一次
  * `drawImage(img, 那一塊, box)`、不改變換；有旋轉時移到框中心再轉。框以外不會畫到（drawPlaced 則畫整張圖）。
+ * quality（選填，預設 'high'）：拖曳中一直重畫時可以用 'low' 換速度（color-palette 的配色卡新增，不給時行為不變）。
  */
 export function drawPlacedCrop(
   ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,
@@ -208,11 +209,12 @@ export function drawPlacedCrop(
   imgSize: Size,
   box: Rect,
   p: FramePlacement,
+  quality: ImageSmoothingQuality = 'high',
 ): void {
   const c = placedCrop(imgSize, box, p);
   ctx.save();
   ctx.imageSmoothingEnabled = true;
-  ctx.imageSmoothingQuality = 'high';
+  ctx.imageSmoothingQuality = quality;
   if (c.turns === 0) {
     ctx.drawImage(img, c.x, c.y, c.width, c.height, box.x, box.y, box.width, box.height);
   } else {

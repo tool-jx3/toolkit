@@ -1,13 +1,18 @@
 /**
- * 圓形頭像上的滴管（規格 1.1 F45、F48）：頭像依範圍畫在圓裡，在圓裡點一下或拖曳就取那一點的顏色——
- * 直接取**原圖**的像素（3 × 3 的平均，透明度 200 以上的才算；看起來很小也不會混色）；
- * 滑鼠停在圓裡時旁邊出現放大鏡（原圖約頭像直徑 1/8 的範圍，至少 9 px，中間框出取色的 3 × 3）。
+ * 圓形頭像上的滴管（規格 1.1 F47）：頭像依範圍畫在圓裡，在圓裡點一下或拖曳就取那一點的顏色——
+ * 直接取**原圖**的像素（3 × 3 的平均，透明度 200 以上的才算；看起來很小也不會混色）。
+ * 滑鼠停在圓裡（或拖曳取色）時，游標旁邊出現本站的「像素格」放大鏡：原圖 11 × 11 個像素一格一格畫出來
+ * （方向和頭像相同），中間框出取色的 3 × 3，下面寫這一點的色碼。
  */
 import { type PointerEvent, type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { type FramePlacement, getImageData, placedCrop, placedPointToImage } from '@/core/image';
 import { sampleAverage } from './characters';
 
-const LOUPE = 120;
+/** 放大鏡：幾個像素見方、每格幾 px、離游標多遠 */
+const GRID = 11;
+const CELL = 10;
+const LOUPE = GRID * CELL;
+const OFFSET = 22;
 /** 頭像的框（以 1 為邊長；位置的換算用） */
 const UNIT = { x: 0, y: 0, width: 1, height: 1 };
 
@@ -63,8 +68,8 @@ export function CirclePicker({
     ctx.arc(px / 2, px / 2, px / 2, 0, Math.PI * 2);
     ctx.clip();
     const c = placedCrop(size, { width: 1, height: 1 }, placement);
-    /* 原圖的像素比畫面上的大（放大很多）時不要平滑，看得出一格一格、好對準 */
-    ctx.imageSmoothingEnabled = px / c.width < 1.5;
+    /* 原圖的一個像素在畫面上有 2 px 以上時不要平滑：看得出一格一格、好對準 */
+    ctx.imageSmoothingEnabled = px / c.width < 2;
     ctx.imageSmoothingQuality = 'high';
     if (c.turns === 0) ctx.drawImage(bitmap, c.x, c.y, c.width, c.height, 0, 0, px, px);
     else {
@@ -75,40 +80,52 @@ export function CirclePicker({
     ctx.restore();
   }, [bitmap, size, placement, diameter]);
 
-  /* 放大鏡 */
+  /* 放大鏡：原圖的像素一格一格畫（畫面上往右、往下的一格對到原圖的哪個方向，依頭像範圍的旋轉換算） */
   useEffect(() => {
     const el = loupeCanvas.current;
     const ctx = el?.getContext('2d');
-    if (!el || !ctx || !loupe || !bitmap || !size) return;
+    if (!el || !ctx || !loupe || !pixels || !size) return;
     const dpr = Math.min(2, window.devicePixelRatio || 1);
     const S = Math.round(LOUPE * dpr);
     el.width = S;
     el.height = S;
-    const src = placedPointToImage(size, UNIT, placement, loupe.x / diameter, loupe.y / diameter);
-    const crop = placedCrop(size, { width: 1, height: 1 }, placement);
-    const span = Math.max(9, Math.round(crop.width / 8));
-    ctx.clearRect(0, 0, S, S);
-    ctx.save();
-    ctx.beginPath();
-    ctx.arc(S / 2, S / 2, S / 2, 0, Math.PI * 2);
-    ctx.clip();
+    const at = (x: number, y: number) =>
+      placedPointToImage(size, UNIT, placement, x / diameter, y / diameter);
+    const o = at(loupe.x, loupe.y);
+    const step = 0.25;
+    const ax = at(loupe.x + step, loupe.y);
+    const ay = at(loupe.x, loupe.y + step);
+    const unit = (dx: number, dy: number): [number, number] =>
+      Math.abs(dx) >= Math.abs(dy) ? [Math.sign(dx), 0] : [0, Math.sign(dy)];
+    const ex = unit(ax.x - o.x, ax.y - o.y);
+    const ey = unit(ay.x - o.x, ay.y - o.y);
+    const cx = Math.floor(o.x);
+    const cy = Math.floor(o.y);
+    const half = (GRID - 1) / 2;
+    const cell = S / GRID;
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, S, S);
-    ctx.imageSmoothingEnabled = false;
-    const sx = Math.floor(src.x) - Math.floor(span / 2);
-    const sy = Math.floor(src.y) - Math.floor(span / 2);
-    ctx.drawImage(bitmap, sx, sy, span, span, 0, 0, S, S);
-    const cell = S / span;
-    const c0 = (Math.floor(src.x) - 1 - sx) * cell;
-    const r0 = (Math.floor(src.y) - 1 - sy) * cell;
-    ctx.strokeStyle = 'rgba(0,0,0,0.6)';
+    for (let j = 0; j < GRID; j++)
+      for (let i = 0; i < GRID; i++) {
+        const dx = i - half;
+        const dy = j - half;
+        const sx = cx + dx * ex[0] + dy * ey[0];
+        const sy = cy + dx * ex[1] + dy * ey[1];
+        if (sx < 0 || sy < 0 || sx >= pixels.width || sy >= pixels.height) continue;
+        const k = (sy * pixels.width + sx) * 4;
+        const a = pixels.data[k + 3] / 255;
+        ctx.fillStyle = `rgba(${pixels.data[k]},${pixels.data[k + 1]},${pixels.data[k + 2]},${a})`;
+        ctx.fillRect(Math.round(i * cell), Math.round(j * cell), Math.ceil(cell), Math.ceil(cell));
+      }
+    /* 取色的 3 × 3：深色描邊外加白線，深淺圖上都看得到 */
+    const box = (half - 1) * cell;
+    ctx.strokeStyle = 'rgba(0,0,0,0.65)';
     ctx.lineWidth = 3 * dpr;
-    ctx.strokeRect(c0, r0, cell * 3, cell * 3);
+    ctx.strokeRect(box, box, cell * 3, cell * 3);
     ctx.strokeStyle = '#ffffff';
-    ctx.lineWidth = 1.5 * dpr;
-    ctx.strokeRect(c0, r0, cell * 3, cell * 3);
-    ctx.restore();
-  }, [loupe, bitmap, size, placement, diameter]);
+    ctx.lineWidth = 1.25 * dpr;
+    ctx.strokeRect(box, box, cell * 3, cell * 3);
+  }, [loupe, pixels, size, placement, diameter]);
 
   const local = (e: PointerEvent<HTMLElement>) => {
     const r = e.currentTarget.getBoundingClientRect();
@@ -162,7 +179,8 @@ export function CirclePicker({
     onPickEnd?.();
   };
 
-  const above = loupe ? loupe.y - LOUPE - 18 > -40 : true;
+  /* 放在游標右邊（右邊放不下時左邊），上下對齊游標 */
+  const toRight = loupe ? loupe.x + OFFSET + LOUPE <= diameter + 80 : true;
   return (
     <div
       className="relative mx-auto shrink-0 touch-none select-none rounded-full border border-border-strong bg-surface-3"
@@ -188,17 +206,29 @@ export function CirclePicker({
       {loupe ? (
         <div
           aria-hidden
-          className="pointer-events-none absolute z-10 rounded-full shadow-2"
+          className="pointer-events-none absolute z-10 flex flex-col items-center gap-1"
           style={{
+            left: toRight ? loupe.x + OFFSET : loupe.x - OFFSET - LOUPE,
+            top: loupe.y - LOUPE / 2,
             width: LOUPE,
-            height: LOUPE,
-            left: loupe.x - LOUPE / 2,
-            top: above ? loupe.y - LOUPE - 18 : loupe.y + 18,
-            border: `4px solid ${loupe.hex ?? 'transparent'}`,
-            background: '#ffffff',
           }}
+          data-testid="loupe"
         >
-          <canvas ref={loupeCanvas} className="block size-full rounded-full" />
+          <canvas
+            ref={loupeCanvas}
+            className="block rounded-md border border-border-strong shadow-2"
+            style={{ width: LOUPE, height: LOUPE }}
+          />
+          <span
+            className="flex items-center gap-1 rounded-full border border-border bg-surface px-2 py-0.5 font-mono text-xs text-fg tabular-nums shadow-1"
+            data-testid="loupe-hex"
+          >
+            <span
+              className="block size-3 rounded-full border border-black/15"
+              style={{ background: loupe.hex ?? 'transparent' }}
+            />
+            {loupe.hex ? loupe.hex.toUpperCase() : '—'}
+          </span>
         </div>
       ) : null}
     </div>

@@ -1,10 +1,11 @@
 /**
- * k-means 取主要的 N 色（color-palette 的配色卡新增，2026-10；做法參考 dearmysn1p3r/Colorpalettecard_Maker，
- * 數值照原作：透明度 128 以上的像素才算、RGB 距離的權重 0.9／1.2／0.7、最多 14 輪、占比不到 0.4% 的顏色不要、
- * 結果由暗到亮排列；代表色的選法也照原作的分數）。
+ * k-means 取主要的 N 色（color-palette 的配色卡新增，2026-10；做法參考 dearmysn1p3r/Colorpalettecard_Maker
+ * 的功能與數值：透明度 128 以上的像素才算、RGB 距離的權重 0.9／1.2／0.7、最多 14 輪、占比不到 0.4% 的顏色不要、
+ * 結果由暗到亮排列；代表色的分數。程式是本站自己寫的）。
  *
- * 和原作不同：起始點用 k-means++，但亂數是**固定種子**的（同一張圖、同樣的 N 一定得到同樣的結果）；
- * 圖裡的顏色比 N 少時不硬湊重複的顏色。
+ * 和原作不同：起點用 k-means++，但亂數是**固定種子**；而且用 4 組種子各分一次、取誤差（加權距離平方和）最小的那一次
+ * ——同一張圖、同樣的 N 一定得到同樣的結果，也比較不會卡在把小塊顏色併掉的分法。圖裡的顏色比 N 少時不硬湊重複的顏色；
+ * 沒分到像素的中心移到最遠的像素（不靠亂數）。
  *
  * ```ts
  * const px = regionPixels(bitmap, { x: 0, y: 0, width: bitmap.width, height: bitmap.height }); // 縮到長邊 150 px
@@ -12,7 +13,7 @@
  * const key = pickKeyColor(colors);         // 最鮮豔、又占得夠多的那一個
  * ```
  */
-import { formatHex } from '../color';
+import { formatHex, rgbToHsv } from '../color';
 import { makeCanvas, type PixelBuffer, type Rect } from './index';
 
 export interface PaletteColor {
@@ -26,25 +27,30 @@ export interface PaletteColor {
 export interface KmeansOptions {
   /** 透明度（0～255）低於這個值的像素不算（預設 128） */
   alphaThreshold?: number;
-  /** 最多幾輪（預設 14） */
+  /** 每一次分群最多幾輪（預設 14） */
   iterations?: number;
   /** 占比不到這個值的顏色不要（預設 0.004） */
   minShare?: number;
-  /** 亂數種子（預設 1；同樣的種子、同樣的輸入結果一定相同） */
+  /** 第一次分群的亂數種子（預設 1；之後每次加 1。同樣的種子、同樣的輸入結果一定相同） */
   seed?: number;
+  /** 用幾組種子各分一次、取誤差最小的那一次（預設 4；1＝只分一次） */
+  restarts?: number;
   /** 結果的順序：'luminance' 由暗到亮（預設）、'share' 占比由多到少 */
   order?: 'luminance' | 'share';
 }
 
-/** RGB 距離的權重（原作的數值） */
-const W = [0.9, 1.2, 0.7] as const;
+/** RGB 距離的權重（綠最重、藍最輕；數值參考原作） */
+const WEIGHT_R = 0.9;
+const WEIGHT_G = 1.2;
+const WEIGHT_B = 0.7;
 
-const dist2 = (a: ArrayLike<number>, ai: number, b: ArrayLike<number>, bi: number) => {
-  const r = a[ai] - b[bi];
-  const g = a[ai + 1] - b[bi + 1];
-  const bl = a[ai + 2] - b[bi + 2];
-  return r * r * W[0] + g * g * W[1] + bl * bl * W[2];
-};
+/** 加權的 RGB 距離平方（p、q 是 RGB 連續存放的陣列，pi、qi 是起點） */
+function weighted(p: ArrayLike<number>, pi: number, q: ArrayLike<number>, qi: number): number {
+  const dr = p[pi] - q[qi];
+  const dg = p[pi + 1] - q[qi + 1];
+  const db = p[pi + 2] - q[qi + 2];
+  return WEIGHT_R * dr * dr + WEIGHT_G * dg * dg + WEIGHT_B * db * db;
+}
 
 /** 0～1 的亂數（mulberry32，固定種子） */
 function rng(seed: number): () => number {
@@ -58,18 +64,114 @@ function rng(seed: number): () => number {
   };
 }
 
-/** 亮度（原作的算法：0.2126R＋0.7152G＋0.0722B，0～1） */
+/** 亮度（Rec. 709 的係數，0～1；結果的排序與代表色用） */
 export const paletteLuminance = ([r, g, b]: readonly number[]): number =>
   (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
 
-const saturation = ([r, g, b]: readonly number[]): number => {
-  const mx = Math.max(r, g, b);
-  const mn = Math.min(r, g, b);
-  return mx === 0 ? 0 : (mx - mn) / mx;
-};
+/** 不透明的像素，RGB 連續存放 */
+function opaqueRgb(src: ArrayLike<number>, alphaThreshold: number): Float64Array {
+  const keep: number[] = [];
+  for (let i = 0; i + 3 < src.length; i += 4)
+    if (src[i + 3] >= alphaThreshold) keep.push(src[i], src[i + 1], src[i + 2]);
+  return Float64Array.from(keep);
+}
+
+/**
+ * k-means++ 的起點：第一個隨機，之後每次依「到最近起點的距離平方」的比例抽一個像素
+ * （累加後二分搜尋）。剩下的像素都和既有的起點相同時就停（圖裡的顏色比 want 少）。
+ */
+function seedCenters(px: Float64Array, want: number, random: () => number): number[][] {
+  const n = px.length / 3;
+  const pick = (i: number) => [px[i * 3], px[i * 3 + 1], px[i * 3 + 2]];
+  const centers = [pick(Math.floor(random() * n))];
+  const near = new Float64Array(n).fill(Number.POSITIVE_INFINITY);
+  const cumulative = new Float64Array(n);
+  while (centers.length < want) {
+    const last = centers[centers.length - 1];
+    let total = 0;
+    for (let i = 0; i < n; i++) {
+      near[i] = Math.min(near[i], weighted(px, i * 3, last, 0));
+      total += near[i];
+      cumulative[i] = total;
+    }
+    if (total <= 0) break;
+    const target = random() * total;
+    let lo = 0;
+    let hi = n - 1;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (cumulative[mid] < target) lo = mid + 1;
+      else hi = mid;
+    }
+    centers.push(pick(lo));
+  }
+  return centers;
+}
+
+interface Fit {
+  centers: number[][];
+  counts: Int32Array;
+  /** 每個像素到所屬中心的加權距離平方的總和 */
+  error: number;
+}
+
+/** 從起點開始反覆「分到最近的中心 → 中心移到平均」；分法不再改變或到了輪數上限就停 */
+function refine(px: Float64Array, start: number[][], iterations: number): Fit {
+  const n = px.length / 3;
+  const m = start.length;
+  const centers = start.map((c) => c.slice());
+  const owner = new Int32Array(n).fill(-1);
+  const counts = new Int32Array(m);
+  const sums = new Float64Array(m * 3);
+  const gap = new Float64Array(n);
+  let error = 0;
+  for (let round = 0; round <= iterations; round++) {
+    let moved = 0;
+    error = 0;
+    counts.fill(0);
+    sums.fill(0);
+    for (let i = 0; i < n; i++) {
+      let best = 0;
+      let bestD = weighted(px, i * 3, centers[0], 0);
+      for (let c = 1; c < m; c++) {
+        const d = weighted(px, i * 3, centers[c], 0);
+        if (d < bestD) {
+          bestD = d;
+          best = c;
+        }
+      }
+      if (owner[i] !== best) moved++;
+      owner[i] = best;
+      gap[i] = bestD;
+      error += bestD;
+      counts[best]++;
+      sums[best * 3] += px[i * 3];
+      sums[best * 3 + 1] += px[i * 3 + 1];
+      sums[best * 3 + 2] += px[i * 3 + 2];
+    }
+    if (!moved || round === iterations) break;
+    for (let c = 0; c < m; c++) {
+      if (counts[c]) {
+        centers[c] = [
+          sums[c * 3] / counts[c],
+          sums[c * 3 + 1] / counts[c],
+          sums[c * 3 + 2] / counts[c],
+        ];
+        continue;
+      }
+      /* 沒分到像素的中心：移到目前離自己的中心最遠的那個像素（不靠亂數，結果固定） */
+      let far = 0;
+      for (let i = 1; i < n; i++) if (gap[i] > gap[far]) far = i;
+      centers[c] = [px[far * 3], px[far * 3 + 1], px[far * 3 + 2]];
+      gap[far] = 0;
+    }
+  }
+  return { centers, counts, error };
+}
 
 /**
  * k-means 分群取主要的 k 色（純函式）。像素太多時呼叫端先縮小（`regionPixels`，長邊 150 px）。
+ * 用 restarts 組固定的種子各分一次、取誤差最小的那一次，所以結果固定、又不容易卡在差的分法。
  * 沒有可算的像素時回傳空陣列。
  */
 export function kmeansPalette(
@@ -80,134 +182,57 @@ export function kmeansPalette(
     iterations = 14,
     minShare = 0.004,
     seed = 1,
+    restarts = 4,
     order = 'luminance',
   }: KmeansOptions = {},
 ): PaletteColor[] {
-  const src = pixels.data;
-  /* 取出不透明的像素（RGB 連續存放） */
-  let n = 0;
-  for (let i = 3; i < src.length; i += 4) if (src[i] >= alphaThreshold) n++;
+  const px = opaqueRgb(pixels.data, alphaThreshold);
+  const n = px.length / 3;
   if (!n || k < 1) return [];
-  const px = new Float64Array(n * 3);
-  for (let i = 0, j = 0; i < src.length; i += 4) {
-    if (src[i + 3] < alphaThreshold) continue;
-    px[j++] = src[i];
-    px[j++] = src[i + 1];
-    px[j++] = src[i + 2];
-  }
-  const random = rng(seed);
   const want = Math.min(Math.round(k), n);
-  /* k-means++：第一個隨機，之後依「到最近中心的距離平方」的比例抽 */
-  const cent: number[][] = [];
-  const first = Math.floor(random() * n) * 3;
-  cent.push([px[first], px[first + 1], px[first + 2]]);
-  const best = new Float64Array(n).fill(Number.POSITIVE_INFINITY);
-  while (cent.length < want) {
-    const c = cent[cent.length - 1];
-    let sum = 0;
-    for (let i = 0; i < n; i++) {
-      const d = dist2(px, i * 3, c, 0);
-      if (d < best[i]) best[i] = d;
-      sum += best[i];
-    }
-    /* 剩下的像素都和既有的中心相同：圖裡的顏色比 k 少，不硬湊 */
-    if (sum <= 0) break;
-    let t = random() * sum;
-    let idx = n - 1;
-    for (let i = 0; i < n; i++) {
-      t -= best[i];
-      if (t <= 0) {
-        idx = i;
-        break;
-      }
-    }
-    cent.push([px[idx * 3], px[idx * 3 + 1], px[idx * 3 + 2]]);
+  let fit: Fit | null = null;
+  for (let r = 0; r < Math.max(1, restarts); r++) {
+    const next = refine(px, seedCenters(px, want, rng(seed + r)), iterations);
+    if (!fit || next.error < fit.error) fit = next;
   }
-  const m = cent.length;
-  const asg = new Int32Array(n).fill(-1);
-  const sr = new Float64Array(m);
-  const sg = new Float64Array(m);
-  const sb = new Float64Array(m);
-  const cnt = new Float64Array(m);
-  for (let it = 0; it < iterations; it++) {
-    let changed = false;
-    for (let i = 0; i < n; i++) {
-      let bi = 0;
-      let bd = Number.POSITIVE_INFINITY;
-      for (let c = 0; c < m; c++) {
-        const d = dist2(px, i * 3, cent[c], 0);
-        if (d < bd) {
-          bd = d;
-          bi = c;
-        }
-      }
-      if (asg[i] !== bi) {
-        asg[i] = bi;
-        changed = true;
-      }
-    }
-    sr.fill(0);
-    sg.fill(0);
-    sb.fill(0);
-    cnt.fill(0);
-    for (let i = 0; i < n; i++) {
-      const a = asg[i];
-      sr[a] += px[i * 3];
-      sg[a] += px[i * 3 + 1];
-      sb[a] += px[i * 3 + 2];
-      cnt[a]++;
-    }
-    for (let c = 0; c < m; c++) {
-      if (cnt[c] === 0) {
-        /* 沒分到像素的中心：換一個隨機的像素重來（原作的做法；種子固定所以結果固定） */
-        const p = Math.floor(random() * n) * 3;
-        cent[c] = [px[p], px[p + 1], px[p + 2]];
-        continue;
-      }
-      cent[c] = [sr[c] / cnt[c], sg[c] / cnt[c], sb[c] / cnt[c]];
-    }
-    if (!changed && it > 1) break;
-  }
-  cnt.fill(0);
-  for (let i = 0; i < n; i++) cnt[asg[i]]++;
-  const out = cent
-    .map((c, i): PaletteColor => {
-      const rgb = c.map((v) => Math.round(Math.min(255, Math.max(0, v)))) as [
-        number,
-        number,
-        number,
-      ];
-      return {
-        rgb,
-        color: formatHex({ r: rgb[0], g: rgb[1], b: rgb[2], a: 1 }, false),
-        share: cnt[i] / n,
-      };
-    })
-    .filter((c) => c.share > minShare);
-  return order === 'share'
-    ? out.sort((a, b) => b.share - a.share)
-    : out.sort((a, b) => paletteLuminance(a.rgb) - paletteLuminance(b.rgb));
+  if (!fit) return [];
+  const colors: PaletteColor[] = [];
+  fit.centers.forEach((c, i) => {
+    const share = fit.counts[i] / n;
+    if (share <= minShare) return;
+    const rgb = c.map((v) => Math.round(Math.min(255, Math.max(0, v)))) as [number, number, number];
+    colors.push({ rgb, color: formatHex({ r: rgb[0], g: rgb[1], b: rgb[2], a: 1 }, false), share });
+  });
+  const key =
+    order === 'share'
+      ? (c: PaletteColor) => -c.share
+      : (c: PaletteColor) => paletteLuminance(c.rgb);
+  return colors.sort((a, b) => key(a) - key(b));
+}
+
+/** 太亮或太暗的顏色當代表色時打的折扣 */
+function extremeDiscount(luma: number): number {
+  if (luma < 0.07 || luma > 0.93) return 0.12;
+  if (luma < 0.13 || luma > 0.86) return 0.45;
+  return 1;
 }
 
 /**
- * 代表色（原作的分數）：鮮豔度 × 0.8 ＋ 占比 × 0.4，太亮或太暗的打折（亮度 > 0.93 或 < 0.07 乘 0.12，
- * > 0.86 或 < 0.13 乘 0.45）。分數相同時取前面的。沒有顏色時回傳 null。
+ * 代表色：分數＝鮮豔度（HSV 的飽和度）× 0.8 ＋ 占比 × 0.4，再乘上太亮太暗的折扣（數值參考原作）。
+ * 分數相同時取前面的。沒有顏色時回傳 null。
  */
 export function pickKeyColor(colors: readonly PaletteColor[]): PaletteColor | null {
-  let best: PaletteColor | null = null;
-  let bs = Number.NEGATIVE_INFINITY;
-  for (const c of colors) {
-    const l = paletteLuminance(c.rgb);
-    let p = 1;
-    if (l > 0.93 || l < 0.07) p = 0.12;
-    else if (l > 0.86 || l < 0.13) p = 0.45;
-    const score = (saturation(c.rgb) * 0.8 + c.share * 0.4) * p;
-    if (score > bs) {
-      bs = score;
-      best = c;
-    }
-  }
-  return best;
+  const score = (c: PaletteColor) => {
+    const { s } = rgbToHsv({ r: c.rgb[0], g: c.rgb[1], b: c.rgb[2], a: 1 });
+    return (s * 0.8 + c.share * 0.4) * extremeDiscount(paletteLuminance(c.rgb));
+  };
+  return colors.reduce<{ c: PaletteColor | null; v: number }>(
+    (best, c) => {
+      const v = score(c);
+      return v > best.v ? { c, v } : best;
+    },
+    { c: null, v: Number.NEGATIVE_INFINITY },
+  ).c;
 }
 
 /** 最接近某個顏色的那一個（同一個距離公式；鎖定的代表色在重新取色後換成最接近的新顏色） */
@@ -218,7 +243,7 @@ export function nearestPaletteColor(
   let best: PaletteColor | null = null;
   let bd = Number.POSITIVE_INFINITY;
   for (const c of colors) {
-    const d = dist2(c.rgb, 0, rgb, 0);
+    const d = weighted(c.rgb, 0, rgb, 0);
     if (d < bd) {
       bd = d;
       best = c;
@@ -227,16 +252,18 @@ export function nearestPaletteColor(
   return best;
 }
 
-/** 幾個顏色的平均（RGB 各自平均、四捨五入） */
+/** 幾個顏色的平均（RGB 各自平均、四捨五入；沒有顏色時黑） */
 export function mixColors(
   list: readonly (readonly [number, number, number])[],
 ): [number, number, number] {
-  if (!list.length) return [0, 0, 0];
-  return [0, 1, 2].map((i) => Math.round(list.reduce((a, c) => a + c[i], 0) / list.length)) as [
-    number,
-    number,
-    number,
-  ];
+  const sum = [0, 0, 0];
+  for (const c of list) {
+    sum[0] += c[0];
+    sum[1] += c[1];
+    sum[2] += c[2];
+  }
+  const k = list.length || 1;
+  return [Math.round(sum[0] / k), Math.round(sum[1] / k), Math.round(sum[2] / k)];
 }
 
 /**
@@ -249,24 +276,21 @@ export function regionPixels(
   rect: Rect,
   maxSide = 150,
 ): PixelBuffer {
-  let x = Math.max(0, rect.x);
-  let y = Math.max(0, rect.y);
-  let w = Math.min(size.width, rect.x + rect.width) - x;
-  let h = Math.min(size.height, rect.y + rect.height) - y;
-  if (!(w > 0 && h > 0)) {
-    x = 0;
-    y = 0;
-    w = size.width;
-    h = size.height;
-  }
-  const ar = w / h;
-  const ow = Math.max(1, Math.round(ar >= 1 ? maxSide : maxSide * ar));
-  const oh = Math.max(1, Math.round(ar >= 1 ? maxSide / ar : maxSide));
+  const left = Math.max(0, rect.x);
+  const top = Math.max(0, rect.y);
+  const right = Math.min(size.width, rect.x + rect.width);
+  const bottom = Math.min(size.height, rect.y + rect.height);
+  const src =
+    right > left && bottom > top
+      ? { x: left, y: top, width: right - left, height: bottom - top }
+      : { x: 0, y: 0, width: size.width, height: size.height };
+  const k = maxSide / Math.max(src.width, src.height);
+  const ow = Math.max(1, Math.round(src.width * k));
+  const oh = Math.max(1, Math.round(src.height * k));
   const c = makeCanvas(ow, oh);
   const ctx = c.getContext('2d') as CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = 'high';
-  ctx.drawImage(img, x, y, w, h, 0, 0, ow, oh);
-  const d = ctx.getImageData(0, 0, ow, oh);
-  return { width: ow, height: oh, data: d.data };
+  ctx.drawImage(img, src.x, src.y, src.width, src.height, 0, 0, ow, oh);
+  return { width: ow, height: oh, data: ctx.getImageData(0, 0, ow, oh).data };
 }

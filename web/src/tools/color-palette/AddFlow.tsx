@@ -54,8 +54,13 @@ export interface PickResult {
 
 interface PickDialogProps {
   open: boolean;
-  /** 換了這個值（下一張、下一位）時才重新帶入顏色；回去重新圈頭像時已取的顏色留著 */
+  /**
+   * 換了這個值（下一張、下一位、新的工作）時才重新帶入顏色與名字；回去重新圈頭像、再回來時值不變，
+   * 已取的顏色與打好的名字都留著（規格 F52）。
+   */
   itemKey: string;
+  /** 同一張換了圖片（「換一張圖」、拖進新的圖）：重新帶入顏色，名字留著 */
+  imageKey: string;
   title: string;
   description?: string;
   bitmap: ImageBitmap | null;
@@ -77,6 +82,7 @@ type Slot = PartColor | null;
 export function PickDialog({
   open,
   itemKey,
+  imageKey,
   title,
   description,
   bitmap,
@@ -99,10 +105,15 @@ export function PickDialog({
   const toast = useToast();
   const auto = () => (bitmap && size ? dominantOf(bitmap, size, placement) : '#888888');
 
+  /* 上一次帶入的是哪一張（關掉視窗回去圈頭像時 itemKey 不變，回來不重來） */
+  const loaded = useRef({ item: '', image: '' });
   /* 換了一張圖（一位角色）：帶入既有的顏色；新角色的第一格髮色是頭像的主色，瞳色先留一格未指定 */
   // biome-ignore lint/correctness/useExhaustiveDependencies: 只在換了一張圖時重來
   useEffect(() => {
     if (!itemKey) return;
+    const sameItem = loaded.current.item === itemKey;
+    if (sameItem && loaded.current.image === imageKey) return;
+    loaded.current = { item: itemKey, image: imageKey };
     const next: Record<KeyRole, Slot[]> = { hair: [], eye: [] };
     autoHair.current = false;
     for (const r of roles) {
@@ -115,8 +126,8 @@ export function PickDialog({
     }
     setSlots(next);
     setActive({ role: roles[0], i: 0 });
-    setName(initialName ?? '');
-  }, [itemKey]);
+    if (!sameItem) setName(initialName ?? '');
+  }, [itemKey, imageKey]);
 
   /* 重新圈了頭像：還沒自己取過的第一格髮色換成新範圍的主色 */
   // biome-ignore lint/correctness/useExhaustiveDependencies: 只在範圍換了時
@@ -297,6 +308,9 @@ export function AddFlow() {
   });
   const applied = useRef(false);
   const running = useRef<FlowJob | null>(null);
+  /** 第幾個工作（取色視窗的 itemKey 用：新的工作一定重新帶入） */
+  const jobSeq = useRef(0);
+  const dropped = useFlow((s) => s.dropped);
 
   /** 結束（cancelled：在某一張的中途關掉，那一張也算沒加入） */
   const finish = (cancelled = false) => {
@@ -352,6 +366,7 @@ export function AddFlow() {
   useEffect(() => {
     if (!job || running.current === job) return;
     running.current = job;
+    jobSeq.current++;
     queue.current = { files: [], index: 0, added: [], failed: [], full: 0 };
     void (async () => {
       if (job.kind === 'add') {
@@ -416,6 +431,27 @@ export function AddFlow() {
   const j = running.current;
   const crop = step.kind === 'crop' ? step : null;
   const pick = step.kind === 'pick' ? step : null;
+
+  /* 圈頭像的視窗開著時，拖進視窗、貼上的圖片收得到（App 的 Incoming 看這個） */
+  useEffect(() => {
+    useFlow.setState({ cropOpen: !!crop });
+  }, [crop]);
+
+  /** 換掉正在圈的那一張（「換一張圖」、拖進來、貼上） */
+  const replaceCrop = async (f: File) => {
+    if (step.kind !== 'crop') return;
+    try {
+      const item = await loadFile(f);
+      if (item.notSaved) toast({ title: S.imageNotSaved, tone: 'warning' });
+      setStep((cur) => (cur.kind === 'crop' ? { ...cur, item, placement: null } : cur));
+    } catch {
+      toast({ title: S.decodeError(f.name), tone: 'danger' });
+    }
+  };
+  // biome-ignore lint/correctness/useExhaustiveDependencies: 只在收到新的圖片時
+  useEffect(() => {
+    if (dropped) void replaceCrop(dropped.file);
+  }, [dropped]);
   const curBar =
     j && (j.kind === 'image' || j.kind === 'avatar')
       ? settingsNow().bars.find((b) => b.id === j.barId)
@@ -459,13 +495,7 @@ export function AddFlow() {
                 icon={<ImagePlus />}
                 onClick={async () => {
                   const [f] = await pickFiles({ accept: 'image/*' });
-                  if (!f) return;
-                  try {
-                    const item = await loadFile(f);
-                    setStep({ ...crop, item, placement: null });
-                  } catch {
-                    toast({ title: S.decodeError(f.name), tone: 'danger' });
-                  }
+                  if (f) await replaceCrop(f);
                 }}
               >
                 {S.replaceImage}
@@ -502,14 +532,23 @@ export function AddFlow() {
             );
             finish();
           } else if (j.kind === 'avatar') {
-            actions.setAvatar(j.barId, p);
+            /* 圈頭像時拖進了另一張圖：換立繪；沒有時只改頭像範圍 */
+            const bar = settingsNow().bars.find((b) => b.id === j.barId);
+            if (bar?.image?.id === crop.item.ref.id) actions.setAvatar(j.barId, p);
+            else
+              actions.setImage(
+                j.barId,
+                { id: crop.item.ref.id, width: crop.item.ref.width, height: crop.item.ref.height },
+                p,
+              );
             finish();
           }
         }}
       />
       <PickDialog
         open={!!pick}
-        itemKey={pick ? `${pick.index}:${pick.item.ref.id}:${curBar?.id ?? ''}` : ''}
+        itemKey={pick ? `${jobSeq.current}:${pick.index}:${curBar?.id ?? ''}` : ''}
+        imageKey={pick?.item.ref.id ?? ''}
         title={
           j?.kind === 'refill' && pick
             ? S.refillPickTitle(S.roles[j.role], pick.index, pick.total)

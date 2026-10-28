@@ -8,7 +8,15 @@ import {
   Scissors,
   Undo2,
 } from 'lucide-react';
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import {
+  type Ref,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { addImageFiles, splitImageFiles } from '@/core/assets';
 import { downloadBlob } from '@/core/files';
 import { resetToolStore, useSaveError, useSaveStatus, useUndoRedo } from '@/core/storage';
@@ -18,6 +26,7 @@ import {
   Field,
   FieldRow,
   IconButton,
+  isEditableTarget,
   Notice,
   type NoticeTone,
   NumberInput,
@@ -30,6 +39,7 @@ import {
   Toggle,
   ToolShell,
   UsageSection,
+  useConfirm,
   useToast,
   WindowDrop,
 } from '@/ui';
@@ -37,8 +47,9 @@ import { AddFlow } from './AddFlow';
 import { BarCard } from './BarCard';
 import { CardPreview, CardSettingsPanel, useCardPaint } from './CardView';
 import { CharacterDialog } from './CharacterDialog';
+import { photoPatch } from './card';
 import { roomLeft } from './characters';
-import { openEditor, startJob, useFlow } from './flow';
+import { dropIntoCrop, openEditor, startJob, useFlow } from './flow';
 import { Handles } from './Handles';
 import {
   FILE_CROP,
@@ -55,6 +66,7 @@ import { PickerDialog, type PickerHandle } from './PickerDialog';
 import { importProject, projectFiles } from './project';
 import { canvasToPng, drawPalette, renderCrop, renderFull } from './render';
 import { ShelfPreview, ShelfSettings } from './ShelfView';
+import { partLabel } from './shelfRender';
 import {
   actions,
   assets,
@@ -118,18 +130,44 @@ function useAssetCleanup() {
 }
 
 /**
- * 拖進視窗、貼上的圖片（色票櫃：新增角色；配色卡：放進空的照片欄，不夠時加欄）。要在 ToolShell 裡面用（通知）。
+ * 拖進視窗、貼上的圖片要做什麼（規格 F98）：
+ * - 'crop'：圈頭像的視窗開著——換掉正在圈的那一張；
+ * - 'editor'：角色的編輯視窗開著——換這位角色的立繪（接著圈頭像）；
+ * - 'shelf'：新增角色；'card'：放進配色卡空的照片欄（不夠時加欄）；
+ * - null：不收（配色條、取色等其他視窗開著時）。
  */
-function useIncoming(mode: ViewMode) {
+type IncomingTarget = 'crop' | 'editor' | 'shelf' | 'card' | null;
+
+function useIncomingTarget(mode: ViewMode): IncomingTarget {
+  return useFlow((st) => {
+    if (st.job) return st.cropOpen ? 'crop' : null;
+    if (st.editing) return 'editor';
+    return mode === 'bar' ? null : mode;
+  });
+}
+
+/** 收到的圖片交給目前的對象。要在 ToolShell 裡面用（通知） */
+function useIncoming(target: IncomingTarget) {
   const toast = useToast();
   return useCallback(
     async (files: File[]) => {
-      if (!files.length) return;
+      if (!files.length || !target) return;
       const { images, others } = await splitImageFiles(files);
       if (others.length)
         toast({ title: S.notImage(others.map((f) => f.name).join('、')), tone: 'warning' });
       if (!images.length) return;
-      if (mode === 'shelf') {
+      if (target === 'crop' || target === 'editor') {
+        /* 一次只換一張：多的不用 */
+        if (images.length > 1)
+          toast({ title: S.replaceOnlyFirst(images[0].name), tone: 'info', replace: true });
+        if (target === 'crop') dropIntoCrop(images[0]);
+        else {
+          const barId = useFlow.getState().editing;
+          if (barId) startJob({ kind: 'image', barId, file: images[0] });
+        }
+        return;
+      }
+      if (target === 'shelf') {
         if (!roomLeft(settingsNow().bars)) {
           toast({ title: S.listFull(MAX_BARS), tone: 'warning' });
           return;
@@ -137,37 +175,37 @@ function useIncoming(mode: ViewMode) {
         startJob({ kind: 'add', files: images });
         return;
       }
-      if (mode !== 'card') return;
-      const { loaded, failed } = await addImageFiles(assets, images, { maxSide: LIMITS.imageSide });
+      /* 配色卡：先數好放得下幾張，放不下的不讀 */
+      const cols = cardOf(settingsNow()).columns;
+      const empty = cols.filter((c) => !(c.source === 'photo' ? c.image : c.characterId));
+      const room = empty.length + (LIMITS.cardColumns - cols.length);
+      const take = images.slice(0, room);
+      const skipped = images.length - take.length;
+      const { loaded, failed } = await addImageFiles(assets, take, { maxSide: LIMITS.imageSide });
       if (failed.length) toast({ title: S.decodeError(failed.join('、')), tone: 'danger' });
       if (loaded.some((l) => !l.persisted)) toast({ title: S.imageNotSaved, tone: 'warning' });
       for (const l of loaded) {
-        const cols = cardOf(settingsNow()).columns;
-        const empty = cols.find((c) => !(c.source === 'photo' ? c.image : c.characterId));
-        const patch = {
-          source: 'photo' as const,
-          image: { id: l.ref.id, width: l.ref.width, height: l.ref.height },
-          name: l.file.name.replace(/\.[^.]+$/, '').slice(0, LIMITS.cardName),
-          placement: { zoom: 1, x: 0, y: 0, turns: 0 },
-          key: null,
-        };
-        if (empty) actions.patchColumn(empty.id, patch);
-        else if (cols.length < LIMITS.cardColumns) actions.addColumn(patch);
-        else break;
+        const now = cardOf(settingsNow()).columns;
+        const slot = now.find((c) => !(c.source === 'photo' ? c.image : c.characterId));
+        const image = { id: l.ref.id, width: l.ref.width, height: l.ref.height };
+        if (slot) actions.patchColumn(slot.id, photoPatch(slot, image, l.file.name));
+        else actions.addColumn(photoPatch(null, image, l.file.name));
       }
+      if (skipped > 0)
+        toast({ title: S.cardOverflow(skipped, LIMITS.cardColumns), tone: 'warning' });
     },
-    [mode, toast],
+    [target, toast],
   );
 }
 
-/** 拖進視窗、貼上的圖片（色票櫃、配色卡）；有對話框開著時不收 */
-function Incoming({ mode, disabled }: { mode: ViewMode; disabled: boolean }) {
-  const take = useIncoming(mode);
+/** 拖進視窗、貼上的圖片；沒有對象時不收 */
+function Incoming({ target }: { target: IncomingTarget }) {
+  const take = useIncoming(target);
   useEffect(() => {
-    if (disabled) return;
+    if (!target) return;
     const onPaste = (e: ClipboardEvent) => {
-      const t = e.target as Element | null;
-      if (t?.closest?.('input,textarea,[contenteditable="true"],[role="dialog"]')) return;
+      /* 在文字欄裡貼上是貼文字（或貼到欄位裡），不當成圖片 */
+      if (isEditableTarget(e.target)) return;
       const files = [...(e.clipboardData?.files ?? [])].filter((f) => f.type.startsWith('image/'));
       if (!files.length) return;
       e.preventDefault();
@@ -175,14 +213,58 @@ function Incoming({ mode, disabled }: { mode: ViewMode; disabled: boolean }) {
     };
     document.addEventListener('paste', onPaste);
     return () => document.removeEventListener('paste', onPaste);
-  }, [take, disabled]);
+  }, [take, target]);
   return (
     <WindowDrop
       accept="image/*"
-      disabled={disabled}
-      label={mode === 'shelf' ? S.windowDrop : S.windowDropCard}
-      hint={S.windowDropHint}
+      disabled={!target}
+      label={
+        target === 'crop' || target === 'editor'
+          ? S.windowDropReplace
+          : target === 'card'
+            ? S.windowDropCard
+            : S.windowDrop
+      }
+      hint={target === 'shelf' || target === 'card' ? S.windowDropHint : undefined}
       onDrop={(files) => void take(files)}
+    />
+  );
+}
+
+/**
+ * 配色條的取色視窗：結果取代整條。這位角色有標了部位（髮色、瞳色、「無」…）的段時先確認（D28），
+ * 按「取消」時不取代、取色視窗不關。要在 ToolShell 裡面用（確認對話框）。
+ */
+function BarPicker({
+  pickerRef,
+  onApplied,
+}: {
+  pickerRef: Ref<PickerHandle>;
+  onApplied: (barId: string, count: number) => void;
+}) {
+  const confirm = useConfirm();
+  return (
+    <PickerDialog
+      ref={pickerRef}
+      onApply={async (barId, picks) => {
+        const bar = settingsNow().bars.find((b) => b.id === barId);
+        const tagged = bar
+          ? bar.segments
+              .filter((g) => g.role || g.none)
+              .map((g) => `${partLabel(bar, g)}${g.none ? `（${S.noneLabel}）` : ''}`)
+          : [];
+        if (tagged.length) {
+          const ok = await confirm({
+            title: S.replaceTaggedTitle,
+            description: S.replaceTaggedDesc(tagged.join('、')),
+            confirmLabel: S.replaceTaggedOk,
+          });
+          if (!ok) return false;
+        }
+        actions.replaceSegments(barId, picks);
+        onApplied(barId, picks.length);
+        return true;
+      }}
     />
   );
 }
@@ -215,7 +297,7 @@ export function App() {
   const { undo, redo, canUndo, canRedo, clear } = useUndoRedo(useSettings);
   const savedAt = useSaveStatus(TOOL_ID);
   const saveError = useSaveError(TOOL_ID);
-  const flowBusy = useFlow((st) => !!st.job || !!st.editing);
+  const incoming = useIncomingTarget(mode);
   const [shelfStatus, setShelfStatus] = useState<{
     tone: 'success' | 'warning' | 'danger';
     text: string;
@@ -461,7 +543,7 @@ export function App() {
       ) : mode === 'shelf' ? (
         <ShelfSettings onStatus={setShelfStatus} />
       ) : (
-        <CardSettingsPanel resolved={cardPaint.resolved} />
+        <CardSettingsPanel resolved={cardPaint.resolved} names={cardPaint.names} />
       )}
       <UsageSection persistKey={TOOL_ID}>{usage}</UsageSection>
     </>
@@ -573,17 +655,16 @@ export function App() {
         <CardPreview paint={cardPaint} onDragging={setCardDragging} />
       )}
       {/* 取色視窗、角色的編輯視窗、新增角色的流程（Portal；放在 ToolShell 裡才拿得到 UiProvider） */}
-      <PickerDialog
-        ref={picker}
-        onApply={(barId, picks) => {
-          actions.replaceSegments(barId, picks);
+      <BarPicker
+        pickerRef={picker}
+        onApplied={(barId, n) => {
           const index = useSettings.getState().data.bars.findIndex((b) => b.id === barId);
-          setStatus({ tone: 'success', text: S.applied(index + 1, picks.length) });
+          setStatus({ tone: 'success', text: S.applied(index + 1, n) });
         }}
       />
       <CharacterDialog />
       <AddFlow />
-      {mode !== 'bar' ? <Incoming mode={mode} disabled={flowBusy} /> : null}
+      <Incoming target={incoming} />
     </div>
   );
 

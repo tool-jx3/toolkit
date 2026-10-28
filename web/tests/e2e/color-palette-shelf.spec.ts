@@ -1,6 +1,6 @@
 /**
  * 角色配色條產生器：色票櫃（規格 1.1、1.3；併入 saturn97v/Color-shelf 的功能，2026-10）。
- * - 三種呈現的切換（重新整理後記得）；色票櫃的預設內容；
+ * - 三種呈現的切換（重新整理後記得）；色票櫃的預設內容；卡片上直接改名字；
  * - 新增角色：一次選兩張 → 圈頭像（同上一張的範圍）→ 滴管取髮色、瞳色（自動換到瞳色、「無」、名字）→ 儲存；
  * - 排序（髮色、瞳色、亮度、名字、自己拖曳）與依色系分組、每列幾位、顯示名字／代表色；
  * - 點色塊複製色碼（「無」不複製）；拖曳卡片調整順序（改成自己拖曳，配色條也照這個順序）；
@@ -64,8 +64,9 @@ const btn = (scope: Page | Locator, name: string) =>
   scope.getByRole('button', { name, exact: true });
 const shelf = (page: Page) => page.getByRole('region', { name: '色票櫃' });
 const cards = (page: Page) => shelf(page).locator('[data-character]');
+/** 名字是卡片上的輸入欄（文字不在 textContent 裡）：用 data-name 找 */
 const cardNamed = (page: Page, name: string) =>
-  shelf(page).locator('[data-character]').filter({ hasText: name });
+  shelf(page).locator(`[data-character][data-name="${name}"]`);
 const dialog = (page: Page) => page.getByRole('dialog');
 /** 通知（通知區與螢幕閱讀器的朗讀區各有一份文字，取第一個） */
 const toastText = (page: Page, text: string) => page.getByText(text).first();
@@ -189,12 +190,142 @@ test('新增角色：一次兩張、圈頭像、滴管取髮色與瞳色（自�
   expect(errors).toEqual([]);
 });
 
+/** 在頁面上貼上一張圖片（焦點不在文字欄時，等於拖進視窗） */
+async function pasteImage(page: Page, target: string, name: string, png: Buffer) {
+  await page.evaluate(
+    ({ selector, fileName, b64 }) => {
+      const bin = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+      const dt = new DataTransfer();
+      dt.items.add(new File([bin], fileName, { type: 'image/png' }));
+      const el = document.querySelector(selector) ?? document.body;
+      el.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true }));
+    },
+    { selector: target, fileName: name, b64: png.toString('base64') },
+  );
+}
+
+test('新增角色：「重新圈頭像」回來後，已取的顏色與名字都還在（F52）', async ({ page }) => {
+  const errors = await open(page);
+  await mode(page, '色票櫃');
+  const [chooser] = await Promise.all([
+    page.waitForEvent('filechooser'),
+    btn(page, '新增角色').click(),
+  ]);
+  await chooser.setFiles([file('甲.png', await blueRed())]);
+  await btn(dialog(page), '套用').click();
+  const hair = page.getByTestId('slots-hair').locator('[data-slot]');
+  const eye = page.getByTestId('slots-eye').locator('[data-slot]');
+  await clickCircle(page, 0.5, 0.8);
+  await clickCircle(page, 0.5, 0.2);
+  await expect(hair.first()).toHaveAttribute('data-color', '#e03030');
+  await expect(eye.first()).toHaveAttribute('data-color', '#204080');
+  await dialog(page).getByRole('textbox', { name: '名字' }).fill('保留測試');
+  await btn(dialog(page), '重新圈頭像').click();
+  await expect(
+    dialog(page).getByRole('heading', { name: '新增角色（1／1）：圈出頭像' }),
+  ).toBeVisible();
+  await dialog(page).getByRole('spinbutton', { name: '縮放' }).fill('120');
+  await dialog(page).getByRole('spinbutton', { name: '縮放' }).press('Enter');
+  await btn(dialog(page), '套用').click();
+  await expect(hair.first()).toHaveAttribute('data-color', '#e03030');
+  await expect(eye.first()).toHaveAttribute('data-color', '#204080');
+  await expect(dialog(page).getByRole('textbox', { name: '名字' })).toHaveValue('保留測試');
+  await btn(dialog(page), '儲存').click();
+  const a = (await bars(page))[1];
+  expect(a.name).toBe('保留測試');
+  expect(a.segments.map((s) => [s.role, s.color])).toEqual([
+    ['hair', '#e03030'],
+    ['eye', '#204080'],
+  ]);
+  expect(a.avatar?.zoom).toBeCloseTo(1.2, 3);
+  expect(errors).toEqual([]);
+});
+
+test('圈頭像時貼上（拖進）另一張圖片：換成那一張', async ({ page }) => {
+  const errors = await open(page);
+  await mode(page, '色票櫃');
+  const [chooser] = await Promise.all([
+    page.waitForEvent('filechooser'),
+    btn(page, '新增角色').click(),
+  ]);
+  await chooser.setFiles([file('甲.png', await blueRed())]);
+  await expect(page.getByTestId('frame-view')).toBeVisible();
+  await pasteImage(page, '[role="dialog"]', '乙.png', await green());
+  /* 換成 200 × 200 的綠圖：主色是綠 */
+  await btn(dialog(page), '套用').click();
+  await expect(page.getByTestId('slots-hair').locator('[data-slot]').first()).toHaveAttribute(
+    'data-color',
+    '#30c030',
+  );
+  await btn(dialog(page), '儲存').click();
+  expect((await bars(page))[1].image).toMatchObject({ width: 200, height: 200 });
+  expect(errors).toEqual([]);
+});
+
+test('卡片上直接改名字：Enter 套用（一步復原）、Esc 還原；PNG 沒有名字時也寫「未命名」', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  await mode(page, '色票櫃');
+  await loadSamples(page);
+  await nextStep(page);
+  const input = shelf(page).getByRole('textbox', { name: '「白澄」的名字' });
+  await input.fill('白澄改');
+  await input.press('Enter');
+  await expect(cardNamed(page, '白澄改')).toHaveCount(1);
+  expect(await named(page, '白澄改')).toBeTruthy();
+  const again = shelf(page).getByRole('textbox', { name: '「白澄改」的名字' });
+  await again.fill('亂打的');
+  await again.press('Escape');
+  await expect(again).toHaveValue('白澄改');
+  expect(await named(page, '亂打的')).toBeUndefined();
+  await nextStep(page);
+  await page.getByRole('button', { name: '復原', exact: true }).click();
+  await expect(cardNamed(page, '白澄')).toHaveCount(1);
+  /* 開頁的那一位沒有名字：輸入欄的提示字是「未命名」 */
+  await expect(shelf(page).getByRole('textbox', { name: '「第 1 位」的名字' })).toHaveAttribute(
+    'placeholder',
+    '未命名',
+  );
+  expect(errors).toEqual([]);
+});
+
+test('拖曳卡片：放在空白處或按 Esc 取消（順序不變）', async ({ page }) => {
+  const errors = await open(page);
+  await mode(page, '色票櫃');
+  await loadSamples(page);
+  await page.getByRole('switch', { name: '依色系分組' }).click();
+  const before = (await bars(page)).map((b) => b.id);
+  const handle = cardNamed(page, '沈墨').locator('button[data-drag-handle]');
+  await handle.scrollIntoViewIfNeeded();
+  const from = (await handle.boundingBox())!;
+  const box = (await shelf(page).boundingBox())!;
+  /* 放在櫃子的邊（卡片外面） */
+  await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(box.x + 5, box.y + 5, { steps: 8 });
+  await page.mouse.up();
+  expect((await bars(page)).map((b) => b.id)).toEqual(before);
+  await expect(page.getByRole('combobox', { name: '排序' })).toHaveText(/髮色/);
+  /* 拖到第一張上，放開前按 Esc */
+  const to = (await cards(page).first().boundingBox())!;
+  await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(to.x + 10, to.y + 10, { steps: 8 });
+  await expect(cards(page).first()).toHaveAttribute('data-over', 'true');
+  await page.keyboard.press('Escape');
+  await page.mouse.up();
+  expect((await bars(page)).map((b) => b.id)).toEqual(before);
+  await expect(cards(page).first()).not.toHaveAttribute('data-over', 'true');
+  expect(errors).toEqual([]);
+});
+
 test('排序與分組、每列幾位、顯示名字與代表色', async ({ page }) => {
   const errors = await open(page);
   await mode(page, '色票櫃');
   await loadSamples(page);
   const order = () =>
-    cards(page).evaluateAll((els) => els.map((e) => e.textContent?.trim() || '(無名)'));
+    cards(page).evaluateAll((els) => els.map((e) => (e as HTMLElement).dataset.name || '未命名'));
   /* 髮色（預設）：黃 → 紫 → 棕 → 黑 → 白 → 雙色 → 沒有髮色 */
   await expect.poll(order).toEqual(['夏千晴', '柯雨', '葉棠', '林予安', '白澄', '沈墨', '未命名']);
   await expect(shelf(page).locator('[data-group]')).toHaveCount(7);
@@ -202,8 +333,12 @@ test('排序與分組、每列幾位、顯示名字與代表色', async ({ page 
   /* 瞳色：異色瞳在白之後、「無」只有的是其他 */
   await page.getByRole('combobox', { name: '排序' }).click();
   await page.getByRole('option', { name: '瞳色' }).click();
-  await expect(shelf(page).locator('[data-group="oddeye"]')).toContainText('葉棠');
-  await expect(shelf(page).locator('[data-group="other"]')).toContainText('柯雨');
+  await expect(
+    shelf(page).locator('[data-group="oddeye"]').locator('[data-name="葉棠"]'),
+  ).toHaveCount(1);
+  await expect(
+    shelf(page).locator('[data-group="other"]').locator('[data-name="柯雨"]'),
+  ).toHaveCount(1);
   /* 名字：沒有名字的放最後 */
   await page.getByRole('combobox', { name: '排序' }).click();
   await page.getByRole('option', { name: '名字' }).click();
@@ -225,8 +360,9 @@ test('排序與分組、每列幾位、顯示名字與代表色', async ({ page 
   await expect(cardNamed(page, '白澄').locator('[data-chip="theme"]')).toHaveCount(1);
   await page.getByRole('switch', { name: '顯示代表色' }).click();
   await expect(shelf(page).locator('[data-chip="theme"]')).toHaveCount(0);
+  await expect(shelf(page).getByRole('textbox', { name: '「白澄」的名字' })).toHaveValue('白澄');
   await page.getByRole('switch', { name: '顯示名字' }).click();
-  await expect(shelf(page).getByText('白澄')).toHaveCount(0);
+  await expect(shelf(page).getByRole('textbox')).toHaveCount(0);
   expect(errors).toEqual([]);
 });
 
@@ -321,6 +457,43 @@ test('角色的編輯視窗：名字、雙色、滴管、代表色、其他部�
   await expect(page.getByTestId('character-count')).toHaveText('6／24');
   await page.getByRole('button', { name: '復原', exact: true }).click();
   await expect(page.getByTestId('character-count')).toHaveText('7／24');
+  expect(errors).toEqual([]);
+});
+
+test('編輯視窗：Ctrl＋Z／Ctrl＋Shift＋Z 與視窗裡的按鈕可以復原、重做；文字欄裡交給瀏覽器；貼上圖片＝換立繪', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  await mode(page, '色票櫃');
+  await loadSamples(page);
+  await nextStep(page);
+  await cardNamed(page, '林予安').locator('button[data-drag-handle]').click();
+  const d = dialog(page);
+  const hairs = page.getByTestId('edit-slots-hair').locator('[data-slot]');
+  await expect(hairs).toHaveCount(1);
+  await d.getByRole('button', { name: '加一個髮色' }).click();
+  await expect(hairs).toHaveCount(2);
+  await page.keyboard.press('Control+z');
+  await expect(hairs).toHaveCount(1);
+  await page.keyboard.press('Control+Shift+z');
+  await expect(hairs).toHaveCount(2);
+  await btn(d, '復原').click();
+  await expect(hairs).toHaveCount(1);
+  await btn(d, '重做').click();
+  await expect(hairs).toHaveCount(2);
+  /* 文字欄裡的 Ctrl＋Z 不動角色的資料 */
+  await d.getByRole('textbox', { name: '名字' }).focus();
+  await page.keyboard.press('Control+z');
+  await expect(hairs).toHaveCount(2);
+  /* 貼上圖片：換立繪（接著圈頭像） */
+  await pasteImage(page, '[data-testid="character-editor"]', '新立繪.png', await green());
+  await expect(page.getByRole('heading', { name: '頭像範圍：林予安' })).toBeVisible();
+  await page
+    .getByRole('dialog')
+    .filter({ has: page.getByTestId('frame-view') })
+    .getByRole('button', { name: '套用', exact: true })
+    .click();
+  await expect.poll(async () => (await named(page, '林予安')).image?.width).toBe(200);
   expect(errors).toEqual([]);
 });
 

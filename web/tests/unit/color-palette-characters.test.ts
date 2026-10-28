@@ -16,7 +16,6 @@ import {
   groupCharacters,
   isMultiColor,
   keyColorOf,
-  parseHexText,
   partGroups,
   roleColors,
   roomLeft,
@@ -38,7 +37,13 @@ import {
   sanitizeSettings,
   segmentOf,
 } from '@/tools/color-palette/logic';
-import { chartContent, planChart, planShelf } from '@/tools/color-palette/shelfRender';
+import {
+  CHART_PNG,
+  chartContent,
+  partLabel,
+  planChart,
+  planShelf,
+} from '@/tools/color-palette/shelfRender';
 
 let n = 0;
 const seg = (color: string, role: PartRole | null = null, extra: Partial<Segment> = {}): Segment =>
@@ -138,6 +143,29 @@ describe('舊存檔（版本 1，只有色條）的轉換', () => {
     expect(x.segments[1]).toMatchObject({ role: null, none: false });
     expect(y.avatar).toBeNull();
     expect(imageIds(s)).toEqual(['img1']);
+  });
+
+  it('髮色、瞳色各最多 5 個：讀入時多出來的段刪掉（其他部位與沒有標部位的段不動）', () => {
+    const segs = [
+      ...Array.from({ length: 7 }, (_, i) => ({
+        id: `h${i}`,
+        color: '#111111',
+        ratio: 1,
+        role: 'hair',
+      })),
+      ...Array.from({ length: 6 }, (_, i) => ({
+        id: `e${i}`,
+        color: '#222222',
+        ratio: 1,
+        role: 'eye',
+      })),
+      ...Array.from({ length: 8 }, (_, i) => ({ id: `o${i}`, color: '#333333', ratio: 1 })),
+    ];
+    const [bar] = sanitizeSettings({ bars: [{ id: 'x', scale: 160, segments: segs }] }).bars;
+    const g = partGroups(bar.segments);
+    expect(g.hair.map((s) => s.id)).toEqual(['h0', 'h1', 'h2', 'h3', 'h4']);
+    expect(g.eye).toHaveLength(5);
+    expect(g.other).toHaveLength(8);
   });
 
   it('角色清單最多 24 位（配色條的上限）', () => {
@@ -353,15 +381,15 @@ describe('取色', () => {
     return { data, width: w, height: h };
   };
 
-  it('自動取色：圓裡（離中心 0.4 倍以內）出現最多的那一格的平均色；圓外與透明的不算', () => {
-    /* 中間一塊紅、外圈（圓外）一大片綠 */
-    const img = px(48, 48, (x, y) => {
-      const d = Math.hypot(x - 23.5, y - 23.5);
-      if (d > 22) return [0, 200, 0, 255];
-      return y < 30 ? [224, 48, 48, 255] : [48, 80, 224, 255];
+  it('自動取色：圓的內側（半徑 0.45 倍邊長）分 4 群，取占得最多的那一群的平均色；圓外與透明的不算', () => {
+    /* 圓外一大片綠；圓裡上面多半是紅、下面藍 */
+    const img = px(64, 64, (x, y) => {
+      const d = Math.hypot(x + 0.5 - 32, y + 0.5 - 32);
+      if (d > 28.8) return [0, 200, 0, 255];
+      return y < 40 ? [224, 48, 48, 255] : [48, 80, 224, 255];
     });
     expect(dominantInCircle(img)).toBe('#e03030');
-    expect(dominantInCircle(px(48, 48, () => [255, 0, 0, 100]))).toBe('#888888');
+    expect(dominantInCircle(px(64, 64, () => [255, 0, 0, 100]))).toBe('#888888');
   });
 
   it('滴管：3 × 3 的平均（透明度 200 以上的才算）；圖外或全透明 null', () => {
@@ -377,12 +405,6 @@ describe('取色', () => {
       ),
     ).toBeNull();
   });
-
-  it('色碼欄：#RGB、#RRGGBB，可以不打 #；看不懂 null', () => {
-    expect(parseHexText('ABC')).toBe('#aabbcc');
-    expect(parseHexText(' #12aB9f ')).toBe('#12ab9f');
-    expect(parseHexText('#12345')).toBeNull();
-  });
 });
 
 describe('專案檔的往返、色碼表與色票櫃 PNG 的大小', () => {
@@ -397,7 +419,20 @@ describe('專案檔的往返、色碼表與色票櫃 PNG 的大小', () => {
         }),
       ],
       shelf: { ...DEFAULT_SHELF, sort: 'name', columns: 4 },
-      card: { ...DEFAULT_CARD, title: '標題', count: 6 },
+      card: {
+        ...DEFAULT_CARD,
+        title: '標題',
+        count: 6,
+        columns: [
+          {
+            ...DEFAULT_CARD.columns[0],
+            source: 'photo',
+            name: 'photo-1',
+            autoName: true,
+            image: { id: 'p', width: 10, height: 10 },
+          },
+        ],
+      },
     });
     const text = serializeProject('color-palette', 2, s, new Date(0));
     const back = parseProject<Settings>(text, 'color-palette');
@@ -419,10 +454,28 @@ describe('專案檔的往返、色碼表與色票櫃 PNG 的大小', () => {
     );
     const { main, others } = chartContent(c);
     expect(main.map((r) => r.label)).toEqual(['髮色', '瞳色', '代表色']);
-    expect(others.map((o) => o.label)).toEqual(['膚色', '緞帶', '第 3 段']);
+    /* 「第 n 段」是整條裡的第幾段（和編輯視窗相同） */
+    expect(others.map((o) => o.label)).toEqual(['膚色', '緞帶', '第 5 段']);
+    expect(partLabel(c, c.segments[4])).toBe('第 5 段');
     const plan = planChart(c);
-    expect(plan.width).toBe(720);
-    expect(plan.height).toBeGreaterThan(600);
+    expect(plan.width).toBe(CHART_PNG.width);
+    expect(plan.height).toBeGreaterThanOrEqual(CHART_PNG.minHeight);
+    expect(plan.rows.map((r) => r.spots.length)).toEqual([1, 1, 1]);
+    expect(plan.others.map((o) => o.note)).toEqual(['膚色', '緞帶', '第 5 段']);
+  });
+
+  it('色碼表：一列放不下的顏色換行；其他部位兩欄；內容多時圖變高', () => {
+    const many = char('乙', [
+      ...Array.from({ length: 5 }, (_, i) => seg(`#1${i}1111`, 'hair')),
+      ...Array.from({ length: 12 }, (_, i) => seg(`#3${i.toString(16)}3333`, 'other')),
+    ]);
+    const plan = planChart(many);
+    const hair = plan.rows[0].spots;
+    expect(hair).toHaveLength(5);
+    const perLine = new Set(hair.map((s) => s.y)).size;
+    expect(perLine).toBe(2);
+    expect(new Set(plan.others.map((o) => o.x)).size).toBe(2);
+    expect(plan.height).toBeGreaterThan(CHART_PNG.minHeight);
   });
 
   it('色票櫃 PNG：每列幾位（自動是最多 6 位）決定寬度；分組時每組多一個小標', () => {

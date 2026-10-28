@@ -1,7 +1,7 @@
 /**
  * 髮色、瞳色的格子（新增角色的取色視窗、角色的編輯視窗共用）：每一格是一個顏色（「無」畫透明格子、
  * 未指定畫問號），選中的格子有主色外框，滴管取的顏色放進選中的格子；「＋」加一格（最多 5 格），
- * 格子右上角的 × 拿掉那一格。
+ * 格子右上角的 × 拿掉那一格（滑過、聚焦、選中時顯示；觸控裝置一直顯示）。
  */
 import { Plus, X } from 'lucide-react';
 import type { CSSProperties } from 'react';
@@ -10,7 +10,8 @@ import type { PartColor } from './characters';
 import { S } from './strings';
 
 /** CSS 的「無」：透明格子 */
-export const CHECKER_CSS = 'repeating-conic-gradient(#d6d6d6 0 25%, #f5f5f5 0 50%) 50% / 8px 8px';
+export const CHECKER_CSS =
+  'conic-gradient(#dcdcdc 90deg, #f7f7f7 90deg 180deg, #dcdcdc 180deg 270deg, #f7f7f7 270deg) 0 0 / 10px 10px';
 
 export const swatchStyle = (c: PartColor | null): CSSProperties =>
   c ? { background: c.none ? CHECKER_CSS : c.color } : {};
@@ -77,7 +78,13 @@ export function RoleSlots({
                 type="button"
                 aria-label={`${S.slotRemove(label)}（${i + 1}）`}
                 onClick={() => onRemove?.(i)}
-                className="absolute -top-1.5 -right-1.5 hidden size-4 items-center justify-center rounded-full border border-border-strong bg-surface text-fg group-focus-within:flex group-hover:flex [&_svg]:size-3"
+                className={cn(
+                  'absolute -top-1.5 -right-1.5 size-4 items-center justify-center rounded-full border border-border-strong bg-surface text-fg [&_svg]:size-3',
+                  /* 滑過、聚焦、選中的格子才顯示；觸控裝置（沒有滑過）一直顯示 */
+                  active === i
+                    ? 'flex'
+                    : 'hidden group-focus-within:flex group-hover:flex [@media(hover:none)]:flex',
+                )}
               >
                 <X aria-hidden />
               </button>

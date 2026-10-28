@@ -274,6 +274,11 @@ export {
   type ProjectNotice,
 } from './ProjectMenu';
 export {
+  createPointerGesture,
+  type GestureSample,
+  type PointerGesture,
+} from './pointerGesture';
+export {
   caretAfterChange,
   insertedRange,
   RICH_EDITOR_TEXT,

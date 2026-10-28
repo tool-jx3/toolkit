@@ -1,37 +1,39 @@
 /**
- * 畫配色卡（預覽、PNG、GIF 共用同一段畫法；規格 1.2）。版型是本站自己的：暖白的卡、圓角照片、
- * 每一列一個圓角色塊（左邊色名、右邊 HEX）、混色帶、綜合色。
+ * 畫配色卡（預覽、PNG、GIF 共用同一段畫法；規格 1.2、3.8）。版型是本站自己設計的：
+ * 米灰的底上一張圓角的卡；標題靠左、右邊是各張的代表色圓點；圓角照片；每格色票是「色塊＋色名＋HEX」；
+ * 代表色不在色票裡時色票下面多一列標出來；混色帶是細的漸層條、兩端的 HEX 寫在下面；最後是綜合色。
+ * GIF 的動畫：色票一列一列（再來是代表色、混色帶、綜合色）由左往右展開、同時淡入。
  */
-import { readableTextColor } from '@/core/color';
 import { createEncoder } from '@/core/encode';
 import { ensureFont, fontCss } from '@/core/fonts';
 import {
   canvasToBlob,
   clampPlacement,
   drawPlacedCrop,
+  type FramePlacement,
   makeCanvas,
   roundRectPath,
 } from '@/core/image';
 import { CARD, type CardLayout, hexOf, type ResolvedColumn, type Rgb } from './card';
 import { type CardColumn, type CardSettings, LIMITS } from './logic';
-import type { Ctx2D } from './paint';
+import { type Ctx2D, fitText } from './paint';
 import { S } from './strings';
 
 export const CARD_FONT = 'Noto Sans TC';
 const font = (weight: number, px: number) => fontCss({ family: CARD_FONT, weight }, px);
 
+const MAT = '#efebe4';
 const PAPER = '#fffdf9';
-const INK = '#1f1d1a';
-const FRAME = '#ebe7e0';
-const EMPTY = '#f3f0ea';
+const INK = '#26231f';
+const MUTED = '#8a847b';
+const EDGE = 'rgba(0,0,0,0.08)';
+const EMPTY = '#f3efe8';
 
 type Bitmaps = ReadonlyMap<string, ImageBitmap>;
 
+/** GIF 的某一格：t＝已經出現了幾步（可以有小數：那一步出現到一半） */
 export interface CardAnim {
-  /** 正在出現的是第幾步（layout.steps 的索引；之前的都已出現、之後的還沒） */
-  step: number;
-  /** 這一步出現了多少（0～1） */
-  p: number;
+  t: number;
 }
 
 export interface CardPaint {
@@ -43,267 +45,322 @@ export interface CardPaint {
   bitmaps: Bitmaps;
 }
 
-const hex = (rgb: readonly number[]) => hexOf(rgb);
-
 function rr(ctx: Ctx2D, x: number, y: number, w: number, h: number, r: number) {
   ctx.beginPath();
   roundRectPath(ctx, x, y, w, h, Math.min(r, w / 2, h / 2));
   ctx.closePath();
 }
 
-function spaced(ctx: Ctx2D, px: number) {
-  try {
-    (ctx as CanvasRenderingContext2D).letterSpacing = `${px}px`;
-  } catch {
-    /* 不支援字距的瀏覽器照常畫 */
-  }
+/** 代表色的記號：色塊中央一個白點、外圈深色 */
+function keyMark(ctx: Ctx2D, cx: number, cy: number) {
+  ctx.beginPath();
+  ctx.arc(cx, cy, 7, 0, Math.PI * 2);
+  ctx.fillStyle = '#ffffff';
+  ctx.fill();
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = INK;
+  ctx.stroke();
 }
 
-/** 一列色塊：圓角矩形，左邊色名、右邊 HEX（不顯示色名時 HEX 置中）；代表色前面一個小圓點 */
-function swatchRow(
+/** 色塊（圓角方形） */
+function chip(ctx: Ctx2D, rgb: Rgb, x: number, y: number, size: number, r: number) {
+  rr(ctx, x, y, size, size, r);
+  ctx.fillStyle = hexOf(rgb);
+  ctx.fill();
+  rr(ctx, x + 0.5, y + 0.5, size - 1, size - 1, r);
+  ctx.strokeStyle = EDGE;
+  ctx.lineWidth = 1;
+  ctx.stroke();
+}
+
+/** 一格色票：左邊色塊、右邊兩行字（色名、HEX）；不顯示色名時只有 HEX */
+function swatchItem(
   ctx: Ctx2D,
   rgb: Rgb,
   x: number,
   y: number,
   w: number,
-  h: number,
   name: string,
   isKey: boolean,
 ) {
-  const fill = hex(rgb);
-  const fg = readableTextColor(fill);
-  ctx.save();
-  ctx.shadowColor = 'rgba(40,30,20,0.08)';
-  ctx.shadowBlur = 12;
-  ctx.shadowOffsetY = 4;
-  rr(ctx, x, y, w, h, CARD.rowR);
-  ctx.fillStyle = fill;
-  ctx.fill();
-  ctx.restore();
-  rr(ctx, x + 0.5, y + 0.5, w - 1, h - 1, CARD.rowR);
-  ctx.strokeStyle = 'rgba(0,0,0,0.08)';
-  ctx.lineWidth = 1;
-  ctx.stroke();
-  const mid = y + h / 2;
-  const padX = 22;
-  ctx.fillStyle = fg;
-  ctx.textBaseline = 'middle';
-  let left = x + padX;
-  if (isKey) {
-    ctx.beginPath();
-    ctx.arc(x + 14, mid, 4, 0, Math.PI * 2);
-    ctx.fill();
-    left = x + 28;
-  }
-  const hs = Math.max(13, Math.min(18, w * 0.045));
-  ctx.font = font(400, hs);
-  spaced(ctx, 1);
-  if (!name) {
-    ctx.textAlign = 'center';
-    ctx.fillText(fill, x + w / 2, mid);
-    spaced(ctx, 0);
-    return;
-  }
-  ctx.textAlign = 'right';
-  ctx.fillText(fill, x + w - padX, mid);
-  const hw = ctx.measureText(fill).width;
-  spaced(ctx, 0);
-  let ns = Math.max(13, Math.min(20, w * 0.05));
-  const room = x + w - padX - hw - 20 - left;
-  ctx.font = font(500, ns);
-  while (ctx.measureText(name).width > room && ns > 10) {
-    ns -= 0.5;
-    ctx.font = font(500, ns);
-  }
+  const h = CARD.rowH;
+  chip(ctx, rgb, x, y, h, 12);
+  if (isKey) keyMark(ctx, x + h / 2, y + h / 2);
+  const tx = x + h + 14;
+  const room = w - h - 14;
   ctx.textAlign = 'left';
-  ctx.fillText(name, left, mid);
+  ctx.textBaseline = 'middle';
+  if (name) {
+    ctx.font = font(700, 17);
+    ctx.fillStyle = INK;
+    ctx.fillText(fitText(ctx, name, room), tx, y + h * 0.33);
+    ctx.font = font(400, 14);
+    ctx.fillStyle = MUTED;
+    ctx.fillText(hexOf(rgb), tx, y + h * 0.71);
+  } else {
+    ctx.font = font(500, 16);
+    ctx.fillStyle = INK;
+    ctx.fillText(hexOf(rgb), tx, y + h / 2);
+  }
 }
 
-function mixStrip(ctx: Ctx2D, a: Rgb, b: Rgb, x: number, y: number, w: number, h: number) {
+/** 色票下面的「代表色」那一列（代表色不在取出的顏色裡時） */
+function keyItem(ctx: Ctx2D, rgb: Rgb, x: number, y: number, w: number) {
+  const h = CARD.keyH;
+  chip(ctx, rgb, x, y, h, 10);
+  keyMark(ctx, x + h / 2, y + h / 2);
+  const tx = x + h + 14;
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'middle';
+  ctx.font = font(500, 13);
+  ctx.fillStyle = MUTED;
+  ctx.fillText(fitText(ctx, S.cardKeyOffPalette, w - h - 14), tx, y + h * 0.3);
+  ctx.font = font(500, 15);
+  ctx.fillStyle = INK;
+  ctx.fillText(hexOf(rgb), tx, y + h * 0.72);
+}
+
+/** 混色帶：細的漸層條，兩端的 HEX 寫在條的下面 */
+function mixBar(ctx: Ctx2D, a: Rgb, b: Rgb, x: number, y: number, w: number) {
+  const barH = 20;
   const g = ctx.createLinearGradient(x, 0, x + w, 0);
-  g.addColorStop(0, hex(a));
-  g.addColorStop(1, hex(b));
-  rr(ctx, x, y, w, h, h / 2);
+  g.addColorStop(0, hexOf(a));
+  g.addColorStop(1, hexOf(b));
+  rr(ctx, x, y, w, barH, barH / 2);
   ctx.fillStyle = g;
   ctx.fill();
-  rr(ctx, x + 0.5, y + 0.5, w - 1, h - 1, h / 2);
-  ctx.strokeStyle = 'rgba(0,0,0,0.07)';
+  rr(ctx, x + 0.5, y + 0.5, w - 1, barH - 1, barH / 2);
+  ctx.strokeStyle = EDGE;
   ctx.lineWidth = 1;
   ctx.stroke();
-  const fs = 15;
-  ctx.font = font(400, fs);
+  ctx.font = font(400, 13);
+  ctx.fillStyle = MUTED;
   ctx.textBaseline = 'middle';
-  spaced(ctx, 1);
   ctx.textAlign = 'left';
-  ctx.fillStyle = readableTextColor(hex(a));
-  ctx.fillText(hex(a), x + h * 0.5, y + h / 2);
+  ctx.fillText(hexOf(a), x, y + barH + 13);
   ctx.textAlign = 'right';
-  ctx.fillStyle = readableTextColor(hex(b));
-  ctx.fillText(hex(b), x + w - h * 0.5, y + h / 2);
-  spaced(ctx, 0);
+  ctx.fillText(hexOf(b), x + w, y + barH + 13);
 }
 
-function photo(
-  ctx: Ctx2D,
-  col: CardColumn,
-  r: ResolvedColumn,
-  bmp: ImageBitmap | null,
-  x: number,
-  y: number,
-  w: number,
-  h: number,
-) {
-  ctx.save();
-  ctx.shadowColor = 'rgba(40,30,20,0.14)';
-  ctx.shadowBlur = 36;
-  ctx.shadowOffsetY = 12;
-  rr(ctx, x, y, w, h, CARD.photoR);
-  ctx.fillStyle = '#ffffff';
-  ctx.fill();
-  ctx.restore();
-  ctx.save();
-  rr(ctx, x, y, w, h, CARD.photoR);
-  ctx.clip();
-  if (bmp && r.image) {
-    /* 照片比例換過之後，舊的位置可能露出照片框：畫的時候夾回蓋滿的範圍 */
-    const p = clampPlacement(r.image, { width: w, height: h }, col.placement, LIMITS.cardZoom);
-    drawPlacedCrop(ctx, bmp, r.image, { x, y, width: w, height: h }, p);
+/** 綜合色：大色塊＋「綜合色」、色名、HEX */
+function blendItem(ctx: Ctx2D, rgb: Rgb, x: number, y: number, name: string) {
+  const h = CARD.blendH;
+  chip(ctx, rgb, x, y, h, 16);
+  const tx = x + h + 18;
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'middle';
+  ctx.font = font(500, 13);
+  ctx.fillStyle = MUTED;
+  ctx.fillText(S.cardBlend, tx, y + 16);
+  if (name) {
+    ctx.font = font(700, 22);
+    ctx.fillStyle = INK;
+    ctx.fillText(name, tx, y + 40);
+    const nw = ctx.measureText(name).width;
+    ctx.font = font(400, 15);
+    ctx.fillStyle = MUTED;
+    ctx.fillText(hexOf(rgb), tx + nw + 12, y + 41);
   } else {
-    ctx.fillStyle = EMPTY;
-    ctx.fillRect(x, y, w, h);
-    ctx.strokeStyle = '#c9c3b8';
-    ctx.lineWidth = 3;
-    ctx.lineCap = 'round';
-    const cx = x + w / 2;
-    const cy = y + h / 2;
-    ctx.beginPath();
-    ctx.moveTo(cx - 24, cy);
-    ctx.lineTo(cx + 24, cy);
-    ctx.moveTo(cx, cy - 24);
-    ctx.lineTo(cx, cy + 24);
-    ctx.stroke();
+    ctx.font = font(500, 18);
+    ctx.fillStyle = INK;
+    ctx.fillText(hexOf(rgb), tx, y + 41);
   }
-  ctx.restore();
-  rr(ctx, x + 0.5, y + 0.5, w - 1, h - 1, CARD.photoR);
-  ctx.strokeStyle = 'rgba(0,0,0,0.07)';
-  ctx.lineWidth = 1;
-  ctx.stroke();
 }
 
-/** 畫整張卡（scale：1 倍座標乘上幾倍；anim：GIF 的某一格） */
+/** 還沒放照片的框：虛線框與中間的「＋」（預覽上點一下可以選照片） */
+function emptyPhoto(ctx: Ctx2D, x: number, y: number, w: number, h: number) {
+  rr(ctx, x, y, w, h, CARD.photoR);
+  ctx.fillStyle = EMPTY;
+  ctx.fill();
+  ctx.save();
+  rr(ctx, x + 6, y + 6, w - 12, h - 12, CARD.photoR - 6);
+  ctx.setLineDash([8, 6]);
+  ctx.strokeStyle = '#cbc2b4';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  ctx.restore();
+  const cx = x + w / 2;
+  const cy = y + h / 2;
+  ctx.beginPath();
+  ctx.arc(cx, cy, 26, 0, Math.PI * 2);
+  ctx.strokeStyle = '#b5ab9c';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(cx - 11, cy);
+  ctx.lineTo(cx + 11, cy);
+  ctx.moveTo(cx, cy - 11);
+  ctx.lineTo(cx, cy + 11);
+  ctx.lineCap = 'round';
+  ctx.stroke();
+  ctx.lineCap = 'butt';
+}
+
+/**
+ * 一張照片（拖曳時只重畫這一塊）。placement 不給時用欄的位置；照片比例換過之後舊的位置可能露出照片框，
+ * 畫的時候夾回蓋滿的範圍。scale 有給時先設定座標的倍率、而且用較快的縮放（預覽的拖曳重畫用；
+ * 放開之後整張卡用高品質重畫）。
+ */
+export function drawCardPhoto(
+  ctx: Ctx2D,
+  p: Pick<CardPaint, 'layout' | 'resolved' | 'columns' | 'bitmaps'>,
+  i: number,
+  placement?: FramePlacement,
+  scale?: number,
+) {
+  const L = p.layout;
+  const c = L.cols[i];
+  const r = p.resolved[i];
+  const col = p.columns[i];
+  if (!c || !r || !col) return;
+  const bmp = r.image ? (p.bitmaps.get(r.image.id) ?? null) : null;
+  const box = { x: c.x, y: L.photoY, width: c.w, height: L.photoH };
+  ctx.save();
+  if (scale != null) ctx.setTransform(scale, 0, 0, scale, 0, 0);
+  if (bmp && r.image) {
+    const place = clampPlacement(
+      r.image,
+      { width: box.width, height: box.height },
+      placement ?? col.placement,
+      LIMITS.cardZoom,
+    );
+    rr(ctx, box.x, box.y, box.width, box.height, CARD.photoR);
+    ctx.save();
+    ctx.clip();
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(box.x, box.y, box.width, box.height);
+    drawPlacedCrop(ctx, bmp, r.image, box, place, scale != null ? 'low' : 'high');
+    ctx.restore();
+    rr(ctx, box.x + 0.5, box.y + 0.5, box.width - 1, box.height - 1, CARD.photoR);
+    ctx.strokeStyle = EDGE;
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  } else emptyPhoto(ctx, box.x, box.y, box.width, box.height);
+  ctx.restore();
+}
+
+/** 畫整張卡（scale：1 倍座標乘上幾倍；anim：GIF 的某一格，null＝全部出現） */
 export function drawCard(ctx: Ctx2D, p: CardPaint, scale: number, anim: CardAnim | null = null) {
-  const { card, layout: L, resolved, names, bitmaps, columns } = p;
+  const { card, layout: L, resolved, names } = p;
+  const contentW = L.right - L.left;
   ctx.save();
   ctx.setTransform(scale, 0, 0, scale, 0, 0);
   ctx.globalAlpha = 1;
-  ctx.fillStyle = PAPER;
+  ctx.fillStyle = MAT;
   ctx.fillRect(0, 0, L.width, L.height);
-  /* 內框 */
-  rr(ctx, 24.5, 24.5, L.width - 49, L.height - 49, 18);
-  ctx.strokeStyle = FRAME;
-  ctx.lineWidth = 1;
-  ctx.stroke();
-  const accent = L.blend ?? resolved.find((c) => c.key)?.key ?? null;
+  rr(
+    ctx,
+    CARD.margin,
+    CARD.margin,
+    L.width - CARD.margin * 2,
+    L.height - CARD.margin * 2,
+    CARD.radius,
+  );
+  ctx.fillStyle = PAPER;
+  ctx.fill();
 
-  let step = 0;
-  /** 依 GIF 的進度決定這一步畫不畫、畫多少 */
-  const reveal = (fn: () => void) => {
-    const i = step++;
-    const v = !anim || i < anim.step ? 1 : i === anim.step ? anim.p : 0;
+  /** 第 i 步出現了多少（0～1） */
+  const shown = (i: number) => (anim ? Math.min(1, Math.max(0, anim.t - i)) : 1);
+  /** 出現到一半的那一步：由左往右展開＋淡入 */
+  const appear = (i: number, y: number, h: number, draw: () => void) => {
+    const v = shown(i);
     if (v <= 0) return;
     if (v >= 1) {
-      fn();
+      draw();
       return;
     }
     ctx.save();
-    ctx.globalAlpha = v;
-    ctx.translate(0, (1 - v) * 14);
-    fn();
+    ctx.beginPath();
+    ctx.rect(L.left - 4, y - 4, (contentW + 8) * v, h + 8);
+    ctx.clip();
+    ctx.globalAlpha = 0.3 + 0.7 * v;
+    draw();
     ctx.restore();
   };
 
+  /* 標題（靠左）與右邊各張的代表色圓點 */
   if (L.title) {
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'alphabetic';
-    ctx.font = font(700, 40);
-    spaced(ctx, 4);
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.font = font(700, 32);
     ctx.fillStyle = INK;
-    ctx.fillText(card.title.trim(), L.width / 2, L.titleY + 50);
-    spaced(ctx, 0);
-    rr(ctx, L.width / 2 - 28, L.titleY + 70, 56, 4, 2);
-    ctx.fillStyle = accent ? hex(accent) : '#cfc9bf';
-    ctx.fill();
+    const keys = resolved.map((r) => r.key).filter((k): k is Rgb => !!k);
+    const dotsW = keys.length ? keys.length * 22 + 12 : 0;
+    ctx.fillText(fitText(ctx, card.title.trim(), contentW - dotsW), L.left, L.titleY + 26);
+    keys.forEach((k, i) => {
+      const cx = L.right - 8 - (keys.length - 1 - i) * 22;
+      ctx.beginPath();
+      ctx.arc(cx, L.titleY + 26, 8, 0, Math.PI * 2);
+      ctx.fillStyle = hexOf(k);
+      ctx.fill();
+      ctx.strokeStyle = EDGE;
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    });
+    ctx.beginPath();
+    ctx.moveTo(L.left, L.titleY + 58);
+    ctx.lineTo(L.right, L.titleY + 58);
+    ctx.strokeStyle = '#e7e1d7';
+    ctx.lineWidth = 1;
+    ctx.stroke();
   }
 
+  /* 照片與名字 */
   L.cols.forEach((c, i) => {
+    drawCardPhoto(ctx, p, i);
     const r = resolved[i];
-    const col = columns[i];
-    if (!r || !col) return;
-    const bmp = r.image ? (bitmaps.get(r.image.id) ?? null) : null;
-    photo(ctx, col, r, bmp, c.x, L.photoY, c.w, L.photoH);
-    if (r.name) {
+    if (r?.name) {
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.font = font(500, 24);
-      spaced(ctx, 2);
+      ctx.font = font(500, 20);
       ctx.fillStyle = INK;
-      ctx.fillText(r.name, c.x + c.w / 2, L.nameY + CARD.nameH / 2 + 4);
-      spaced(ctx, 0);
+      ctx.fillText(fitText(ctx, r.name, c.w - 16), c.x + c.w / 2, L.nameY + CARD.nameH / 2 + 2);
     }
   });
 
+  /* 色票：一列一列；還沒取到色的格子是淺色的空格（GIF 的畫面不畫空格） */
+  let step = 0;
   for (let j = 0; j < L.rows; j++) {
     const y = L.rowsY + j * (CARD.rowH + CARD.rowGap);
     if (!anim)
       L.cols.forEach((c, i) => {
-        if (!resolved[i]?.swatches[j]) {
-          rr(ctx, c.x, y, c.w, CARD.rowH, CARD.rowR);
-          ctx.fillStyle = EMPTY;
-          ctx.fill();
-        }
+        if (resolved[i]?.swatches[j]) return;
+        rr(ctx, c.x, y, c.w, CARD.rowH, 12);
+        ctx.fillStyle = EMPTY;
+        ctx.fill();
       });
-    reveal(() => {
+    appear(step++, y, CARD.rowH, () => {
       L.cols.forEach((c, i) => {
         const r = resolved[i];
         const s = r?.swatches[j];
         if (!s) return;
-        const isKey = !!r.key && hex(r.key) === hex(s.rgb);
-        swatchRow(
-          ctx,
-          s.rgb,
-          c.x,
-          y,
-          c.w,
-          CARD.rowH,
-          card.showNames ? (names.swatch[i]?.[j] ?? '') : '',
-          isKey,
-        );
+        const isKey = r.keyIndex === j;
+        const name = card.showNames ? (names.swatch[i]?.[j] ?? '') : '';
+        swatchItem(ctx, s.rgb as Rgb, c.x, y, c.w, name, isKey);
       });
     });
   }
 
+  /* 代表色不在色票裡的那幾張：色票下面標出代表色 */
+  const keyY = L.keyY;
+  if (keyY != null)
+    appear(step++, keyY, CARD.keyH, () => {
+      L.cols.forEach((c, i) => {
+        const r = resolved[i];
+        if (r?.key && !r.keyInSwatches) keyItem(ctx, r.key, c.x, keyY, c.w);
+      });
+    });
+
   L.mix.forEach(([a, b], k) => {
     const y = L.mixY + k * (CARD.mixH + CARD.mixGap);
-    reveal(() => mixStrip(ctx, a, b, CARD.pad, y, L.width - CARD.pad * 2, CARD.mixH));
+    appear(step++, y, CARD.mixH, () => mixBar(ctx, a, b, L.left, y, contentW));
   });
 
-  if (L.blend) {
-    const b = L.blend;
-    reveal(() => {
-      const x = CARD.pad;
-      const w = L.width - CARD.pad * 2;
-      swatchRow(
-        ctx,
-        b,
-        x,
-        L.blendY,
-        w,
-        CARD.blendH,
-        card.showNames ? `${S.cardBlend}・${names.blend}` : '',
-        false,
-      );
-    });
-  }
+  const blend = L.blend;
+  if (blend)
+    appear(step++, L.blendY, CARD.blendH, () =>
+      blendItem(ctx, blend, L.left, L.blendY, card.showNames ? names.blend : ''),
+    );
   ctx.restore();
 }
 
@@ -315,7 +372,8 @@ export function cardText(p: Pick<CardPaint, 'card' | 'resolved' | 'names'>): str
     ...p.names.swatch.flat(),
     p.names.blend,
     S.cardBlend,
-    '#0123456789ABCDEF・',
+    S.cardKeyOffPalette,
+    '#0123456789ABCDEF',
   ].join('');
 }
 
@@ -348,20 +406,23 @@ export function gifSize(layout: Pick<CardLayout, 'width' | 'height'>, gifWidth: 
   return { scale: s, width: Math.round(layout.width * s), height: Math.round(layout.height * s) };
 }
 
-/** 每一格的進度與長度（第一格什麼都還沒出現；之後每一步 4 格，由淡入與上浮帶出） */
+/**
+ * 每一格的進度與長度：第一格什麼都還沒出現；之後每一步 4 格（展開的進度依 1 −（1 − x）² 加快後放慢），
+ * 每一步的最後一格停久一點，全部出現的最後一格停 2 秒。沒有任何步驟時只有一格。
+ */
 export function gifFrames(steps: number): { anim: CardAnim | null; ms: number }[] {
   const T = GIF_TIMING;
-  const ease = (t: number) => 1 - (1 - t) ** 2;
-  const out: { anim: CardAnim | null; ms: number }[] = [{ anim: { step: 0, p: 0 }, ms: T.first }];
+  if (!steps) return [{ anim: null, ms: T.last }];
+  const ease = (x: number) => 1 - (1 - x) ** 2;
+  const out: { anim: CardAnim | null; ms: number }[] = [{ anim: { t: 0 }, ms: T.first }];
   for (let e = 0; e < steps; e++)
     for (let k = 1; k <= T.subFrames; k++) {
       const end = k === T.subFrames;
       out.push({
-        anim: end ? { step: e + 1, p: 0 } : { step: e, p: ease(k / T.subFrames) },
+        anim: { t: e + ease(k / T.subFrames) },
         ms: end ? (e === steps - 1 ? T.last : T.stepEnd) : T.sub,
       });
     }
-  if (!steps) out[0] = { anim: null, ms: T.last };
   return out;
 }
 

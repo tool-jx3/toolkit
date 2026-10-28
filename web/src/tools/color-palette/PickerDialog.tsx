@@ -43,7 +43,8 @@ export interface PickerHandle {
 }
 
 export interface PickerDialogProps {
-  onApply: (barId: string, picks: PickedColor[]) => void;
+  /** 套用；回傳 false（例如使用者在確認時按了取消）時視窗不關 */
+  onApply: (barId: string, picks: PickedColor[]) => boolean | Promise<boolean>;
   ref?: Ref<PickerHandle>;
 }
 
@@ -103,7 +104,7 @@ export function PickerDialog({ onApply, ref }: PickerDialogProps) {
   /* 離開頁面時釋放圖片 */
   useEffect(() => () => imageRef.current?.close(), []);
 
-  const apply = () => {
+  const apply = async () => {
     if (!target) return;
     if (!image) {
       setError(S.needImage);
@@ -127,7 +128,7 @@ export function PickerDialog({ onApply, ref }: PickerDialogProps) {
     } else {
       picks = vividColorsBySplits(getImageData(image), splits, { tolerance });
     }
-    onApply(target.barId, picks);
+    if ((await onApply(target.barId, picks)) === false) return;
     onClose();
   };
 
@@ -194,7 +195,7 @@ export function PickerDialog({ onApply, ref }: PickerDialogProps) {
       footer={
         <>
           <DialogClose>{S.cancel}</DialogClose>
-          <Button variant="primary" onClick={apply}>
+          <Button variant="primary" onClick={() => void apply()}>
             {S.apply}
           </Button>
         </>

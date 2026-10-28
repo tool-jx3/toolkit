@@ -19,6 +19,9 @@
  * - 只想從把手開始拖（例如每列都是輸入欄的表單）：把 rowProps 的 ref 給整列、其餘的指標事件給把手。
  *   把手本身（標 `data-drag-handle`）可以是 `<button>`（有名稱、可聚焦）：按鈕、輸入欄等不能開始拖的元素
  *   只有在把手裡面時例外（character-editor 移植時新增；原本的把手都是 span，行為不變）。
+ * - cancelOnGap（選填，drop 模式＋axis 'xy'）：只有指標正在某一張上面時才有目標，放在卡片之間的空白、
+ *   清單外面都不移動（回原位）。escapeCancels（選填）：拖曳中按 Esc 取消（回原位）。
+ *   （color-palette 的色票櫃對等驗證後新增，不給時行為不變）
  * - handleOnly（選填）：指標事件照樣給整列，但滑鼠也只能從把手（`[data-drag-handle]`）開始拖，
  *   從列上其他地方按住只算點一下（同觸控）。每列有縮圖、拖放區等大塊內容時用，避免從那裡拖到卻排了序
  *   （acrylic-goods 對等驗證後新增，不給時行為不變）。
@@ -42,6 +45,10 @@ export interface SortableOptions {
   cancelOutside?: boolean;
   /** 'y'（預設，直向清單）或 'xy'（格狀／橫向排列：依指標所在的那一張決定目標） */
   axis?: 'y' | 'xy';
+  /** drop 模式＋axis 'xy'：指標不在任何一張上面（卡片之間的空白、清單外）時沒有目標，放開不移動 */
+  cancelOnGap?: boolean;
+  /** 拖曳中按 Esc 取消（不移動） */
+  escapeCancels?: boolean;
   /** 滑鼠也只能從把手（`[data-drag-handle]`）開始拖（預設 false：滑鼠可以從列上任何不是輸入欄、按鈕的地方開始） */
   handleOnly?: boolean;
   /**
@@ -137,6 +144,15 @@ export function useSortable(options: SortableOptions) {
     return !(y >= top && y <= bottom && x >= left && x <= right);
   };
 
+  /** 指標正在上面的那一張（沒有時 -1） */
+  const under = (x: number, y: number) => {
+    for (let i = 0; i < opts.current.count; i++) {
+      const r = rows.current.get(i)?.getBoundingClientRect();
+      if (r && x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) return i;
+    }
+    return -1;
+  };
+
   /** 格狀排列：指標所在（或中心最近）的那一張 */
   const nearest = (x: number, y: number) => {
     let best = -1;
@@ -159,7 +175,12 @@ export function useSortable(options: SortableOptions) {
     const s = g.current;
     if (!s?.active) return;
     if (opts.current.axis === 'xy') {
-      const t = opts.current.cancelOutside && outside(x, y) ? -1 : nearest(x, y);
+      const t =
+        opts.current.mode === 'drop' && opts.current.cancelOnGap
+          ? under(x, y)
+          : opts.current.cancelOutside && outside(x, y)
+            ? -1
+            : nearest(x, y);
       if (opts.current.mode === 'drop') {
         if (t !== s.over) {
           s.over = t;
@@ -317,11 +338,19 @@ export function useSortable(options: SortableOptions) {
         const onCancel = (ev: globalThis.PointerEvent) => {
           if (ev.pointerId === id && g.current?.id === id) finish(false);
         };
+        const onKey = (ev: globalThis.KeyboardEvent) => {
+          if (ev.key !== 'Escape' || !opts.current.escapeCancels || g.current?.id !== id) return;
+          ev.preventDefault();
+          ev.stopPropagation();
+          finish(false);
+        };
         window.addEventListener('pointerup', onUp);
         window.addEventListener('pointercancel', onCancel);
+        window.addEventListener('keydown', onKey, true);
         s.detach = () => {
           window.removeEventListener('pointerup', onUp);
           window.removeEventListener('pointercancel', onCancel);
+          window.removeEventListener('keydown', onKey, true);
         };
         s.scroller = scrollParent(e.currentTarget);
         setState({ drag: s.index, over: s.index });

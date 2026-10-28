@@ -1,6 +1,7 @@
 /**
  * core/image 的 k-means 取色（kmeansPalette、pickKeyColor、nearestPaletteColor、mixColors）：
- * color-palette 的配色卡新增（2026-10）。同一張圖、同樣的 N 結果一定相同（固定種子）。
+ * color-palette 的配色卡新增（2026-10）。同一張圖、同樣的 N 結果一定相同（固定種子）；
+ * 用 4 組種子各分一次、取誤差最小的那一次（不容易把小塊的顏色併掉）。
  */
 import { describe, expect, it } from 'vitest';
 import {
@@ -10,6 +11,12 @@ import {
   type PaletteColor,
   pickKeyColor,
 } from '@/core/image';
+import { decodePixels, parseChunks, readIhdr } from '../helpers/png';
+
+const FS = 'node:fs';
+const { readFileSync } = (await import(/* @vite-ignore */ FS)) as {
+  readFileSync: (p: string) => Uint8Array;
+};
 
 /** 一塊一塊的測試圖：每一塊（顏色, 像素數） */
 function blocks(list: [number[], number][], alpha = 255) {
@@ -85,6 +92,58 @@ describe('kmeansPalette', () => {
   it('不同的種子可能得到不同的起點，但同一個種子永遠相同', () => {
     const img = noisy(60, 60);
     expect(kmeansPalette(img, 6, { seed: 7 })).toEqual(kmeansPalette(img, 6, { seed: 7 }));
+  });
+
+  it('多組種子：誤差不會比其中任何一組單獨分的差', () => {
+    const img = noisy(90, 90);
+    const opaque: number[][] = [];
+    for (let i = 0; i < img.data.length; i += 4)
+      opaque.push([img.data[i], img.data[i + 1], img.data[i + 2]]);
+    const sse = (cs: PaletteColor[]) =>
+      opaque.reduce(
+        (t, p) =>
+          t +
+          Math.min(
+            ...cs.map(
+              (c) =>
+                0.9 * (p[0] - c.rgb[0]) ** 2 +
+                1.2 * (p[1] - c.rgb[1]) ** 2 +
+                0.7 * (p[2] - c.rgb[2]) ** 2,
+            ),
+          ),
+        0,
+      );
+    for (const k of [4, 5, 6]) {
+      const best = sse(kmeansPalette(img, k, { minShare: 0 }));
+      for (let seed = 1; seed <= 4; seed++) {
+        const one = sse(kmeansPalette(img, k, { minShare: 0, seed, restarts: 1 }));
+        /* 四捨五入成整數色碼的誤差之內 */
+        expect(best).toBeLessThanOrEqual(one * 1.001 + 1);
+      }
+    }
+  });
+
+  it('立繪風的圖（瀏覽器縮成長邊 150 px 的像素）取 5 色：黃色的頭髮不會被併進膚色', () => {
+    /*
+     * 淺綠底、墨綠的衣服、膚色的臉、一塊黃色頭髮、兩點藍眼睛（對等驗證時用的測試圖）。
+     * 只用一組種子時這張圖會卡在把頭髮併進膚色的分法（只剩 4 色、誤差約 200）；多組種子取誤差最小的不會。
+     */
+    const bytes = new Uint8Array(
+      readFileSync(new URL('./fixtures/color-palette-portrait-150.png', import.meta.url).pathname),
+    );
+    const chunks = parseChunks(bytes);
+    const { width, height } = readIhdr(chunks);
+    const idat = chunks.filter((c) => c.type === 'IDAT').map((c) => c.data);
+    const z = new Uint8Array(idat.reduce((n, c) => n + c.length, 0));
+    idat.reduce((o, c) => {
+      z.set(c, o);
+      return o + c.length;
+    }, 0);
+    const data = decodePixels(z, width, height, 6);
+    const r = kmeansPalette({ data }, 5);
+    expect(r).toHaveLength(5);
+    const yellow = r.find((c) => c.rgb[0] > 200 && c.rgb[1] > 170 && c.rgb[2] < 120);
+    expect(yellow, r.map((c) => c.color).join(' ')).toBeTruthy();
   });
 });
 

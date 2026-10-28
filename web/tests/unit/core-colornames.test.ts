@@ -3,7 +3,15 @@
  * core/image 的 placedPointToImage（頭像上的點 → 原圖的點）。color-palette 併入色票櫃、配色卡時新增（2026-10）。
  */
 import { describe, expect, it } from 'vitest';
-import { cieLightness, oklabDistance, parseColor, rgbToOklab } from '@/core/color';
+import {
+  cieLightness,
+  formatHex,
+  oklabDistance,
+  oklabToRgb,
+  oklchToOklab,
+  parseColor,
+  rgbToOklab,
+} from '@/core/color';
 import {
   COLOR_FAMILIES,
   COLOR_FAMILY_LABELS,
@@ -14,16 +22,22 @@ import {
 import { placedPointToImage, placedTransform } from '@/core/image';
 
 describe('core/colornames', () => {
-  it('色名表：名字不重複、色碼都是小寫 #rrggbb', () => {
+  it('色名表：113 個，名字不重複、色碼都是小寫 #rrggbb、由 OKLCH 換算而且都在 sRGB 色域內', () => {
     const names = COLOR_NAMES.map((c) => c.name);
     expect(new Set(names).size).toBe(names.length);
-    for (const c of COLOR_NAMES) expect(c.hex).toMatch(/^#[0-9a-f]{6}$/);
-    expect(COLOR_NAMES.length).toBeGreaterThan(100);
+    expect(COLOR_NAMES).toHaveLength(113);
+    for (const c of COLOR_NAMES) {
+      expect(c.hex).toMatch(/^#[0-9a-f]{6}$/);
+      const [L, C, h] = c.oklch;
+      const rgb = oklabToRgb(oklchToOklab(L, C, h));
+      expect(rgb.inGamut, c.name).toBe(true);
+      expect(formatHex(rgb, false)).toBe(c.hex);
+    }
   });
 
   it('表裡的顏色得到自己的名字；接近的顏色得到最接近的名字', () => {
     for (const c of COLOR_NAMES) expect(colorName(c.hex)).toBe(c.name);
-    expect(colorName('#f4a08c')).toBe('鮭魚粉');
+    expect(colorName('#ec6d5b')).toBe('珊瑚紅');
     expect(colorName('#000000')).toBe('漆黑');
     expect(colorName('#ffffff')).toBe('雪白');
     expect(colorName('看不懂')).toBe('');
@@ -31,8 +45,8 @@ describe('core/colornames', () => {
 
   it('同一組不重複：用過的名字跳過、改用次接近的', () => {
     const used = new Set<string>();
-    const a = colorName('#d42a2a', used);
-    const b = colorName('#d42a2a', used);
+    const a = colorName('#d01d21', used);
+    const b = colorName('#d01d21', used);
     expect(a).toBe('正紅');
     expect(b).not.toBe(a);
     expect(used.size).toBe(2);
@@ -70,6 +84,17 @@ describe('core/color：明度、Oklab', () => {
     const k = rgbToOklab(parseColor('#000000')!);
     expect(w.L).toBeCloseTo(1, 3);
     expect(oklabDistance(w, k)).toBeCloseTo(oklabDistance(k, w), 9);
+  });
+
+  it('Oklab → sRGB：和 rgbToOklab 互為反算；超出色域時夾住並回報', () => {
+    for (const hex of ['#123456', '#d01d21', '#f8f8f8', '#000000', '#7f3fbf']) {
+      const back = oklabToRgb(rgbToOklab(parseColor(hex)!));
+      expect(formatHex(back, false)).toBe(hex);
+      expect(back.inGamut).toBe(true);
+    }
+    const wild = oklabToRgb(oklchToOklab(0.6, 0.4, 145));
+    expect(wild.inGamut).toBe(false);
+    expect([wild.r, wild.g, wild.b].every((v) => v >= 0 && v <= 255)).toBe(true);
   });
 });
 

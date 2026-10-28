@@ -197,6 +197,7 @@ export const actions = {
                 characterId: null,
                 image: null,
                 name: '',
+                autoName: false,
                 placement: DEFAULT_PLACEMENT_VALUE,
                 key: null,
                 colors: 'auto',

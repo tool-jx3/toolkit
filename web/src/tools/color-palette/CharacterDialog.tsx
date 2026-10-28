@@ -5,11 +5,12 @@
  *   代表色、其他部位（部位、名稱或備註、顏色、「無」，最多 30 個）。
  * - 刪除角色（確認；可以復原）。
  */
-import { Download, ImagePlus, Plus, Scan, Trash2, Wand2, X } from 'lucide-react';
+import { Download, ImagePlus, Plus, Redo2, Scan, Trash2, Undo2, Wand2, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useAssetImage } from '@/core/assets';
 import { downloadBlob, pickFiles, safeFileName } from '@/core/files';
 import { DEFAULT_PLACEMENT } from '@/core/image';
+import { useUndoRedo } from '@/core/storage';
 import {
   Button,
   ColorField,
@@ -19,6 +20,8 @@ import {
   Field,
   FieldRow,
   IconButton,
+  isEditableTarget,
+  matchCombo,
   NumberInput,
   Select,
   TextInput,
@@ -38,13 +41,40 @@ import {
   type Segment,
 } from './logic';
 import { RoleSlots, swatchStyle } from './RoleSlots';
-import { familyLabel, renderChartPng } from './shelfRender';
+import { familyLabel, partLabel, renderChartPng } from './shelfRender';
 import { actions, assets, gesture, useSettings } from './store';
 import { S } from './strings';
 
 type Target = { kind: 'seg'; id: string } | { kind: 'theme' } | null;
 
 const displayName = (bar: Bar, index: number) => (bar.name ?? '').trim() || S.characterN(index + 1);
+
+/**
+ * 編輯視窗開著時的復原／重做（頁首的按鈕被對話框蓋住、工具的快捷鍵在對話框裡不作用）：
+ * Ctrl／⌘＋Z 復原，Ctrl／⌘＋Shift＋Z、Ctrl＋Y 重做。焦點在文字欄時交給瀏覽器（復原打的字）。
+ */
+function useDialogHistoryKeys(host: HTMLElement | null, undo: () => void, redo: () => void): void {
+  useEffect(() => {
+    if (!host) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.defaultPrevented || e.isComposing) return;
+      const t = e.target as Element | null;
+      /* 只處理這個視窗裡（或焦點不在任何元素上）的按鍵；確認刪除之類疊在上面的對話框不算 */
+      const dialog = host.closest('[role="dialog"]');
+      if (!(t === document.body || (dialog && t && dialog.contains(t)))) return;
+      if (isEditableTarget(t)) return;
+      if (matchCombo(e, 'mod+z')) {
+        e.preventDefault();
+        undo();
+      } else if (matchCombo(e, 'shift+mod+z') || matchCombo(e, 'mod+y')) {
+        e.preventDefault();
+        redo();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [host, undo, redo]);
+}
 
 export function CharacterDialog() {
   const id = useFlow((s) => s.editing);
@@ -55,6 +85,9 @@ export function CharacterDialog() {
   const [target, setTarget] = useState<Target>(null);
   const toast = useToast();
   const confirm = useConfirm();
+  const history = useUndoRedo(useSettings);
+  const [host, setHost] = useState<HTMLDivElement | null>(null);
+  useDialogHistoryKeys(host, history.undo, history.redo);
 
   /* 角色不見了（刪除、復原）：關掉 */
   useEffect(() => {
@@ -77,8 +110,7 @@ export function CharacterDialog() {
       : seg
         ? seg.role === 'hair' || seg.role === 'eye'
           ? S.slotLabel(S.roles[seg.role], groups[seg.role].indexOf(seg) + 1)
-          : (seg.memo ?? '').trim() ||
-            (seg.role ? S.roles[seg.role] : S.partNumber(bar.segments.indexOf(seg) + 1))
+          : partLabel(bar, seg)
         : null;
 
   const setTargetColor = (hex: string) => {
@@ -149,9 +181,7 @@ export function CharacterDialog() {
   };
 
   const otherRow = (s: Segment, k: number) => {
-    const label =
-      (s.memo ?? '').trim() ||
-      (s.role ? S.roles[s.role] : S.partNumber(bar.segments.indexOf(s) + 1));
+    const label = partLabel(bar, s);
     const on = target?.kind === 'seg' && target.id === s.id;
     return (
       <li
@@ -179,7 +209,19 @@ export function CharacterDialog() {
             actions.updateSegment(bar.id, s.id, { role: v === 'unset' ? null : (v as PartRole) })
           }
           options={[
-            ...PART_ROLES.map((r) => ({ value: r, label: S.roles[r] })),
+            ...PART_ROLES.map((r) => {
+              /* 髮色、瞳色各最多 5 格：滿了就不能再把別的部位改成它 */
+              const full =
+                (r === 'hair' || r === 'eye') &&
+                s.role !== r &&
+                groups[r].length >= LIMITS.roleColors;
+              return {
+                value: r,
+                label: S.roles[r],
+                disabled: full,
+                description: full ? S.roleFull(S.roles[r], LIMITS.roleColors) : undefined,
+              };
+            }),
             { value: 'unset', label: S.slotUnset },
           ]}
         />
@@ -247,11 +289,24 @@ export function CharacterDialog() {
           >
             {S.deleteCharacter}
           </Button>
+          <IconButton
+            label={S.undo}
+            icon={<Undo2 />}
+            onClick={history.undo}
+            disabled={!history.canUndo}
+          />
+          <IconButton
+            label={S.redo}
+            icon={<Redo2 />}
+            onClick={history.redo}
+            disabled={!history.canRedo}
+          />
           <DialogClose variant="primary">{S.editDone}</DialogClose>
         </>
       }
     >
       <div
+        ref={setHost}
         className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-start"
         data-testid="character-editor"
       >

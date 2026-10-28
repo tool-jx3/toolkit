@@ -3,7 +3,7 @@
  * 顯示名字／代表色）與預覽欄（圓形頭像的格子：點頭像編輯、點色塊複製色碼、拖曳卡片調整順序；整櫃存成 PNG）。
  */
 import { Download, Eraser, ImagePlus, Pipette, Sparkles } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { loadAssetBitmaps, useAssetBitmaps } from '@/core/assets';
 import { COLOR_FAMILY_SWATCHES } from '@/core/colornames';
 import { copyText, downloadBlob, fileNameWithExt, pickFiles } from '@/core/files';
@@ -401,6 +401,56 @@ function FamilyDot({ family }: { family: FamilyKey | null }) {
   );
 }
 
+/**
+ * 卡片上直接改名字：Enter 或離開欄位時套用（記一步復原），Esc 還原成原本的名字。
+ * 沒有名字時顯示「未命名」（淡色的提示字，存成圖片時也寫「未命名」）。
+ */
+function NameField({ bar, label }: { bar: Bar; label: string }) {
+  const saved = bar.name ?? '';
+  const [draft, setDraft] = useState<string | null>(null);
+  /* Enter 之後的離開欄位不要再套用一次 */
+  const pending = useRef<string | null>(null);
+  const commit = () => {
+    const next = pending.current;
+    pending.current = null;
+    setDraft(null);
+    if (next !== null && next !== saved) actions.patchCharacter(bar.id, { name: next });
+  };
+  return (
+    <input
+      type="text"
+      aria-label={S.shelfNameLabel(label)}
+      value={draft ?? saved}
+      placeholder={S.unnamed}
+      maxLength={LIMITS.name}
+      autoComplete="off"
+      spellCheck={false}
+      title={saved.trim() || S.unnamed}
+      className="w-full min-w-0 truncate rounded-sm border border-transparent bg-transparent px-1 text-center text-xs text-fg outline-none placeholder:text-muted hover:border-border focus:border-accent focus:bg-surface"
+      onChange={(e) => {
+        pending.current = e.target.value;
+        setDraft(e.target.value);
+      }}
+      onKeyDown={(e) => {
+        if (e.nativeEvent.isComposing) return;
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          commit();
+          e.currentTarget.blur();
+        } else if (e.key === 'Escape') {
+          /* 還原，不關掉其他東西 */
+          e.preventDefault();
+          e.stopPropagation();
+          pending.current = null;
+          setDraft(null);
+          e.currentTarget.blur();
+        }
+      }}
+      onBlur={commit}
+    />
+  );
+}
+
 const chipLabel = (role: 'hair' | 'eye' | 'theme') =>
   role === 'theme' ? S.themeColor : S.roles[role];
 
@@ -430,6 +480,9 @@ export function ShelfPreview({
     count: flat.length,
     axis: 'xy',
     mode: 'drop',
+    /* 放在卡片之間的空白、櫃子外面＝不移動；拖曳中按 Esc 取消 */
+    cancelOnGap: true,
+    escapeCancels: true,
     onMove: (from, to) => {
       const ids = flat.map((b) => b.id);
       const [m] = ids.splice(from, 1);
@@ -534,6 +587,7 @@ export function ShelfPreview({
                         key={bar.id}
                         {...sortable.rowProps(i)}
                         data-character={bar.id}
+                        data-name={(bar.name ?? '').trim()}
                         data-index={i}
                         data-dragging={sortable.dragIndex === i || undefined}
                         data-over={
@@ -564,16 +618,7 @@ export function ShelfPreview({
                         >
                           <AvatarThumb bar={bar} bitmap={bmp} size={64} />
                         </button>
-                        {shelf.showNames ? (
-                          <span
-                            className="w-full truncate text-center text-xs text-fg"
-                            title={name}
-                          >
-                            {(bar.name ?? '').trim() || (
-                              <span className="text-muted">{S.unnamed}</span>
-                            )}
-                          </span>
-                        ) : null}
+                        {shelf.showNames ? <NameField bar={bar} label={name} /> : null}
                         <div className="flex items-center gap-1">
                           {chipsOf(bar, shelf.showTheme).map((c) => (
                             <Chip

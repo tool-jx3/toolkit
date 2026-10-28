@@ -34,7 +34,8 @@ export function AvatarThumb({
       aria-hidden
       className={className ?? 'block shrink-0 rounded-full'}
       style={{ width: size, height: size }}
-      data-avatar={bar.image ? 'image' : 'silhouette'}
+      /* 照實際畫的：立繪讀不到（或還在讀）時畫的是剪影 */
+      data-avatar={bar.image && bitmap ? 'image' : 'silhouette'}
     />
   );
 }

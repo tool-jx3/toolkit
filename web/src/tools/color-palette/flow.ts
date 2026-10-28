@@ -4,7 +4,7 @@
  */
 import { create } from 'zustand';
 import type { FramePlacement } from '@/core/image';
-import { makeCanvas, placedCrop } from '@/core/image';
+import { drawPlacedCrop, makeCanvas } from '@/core/image';
 import { dominantInCircle, type KeyRole } from './characters';
 
 export type FlowJob =
@@ -21,12 +21,25 @@ interface FlowState {
   job: FlowJob | null;
   /** 編輯視窗開著的角色 */
   editing: string | null;
+  /** 圈頭像的視窗開著（拖進來、貼上的圖片＝換這一張） */
+  cropOpen: boolean;
+  /** 圈頭像時拖進來、貼上的圖片（AddFlow 收到後換掉正在圈的那一張；n 讓同一個檔案也算新的一次） */
+  dropped: { file: File; n: number } | null;
 }
 
-export const useFlow = create<FlowState>(() => ({ job: null, editing: null }));
+export const useFlow = create<FlowState>(() => ({
+  job: null,
+  editing: null,
+  cropOpen: false,
+  dropped: null,
+}));
+
+let dropCount = 0;
+/** 圈頭像時拖進來、貼上的圖片：交給 AddFlow 換掉正在圈的那一張 */
+export const dropIntoCrop = (file: File) => useFlow.setState({ dropped: { file, n: ++dropCount } });
 
 export const startJob = (job: FlowJob) => useFlow.setState({ job });
-export const endJob = () => useFlow.setState({ job: null });
+export const endJob = () => useFlow.setState({ job: null, cropOpen: false, dropped: null });
 export const openEditor = (barId: string) => useFlow.setState({ editing: barId });
 export const closeEditor = () => useFlow.setState({ editing: null });
 
@@ -37,27 +50,21 @@ export const setLastPlacement = (p: FramePlacement) => {
   lastPlacement = p;
 };
 
-/** 頭像裡的主色（自動取色）：頭像縮成 48 × 48 畫好之後交給 dominantInCircle */
+/** 頭像裡的主色（自動取色）：頭像依範圍畫成 64 × 64，交給 dominantInCircle */
 export function dominantOf(
   bitmap: CanvasImageSource,
   size: { width: number; height: number },
   placement: FramePlacement,
 ): string {
-  const s = 48;
-  const c = makeCanvas(s, s);
+  const side = 64;
+  const c = makeCanvas(side, side);
   const ctx = c.getContext('2d', { willReadFrequently: true }) as
     | CanvasRenderingContext2D
     | OffscreenCanvasRenderingContext2D
     | null;
   if (!ctx) return '#888888';
-  const crop = placedCrop(size, { width: 1, height: 1 }, placement);
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = 'high';
-  if (crop.turns === 0) ctx.drawImage(bitmap, crop.x, crop.y, crop.width, crop.height, 0, 0, s, s);
-  else {
-    ctx.translate(s / 2, s / 2);
-    ctx.rotate((crop.turns * Math.PI) / 2);
-    ctx.drawImage(bitmap, crop.x, crop.y, crop.width, crop.height, -s / 2, -s / 2, s, s);
-  }
-  return dominantInCircle(ctx.getImageData(0, 0, s, s));
+  drawPlacedCrop(ctx, bitmap, size, { x: 0, y: 0, width: side, height: side }, placement);
+  return dominantInCircle(ctx.getImageData(0, 0, side, side));
 }

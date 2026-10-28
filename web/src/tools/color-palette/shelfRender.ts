@@ -1,8 +1,8 @@
 /**
- * 色票櫃的 PNG（整櫃存成圖片）與角色的色碼表 PNG（規格 1.1 F55、F49）。版面是本站自己的。
+ * 色票櫃的 PNG（整櫃存成圖片）與角色的色碼表 PNG（規格 1.1 F71、F68；3.6、3.7）。版面是本站自己設計的。
  * 預覽是 DOM（ShelfView），存檔時用這裡的 canvas 畫法；兩倍解析度、最長邊不超過 16000 px。
  */
-import { readableTextColor } from '@/core/color';
+import { formatHex, parseColor, readableTextColor } from '@/core/color';
 import { COLOR_FAMILY_LABELS, COLOR_FAMILY_SWATCHES, type ColorFamily } from '@/core/colornames';
 import { ensureFont, fontCss } from '@/core/fonts';
 import { canvasToBlob, makeCanvas, roundRectPath } from '@/core/image';
@@ -11,12 +11,13 @@ import {
   dateText,
   groupCharacters,
   isGrouped,
+  keyColorOf,
   type PartColor,
   partGroups,
   roleColors,
   sortCharacters,
 } from './characters';
-import type { Bar, FamilyKey, ShelfSettings } from './logic';
+import type { Bar, FamilyKey, Segment, ShelfSettings } from './logic';
 import { type Ctx2D, drawAvatar, drawSwatch, fitText } from './paint';
 import { S } from './strings';
 
@@ -148,7 +149,9 @@ function drawShelfCard(
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     const name = (bar.name ?? '').trim();
-    if (name) ctx.fillText(fitText(ctx, name, P.cardW - 8), cx, cy + 15);
+    /* 沒有名字時和畫面上一樣寫「未命名」（淡一點） */
+    ctx.fillStyle = name ? INK : MUTED;
+    ctx.fillText(fitText(ctx, name || S.unnamed, P.cardW - 8), cx, cy + 15);
     cy += 30;
   } else cy += 10;
   const chips = chipsOf(bar, shelf.showTheme);
@@ -169,7 +172,7 @@ export async function renderShelfPng(
   const names = bars.map((b) => b.name ?? '').join('');
   await Promise.all([
     ensureFont(SHELF_FONT, 700, `${S.shelfPngTitle}0123456789`),
-    ensureFont(SHELF_FONT, 500, `${names}${S.shelfPngSub(0, '')}`),
+    ensureFont(SHELF_FONT, 500, `${names}${S.unnamed}${S.shelfPngSub(0, '')}`),
   ]);
   const plan = planShelf(bars, shelf);
   const k = outScale(plan.width, plan.height);
@@ -256,57 +259,125 @@ export function drawShelf(
 
 /* ---------- 色碼表（一位角色） ---------- */
 
+/**
+ * 色碼表的版面（本站自己設計的橫式；1 倍，輸出兩倍）：左邊一欄是角色（頭像、名字、「色碼表」、日期，
+ * 底色是代表色調淡），右邊一列一列是髮色、瞳色、代表色（每個顏色一個色塊＋色碼，一列放不下就換行），
+ * 下面是其他部位（兩欄：色塊、色碼、名稱）。
+ */
 export const CHART_PNG = {
-  width: 720,
-  pad: 48,
-  avatar: 220,
-  chip: 96,
-  gap: 20,
-  xChip: 40,
-  xRow: 58,
+  width: 960,
+  /** 卡片離圖邊 */
+  inset: 24,
+  radius: 24,
+  /** 左邊角色欄的寬 */
+  side: 300,
+  avatar: 176,
+  /** 內容離卡片上緣、右欄左右的留白 */
+  top: 56,
+  gutter: 40,
+  /** 右欄：每列前面的部位名寬、色塊、每個顏色占的寬、行高 */
+  label: 76,
+  chip: 44,
+  item: 150,
+  line: 58,
+  /** 其他部位：色塊、行高 */
+  xChip: 36,
+  xLine: 54,
+  minHeight: 440,
 } as const;
+
+/** 部位的名稱：備註 → 部位名 → 「第 n 段」（n 是整條裡的第幾段；編輯視窗也用這個） */
+export function partLabel(bar: Pick<Bar, 'segments'>, seg: Segment): string {
+  const memo = (seg.memo ?? '').trim();
+  if (memo) return memo;
+  if (seg.role) return S.roles[seg.role];
+  return S.partNumber(bar.segments.indexOf(seg) + 1);
+}
 
 interface ChartRow {
   label: string;
   colors: PartColor[];
 }
 
-/** 色碼表的內容：上面三欄（髮色、瞳色、代表色，有的才列），下面是其他部位（色碼＋名稱） */
+/** 色碼表的內容：髮色、瞳色、代表色（有的才列）與其他部位（色碼＋名稱） */
 export function chartContent(bar: Bar): {
   main: ChartRow[];
   others: { color: PartColor; label: string }[];
 } {
   const g = partGroups(bar.segments);
+  const toColor = (s: Segment): PartColor => ({ color: s.color, none: !!s.none });
   const main: ChartRow[] = [];
-  if (g.hair.length)
-    main.push({
-      label: S.roles.hair,
-      colors: g.hair.map((s) => ({ color: s.color, none: !!s.none })),
-    });
-  if (g.eye.length)
-    main.push({
-      label: S.roles.eye,
-      colors: g.eye.map((s) => ({ color: s.color, none: !!s.none })),
-    });
+  if (g.hair.length) main.push({ label: S.roles.hair, colors: g.hair.map(toColor) });
+  if (g.eye.length) main.push({ label: S.roles.eye, colors: g.eye.map(toColor) });
   if (bar.theme) main.push({ label: S.themeColor, colors: [{ color: bar.theme, none: false }] });
-  const others = g.other.map((s, i) => ({
-    color: { color: s.color, none: !!s.none },
-    label: (s.memo ?? '').trim() || (s.role ? S.roles[s.role] : S.partNumber(i + 1)),
-  }));
+  const others = g.other.map((s) => ({ color: toColor(s), label: partLabel(bar, s) }));
   return { main, others };
 }
 
-export function planChart(bar: Bar): { width: number; height: number } {
+interface ChartSpot {
+  x: number;
+  y: number;
+  color: PartColor;
+  /** 第二行的小字（其他部位的名稱） */
+  note?: string;
+}
+
+export interface ChartPlan {
+  width: number;
+  height: number;
+  /** 右欄的左右邊界 */
+  left: number;
+  right: number;
+  rows: { label: string; y: number; spots: ChartSpot[] }[];
+  /** 列與列之間的分隔線（y） */
+  rules: number[];
+  othersY: number | null;
+  others: ChartSpot[];
+}
+
+/** 色碼表的版面：右欄由上往下排，高度取左右兩欄較高的那個 */
+export function planChart(bar: Bar): ChartPlan {
   const C = CHART_PNG;
   const { main, others } = chartContent(bar);
-  const name = (bar.name ?? '').trim();
-  const lines = Math.max(1, ...main.map((r) => r.colors.length));
-  const mainH = main.length ? C.chip + 12 + 18 + 6 + lines * 21 + 8 : 0;
-  const xLines = Math.ceil(others.length / 2);
-  let h = C.pad + 8 + C.avatar + 28 + (name ? 40 : 0) + 30 + 16 + mainH;
-  if (others.length) h += 24 + 34 + xLines * C.xRow;
-  h += 48 + C.pad;
-  return { width: C.width, height: Math.round(h) };
+  const left = C.inset + C.side + C.gutter;
+  const right = C.width - C.inset - C.gutter;
+  const perLine = Math.max(1, Math.floor((right - left - C.label) / C.item));
+  let y = C.inset + C.top;
+  const rows: ChartPlan['rows'] = [];
+  const rules: number[] = [];
+  main.forEach((r, i) => {
+    if (i) {
+      rules.push(y - 12);
+      y += 8;
+    }
+    const spots = r.colors.map((color, k) => ({
+      x: left + C.label + (k % perLine) * C.item,
+      y: y + Math.floor(k / perLine) * C.line,
+      color,
+    }));
+    rows.push({ label: r.label, y, spots });
+    y += Math.ceil(r.colors.length / perLine) * C.line + 12;
+  });
+  let othersY: number | null = null;
+  const placed: ChartSpot[] = [];
+  if (others.length) {
+    if (rows.length) rules.push(y - 12);
+    othersY = y + 8;
+    y = othersY + 30;
+    const colW = (right - left) / 2;
+    others.forEach((o, k) => {
+      placed.push({
+        x: left + (k % 2) * colW,
+        y: y + Math.floor(k / 2) * C.xLine,
+        color: o.color,
+        note: o.label,
+      });
+    });
+    y += Math.ceil(others.length / 2) * C.xLine;
+  }
+  if (!rows.length && !others.length) y += C.line;
+  const height = Math.max(C.minHeight, Math.round(y + C.top + C.inset));
+  return { width: C.width, height, left, right, rows, rules, othersY, others: placed };
 }
 
 /** 存成這個角色的色碼表（PNG，兩倍解析度） */
@@ -316,7 +387,7 @@ export async function renderChartPng(
   now = new Date(),
 ): Promise<{ blob: Blob; width: number; height: number }> {
   const { main, others } = chartContent(bar);
-  const text = `${bar.name ?? ''}${main.map((r) => r.label).join('')}${others.map((o) => o.label).join('')}${S.chartLabel}${S.noneLabel}${S.otherParts}`;
+  const text = `${bar.name ?? ''}${S.unnamed}${main.map((r) => r.label).join('')}${others.map((o) => o.label).join('')}${S.chartLabel}${S.noneLabel}${S.otherParts}`;
   await Promise.all([
     ensureFont(SHELF_FONT, 700, `${text}#0123456789ABCDEF`),
     ensureFont(SHELF_FONT, 500, `${text}0123456789.`),
@@ -330,102 +401,94 @@ export async function renderChartPng(
   return { blob: await canvasToBlob(c), width: c.width, height: c.height };
 }
 
+/** 左欄的底色：角色的代表色（沒有時髮色）調得很淡；都沒有時淺灰 */
+function sideTint(bar: Bar): string {
+  const key = keyColorOf(bar);
+  const c = key ? parseColor(key) : null;
+  if (!c) return '#f0efec';
+  const mix = (v: number) => v + (255 - v) * 0.86;
+  return formatHex({ r: mix(c.r), g: mix(c.g), b: mix(c.b), a: 1 }, false);
+}
+
 export function drawChart(
   ctx: Ctx2D,
   bar: Bar,
   bitmap: ImageBitmap | null,
-  plan: { width: number; height: number },
+  plan: ChartPlan,
   now = new Date(),
 ) {
   const C = CHART_PNG;
-  const W = plan.width;
-  const H = plan.height;
-  const { main, others } = chartContent(bar);
+  const { width: W, height: H } = plan;
+  const cardW = W - C.inset * 2;
+  const cardH = H - C.inset * 2;
   ctx.fillStyle = PAPER;
   ctx.fillRect(0, 0, W, H);
+  /* 卡片與左欄 */
   ctx.save();
   ctx.beginPath();
-  roundRectPath(ctx, 20, 20, W - 40, H - 40, 28);
+  roundRectPath(ctx, C.inset, C.inset, cardW, cardH, C.radius);
   ctx.fillStyle = SURFACE;
   ctx.fill();
+  ctx.clip();
+  ctx.fillStyle = sideTint(bar);
+  ctx.fillRect(C.inset, C.inset, C.side, cardH);
   ctx.restore();
-  let y = C.pad + 8;
-  const cx = W / 2;
-  drawAvatar(ctx, bar, bitmap, cx - C.avatar / 2, y, C.avatar, LINE);
-  y += C.avatar + 28;
+  /* 左欄：頭像、名字、「色碼表」、日期 */
+  const sx = C.inset + C.side / 2;
+  const ay = C.inset + C.top;
+  drawAvatar(ctx, bar, bitmap, sx - C.avatar / 2, ay, C.avatar, 'rgba(0,0,0,0.16)');
+  const name = (bar.name ?? '').trim();
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  const name = (bar.name ?? '').trim();
-  if (name) {
-    ctx.font = font(700, 28);
-    ctx.fillStyle = INK;
-    ctx.fillText(fitText(ctx, name, W - C.pad * 2), cx, y + 14);
-    y += 40;
-  }
-  ctx.font = font(500, 12);
+  ctx.font = font(700, 24);
+  ctx.fillStyle = name ? INK : MUTED;
+  ctx.fillText(fitText(ctx, name || S.unnamed, C.side - 48), sx, ay + C.avatar + 36);
+  ctx.font = font(500, 13);
   ctx.fillStyle = MUTED;
-  ctx.fillText(S.chartLabel, cx, y + 6);
-  y += 30;
-  ctx.beginPath();
-  ctx.moveTo(C.pad, y - 8);
-  ctx.lineTo(W - C.pad, y - 8);
+  ctx.fillText(S.chartLabel, sx, ay + C.avatar + 66);
+  ctx.font = font(500, 12);
+  ctx.fillText(dateText(now), sx, H - C.inset - 32);
+  /* 右欄：髮色、瞳色、代表色 */
   ctx.strokeStyle = LINE;
   ctx.lineWidth = 1;
-  ctx.stroke();
-  y += 16;
-  const n = Math.max(1, main.length);
-  const colW = (W - C.pad * 2 - C.gap * (n - 1)) / n;
-  const chip = Math.min(C.chip, colW - 24);
-  const lines = Math.max(1, ...main.map((r) => r.colors.length));
-  main.forEach((r, i) => {
-    const ccx = C.pad + i * (colW + C.gap) + colW / 2;
-    drawSwatch(ctx, ccx - chip / 2, y, chip, r.colors, 18);
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'top';
-    ctx.font = font(500, 13);
-    ctx.fillStyle = MUTED;
-    ctx.fillText(r.label, ccx, y + chip + 12);
-    ctx.font = font(700, 16);
-    ctx.fillStyle = INK;
-    r.colors.forEach((c, k) => {
-      ctx.fillText(colorLabel(c, S.noneLabel), ccx, y + chip + 36 + k * 21);
-    });
-  });
-  if (main.length) y += chip + 12 + 18 + 6 + lines * 21 + 8;
-  if (others.length) {
-    y += 8;
+  for (const y of plan.rules) {
     ctx.beginPath();
-    ctx.moveTo(C.pad, y);
-    ctx.lineTo(W - C.pad, y);
-    ctx.strokeStyle = LINE;
+    ctx.moveTo(plan.left, y);
+    ctx.lineTo(plan.right, y);
     ctx.stroke();
-    y += 16;
+  }
+  for (const row of plan.rows) {
     ctx.textAlign = 'left';
-    ctx.textBaseline = 'top';
+    ctx.textBaseline = 'middle';
+    ctx.font = font(700, 15);
+    ctx.fillStyle = INK;
+    ctx.fillText(row.label, plan.left, row.y + C.chip / 2);
+    for (const spot of row.spots) {
+      drawSwatch(ctx, spot.x, spot.y, C.chip, [spot.color], 12);
+      ctx.font = font(700, 15);
+      ctx.fillStyle = spot.color.none ? MUTED : INK;
+      ctx.fillText(colorLabel(spot.color, S.noneLabel), spot.x + C.chip + 12, spot.y + C.chip / 2);
+    }
+  }
+  /* 其他部位 */
+  if (plan.othersY != null) {
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
     ctx.font = font(700, 13);
     ctx.fillStyle = MUTED;
-    ctx.fillText(S.otherParts, C.pad, y);
-    y += 34;
-    const xColW = (W - C.pad * 2 - C.gap) / 2;
-    others.forEach((o, k) => {
-      const ex = C.pad + (k % 2) * (xColW + C.gap);
-      const ey = y + Math.floor(k / 2) * C.xRow;
-      drawSwatch(ctx, ex, ey, C.xChip, [o.color], 10);
-      ctx.textAlign = 'left';
-      ctx.textBaseline = 'middle';
-      ctx.font = font(700, 15);
-      ctx.fillStyle = INK;
-      ctx.fillText(colorLabel(o.color, S.noneLabel), ex + C.xChip + 12, ey + 11);
-      ctx.font = font(500, 12.5);
+    ctx.fillText(S.otherParts, plan.left, plan.othersY + 8);
+    const colW = (plan.right - plan.left) / 2;
+    for (const spot of plan.others) {
+      drawSwatch(ctx, spot.x, spot.y, C.xChip, [spot.color], 10);
+      const tx = spot.x + C.xChip + 12;
+      ctx.font = font(700, 14);
+      ctx.fillStyle = spot.color.none ? MUTED : INK;
+      ctx.fillText(colorLabel(spot.color, S.noneLabel), tx, spot.y + 10);
+      ctx.font = font(500, 12);
       ctx.fillStyle = MUTED;
-      ctx.fillText(fitText(ctx, o.label, xColW - C.xChip - 16), ex + C.xChip + 12, ey + 30);
-    });
+      ctx.fillText(fitText(ctx, spot.note ?? '', colW - C.xChip - 24), tx, spot.y + 28);
+    }
   }
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.font = font(500, 11);
-  ctx.fillStyle = MUTED;
-  ctx.fillText(`${S.chartLabel} · ${dateText(now)}`, cx, H - C.pad + 4);
 }
 
 /** 色塊上的字用黑或白（深淺色的背景都看得清楚） */

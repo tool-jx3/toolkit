@@ -3,6 +3,7 @@
  * 複製的文字、檔名、GIF 的影格與大小。
  */
 import { describe, expect, it } from 'vitest';
+import { COLOR_NAMES } from '@/core/colornames';
 import type { PaletteColor } from '@/core/image';
 import {
   blendOf,
@@ -11,9 +12,12 @@ import {
   cardFileBase,
   cardNames,
   columnColorsMode,
+  hexOf,
+  keySwatchIndex,
   layoutCard,
   mixPairs,
   partsSwatches,
+  photoPatch,
   type ResolvedColumn,
   ratioValue,
   resolveColumn,
@@ -39,6 +43,7 @@ const col = (patch: Partial<CardColumn> = {}): CardColumn => ({
   characterId: null,
   image: null,
   name: '',
+  autoName: false,
   placement: DEFAULT_PLACEMENT_VALUE,
   key: null,
   colors: 'auto',
@@ -96,7 +101,44 @@ describe('每一欄的色票與代表色', () => {
     );
     expect(r.key).toEqual([200, 60, 60]);
     expect(r.keyChosen).toBe(true);
+    expect(r.keyInSwatches).toBe(true);
     expect(r.name).toBe('照片');
+  });
+
+  it('角色的代表色不在取出的顏色裡：keyInSwatches 是 false（卡片另外標出代表色）', () => {
+    const themed = { ...withImage, theme: '#3366cc' };
+    const r = resolveColumn(col({ characterId: 'a' }), [themed], auto);
+    expect(r.key).toEqual([51, 102, 204]);
+    expect(r.keyInSwatches).toBe(false);
+  });
+
+  it('代表色和某一格幾乎一樣（只差一點）：算是那一格；差很多才算不在色票裡', () => {
+    const list = [pc('#101010'), pc('#b83140'), pc('#f0f0f0')];
+    expect(keySwatchIndex(list, [184, 48, 63])).toBe(1);
+    expect(keySwatchIndex(list, [184, 49, 64])).toBe(1);
+    expect(keySwatchIndex(list, [51, 102, 204])).toBe(-1);
+  });
+
+  it('角色的立繪讀不到：改用角色的顏色（不會沒有色票）', () => {
+    const r = resolveColumn(col({ characterId: 'a' }), [withImage], null, true);
+    expect(r.imageMissing).toBe(true);
+    expect(r.colors).toBe('parts');
+    expect(r.swatches.map((s) => s.color)).toEqual(['#2a2a32', '#8a5a3c']);
+  });
+
+  it('換照片：名字空的或還是上一張的檔名時換成新的檔名；自己打過的名字留著', () => {
+    const img = { id: 'p2', width: 10, height: 10 };
+    expect(photoPatch(null, img, 'portrait-b.jpg')).toMatchObject({
+      name: 'portrait-b',
+      autoName: true,
+    });
+    expect(photoPatch({ name: 'bands', autoName: true }, img, 'portrait-b.jpg')).toMatchObject({
+      name: 'portrait-b',
+      autoName: true,
+    });
+    const kept = photoPatch({ name: '白澄', autoName: false }, img, 'portrait-b.jpg');
+    expect(kept.name).toBeUndefined();
+    expect(kept).toMatchObject({ source: 'photo', image: img, key: null });
   });
 });
 
@@ -110,6 +152,19 @@ const resolved = (keys: (string | null)[], swatches: string[][]): ResolvedColumn
     key: k ? pc(k).rgb : null,
     keyChosen: false,
     colors: 'auto',
+    keyIndex: k
+      ? keySwatchIndex(
+          swatches[i].map((h) => pc(h)),
+          pc(k).rgb,
+        )
+      : -1,
+    keyInSwatches:
+      !k ||
+      keySwatchIndex(
+        swatches[i].map((h) => pc(h)),
+        pc(k).rgb,
+      ) >= 0,
+    imageMissing: false,
   }));
 
 describe('混色帶、綜合色', () => {
@@ -128,19 +183,17 @@ describe('混色帶、綜合色', () => {
     expect(blendOf(r)).toEqual([85, 85, 85]);
   });
 
-  it('只有一欄：最暗＋最亮、第二暗＋第二亮（4 色以上才有第二條）；沒有綜合色', () => {
-    const r = resolved(['#202020'], [['#000000', '#404040', '#808080', '#c0c0c0', '#ffffff']]);
-    expect(mixPairs(r)).toEqual([
-      [
-        [0, 0, 0],
-        [255, 255, 255],
-      ],
-      [
-        [64, 64, 64],
-        [192, 192, 192],
-      ],
+  it('只有一欄：代表色到最暗、代表色到最亮各一條（代表色本身是最暗或最亮時跳過那一條）；沒有綜合色', () => {
+    const list = ['#000000', '#404040', '#808080', '#c0c0c0', '#ffffff'];
+    const r = resolved(['#808080'], [list]);
+    expect(mixPairs(r).map(([a, b]) => [hexOf(a), hexOf(b)])).toEqual([
+      ['#808080', '#000000'],
+      ['#808080', '#FFFFFF'],
     ]);
     expect(blendOf(r)).toBeNull();
+    expect(mixPairs(resolved(['#000000'], [list])).map(([a, b]) => [hexOf(a), hexOf(b)])).toEqual([
+      ['#000000', '#FFFFFF'],
+    ]);
     expect(mixPairs(resolved([null], [[]]))).toEqual([]);
   });
 });
@@ -152,7 +205,8 @@ describe('版面', () => {
       resolved(['#ff0000'], [['#000000', '#ff0000', '#ffffff']]),
     );
     expect(one.colW).toBe(CARD.colW[0]);
-    expect(one.width).toBe(CARD.pad * 2 + CARD.colW[0]);
+    expect(one.width).toBe((CARD.margin + CARD.pad) * 2 + CARD.colW[0]);
+    expect(one.keyY).toBeNull();
     expect(one.photoH).toBe(CARD.colW[0]);
     expect(one.rows).toBe(3);
     const tall = layoutCard(
@@ -168,6 +222,13 @@ describe('版面', () => {
     expect(tall.height).toBeGreaterThan(tall.blendY + CARD.blendH);
   });
 
+  it('代表色不在色票裡的欄：色票下面多一列（也是 GIF 的一步）', () => {
+    const off = resolved(['#3366cc', '#ff0000'], [['#101010', '#f0f0f0'], ['#ff0000']]);
+    const L = layoutCard({ ...DEFAULT_CARD, showMix: false }, off);
+    expect(L.keyY).toBe(L.rowsY + 2 * CARD.rowH + CARD.rowGap + CARD.rowGap);
+    expect(L.steps).toHaveLength(2 + 1 + 1);
+  });
+
   it('還沒有顏色：列數＝自動取幾色（空的格子）', () => {
     expect(layoutCard(DEFAULT_CARD, resolved([null], [[]])).rows).toBe(DEFAULT_CARD.count);
   });
@@ -175,7 +236,8 @@ describe('版面', () => {
 
 describe('色名、複製、檔名', () => {
   it('同一張卡的色名不重複（由左到右、由上到下）；綜合色最後', () => {
-    const r = resolved(['#d42a2a', '#d42a2a'], [['#d42a2a'], ['#d42a2a']]);
+    const red = COLOR_NAMES.find((c) => c.name === '正紅')?.hex ?? '';
+    const r = resolved([red, red], [[red], [red]]);
     const n = cardNames(r, blendOf(r));
     expect(n.swatch[0][0]).toBe('正紅');
     expect(n.swatch[1][0]).not.toBe('正紅');
@@ -200,12 +262,14 @@ describe('色名、複製、檔名', () => {
 });
 
 describe('GIF', () => {
-  it('影格：第一格什麼都沒出現，每一步 4 格（淡入），最後一格停留最久', () => {
+  it('影格：第一格什麼都沒出現，每一步 4 格（展開＋淡入），最後一格停留最久', () => {
     const f = gifFrames(3);
     expect(f).toHaveLength(1 + 3 * GIF_TIMING.subFrames);
-    expect(f[0]).toEqual({ anim: { step: 0, p: 0 }, ms: GIF_TIMING.first });
-    expect(f[GIF_TIMING.subFrames].anim).toEqual({ step: 1, p: 0 });
-    expect(f.at(-1)).toEqual({ anim: { step: 3, p: 0 }, ms: GIF_TIMING.last });
+    expect(f[0]).toEqual({ anim: { t: 0 }, ms: GIF_TIMING.first });
+    expect(f[GIF_TIMING.subFrames]).toEqual({ anim: { t: 1 }, ms: GIF_TIMING.stepEnd });
+    expect(f[1].anim?.t).toBeGreaterThan(0);
+    expect(f[1].anim?.t).toBeLessThan(1);
+    expect(f.at(-1)).toEqual({ anim: { t: 3 }, ms: GIF_TIMING.last });
     expect(gifFrames(0)).toEqual([{ anim: null, ms: GIF_TIMING.last }]);
   });
 

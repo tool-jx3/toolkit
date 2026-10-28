@@ -1,7 +1,7 @@
 /**
  * 配色卡（規格 1.2）：設定欄（每一張照片的來源——清單裡的角色或只放在卡上的照片、色票的來源、代表色；
- * 標題、照片比例、自動取幾色、色名、混色帶、GIF 畫質）與預覽欄（卡片；照片上拖曳移動、滾輪縮放；
- * 存成 PNG、GIF，複製 HEX）。
+ * 標題、照片比例、自動取幾色、色名、混色帶、GIF 畫質）與預覽欄（卡片；照片上拖曳移動、滾輪或兩指縮放；
+ * 空的照片框點一下選照片；存成 PNG、GIF，複製 HEX）。
  */
 import { Clipboard, Download, Film, ImagePlus, Plus, Trash2 } from 'lucide-react';
 import { type PointerEvent, useEffect, useMemo, useRef, useState, type WheelEvent } from 'react';
@@ -18,6 +18,7 @@ import {
 import {
   Button,
   cn,
+  createPointerGesture,
   Field,
   IconButton,
   Notice,
@@ -38,11 +39,19 @@ import {
   columnColorsMode,
   hexOf,
   layoutCard,
+  photoPatch,
   type ResolvedColumn,
   ratioValue,
   resolveColumn,
 } from './card';
-import { type CardPaint, drawCard, renderCardGif, renderCardPng } from './cardRender';
+import {
+  type CardPaint,
+  drawCard,
+  drawCardPhoto,
+  renderCardGif,
+  renderCardPng,
+} from './cardRender';
+import { startJob } from './flow';
 import { type Bar, type CardColumn, type CardRatio, type CardSettings, LIMITS } from './logic';
 import { actions, assets, cardOf, gesture, settingsNow, useSettings } from './store';
 import { S } from './strings';
@@ -53,6 +62,8 @@ const nameOf = (bar: Bar, i: number) => (bar.name ?? '').trim() || S.characterN(
 
 const columnImage = (col: CardColumn, bars: readonly Bar[]) =>
   col.source === 'photo' ? col.image : (bars.find((b) => b.id === col.characterId)?.image ?? null);
+
+const CENTERED: FramePlacement = { zoom: 1, x: 0, y: 0, turns: 0 };
 
 /** 照片露出來的範圍（原圖座標）：框的比例＝欄寬 ÷ 照片高 */
 const visibleRect = (
@@ -65,6 +76,22 @@ const visibleRect = (
   const r = placedCrop(img, box, clampPlacement(img, box, p, LIMITS.cardZoom));
   return { x: r.x, y: r.y, width: r.width, height: r.height };
 };
+
+/** 選一張照片放進這一欄（照片欄的「選擇照片」、預覽上空的照片框） */
+async function choosePhotoFor(col: CardColumn, toast: ReturnType<typeof useToast>): Promise<void> {
+  const [f] = await pickFiles({ accept: 'image/*' });
+  if (!f) return;
+  try {
+    const { ref, persisted } = await addImageFile(assets, f, { maxSide: LIMITS.imageSide });
+    if (!persisted) toast({ title: S.imageNotSaved, tone: 'warning' });
+    actions.patchColumn(
+      col.id,
+      photoPatch(col, { id: ref.id, width: ref.width, height: ref.height }, f.name),
+    );
+  } catch {
+    toast({ title: S.decodeError(f.name), tone: 'danger' });
+  }
+}
 
 /**
  * 每一欄自動取的顏色（k-means）：照片或位置變了之後才重算（拖曳中不算，放開後 150 ms 再算）。
@@ -114,15 +141,26 @@ export function useCardPaint(dragging = false): CardPaint & { ready: boolean } {
   const bars = useSettings((s) => s.data.bars);
   const card = useSettings((s) => cardOf(s.data));
   const ids = card.columns.map((c) => columnImage(c, bars)?.id).filter((x): x is string => !!x);
-  const { bitmaps, pending } = useAssetBitmaps(assets, ids);
+  const { bitmaps, pending, missing } = useAssetBitmaps(assets, ids);
   const auto = useAutoColors(card, bars, bitmaps, dragging);
+  const missingKey = missing.join(',');
+  // biome-ignore lint/correctness/useExhaustiveDependencies: missingKey 就是 missing 的內容
   const resolved = useMemo(
-    () => card.columns.map((c) => resolveColumn(c, bars, auto.get(c.id) ?? null)),
-    [card.columns, bars, auto],
+    () =>
+      card.columns.map((c) => {
+        const img = columnImage(c, bars);
+        return resolveColumn(c, bars, auto.get(c.id) ?? null, !!img && missing.includes(img.id));
+      }),
+    [card.columns, bars, auto, missingKey],
   );
   const layout = useMemo(() => layoutCard(card, resolved), [card, resolved]);
   const names = useMemo(() => cardNames(resolved, layout.blend), [resolved, layout.blend]);
-  return { card, columns: card.columns, layout, resolved, names, bitmaps, ready: !pending };
+  /* 同一份內容時回傳同一個物件：頁面其他地方重畫時預覽不必整張重畫（拖曳中只重畫那一張照片） */
+  const ready = !pending;
+  return useMemo(
+    () => ({ card, columns: card.columns, layout, resolved, names, bitmaps, ready }),
+    [card, layout, resolved, names, bitmaps, ready],
+  );
 }
 
 /* ---------- 設定欄 ---------- */
@@ -131,11 +169,13 @@ function ColumnCard({
   col,
   index,
   r,
+  names,
   count,
 }: {
   col: CardColumn;
   index: number;
   r: ResolvedColumn | undefined;
+  names: readonly string[];
   count: number;
 }) {
   const bars = useSettings((s) => s.data.bars);
@@ -143,22 +183,7 @@ function ColumnCard({
   const bar =
     col.source === 'character' ? (bars.find((b) => b.id === col.characterId) ?? null) : null;
   const mode = columnColorsMode(col, bar);
-  const choosePhoto = async () => {
-    const [f] = await pickFiles({ accept: 'image/*' });
-    if (!f) return;
-    try {
-      const { ref, persisted } = await addImageFile(assets, f, { maxSide: LIMITS.imageSide });
-      if (!persisted) toast({ title: S.imageNotSaved, tone: 'warning' });
-      actions.patchColumn(col.id, {
-        image: { id: ref.id, width: ref.width, height: ref.height },
-        placement: { zoom: 1, x: 0, y: 0, turns: 0 },
-        key: null,
-        name: col.name || f.name.replace(/\.[^.]+$/, '').slice(0, LIMITS.cardName),
-      });
-    } catch {
-      toast({ title: S.decodeError(f.name), tone: 'danger' });
-    }
-  };
+  const keyHex = r?.key ? hexOf(r.key) : null;
   return (
     <section
       aria-label={S.cardColumnN(index + 1)}
@@ -193,16 +218,13 @@ function ColumnCard({
           placeholder={bars.length ? S.cardPickCharacter : S.cardNoCharacter}
           disabled={!bars.length}
           onValueChange={(id) =>
-            actions.patchColumn(col.id, {
-              characterId: id,
-              placement: { zoom: 1, x: 0, y: 0, turns: 0 },
-            })
+            actions.patchColumn(col.id, { characterId: id, placement: CENTERED })
           }
           options={bars.map((b, i) => ({ value: b.id, label: nameOf(b, i) }))}
         />
       ) : (
         <div className="flex flex-wrap items-center gap-2">
-          <Button size="sm" icon={<ImagePlus />} onClick={() => void choosePhoto()}>
+          <Button size="sm" icon={<ImagePlus />} onClick={() => void choosePhotoFor(col, toast)}>
             {S.cardPhotoChoose}
           </Button>
           <TextInput
@@ -213,12 +235,16 @@ function ColumnCard({
             className="h-7 min-w-0 flex-1 text-xs"
             onFocus={gesture.begin}
             onBlur={gesture.commit}
-            onChange={(e) => actions.patchColumn(col.id, { name: e.target.value })}
+            onChange={(e) => actions.patchColumn(col.id, { name: e.target.value, autoName: false })}
           />
         </div>
       )}
       {col.source === 'character' && bar ? (
-        bar.image ? (
+        r?.imageMissing ? (
+          <p className="m-0 text-xs text-warning" data-testid={`card-image-missing-${index}`}>
+            {S.cardImageMissing}
+          </p>
+        ) : bar.image ? (
           <Segmented<'auto' | 'parts'>
             aria-label={`${S.cardColumnN(index + 1)}${S.cardColors}`}
             size="sm"
@@ -240,39 +266,63 @@ function ColumnCard({
             aria-label={S.cardSwatches(index + 1)}
             data-testid={`card-swatches-${index}`}
           >
-            {r.swatches.map((s) => {
-              const isKey = !!r.key && hexOf(r.key) === s.color.toUpperCase();
+            {r.swatches.map((s, j) => {
+              const hex = s.color.toUpperCase();
+              const isKey = r.keyIndex === j;
+              const name = names[j] ?? '';
               return (
                 <li key={s.color}>
                   <button
                     type="button"
-                    aria-label={S.cardSwatch('', s.color.toUpperCase(), isKey)}
+                    aria-label={S.cardSwatch(name, hex, isKey)}
+                    title={S.cardSwatchTitle(name, hex, s.share)}
                     aria-pressed={isKey}
                     data-hex={s.color}
                     data-share={s.share.toFixed(3)}
                     className={cn(
-                      'flex h-7 w-full items-center justify-between rounded-sm border px-2 text-xs outline-none focus-visible:ring-2 focus-visible:ring-focus',
-                      isKey ? 'border-accent ring-1 ring-accent' : 'border-black/10',
+                      'flex h-7 w-full items-center gap-2 rounded-sm border bg-surface px-1 text-xs text-fg outline-none focus-visible:ring-2 focus-visible:ring-focus',
+                      isKey ? 'border-accent ring-1 ring-accent' : 'border-border',
                     )}
-                    style={{
-                      background: s.color,
-                      color:
-                        s.rgb[0] * 0.299 + s.rgb[1] * 0.587 + s.rgb[2] * 0.114 > 150
-                          ? '#1f1d1a'
-                          : '#ffffff',
-                    }}
                     onClick={() => {
                       if (bar) actions.patchCharacter(bar.id, { theme: s.color });
                       else actions.patchColumn(col.id, { key: s.color });
                     }}
                   >
-                    <span>{isKey ? '●' : ''}</span>
-                    <span className="font-mono tabular-nums">{s.color.toUpperCase()}</span>
+                    <span
+                      aria-hidden
+                      className="flex size-5 shrink-0 items-center justify-center rounded-sm border border-black/10"
+                      style={{ background: s.color }}
+                    >
+                      {isKey ? (
+                        <span className="block size-2 rounded-full border-2 border-[#26231f] bg-white" />
+                      ) : null}
+                    </span>
+                    <span className="min-w-0 flex-1 truncate text-left">{name}</span>
+                    <span className="font-mono tabular-nums text-muted">{hex}</span>
                   </button>
                 </li>
               );
             })}
           </ul>
+          {keyHex ? (
+            <p
+              className="m-0 flex flex-wrap items-center gap-1.5 text-xs text-muted"
+              data-testid={`card-key-${index}`}
+              data-key={keyHex}
+              data-in-swatches={r.keyInSwatches}
+            >
+              <span>{S.themeColor}</span>
+              <span
+                aria-hidden
+                className="flex size-4 items-center justify-center rounded-sm border border-black/10"
+                style={{ background: keyHex }}
+              >
+                <span className="block size-1.5 rounded-full border border-[#26231f] bg-white" />
+              </span>
+              <span className="font-mono tabular-nums text-fg">{keyHex}</span>
+              {r.keyInSwatches ? null : <span>{S.cardKeyNotInSwatches}</span>}
+            </p>
+          ) : null}
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-xs text-muted">{S.cardKeyHint}</span>
             {r.keyChosen ? (
@@ -293,7 +343,13 @@ function ColumnCard({
   );
 }
 
-export function CardSettingsPanel({ resolved }: { resolved: readonly ResolvedColumn[] }) {
+export function CardSettingsPanel({
+  resolved,
+  names,
+}: {
+  resolved: readonly ResolvedColumn[];
+  names: CardPaint['names'];
+}) {
   const card = useSettings((s) => cardOf(s.data));
   const n = card.columns.length;
   return (
@@ -320,7 +376,14 @@ export function CardSettingsPanel({ resolved }: { resolved: readonly ResolvedCol
         }
       >
         {card.columns.map((c, i) => (
-          <ColumnCard key={c.id} col={c} index={i} r={resolved[i]} count={n} />
+          <ColumnCard
+            key={c.id}
+            col={c}
+            index={i}
+            r={resolved[i]}
+            names={names.swatch[i] ?? []}
+            count={n}
+          />
         ))}
       </Section>
       <Section title={S.sectionCard} fixed>
@@ -381,57 +444,137 @@ export function CardSettingsPanel({ resolved }: { resolved: readonly ResolvedCol
 
 /* ---------- 預覽欄 ---------- */
 
-/** 照片上的拖曳、滾輪縮放（疊在 Stage 裡的 canvas 上，以卡片座標定位） */
-function PhotoAreas({ paint, onDragging }: { paint: CardPaint; onDragging: (v: boolean) => void }) {
+/**
+ * 照片上的拖曳、滾輪與兩指縮放（疊在 Stage 裡的 canvas 上，以卡片座標定位）。
+ * 拖曳與捏合中只把那一張照片重畫在預覽上（每個畫面最多一次），放開時才寫進設定（一步復原）、再重新取色。
+ * 還沒放照片的框是按鈕：點一下選照片。
+ */
+function PhotoAreas({
+  paint,
+  onDragging,
+  redrawPhoto,
+}: {
+  paint: CardPaint;
+  onDragging: (v: boolean) => void;
+  redrawPhoto: (i: number, p: FramePlacement) => void;
+}) {
   const scale = useStageScale() || 1;
-  const drag = useRef<{ id: number; col: string; x: number; y: number; p: FramePlacement } | null>(
-    null,
-  );
+  const toast = useToast();
+  const gestureRef = useRef(createPointerGesture());
+  const live = useRef<{
+    col: string;
+    i: number;
+    start: FramePlacement;
+    cur: FramePlacement;
+    raf: number;
+  } | null>(null);
   const bars = useSettings((s) => s.data.bars);
   const { layout: L, columns, card } = paint;
   const boxOf = (i: number) => ({ x: L.cols[i].x, y: L.photoY, w: L.cols[i].w, h: L.photoH });
+
+  /* 卸載時停掉還沒畫的那一格 */
+  useEffect(() => () => cancelAnimationFrame(live.current?.raf ?? 0), []);
+
   return (
     <>
       {L.cols.map((_, i) => {
         const col = columns[i];
-        const img = col ? columnImage(col, bars) : null;
-        if (!col || !img) return null;
+        if (!col) return null;
+        const img = columnImage(col, bars);
         const b = boxOf(i);
-        const set = (p: FramePlacement) =>
-          actions.patchColumn(col.id, {
-            placement: clampPlacement(img, { width: b.w, height: b.h }, p, LIMITS.cardZoom),
+        const style = { left: b.x, top: b.y, width: b.w, height: b.h, borderRadius: 22 };
+        if (!img) {
+          const bar =
+            col.source === 'character' ? bars.find((x) => x.id === col.characterId) : undefined;
+          return (
+            <button
+              key={col.id}
+              type="button"
+              aria-label={bar ? S.cardPickCharacterImage(i + 1) : S.cardPhotoPick(i + 1)}
+              data-photo={i}
+              data-empty
+              className="absolute cursor-pointer rounded-[22px] outline-none hover:bg-black/5 focus-visible:ring-2 focus-visible:ring-focus"
+              style={style}
+              onClick={async () => {
+                if (bar) {
+                  /* 選了角色、角色還沒有立繪：選的圖片當成這位角色的立繪（接著圈頭像） */
+                  const [f] = await pickFiles({ accept: 'image/*' });
+                  if (f) startJob({ kind: 'image', barId: bar.id, file: f });
+                } else await choosePhotoFor(col, toast);
+              }}
+            />
+          );
+        }
+        const fitCover = (p: FramePlacement) =>
+          clampPlacement(img, { width: b.w, height: b.h }, p, LIMITS.cardZoom);
+        const show = (p: FramePlacement) => {
+          const s = live.current;
+          if (!s) return;
+          s.cur = p;
+          if (s.raf) return;
+          s.raf = requestAnimationFrame(() => {
+            const now = live.current;
+            if (!now) return;
+            now.raf = 0;
+            redrawPhoto(now.i, now.cur);
           });
+        };
         const down = (e: PointerEvent<HTMLDivElement>) => {
           if (e.button !== 0) return;
+          if (live.current && live.current.col !== col.id) return;
           e.preventDefault();
           e.stopPropagation();
-          e.currentTarget.setPointerCapture?.(e.pointerId);
-          drag.current = {
-            id: e.pointerId,
-            col: col.id,
-            x: e.clientX,
-            y: e.clientY,
-            p: col.placement,
-          };
-          gesture.begin();
-          onDragging(true);
+          try {
+            e.currentTarget.setPointerCapture(e.pointerId);
+          } catch {
+            /* 合成的指標事件（測試）沒有真的指標可以捕捉 */
+          }
+          if (!gestureRef.current.down(e.pointerId, e.clientX, e.clientY)) return;
+          if (!live.current) {
+            live.current = { col: col.id, i, start: col.placement, cur: col.placement, raf: 0 };
+            onDragging(true);
+          } else live.current.start = live.current.cur;
         };
         const move = (e: PointerEvent<HTMLDivElement>) => {
-          const d = drag.current;
-          if (!d || d.id !== e.pointerId) return;
-          const dx = (e.clientX - d.x) / scale / b.w;
-          const dy = (e.clientY - d.y) / scale / b.h;
-          set({ ...d.p, x: d.p.x + dx, y: d.p.y + dy });
+          const s = live.current;
+          if (!s || s.col !== col.id) return;
+          const g = gestureRef.current.move(e.pointerId, e.clientX, e.clientY);
+          if (!g) return;
+          const p0 = s.start;
+          if (g.kind === 'pan') {
+            show(fitCover({ ...p0, x: p0.x + g.dx / scale / b.w, y: p0.y + g.dy / scale / b.h }));
+            return;
+          }
+          /* 兩指：以開始時兩指的中點為中心縮放，再跟著中點平移 */
+          const r = e.currentTarget.getBoundingClientRect();
+          const u = (g.originX - r.left) / r.width - 0.5;
+          const v = (g.originY - r.top) / r.height - 0.5;
+          const z = Math.min(LIMITS.cardZoom, Math.max(1, p0.zoom * g.scale));
+          const k = z / p0.zoom;
+          show(
+            fitCover({
+              ...p0,
+              zoom: z,
+              x: u - (u - p0.x) * k + g.dx / r.width,
+              y: v - (v - p0.y) * k + g.dy / r.height,
+            }),
+          );
         };
         const up = (e: PointerEvent<HTMLDivElement>) => {
-          const d = drag.current;
-          if (!d || d.id !== e.pointerId) return;
-          drag.current = null;
-          gesture.commit();
+          const s = live.current;
+          if (!s || s.col !== col.id) return;
+          if (gestureRef.current.up(e.pointerId)) {
+            s.start = s.cur;
+            return;
+          }
+          if (gestureRef.current.active()) return;
+          cancelAnimationFrame(s.raf);
+          live.current = null;
+          actions.patchColumn(col.id, { placement: s.cur });
           onDragging(false);
         };
         const wheel = (e: WheelEvent<HTMLDivElement>) => {
-          if (e.ctrlKey || e.metaKey) return;
+          if (e.ctrlKey || e.metaKey || live.current) return;
           e.stopPropagation();
           const r = e.currentTarget.getBoundingClientRect();
           const u = (e.clientX - r.left) / r.width - 0.5;
@@ -439,7 +582,9 @@ function PhotoAreas({ paint, onDragging }: { paint: CardPaint; onDragging: (v: b
           const p = col.placement;
           const z = Math.min(LIMITS.cardZoom, Math.max(1, p.zoom * Math.exp(-e.deltaY * 0.0016)));
           const k = z / p.zoom;
-          set({ ...p, zoom: z, x: u - (u - p.x) * k, y: v - (v - p.y) * k });
+          actions.patchColumn(col.id, {
+            placement: fitCover({ ...p, zoom: z, x: u - (u - p.x) * k, y: v - (v - p.y) * k }),
+          });
         };
         return (
           <div
@@ -449,7 +594,7 @@ function PhotoAreas({ paint, onDragging }: { paint: CardPaint; onDragging: (v: b
             data-photo={i}
             data-placement={`${col.placement.zoom.toFixed(3)},${col.placement.x.toFixed(4)},${col.placement.y.toFixed(4)}`}
             className="absolute cursor-grab touch-none active:cursor-grabbing"
-            style={{ left: b.x, top: b.y, width: b.w, height: b.h, borderRadius: 24 }}
+            style={style}
             onPointerDown={down}
             onPointerMove={move}
             onPointerUp={up}
@@ -498,6 +643,12 @@ export function CardPreview({
     if (!c || !ctx) return;
     drawCard(ctx, paint, 1);
   }, [paint]);
+
+  /** 拖曳中：只重畫那一張照片 */
+  const redrawPhoto = (i: number, p: FramePlacement) => {
+    const ctx = canvas.current?.getContext('2d');
+    if (ctx) drawCardPhoto(ctx, paint, i, p, 1);
+  };
 
   const anyColor = paint.resolved.some((r) => r.swatches.length);
   const fileBase = () => cardFileBase(paint.card, paint.resolved, S.cardFile);
@@ -568,7 +719,7 @@ export function CardPreview({
           className="block size-full"
           data-testid="card-canvas"
         />
-        <PhotoAreas paint={paint} onDragging={onDragging} />
+        <PhotoAreas paint={paint} onDragging={onDragging} redrawPhoto={redrawPhoto} />
       </Stage>
       <p className="m-0 text-xs text-muted tabular-nums" data-testid="card-size">
         {`${L.width * 2} × ${L.height * 2} px`}

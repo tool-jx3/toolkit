@@ -1,12 +1,18 @@
 /**
- * 配色卡（規格 1.2）的純邏輯：每一欄的色票與代表色、混色帶、綜合色、版面（本站自己的版型，方向參考
- * dearmysn1p3r/Colorpalettecard_Maker：照片在上、取出的顏色一列一列排在下面、色名＋HEX）、複製的文字、檔名。
+ * 配色卡（規格 1.2）的純邏輯：每一欄的色票與代表色、混色帶、綜合色、版面（本站自己設計的版型：
+ * 照片在上、取出的顏色一列一列排在下面，每格是色塊＋色名＋HEX）、複製的文字、檔名。
  */
-import { parseColor } from '@/core/color';
+import { oklabDistance, parseColor, rgbToOklab } from '@/core/color';
 import { colorName } from '@/core/colornames';
-import { mixColors, nearestPaletteColor, type PaletteColor, pickKeyColor } from '@/core/image';
+import {
+  mixColors,
+  nearestPaletteColor,
+  type PaletteColor,
+  paletteLuminance,
+  pickKeyColor,
+} from '@/core/image';
 import { realColors, roleColors } from './characters';
-import type { Bar, CardColumn, CardRatio, CardSettings } from './logic';
+import { type Bar, type CardColumn, type CardRatio, type CardSettings, LIMITS } from './logic';
 
 export type Rgb = [number, number, number];
 
@@ -31,6 +37,15 @@ export interface ResolvedColumn {
   keyChosen: boolean;
   /** 實際用的色票來源 */
   colors: 'auto' | 'parts';
+  /**
+   * 代表色是色票裡的哪一格（-1：不在色票裡）。完全相同、或看起來幾乎一樣（Oklab 距離 0.03 以內，
+   * 例如角色的代表色與 k-means 取出的平均色只差一點）的那一格都算。
+   */
+  keyIndex: number;
+  /** 代表色在色票裡（或沒有代表色）；false 時代表色另外標在色票下面 */
+  keyInSwatches: boolean;
+  /** 角色的立繪讀不到，改用角色的顏色 */
+  imageMissing: boolean;
 }
 
 /** 角色的部位顏色當色票（「無」不算、重複的只留一個，占比平均） */
@@ -57,16 +72,19 @@ export function columnColorsMode(col: CardColumn, bar: Bar | null): 'auto' | 'pa
 
 /**
  * 解析一欄：auto 時用 k-means 的結果（呼叫端算好傳進來，沒有圖片時是空的）。
+ * 角色的立繪讀不到（imageMissing）時改用角色的顏色。
  * 代表色：角色＝角色的代表色（沒有時自動選）；照片＝欄的代表色（換成色票裡最接近的那個；沒有時自動選）。
  */
 export function resolveColumn(
   col: CardColumn,
   bars: readonly Bar[],
   auto: PaletteColor[] | null,
+  imageMissing = false,
 ): ResolvedColumn {
   const bar =
     col.source === 'character' ? (bars.find((b) => b.id === col.characterId) ?? null) : null;
-  const mode = columnColorsMode(col, bar);
+  const missing = !!bar?.image && imageMissing;
+  const mode = missing ? 'parts' : columnColorsMode(col, bar);
   const swatches = mode === 'parts' && bar ? partsSwatches(bar) : (auto ?? []);
   let key: Rgb | null = null;
   let keyChosen = false;
@@ -79,6 +97,7 @@ export function resolveColumn(
   } else {
     key = (pickKeyColor(swatches)?.rgb as Rgb | undefined) ?? null;
   }
+  const keyIndex = key ? keySwatchIndex(swatches, key) : -1;
   return {
     id: col.id,
     name: col.source === 'photo' ? col.name.trim() : (bar?.name ?? '').trim(),
@@ -88,7 +107,30 @@ export function resolveColumn(
     key,
     keyChosen,
     colors: mode,
+    keyIndex,
+    keyInSwatches: !key || keyIndex >= 0,
+    imageMissing: missing,
   };
+}
+
+/** 看起來和代表色一樣的距離上限（Oklab） */
+const SAME_KEY = 0.03;
+
+/** 代表色是色票裡的哪一格：完全相同的優先，否則最接近、而且距離在 SAME_KEY 以內的；都沒有時 -1 */
+export function keySwatchIndex(swatches: readonly PaletteColor[], key: Rgb): number {
+  const exact = swatches.findIndex((s) => hexOf(s.rgb) === hexOf(key));
+  if (exact >= 0) return exact;
+  const k = rgbToOklab({ r: key[0], g: key[1], b: key[2], a: 1 });
+  let best = -1;
+  let bestD = SAME_KEY;
+  swatches.forEach((s, i) => {
+    const d = oklabDistance(k, rgbToOklab({ r: s.rgb[0], g: s.rgb[1], b: s.rgb[2], a: 1 }));
+    if (d <= bestD) {
+      bestD = d;
+      best = i;
+    }
+  });
+  return best;
 }
 
 /** 角色的「用角色的顏色」選得了嗎（有部位顏色） */
@@ -101,21 +143,28 @@ export const hairHint = (bar: Bar) => realColors(roleColors(bar, 'hair'))[0] ?? 
 /* ---------- 混色帶、綜合色 ---------- */
 
 /**
- * 混色帶（兩色之間的漸層）：有兩欄以上有代表色時，相鄰兩欄的代表色各一條（最多 3 條）；
- * 只有一欄時，用那一欄的色票：最暗＋最亮、第二暗＋第二亮（最多 2 條）。
+ * 混色帶（兩色之間的漸層）：兩欄以上有代表色時，相鄰兩欄的代表色各一條（最多 3 條）；
+ * 只有一欄有代表色時，從代表色各拉一條到那一欄最暗、最亮的顏色（代表色本身就是最暗或最亮時跳過那一條）。
+ * 都沒有代表色時沒有混色帶。
  */
 export function mixPairs(cols: readonly ResolvedColumn[]): [Rgb, Rgb][] {
-  const keys = cols.map((c) => c.key).filter((k): k is Rgb => !!k);
-  if (keys.length >= 2) {
-    const out: [Rgb, Rgb][] = [];
-    for (let i = 0; i + 1 < keys.length && out.length < 3; i++) out.push([keys[i], keys[i + 1]]);
-    return out;
+  const withKey = cols.filter((c): c is ResolvedColumn & { key: Rgb } => !!c.key);
+  if (withKey.length >= 2) {
+    return withKey
+      .slice(0, 4)
+      .slice(1)
+      .map((c, i): [Rgb, Rgb] => [withKey[i].key, c.key]);
   }
-  const one = cols.find((c) => c.swatches.length >= 2);
+  const one = withKey[0];
   if (!one) return [];
-  const sw = one.swatches.map((s) => s.rgb as Rgb);
-  const out: [Rgb, Rgb][] = [[sw[0], sw[sw.length - 1]]];
-  if (sw.length >= 4) out.push([sw[1], sw[sw.length - 2]]);
+  const byLight = one.swatches
+    .map((s) => s.rgb as Rgb)
+    .sort((a, b) => paletteLuminance(a) - paletteLuminance(b));
+  if (byLight.length < 2) return [];
+  const keyHex = hexOf(one.key);
+  const out: [Rgb, Rgb][] = [];
+  for (const end of [byLight[0], byLight[byLight.length - 1]])
+    if (hexOf(end) !== keyHex) out.push([one.key, end]);
   return out;
 }
 
@@ -129,28 +178,39 @@ export function blendOf(cols: readonly ResolvedColumn[]): Rgb | null {
 
 /** 本站自己的版面數值（1 倍；匯出 PNG 是兩倍） */
 export const CARD = {
-  pad: 72,
-  gap: 40,
-  /** 欄寬（依欄數） */
-  colW: [640, 520, 440, 380],
-  titleH: 110,
-  photoR: 24,
-  nameH: 64,
-  noNameH: 32,
-  rowH: 60,
-  rowGap: 10,
-  rowR: 14,
-  mixH: 52,
-  mixGap: 10,
-  blendH: 80,
-  sectionGap: 36,
+  /** 卡片離圖邊、卡片的圓角、內容離卡片邊 */
+  margin: 20,
+  radius: 28,
+  pad: 48,
+  /** 欄間、欄寬（依欄數） */
+  gap: 36,
+  colW: [600, 500, 420, 360],
+  titleH: 64,
+  titleGap: 28,
+  photoR: 22,
+  nameH: 48,
+  noNameH: 20,
+  /** 一格色票：色塊見方＝列高 */
+  rowH: 56,
+  rowGap: 12,
+  /** 代表色不在色票裡時，色票下面多一列標出代表色 */
+  keyH: 44,
+  mixH: 44,
+  mixGap: 12,
+  blendH: 72,
+  sectionGap: 32,
 } as const;
 
 export const ratioValue = (r: CardRatio): number => (r === '4:5' ? 5 / 4 : r === '3:4' ? 4 / 3 : 1);
 
+type BlockId = 'title' | 'photo' | 'name' | 'rows' | 'key' | 'mix' | 'blend';
+
 export interface CardLayout {
   width: number;
   height: number;
+  /** 內容的左右邊界 */
+  left: number;
+  right: number;
   colW: number;
   cols: { x: number; w: number }[];
   title: boolean;
@@ -161,63 +221,76 @@ export interface CardLayout {
   nameY: number;
   rowsY: number;
   rows: number;
+  /** 標出代表色的那一列（沒有時 null） */
+  keyY: number | null;
   mixY: number;
   mix: [Rgb, Rgb][];
   blendY: number;
   blend: Rgb | null;
-  /** GIF 一步一步出現的範圍（色票每一列、每條混色帶、綜合色） */
+  /** GIF 一步一步出現的範圍（色票每一列、代表色那一列、每條混色帶、綜合色） */
   steps: { y: number; h: number }[];
 }
 
+/**
+ * 版面：由上往下疊幾個區塊（標題、照片、名字、色票、代表色、混色帶、綜合色），
+ * 每個區塊記下自己的高度與前面的空隙，再一次算出位置。
+ */
 export function layoutCard(card: CardSettings, cols: readonly ResolvedColumn[]): CardLayout {
   const C = CARD;
-  const n = Math.max(1, Math.min(4, cols.length));
+  const n = Math.max(1, Math.min(C.colW.length, cols.length));
   const colW = C.colW[n - 1];
-  const width = C.pad * 2 + n * colW + (n - 1) * C.gap;
+  const left = C.margin + C.pad;
+  const width = left * 2 + n * colW + (n - 1) * C.gap;
   const title = !!card.title.trim();
   const names = cols.some((c) => c.name);
-  const counts = cols.map((c) => c.swatches.length).filter((k) => k > 0);
-  const rows = counts.length ? Math.max(...counts) : card.count;
+  const rows = Math.max(0, ...cols.map((c) => c.swatches.length)) || card.count;
+  const keyRow = cols.some((c) => !c.keyInSwatches);
   const mix = card.showMix ? mixPairs(cols) : [];
   const blend = blendOf(cols);
-  let y = C.pad;
-  const titleY = y;
-  if (title) y += C.titleH;
-  const photoY = y;
   const photoH = Math.round(colW * ratioValue(card.ratio));
-  y += photoH;
-  const nameY = y;
-  y += names ? C.nameH : C.noNameH;
-  const rowsY = y;
-  const steps: { y: number; h: number }[] = [];
-  for (let j = 0; j < rows; j++) steps.push({ y: rowsY + j * (C.rowH + C.rowGap), h: C.rowH });
-  y += rows * C.rowH + (rows - 1) * C.rowGap;
-  const mixY = y + C.sectionGap;
-  if (mix.length) {
-    mix.forEach((_, p) => {
-      steps.push({ y: mixY + p * (C.mixH + C.mixGap), h: C.mixH });
-    });
-    y = mixY + mix.length * C.mixH + (mix.length - 1) * C.mixGap;
+  const mixH = mix.length ? mix.length * C.mixH + (mix.length - 1) * C.mixGap : 0;
+  const plan: { id: BlockId; h: number; before: number }[] = [
+    ...(title ? [{ id: 'title' as const, h: C.titleH, before: 0 }] : []),
+    { id: 'photo', h: photoH, before: title ? C.titleGap : 0 },
+    { id: 'name', h: names ? C.nameH : C.noNameH, before: 0 },
+    { id: 'rows', h: rows * C.rowH + (rows - 1) * C.rowGap, before: 0 },
+    ...(keyRow ? [{ id: 'key' as const, h: C.keyH, before: C.rowGap }] : []),
+    ...(mix.length ? [{ id: 'mix' as const, h: mixH, before: C.sectionGap }] : []),
+    ...(blend ? [{ id: 'blend' as const, h: C.blendH, before: C.sectionGap }] : []),
+  ];
+  const at = new Map<BlockId, number>();
+  let y = C.margin + C.pad;
+  for (const b of plan) {
+    y += b.before;
+    at.set(b.id, y);
+    y += b.h;
   }
-  const blendY = y + (mix.length ? C.mixGap * 2 : C.sectionGap);
-  if (blend) {
-    steps.push({ y: blendY, h: C.blendH });
-    y = blendY + C.blendH;
-  }
-  const height = Math.round(y + C.pad);
+  const rowsY = at.get('rows') ?? 0;
+  const keyY = at.get('key') ?? null;
+  const mixY = at.get('mix') ?? y;
+  const blendY = at.get('blend') ?? y;
+  const steps = [
+    ...Array.from({ length: rows }, (_, j) => ({ y: rowsY + j * (C.rowH + C.rowGap), h: C.rowH })),
+    ...(keyY != null ? [{ y: keyY, h: C.keyH }] : []),
+    ...mix.map((_, k) => ({ y: mixY + k * (C.mixH + C.mixGap), h: C.mixH })),
+    ...(blend ? [{ y: blendY, h: C.blendH }] : []),
+  ];
   return {
     width,
-    height,
+    height: Math.round(y + C.pad + C.margin),
+    left,
+    right: width - left,
     colW,
-    cols: Array.from({ length: n }, (_, i) => ({ x: C.pad + i * (colW + C.gap), w: colW })),
+    cols: Array.from({ length: n }, (_, i) => ({ x: left + i * (colW + C.gap), w: colW })),
     title,
-    titleY,
-    photoY,
+    titleY: at.get('title') ?? 0,
+    photoY: at.get('photo') ?? 0,
     photoH,
     names,
-    nameY,
+    nameY: at.get('name') ?? 0,
     rowsY,
     rows,
+    keyY,
     mixY,
     mix,
     blendY,
@@ -270,6 +343,28 @@ export function cardCopyText(
   });
   if (blend) out.push(`${blendLabel} ${hexOf(blend)} ${names.blend}`.trim());
   return out.join('\n').trim();
+}
+
+/** 檔名去掉副檔名（照片名字的預設值；最多 20 字） */
+export const fileStem = (name: string): string =>
+  name.replace(/\.[^.]+$/, '').slice(0, LIMITS.cardName);
+
+/**
+ * 換一張照片／把照片放進一欄：名字是空的或還是上一張的檔名（沒改過）時，換成這一張的檔名。
+ */
+export function photoPatch(
+  col: Pick<CardColumn, 'name' | 'autoName'> | null,
+  image: { id: string; width: number; height: number },
+  fileName: string,
+): Partial<CardColumn> {
+  const keepName = !!col && !!col.name.trim() && !col.autoName;
+  return {
+    source: 'photo',
+    image,
+    placement: { zoom: 1, x: 0, y: 0, turns: 0 },
+    key: null,
+    ...(keepName ? {} : { name: fileStem(fileName), autoName: true }),
+  };
 }
 
 /** 檔名（不含副檔名）：標題 → 各欄的名字 → 預設 */
