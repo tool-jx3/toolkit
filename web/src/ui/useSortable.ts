@@ -25,8 +25,18 @@
  * - handleOnly（選填）：指標事件照樣給整列，但滑鼠也只能從把手（`[data-drag-handle]`）開始拖，
  *   從列上其他地方按住只算點一下（同觸控）。每列有縮圖、拖放區等大塊內容時用，避免從那裡拖到卻排了序
  *   （acrylic-goods 對等驗證後新增，不給時行為不變）。
+ * - longPress（選填，毫秒）：觸控時在列上（不是把手）按住不動這麼久就開始拖（開始前手指移動 LONG_PRESS_SLOP px 以上
+ *   ＝捲動清單，這次不拖；沒移動就放開＝點一下）。開始拖之後不讓瀏覽器捲動、不跳出長按選單。
+ *   （height-board 跟進原作 2026-10 更新時新增，不給時行為不變）
  */
-import { type KeyboardEvent, type PointerEvent, useEffect, useRef, useState } from 'react';
+import {
+  type KeyboardEvent,
+  type MouseEvent,
+  type PointerEvent,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
 
 export interface SortableOptions {
   count: number;
@@ -57,7 +67,15 @@ export interface SortableOptions {
    * （character-editor 移植時新增）
    */
   windowEdge?: number;
+  /**
+   * 觸控時在列上按住這麼久（毫秒）不動就開始拖（不給時觸控只能從把手拖，行為不變）。
+   * （height-board 跟進原作 2026-10 更新時新增；原作 400 ms）
+   */
+  longPress?: number;
 }
+
+/** 長按開始拖之前，手指移動這麼多 px 就當成捲動（不拖） */
+export const LONG_PRESS_SLOP = 8;
 
 /** windowEdge 自動捲動整頁時，每個畫面最多捲動的距離（px） */
 export const WINDOW_SCROLL_MAX = 6;
@@ -113,11 +131,16 @@ export function useSortable(options: SortableOptions) {
     raf: number;
     /** 拖曳開始後掛在 window 上的 pointerup／pointercancel 監聽的拆除函式 */
     detach: (() => void) | null;
+    /** 觸控按下（長按選單的處理） */
+    touch: boolean;
+    /** 等待長按的計時器（0＝沒有） */
+    timer: ReturnType<typeof setTimeout> | 0;
   } | null>(null);
 
   useEffect(
     () => () => {
       cancelAnimationFrame(g.current?.raf ?? 0);
+      if (g.current?.timer) clearTimeout(g.current.timer);
       g.current?.detach?.();
     },
     [],
@@ -254,6 +277,7 @@ export function useSortable(options: SortableOptions) {
     const s = g.current;
     g.current = null;
     if (!s) return;
+    if (s.timer) clearTimeout(s.timer);
     cancelAnimationFrame(s.raf);
     s.detach?.();
     s.detach = null;
@@ -270,10 +294,71 @@ export function useSortable(options: SortableOptions) {
     opts.current.onMoveEnd?.();
   };
 
+  /** 開始拖曳（超過門檻，或長按到時間） */
+  const start = (el: HTMLElement) => {
+    const s = g.current;
+    if (!s || s.active) return;
+    s.active = true;
+    s.touchOnly = false;
+    try {
+      el.setPointerCapture?.(s.id);
+    } catch {
+      /* 指標已經不在：不捕捉也能用（window 上有聽放開） */
+    }
+    /* 指標捕捉可能在拖曳中被瀏覽器放掉（列被移動位置）：在 window 上收放開與取消 */
+    const id = s.id;
+    const onUp = (ev: globalThis.PointerEvent) => {
+      if (ev.pointerId !== id || g.current?.id !== id) return;
+      /* 捕捉掉了之後列收不到移動：以放開的位置算最後的目標（cancelOutside 時在範圍外就不移動） */
+      track(ev.clientX, ev.clientY);
+      finish(true);
+    };
+    const onCancel = (ev: globalThis.PointerEvent) => {
+      if (ev.pointerId === id && g.current?.id === id) finish(false);
+    };
+    const onKey = (ev: globalThis.KeyboardEvent) => {
+      if (ev.key !== 'Escape' || !opts.current.escapeCancels || g.current?.id !== id) return;
+      ev.preventDefault();
+      ev.stopPropagation();
+      finish(false);
+    };
+    window.addEventListener('pointerup', onUp);
+    window.addEventListener('pointercancel', onCancel);
+    window.addEventListener('keydown', onKey, true);
+    s.detach = () => {
+      window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointercancel', onCancel);
+      window.removeEventListener('keydown', onKey, true);
+    };
+    s.scroller = scrollParent(el);
+    setState({ drag: s.index, over: s.index });
+    if (opts.current.mode !== 'drop') opts.current.onMoveStart?.(s.index);
+    s.raf = requestAnimationFrame(autoScroll);
+  };
+
+  /**
+   * 長按開始的拖曳：手指移動時不讓瀏覽器捲動清單（列沒有 touch-action: none）。觸控事件一律送到按下的那個元素，
+   * 所以在每一列掛一次不被動的 touchmove 監聽（React 的 onTouchMove 是被動的、不能取消捲動）。
+   */
+  const touchBound = useRef(new WeakSet<HTMLElement>());
+  const bindTouch = (el: HTMLElement) => {
+    if (touchBound.current.has(el)) return;
+    touchBound.current.add(el);
+    el.addEventListener(
+      'touchmove',
+      (ev) => {
+        if (g.current?.active && g.current.touch && ev.cancelable) ev.preventDefault();
+      },
+      { passive: false },
+    );
+  };
+
   const rowProps = (index: number) => ({
     ref: (el: HTMLElement | null) => {
-      if (el) rows.current.set(index, el);
-      else rows.current.delete(index);
+      if (el) {
+        rows.current.set(index, el);
+        if (opts.current.longPress) bindTouch(el);
+      } else rows.current.delete(index);
     },
     onPointerDown: (e: PointerEvent<HTMLElement>) => {
       if (e.button !== 0 || g.current) return;
@@ -297,7 +382,10 @@ export function useSortable(options: SortableOptions) {
         if (ev.pointerId !== id) return;
         window.removeEventListener('pointerup', clear);
         window.removeEventListener('pointercancel', clear);
-        if (g.current?.id === id && !g.current.active) g.current = null;
+        if (g.current?.id === id && !g.current.active) {
+          if (g.current.timer) clearTimeout(g.current.timer);
+          g.current = null;
+        }
       };
       window.addEventListener('pointerup', clear);
       window.addEventListener('pointercancel', clear);
@@ -315,7 +403,19 @@ export function useSortable(options: SortableOptions) {
         scroller: null,
         raf: 0,
         detach: null,
+        touch: e.pointerType === 'touch',
+        timer: 0,
       };
+      /* 觸控、不是從把手：給了 longPress 時按住不動到時間就開始拖 */
+      const hold = opts.current.longPress;
+      if (touchOnly && e.pointerType === 'touch' && hold && !opts.current.disabled) {
+        const el = e.currentTarget;
+        const mine = g.current;
+        mine.timer = setTimeout(() => {
+          mine.timer = 0;
+          if (g.current === mine && !mine.active && !opts.current.disabled) start(el);
+        }, hold);
+      }
     },
     onPointerMove: (e: PointerEvent<HTMLElement>) => {
       const s = g.current;
@@ -323,39 +423,14 @@ export function useSortable(options: SortableOptions) {
       s.lastX = e.clientX;
       s.lastY = e.clientY;
       if (!s.active) {
+        /* 等長按的期間手指移動了：當成捲動清單，這次不拖 */
+        if (s.timer && Math.hypot(e.clientX - s.x, e.clientY - s.y) >= LONG_PRESS_SLOP) {
+          clearTimeout(s.timer);
+          s.timer = 0;
+        }
         if (opts.current.disabled || s.touchOnly) return;
         if (Math.hypot(e.clientX - s.x, e.clientY - s.y) < (opts.current.threshold ?? 4)) return;
-        s.active = true;
-        e.currentTarget.setPointerCapture?.(e.pointerId);
-        /* 指標捕捉可能在拖曳中被瀏覽器放掉（列被移動位置）：在 window 上收放開與取消 */
-        const id = e.pointerId;
-        const onUp = (ev: globalThis.PointerEvent) => {
-          if (ev.pointerId !== id || g.current?.id !== id) return;
-          /* 捕捉掉了之後列收不到移動：以放開的位置算最後的目標（cancelOutside 時在範圍外就不移動） */
-          track(ev.clientX, ev.clientY);
-          finish(true);
-        };
-        const onCancel = (ev: globalThis.PointerEvent) => {
-          if (ev.pointerId === id && g.current?.id === id) finish(false);
-        };
-        const onKey = (ev: globalThis.KeyboardEvent) => {
-          if (ev.key !== 'Escape' || !opts.current.escapeCancels || g.current?.id !== id) return;
-          ev.preventDefault();
-          ev.stopPropagation();
-          finish(false);
-        };
-        window.addEventListener('pointerup', onUp);
-        window.addEventListener('pointercancel', onCancel);
-        window.addEventListener('keydown', onKey, true);
-        s.detach = () => {
-          window.removeEventListener('pointerup', onUp);
-          window.removeEventListener('pointercancel', onCancel);
-          window.removeEventListener('keydown', onKey, true);
-        };
-        s.scroller = scrollParent(e.currentTarget);
-        setState({ drag: s.index, over: s.index });
-        if (opts.current.mode !== 'drop') opts.current.onMoveStart?.(s.index);
-        s.raf = requestAnimationFrame(autoScroll);
+        start(e.currentTarget);
       }
       track(e.clientX, e.clientY);
     },
@@ -363,6 +438,7 @@ export function useSortable(options: SortableOptions) {
       const s = g.current;
       if (!s || s.id !== e.pointerId) return;
       if (!s.active) {
+        if (s.timer) clearTimeout(s.timer);
         g.current = null;
         /* 按下的那一列（沒有開始拖、例如排序停用時，可能在別列放開） */
         opts.current.onClick?.(s.index);
@@ -371,6 +447,10 @@ export function useSortable(options: SortableOptions) {
       finish(true);
     },
     onPointerCancel: () => finish(false),
+    /* 長按排序：按住時不跳出瀏覽器的長按選單 */
+    onContextMenu: (e: MouseEvent<HTMLElement>) => {
+      if (opts.current.longPress && g.current?.touch) e.preventDefault();
+    },
   });
 
   /** Alt＋↑／↓：移動一格（回傳是否處理了） */

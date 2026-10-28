@@ -20,6 +20,7 @@ import {
   Dialog,
   DialogClose,
   GroupTabs,
+  GuidedTour,
   InteractiveHtmlDialog,
   Kbd,
   Notice,
@@ -327,6 +328,7 @@ export function DialogsDemo() {
         </p>
         <GroupTabs toolId="demo-b" tools={SAMPLE_TABS} />
       </Section>
+      <TourDemo />
       <UsageSection persistKey="_gallery:demo">
         <ol>
           <li>拖入立繪圖片，或按 Ctrl＋V 貼上。</li>
@@ -335,5 +337,40 @@ export function DialogsDemo() {
         </ol>
       </UsageSection>
     </div>
+  );
+}
+
+/** GuidedTour：照亮一個地方、旁邊放說明卡片（height-board 的操作導覽） */
+function TourDemo() {
+  const [step, setStep] = useState<number | null>(null);
+  return (
+    <Section title="操作導覽 GuidedTour">
+      <p className="m-0 text-xs text-muted" data-gallery-tour="text">
+        畫面變暗、照亮一個地方，旁邊放說明卡片；上一步／下一步、略過、Esc。導覽中後面的畫面點不到、快捷鍵不作用。
+      </p>
+      <div>
+        <Button data-gallery-tour="start" onClick={() => setStep(0)}>
+          開始導覽範例
+        </Button>
+      </div>
+      <GuidedTour
+        open={step !== null}
+        step={step ?? 0}
+        onStepChange={setStep}
+        onClose={() => setStep(null)}
+        steps={[
+          {
+            title: '這是按鈕',
+            body: '照亮的地方可以是一個元素。',
+            target: () => document.querySelector('[data-gallery-tour="start"]'),
+          },
+          {
+            title: '這是說明',
+            body: '也可以是好幾個元素（取外接範圍）或一個範圍。',
+            target: () => [...document.querySelectorAll('[data-gallery-tour]')],
+          },
+        ]}
+      />
+    </Section>
   );
 }

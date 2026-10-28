@@ -229,6 +229,7 @@ export function BoardView() {
         padding={{ top: 14, bottom: 14, left: 8, right: 8 }}
         align={{ x: 'start', y: 'end' }}
         extend="x"
+        pinch
         gutter={{ width: 58, draw: drawRuler }}
         draw={draw}
         onPointerDown={(p) => {

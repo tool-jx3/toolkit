@@ -10,6 +10,9 @@
  *   不回傳表示空白處（拖曳＝平移、沒拖就放開＝onEmptyClick）。
  * - 游標樣式 getCursor(p)（空白處預設「抓取」、平移中「抓住」）；跟著游標的提示框 getTooltip(p)。
  * - 左側固定尺規（gutter）：只跟著縱向捲動，橫向捲動時不會被捲走。
+ * - pinch（選填，觸控）：兩指捏合縮放、兩指滑動平移（開始時兩指中點下的點跟著中點走）；第二指放上去時，一指的拖曳
+ *   以 onCancel('pinch') 取消（工具把拖到一半的物件放回原位）；捏合後剩下的手指全部離開前不開始新的操作。
+ *   height-board 跟進原作 2026-10 更新時新增，不給時行為不變。
  *
  * ```tsx
  * const vp = useRef<PanZoomViewportHandle>(null);
@@ -35,6 +38,7 @@ import {
 } from 'react';
 import type { Box } from '@/core/layout';
 import { cn } from './cn';
+import { createPointerGesture } from './pointerGesture';
 import { isEditableTarget } from './shortcuts';
 
 export interface PanZoomView {
@@ -76,7 +80,11 @@ export interface ViewportDrag {
   onMove?: (p: ViewportPointer) => void;
   /** moved：真的有移動（沒移動時可以當成點一下） */
   onEnd?: (p: ViewportPointer, moved: boolean) => void;
-  onCancel?: () => void;
+  /**
+   * 拖曳被取消：指標被瀏覽器取消（reason 沒有值），或觸控時第二指放上去改成捏合（reason＝'pinch'，
+   * 只有 pinch 開著時；工具通常把拖到一半的物件放回原位、不記復原步驟）
+   */
+  onCancel?: (reason?: 'pinch') => void;
   /** 拖曳中的游標（預設 grabbing） */
   cursor?: string;
 }
@@ -138,6 +146,11 @@ export interface PanZoomViewportProps {
   panThreshold?: number;
   /** 按住空白鍵拖曳平移（預設 true） */
   spacePan?: boolean;
+  /**
+   * 觸控的兩指捏合縮放與平移（預設 false）。開著時第二指放上去會取消一指的拖曳（onCancel('pinch')）。
+   * height-board 跟進原作 2026-10 更新時新增，不給時行為不變。
+   */
+  pinch?: boolean;
   /** 盤面背景（預設白色，與匯出一致） */
   background?: string;
   'aria-label'?: string;
@@ -192,6 +205,7 @@ export function PanZoomViewport({
   getTooltip,
   panThreshold = 3,
   spacePan = true,
+  pinch = false,
   extend,
   background = '#ffffff',
   className,
@@ -386,6 +400,23 @@ export function PanZoomViewport({
     },
     [maxZoom, minZoom, makeView, setZoom],
   );
+  /** 捏合：倍率改成 z，並讓世界座標的點 w 落在畫布上的 a（兩指中點跟著走，所以同時平移） */
+  const zoomKeep = (z: number, w: { x: number; y: number }, a: { x: number; y: number }) => {
+    const next = Math.min(maxZoom, Math.max(minZoom, z));
+    const s = st.current;
+    const el = scroller.current;
+    if (Math.abs(next - zoomRef.current) < 1e-9 && Math.abs(next - s.zoom) < 1e-9) {
+      /* 倍率沒變（例如已到上下限）：只平移 */
+      if (el) {
+        el.scrollLeft = s.offX + s.pad.left + (w.x - s.world.x) * s.scale - a.x;
+        el.scrollTop = s.offY + s.pad.top + (w.y - s.world.y) * s.scale - a.y;
+      }
+      return;
+    }
+    pending.current = { wx: w.x, wy: w.y, ax: a.x, ay: a.y };
+    zoomRef.current = next;
+    setZoom(next);
+  };
   useLayoutEffect(() => {
     const p = pending.current;
     const el = scroller.current;
@@ -443,8 +474,14 @@ export function PanZoomViewport({
         sy: number;
         button: number;
       }
+    /* 捏合中：開始時的倍率、開始時兩指中點下的世界座標 */
+    | { kind: 'pinch'; zoom: number; wx: number; wy: number }
+    /* 捏合後還有手指按著：全部離開前不開始新的操作 */
+    | { kind: 'tail' }
     | null
   >(null);
+  /** 觸控的手指（pinch 開著時） */
+  const touches = useRef(createPointerGesture());
   const space = useRef(false);
   const inside = useRef(false);
 
@@ -474,7 +511,40 @@ export function PanZoomViewport({
     setCursor((p && st.current.getCursor?.(p)) || 'grab');
   };
 
+  const capture = (e: ReactPointerEvent<HTMLElement>) => {
+    try {
+      e.currentTarget.setPointerCapture?.(e.pointerId);
+    } catch {
+      /* 指標已經不在（例如合成的事件）：不捕捉也能用 */
+    }
+  };
+
+  /** 第二指放上去：一指的拖曳取消、平移停止，改成捏合 */
+  const beginPinch = (e: ReactPointerEvent<HTMLCanvasElement>) => {
+    const g = gesture.current;
+    gesture.current = null;
+    if (g?.kind === 'drag') g.drag.onCancel?.('pinch');
+    const s = touches.current.move(e.pointerId, e.clientX, e.clientY);
+    const r = canvas.current?.getBoundingClientRect();
+    if (s?.kind !== 'pinch' || !r) return;
+    const w = makeView().toWorld(s.originX - r.left, s.originY - r.top);
+    gesture.current = { kind: 'pinch', zoom: zoomRef.current, wx: w.x, wy: w.y };
+    capture(e);
+    tipSetter.current?.(null);
+    st.current.onHover?.(null);
+  };
+
   const onDown = (e: ReactPointerEvent<HTMLCanvasElement>) => {
+    if (pinch && e.pointerType === 'touch') {
+      const t = touches.current;
+      t.down(e.pointerId, e.clientX, e.clientY);
+      const k = gesture.current?.kind;
+      if (t.count() >= 2) {
+        if (k !== 'pinch' && k !== 'tail') beginPinch(e);
+        return;
+      }
+      if (k === 'tail') return;
+    }
     if (gesture.current) return;
     const el = scroller.current;
     if (!el) return;
@@ -490,7 +560,7 @@ export function PanZoomViewport({
         sy: el.scrollTop,
         button: e.button,
       };
-      e.currentTarget.setPointerCapture?.(e.pointerId);
+      capture(e);
       if (kind === 'pan') setCursor('grabbing');
     };
     if (e.button === 1) {
@@ -509,13 +579,28 @@ export function PanZoomViewport({
         y: e.clientY,
         moved: false,
       };
-      e.currentTarget.setPointerCapture?.(e.pointerId);
+      capture(e);
       setCursor(d.cursor ?? 'grabbing');
       return;
     }
     startPan('pending');
   };
   const onMove = (e: ReactPointerEvent<HTMLCanvasElement>) => {
+    if (pinch && e.pointerType === 'touch') {
+      const s = touches.current.move(e.pointerId, e.clientX, e.clientY);
+      const pg = gesture.current;
+      if (pg?.kind === 'pinch') {
+        const r = canvas.current?.getBoundingClientRect();
+        if (s?.kind === 'pinch' && r)
+          zoomKeep(
+            pg.zoom * s.scale,
+            { x: pg.wx, y: pg.wy },
+            { x: s.originX + s.dx - r.left, y: s.originY + s.dy - r.top },
+          );
+        return;
+      }
+      if (pg?.kind === 'tail') return;
+    }
     const g = gesture.current;
     const p = pointerOf(e);
     if (!g) {
@@ -530,7 +615,7 @@ export function PanZoomViewport({
       );
       return;
     }
-    if (g.id !== e.pointerId) return;
+    if (g.kind === 'pinch' || g.kind === 'tail' || g.id !== e.pointerId) return;
     if (g.kind === 'drag') {
       if (!g.moved && Math.hypot(e.clientX - g.x, e.clientY - g.y) > 0) g.moved = true;
       g.drag.onMove?.(p);
@@ -545,17 +630,30 @@ export function PanZoomViewport({
       scroller.current.scrollTop = g.sy - (e.clientY - g.y);
     }
   };
+  /** 捏合中（或捏合後）放開一指：剩下的手指全部離開才結束 */
+  const releaseTouch = (e: ReactPointerEvent<HTMLCanvasElement>): boolean => {
+    if (!pinch || e.pointerType !== 'touch') return false;
+    touches.current.up(e.pointerId);
+    const k = gesture.current?.kind;
+    if (k !== 'pinch' && k !== 'tail') return false;
+    gesture.current = touches.current.count() > 0 ? { kind: 'tail' } : null;
+    return true;
+  };
+
   const onUp = (e: ReactPointerEvent<HTMLCanvasElement>) => {
+    if (releaseTouch(e)) return;
     const g = gesture.current;
-    if (!g || g.id !== e.pointerId) return;
+    if (!g || g.kind === 'pinch' || g.kind === 'tail' || g.id !== e.pointerId) return;
     gesture.current = null;
     const p = pointerOf(e);
     if (g.kind === 'drag') g.drag.onEnd?.(p, g.moved);
     else if (g.kind === 'pending' && g.button === 0) st.current.onEmptyClick?.(p);
     hoverCursor(p);
   };
-  const onCancel = () => {
+  const onCancel = (e: ReactPointerEvent<HTMLCanvasElement>) => {
+    if (releaseTouch(e)) return;
     const g = gesture.current;
+    if (g && g.kind !== 'pinch' && g.kind !== 'tail' && g.id !== e.pointerId) return;
     gesture.current = null;
     if (g?.kind === 'drag') g.drag.onCancel?.();
     setCursor('grab');

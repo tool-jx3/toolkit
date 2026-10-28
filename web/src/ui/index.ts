@@ -147,6 +147,16 @@ export { GestureScope, type GestureScopeProps } from './GestureScope';
 export { GradientField, type GradientFieldProps } from './GradientField';
 export { GroupTabs } from './GroupTabs';
 export {
+  GuidedTour,
+  type GuidedTourProps,
+  placeTourCard,
+  TOUR_PAD,
+  type TourRect,
+  type TourSide,
+  type TourStep,
+  type TourTarget,
+} from './GuidedTour';
+export {
   type HighlightLine,
   HighlightTextArea,
   type HighlightTextAreaHandle,
@@ -398,7 +408,7 @@ export {
 export { type ToastOptions, ToastProvider, type ToastTone, useToast } from './Toast';
 export { Toggle, type ToggleProps } from './Toggle';
 export { ToolHeader, type ToolHeaderProps } from './ToolHeader';
-export { ToolShell, type ToolShellProps } from './ToolShell';
+export { type SettingsResize, ToolShell, type ToolShellProps } from './ToolShell';
 export { Tooltip } from './Tooltip';
 export { SEGMENT_COLORS, Transport, type TransportProps } from './Transport';
 export { getTheme, setTheme, type Theme, useTheme } from './theme';
@@ -406,8 +416,9 @@ export { UiProvider } from './UiProvider';
 export { UsageSection, type UsageSectionProps } from './UsageSection';
 export { type AudioPlayback, useAudioPlayback } from './useAudioPlayback';
 export { useConfirmedReset } from './useConfirmedReset';
+export { COARSE_POINTER, useMediaQuery } from './useMediaQuery';
 export { type Playback, type PlaybackOptions, usePlayback } from './usePlayback';
-export { type SortableOptions, useSortable } from './useSortable';
+export { LONG_PRESS_SLOP, type SortableOptions, useSortable } from './useSortable';
 export {
   type UseVideoPlaybackOptions,
   useVideoPlayback,

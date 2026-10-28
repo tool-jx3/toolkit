@@ -206,17 +206,30 @@ export function Dialog({
   );
 }
 
-/** 對話框裡的「關閉」按鈕（放在 footer） */
+/**
+ * 對話框裡的「關閉」按鈕（放在 footer）。onClick、icon、size、className 選填（height-board 加「看操作導覽」時新增：
+ * 關閉說明對話框後接著做別的事；不給時行為不變）。
+ */
 export function DialogClose({
   children = '關閉',
   variant = 'secondary',
+  onClick,
+  icon,
+  size,
+  className,
 }: {
   children?: ReactNode;
   variant?: 'primary' | 'secondary' | 'ghost';
+  onClick?: () => void;
+  icon?: ReactNode;
+  size?: 'sm' | 'md' | 'lg';
+  className?: string;
 }) {
   return (
     <D.Close asChild>
-      <Button variant={variant}>{children}</Button>
+      <Button variant={variant} onClick={onClick} icon={icon} size={size} className={className}>
+        {children}
+      </Button>
     </D.Close>
   );
 }
