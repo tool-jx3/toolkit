@@ -9,16 +9,16 @@
 
 ## 進行中
 
-（沒有）
+- pdf-compress 的大檔省記憶體模式與實測上限（使用者 2026-10-28：先做省記憶體模式，再依實測訂上限；分割＋合併之後再說）。
+- height-board 跟進原作 [woolwag3338/character-height-board](https://github.com/woolwag3338/character-height-board)（MIT）`90f8442`→`2407161`：頭頂／腳底線拖到圖外、練習用的教學導覽、手機與平板版面、兩指縮放、清單長按排序、`.hboard` 拖放開啟等。
+- social-post 跟進原作 [s2ndrome/4layout](https://github.com/s2ndrome/4layout)（未授權）`3297da5`→`beb5ef1`：首頁動態、私訊列表與對話、多則限時動態與接著看、貼文照片滑動、PNG 白邊。
 
 ## 一、已收錄工具的原作更新
 
 | 本站工具 | 原作 | 授權 | 新的東西 | 建議 | 工作量 |
 |---|---|---|---|---|---|
-| social-post | [s2ndrome/4layout](https://github.com/s2ndrome/4layout) | 未授權 | 首頁動態（朋友的限時動態圈、動態貼文）、私訊畫面（列表＋對話、泡泡色、附圖、已讀）；朋友身分、看過的灰框、多則「我的限時動態」 | 值得跟進（兩個畫面可分開上線） | 中 |
 | speech-bubble | [aokmri/dp-cardmaker](https://github.com/aokmri/dp-cardmaker) | 未授權 | 單一泡泡插圖、PDF 匯出 | 可考慮（泡泡插圖比較值得） | 小～中 |
 | geo-bloom | [al1scut/tkmizGeo](https://github.com/al1scut/tkmizGeo) | 未授權 | 三角形、摩斯環、線不跨線、把種子刻進圖形並能從圖片解碼 | 可考慮；原作還在快速改，晚點再看 | 小～大 |
-| height-board | [woolwag3338/character-height-board](https://github.com/woolwag3338/character-height-board) | MIT | 頭頂線、腳底線可以拖出圖外（蹲姿、半身立繪） | 可考慮 | 小 |
 | （共用層） | 同上 | — | 原作提到 iOS 的 IndexedDB 連線被切斷後沒重連、預先存的 Blob 取不回來；本站 `core/storage/idb.ts` 沒有重連 | 有 iPhone 時確認再決定 | 小 |
 
 ## 二、新工具候選
@@ -113,3 +113,4 @@
 - 2026-10-28：完成並移出清單——color-palette 的色票櫃與配色卡（共用的角色清單、k-means 取色、繁中色名）。
 - 2026-10-28：使用者問開源的 PDF 壓縮工具。可以收的是 MIT 的 qcompress、wise-pdf（列入新工具候選）；Ghostscript／MuPDF 系列是 AGPL，不收。
 - 2026-10-28：完成並移出清單——PDF 壓縮器（pdf-compress，參考 qcompress＋wise-pdf；共用模組 core/pdf）。
+- 2026-10-28：檢查 height-board、social-post 的原作：character-height-board 10-16～10-24 三次更新（index.html 約 +3300 行）；4layout 10-17～10-26 共 11 個 commit。兩個都開始跟進。
