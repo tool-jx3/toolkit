@@ -15,7 +15,15 @@ import {
   ThumbnailImage,
   ThumbnailList,
 } from '@/ui';
-import { Check, ImageButtons, openUrlDialog, ResetButton, TextField, useNotify } from '../controls';
+import {
+  Check,
+  ImageButtons,
+  openUrlDialog,
+  ownerLabel,
+  ResetButton,
+  TextField,
+  useNotify,
+} from '../controls';
 import { addImageFiles } from '../media';
 import {
   type Account,
@@ -108,7 +116,10 @@ function HighlightCard({ h, i }: { h: Highlight; i: number }) {
           }
           options={[
             { value: LINK_NONE, label: S.highlightNone },
-            ...stories.map((s, k) => ({ value: linkValue(s.id), label: S.storyChip(k + 1) })),
+            ...stories.map((s, k) => ({
+              value: linkValue(s.id),
+              label: ownerLabel(S.storyChip(k + 1), s),
+            })),
           ]}
         />
       </Field>

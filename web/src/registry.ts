@@ -878,7 +878,7 @@ export const TOOLS: readonly ToolEntry[] = [
     id: 'social-post',
     name: '社群貼文產生器',
     summary:
-      '做出相片社群 App 的貼文、留言、限時動態與個人頁畫面：照片輪播、按讚與留言、限時動態的版面與貼紙，存成 PNG，或從個人頁點進貼文與限時動態的 HTML 檔，給角色的社群帳號、handout 與宣傳用。',
+      '做出相片社群 App 的貼文、留言、限時動態、個人頁、首頁動態與私訊畫面：照片輪播、按讚與留言、限時動態的版面與貼紙、朋友的貼文與限時動態、私訊的對話，存成 PNG，或從首頁動態與個人頁點進貼文、限時動態與私訊的 HTML 檔，給角色的社群帳號、handout 與宣傳用。',
     group: 'G7',
     status: 'live',
     inspiration: {

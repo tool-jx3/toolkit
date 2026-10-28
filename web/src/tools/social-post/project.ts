@@ -18,10 +18,12 @@ export interface ImportedProject {
 export async function importProject(
   data: unknown,
   files: Map<string, Uint8Array>,
+  version?: number,
 ): Promise<ImportedProject> {
   if (typeof data !== 'object' || data === null || Array.isArray(data))
     throw new ProjectDataError(S.projectBad);
-  const next = normalizeState(data);
+  /* 專案檔的資料版本（舊版本的轉換，規格 3.9）；沒有時當成目前的版本 */
+  const next = normalizeState(data, typeof version === 'number' ? version : undefined);
   const imported = await importAssetFiles(assets, files.entries());
   for (const id of collectAssetIds(next)) {
     const bmp = await assets.bitmap(id).catch(() => undefined);

@@ -19,8 +19,10 @@ import {
 import {
   Check,
   ListBar,
+  OwnerSection,
   openFrame,
   openUrlDialog,
+  ownerLabel,
   PlaceButtons,
   ResetButton,
   TextField,
@@ -73,6 +75,7 @@ export function PostListSection({ title }: { title: string }) {
         ids={posts.map((p) => p.id)}
         currentId={post.id}
         chip={S.postChip}
+        labels={posts.map((p, k) => ownerLabel(S.postChip(k + 1), p))}
         ariaLabel={S.sectionPosts}
         onPick={(id) => setPrefs({ postId: id })}
         addLabel={S.addPost}
@@ -266,6 +269,25 @@ export function PostPanel() {
   return (
     <div className="flex min-w-0 flex-col gap-3">
       <PostListSection title={S.sectionPosts} />
+      <OwnerSection
+        title={S.sectionPostOwner}
+        friendLabel={S.friendPost}
+        friendHint={S.friendPostHint}
+        x={post}
+        target={{ kind: 'owner-avatar', postId: post.id }}
+        onSet={(recipe) => set(recipe)}
+        persistKey="social-post:post-owner"
+      >
+        <Check
+          label={S.inFeed}
+          checked={post.inFeed}
+          onChange={(v) =>
+            set((p) => {
+              p.inFeed = v;
+            })
+          }
+        />
+      </OwnerSection>
       <PhotosSection post={post} />
       <Section title={S.sectionHeader} persistKey="social-post:header">
         <TextField

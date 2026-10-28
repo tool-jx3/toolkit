@@ -4,7 +4,9 @@
  */
 import { describe, expect, it } from 'vitest';
 import {
+  addPost,
   addSticker,
+  addStory,
   blankStory,
   initialState,
   type SocialState,
@@ -12,6 +14,13 @@ import {
 } from '../../src/tools/social-post/model';
 import { commentsScreen } from '../../src/tools/social-post/render/comments';
 import type { Env } from '../../src/tools/social-post/render/common';
+import {
+  chatPieces,
+  dmChatScreen,
+  dmListScreen,
+  layoutChatBody,
+} from '../../src/tools/social-post/render/dm';
+import { feedScreen, layoutTray } from '../../src/tools/social-post/render/feed';
 import type { Op } from '../../src/tools/social-post/render/ops';
 import { postScreen } from '../../src/tools/social-post/render/post';
 import { GRID_CELL, profileScreen } from '../../src/tools/social-post/render/profile';
@@ -281,16 +290,26 @@ describe('限時動態（3.7）', () => {
     expect(texts(storyScreen(out, st, { selectedCell: 0 }).ops)).not.toContain('加入照片');
   });
 
-  it('進度條：目前那段之前滿、之後空；HTML 自動播放時目前那段從 0 開始', () => {
+  it('進度條：目前那段之前滿、之後空；HTML 自動播放時不畫（檢視程式依接著看的則數畫，F126）', () => {
     const e = env((s) => {
       Object.assign(s.stories[0], { count: 4, current: 3, progress: 50 });
     });
     const l = storyScreen(e, e.state.stories[0]);
-    expect(l.parts.bar.width).toBeCloseTo((360 - 2 * 7.92 - 3 * 3.6) / 4);
+    const segW = (360 - 2 * 7.92 - 3 * 3.6) / 4;
+    const tracks = l.ops.filter(
+      (o) => o.t === 'rect' && o.fill === 'rgba(255,255,255,0.35)' && o.h < 3,
+    );
+    expect(tracks).toHaveLength(4);
+    expect(tracks[0].t === 'rect' && tracks[0].w).toBeCloseTo(segW);
     const fills = l.ops.filter((o) => o.t === 'rect' && o.fill === '#ffffff' && o.h < 3);
     expect(fills).toHaveLength(3);
+    const b = l.parts.bars;
+    expect([b.x, b.y, b.width, b.height].map((v) => Math.round(v * 100) / 100)).toEqual([
+      7.92, 48.6, 344.16, 2.34,
+    ]);
     const v = storyScreen(e, e.state.stories[0], { viewer: { autoplay: true, closable: true } });
-    expect(v.ops.filter((o) => o.t === 'rect' && o.fill === '#ffffff' && o.h < 3)).toHaveLength(2);
+    expect(v.ops.filter((o) => o.t === 'rect' && o.h < 3 && o.y === 13.5 * 3.6)).toHaveLength(0);
+    expect(v.parts.bars).toEqual(l.parts.bars);
   });
 
   it('下方介面：傳送訊息／動態／無', () => {
@@ -535,5 +554,334 @@ describe('限時動態的狀態列圖示（F67）', () => {
     const l = postScreen(e, e.state.posts[0]);
     const bars = rects(l.ops).filter((o) => o.y < 54 && o.w === 3 && o.fill === PALETTES.light.ink);
     expect(Math.min(...bars.map((o) => o.x))).toBeCloseTo(291);
+  });
+});
+
+describe('朋友身分（F111、F112）', () => {
+  const friend = (s: SocialState) => {
+    s.posts[0].friend = true;
+    s.posts[0].owner = { username: 'kai.archive', avatar: null, verified: true };
+  };
+
+  it('朋友的貼文：帳號列、內文開頭是朋友的帳號；作者的留言與輸入列的提示也是', () => {
+    const e = env(friend);
+    const t = texts(postScreen(e, e.state.posts[0]).ops);
+    expect(t).toContain('kai.archive');
+    expect(t).not.toContain('xiaoyu.lin');
+    e.state.posts[0].sheet.items[1].author = true;
+    const c = texts(commentsScreen(e, e.state.posts[0]).ops);
+    expect(c).toContain('留言給 kai.archive…');
+    expect(c.filter((x) => x === 'kai.archive').length).toBeGreaterThan(1);
+  });
+
+  it('個人頁的格狀不放朋友的貼文；都只剩朋友的貼文有照片時補空格', () => {
+    const e = env(friend);
+    const keys = profileScreen(e).hits.map((h) => h.key);
+    expect(keys).not.toContain(`post:${e.state.posts[0].id}`);
+    expect(keys).toContain(`post:${e.state.posts[1].id}`);
+    const e2 = env((s) => {
+      friend(s);
+      s.posts[1].photos = [];
+      s.account.grid = [];
+      s.account.placeholders = 6;
+    });
+    const l = profileScreen(e2);
+    const cells = l.ops.flatMap((o) =>
+      o.t === 'group' && o.clip?.y === l.parts.grid.y ? o.ops : [],
+    );
+    /* 自己的貼文 1 格（沒有照片）＋補到 6 格 */
+    expect(cells.filter((o) => o.t === 'rect')).toHaveLength(6);
+  });
+
+  it('朋友的限時動態：帳號列是朋友的帳號', () => {
+    const e = env();
+    const st = e.state.stories[1];
+    expect(st.friend).toBe(true);
+    const t = texts(storyScreen(e, st).ops);
+    expect(t).toContain('kai.archive');
+    expect(t).not.toContain('xiaoyu.lin');
+  });
+});
+
+describe('首頁動態（3.11）', () => {
+  it('390 × 844：狀態列 54、上方列 50、限時動態列 112.2（＋線 0.5）、貼文、底部分頁列 84', () => {
+    const e = env();
+    const l = feedScreen(e);
+    expect([l.width, l.height]).toEqual([390, 844]);
+    expect(l.parts.top).toEqual({ x: 0, y: 54, width: 390, height: 50 });
+    expect(l.parts.tray.y).toBe(104);
+    expect(l.parts.tray.height).toBeCloseTo(6 + 70 + 5 + 12 * 1.6 + 12);
+    expect(l.parts.posts.y).toBeCloseTo(104 + 112.2 + 0.5);
+    expect(l.parts.nav).toEqual({ x: 0, y: 760, width: 390, height: 84 });
+    /* 貼文照清單的順序、之間 8 */
+    expect(l.posts.map((p) => p.index)).toEqual([0, 1]);
+    expect(l.posts[1].top).toBeCloseTo(l.posts[0].top + l.posts[0].layout.height + 8);
+    expect(texts(l.ops)).toEqual(
+      expect.arrayContaining(['Moments', '我的限時動態', 'kai.archive', '2']),
+    );
+  });
+
+  it('限時動態列：我的、朋友的（同一個帳號一個圈）；點了接著看的 id', () => {
+    const e = env((s) => {
+      addStory(s, 'mine');
+      const id = addStory(s, 'friend') as string;
+      const st = s.stories.find((x) => x.id === id);
+      if (st) st.owner.username = 'kai.archive';
+    });
+    const l = feedScreen(e);
+    const tray = l.hits.filter((h) => h.key.startsWith('tray:')).map((h) => h.key);
+    expect(tray).toEqual(['tray:s1,s3', 'tray:s2,s4']);
+    /* 每一項 74 寬、間隔 14、左右 12 */
+    const t = layoutTray(e, 0);
+    expect(t.items.map((it) => it.box.x)).toEqual([12, 100]);
+    expect(t.contentWidth).toBe(12 * 2 + 74 * 2 + 14);
+  });
+
+  it('圈：新的是漸層外圈、全部看過是灰色、我沒有限時動態時沒有外圈＋右下角的＋', () => {
+    const e = env((s) => {
+      s.feed.myStories = [];
+      s.stories[1].seen = true;
+    });
+    const t = layoutTray(e, 0);
+    /* 我的：大頭貼 64（沒有外圈）＋主色的＋ */
+    expect(t.ops.some((o) => o.t === 'avatar' && o.r === 32)).toBe(true);
+    expect(t.ops.some((o) => o.t === 'circle' && o.fill === e.pal.accent && o.r === 8)).toBe(true);
+    expect(t.items.map((it) => it.stories)).toEqual([['s2']]);
+    /* 朋友的：看過了 → 分隔線色的外圈 */
+    expect(t.ops.some((o) => o.t === 'circle' && o.fill === e.pal.line && o.r === 35)).toBe(true);
+    expect(t.ops.some((o) => o.t === 'circle' && typeof o.fill === 'object')).toBe(false);
+  });
+
+  it('不在首頁動態顯示的貼文不放；一則都沒有時說明；底部分頁列的首頁是實心的', () => {
+    const e = env((s) => {
+      for (const p of s.posts) p.inFeed = false;
+    });
+    const l = feedScreen(e);
+    expect(l.posts).toEqual([]);
+    expect(texts(l.ops)).toContain('首頁沒有要顯示的貼文。');
+    expect(l.ops.some((o) => o.t === 'icon' && o.name === 'home' && o.fill === e.pal.ink)).toBe(
+      true,
+    );
+    expect(icons(profileScreen(e).ops)).toContain('home');
+    expect(profileScreen(e).ops.some((o) => o.t === 'icon' && o.name === 'home' && !!o.fill)).toBe(
+      false,
+    );
+  });
+
+  it('沒有未讀數、紅點時不畫；HTML 依內容加高、底部分頁列接在最後', () => {
+    const e = env((s) => {
+      s.feed.dmBadge = '';
+      s.feed.heartDot = false;
+      addPost(s);
+    });
+    const l = feedScreen(e);
+    expect(l.ops.some((o) => o.t === 'circle' && o.fill === e.pal.red)).toBe(false);
+    const v = feedScreen(e, { viewer: true });
+    const last = v.posts.at(-1);
+    if (!last) throw new Error('post');
+    expect(v.parts.nav.y).toBeCloseTo(last.top + last.layout.height);
+    expect(v.height).toBeCloseTo(v.parts.nav.y + 84);
+  });
+});
+
+describe('私訊（3.12）', () => {
+  it('訊息列表：390 × 844；上方列 50、搜尋 52、「訊息／請求」、每列 72；未讀的藍點、沒有未讀的相機', () => {
+    const e = env();
+    const l = dmListScreen(e);
+    expect([l.width, l.height]).toEqual([390, 844]);
+    expect(l.parts.top).toEqual({ x: 0, y: 54, width: 390, height: 50 });
+    expect(l.parts.rows.y).toBeCloseTo(54 + 50 + 52 + 8 + 16 * 1.6 + 8);
+    const rows = l.hits.filter((h) => h.key.startsWith('thread:'));
+    expect(rows.map((h) => [h.key, h.box.height])).toEqual([
+      ['thread:t1', 72],
+      ['thread:t2', 72],
+    ]);
+    expect(texts(l.ops)).toEqual(
+      expect.arrayContaining([
+        'xiaoyu.lin',
+        '搜尋',
+        '訊息',
+        '請求',
+        '阿凱',
+        '……我帶手電筒',
+        ' · 1 小時',
+      ]),
+    );
+    expect(
+      l.ops.some(
+        (o) => o.t === 'group' && o.ops.some((x) => x.t === 'circle' && x.fill === e.pal.accent),
+      ),
+    ).toBe(true);
+    expect(icons(l.ops)).toEqual(expect.arrayContaining(['back', 'edit', 'camera']));
+    /* HTML：依內容加高 */
+    expect(dmListScreen(e, { viewer: true }).height).toBeCloseTo(l.parts.rows.y + 72 * 2);
+  });
+
+  it('對話：上方列 56、下方 82；訊息少時從上面排（781628e）', () => {
+    const e = env();
+    const l = dmChatScreen(e, e.state.dm.threads[1]);
+    expect(l.height).toBe(844);
+    expect(l.parts.top).toEqual({ x: 0, y: 54, width: 390, height: 56 });
+    expect(l.parts.foot).toEqual({ x: 0, y: 762, width: 390, height: 82 });
+    expect(l.parts.content.y).toBe(l.parts.body.y);
+    expect(texts(l.ops)).toEqual(
+      expect.arrayContaining([
+        'mistharbor.info',
+        'mistharbor.info · Moments',
+        '查看個人檔案',
+        '昨天 晚上 9:30',
+        '已讀',
+        '傳送訊息…',
+      ]),
+    );
+    expect(icons(l.ops)).toEqual(
+      expect.arrayContaining(['phone', 'video', 'mic', 'gallery', 'sticker']),
+    );
+  });
+
+  it('對話：放不下時最新的訊息貼在下面，舊的從上面裁掉', () => {
+    const e = env((s) => {
+      for (let i = 0; i < 30; i++)
+        s.dm.threads[0].messages.push({
+          id: `x${i}`,
+          from: i % 2 ? 'me' : 'them',
+          text: `第 ${i} 則`,
+          image: null,
+          react: '',
+        });
+    });
+    const l = dmChatScreen(e, e.state.dm.threads[0]);
+    expect(l.parts.content.y).toBeLessThan(l.parts.body.y);
+    expect(l.parts.content.y + l.parts.content.height).toBeCloseTo(
+      l.parts.body.y + l.parts.body.height,
+    );
+  });
+
+  it('泡泡：我的從上面的色漸變到下面的色、字依底色黑白；對方的灰底、最後一則才有大頭貼；已讀只在最後是我的時', () => {
+    const e = env((s) => {
+      s.dm.c1 = '#000000';
+      s.dm.c2 = '#ffffff';
+    });
+    const t = e.state.dm.threads[0];
+    const body = layoutChatBody(e, t);
+    const fills = body.ops.flatMap((o) =>
+      o.t === 'rect' && typeof o.fill === 'string' && o.r && typeof o.r !== 'number'
+        ? [o.fill]
+        : [],
+    );
+    expect(fills).toEqual([e.pal.btn, e.pal.btn, '#000000', '#ffffff', e.pal.btn]);
+    const meTexts = body.ops.filter(
+      (o) => o.t === 'text' && (o.text === '今晚就出發' || o.text === '要一起來嗎？'),
+    );
+    expect(meTexts.map((o) => o.t === 'text' && o.color)).toEqual(['#ffffff', '#000000']);
+    /* 對方的連續兩則：大頭貼只在第二則（avatar 28） */
+    expect(body.ops.filter((o) => o.t === 'avatar' && o.r === 14)).toHaveLength(2);
+    /* 最後一則是對方的：沒有已讀 */
+    expect(texts(body.ops)).not.toContain('已讀');
+    /* 反應：❤️ */
+    expect(texts(body.ops)).toContain('❤️');
+  });
+
+  it('連續的泡泡：同一個人連續時內側的角變小（22 → 6）', () => {
+    const e = env();
+    const body = layoutChatBody(e, e.state.dm.threads[0]);
+    const radii = body.ops.flatMap((o) => (o.t === 'rect' && Array.isArray(o.r) ? [o.r] : []));
+    /* 對方：第一則左下 6、第二則左上 6；我：第一則右下 6、第二則右上 6；最後一則（對方，單獨）都是 22 */
+    expect(radii).toEqual([
+      [22, 22, 22, 6],
+      [6, 22, 22, 22],
+      [22, 22, 6, 22],
+      [22, 6, 22, 22],
+      [22, 22, 22, 22],
+    ]);
+  });
+
+  it('HTML 的三段：上方＝狀態列＋上方列、訊息依內容、下方 82', () => {
+    const e = env();
+    const p = chatPieces(e, e.state.dm.threads[0]);
+    expect(p.head.height).toBe(54 + 56);
+    expect(p.body.height).toBeCloseTo(layoutChatBody(e, e.state.dm.threads[0]).height);
+    expect(p.foot.height).toBe(82);
+    expect(p.head.hits.map((h) => h.key)).toEqual(['dm:back']);
+  });
+});
+
+describe('對等驗證後的修正（2026-10）', () => {
+  const circles = (ops: Op[]): { cx: number; cy: number; r: number; fill: unknown }[] =>
+    ops.flatMap((o) =>
+      o.t === 'circle'
+        ? [{ cx: o.cx, cy: o.cy, r: o.r, fill: o.fill }]
+        : o.t === 'group'
+          ? circles(o.ops)
+          : [],
+    );
+
+  it('在線上的綠點：外徑（含 3 的底色框）＝大頭貼的 26%（最小 11）、往外 12%（F135、F136）', () => {
+    const e = env();
+    const list = dmListScreen(e);
+    const green = circles(list.ops).filter((c) => c.fill === '#3ecf6e');
+    expect(green).toHaveLength(1);
+    /* 大頭貼 56（左 16）：外徑 14.56、中心 x＝16 ＋ 56 − 7.28 ＋ 1.75 */
+    expect(green[0].r).toBeCloseTo(14.56 / 2 - 3, 2);
+    expect(green[0].cx).toBeCloseTo(16 + 56 - 7.28 + 14.56 * 0.12, 2);
+    const ring = circles(list.ops).find((c) => c.cx === green[0].cx && c.fill === e.pal.bg);
+    expect(ring?.r).toBeCloseTo(7.28, 2);
+    /* 對話上方的大頭貼 34：外徑 11（最小）、綠色 5 */
+    const chat = dmChatScreen(e, e.state.dm.threads[0]);
+    const g2 = circles(chat.ops).filter((c) => c.fill === '#3ecf6e');
+    expect(g2.map((c) => c.r)).toEqual([2.5]);
+    expect(g2[0].cx).toBeCloseTo(46 + 34 - 5.5 + 1.32, 2);
+  });
+
+  it('首頁動態的上方列：愛心與紙飛機之間 24（愛心 x 300）；未讀數總高 18（紅底 15）（F117）', () => {
+    const e = env();
+    const l = feedScreen(e);
+    const hearts = l.ops.filter((o) => o.t === 'icon' && o.name === 'heart' && o.y < 104);
+    expect(hearts.map((o) => o.t === 'icon' && o.x)).toEqual([300]);
+    const red = l.ops.filter((o) => o.t === 'rect' && o.fill === e.pal.red);
+    expect(red).toHaveLength(1);
+    const r = red[0];
+    if (r.t !== 'rect') throw new Error('rect');
+    expect([r.y, r.h]).toEqual([61.5, 15]);
+    const rim = l.ops.find((o) => o.t === 'rect' && o.y === 60 && o.h === 18);
+    expect(rim).toBeTruthy();
+    if (rim?.t !== 'rect') throw new Error('rim');
+    /* 右緣超出紙飛機 9 */
+    expect(rim.x + rim.w).toBe(350 + 26 + 9);
+    /* 紅點跟著愛心：右上角 */
+    const dot = circles(l.ops).find((c) => c.fill === e.pal.red);
+    expect(dot?.cx).toBe(300 + 26 + 1 - 4);
+  });
+
+  it('泡泡：換行的撐滿 72%；對方的照片比字寬時泡泡和照片一樣寬（F137）', () => {
+    const e = env((s) => {
+      const t = s.dm.threads[1];
+      t.messages = [
+        { id: 'a', from: 'them', text: '很長'.repeat(40), image: null, react: '' },
+        {
+          id: 'b',
+          from: 'them',
+          text: '短',
+          image: { kind: 'sample', key: 'moon' },
+          react: '',
+        },
+        { id: 'c', from: 'me', text: '很長'.repeat(40), image: null, react: '' },
+      ];
+    });
+    const body = layoutChatBody(e, e.state.dm.threads[1]);
+    const bubbles = body.ops.filter((o) => o.t === 'rect' && Array.isArray(o.r));
+    const ws = bubbles.map((o) => (o.t === 'rect' ? Math.round(o.w * 100) / 100 : 0));
+    expect(ws).toEqual([263.52, 210, 263.52]);
+  });
+
+  it('時間的訊息不畫照片與反應（資料留著）', () => {
+    const e = env((s) => {
+      const m = s.dm.threads[0].messages[4];
+      m.from = 'time';
+    });
+    const t = texts(layoutChatBody(e, e.state.dm.threads[0]).ops);
+    expect(t).toContain('要一起來嗎？');
+    expect(t).not.toContain('❤️');
+    expect(e.state.dm.threads[0].messages[4].react).toBe('❤️');
   });
 });

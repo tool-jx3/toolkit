@@ -2,8 +2,9 @@
  * 各畫面共用的片段：狀態列、大頭貼（含動態外圈）、徽章、多段文字轉成指令。
  */
 import type { ImageRef, Profile, ScreenSettings, SocialState } from '../model';
+import { S } from '../strings';
 import { BADGE, type FontSpec, type Line, type Measure, PIN, type Run } from '../text';
-import type { Op } from './ops';
+import type { Hit, Op } from './ops';
 import { type Palette, RING_STOPS } from './theme';
 
 /** 畫一個畫面需要的東西 */
@@ -20,6 +21,8 @@ export interface Env {
 export const W = 390;
 export const PHONE_H = 844;
 export const STATUS_H = 54;
+/** 底部分頁列的高（圖示在上面 54） */
+export const NAV_H = 84;
 
 /* ---------- 狀態列（3.4） ---------- */
 
@@ -120,6 +123,50 @@ export function statusBar(env: Env, y: number, color: string): Op[] {
   });
   if (sc.icons) ops.push(...statusIcons(W - 26, y + 20, color, sc.battery));
   return ops;
+}
+
+/* ---------- 底部分頁列（個人頁、首頁動態；3.6） ---------- */
+
+/**
+ * 底部分頁列（高 84、上邊線；圖示 26 在上面 54 的中央，五格平均）：首頁、短片、分享（訊息）、搜尋、自己的大頭貼（兩圈外框）。
+ * active＝'feed' 時首頁是實心的。hits：首頁、訊息、大頭貼（HTML 換畫面用）。
+ */
+export function navBar(
+  env: Env,
+  top: number,
+  active: 'feed' | 'profile',
+): { ops: Op[]; hits: Hit[] } {
+  const { pal } = env;
+  const ops: Op[] = [];
+  ops.push({ t: 'rect', x: 0, y: top, w: W, h: NAV_H, fill: pal.bg });
+  ops.push({ t: 'rect', x: 0, y: top, w: W, h: 1, fill: pal.line });
+  const slot = W / 5;
+  const cy = top + 27;
+  (['home', 'play', 'send', 'search'] as const).forEach((name, i) => {
+    const fill = name === 'home' && active === 'feed' ? pal.ink : undefined;
+    ops.push({
+      t: 'icon',
+      name,
+      x: slot * (i + 0.5) - 13,
+      y: cy - 13,
+      size: 26,
+      color: pal.ink,
+      ...(fill ? { fill } : {}),
+    });
+  });
+  const ax = slot * 4.5;
+  ops.push({ t: 'circle', cx: ax, cy, r: 13 + 3.5, fill: pal.ink });
+  ops.push({ t: 'circle', cx: ax, cy, r: 13 + 2, fill: pal.bg });
+  ops.push(...avatar(env.state.profile.avatar, ax, cy, 26, pal));
+  const box = (i: number) => ({ x: slot * i, y: top, width: slot, height: 54 });
+  return {
+    ops,
+    hits: [
+      { key: 'nav:feed', label: S.hits.navFeed, box: box(0) },
+      { key: 'nav:dm', label: S.hits.navDm, box: box(2) },
+      { key: 'nav:profile', label: S.hits.navProfile, box: box(4) },
+    ],
+  };
 }
 
 /* ---------- 大頭貼與徽章 ---------- */

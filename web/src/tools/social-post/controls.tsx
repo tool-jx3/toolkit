@@ -25,8 +25,10 @@ import {
   Field,
   ImageFrameDialog,
   Notice,
+  Section,
   TextArea,
   TextInput,
+  ThumbnailImage,
   Toggle,
   useConfirm,
   useToast,
@@ -39,7 +41,8 @@ import {
   isMultiTarget,
   type UrlFailure,
 } from './media';
-import { ZOOM_MAX } from './model';
+import { LIMITS, type Owner, ZOOM_MAX } from './model';
+import { thumbSource } from './render/screens';
 import { gesture } from './store';
 import { S } from './strings';
 import { parseImageUrls } from './url';
@@ -283,6 +286,7 @@ export function ListBar({
   ids,
   currentId,
   chip,
+  labels,
   ariaLabel,
   onPick,
   onAdd,
@@ -296,6 +300,8 @@ export function ListBar({
   ids: readonly string[];
   currentId: string;
   chip: (n: number) => string;
+  /** 每一項的名稱（不給時 chip(第幾則)；朋友的貼文、限時動態後面接帳號） */
+  labels?: readonly string[];
   ariaLabel: string;
   onPick: (id: string) => void;
   onAdd: () => void;
@@ -313,7 +319,7 @@ export function ListBar({
     <div className="flex flex-col gap-2">
       <Chips
         aria-label={ariaLabel}
-        items={ids.map((id, k) => ({ value: id, label: chip(k + 1) }))}
+        items={ids.map((id, k) => ({ value: id, label: labels?.[k] ?? chip(k + 1) }))}
         value={ids[i]}
         onPick={onPick}
       />
@@ -431,5 +437,96 @@ export function ResetButton({
         {label}
       </Button>
     </div>
+  );
+}
+
+/* ---------- 誰的貼文／限時動態（F111、F112） ---------- */
+
+/** 清單上的名稱：朋友的後面接帳號（「貼文 2 · friend_1」） */
+export const ownerLabel = (base: string, x: { friend: boolean; owner: Owner }): string =>
+  x.friend ? `${base} · ${x.owner.username || 'friend'}` : base;
+
+/**
+ * 「誰的貼文」「誰的限時動態」區塊：朋友的開關、朋友的大頭貼／帳號／認證徽章，以及各自的開關（children）。
+ */
+export function OwnerSection({
+  title,
+  friendLabel,
+  friendHint,
+  x,
+  target,
+  onSet,
+  children,
+  persistKey,
+}: {
+  title: string;
+  friendLabel: string;
+  friendHint: string;
+  x: { friend: boolean; owner: Owner };
+  target: ImageTarget;
+  onSet: (recipe: (v: { friend: boolean; owner: Owner }) => void) => void;
+  children?: ReactNode;
+  persistKey: string;
+}) {
+  const src = thumbSource(x.owner.avatar);
+  return (
+    <Section title={title} persistKey={persistKey}>
+      <Check
+        label={friendLabel}
+        hint={friendHint}
+        checked={x.friend}
+        onChange={(v) =>
+          onSet((o) => {
+            o.friend = v;
+          })
+        }
+      />
+      {x.friend ? (
+        <>
+          <Field label={S.friendAvatar}>
+            <div className="flex items-center gap-3">
+              <span
+                className="size-10 shrink-0 overflow-hidden rounded-full bg-surface-3"
+                data-testid="owner-avatar"
+              >
+                {src ? <ThumbnailImage source={src} /> : null}
+              </span>
+              <ImageButtons
+                target={target}
+                hasImage={!!x.owner.avatar}
+                label={S.friendAvatar}
+                onRemove={() =>
+                  onSet((o) => {
+                    o.owner.avatar = null;
+                  })
+                }
+              />
+            </div>
+          </Field>
+          <TextField
+            label={S.friendUsername}
+            value={x.owner.username}
+            max={LIMITS.username}
+            onChange={(v) =>
+              onSet((o) => {
+                o.owner.username = v;
+              })
+            }
+          />
+          <Check
+            label={S.friendVerified}
+            checked={x.owner.verified}
+            onChange={(v) =>
+              onSet((o) => {
+                o.owner.verified = v;
+              })
+            }
+          />
+        </>
+      ) : (
+        <p className="m-0 text-xs text-muted">{S.friendMine}</p>
+      )}
+      {children}
+    </Section>
   );
 }

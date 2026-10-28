@@ -7,6 +7,7 @@ import {
   cellCount,
   imageSize,
   isBgPreset,
+  ownerOf,
   STORY_H,
   STORY_W,
   type Sticker,
@@ -427,7 +428,9 @@ export function layoutSticker(env: Env, k: Sticker): StickerLayout {
 export interface StoryOptions {
   /** 選取中的格子（編輯中、兩格以上時畫框） */
   selectedCell?: number | null;
-  /** HTML：目前那段的進度條從 0 開始（檢視程式讓它跑滿）；關閉鈕可以點 */
+  /**
+   * HTML：autoplay 時不畫進度條（檢視程式依接著看的則數畫，目前那段 5 秒跑滿；位置在 parts.bars）；關閉鈕可以點
+   */
   viewer?: { autoplay: boolean; closable: boolean };
   /** 不畫這些貼紙（編輯中拖曳時由操作層畫）；目前不用 */
   hideStickers?: readonly string[];
@@ -439,7 +442,8 @@ export function storyScreen(
   opts: StoryOptions = {},
 ): ScreenLayout & { stickers: Map<string, StickerLayout> } {
   const { fs, state, measure } = env;
-  const pr = state.profile;
+  /* 帳號列：朋友的限時動態用朋友的帳號（F112） */
+  const pr = ownerOf(state, st);
   const ops: Op[] = [];
   const hits: Hit[] = [];
   const parts: Record<string, Rect> = {};
@@ -588,7 +592,8 @@ export function storyScreen(
     const gap = U;
     const segW = (SW - x0 * 2 - gap * (count - 1)) / count;
     const bh = 0.65 * U;
-    for (let i = 0; i < count; i++) {
+    parts.bars = { x: x0, y: top, width: SW - x0 * 2, height: bh };
+    for (let i = 0; i < (opts.viewer?.autoplay ? 0 : count); i++) {
       const x = x0 + i * (segW + gap);
       ops.push({
         t: 'rect',
@@ -599,8 +604,7 @@ export function storyScreen(
         r: 0.4 * U,
         fill: 'rgba(255,255,255,0.35)',
       });
-      const ratio =
-        i + 1 < cur ? 1 : i + 1 === cur ? (opts.viewer?.autoplay ? 0 : st.progress / 100) : 0;
+      const ratio = i + 1 < cur ? 1 : i + 1 === cur ? st.progress / 100 : 0;
       if (ratio > 0)
         ops.push({ t: 'rect', x, y: top, w: segW * ratio, h: bh, r: 0.4 * U, fill: '#ffffff' });
       if (i + 1 === cur) parts.bar = { x, y: top, width: segW, height: bh };
