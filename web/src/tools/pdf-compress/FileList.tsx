@@ -139,7 +139,8 @@ function ErrorBlock({ item }: { item: Item }) {
       <p className="m-0 text-sm text-danger" role="alert">
         {S.errors[err.kind]}
       </p>
-      {err.detail && err.kind !== 'aborted' ? (
+      {/* 頁數超過的 detail 是頁數，不是引擎的訊息 */}
+      {err.detail && err.kind !== 'aborted' && err.kind !== 'too-many-pages' ? (
         <p className="m-0 break-all text-xs text-muted">{S.engineSaid(err.detail)}</p>
       ) : null}
       <div className="flex flex-wrap gap-1.5">
