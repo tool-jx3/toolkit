@@ -273,6 +273,7 @@ export {
   type ProjectMenuProps,
   type ProjectNotice,
 } from './ProjectMenu';
+export { type PlaybackShortcutsOptions, playbackShortcuts } from './playbackShortcuts';
 export {
   createPointerGesture,
   type GestureSample,
@@ -400,7 +401,12 @@ export { Toggle, type ToggleProps } from './Toggle';
 export { ToolHeader, type ToolHeaderProps } from './ToolHeader';
 export { ToolShell, type ToolShellProps } from './ToolShell';
 export { Tooltip } from './Tooltip';
-export { SEGMENT_COLORS, Transport, type TransportProps } from './Transport';
+export {
+  REWIND_LABEL,
+  SEGMENT_COLORS,
+  Transport,
+  type TransportProps,
+} from './Transport';
 export { getTheme, setTheme, type Theme, useTheme } from './theme';
 export { UiProvider } from './UiProvider';
 export { UsageSection, type UsageSectionProps } from './UsageSection';

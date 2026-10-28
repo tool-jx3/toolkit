@@ -11,6 +11,7 @@ import {
   IconButton,
   ImageFrameDialog,
   ProjectMenu,
+  playbackShortcuts,
   type Shortcut,
   Tabs,
   ToolShell,
@@ -262,12 +263,12 @@ export function App() {
         group: S.groupEdit,
         handler: () => historyStep('redo'),
       },
-      {
-        keys: 'space',
-        label: S.playPause,
+      ...playbackShortcuts({
+        toggle: () => playRef.current?.toggle(),
+        rewind: () => playRef.current?.rewind(),
         group: S.groupPlay,
-        handler: () => playRef.current?.toggle(),
-      },
+        labels: { toggle: S.playPause },
+      }),
     ],
     [],
   );

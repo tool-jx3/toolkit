@@ -1,8 +1,8 @@
 /**
- * 時間軸（規格 1.10）：共用播放列＋回到開頭、長度、FPS、自動排列；每個元素一列的動態長條（拖曳移動、改開始與持續），
+ * 時間軸（規格 1.10）：共用播放列（含回到開頭）＋長度、FPS、自動排列；每個元素一列的動態長條（拖曳移動、改開始與持續），
  * 點軌道跳到那個時間。
  */
-import { ChevronDown, ChevronUp, SkipBack } from 'lucide-react';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 import { type PointerEvent as ReactPointerEvent, useRef } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { historyGesture } from '@/core/storage';
@@ -248,7 +248,7 @@ function Tracks({ time, onSeek }: { time: number; onSeek: (t: number) => void })
   );
 }
 
-export function Timeline({ playback, onStop }: { playback: Playback; onStop: () => void }) {
+export function Timeline({ playback }: { playback: Playback }) {
   const animation = useProject((s) => s.data.animation);
   const collapsed = useUi((s) => s.timelineCollapsed);
   const g = historyGesture(useProject);
@@ -268,13 +268,6 @@ export function Timeline({ playback, onStop }: { playback: Playback; onStop: () 
         }
       />
       <div className="flex flex-wrap items-center gap-2 text-xs">
-        <IconButton
-          size="sm"
-          variant="ghost"
-          label={S.timeline.stop}
-          icon={<SkipBack />}
-          onClick={onStop}
-        />
         <div className="flex items-center gap-1.5 text-muted">
           <span aria-hidden>{S.timeline.duration}</span>
           <NumberInput

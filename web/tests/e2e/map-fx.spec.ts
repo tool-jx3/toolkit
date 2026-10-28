@@ -1105,6 +1105,54 @@ test('進階 3D：示範演出的房間與走廊、入口、路線；3D 的場�
   expect(errors).toEqual([]);
 });
 
+test('進階 3D 預覽：「回到開頭」按鈕與 Home → 暫停並停在第一格，鏡頭換成沿路線；快捷鍵表有列出（F83）', async ({
+  page,
+}) => {
+  const errors = await openDemoWalk(page);
+  const bar = page.getByRole('group', { name: '播放控制' });
+  const player = () => call<{ playing: boolean; time: number }>(page, 'player');
+  const rewind = bar.getByRole('button', { name: '回到開頭', exact: true });
+
+  /* 沿路線播放到一半 → 按鈕 */
+  await page.getByRole('radio', { name: '沿路線' }).click();
+  await expect.poll(async () => (await walkView(page))?.camera.mode).toBe('walk');
+  await call(page, 'seek', 4);
+  await bar.getByRole('button', { name: '播放', exact: true }).click();
+  await expect.poll(async () => (await player()).time).toBeGreaterThan(4.3);
+  await rewind.click();
+  await expect.poll(async () => (await player()).playing).toBe(false);
+  expect((await player()).time).toBe(0);
+  await page.waitForTimeout(300);
+  expect((await player()).time).toBe(0);
+  await expect(bar.getByTestId('transport-time')).toContainText('0.00／');
+
+  /* 切到俯瞰、停在別處，按 Home：回到第一格，鏡頭換成沿路線（和拖時間軸一樣） */
+  await call(page, 'seek', 3);
+  await page.getByRole('radio', { name: '俯瞰' }).click();
+  await expect.poll(async () => (await walkView(page))?.camera.mode).toBe('orbit');
+  await page.locator('body').click({ position: { x: 5, y: 5 } });
+  await page.keyboard.press('Home');
+  await expect.poll(async () => (await walkView(page))?.camera.mode).toBe('walk');
+  expect((await player()).time).toBe(0);
+  expect((await player()).playing).toBe(false);
+
+  /* 空白鍵播放、Home 回到開頭 */
+  await page.keyboard.press('Space');
+  await expect.poll(async () => (await player()).playing).toBe(true);
+  await expect.poll(async () => (await player()).time).toBeGreaterThan(0.3);
+  await page.keyboard.press('Home');
+  await expect.poll(async () => (await player()).playing).toBe(false);
+  expect((await player()).time).toBe(0);
+
+  /* 快捷鍵表 */
+  await page.keyboard.press('Shift+Slash');
+  const keys = page.getByRole('dialog', { name: '快捷鍵' });
+  await expect(keys.getByText('回到開頭')).toBeVisible();
+  await expect(keys.getByText('Home', { exact: true })).toBeVisible();
+  await page.keyboard.press('Escape');
+  expect(errors).toEqual([]);
+});
+
 test('進階 3D：在平面圖上框出房間與走廊、改房名、放入口、點出路線、刪除、從房間遮罩建立、復原（F74～F76、F82）', async ({
   page,
 }) => {

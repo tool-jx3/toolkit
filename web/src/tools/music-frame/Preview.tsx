@@ -19,11 +19,15 @@ import { updateViz, vizSettling } from './viz';
 
 export interface PreviewControls {
   toggle(): void;
+  /** 回到開頭：暫停並停在第一格 */
+  rewind(): void;
 }
 
 let controls: PreviewControls | null = null;
 /** 播放／暫停（快捷鍵）：有音樂時控制音樂，沒有時控制循環預覽 */
 export const togglePreview = () => controls?.toggle();
+/** 回到開頭（快捷鍵）：暫停並停在 0 */
+export const rewindPreview = () => controls?.rewind();
 
 export function Preview() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -61,6 +65,16 @@ export function Preview() {
           if (player.playing) player.pause();
           else void player.play();
         } else loopRef.current.toggle();
+      },
+      rewind: () => {
+        if (useSession.getState().exporting) return;
+        if (useSession.getState().audio) {
+          player.pause();
+          player.seek(0);
+        } else {
+          loopRef.current.pause();
+          loopRef.current.onTimeChange(0);
+        }
       },
     };
     registerPreview({

@@ -79,6 +79,8 @@ import { usePlayback } from './usePlayback';
 
 export interface FxPlayerHandle {
   toggle: () => void;
+  /** 回到開頭：暫停並停在第一格 */
+  rewind: () => void;
   seek: (t: number) => void;
   readonly time: number;
   readonly playing: boolean;
@@ -556,6 +558,10 @@ export function ImageFxPreview<F extends FrameBase, S extends FxDoc<F>>({
   state.current = playback;
   useImperativeHandle(playerRef, () => ({
     toggle: () => state.current.toggle(),
+    rewind: () => {
+      state.current.pause();
+      state.current.onTimeChange(0);
+    },
     seek: (t: number) => state.current.onTimeChange(t),
     get time() {
       return state.current.time;

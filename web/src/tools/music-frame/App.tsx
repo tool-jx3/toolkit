@@ -4,6 +4,7 @@ import { useSaveStatus, useUndoRedo } from '@/core/storage';
 import {
   IconButton,
   ProjectMenu,
+  playbackShortcuts,
   type Shortcut,
   Tabs,
   ToolShell,
@@ -30,7 +31,7 @@ import { savePng, setForceRealtime } from './exporter';
 import { fontStack } from './fonts';
 import { frameLayout } from './layout';
 import { type FontId, normalizeSettings, type Settings } from './model';
-import { Preview, togglePreview } from './Preview';
+import { Preview, rewindPreview, togglePreview } from './Preview';
 import { DesignTab, ExportTab, LyricsTab, MotionTab, TrackTab } from './panels';
 import { parsedLyrics, previewBridge } from './scene';
 import {
@@ -169,7 +170,12 @@ export function App() {
 
   const shortcuts = useMemo<Shortcut[]>(
     () => [
-      { keys: 'space', label: S.keys.play, group: S.keys.group, handler: () => togglePreview() },
+      ...playbackShortcuts({
+        toggle: togglePreview,
+        rewind: rewindPreview,
+        group: S.keys.group,
+        labels: { toggle: S.keys.play },
+      }),
       {
         keys: 'alt+shift+p',
         label: S.keys.playAnywhere,

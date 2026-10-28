@@ -1495,6 +1495,37 @@ test.describe('歌詞演出產生器', () => {
     expect(errors).toEqual([]);
   });
 
+  test('回到開頭：播放中按「回到開頭」或 Home → 暫停並停在 0 秒（循環預覽）；快捷鍵表有列出', async ({
+    page,
+  }) => {
+    const errors = await open(page);
+    const loop = page.getByTestId('loop-transport');
+    await page.locator('body').click({ position: { x: 5, y: 5 } });
+    /* 按鈕 */
+    await page.keyboard.press('Space');
+    await page.waitForTimeout(600);
+    expect(await hook(page, (h) => h.time())).toBeGreaterThan(0.2);
+    await loop.getByRole('button', { name: '回到開頭', exact: true }).click();
+    await expect(loop.getByRole('button', { name: '播放', exact: true })).toBeVisible();
+    expect(await hook(page, (h) => h.time())).toBe(0);
+    await page.waitForTimeout(400);
+    expect(await hook(page, (h) => h.time())).toBe(0);
+    /* Home（焦點離開按鈕，空白鍵才是快捷鍵） */
+    await page.locator('body').click({ position: { x: 5, y: 5 } });
+    await page.keyboard.press('Space');
+    await page.waitForTimeout(600);
+    expect(await hook(page, (h) => h.time())).toBeGreaterThan(0.2);
+    await page.keyboard.press('Home');
+    await expect(loop.getByRole('button', { name: '播放', exact: true })).toBeVisible();
+    expect(await hook(page, (h) => h.time())).toBe(0);
+    /* 快捷鍵表 */
+    await page.keyboard.press('?');
+    const help = page.getByRole('dialog');
+    await expect(help).toContainText('回到開頭');
+    await expect(help).toContainText('Home');
+    expect(errors).toEqual([]);
+  });
+
   test('視覺基準：1280 與 390 寬（390 寬沒有橫向捲動）', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     const errors = await open(page);

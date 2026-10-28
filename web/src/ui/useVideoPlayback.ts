@@ -5,6 +5,7 @@
  *   影片播到結尾（ended）也跳回 range.start 繼續。暫停時可以停在任何位置（不會被拉回範圍內）。
  * - `duration` 由呼叫端給（瀏覽器錄的 WebM 的 video.duration 可能是 Infinity，用 core/video 的 probeVideo 先算出來）。
  * - `rate` 套到影片的播放速度。
+ * - `onRewind`（Transport 的「回到開頭」）：暫停並停在範圍的起點，和 `onRestart` 的起點一致。
  *
  * ```tsx
  * const [video, setVideo] = useState<HTMLVideoElement | null>(null);
@@ -35,6 +36,8 @@ export interface VideoPlayback {
   onPlayingChange: (playing: boolean) => void;
   /** 從範圍的起點（沒有範圍時從 0）重新播放 */
   onRestart: () => void;
+  /** 回到開頭：暫停並停在範圍的起點（沒有範圍時 0）。Transport 的「回到開頭」會用這個 */
+  onRewind: () => void;
   /** 播放／暫停切換 */
   toggle: () => void;
 }
@@ -143,9 +146,17 @@ export function useVideoPlayback({
     play(video);
   }, [video]);
 
+  const onRewind = useCallback(() => {
+    if (!video) return;
+    const t = rangeRef.current?.start ?? 0;
+    video.pause();
+    video.currentTime = t;
+    setTime(t);
+  }, [video]);
+
   const toggle = useCallback(() => {
     if (video) onPlayingChange(video.paused);
   }, [video, onPlayingChange]);
 
-  return { time, duration, playing, onTimeChange, onPlayingChange, onRestart, toggle };
+  return { time, duration, playing, onTimeChange, onPlayingChange, onRestart, onRewind, toggle };
 }

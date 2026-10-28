@@ -1148,6 +1148,58 @@ test.describe('音樂播放畫面產生器', () => {
     expect(errors).toEqual([]);
   });
 
+  test('回到開頭：循環預覽與音樂播放中按「回到開頭」或 Home → 暫停並停在 0 秒；重播仍是回到 0 並播放', async ({
+    page,
+  }) => {
+    const errors = await open(page);
+    const loop = page.getByTestId('loop-transport');
+    const blur = () => page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+    /* 循環預覽：按鈕 */
+    await blur();
+    await page.keyboard.press('Space');
+    await expect(loop.getByRole('button', { name: '暫停', exact: true })).toBeVisible();
+    await expect(loop.getByTestId('transport-time')).not.toHaveText('0.00／8.00 秒', {
+      timeout: 5000,
+    });
+    await loop.getByRole('button', { name: '回到開頭', exact: true }).click();
+    await expect(loop.getByRole('button', { name: '播放', exact: true })).toBeVisible();
+    await expect(loop.getByTestId('transport-time')).toHaveText('0.00／8.00 秒');
+    await page.waitForTimeout(1300);
+    await expect(loop.getByTestId('transport-time')).toHaveText('0.00／8.00 秒');
+    /* 循環預覽：Home（焦點離開按鈕，空白鍵才是快捷鍵） */
+    await blur();
+    await page.keyboard.press('Space');
+    await expect(loop.getByTestId('transport-time')).not.toHaveText('0.00／8.00 秒', {
+      timeout: 5000,
+    });
+    await page.keyboard.press('Home');
+    await expect(loop.getByRole('button', { name: '播放', exact: true })).toBeVisible();
+    await expect(loop.getByTestId('transport-time')).toHaveText('0.00／8.00 秒');
+
+    /* 有音樂：按鈕與 Home 都暫停音樂並回到 0 */
+    await loadAudio(page);
+    const audio = page.getByTestId('audio-transport');
+    await audio.getByRole('button', { name: '播放', exact: true }).click();
+    await expect.poll(() => hook(page, (h) => h.player.time())).toBeGreaterThan(0.3);
+    await audio.getByRole('button', { name: '回到開頭', exact: true }).click();
+    await expect.poll(() => hook(page, (h) => h.player.playing())).toBe(false);
+    expect(await hook(page, (h) => h.player.time())).toBe(0);
+    await blur();
+    await page.keyboard.press('Space');
+    await expect.poll(() => hook(page, (h) => h.player.time())).toBeGreaterThan(0.3);
+    await page.keyboard.press('Home');
+    await expect.poll(() => hook(page, (h) => h.player.playing())).toBe(false);
+    expect(await hook(page, (h) => h.player.time())).toBe(0);
+    await audio.getByRole('button', { name: '重播', exact: true }).click();
+    await expect.poll(() => hook(page, (h) => h.player.playing())).toBe(true);
+    /* 快捷鍵說明 */
+    await page.keyboard.press('?');
+    const help = page.getByRole('dialog');
+    await expect(help).toContainText('回到開頭');
+    await expect(help).toContainText('Home');
+    expect(errors).toEqual([]);
+  });
+
   test('視覺回歸：1280 寬', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     const errors = await open(page);

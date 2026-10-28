@@ -634,6 +634,45 @@ test('時間軸：自動排列、反轉、拖曳長條、點軌道、空白鍵�
   expect(errors).toEqual([]);
 });
 
+test('時間軸：「回到開頭」在共用播放列上（只有一顆）；播放中按它或 Home → 暫停並把播放頭移到 0（F103）', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  await blank(page, { elements: [line('a', 100, 100, 200, 100)] as unknown as El[] });
+  const rewind = page.getByRole('button', { name: '回到開頭', exact: true });
+  await expect(rewind).toHaveCount(1);
+  /* 播放列的順序：回到開頭、重播、播放 */
+  const names = await page
+    .getByRole('group', { name: '播放控制' })
+    .getByRole('button')
+    .evaluateAll((els) => els.map((e) => e.getAttribute('aria-label')));
+  expect(names.slice(0, 3)).toEqual(['回到開頭', '重播', '播放']);
+
+  /* 停在 2 秒、播放中按按鈕 */
+  await hook(page, '(mc) => mc.seek(2)');
+  await page.locator('body').click({ position: { x: 5, y: 5 } });
+  await page.keyboard.press('Space');
+  await expect.poll(() => hook<boolean>(page, '(mc) => mc.playing()')).toBe(true);
+  await rewind.click();
+  await expect.poll(() => hook<boolean>(page, '(mc) => mc.playing()')).toBe(false);
+  expect(await hook<number>(page, '(mc) => mc.time()')).toBe(0);
+
+  /* 停在 1.5 秒、Home：暫停並回到 0；快捷鍵表有列出 */
+  await hook(page, '(mc) => mc.seek(1.5)');
+  await page.locator('body').click({ position: { x: 5, y: 5 } });
+  await page.keyboard.press('Space');
+  await expect.poll(() => hook<boolean>(page, '(mc) => mc.playing()')).toBe(true);
+  await page.keyboard.press('Home');
+  await expect.poll(() => hook<boolean>(page, '(mc) => mc.playing()')).toBe(false);
+  expect(await hook<number>(page, '(mc) => mc.time()')).toBe(0);
+  await page.keyboard.press('Shift+Slash');
+  const keys = page.getByRole('dialog', { name: '快捷鍵' });
+  await expect(keys.getByText('回到開頭')).toBeVisible();
+  await expect(keys.getByText('Home', { exact: true })).toBeVisible();
+  await page.keyboard.press('Escape');
+  expect(errors).toEqual([]);
+});
+
 /* ---------- 匯出 ---------- */
 
 test('匯出：PNG（播放頭的畫面）、靜態 WebP、倍率、檔名', async ({ page }) => {

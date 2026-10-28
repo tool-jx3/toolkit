@@ -9,6 +9,7 @@ import {
   type Playback,
   ProjectMenu,
   ProjectMenuItem,
+  playbackShortcuts,
   type Shortcut,
   Tabs,
   ToolShell,
@@ -356,13 +357,7 @@ function Preview({ exportRef }: { exportRef: React.RefObject<ExportPanelHandle |
   return (
     <div className="flex min-w-0 flex-col gap-3">
       <EditorMemo time={shown} />
-      <Timeline
-        playback={playback}
-        onStop={() => {
-          playback.pause();
-          playback.onTimeChange(0);
-        }}
-      />
+      <Timeline playback={playback} />
       <ExportArea exportRef={exportRef} />
     </div>
   );
@@ -402,7 +397,15 @@ export function App() {
         group: S.keys.tools,
         handler: () => setTool(id),
       })),
-      { keys: 'space', label: S.keys.playPause, group: S.keys.play },
+      /* 空白鍵由 useSpaceToggle 處理（按住拖曳＝平移），這裡只列在說明裡；Home＝回到開頭（暫停並停在 0） */
+      ...playbackShortcuts({
+        rewind: () => {
+          bridge.pause();
+          bridge.seek(0);
+        },
+        group: S.keys.play,
+        labels: { toggle: S.keys.playPause },
+      }),
       {
         keys: 'enter',
         label: S.keys.finishPath,

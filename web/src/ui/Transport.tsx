@@ -1,5 +1,6 @@
 /**
- * 播放列：重播、播放／暫停、可拖曳的時間軸（可顯示階段分色）、循環開關、目前時間／總長。
+ * 播放列：回到開頭、重播、播放／暫停、可拖曳的時間軸（可顯示階段分色）、循環開關、目前時間／總長。
+ * 「回到開頭」＝暫停並停在第一格；「重播」＝回到 0 並播放。
  * 時間軸有焦點時：←／→ 一格（1/fps 秒，Shift 十格）、PageUp／PageDown 一秒、Home／End 到頭尾。
  * 拖曳時暫停，放開後恢復原本的播放狀態。
  *
@@ -10,13 +11,14 @@
  * music-frame 加的選填（不給時行為不變）：
  * - `formatTime`：時間的寫法（例如音樂的「分:秒」）；給了就顯示「目前／總長」不加「秒」，螢幕閱讀器也念這個寫法。
  */
-import { Pause, Play, Repeat, RotateCcw } from 'lucide-react';
+import { Pause, Play, Repeat, RotateCcw, SkipBack } from 'lucide-react';
 import { type KeyboardEvent, type PointerEvent, useRef } from 'react';
 import type { FrameSpec } from '@/core/timeline/frames';
 import type { TimelineSegment } from '@/core/timeline/timeline';
 import { IconButton } from './Button';
 import { cn } from './cn';
 import { NumberInput } from './NumberInput';
+import { Tooltip } from './Tooltip';
 
 /** 階段沒有指定顏色時依序使用 */
 export const SEGMENT_COLORS = [
@@ -37,6 +39,10 @@ export interface TransportProps {
   onLoopChange?: (loop: boolean) => void;
   /** 重播（預設：回到 0 並播放） */
   onRestart?: () => void;
+  /** 顯示「回到開頭」按鈕（預設 true；個別工具不適合時關掉） */
+  rewind?: boolean;
+  /** 回到開頭（預設：暫停再回到 0，停在第一格）。不影響 onRestart */
+  onRewind?: () => void;
   segments?: readonly TimelineSegment[];
   /** 時間軸上的標記（例如代表畫面），滑鼠停留時顯示 label */
   markers?: readonly { time: number; label: string }[];
@@ -61,6 +67,9 @@ export interface TransportProps {
 
 const fmt = (t: number) => t.toFixed(2);
 
+/** 「回到開頭」按鈕的名稱（快捷鍵說明也用這個詞，見 `playbackShortcuts`） */
+export const REWIND_LABEL = '回到開頭';
+
 export function Transport({
   time,
   duration,
@@ -70,6 +79,8 @@ export function Transport({
   loop,
   onLoopChange,
   onRestart,
+  rewind = true,
+  onRewind,
   segments,
   markers,
   legend = true,
@@ -163,19 +174,38 @@ export function Transport({
       )}
     >
       <div className="flex min-w-0 items-center gap-1.5">
-        <IconButton
-          label="重播"
-          icon={<RotateCcw />}
-          size="sm"
-          disabled={disabled}
-          onClick={() => {
-            if (onRestart) onRestart();
-            else {
-              onTimeChange(0);
-              onPlayingChange(true);
-            }
-          }}
-        />
+        {rewind ? (
+          <IconButton
+            label={REWIND_LABEL}
+            icon={<SkipBack />}
+            size="sm"
+            disabled={disabled}
+            onClick={() => {
+              if (onRewind) onRewind();
+              else {
+                onPlayingChange(false);
+                onTimeChange(0);
+              }
+            }}
+          />
+        ) : null}
+        {/* 名稱（給螢幕閱讀器、測試）維持「重播」；提示多說明它是從頭播放 */}
+        <Tooltip content="重播（從頭播放）">
+          <IconButton
+            label="重播"
+            icon={<RotateCcw />}
+            size="sm"
+            noTooltip
+            disabled={disabled}
+            onClick={() => {
+              if (onRestart) onRestart();
+              else {
+                onTimeChange(0);
+                onPlayingChange(true);
+              }
+            }}
+          />
+        </Tooltip>
         <IconButton
           label={playing ? '暫停' : '播放'}
           icon={playing ? <Pause /> : <Play />}
@@ -278,7 +308,11 @@ export function Transport({
       {legend && segments?.length ? (
         <ul
           aria-label="階段"
-          className="m-0 flex list-none flex-wrap gap-x-3 gap-y-1 p-0 pl-17 text-xs text-muted"
+          className={cn(
+            'm-0 flex list-none flex-wrap gap-x-3 gap-y-1 p-0 text-xs text-muted',
+            /* 對齊時間軸的左邊：每個按鈕 28 px＋間隔 6 px */
+            rewind ? 'pl-25.5' : 'pl-17',
+          )}
         >
           {segments.map((s, i) => (
             <li

@@ -355,6 +355,65 @@ test.describe('選取區間與播放', () => {
     await page.getByRole('radio', { name: '2.0x' }).click();
     expect(await video(page).evaluate((v: HTMLVideoElement) => v.playbackRate)).toBe(2);
   });
+
+  test('回到開頭：播放中按「回到開頭」或 Home → 暫停並停在選取區間的起點（沒有區間時是 0）', async ({
+    page,
+  }) => {
+    const errors = await open(page);
+    await loadClip(page);
+    const time = () => video(page).evaluate((v: HTMLVideoElement) => v.currentTime);
+    const paused = () => video(page).evaluate((v: HTMLVideoElement) => v.paused);
+    const rewind = page.getByRole('button', { name: '回到開頭', exact: true });
+
+    /* 整段（起點 0）：播放中 → 回到 0 並暫停 */
+    await seekPreview(page, 1);
+    await page.getByRole('heading', { level: 1 }).click();
+    await page.keyboard.press(' ');
+    await expect.poll(async () => !(await paused())).toBe(true);
+    await rewind.click();
+    await expect.poll(paused).toBe(true);
+    expect(await time()).toBe(0);
+    await page.waitForTimeout(300);
+    expect(await time()).toBe(0);
+    await expect(page.getByTestId('transport-time')).toContainText('0.00／3.00 秒');
+    await expect(page.getByRole('button', { name: '播放', exact: true })).toBeVisible();
+
+    /* 選了 1～2 秒：「回到開頭」停在區間的起點（1 秒），和「重播」的起點一致 */
+    await seekPreview(page, 1);
+    await page.keyboard.press('[');
+    await seekPreview(page, 2);
+    await page.keyboard.press(']');
+    await expect(rangeText(page, 'start')).toHaveText('1.00s');
+    await expect(rangeText(page, 'end')).toHaveText('2.00s');
+    await page.getByRole('button', { name: '播放', exact: true }).click();
+    await expect.poll(async () => !(await paused())).toBe(true);
+    await rewind.click();
+    await expect.poll(paused).toBe(true);
+    expect(await time()).toBeCloseTo(1, 2);
+    await page.waitForTimeout(300);
+    expect(await time()).toBeCloseTo(1, 2);
+
+    /* Home 快捷鍵：播放中（區間內）→ 暫停、停在 1 秒；快捷鍵表有列出 */
+    await page.getByRole('heading', { level: 1 }).click();
+    await page.keyboard.press(' ');
+    await expect.poll(async () => !(await paused())).toBe(true);
+    await page.waitForTimeout(150);
+    await page.keyboard.press('Home');
+    await expect.poll(paused).toBe(true);
+    expect(await time()).toBeCloseTo(1, 2);
+    await page.keyboard.press('?');
+    const dlg = page.getByRole('dialog');
+    await expect(dlg).toContainText('回到開頭');
+    await expect(dlg).toContainText('Home');
+    await page.keyboard.press('Escape');
+
+    /* 重播：從區間的起點開始播放 */
+    await page.getByRole('button', { name: '重播', exact: true }).click();
+    await expect.poll(async () => !(await paused())).toBe(true);
+    expect(errors.filter((e) => !/MEDIA_ELEMENT_ERROR|Failed to load resource/.test(e))).toEqual(
+      [],
+    );
+  });
 });
 
 test.describe('裁切與尺寸', () => {
