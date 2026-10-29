@@ -281,6 +281,46 @@ function corridorCandidates(owner: Owner, ia: number, ib: number, wd: number): C
   );
 }
 
+/**
+ * 走廊放下去之後會壞掉既有的東西：走廊的邊和手畫的牆疊在同一條線上（F212 的「牆重疊」），
+ * 或走廊的邊從既有的門窗的寬度中間接上去（門窗被切成兩段牆、卡在牆裡）。
+ */
+function breaksExisting(floor: Pick<Floor, 'walls' | 'openings'>, rects: readonly Rect[]): boolean {
+  for (const r of rects) {
+    const xs = [r.x, r.x + r.w];
+    const ys = [r.y, r.y + r.h];
+    for (const w of floor.walls) {
+      if (w.y1 === w.y2 && w.x1 !== w.x2) {
+        const a = Math.min(w.x1, w.x2);
+        const b = Math.max(w.x1, w.x2);
+        if (
+          ys.some((y) => Math.abs(y - w.y1) < EPS) &&
+          Math.min(b, r.x + r.w) - Math.max(a, r.x) > EPS
+        )
+          return true;
+      } else if (w.x1 === w.x2 && w.y1 !== w.y2) {
+        const a = Math.min(w.y1, w.y2);
+        const b = Math.max(w.y1, w.y2);
+        if (
+          xs.some((x) => Math.abs(x - w.x1) < EPS) &&
+          Math.min(b, r.y + r.h) - Math.max(a, r.y) > EPS
+        )
+          return true;
+      }
+    }
+    for (const o of floor.openings) {
+      const a = o.o === 'h' ? o.x : o.y;
+      const line = o.o === 'h' ? o.y : o.x;
+      /* 走廊的直的邊（x 固定）碰到橫的門窗的線，而且在門窗的寬度中間 */
+      const edges = o.o === 'h' ? xs : ys;
+      const [lo, hi] = o.o === 'h' ? [r.y, r.y + r.h] : [r.x, r.x + r.w];
+      if (line < lo - EPS || line > hi + EPS) continue;
+      if (edges.some((e) => e > a + EPS && e < a + o.len - EPS)) return true;
+    }
+  }
+  return false;
+}
+
 /** 走廊的範圍裡有擋路的家具或手畫的牆 */
 function obstructed(floor: Pick<Floor, 'items' | 'walls'>, rects: readonly Rect[]): boolean {
   if (
@@ -343,7 +383,7 @@ export function connectRooms(
   const cands = corridorCandidates(owner, ia, ib, CORRIDOR_WIDTH);
   let tried = 0;
   for (const c of cands) {
-    if (obstructed(floor, c.rects)) continue;
+    if (obstructed(floor, c.rects) || breaksExisting(floor, c.rects)) continue;
     if (++tried > 400) break;
     const shape = shapeFromRects(c.rects);
     if (!shape) continue;

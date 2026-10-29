@@ -107,6 +107,8 @@ export function arrangeRoom(floor: Floor, roomId: string): ArrangeResult {
   for (const ch of targets.filter((t) => CHAIRS.has(t.t))) {
     let best: { s: Item; d: number } | null = null;
     for (const s of surfaces) {
+      /* 推進桌子底下（和桌子重疊）的椅子不算一組：格局檢查算重疊（F242），另外找空位 */
+      if (rectHits(ch, s)) continue;
       const d = gapBetween(ch, s);
       if (d <= CHAIR_GAP + EPS && (!best || d < best.d)) best = { s, d };
     }

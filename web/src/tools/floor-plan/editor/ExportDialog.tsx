@@ -302,7 +302,7 @@ export function ExportDialog() {
           {vtt ? (
             <>
               <Field label={S.exp.vttCell} hint={S.exp.vttCellHint}>
-                <TokenGridSelect testId="export-token-grid" />
+                <TokenGridSelect testId="export-token-grid" offLabel={S.exp.vttCellOff} />
               </Field>
               <Field label={S.exp.vttPx}>
                 <Segmented

@@ -233,6 +233,43 @@ test.describe('L 形房間（F257～F260）', () => {
   });
 });
 
+test('L 形的匯出：缺角裡是背景；GM 專用的 L 形房間在 PL 用的圖蓋灰、缺角照樣是背景；分享連結帶著缺角（F260）', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  await setFloor(page, {
+    rooms: [room('L', 0, 0, 12, 10, { cut: { c: 'ne', w: 6, h: 5 }, gm: true })],
+  });
+  await page.keyboard.press('Control+e');
+  await expect(page.getByTestId('export-info')).toHaveText('768 × 672 px');
+  const [dl] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByTestId('export-download').click(),
+  ]);
+  const img = pngPixels(readFileSync((await dl.path()) as string));
+  /* 世界座標 (x, y) → 匯出的 px（框從 -2 開始、每格 48 px） */
+  const at2 = (x: number, y: number) => {
+    const i = (Math.round((y + 2) * 48) * img.width + Math.round((x + 2) * 48)) * 4;
+    return Array.from(img.data.subarray(i, i + 4));
+  };
+  expect(at2(9, 2)).toEqual([255, 255, 255, 255]);
+  const gray = at2(3, 7);
+  expect(gray[0]).toBeLessThan(230);
+  expect(Math.abs(gray[0] - gray[2])).toBeLessThan(12);
+  const hash = await page.evaluate(() =>
+    (
+      window as unknown as { __floorPlan: { shareHash: (m: string) => string } }
+    ).__floorPlan.shareHash('pl'),
+  );
+  await page.keyboard.press('Escape');
+  await page.evaluate((h) => {
+    location.hash = h;
+  }, hash);
+  await page.getByRole('alertdialog').getByRole('button', { name: '取代' }).click();
+  await expect.poll(async () => (await floor(page)).rooms[0]?.cut).toEqual({ c: 'ne', w: 6, h: 5 });
+  expect(errors).toEqual([]);
+});
+
 test.describe('連接兩個房間（F250～F252）', () => {
   test('共用的牆：K 放一扇門（一步復原）；再按一次說已經相通；迷你工具列也有按鈕', async ({
     page,

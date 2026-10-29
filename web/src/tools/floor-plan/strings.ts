@@ -456,7 +456,8 @@ export const S = {
     modeImage: '一般圖片',
     modeVtt: 'VTT 用',
     vttCell: 'VTT 的一格（棋子方格）',
-    vttCellHint: '沒開棋子方格時以 1 m 為一格（圖上不畫方格線）。圖的邊對齊整數格，不會自動縮小。',
+    vttCellHint: '和地圖設定的棋子方格是同一個設定。圖的邊對齊整數格，不會自動縮小。',
+    vttCellOff: '1 m（不畫方格線）',
     vttPx: '每格 px',
     vttInfo: (cx: number, cy: number, w: number, h: number) =>
       `橫 ${cx} 格 × 縱 ${cy} 格・${w} × ${h} px`,

@@ -34,6 +34,7 @@ import { encodeMapHash, playerProject, readMapHash } from '@/tools/floor-plan/mo
 import { restsOn, supportOf, withTabletop } from '@/tools/floor-plan/model/tabletop';
 import type { Floor, Item, Opening, Project, Room } from '@/tools/floor-plan/model/types';
 import { computeWalls } from '@/tools/floor-plan/model/walls';
+import { instantiateTemplate, TEMPLATES } from '@/tools/floor-plan/templates';
 import { floorProblems } from '../helpers/floorPlanLayout';
 
 const room = (
@@ -639,4 +640,62 @@ describe('家具跟著房間縮放（F254）', () => {
     expect(c.x - t.x).toBeCloseTo(1);
     expect(t.x + t.w).toBeLessThanOrEqual(3 + 1e-9);
   });
+});
+
+describe('57 個範本：整理家具、連接房間的結果都通過格局檢查（F253、F250～F252）', () => {
+  it('每一間房「整理這間房的家具」：成功的（沒有留在原處的）都通過 F194、F212、F242', () => {
+    const n = { ok: 0, pinned: 0, full: 0, empty: 0 };
+    const bad: string[] = [];
+    for (const t of TEMPLATES)
+      for (const f of instantiateTemplate(t.id) ?? [])
+        for (const r of f.rooms) {
+          const res = arrangeRoom(f, r.id);
+          if (!res.ok) {
+            n[res.reason === 'full' ? 'full' : 'empty']++;
+            continue;
+          }
+          if (res.pinned.length) {
+            n.pinned++;
+            continue;
+          }
+          n.ok++;
+          const g = structuredClone(f);
+          for (const it of g.items) {
+            const m = res.moves.get(it.id);
+            if (m) Object.assign(it, m);
+          }
+          const p = floorProblems(g, true).filter((x) => !x.startsWith('門開到半空中'));
+          if (p.length) bad.push(`${t.id}/${f.name}/${r.name}：${p[0]}`);
+        }
+    expect(bad).toEqual([]);
+    expect(n.ok).toBeGreaterThan(800);
+  }, 120_000);
+
+  it('每一層前 5 間房的每一對「連接這兩間」：加的門、走廊都通過 F194、F212、F242', () => {
+    const n = { door: 0, corridor: 0, fail: 0 };
+    const bad: string[] = [];
+    for (const t of TEMPLATES)
+      for (const f of instantiateTemplate(t.id) ?? []) {
+        const rs = f.rooms.slice(0, 5);
+        for (let i = 0; i < rs.length; i++)
+          for (let j = i + 1; j < rs.length; j++) {
+            const r = connectRooms(f, rs[i].id, rs[j].id, '走廊');
+            if (!r.ok) {
+              n.fail++;
+              continue;
+            }
+            n[r.kind]++;
+            const g = {
+              ...f,
+              rooms: r.kind === 'corridor' ? [...f.rooms, r.room] : f.rooms,
+              openings: [...f.openings, ...r.openings],
+            };
+            const p = floorProblems(g, true).filter((x) => !x.startsWith('門開到半空中'));
+            if (p.length) bad.push(`${t.id}/${f.name}/${rs[i].name}－${rs[j].name}：${p[0]}`);
+          }
+      }
+    expect(bad).toEqual([]);
+    expect(n.door).toBeGreaterThan(100);
+    expect(n.corridor).toBeGreaterThan(5);
+  }, 120_000);
 });
