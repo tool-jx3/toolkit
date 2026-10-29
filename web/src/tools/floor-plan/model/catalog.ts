@@ -114,6 +114,8 @@ export const OPENINGS: readonly OpeningInfo[] = [
   { id: 'door2', group: 'door', len: 3 },
   { id: 'sliding', group: 'door', len: 1.5 },
   { id: 'sliding2', group: 'door', len: 3 },
+  /* 2026-10-29 跟進原作 v1.15：雙開拉門（從中間往兩側的戶袋開）；預設寬度本站自己定 */
+  { id: 'slidingc', group: 'door', len: 3 },
   { id: 'folding', group: 'door', len: 2 },
   { id: 'auto', group: 'door', len: 3 },
   { id: 'shutter', group: 'door', len: 5 },

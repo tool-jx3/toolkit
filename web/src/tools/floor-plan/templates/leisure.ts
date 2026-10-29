@@ -1,5 +1,6 @@
 /**
- * 娛樂・表演的範本（2026-10 第三批後半，本站自己畫的平面圖）：劇場、KTV。
+ * 娛樂・表演的範本（2026-10 第三批後半，本站自己畫的平面圖）：劇場、KTV；
+ * 2026-10-29 跟進原作 v1.15 加了健身房（格局是本站自己設計的，不參考原作的配置）。
  * 北邊在上；1 格 = 0.5 m。
  */
 import { FloorBuilder, Frame, type TplFloor } from './builder';
@@ -162,5 +163,156 @@ export function karaoke(): TplFloor[] {
     .item('lowtable', 2.3, 18.1, 90)
     .item('plant', 10.4, 22.4)
     .item('vending', 0.1, 22.4, 270, { size: [1.6, 1.2] });
+  return [b.f];
+}
+
+/* ---------- 健身房（2026-10-29 跟進原作 v1.15；街道在西邊，一層的連鎖健身房） ---------- */
+
+/**
+ * 西側面街：有氧區（落地窗，跑步機與健身車面向街）、入口大廳（自動門、櫃檯）、玻璃隔間的瑜珈教室；
+ * 中間是器材區（滑輪訓練機、划船機）與自由重量區（深蹲架、臥推架、啞鈴）；
+ * 東側的走廊通往員工室、儲藏室、男女更衣室與淋浴間（洗身區）、廁所。
+ * 男淋浴間東邊的牆有暗門，通到封起來的舊三溫暖室（GM 專用）。
+ */
+export function gym(): TplFloor[] {
+  const b = new FloorBuilder('1F');
+  b.room('道路', 'road', 0, 0, 6, 30)
+    .room('人行道', 'porch', 6, 0, 4, 30, { hideLabel: true })
+    .room('有氧區', 'public', 10, 0, 12, 11, { lx: -1, ly: 4.6 })
+    .room('入口大廳', 'public', 10, 11, 12, 8, { ly: 1.6 })
+    .room('瑜珈教室', 'engawa', 10, 19, 12, 11, { wall: 'glass', ly: -4.4 })
+    .room('器材區', 'public', 22, 0, 16, 14, { ly: 5.2 })
+    .room('自由重量區', 'industrial', 22, 14, 16, 16, { ly: -1.2 })
+    .room('走廊', 'hall', 38, 0, 4, 30, { hideLabel: true })
+    .room('員工室', 'office', 42, 0, 6, 6, { ly: -1.6 })
+    .room('儲藏室', 'storage', 48, 0, 6, 6)
+    .room('男更衣室', 'wet', 42, 6, 7, 8, { ly: -2.2 })
+    .room('男淋浴間', 'wet', 49, 6, 5, 8, { hideLabel: true })
+    .room('女更衣室', 'wet', 42, 14, 7, 8, { ly: -2.2 })
+    .room('女淋浴間', 'wet', 49, 14, 5, 8, { hideLabel: true })
+    .room('洗手間走道', 'hall', 42, 22, 12, 2, { hideLabel: true })
+    .room('男廁', 'wet', 42, 24, 6, 6, { ly: -0.8 })
+    .room('女廁', 'wet', 48, 24, 6, 6, { ly: -0.8 })
+    .room('舊三溫暖室', 'special', 54, 6, 6, 8, {
+      gm: true,
+      lx: -0.3,
+      ly: 1.7,
+      note: '男淋浴間東牆的暗門。三年前封起來的蒸氣室，木長椅上的水氣到現在都沒乾過，地上有人用毛巾排成的記號。',
+    });
+  b.find('員工室').note = '櫃檯下的抽屜裡有一整串備份鑰匙，其中一把沒有任何門對得上。';
+
+  /* 門窗：街上的入口與落地窗、區域之間的開口、後場 */
+  b.dv(10, 13.5, 3, 1, 0, 'auto') // 正面的自動門
+    .wv(10, 1.5, 3.5, 'window2')
+    .wv(10, 6, 3.5, 'window2')
+    .wh(12, 0, 3.5, 'window2')
+    .wh(17, 0, 3.5, 'window2')
+    .dv(22, 3, 5, 1, 0, 'open') // 有氧區 → 器材區
+    .dv(22, 15, 3, 1, 0, 'open') // 大廳 → 自由重量區（閘門）
+    .dv(22, 22, 3, 1, 0, 'slidingc') // 瑜珈教室
+    .dh(26, 14, 10, 1, 0, 'open') // 器材區 ↔ 自由重量區
+    .dv(38, 6, 1.5, 1, 0) // 器材區 → 走廊
+    .dv(38, 18, 3, 1, 0, 'door2') // 自由重量區 → 走廊
+    .dv(42, 2, 1.5, 1, 0) // 走廊 → 員工室
+    .dv(48, 2, 1.5, 1, 0) // 員工室 → 儲藏室
+    .dv(42, 9, 1.5, 1, 0) // 男更衣室
+    .dv(42, 17, 1.5, 1, 0) // 女更衣室
+    .dv(49, 9, 1.5, 1, 0, 'sliding') // 更衣室 → 淋浴間
+    .dv(49, 17, 1.5, 1, 0, 'sliding')
+    .dv(42, 22, 2, 1, 0, 'open') // 走廊 → 洗手間走道
+    .dh(43, 24, 1.5, 1, 0) // 男廁
+    .dh(49, 24, 1.5, 1, 0) // 女廁
+    .dv(54, 8, 1.5, 1, 0, 'secret') // 淋浴間 → 舊三溫暖室
+    .dh(39, 30, 2, 1, 0, 'steel'); // 後門
+  b.wall(44.4, 27.4, 48, 27.4, 'thin') // 男廁的隔間
+    .wall(44.4, 27.4, 44.4, 30, 'thin')
+    .wall(46.2, 27.4, 46.2, 30, 'thin')
+    .dh(44.7, 27.4, 1.1, -1, 0)
+    .dh(46.5, 27.4, 1.1, -1, 0)
+    .wall(48, 27.4, 54, 27.4, 'thin') // 女廁的隔間
+    .wall(50, 27.4, 50, 30, 'thin')
+    .wall(52, 27.4, 52, 30, 'thin')
+    .dh(48.4, 27.4, 1.1, -1, 0)
+    .dh(50.4, 27.4, 1.1, -1, 0)
+    .dh(52.4, 27.4, 1.1, -1, 0);
+
+  /* 有氧區：兩列面向落地窗（面向西）的跑步機與健身車 */
+  for (const y of [0.6, 2.7, 4.8, 6.9]) b.item('treadmill', 10.6, y, 270);
+  for (const y of [0.6, 2.4, 4.2, 6.0, 7.8]) b.item('exercise_bike', 16.2, y, 270);
+  b.item('plant', 20.4, 9.2).item('extinguisher', 21.2, 0.2, 0);
+
+  /* 入口大廳：櫃檯、鞋櫃、長椅 */
+  b.item('reception', 13, 12.4)
+    .item('chair', 15, 11.2)
+    .item('locker', 10.2, 11.2, 270, { size: [2.2, 1], label: '鞋櫃' })
+    .item('bench', 12, 17.8, 180)
+    .item('plant', 20.4, 11.4)
+    .item('vending', 18, 11.2, 0);
+
+  /* 瑜珈教室：四行墊子、前面的音響 */
+  for (const x of [12.4, 14.4, 16.4, 18.4]) b.item('yoga_mat', x, 21.4).item('yoga_mat', x, 25.4);
+  b.item('speaker', 11, 19.4).item('speaker', 19.8, 19.4).item('plant', 11, 28.6);
+
+  /* 器材區：靠北牆的滑輪訓練機、中間的划船機 */
+  for (const x of [24, 28, 32]) b.item('cable_machine', x, 0.2);
+  for (const x of [25, 28, 31]) b.item('rowing_machine', x, 6);
+  b.item('dumbbell_rack', 36.9, 9.5, 90).item('vending', 36.6, 1, 90);
+
+  /* 自由重量區：南牆邊的深蹲架、四張臥推架、東牆邊的啞鈴 */
+  b.item('squat_rack', 24, 27.4, 180).item('squat_rack', 28.4, 27.4, 180);
+  for (const [x, y] of [
+    [24, 17],
+    [28.4, 17],
+    [24, 21.6],
+    [28.4, 21.6],
+  ])
+    b.item('weight_bench', x, y);
+  b.item('dumbbell_rack', 36.9, 22.2, 90).item('dumbbell_rack', 36.9, 25.4, 90);
+
+  /* 走廊 */
+  b.item('vending', 40.6, 11.5, 90).item('locker', 38.2, 24.5, 270).item('plant', 40.6, 27.2);
+
+  /* 員工室、儲藏室 */
+  b.item('monitor_wall', 42.4, 0.1, 0, { size: [4, 0.5], label: '監視器畫面' })
+    .item('office_desk', 44.2, 2.4)
+    .item('chair', 45, 3.9, 180)
+    .item('filing', 42.2, 4.6)
+    .item('cabinet', 48.4, 0.1)
+    .item('crate', 51.2, 3.4)
+    .item('cardboard', 49, 4.6);
+
+  /* 男女更衣室：置物櫃、長椅；淋浴間：個別的淋浴與洗身區 */
+  for (const y0 of [6, 14]) {
+    b.item('locker', 42.1, y0 + 0.1)
+      .item('locker', 45.1, y0 + 0.1)
+      .item('locker', 43, y0 + 6.9, 180)
+      .item('locker', 46, y0 + 6.9, 180)
+      .item('bench', 43.5, y0 + 3.5)
+      .item('shower', 49.2, y0 + 0.2)
+      .item('shower', 51.2, y0 + 0.2)
+      .item('wash_station', 50, y0 + 5.8, 180, { size: [3.2, 2] });
+  }
+
+  /* 廁所 */
+  b.item('washbasin', 44.8, 24.1).item('washbasin', 46.4, 24.1);
+  for (const y of [25.3, 26.5]) b.item('urinal', 42.1, y, 270);
+  b.item('squat_toilet', 44.8, 28.4, 180).item('toilet', 46.6, 28.4, 180);
+  b.item('washbasin', 50.7, 24.1).item('washbasin', 52.3, 24.1);
+  b.item('toilet', 48.5, 28.4, 180)
+    .item('toilet', 50.5, 28.4, 180)
+    .item('squat_toilet', 52.5, 28.4, 180);
+  b.item('trough_sink', 42.2, 28.2, 0, { size: [1.6, 1.2] });
+
+  /* 舊三溫暖室（GM） */
+  b.item('bench', 54.4, 6.4, 0, { gm: true, size: [4.6, 1] })
+    .item('bench', 54.4, 12.6, 180, { gm: true, size: [4.6, 1] })
+    .item('barrel', 58.2, 7.8, 0, { gm: true })
+    .item('footprints', 55.4, 7.6, 0, { gm: true });
+
+  /* 街道 */
+  b.item('streetlight', 8.4, 3)
+    .item('streetlight', 8.4, 22)
+    .item('road_arrow', 2, 6)
+    .item('road_arrow', 3.6, 20, 180);
   return [b.f];
 }

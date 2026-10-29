@@ -278,7 +278,8 @@ describe('新的種類的資料（F226、F227、F229）', () => {
     expect(NEW_OPENINGS.map((kind) => openingReach({ kind, len: 4 }))).toEqual([
       4, 4, 4, 2, 2, 0.5, 0.5,
     ]);
-    expect(OPENINGS).toHaveLength(24);
+    /* 2026-10-29 跟進原作 v1.15 加了雙開拉門（floor-plan-v115.test.ts） */
+    expect(OPENINGS).toHaveLength(25);
     for (const k of NEW_OPENINGS) expect(S.openings[k], k).toBeTruthy();
   });
 

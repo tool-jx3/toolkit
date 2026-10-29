@@ -1024,6 +1024,47 @@ function platedWindow(c: Ctx, len: number, t: number, theme: FloorTheme, lw: num
   c.fill();
 }
 
+/* ---------- 2026-10-29 跟進原作 v1.15 的門（本站自己設計，規格 3.13） ---------- */
+
+/**
+ * 雙開拉門：兩片門板在中間合起來（中間留一條縫），各往自己那一側的戶袋滑開；
+ * 門板的畫法同拉門（薄板、偏向開的那一側），開的那一側畫兩個從中間往外的箭頭，箭頭尖端有一小道擋止線。
+ */
+function bipartingDoor(c: Ctx, o: Opening, t: number, theme: FloorTheme, lw: number): void {
+  local(c, o, () => {
+    /* 同拉門：side 以線的方向為準（直線轉 90° 之後 +v 是左側） */
+    const s = o.side || 1;
+    const len = o.len;
+    const pt = Math.max(t * 0.28, 0.07);
+    const gap = Math.min(0.1, len * 0.03);
+    const w = (len - gap) / 2;
+    const y = -pt / 2 + s * pt * 0.4;
+    c.fillStyle = theme.furn.paper;
+    c.strokeStyle = theme.door;
+    c.lineWidth = lw * 0.9;
+    for (const x of [0, w + gap]) {
+      c.fillRect(x, y, w, pt);
+      c.strokeRect(x, y, w, pt);
+    }
+    c.lineWidth = lw * 0.7;
+    const ay = s * (t / 2 + 0.14);
+    const head = Math.min(0.12, len * 0.05);
+    c.beginPath();
+    for (const dir of [-1, 1]) {
+      const x0 = len / 2 + dir * len * 0.07;
+      const x1 = len / 2 + dir * len * 0.3;
+      c.moveTo(x0, ay);
+      c.lineTo(x1, ay);
+      c.moveTo(x1 - dir * head, ay - head * 0.7);
+      c.lineTo(x1, ay);
+      c.lineTo(x1 - dir * head, ay + head * 0.7);
+      c.moveTo(x1 + dir * 0.05, ay - head * 0.8);
+      c.lineTo(x1 + dir * 0.05, ay + head * 0.8);
+    }
+    c.stroke();
+  });
+}
+
 export interface OpeningDrawOptions {
   playerView: boolean;
   editor: boolean;
@@ -1179,6 +1220,9 @@ export function drawOpening(
           }
         }
       });
+      break;
+    case 'slidingc':
+      bipartingDoor(c, o, t, theme, lw);
       break;
     case 'folding':
       local(c, o, () => {

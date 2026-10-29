@@ -579,6 +579,98 @@ const washer: FurnDraw = (c, S, w, h) => {
   disc(c, S, w / 2, h * 0.58, Math.min(w, h) * 0.14, null);
 };
 
+/* ---------- 澡堂・公共廁所（2026-10-29 跟進原作 v1.15，本站自己畫；上面是牆） ---------- */
+
+/** 澡堂洗身區：牆邊的水龍頭台，每 1.6 格一位——前面一張浴凳、旁邊一個水桶，位與位之間有隔板，地上有排水孔 */
+const washStation: FurnDraw = (c, S, w, h) => {
+  const n = Math.max(1, Math.round(w / 1.6));
+  const u = w / n;
+  block(c, S, 0, 0, w, h * 0.2, 0.03, S.tint);
+  for (let i = 0; i < n; i++) {
+    const x = u * i;
+    if (i) {
+      lw(c, S, 0.6);
+      seg(c, x, 0, x, h * 0.2);
+      lw(c, S);
+    }
+    /* 冷熱兩個水龍頭與出水口 */
+    disc(c, S, x + u * 0.3, h * 0.07, 0.06, S.paper);
+    disc(c, S, x + u * 0.7, h * 0.07, 0.06, S.paper);
+    lw(c, S, 1.3);
+    seg(c, x + u * 0.5, h * 0.03, x + u * 0.5, h * 0.15);
+    lw(c, S);
+    /* 排水孔 */
+    lw(c, S, 0.5);
+    block(c, S, x + u * 0.4, h * 0.8, u * 0.2, h * 0.08, 0.02, S.water);
+    hatchRows(c, x + u * 0.4, x + u * 0.6, h * 0.8, h * 0.88, h * 0.04);
+    lw(c, S);
+    /* 浴凳與水桶 */
+    block(c, S, x + u * 0.28, h * 0.4, u * 0.44, h * 0.24, 0.1, S.wood);
+    disc(c, S, x + u * 0.82, h * 0.34, Math.min(u * 0.11, 0.2), S.water);
+  }
+};
+
+/** 小便斗：兩側有隔板，牆掛式的斗身（上寬下窄），中間是出水的凹槽與排水孔 */
+const urinal: FurnDraw = (c, S, w, h) => {
+  lw(c, S, 1.2);
+  seg(c, 0.03, 0, 0.03, h * 0.7);
+  seg(c, w - 0.03, 0, w - 0.03, h * 0.7);
+  lw(c, S);
+  block(c, S, w * 0.2, 0, w * 0.6, h * 0.16, 0.03, S.tint);
+  poly(c, [
+    [w * 0.14, h * 0.14],
+    [w * 0.86, h * 0.14],
+    [w * 0.76, h * 0.74],
+    [w * 0.5, h * 0.94],
+    [w * 0.24, h * 0.74],
+  ]);
+  paint(c, S.paper);
+  oval(c, S, w / 2, h * 0.5, w * 0.2, h * 0.22, S.water);
+  disc(c, S, w / 2, h * 0.66, 0.04, S.ink, false);
+};
+
+/** 蹲式馬桶：陶瓷的底座、靠牆那一端的擋板（弧形），中間細長的便槽，兩側各一塊踏腳的凸面 */
+const squatToilet: FurnDraw = (c, S, w, h) => {
+  block(c, S, w * 0.1, h * 0.04, w * 0.8, h * 0.92, w * 0.3);
+  /* 擋板：弧形，靠牆那一端 */
+  c.beginPath();
+  c.ellipse(w / 2, h * 0.3, w * 0.34, h * 0.2, 0, Math.PI, TAU);
+  c.closePath();
+  paint(c, S.tint);
+  /* 便槽 */
+  block(c, S, w * 0.3, h * 0.34, w * 0.4, h * 0.5, w * 0.2, S.water);
+  /* 兩側的踏腳面（防滑的條紋） */
+  lw(c, S, 0.5);
+  for (const x of [w * 0.14, w * 0.62]) {
+    block(c, S, x, h * 0.5, w * 0.24, h * 0.24, 0.05, S.tint);
+    hatchRows(c, x, x + w * 0.24, h * 0.5, h * 0.74, h * 0.06);
+  }
+  lw(c, S);
+};
+
+/** 長型洗手台：靠牆的長水槽，每 0.9 格一個水龍頭、一個排水孔，水龍頭之間有淺隔 */
+const troughSink: FurnDraw = (c, S, w, h) => {
+  block(c, S, 0, 0, w, h, 0.04);
+  lw(c, S, 1.2);
+  seg(c, 0.06, h * 0.12, w - 0.06, h * 0.12);
+  lw(c, S);
+  block(c, S, 0.12, h * 0.3, w - 0.24, h * 0.6, 0.1, S.water);
+  const n = Math.max(1, Math.round(w / 0.9));
+  for (let i = 0; i < n; i++) {
+    const x = (w / n) * (i + 0.5);
+    disc(c, S, x, h * 0.2, 0.06, S.paper);
+    lw(c, S, 1.2);
+    seg(c, x, h * 0.2, x, h * 0.36);
+    lw(c, S);
+    disc(c, S, x, h * 0.66, 0.05, S.ink, false);
+    if (i) {
+      lw(c, S, 0.5);
+      seg(c, (w / n) * i, h * 0.36, (w / n) * i, h * 0.84);
+      lw(c, S);
+    }
+  }
+};
+
 export const HOME: Record<string, FurnDraw> = {
   stairs,
   stairs_u: stairsU,
@@ -627,6 +719,10 @@ export const HOME: Record<string, FurnDraw> = {
   unitbath,
   shower,
   washer,
+  wash_station: washStation,
+  urinal,
+  squat_toilet: squatToilet,
+  trough_sink: troughSink,
 };
 
 export { basin, burners, cabinet, desk, keys, upArrow };

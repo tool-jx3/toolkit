@@ -48,7 +48,7 @@ const UPSTREAM_ROOM_EDGES: Record<string, { outdoor: boolean; edge?: 'rail' | 'r
   gravel: { outdoor: true, edge: 'none' },
   shipdeck: { outdoor: true, edge: 'rail' },
 };
-/** 原作 v1.05～v1.14 新增的門窗：會開的門是單開（1）或雙開（2） */
+/** 原作 v1.05～v1.15 新增的門窗：會開的門是單開（1）或雙開（2） */
 const UPSTREAM_SWING: Record<string, 0 | 1 | 2> = {
   steel: 1,
   firedoor: 1,
@@ -57,6 +57,8 @@ const UPSTREAM_SWING: Record<string, 0 | 1 | 2> = {
   revolve: 0,
   sealed: 0,
   platewin: 0,
+  /* v1.15：雙開拉門（拉門，不是會開的門） */
+  slidingc: 0,
 };
 
 const NEW_ROOMS = Object.keys(UPSTREAM_ROOM_EDGES);
@@ -163,7 +165,7 @@ const conv = (c: CompatReport, type: string) =>
   Object.fromEntries(c.converted.filter((e) => e.type === type).map((e) => [e.from, [e.to, e.n]]));
 
 describe('原作新版的種類原樣保留（2026-10 第二批：2.2.2、F231、D39）', () => {
-  it('對照表涵蓋原作 v1.05～v1.14 新增的每一種房間、門窗、牆，代號相同、本工具都認得', () => {
+  it('對照表涵蓋原作 v1.05～v1.15 新增的每一種房間、門窗、牆，代號相同、本工具都認得', () => {
     expect(Object.keys(UPSTREAM_ROOM_CATS).sort()).toEqual([...NEW_ROOMS].sort());
     expect(Object.keys(UPSTREAM_OPENINGS).sort()).toEqual([...NEW_OPENINGS].sort());
     expect(Object.keys(UPSTREAM_WALLS).sort()).toEqual([...NEW_WALLS].sort());
@@ -204,8 +206,9 @@ describe('原作新版的種類原樣保留（2026-10 第二批：2.2.2、F231�
     expect([byId.hall.wall, byId.music.wall, byId.yard.wall]).toEqual(['stone', 'sound', 'glass']);
 
     const op = Object.fromEntries(f1.openings.map((o) => [o.id, o]));
+    /* v1.13 的範例用 v1.05～v1.10 新增的 7 種（v1.15 的雙開拉門另外在 floor-plan-v115.test.ts） */
     expect(['o1', 'o2', 'o3', 'o4', 'o5', 'o6', 'o7'].map((id) => op[id]?.kind)).toEqual(
-      NEW_OPENINGS,
+      NEW_OPENINGS.filter((k) => k !== 'slidingc'),
     );
     expect(op.o2).toEqual({
       id: 'o2',

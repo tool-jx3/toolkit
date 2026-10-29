@@ -1,11 +1,12 @@
 /**
- * 原作（TRPG 室內圖メーカー）v1.05～v1.14 存的地圖檔：本工具不認得的種類（將來的版本才有的）換成預設的種類或略過，
+ * 原作（TRPG 室內圖メーカー）v1.05～v1.15 存的地圖檔：本工具不認得的種類（將來的版本才有的）換成預設的種類或略過，
  * 換掉與略過的東西記下來（開檔時通知）。規格 2.2.1～2.2.3、D22～D25。
  *
  * 2026-10 第二批起，原作新增的房間 14 種、門窗 7 種、牆 3 種本工具都有（代號相同），照讀，不再換成最接近的種類；
  * 每間房的牆種類（`rooms[].wall`）、外觀層的「顯示內部」（`floors[].showInside`、`inside`）也照讀。
  * 棋子方格（v1.07 的 tokenGrid）2026-10 第一批起照讀。
  * 2026-10 第三批起原作新增的家具 234 種也都有了（代號相同），照讀；疊在牆上的牆洞、崩塌不再換成牆上的破洞（D46）。
+ * 2026-10-29 跟進原作 v1.15：新的門 1 種（雙開拉門 `slidingc`）、新的家具 8 種（`UPSTREAM_ITEMS_V115`）也都有了，照讀（F243～F246）。
  */
 import type { OpeningKind, RoomCategory, WallKind } from './types';
 
@@ -38,6 +39,8 @@ export const UPSTREAM_OPENINGS: Readonly<Record<string, OpeningKind>> = {
   revolve: 'revolve',
   sealed: 'sealed',
   platewin: 'platewin',
+  /* v1.15 */
+  slidingc: 'slidingc',
 };
 
 export const UPSTREAM_WALLS: Readonly<Record<string, WallKind>> = {
@@ -292,6 +295,21 @@ export const UPSTREAM_ITEMS_V110: readonly string[] = [
   'sandbox',
   'slide',
   'swing',
+];
+
+/**
+ * 原作 v1.15（2026-10-27）新增的家具代號：健身房的器材 4 種、澡堂與公共廁所 4 種。
+ * 2026-10-29 跟進時本工具也加了（代號相同、尺寸逐一相同、畫法與名稱是本站的），讀檔時原樣保留（F244、F246）。
+ */
+export const UPSTREAM_ITEMS_V115: readonly string[] = [
+  'squat_rack',
+  'cable_machine',
+  'rowing_machine',
+  'yoga_mat',
+  'wash_station',
+  'urinal',
+  'squat_toilet',
+  'trough_sink',
 ];
 
 /** 原作疊在牆上的素材（本工具的貼牆素材，F233） */
