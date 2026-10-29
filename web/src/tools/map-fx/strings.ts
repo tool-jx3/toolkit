@@ -322,6 +322,20 @@ export const S = {
   imageNotSaved: '瀏覽器空間不足或無法存檔：地圖這次可以用，但重新整理之後就不見了。',
   saveFailed: '自動儲存失敗：瀏覽器空間不足或無法存檔，重新整理後可能會遺失修改。',
 
+  /* 室內平面圖產生器送來的圖（2026-10-29，F84；共用的 core/handoff） */
+  handoff: {
+    replaceTitle: '要用平面圖產生器送來的圖取代目前的地圖嗎？',
+    loadTitle: '要讀入平面圖產生器送來的圖嗎？',
+    desc: (name: string, hasImage: boolean) =>
+      hasImage
+        ? `「${name}」會換掉目前的地圖，演出框與出處會清空（可以用「復原」拿回來）。取消的話送來的圖就丟掉。`
+        : `「${name}」會放進地圖。取消的話送來的圖就丟掉。`,
+    replace: '取代',
+    load: '讀入',
+    loaded: (name: string) => `已讀入平面圖產生器送來的「${name}」`,
+    grid: (px: number) => `房間遮罩 ZIP 的「1 格幾 px」改成 ${px} px（和平面圖的格子對齊）。`,
+  },
+
   /* 匯出 */
   formats: {
     png: 'PNG',

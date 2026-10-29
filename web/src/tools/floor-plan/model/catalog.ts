@@ -379,7 +379,16 @@ export const ROOM_PRESETS: Record<RoomPresetId, RoomPreset> = Object.fromEntries
 export const isRoomPresetId = (v: unknown): v is RoomPresetId =>
   typeof v === 'string' && Object.hasOwn(ROOM_PRESETS, v);
 
-export const THEME_IDS: readonly ThemeId[] = ['clean', 'mono', 'blueprint', 'paper', 'horror'];
+export const THEME_IDS: readonly ThemeId[] = [
+  'clean',
+  'mono',
+  'blueprint',
+  'paper',
+  'horror',
+  /* 2026-10-29（參考 KIIN）：黑色電影、監視終端 */
+  'noir',
+  'terminal',
+];
 export const isThemeId = (v: unknown): v is ThemeId =>
   typeof v === 'string' && (THEME_IDS as readonly string[]).includes(v);
 
@@ -405,6 +414,25 @@ export const TOKEN_GRID_DEFAULT: TokenGridSize = 2;
 export const TOKEN_GRID_OPACITY = 0.4;
 export const TOKEN_GRID_OPACITY_MIN = 0.1;
 
+/**
+ * 紙的污漬與摺痕（2026-10-29，參考 KIIN；規格 F263）：強度 10%～100%（打開時預設 60%），
+ * 位置由種子決定（0～WEAR_SEEDS − 1）。
+ */
+export const WEAR_MIN = 0.1;
+export const WEAR_DEFAULT = 0.6;
+export const WEAR_SEEDS = 1_000_000;
+
 /** 匯出時 1 格的像素數 */
 export const EXPORT_PX = [24, 32, 48, 64, 96] as const;
 export type ExportPx = (typeof EXPORT_PX)[number];
+
+/**
+ * VTT 用的匯出（2026-10-29，參考 KIIN；規格 F265、F266）：VTT 的一格幾 px，與圖的上限
+ * （任一邊 8192 px、總像素 3200 萬；超過時不匯出，不自動縮小）。
+ */
+export const VTT_PX = [50, 70, 100] as const;
+export type VttPx = (typeof VTT_PX)[number];
+export const VTT_MAX_SIDE = 8192;
+export const VTT_MAX_PIXELS = 32_000_000;
+/** 沒開棋子方格時，VTT 的一格與座標標示的一格（2 格＝1 m） */
+export const DEFAULT_CELL = 2;

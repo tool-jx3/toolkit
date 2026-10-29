@@ -11,8 +11,10 @@
  * - 實際的倍率：每格 px，但超過瀏覽器能畫的大小時自動縮小（core/image 的 limitResolution、deviceResolutionLimits）。
  */
 import { deviceResolutionLimits, limitResolution, type ResolutionLimits } from '@/core/image';
+import { type CoordGrid, type CoordLabels, coordLabels } from '../model/coords';
 import { floorBounds, unionRect, visibleFloor } from '../model/geometry';
 import type { Floor, Rect, SizeMode, ThemeId } from '../model/types';
+import { drawThemeEffect, drawWear } from './effects';
 import { haloText } from './labels';
 import { drawFloor } from './render';
 import { getTheme } from './themes';
@@ -40,6 +42,17 @@ export interface ExportImageOptions {
   tokenGridOpacity?: number;
   /** 畫布上限（測試用；預設依裝置） */
   limit?: ResolutionLimits;
+  /**
+   * 範圍另外對齊的格子（格；VTT 用的匯出，2026-10-29，F265）：和棋子方格一樣取最小公倍數對齊，但不畫方格線。
+   * 沒有＝照棋子方格。
+   */
+  alignCell?: number;
+  /** 不自動縮小（VTT 用：縮小會對不齊格子；超過上限由呼叫端擋下，F266） */
+  fixedScale?: boolean;
+  /** 座標標示的格子（2026-10-29，F264；沒有＝不畫） */
+  coordGrid?: CoordGrid | null;
+  /** 紙的污漬與摺痕（2026-10-29，F263；沒有＝不畫） */
+  wear?: { strength: number; seed: number } | null;
 }
 
 export interface ExportLayout {
@@ -62,6 +75,10 @@ export interface ExportLayout {
   /** 棋子方格的大小（格；0＝沒有）與每格的像素數（含自動縮小） */
   tokenGrid: number;
   tokenPx: number;
+  /** 對齊的單位（格）：整格、格線 2 格、棋子方格或 VTT 的一格的最小公倍數 */
+  unit: number;
+  /** 每一層的座標標示（沒有＝不畫） */
+  coords: (CoordLabels | null)[];
 }
 
 const EMPTY: Rect = { x: 0, y: 0, w: 10, h: 8 };
@@ -81,7 +98,10 @@ export const exportUnit = (grid: boolean, tokenGrid = 0): number => {
 export function exportLayout(floors: readonly Floor[], opts: ExportImageOptions): ExportLayout {
   const margin = opts.margin ?? 2;
   const tokenGrid = opts.tokenGrid && opts.tokenGrid > 0 ? opts.tokenGrid : 0;
-  const unit = exportUnit(opts.grid, tokenGrid);
+  const unit = exportUnit(
+    opts.grid,
+    opts.alignCell && opts.alignCell > 0 ? opts.alignCell : tokenGrid,
+  );
   const down = (v: number) => Math.floor(v / unit + 1e-9) * unit;
   const up = (v: number) => Math.ceil(v / unit - 1e-9) * unit;
   const shown = floors.map((f) => visibleFloor(f, opts.playerView, opts.hideClues));
@@ -93,8 +113,15 @@ export function exportLayout(floors: readonly Floor[], opts: ExportImageOptions)
       if (b) common = unionRect(common, b);
     }
   const titleH = multi || opts.titles ? up(2) : 0;
-  const frames = shown.map((f) => {
-    const b = common ?? floorBounds(f as Floor) ?? EMPTY;
+  /* 座標標示（2026-10-29）：字寫在東西的外面，範圍把字也包進來（再往外取到單位，左上角仍在格線上） */
+  const coords = shown.map((f) => {
+    if (!opts.coordGrid) return null;
+    return coordLabels(opts.coordGrid, common ?? floorBounds(f as Floor));
+  });
+  const frames = shown.map((f, i) => {
+    const content = common ?? floorBounds(f as Floor) ?? EMPTY;
+    const label = coords[i];
+    const b = label ? unionRect(content, label.rect) : content;
     const x = down(b.x - margin);
     const y = down(b.y - margin);
     return {
@@ -122,7 +149,9 @@ export function exportLayout(floors: readonly Floor[], opts: ExportImageOptions)
   const badgeH = opts.gmBadge ? up(badgeFont * 1.6) : 0;
   const width = layout.w;
   const height = layout.h + badgeH;
-  const scale = limitResolution(opts.px, { width, height }, opts.limit ?? deviceResolutionLimits());
+  const scale = opts.fixedScale
+    ? opts.px
+    : limitResolution(opts.px, { width, height }, opts.limit ?? deviceResolutionLimits());
   return {
     frames,
     cols: layout.cols,
@@ -139,6 +168,8 @@ export function exportLayout(floors: readonly Floor[], opts: ExportImageOptions)
     pxHeight: Math.max(1, Math.round(height * scale)),
     tokenGrid,
     tokenPx: tokenGrid * scale,
+    unit,
+    coords,
   };
 }
 
@@ -184,6 +215,7 @@ export function renderImage(floors: readonly Floor[], opts: ExportImageOptions):
             rect: { ...f, y: f.y + L.titleH, h: f.h - L.titleH },
           }
         : undefined,
+      coords: L.coords[i],
     });
     if (L.titleH) {
       c.textAlign = 'left';
@@ -218,6 +250,21 @@ export function renderImage(floors: readonly Floor[], opts: ExportImageOptions):
       null,
       0,
     );
+    c.restore();
+  }
+  /* 2026-10-29：紙的污漬與摺痕（整張圖當一張紙）、樣式的畫面效果（像素座標；透明背景時不畫） */
+  if (!opts.transparent && (opts.wear || theme.effect)) {
+    c.save();
+    c.setTransform(1, 0, 0, 1, 0, 0);
+    if (opts.wear)
+      drawWear(
+        c,
+        { x: 0, y: 0, w: canvas.width, h: canvas.height },
+        opts.wear.seed,
+        opts.wear.strength,
+        theme,
+      );
+    drawThemeEffect(c, theme, canvas.width, canvas.height, Math.max(1, s / 24));
     c.restore();
   }
   return canvas;

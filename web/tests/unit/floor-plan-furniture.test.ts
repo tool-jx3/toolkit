@@ -1,6 +1,6 @@
 /**
  * 室內平面圖產生器：2026-10 第三批（家具擴充、貼牆素材、標籤搜尋；規格 F232～F236、3.11、D46～D51）。
- * - 目錄：389 種（2026-10-29 跟進原作 v1.15 加 8 種）、24 類、尺寸、標籤；
+ * - 目錄：391 種（2026-10-29 跟進原作 v1.15 加 8 種；同日參考 KIIN 加桌上的小物 2 種）、24 類、尺寸、標籤；
  * - 畫法：每一種都有、五種樣式都畫得出來（用記錄呼叫的假 canvas：沒有例外、畫得出東西、不超出外框太多、彼此不同）；
  * - 搜尋：名稱、#標籤、組合、全形＃、建議；範本的標籤；
  * - 貼牆素材：吸到牆線、跟著牆的方向、畫在牆的上面。
@@ -177,10 +177,12 @@ function drawAsset(a: AssetInfo, theme: (typeof THEME_IDS)[number], icon = false
 /* ---------- 目錄 ---------- */
 
 describe('家具目錄（F232、3.11）', () => {
-  it('389 種、24 類；原作新增的 242 種（v1.15 的 8 種含）代號相同，另有本站的貼牆素材 4 種', () => {
-    expect(ASSETS.length).toBe(389);
+  it('391 種、24 類；原作新增的 242 種（v1.15 的 8 種含）代號相同，另有本站的貼牆素材 4 種與桌上的小物 2 種', () => {
+    expect(ASSETS.length).toBe(391);
     expect(ASSET_GROUPS.length).toBe(24);
-    expect(new Set(ASSETS.map((a) => a.id)).size).toBe(389);
+    expect(new Set(ASSETS.map((a) => a.id)).size).toBe(391);
+    /* 2026-10-29（參考 KIIN 的卓上小物）：檯燈、桌上螢幕（本站自己的代號） */
+    for (const id of ['desk_lamp', 'desk_monitor']) expect(ASSET[id], id).toBeDefined();
     expect(NEW.length).toBe(246);
     for (const id of NEW_IDS) expect(ASSET[id], id).toBeDefined();
     /* 每一類都有東西、分類都存在 */
@@ -368,7 +370,7 @@ describe('搜尋（F46、F234、F235）', () => {
     expect(find('＃鐵道')).toEqual(rail);
     /* 「#床」不是標籤：沒有結果（名稱有床的不算） */
     expect(find('#床')).toEqual([]);
-    expect(find('#')).toHaveLength(389);
+    expect(find('#')).toHaveLength(391);
     /* 代號也可以：#railway */
     expect(find('#railway')).toEqual(rail);
   });

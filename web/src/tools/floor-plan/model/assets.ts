@@ -240,6 +240,8 @@ export const ASSETS: readonly AssetInfo[] = [
   A('rug', 'living', 4, 3, '地毯', U),
   A('plant', 'living', 1.2, 1.2, '盆栽', { keys: '植物' }),
   A('lamp', 'living', 0.9, 0.9, '立燈', { keys: '燈' }),
+  /* 2026-10-29（參考 KIIN 的卓上小物）：放在桌上跟著桌子動的小物（F255） */
+  A('desk_lamp', 'living', 0.7, 0.7, '檯燈', { keys: '燈 桌燈 照明 小物', tags: ['modern'] }),
   A('piano', 'living', 3, 3.8, '平台鋼琴', { tags: ['leisure'] }),
   A('piano_up', 'living', 3, 1.3, '直立鋼琴', { orient: true, tags: ['leisure'] }),
   A('gramophone', 'living', 1.4, 1.4, '留聲機', { keys: '唱機', tags: ['retro'] }),
@@ -334,6 +336,10 @@ export const ASSETS: readonly AssetInfo[] = [
   }),
   A('desk_island', 'office', 5, 5, '四人辦公桌島', { keys: '桌子 座位 辦公室' }),
   A('partition', 'office', 4, 0.3, '辦公隔板', { keys: '屏風 隔間' }),
+  A('desk_monitor', 'office', 1.2, 0.5, '桌上螢幕', {
+    orient: true,
+    keys: '電腦 螢幕 顯示器 PC 小物',
+  }),
   A('monitor_wall', 'office', 6, 0.6, '監控螢幕牆', {
     orient: true,
     keys: '監視 螢幕 指揮中心',

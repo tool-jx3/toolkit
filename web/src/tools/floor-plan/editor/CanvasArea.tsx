@@ -11,6 +11,7 @@ import {
   EyeOff,
   FlipHorizontal2,
   Hand,
+  Link2,
   Lock,
   LockOpen,
   Maximize,
@@ -34,10 +35,32 @@ import * as act from './actions';
 import { editor } from './controller';
 import { currentFloor, type ToolId, useEditor, usePrefs, useProject } from './store';
 
+/** L 形房間的圖示（虛線的 L 形；和房間工具的虛線方框成對，2026-10-29） */
+function LShapeIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeDasharray="3 3"
+      aria-hidden="true"
+      className="lucide"
+      width={24}
+      height={24}
+    >
+      <path d="M4 3h8v9h8v9H4z" />
+    </svg>
+  );
+}
+
 const TOOLS: { id: ToolId; icon: React.ReactNode; key: string; sep?: boolean }[] = [
   { id: 'select', icon: <MousePointer2 />, key: 'V' },
   { id: 'hand', icon: <Hand />, key: 'H' },
   { id: 'room', icon: <SquareDashed />, key: 'B', sep: true },
+  { id: 'lroom', icon: <LShapeIcon />, key: 'J' },
   { id: 'wall', icon: <BrickWall />, key: 'W' },
   { id: 'door', icon: <DoorOpen />, key: 'D' },
   { id: 'window', icon: <AppWindow />, key: 'N' },
@@ -132,6 +155,8 @@ function MiniBar() {
   const clueTargets = objs.length > 0 && objs.every((o) => o.type === 'item' || o.type === 'text');
   const clue = clueTargets && objs.every((o) => o.obj.clue);
   const locked = rooms.length > 0 && rooms.every((o) => (o.obj as unknown as Room).locked);
+  /* 選了兩間房間：連接這兩間（2026-10-29，F250） */
+  const twoRooms = rooms.length === 2 && objs.length === 2;
   return (
     <div
       ref={ref}
@@ -191,6 +216,16 @@ function MiniBar() {
           pressed={clue}
           onClick={act.toggleClue}
           data-mini="clue"
+        />
+      ) : null}
+      {twoRooms ? (
+        <IconButton
+          size="sm"
+          variant="ghost"
+          icon={<Link2 />}
+          label={S.mini.connect}
+          onClick={act.connectSelection}
+          data-mini="connect"
         />
       ) : null}
       {rooms.length ? (

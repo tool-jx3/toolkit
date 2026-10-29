@@ -13,7 +13,7 @@
  * 「實際疊上來的那一層」＝interiorFloor（`inside` 沒寫或找不到時是第一個別的樓層）；刪除樓層時比的就是它。
  */
 import { ROOF_CATEGORY } from './catalog';
-import { rectContains } from './geometry';
+import { roomContainsRoom, roomHasPoint, roomMainRect } from './shape';
 import type { Floor, Opening, Room } from './types';
 
 /** 疊上來的樓層：`inside` 指的那一層，找不到時第一個別的樓層；沒有打開或只有一層時 null */
@@ -23,8 +23,9 @@ export function interiorFloor(floor: Floor, floors: readonly Floor[]): Floor | n
   return others.find((f) => f.id === floor.inside) ?? others[0] ?? null;
 }
 
+/* L 形（2026-10-29）：缺角裡不算 */
 const strictlyIn = (rooms: readonly Room[], x: number, y: number) =>
-  rooms.some((r) => x > r.x && x < r.x + r.w && y > r.y && y < r.y + r.h);
+  rooms.some((r) => roomHasPoint(r, x, y));
 
 const openingKey = (o: Pick<Opening, 'o' | 'x' | 'y'>) =>
   `${o.o}|${Math.round(o.x * 1000)}|${Math.round(o.y * 1000)}`;
@@ -43,8 +44,8 @@ function split(floor: Floor, floors: readonly Floor[]): Split | null {
   const drop = floor.rooms.filter(
     (r) =>
       r.cat === ROOF_CATEGORY ||
-      roofs.some((g) => rectContains(g, r)) ||
-      inner.rooms.some((g) => rectContains(g, r)),
+      roofs.some((g) => roomContainsRoom(g, r)) ||
+      inner.rooms.some((g) => roomContainsRoom(g, r)),
   );
   const seen = new Set(inner.openings.map(openingKey));
   const own: Floor = {
@@ -55,9 +56,11 @@ function split(floor: Floor, floors: readonly Floor[]): Split | null {
     items: floor.items.filter((i) => !strictlyIn(drop, i.x + i.w / 2, i.y + i.h / 2)),
     texts: floor.texts.filter((t) => !strictlyIn(drop, t.x, t.y)),
   };
-  const labelInside = (r: Room) =>
-    !r.hideLabel &&
-    strictlyIn(inner.rooms, r.x + r.w / 2 + (r.lx || 0), r.y + r.h / 2 + (r.ly || 0));
+  const labelInside = (r: Room) => {
+    if (r.hideLabel) return false;
+    const m = roomMainRect(r);
+    return strictlyIn(inner.rooms, m.x + m.w / 2 + (r.lx || 0), m.y + m.h / 2 + (r.ly || 0));
+  };
   const composed: Floor = {
     ...own,
     rooms: own.rooms

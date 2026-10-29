@@ -23,6 +23,7 @@ import {
   imageFxShortcuts,
   useFxAssetCleanup,
 } from '@/ui/imagefx';
+import { FloorPlanHandoff } from './handoff';
 import { type BatchNotice, loadImageFiles, loadSample } from './media';
 import { Settings } from './Panel';
 import { type PlayerHandle, Preview } from './Preview';
@@ -52,6 +53,8 @@ function SettingsColumn() {
   return (
     <div className="flex min-w-0 flex-col gap-3">
       <FxSaveErrorNotice toolId={TOOL_ID} text={S.saveFailed} />
+      {/* 室內平面圖產生器送來的圖（F84） */}
+      <FloorPlanHandoff />
       <Settings
         onFiles={(files) => void loadImageFiles(files).then(notify)}
         onSample={(demo) => void loadSample(demo).then(notify)}

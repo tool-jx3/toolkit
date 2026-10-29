@@ -2,9 +2,20 @@
  * 編輯操作（按鈕、快捷鍵、畫布共用）：改資料的一律經過 useProject（一次操作＝一步復原）。
  */
 import type { ChoiceOptions, ConfirmOptions, ToastOptions } from '@/ui';
+import { arrangeRoom } from '../model/arrange';
 import { ASSET, isAsset } from '../model/assets';
-import { isTokenGridSize, ROOM_PRESETS, type RoomPresetId, wallThickness } from '../model/catalog';
+import {
+  isTokenGridSize,
+  ROOM_PRESETS,
+  type RoomPresetId,
+  WEAR_DEFAULT,
+  WEAR_MIN,
+  WEAR_SEEDS,
+  wallThickness,
+} from '../model/catalog';
 import { compatCounts, hasCompatNotes } from '../model/compat';
+import { connectRooms } from '../model/connect';
+import { followRoomResize } from '../model/follow';
 import {
   clamp,
   clueCount,
@@ -37,9 +48,13 @@ import {
   translateObj,
   withContents,
 } from '../model/ops';
+import { defaultCut, fitCut, L_MIN } from '../model/shape';
 import { itemGhost } from '../model/snap';
+import { restingOn, SURFACES } from '../model/tabletop';
 import {
+  type Corner,
   type Floor,
+  type Item,
   type ObjType,
   type Project,
   type Rect,
@@ -132,8 +147,10 @@ export function removeObjects(refs: readonly SelRef[]): void {
   setEditor({ sel });
 }
 
-export function newRoom(rect: Rect, preset: RoomPresetId | null): Room {
+/** 新的房間；lshape＝L 形（預設缺右上角、外框的一半；外框不到 2 × 2 時是長方形，2026-10-29） */
+export function newRoom(rect: Rect, preset: RoomPresetId | null, lshape = false): Room {
   const p = preset ? ROOM_PRESETS[preset] : null;
+  const cut = lshape ? defaultCut(rect.w, rect.h) : undefined;
   return {
     id: uid('r'),
     x: rect.x,
@@ -142,6 +159,7 @@ export function newRoom(rect: Rect, preset: RoomPresetId | null): Room {
     h: rect.h,
     name: p ? S.presets[p.id] : S.newRoom,
     cat: p ? p.cat : 'living',
+    ...(cut ? { cut } : {}),
   };
 }
 
@@ -173,7 +191,10 @@ export function focusField(name: string): void {
 export function setTool(tool: ToolId, armed?: Armed | null): void {
   let a: Armed | null = armed ?? null;
   if (armed === undefined) {
-    if (tool === 'door') a = { kind: 'opening', type: 'door', hinge: 0 };
+    const prev = useEditor.getState().armed;
+    /* 房間與 L 形房間互換時，拿著的房間預設留著（2026-10-29） */
+    if ((tool === 'room' || tool === 'lroom') && prev?.kind === 'room') a = prev;
+    else if (tool === 'door') a = { kind: 'opening', type: 'door', hinge: 0 };
     else if (tool === 'window') a = { kind: 'opening', type: 'window', hinge: 0 };
     else if (tool === 'wall') a = { kind: 'wall', type: 'int' };
   }
@@ -192,9 +213,13 @@ export function armedName(a: Armed | null): string {
 export function updateHint(warn: boolean): void {
   const { tool, armed, hint } = useEditor.getState();
   let text: string;
-  if (tool === 'room' && armed?.kind === 'room') {
+  if ((tool === 'room' || tool === 'lroom') && armed?.kind === 'room') {
     const p = ROOM_PRESETS[armed.preset];
-    text = S.hints.roomPreset(armedName(armed), `${round2(p.w / 2)}×${round2(p.h / 2)}m`);
+    const size = `${round2(p.w / 2)}×${round2(p.h / 2)}m`;
+    text =
+      tool === 'lroom'
+        ? S.hints.lroomPreset(armedName(armed), size)
+        : S.hints.roomPreset(armedName(armed), size);
   } else if ((tool === 'door' || tool === 'window') && armed)
     text = warn ? S.hints.noWall : S.hints.opening(armedName(armed));
   else if (tool === 'place' && armed) text = S.hints.place(armedName(armed));
@@ -203,6 +228,7 @@ export function updateHint(warn: boolean): void {
     tool === 'select' ||
     tool === 'hand' ||
     tool === 'room' ||
+    tool === 'lroom' ||
     tool === 'text' ||
     tool === 'eraser'
   )
@@ -390,10 +416,30 @@ export function rotateSelection(): void {
   }
   if (entries.some((e) => e.type === 'item')) {
     const ids = entries.filter((e) => e.type === 'item').map((e) => e.id);
+    /* 放在選取的桌子上的小物繞著桌子的中心一起轉（2026-10-29，F255） */
+    const f = currentFloor();
+    const carried = new Map<string, Item>();
+    for (const id of ids) {
+      const s = getObj(f, 'item', id) as Item | null;
+      if (s && SURFACES.has(s.t))
+        for (const small of restingOn(s, f.items)) carried.set(small.id, s);
+    }
     update((p) => {
       for (const id of ids) {
+        if (carried.has(id)) continue;
         const it = getObj(cur(p), 'item', id);
         if (it) rotateItem(it as never, 90);
+      }
+      for (const [id, s] of carried) {
+        const it = getObj(cur(p), 'item', id) as Item | null;
+        if (!it) continue;
+        const sx = s.x + s.w / 2;
+        const sy = s.y + s.h / 2;
+        const cx = it.x + it.w / 2;
+        const cy = it.y + it.h / 2;
+        rotateItem(it, 90);
+        it.x = round2(sx - (cy - sy) - it.w / 2);
+        it.y = round2(sy + (cx - sx) - it.h / 2);
       }
     });
   } else if (entries.length === 1 && entries[0].type === 'opening') flipHinge();
@@ -834,6 +880,157 @@ export function numberRoomsOnFloor(): void {
   const keep = new Set(texts.map((t) => t.id));
   setEditor({ sel: useEditor.getState().sel.filter((s) => s.type !== 'text' || keep.has(s.id)) });
   notify(S.msg.numbered(r.count, r.gm), 'success', { action: undoAction() });
+}
+
+/* ---------- 2026-10-29（參考 KIIN マップ制作スタジオ） ---------- */
+
+/** 連接選取的兩間房間（F250～F252）：共用的牆放門，或畫一條走廊；一步復原 */
+export function connectSelection(): void {
+  const sel = useEditor.getState().sel;
+  const rooms = sel.filter((s) => s.type === 'room');
+  if (rooms.length !== 2 || sel.length !== 2) {
+    notify(S.msg.connectFail.notTwo, 'warning');
+    return;
+  }
+  const r = connectRooms(currentFloor(), rooms[0].id, rooms[1].id, S.msg.corridorName);
+  if (!r.ok) {
+    notify(S.msg.connectFail[r.reason], 'warning');
+    if (r.reason === 'connected' && r.doorId)
+      setEditor({ sel: [{ type: 'opening', id: r.doorId }] });
+    return;
+  }
+  update((p) => {
+    const f = cur(p);
+    if (r.kind === 'corridor') f.rooms.push(r.room);
+    f.openings.push(...r.openings);
+  });
+  if (r.kind === 'corridor') {
+    setEditor({ sel: [{ type: 'room', id: r.room.id }] });
+    notify(S.msg.connectedCorridor(r.length), 'success', { action: undoAction() });
+  } else {
+    setEditor({ sel: [{ type: 'opening', id: r.openings[0].id }] });
+    notify(S.msg.connectedDoor, 'success', { action: undoAction() });
+  }
+}
+
+/** 整理這間房的家具（F253）；一步復原 */
+export function arrangeRoomFurniture(id: string): void {
+  const f = currentFloor();
+  const room = getObj(f, 'room', id) as Room | null;
+  if (!room) return;
+  const r = arrangeRoom(f, id);
+  const name = room.name || S.newRoom;
+  if (!r.ok) {
+    notify(r.reason === 'empty' ? S.msg.arrangeEmpty : S.msg.arrangeFull(name), 'warning');
+    return;
+  }
+  update((p) => {
+    for (const it of cur(p).items) {
+      const m = r.moves.get(it.id);
+      if (m) Object.assign(it, m);
+    }
+  });
+  if (r.pinned.length)
+    notify(S.msg.arrangedPinned(name, r.count, r.pinned.length), 'warning', {
+      action: undoAction(),
+    });
+  else notify(S.msg.arranged(name, r.count), 'success', { action: undoAction() });
+}
+
+/**
+ * 房間的外框改成 next（屬性面板的數字欄；控制點在 controller）：缺角跟著夾到合法的範圍，
+ * 家具跟著房間（地圖設定開著時，F254）。回傳放不下的家具組數。
+ */
+export function resizeRoom(id: string, next: Rect): number {
+  const p0 = useProject.getState().data;
+  const before = cur(p0);
+  const orig = getObj(before, 'room', id) as Room | null;
+  if (!orig) return 0;
+  let misfit = 0;
+  update((p) => {
+    const f = cur(p);
+    const r = getObj(f, 'room', id) as Room | null;
+    if (!r) return;
+    const cut = fitCut(orig.cut, next.w, next.h);
+    const geo = { x: next.x, y: next.y, w: next.w, h: next.h, ...(cut ? { cut } : {}) };
+    if (!p0.fixedFurniture) misfit = followRoomResize(before, orig, geo, f);
+    Object.assign(r, { x: next.x, y: next.y, w: next.w, h: next.h });
+    if (cut) r.cut = cut;
+    else delete r.cut;
+  });
+  return misfit;
+}
+
+/** 房間的形狀：長方形／L 形（F259） */
+export function setRoomShape(id: string, lshape: boolean): void {
+  editObj<Room>({ type: 'room', id }, (r) => {
+    if (!lshape) delete r.cut;
+    else if (!r.cut) {
+      const cut = defaultCut(r.w, r.h);
+      if (cut) r.cut = cut;
+    }
+  });
+}
+
+/** L 形的缺角：角、寬、深（整格，夾在 1～外框減 1） */
+export function setRoomCut(id: string, patch: { c?: Corner; w?: number; h?: number }): void {
+  editObj<Room>({ type: 'room', id }, (r) => {
+    if (!r.cut || r.w < L_MIN || r.h < L_MIN) return;
+    const next = { ...r.cut, ...patch };
+    r.cut = {
+      c: next.c,
+      w: clamp(Math.round(next.w), 1, r.w - 1),
+      h: clamp(Math.round(next.h), 1, r.h - 1),
+    };
+  });
+}
+
+/** 地圖設定：改房間大小時家具跟著移動（F254；預設開） */
+export function setFollowFurniture(on: boolean): void {
+  update((p) => {
+    if (on) delete p.fixedFurniture;
+    else p.fixedFurniture = true;
+  });
+}
+
+/** 地圖設定：座標標示（F264） */
+export function setCoords(on: boolean): void {
+  update((p) => {
+    if (on) p.coords = true;
+    else delete p.coords;
+  });
+}
+
+const newWearSeed = (old?: number): number => {
+  let s = Math.floor(Math.random() * WEAR_SEEDS);
+  if (s === old) s = (s + 1) % WEAR_SEEDS;
+  return s;
+};
+
+/** 地圖設定：紙的污漬與摺痕（F263）；打開時用原本的種子（沒有時新的） */
+export function setWear(on: boolean): void {
+  update((p) => {
+    if (!on) {
+      delete p.wear;
+      return;
+    }
+    p.wear = WEAR_DEFAULT;
+    if (p.wearSeed === undefined) p.wearSeed = newWearSeed();
+  });
+}
+
+export function setWearStrength(v: number): void {
+  useProject.getState().update((p) => {
+    if (p.wear === undefined) return;
+    p.wear = Math.round(clamp(v, WEAR_MIN, 1) * 100) / 100;
+  });
+}
+
+/** 換一組污漬與摺痕的位置 */
+export function shuffleWear(): void {
+  update((p) => {
+    p.wearSeed = newWearSeed(p.wearSeed);
+  });
 }
 
 /* ---------- 從素材面板拖放 ---------- */

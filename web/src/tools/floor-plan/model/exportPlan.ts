@@ -1,9 +1,17 @@
 /**
  * 匯出的計畫（純函式）：要畫哪幾層、用什麼設定、檔名。匯出對話框、測試共用。
  */
-import type { ExportImageOptions } from '../draw/export';
+import { type ExportImageOptions, type ExportLayout, exportLayout } from '../draw/export';
 import { S } from '../strings';
-import type { ExportPx } from './catalog';
+import {
+  DEFAULT_CELL,
+  type ExportPx,
+  VTT_MAX_PIXELS,
+  VTT_MAX_SIDE,
+  VTT_PX,
+  type VttPx,
+} from './catalog';
+import { coordGrid } from './coords';
 import { floorHasClues } from './geometry';
 import { composedFloor } from './interior';
 import type { Floor, Project, ThemeId } from './types';
@@ -18,7 +26,18 @@ export interface ExportSettings {
   px: ExportPx;
   grid: boolean;
   transparent: boolean;
+  /** 用途：一般圖片／VTT 用（2026-10-29，F265；沒有＝一般圖片） */
+  mode?: 'image' | 'vtt';
+  /** VTT 的一格幾 px（沒有＝100） */
+  vttPx?: VttPx;
 }
+
+/** VTT 用的匯出（2026-10-29，F265） */
+export const isVtt = (exp: Pick<ExportSettings, 'mode'>): boolean => exp.mode === 'vtt';
+/** VTT 的一格（格）：棋子方格的大小；沒有棋子方格時 1 m */
+export const vttCell = (p: Pick<Project, 'tokenGrid'>): number => p.tokenGrid || DEFAULT_CELL;
+export const vttPxOf = (exp: Pick<ExportSettings, 'vttPx'>): VttPx =>
+  exp.vttPx && (VTT_PX as readonly number[]).includes(exp.vttPx) ? exp.vttPx : 100;
 
 /** 檔名不能用的字元與空白（連續的算一個）→ _ */
 const BAD_FILE_CHARS = /[\\/:*?"<>|\s]+/g;
@@ -34,15 +53,26 @@ export function exportFloors(p: Project, range: ExportRange): Floor[] {
   return (range === 'all' ? p.floors : [p.floors[p.active]]).map((f) => composedFloor(f, p.floors));
 }
 
+/**
+ * 匯出的選項。`px`：一般圖片的每格 px（預覽時傳比較小的值）；VTT 用時改用「VTT 的一格幾 px ÷ 一格的格數」，
+ * 範圍對齊 VTT 的一格、不自動縮小（`preview` 時照樣縮成預覽的大小）。
+ */
 export function exportOptions(
   p: Project,
   exp: ExportSettings,
   theme: ThemeId,
   px: number,
+  preview = false,
 ): ExportImageOptions {
+  const vtt = isVtt(exp);
+  const cell = vttCell(p);
+  const vttScale = vttPxOf(exp) / cell;
   return {
     theme,
-    px,
+    px: vtt ? (preview ? Math.min(vttScale, px) : vttScale) : px,
+    ...(vtt ? { alignCell: cell, fixedScale: !preview } : {}),
+    coordGrid: p.coords ? coordGrid(p.floors, p.tokenGrid) : null,
+    wear: p.wear ? { strength: p.wear, seed: p.wearSeed ?? 0 } : null,
     showSize: p.showSize,
     hideNames: p.showNames === false,
     playerView: exp.view === 'pl',
@@ -60,12 +90,27 @@ export function exportOptions(
 export const tokenGridPx = (tokenGrid: number, scale: number): number =>
   tokenGrid > 0 ? Math.round(tokenGrid * scale * 100) / 100 : 0;
 
-/** 匯出的檔名：地圖名稱[_樓層]_PL／GM[_無線索].png */
-export function exportFileName(p: Project, exp: ExportSettings, floor: Floor | null): string {
+/** VTT 的格數（橫、縱）：圖的格數 ÷ VTT 的一格 */
+export function vttCells(L: Pick<ExportLayout, 'width' | 'height'>, cell: number) {
+  return { x: Math.round(L.width / cell), y: Math.round(L.height / cell) };
+}
+
+/** VTT 用的圖太大（任一邊超過 8192 px 或總像素超過 3200 萬，F266） */
+export const vttTooLarge = (L: Pick<ExportLayout, 'pxWidth' | 'pxHeight'>): boolean =>
+  L.pxWidth > VTT_MAX_SIDE || L.pxHeight > VTT_MAX_SIDE || L.pxWidth * L.pxHeight > VTT_MAX_PIXELS;
+
+/** 匯出的檔名：地圖名稱[_樓層]_PL／GM[_無線索][_橫x縱（VTT）].png */
+export function exportFileName(
+  p: Project,
+  exp: ExportSettings,
+  floor: Floor | null,
+  cells?: { x: number; y: number } | null,
+): string {
   const parts = [fileBase(p.name)];
   if (floor) parts.push(String(floor.name || '').replace(/[\\/:*?"<>|\s]+/g, '_'));
   parts.push(exp.view === 'pl' ? 'PL' : 'GM');
   if (exp.clues === 'hide' && p.floors.some(floorHasClues)) parts.push(S.exp.noClueSuffix);
+  if (cells) parts.push(`${cells.x}x${cells.y}`);
   return `${parts.filter(Boolean).join('_')}.png`;
 }
 
@@ -76,11 +121,16 @@ export interface ExportJob {
 
 export function exportJobs(p: Project, exp: ExportSettings): ExportJob[] {
   const multi = p.floors.length > 1;
+  /* VTT 用：檔名加上格數（每一張各自算） */
+  const cells = (floors: Floor[]) =>
+    isVtt(exp)
+      ? vttCells(exportLayout(floors, exportOptions(p, exp, p.theme, exp.px)), vttCell(p))
+      : null;
   if (exp.range === 'each' && multi)
-    return p.floors.map((f) => ({
-      floors: [composedFloor(f, p.floors)],
-      name: exportFileName(p, exp, f),
-    }));
+    return p.floors.map((f) => {
+      const floors = [composedFloor(f, p.floors)];
+      return { floors, name: exportFileName(p, exp, f, cells(floors)) };
+    });
   const floors = exportFloors(p, exp.range);
   return [
     {
@@ -89,6 +139,7 @@ export function exportJobs(p: Project, exp: ExportSettings): ExportJob[] {
         p,
         exp,
         exp.range === 'all' && multi ? null : multi ? p.floors[p.active] : null,
+        cells(floors),
       ),
     },
   ];

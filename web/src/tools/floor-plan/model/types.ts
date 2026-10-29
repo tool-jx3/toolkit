@@ -95,10 +95,27 @@ export type WallKind =
   | 'sound'
   | 'cracked';
 
-export type ThemeId = 'clean' | 'mono' | 'blueprint' | 'paper' | 'horror';
+/**
+ * 顯示樣式。2026-10-29 加 `noir`（黑色電影）、`terminal`（監視終端），參考 KIIN マップ制作スタジオ的兩種樣式，
+ * 配色與效果本站自己設計（規格 F261、F262）。
+ */
+export type ThemeId = 'clean' | 'mono' | 'blueprint' | 'paper' | 'horror' | 'noir' | 'terminal';
 
 /** 房間面積的顯示：不顯示、坪、平方公尺、長寬（m） */
 export type SizeMode = 'none' | 'ping' | 'm2' | 'm';
+
+/** 房間外框的角：左上、右上、右下、左下 */
+export type Corner = 'nw' | 'ne' | 'se' | 'sw';
+
+/**
+ * L 形房間的缺角（2026-10-29，參考 KIIN；規格 F257、3.14.1）：外框的 c 那個角缺一塊 w × h（整格；
+ * 1～外框減 1）。model/shape.ts。
+ */
+export interface RoomCut {
+  c: Corner;
+  w: number;
+  h: number;
+}
 
 export interface Room {
   id: string;
@@ -130,6 +147,8 @@ export interface Room {
    * 相鄰的兩間都有設時取比較厚的；戶外房間沒有作用（walls.ts）。
    */
   wall?: WallKind;
+  /** L 形房間的缺角（沒有＝長方形；2026-10-29） */
+  cut?: RoomCut;
 }
 
 /** 手畫的牆（線段） */
@@ -228,6 +247,14 @@ export interface Project {
   tokenGridColor?: string;
   /** 棋子方格的不透明度（0.1～1；沒有＝0.4） */
   tokenGridOpacity?: number;
+  /** 紙的污漬與摺痕的強度（0.1～1；沒有＝不畫；2026-10-29，F263） */
+  wear?: number;
+  /** 污漬與摺痕的位置的種子（整數；關掉時也留著，再打開是同一組） */
+  wearSeed?: number;
+  /** 座標標示（A1、B2…；2026-10-29，F264） */
+  coords?: boolean;
+  /** 改房間大小時家具不跟著移動（2026-10-29，F254；沒有＝跟著） */
+  fixedFurniture?: boolean;
 }
 
 /** 可以選取的東西 */

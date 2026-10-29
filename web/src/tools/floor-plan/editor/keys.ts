@@ -15,6 +15,7 @@ export const SHORTCUT_HELP: Shortcut[] = [
   { keys: 'v', label: K.select, group: K.tools },
   { keys: ['h', 'space'], label: K.hand, group: K.tools },
   { keys: 'b', label: K.room, group: K.tools },
+  { keys: 'j', label: K.lroom, group: K.tools },
   { keys: 'w', label: K.wall, group: K.tools },
   { keys: 'd', label: K.door, group: K.tools },
   { keys: 'n', label: K.window, group: K.tools },
@@ -23,6 +24,7 @@ export const SHORTCUT_HELP: Shortcut[] = [
   { keys: 'r', label: K.rotate, group: K.edit },
   { keys: 'f', label: K.flip, group: K.edit },
   { keys: 'l', label: K.lock, group: K.edit },
+  { keys: 'k', label: K.connect, group: K.edit },
   { keys: ['delete', 'backspace'], label: K.del, group: K.edit },
   { keys: ['arrowleft', 'arrowright', 'arrowup', 'arrowdown'], label: K.nudge, group: K.edit },
   { keys: 'mod+z', label: K.undo, group: K.edit },
@@ -50,6 +52,7 @@ const TOOL_KEYS: Record<string, ToolId> = {
   KeyV: 'select',
   KeyH: 'hand',
   KeyB: 'room',
+  KeyJ: 'lroom',
   KeyW: 'wall',
   KeyD: 'door',
   KeyN: 'window',
@@ -185,6 +188,12 @@ export function handleKeyDown(e: KeyboardEvent): void {
       return;
     case 'KeyL':
       act.toggleLock();
+      return;
+    case 'KeyK':
+      /* 連接選取的兩間房間（2026-10-29，F250）；沒有選取時不攔截 */
+      if (!ed.sel.length) return;
+      e.preventDefault();
+      act.connectSelection();
       return;
     case 'KeyG':
       act.toggleGrid();
