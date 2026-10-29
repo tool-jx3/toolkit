@@ -3,6 +3,7 @@
  * 「在地圖演出產生器開啟」帶房間的範圍（F271、D82；map-fx F85）。
  * - 山中小屋 2F、大學社團大樓 1F／2F、博物館 B1／1F 的「樓梯＋走廊」兩間拼起來的地方改成一間 L 形的走廊；
  *   格子＝原本兩間的格子、門窗與線索照舊（格局檢查在 floor-plan-templates.test.ts，57 個範本都跑）。
+ * - 魔法師之塔 1F 的「門廳」（有名字）連著樓梯口改成一間 L 形（F272）：名字、編號圓標在最大的那一塊，送到 map-fx 時是一個 L 形。
  * - 範本的組裝工具、找線索的空位、弄舊的處理認得 L 形（缺角裡是空的）。
  * - 房間的範圍換算成匯出的圖的 px（留白、GM 字帶、好幾層排成一張、VTT 的倍率）、PL 用的圖不帶 GM 專用的房間。
  */
@@ -16,7 +17,13 @@ import {
   handoffRoomsOf,
 } from '@/tools/floor-plan/model/exportPlan';
 import { emptyFloor } from '@/tools/floor-plan/model/geometry';
-import { roomCells, roomContainsRect, roomHasPoint } from '@/tools/floor-plan/model/shape';
+import { numberRooms } from '@/tools/floor-plan/model/numbering';
+import {
+  roomCells,
+  roomContainsRect,
+  roomHasPoint,
+  roomMainRect,
+} from '@/tools/floor-plan/model/shape';
 import type { Floor, Project, Room } from '@/tools/floor-plan/model/types';
 import { instantiateTemplate, TEMPLATES } from '@/tools/floor-plan/templates';
 import { FloorBuilder, Frame, fillYard } from '@/tools/floor-plan/templates/builder';
@@ -135,8 +142,8 @@ describe('範本的 L 形走廊（F270、D81）', () => {
     }
   });
 
-  it('其他 54 個範本沒有 L 形房間；改的三個範本的有名字的房間、GM 專用的房間、線索的房間都不變', () => {
-    const changed = new Set<string>(L_HALLS.map((h) => h.id));
+  it('其他 53 個範本沒有 L 形房間；改的四個範本的有名字的房間、GM 專用的房間、線索的房間都不變', () => {
+    const changed = new Set<string>([...L_HALLS.map((h) => h.id), 'wizard-tower']);
     for (const t of TEMPLATES) {
       const floors = instantiateTemplate(t.id, { clues: true }) ?? [];
       const ls = floors.flatMap((f) => f.rooms.filter((r) => r.cut));
@@ -182,8 +189,69 @@ describe('範本的 L 形走廊（F270、D81）', () => {
         '1F/前庭',
       ].sort(),
     );
-    for (const id of ['lodge', 'club-building', 'museum'])
+    expect(named('wizard-tower')).toEqual([
+      '1F/書庫',
+      '1F/門廳',
+      '2F/寢室*',
+      '2F/研究室',
+      '3F/召喚室*',
+      '3F/觀星台',
+    ]);
+    for (const id of ['lodge', 'club-building', 'museum', 'wizard-tower'])
       expect(layoutProblems(instantiateTemplate(id, { clues: true }) ?? []), id).toEqual([]);
+  });
+});
+
+describe('有名字的 L 形房間：魔法師之塔 1F 的門廳（F272、D81 修訂）', () => {
+  const floors = () => instantiateTemplate('wizard-tower', { clues: true }) ?? [];
+
+  it('門廳連著樓梯口是一間 L 形（缺左上角＝書庫）；格子＝原本的門廳＋樓梯間；2F、3F 的樓梯間照舊', () => {
+    const [g, u, r] = floors();
+    const hall = g.rooms.find((x) => x.name === '門廳') as Room;
+    expect(hall).toMatchObject({ x: 0, y: 0, w: 20, h: 20, cut: { c: 'nw', w: 15, h: 8 } });
+    expect(hall.hideLabel).toBeUndefined();
+    expect(cellsOf([hall])).toEqual(
+      cellsOf([
+        { x: 0, y: 8, w: 20, h: 12 },
+        { x: 15, y: 0, w: 5, h: 8 },
+      ]),
+    );
+    expect(g.rooms.some((x) => x.name === '樓梯間')).toBe(false);
+    expect(u.rooms.some((x) => x.name === '樓梯間')).toBe(true);
+    expect(r.rooms.some((x) => x.name === '樓梯間')).toBe(true);
+    /* 樓梯照舊在樓梯口（上下對齊） */
+    const stairs = g.items.find((i) => i.t === 'spiral');
+    expect(stairs && roomContainsRect(hall, stairs)).toBe(true);
+    expect(floorProblems(g, true)).toEqual([]);
+  });
+
+  it('名字與依序編號的圓標在最大的那一塊（南邊的整列，和原本的門廳一樣）；線索放在 L 形裡', () => {
+    const [g] = floors();
+    const hall = g.rooms.find((x) => x.name === '門廳') as Room;
+    const main = roomMainRect(hall);
+    expect(main).toEqual({ x: 0, y: 8, w: 20, h: 12 });
+    const n = numberRooms(g);
+    const badge = n?.badges.find(
+      (b) =>
+        b.x >= main.x &&
+        b.x <= main.x + main.w &&
+        b.y >= main.y &&
+        b.y <= main.y + main.h &&
+        b.y < main.y + 2,
+    );
+    expect(badge).toBeTruthy();
+    const key = g.items.find((i) => i.clue && i.t === 'key');
+    expect(key && roomContainsRect(hall, key)).toBe(true);
+  });
+
+  it('送到地圖演出產生器：門廳是一個有名字的 L 形（缺角換算成圖的 px）', () => {
+    const p = projectOf(floors(), { active: 0 });
+    const { rooms } = roomsFor(p, { ...exp, view: 'pl' });
+    const hall = rooms.list.find((r) => r.name === '門廳');
+    expect(hall).toBeTruthy();
+    expect(hall?.cut).toEqual({ c: 'nw', w: 15 * 24, h: 8 * 24 });
+    expect(hall).toMatchObject({ w: 20 * 24, h: 20 * 24 });
+    expect(rooms.list.map((r) => r.name)).toEqual(['書庫', '門廳']);
   });
 });
 
