@@ -7,8 +7,7 @@
  * - 抽法：姓與名分開抽，各自依人數加權（某個名字被抽中的機率＝它的人數÷同一份名單、同一個年代的人數總和）；
  *   日本與美國的名依年代用不同的人數欄，姓不分年代。
  * - 給種子（`seed`）時結果固定：同樣的資料、選項、種子與排除名單，每次抽出同樣的姓名（`seededRandom`：
- *   種子字串以 cyrb128 雜湊成 128 位元，亂數是 sfc32。不用 core/timeline 的 mulberry32：它每隔三個取一個時
- *   看得出相關，同一批會連出好幾個同樣的少見姓）。
+ *   sfc32，種子字串以 cyrb128 雜湊成 128 位元）。
  * - 讀音：日本的姓名附平假名（資料），片假名與羅馬拼音由平假名轉（`toKatakana`、`kanaToRomaji`）。
  */
 export type NameRegion = 'jp' | 'tw' | 'us';
@@ -38,7 +37,11 @@ export const NAME_REGIONS: readonly NameRegionInfo[] = [
     id: 'jp',
     label: '日本',
     eras: [
-      { id: 'modern', label: '現代', hint: '1960 年代以後出生的人' },
+      {
+        id: 'modern',
+        label: '現代',
+        hint: '1960 年代以後出生的人（偏 1960～1980 年代，年輕的名字較少）',
+      },
       { id: 'showa', label: '昭和中後期', hint: '1920～1950 年代出生的人' },
       { id: 'taisho', label: '大正～昭和初期', hint: '1870～1910 年代出生的人' },
     ],

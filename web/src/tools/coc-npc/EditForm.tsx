@@ -1,7 +1,7 @@
 /**
  * 目前 NPC 的編輯表單：基本資料、屬性、衍生值、技能、指令、備註。
  */
-import { Dices, Plus, Shuffle, Trash2 } from 'lucide-react';
+import { Dices, Plus, RotateCw, Shuffle, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { CHARACTERISTICS, type Characteristic, type CocEdition } from '@/core/coc';
 import { NAME_GENDER_LABELS, NAME_REGIONS, type NameGenderChoice } from '@/core/names';
@@ -116,9 +116,16 @@ function NameField({ npc }: { npc: Npc }) {
         </div>
       </Field>
       {problem ? (
-        <p className="m-0 text-xs text-danger" role="alert" data-testid="random-name-problem">
-          {problem === 'failed' ? S.basic.nameFailed : S.basic.nameNone}
-        </p>
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="m-0 text-xs text-danger" role="alert" data-testid="random-name-problem">
+            {problem === 'failed' ? S.basic.nameFailed : S.basic.nameNone}
+          </p>
+          {problem === 'failed' ? (
+            <Button size="sm" icon={<RotateCw />} onClick={() => window.location.reload()}>
+              {S.basic.nameReload}
+            </Button>
+          ) : null}
+        </div>
       ) : null}
     </>
   );

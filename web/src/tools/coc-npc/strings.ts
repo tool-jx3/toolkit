@@ -42,7 +42,8 @@ export const S = {
     nameGender: '取名的性別',
     nameHint:
       '按名稱旁的按鈕依實際的人數抽一個名字（不會和清單裡其他 NPC 重名），資料和「NPC 名字產生器」相同。',
-    nameFailed: '名字資料讀不到，請檢查網路後再試一次。',
+    nameFailed: '名字資料讀不到，請檢查網路後重新整理頁面。',
+    nameReload: '重新整理',
     nameNone: '找不到不重複的名字，請換個條件。',
   },
   abilities: {

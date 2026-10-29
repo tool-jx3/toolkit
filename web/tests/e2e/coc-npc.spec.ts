@@ -643,3 +643,28 @@ test('F37 隨機取名：依地區、年代、性別抽名字，不和其他 NPC
   );
   expect(errors).toEqual([]);
 });
+
+test('F37 隨機取名：名字資料讀不到時提示重新整理頁面，按「重新整理」之後可以取名', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  await page.route(/names-tw-[\w-]+\.js$/, (route) => route.abort('failed'));
+  await page.getByRole('combobox', { name: '取名的地區與年代' }).click();
+  await page.getByRole('option', { name: /^台灣/ }).click();
+  await btn(page, '隨機取名').click();
+  await expect(page.getByTestId('random-name-problem')).toHaveText(
+    '名字資料讀不到，請檢查網路後重新整理頁面。',
+  );
+  await page.unroute(/names-tw-[\w-]+\.js$/);
+  await btn(page, '重新整理').click();
+  await expect(page.getByRole('heading', { level: 1, name: 'CoC NPC 產生器' })).toBeVisible();
+  await expect(page.getByRole('combobox', { name: '取名的地區與年代' })).toHaveText(/台灣/);
+  await setRandom(page, [0.0001]);
+  await page.getByRole('radio', { name: '女', exact: true }).click();
+  await btn(page, '隨機取名').click();
+  await expect(field(page, '名稱')).toHaveValue('陳淑芬');
+  await expect(page.getByTestId('random-name-problem')).toHaveCount(0);
+  expect(
+    errors.filter((e) => !/Failed to (load resource|fetch dynamically imported module)/.test(e)),
+  ).toEqual([]);
+});

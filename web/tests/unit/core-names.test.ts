@@ -54,7 +54,7 @@ describe('資料', () => {
     expect(DATA.jp.family.texts.length).toBe(1868);
     expect(DATA.jp.male.texts.length).toBe(6186);
     expect(DATA.jp.female.texts.length).toBe(1551);
-    expect(DATA.tw.family.texts.length).toBe(1731);
+    expect(DATA.tw.family.texts.length).toBe(1753);
     expect(DATA.tw.male.texts.length).toBe(100);
     expect(DATA.tw.female.texts.length).toBe(100);
     expect(DATA.us.family.texts.length).toBe(1000);
@@ -91,12 +91,27 @@ describe('資料', () => {
     expect(tw.female.texts.slice(0, 3)).toEqual(['淑芬', '淑惠', '美玲']);
     /* 名字都是兩個字（表五十一沒有單名） */
     expect([...tw.male.texts, ...tw.female.texts].every((t) => [...t].length === 2)).toBe(true);
-    /* 轉檔壞掉的姓（重複兩次的字、私用區）已經拿掉 */
+    /*
+     * 原始 CSV 寫兩次的單字姓改回單字（𡍼𡍼 → 𡍼）；私用區的罕用字（18 個、569 人）不收；
+     * CJK 相容表意字（杞的異體 U+2F8DB 等 14 個）併進常用的字（杞 461＋87）
+     */
     expect(tw.family.texts.some((t) => t.length === 2 && t[0] === t[1])).toBe(false);
-    expect(tw.family.texts.some((t) => /[-]|[\u{F0000}-\u{10FFFF}]/u.test(t))).toBe(false);
+    expect(tw.family.texts.some((t) => /[\uE000-\uF8FF]|[\u{F0000}-\u{10FFFF}]/u.test(t))).toBe(
+      false,
+    );
+    expect(weightOf(tw, 'family', '杞', 'now')).toBe(548);
+    expect(weightOf(tw, 'family', '屠', 'now')).toBe(639);
+    expect(tw.family.texts.some((t) => t.normalize('NFC') !== t)).toBe(false);
+    expect(weightOf(tw, 'family', '𡍼', 'now')).toBe(1970);
+    /* 驗算：單字姓合計＋拿掉的罕用字 569 人＝報告的單姓人數 23,337,790 */
+    const single = tw.family.texts.reduce(
+      (sum, t, i) => sum + ([...t].length === 1 ? tw.family.weights.now[i] : 0),
+      0,
+    );
+    expect(single + 569).toBe(23337790);
   });
 
-  it('美國：社會安全局 1920 年代、1880～1909 年的前幾名；1990 年人口普查的姓', () => {
+  it('美國：社會安全局 1920 年代、1880～1909 年的前幾名；1990 年人口普查的姓（依 2000 年的族裔比例降權）', () => {
     const us = DATA.us;
     expect(topOf(us, 'male', 'born1920', 4)).toEqual(['Robert', 'John', 'James', 'William']);
     expect(topOf(us, 'female', 'born1920', 4)).toEqual(['Mary', 'Dorothy', 'Helen', 'Betty']);
@@ -108,7 +123,45 @@ describe('資料', () => {
     expect(weightOf(us, 'male', 'Mary', 'born1920')).toBe(0);
     expect(weightOf(us, 'female', 'John', 'adult1920')).toBe(0);
     expect(us.family.texts.slice(0, 5)).toEqual(['Smith', 'Johnson', 'Williams', 'Jones', 'Brown']);
-    expect(weightOf(us, 'family', 'Smith', 'born1920')).toBe(1006);
+    /*
+     * 姓的權重＝1990 年每十萬人的人數 ×（1 − 0.9 ×（西語裔＋亞太裔比例））（2000 年普查的比例）。
+     * 1990 年的人數與 2000 年的比例照抄來源，驗算資料檔的值。
+     */
+    const census: [string, number, number, number][] = [
+      /* 姓、1990 年每十萬人、2000 年西語裔 %、亞太裔 % */
+      ['Smith', 1006, 1.56, 0.4],
+      ['Garcia', 254, 90.81, 1.43],
+      ['Martinez', 234, 91.72, 0.6],
+      ['Lee', 220, 1.34, 37.83],
+      ['Nguyen', 46, 0.58, 95.93],
+      ['Kim', 45, 0.5, 94.52],
+    ];
+    for (const [name, n, h, a] of census) {
+      const expected = Math.round(n * (1 - 0.9 * ((h + a) / 100)) * 10) / 10;
+      for (const era of ['adult1920', 'born1920']) {
+        expect(weightOf(us, 'family', name, era), name).toBeCloseTo(expected, 5);
+      }
+    }
+    /* Garcia 原本是 Smith 的 25%，降權後約 4%；西語裔、亞太裔過半的 10 個常見姓合計不到 2% */
+    expect(
+      weightOf(us, 'family', 'Garcia', 'born1920') / weightOf(us, 'family', 'Smith', 'born1920'),
+    ).toBeLessThan(0.05);
+    const total = us.family.cumulative.born1920[us.family.texts.length - 1];
+    const minor = [
+      'Garcia',
+      'Martinez',
+      'Rodriguez',
+      'Hernandez',
+      'Lopez',
+      'Gonzalez',
+      'Perez',
+      'Sanchez',
+      'Ramirez',
+      'Nguyen',
+    ]
+      .map((t) => weightOf(us, 'family', t, 'born1920'))
+      .reduce((x, y) => x + y, 0);
+    expect(minor / total).toBeLessThan(0.02);
     expect(us.family.texts).toContain("O'Brien");
     expect(us.family.texts).toContain('McDonald');
     expect(us.family.texts).toContain('De La Cruz');

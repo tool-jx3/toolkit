@@ -339,6 +339,32 @@ test.describe('最近產生的紀錄', () => {
   });
 });
 
+test('資料讀不到：提示重新整理頁面（瀏覽器會記住失敗的下載，再按「產生」沒有用），按「重新整理」之後載入（F29）', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  await page.route(/names-tw-[\w-]+\.js$/, (route) => route.abort('failed'));
+  await radio(page, '台灣').click();
+  const notice = page.getByText('名字資料讀不到，請檢查網路後重新整理頁面。', { exact: true });
+  await expect(notice).toBeVisible();
+  await expect(page.getByText(/再按一次/)).toHaveCount(0);
+  await btn(page, '產生').click();
+  await expect(notice).toBeVisible();
+  await page.unroute(/names-tw-[\w-]+\.js$/);
+  await btn(page, '重新整理').click();
+  await expect(page.getByRole('heading', { level: 1, name: 'NPC 名字產生器' })).toBeVisible();
+  await expect(radio(page, '台灣')).toHaveAttribute('aria-checked', 'true');
+  /* 重新整理後地區是台灣、上一批還是日本的名字 → 開頁時換一批 */
+  await expect
+    .poll(async () => (await nameTexts(page)).every((t) => /^\p{sc=Han}{2,4}$/u.test(t)))
+    .toBe(true);
+  await expect(cards(page)).toHaveCount(10);
+  await expect(notice).toHaveCount(0);
+  expect(
+    errors.filter((e) => !/Failed to (load resource|fetch dynamically imported module)/.test(e)),
+  ).toEqual([]);
+});
+
 test.describe('390 寬', () => {
   test.use({ viewport: { width: 390, height: 844 } });
 

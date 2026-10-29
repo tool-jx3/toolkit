@@ -3,7 +3,16 @@
  * 點名字複製、全部複製、鎖定的名字再產生時留著；給種子時結果固定。
  * 寬畫面：左邊條件、右邊名字；窄畫面：名字在上、條件在下。規格：docs/refactor/specs/npc-names.md。
  */
-import { Copy, Download, FileSpreadsheet, FileText, Redo2, Shuffle, Undo2 } from 'lucide-react';
+import {
+  Copy,
+  Download,
+  FileSpreadsheet,
+  FileText,
+  Redo2,
+  RotateCw,
+  Shuffle,
+  Undo2,
+} from 'lucide-react';
 import { useEffect, useMemo, useRef } from 'react';
 import {
   NAME_COUNT_MAX,
@@ -330,7 +339,18 @@ function NameList() {
           {S.list.toConditions}
         </Button>
       </div>
-      {status.failed ? <Notice tone="danger">{S.list.loadFailed}</Notice> : null}
+      {status.failed ? (
+        <Notice
+          tone="danger"
+          action={
+            <Button size="sm" icon={<RotateCw />} onClick={() => window.location.reload()}>
+              {S.list.reload}
+            </Button>
+          }
+        >
+          {S.list.loadFailed}
+        </Notice>
+      ) : null}
       {status.exhausted ? <Notice tone="warning">{S.list.exhausted}</Notice> : null}
       {state.names.length ? (
         <ul
@@ -359,8 +379,10 @@ function NameList() {
 export function App() {
   const { undo, redo, canUndo, canRedo } = useUndoRedo(useNames);
 
+  /* 開頁時還沒有名字（第一次開、或上次切換地區時資料讀不到、重新整理之後）就產生一批 */
   useEffect(() => {
-    if (!sanitizeState(useNames.getState().data).names.length) void generate();
+    const state = sanitizeState(useNames.getState().data);
+    if (!state.names.some((n) => n.region === state.region)) void generate();
   }, []);
 
   const shortcuts = useMemo<Shortcut[]>(

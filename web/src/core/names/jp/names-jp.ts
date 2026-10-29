@@ -2,7 +2,7 @@
  * 日本的姓名（core/names）。由資料整理腳本產生，不要手改；出處、授權與整理方式見同資料夾的
  * meta.json、LICENSE.txt 與 docs/refactor/specs/npc-names.md 第 2 節。
  *
- * FAMILY：漢字,平假名,人數（NDL 典拠＋Wikidata 的人物，各年代加總）
+ * FAMILY：漢字,平假名,人數（國會圖書館的人名權威檔 NDL Authorities＋Wikidata 的人物，各年代加總）
  * MALE／FEMALE：漢字,平假名,1870～1910 年代,1920～1950 年代,1960 年代以後出生的人數（兩個性別都列的寫法依比例分配，可能有小數）
  */
 

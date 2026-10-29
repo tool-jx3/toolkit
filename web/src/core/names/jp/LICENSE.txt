@@ -8,8 +8,10 @@
   使用的檔案：japanese_personal_name_dataset/dataset/first_name_man_org.csv、first_name_woman_org.csv
         （名的讀音與寫法、男女的名單）、last_name_org.csv（姓的寫法與讀音；其中的「推定人數」本站沒有使用）、
         qa/metadata/birth_decades.csv（各讀音、寫法在每個出生年代的人數）
-  birth_decades.csv 的說明（照原作）：人數是國立國會圖書館典拠（Web NDL Authorities）與 Wikidata 裡有這個名字的
+  birth_decades.csv 的說明（照原作）：人數是國會圖書館的人名權威檔（Web NDL Authorities）與 Wikidata 裡有這個名字的
         人物、依出生年代（10 年一組）數出來的，偏向作者與名人，不是全國的出生統計；未滿 3 人的格子不列。
+        國立國會圖書館製作的書誌資料與權威資料可以免費、不限目的使用（NDL 資料服務的說明）；Wikidata 是 CC0。
+        姓的清單原作依名字由来net 的排行挑出，本站只取「有哪些姓」（寫法與讀音），不使用它的推定人數。
   授權：MIT License
 
   MIT License
