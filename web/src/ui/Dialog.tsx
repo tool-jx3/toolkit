@@ -121,6 +121,11 @@ export interface DialogProps {
    * 'right' 從右側滑出的全高側欄（詳細資料、長篇文字的編輯），寬度依 size（sm 24rem、md 32rem、lg 44rem、xl 64rem，窄螢幕撐滿）。
    */
   placement?: 'center' | 'right';
+  /**
+   * 關閉後把焦點還給這個元素（選填；ambience-mixer 新增，不給時行為不變）：沒有 trigger、由別的按鈕或選單打開的
+   * 受控對話框用，不然關閉後焦點會掉到頁面最上層。焦點已經被移到別處時不搶。
+   */
+  returnFocus?: HTMLElement | null;
 }
 
 export function Dialog({
@@ -138,6 +143,7 @@ export function Dialog({
   dismissOnOutside = true,
   onEscapeKeyDown,
   placement = 'center',
+  returnFocus,
 }: DialogProps) {
   const closeRef = useRef<HTMLButtonElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -155,6 +161,9 @@ export function Dialog({
           }
           onInteractOutside={dismissOnOutside ? undefined : (e) => e.preventDefault()}
           onEscapeKeyDown={onEscapeKeyDown}
+          onCloseAutoFocus={
+            returnFocus === undefined ? undefined : (e) => restoreFocus(e, returnFocus)
+          }
           onOpenAutoFocus={(e) => {
             const el = initialFocus?.current;
             if (el) {
