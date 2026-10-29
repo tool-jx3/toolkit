@@ -955,7 +955,7 @@ export const TOOLS: readonly ToolEntry[] = [
     summary:
       '把立繪、頭像做成 CCFOLIA、Roll20、Foundry 等 VTT 用的圓形棋子：放進有花紋的外框，頭、角、武器可以出框蓋在外框上，敵人可以做成編號 1～N 的一組，存成透明背景的 PNG；檔案不會上傳。',
     group: 'G3',
-    status: 'next',
+    status: 'live',
     inspiration: {
       name: 'arcana-hanna/token-workshop',
       url: 'https://github.com/arcana-hanna/token-workshop',
