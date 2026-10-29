@@ -1207,10 +1207,21 @@ test('進階 3D：在平面圖上框出房間與走廊、改房名、放入口�
       kind: 'room',
       id: r.id,
     });
-  /* 方向鍵移動選取的房間：1 px、Shift 10 px；一連串算一步復原（N6） */
-  await page.keyboard.press('ArrowRight');
-  await page.keyboard.press('ArrowRight');
-  await page.keyboard.press('Shift+ArrowDown');
+  /*
+   * 方向鍵移動選取的房間：1 px、Shift 10 px；一連串算一步復原（N6）。
+   * 0.4 秒內連按才併成一步：三下在同一個工作裡送出，機器忙的時候也不會超過。
+   */
+  await page.evaluate(() => {
+    const t = document.activeElement ?? document.body;
+    for (const [key, shiftKey] of [
+      ['ArrowRight', false],
+      ['ArrowRight', false],
+      ['ArrowDown', true],
+    ] as const)
+      t.dispatchEvent(
+        new KeyboardEvent('keydown', { key, shiftKey, bubbles: true, cancelable: true }),
+      );
+  });
   await expect.poll(async () => (await walk(page)).rooms[0].x).toBe(r.x + 2);
   expect((await walk(page)).rooms[0].y).toBe(r.y + 10);
   await page.keyboard.press('Control+z');
