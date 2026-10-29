@@ -10,7 +10,7 @@ import { soundIcon } from './icons';
 import {
   FADE_MAX,
   type FileTrack,
-  minutesText,
+  lengthText,
   SEAM_MAX,
   type SynthTrack,
   type Track,
@@ -245,7 +245,11 @@ export function TrackCard({ track, status }: { track: Track; status: TrackStatus
         </Notice>
       ) : status === 'tooLong' && track.kind === 'file' ? (
         <Notice tone="danger" className="mt-2">
-          {S.mix.tooLong(minutesText(track.duration))}
+          {S.mix.tooLong(lengthText(track.duration))}
+        </Notice>
+      ) : status === 'overTotal' ? (
+        <Notice tone="warning" className="mt-2">
+          {S.mix.overTotal}
         </Notice>
       ) : null}
       {open ? (

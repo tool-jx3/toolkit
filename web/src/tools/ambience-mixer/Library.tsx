@@ -4,7 +4,17 @@
 import { AudioLines, Save, Shuffle, Trash2 } from 'lucide-react';
 import { useId, useState } from 'react';
 import { AMBIENCE_CATEGORIES, soundsInCategory } from '@/core/audio/ambience';
-import { Button, cn, Field, FileDrop, IconButton, Section, TextInput, useConfirm } from '@/ui';
+import {
+  Button,
+  cn,
+  Field,
+  FileDrop,
+  IconButton,
+  Notice,
+  Section,
+  TextInput,
+  useConfirm,
+} from '@/ui';
 import {
   addFiles,
   applyPreset,
@@ -17,7 +27,7 @@ import {
 } from './actions';
 import { soundIcon } from './icons';
 import { PRESETS, synthKey, TOOL_ID } from './model';
-import { useMix, useSaved } from './store';
+import { useMix, useRuntime, useSaved } from './store';
 import { S } from './strings';
 
 const AUDIO_ACCEPT = 'audio/*,.mp3,.wav,.ogg,.oga,.m4a,.aac,.flac,.opus,.webm';
@@ -193,6 +203,7 @@ export function SoundLibrary() {
 }
 
 export function FilesSection({ onReject }: { onReject: () => void }) {
+  const reading = useRuntime((s) => s.reading);
   return (
     <Section
       title={S.files.title}
@@ -212,6 +223,11 @@ export function FilesSection({ onReject }: { onReject: () => void }) {
         onReject={onReject}
         aria-label={S.files.title}
       />
+      {reading ? (
+        <Notice tone="progress" className="mt-2">
+          {S.files.reading(reading)}
+        </Notice>
+      ) : null}
     </Section>
   );
 }

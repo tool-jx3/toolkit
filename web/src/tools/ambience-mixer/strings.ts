@@ -1,3 +1,15 @@
+import type { FileProblem } from './store';
+
+/** 音檔沒有載入（沒有混進匯出）的原因 */
+const PROBLEM: Record<FileProblem, string> = {
+  missing: '找不到這個音檔',
+  error: '無法解碼',
+  tooLong: '太長，超過 15 分鐘',
+  overTotal: '音檔加起來超過 30 分鐘',
+};
+const problemList = (list: readonly { name: string; reason: FileProblem }[]) =>
+  list.map((x) => `「${x.name}」（${PROBLEM[x.reason]}）`).join('、');
+
 /** 環境音混音器的介面文字（繁中；用詞照 DESIGN.md 第 5 節） */
 export const S = {
   usage: {
@@ -59,8 +71,10 @@ export const S = {
     error: '這個聲音合成失敗，請拿掉再加入一次。',
     missing: '找不到這個音檔（可能是瀏覽器的資料被清掉了），請拿掉後重新加入。',
     fileError: '這個音檔無法播放，請換成 MP3、WAV 或 OGG。',
-    tooLong: (minutes: string) =>
-      `這個音檔太長了（${minutes} 分鐘），沒有載入：上限 15 分鐘（太長的音檔會佔用很多記憶體）。請拿掉，剪短後再加入。`,
+    tooLong: (length: string) =>
+      `這個音檔太長了（${length}），沒有載入：上限 15 分鐘（太長的音檔會佔用很多記憶體）。請拿掉，剪短後再加入。`,
+    overTotal:
+      '自己的音檔加起來超過 30 分鐘，這一軌沒有載入（解碼後的音檔很佔記憶體）。拿掉前面的音檔後會自動載入。',
     param: (name: string, param: string) => `${name}：${param}`,
     file: {
       loop: '循環播放',
@@ -109,10 +123,20 @@ export const S = {
       'MP3、WAV、OGG 等加成一軌：可以循環或只播一次。只在這個瀏覽器裡處理，不會上傳；分享連結不含音檔。',
     drop: '把音檔拖到這裡',
     choose: '選擇音檔',
-    hint: '最多 6 個，每個 60 MB、15 分鐘以內',
+    hint: '最多 6 個，每個 60 MB、15 分鐘以內，加起來 30 分鐘以內',
+    reading: (name: string) => `正在讀取「${name}」…`,
     tooBig: (name: string) => `「${name}」太大了（上限 60 MB）`,
-    tooLong: (name: string, minutes: string) =>
-      `「${name}」太長了（${minutes} 分鐘）：上限 15 分鐘（太長的音檔會佔用很多記憶體），請剪短後再加入。`,
+    empty: (name: string) => `「${name}」是空的檔案（0 位元組）`,
+    tooLong: (name: string, length: string) =>
+      `「${name}」太長了（${length}）：上限 15 分鐘（太長的音檔會佔用很多記憶體），請剪短後再加入。`,
+    atLeast: (length: string) => `至少 ${length}`,
+    overTotal: (name: string, length: string, used: string) =>
+      `「${name}」（${length}）加不進來：自己的音檔加起來最多 30 分鐘，目前已經有 ${used}。請先拿掉一些。`,
+    askTitle: (name: string) => `讀不到「${name}」的長度`,
+    askText: (size: string) =>
+      `這個檔案 ${size}，可能超過 15 分鐘。要先完整解碼才知道長度，太長的話解碼時會佔用很多記憶體（可能超過 1 GB，瀏覽器會變慢）。要試著載入嗎？`,
+    askConfirm: '試著載入',
+    askCancel: '不要',
     tooShort: (name: string) => `「${name}」太短了（不到 0.5 秒），循環起來只會是一連串的雜音。`,
     failed: (name: string) => `「${name}」無法讀取`,
     notSaved: '這個瀏覽器存不了音檔（可能是空間不足或無痕模式），重新整理後要再加入一次。',
@@ -145,7 +169,11 @@ export const S = {
     cancel: '取消',
     preparing: '合成中…',
     mixing: '混音中…',
-    empty: '沒有可以匯出的聲音（音量都是 0？）',
+    empty: '沒有可以匯出的聲音：每一軌的音量都是 0。',
+    skipped: (list: readonly { name: string; reason: FileProblem }[]) =>
+      `沒有混進去：${problemList(list)}。`,
+    onlySkipped: (list: readonly { name: string; reason: FileProblem }[]) =>
+      `沒有可以匯出的聲音：${problemList(list)}沒有載入。請拿掉或換掉再匯出。`,
     unsupported:
       '這個瀏覽器不能在背景混音（沒有 OfflineAudioContext），請換成新版的 Chrome、Edge、Firefox 或 Safari。',
     failed: (msg: string) => `匯出失敗：${msg}`,

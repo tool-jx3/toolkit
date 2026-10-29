@@ -28,7 +28,23 @@ export const MAX_SAVED = 30;
 
 export const useSaved = createPreviewStore<{ mixes: SavedMix[] }>(TOOL_ID, { mixes: [] });
 
-export type TrackStatus = 'loading' | 'updating' | 'ready' | 'missing' | 'error' | 'tooLong';
+/**
+ * 一軌的準備狀態：loading（第一次合成／解碼，音檔在排隊時也是）、updating（換參數，先播舊的）、ready；
+ * 音檔沒有載入的原因：missing（找不到）、error（解不開）、tooLong（超過 15 分鐘）、overTotal（加起來超過 30 分鐘）
+ */
+export type TrackStatus =
+  | 'loading'
+  | 'updating'
+  | 'ready'
+  | 'missing'
+  | 'error'
+  | 'tooLong'
+  | 'overTotal';
+
+/** 音檔沒有載入（也不會混進匯出）的原因 */
+export type FileProblem = 'missing' | 'error' | 'tooLong' | 'overTotal';
+export const isFileProblem = (s: TrackStatus | undefined): s is FileProblem =>
+  s === 'missing' || s === 'error' || s === 'tooLong' || s === 'overTotal';
 
 export interface ExportResult {
   blob: Blob;
@@ -39,6 +55,8 @@ export interface ExportResult {
   channels: number;
   peakDb: number;
   ms: number;
+  /** 沒有混進去的音檔（找不到、解不開、太長、超過總長度） */
+  skipped: { key: string; name: string; reason: FileProblem }[];
 }
 
 export interface Runtime {
@@ -55,6 +73,8 @@ export interface Runtime {
   result: ExportResult | null;
   exportError: string;
   shareOpen: boolean;
+  /** 正在讀取（檢查長度、解碼）的音檔名稱 */
+  reading: string | null;
 }
 
 export const useRuntime = create<Runtime>(() => ({
@@ -68,6 +88,7 @@ export const useRuntime = create<Runtime>(() => ({
   result: null,
   exportError: '',
   shareOpen: false,
+  reading: null,
 }));
 
 export const mixNow = (): MixState => useMix.getState().data;

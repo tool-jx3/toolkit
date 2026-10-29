@@ -6,9 +6,17 @@
 import { Redo2, Undo2 } from 'lucide-react';
 import { useEffect, useMemo } from 'react';
 import { useUndoRedo } from '@/core/storage';
-import { IconButton, type Shortcut, ToolShell, UsageSection, useToast, withShortcut } from '@/ui';
-import { cleanupAssets, rejectFiles, setNotifier, togglePlay } from './actions';
-import { mixer, renderCount, startEngine } from './engine';
+import {
+  IconButton,
+  type Shortcut,
+  ToolShell,
+  UsageSection,
+  useConfirm,
+  useToast,
+  withShortcut,
+} from '@/ui';
+import { cleanupAssets, rejectFiles, setConfirmer, setNotifier, togglePlay } from './actions';
+import { decodeStats, mixer, renderCount, startEngine } from './engine';
 import { FilesSection, PresetsSection, SavedSection, SoundLibrary } from './Library';
 import { MixPanel } from './MixPanel';
 import { TOOL_ID } from './model';
@@ -53,6 +61,7 @@ function useTestHook() {
       level: () => mixer.level(),
       renders: () => renderCount(),
       tracks: () => mixer.trackIds(),
+      decodes: () => decodeStats(),
     };
   }, []);
 }
@@ -60,9 +69,13 @@ function useTestHook() {
 /** ToolShell 裡面（UiProvider 之內）才拿得到通知與確認對話框：接到動作上、處理網址裡的分享連結 */
 function Bridge() {
   const toast = useToast();
+  const confirm = useConfirm();
   useEffect(() => {
     setNotifier((o) => toast(o));
   }, [toast]);
+  useEffect(() => {
+    setConfirmer(confirm);
+  }, [confirm]);
   useOpenShared(toast);
   return null;
 }

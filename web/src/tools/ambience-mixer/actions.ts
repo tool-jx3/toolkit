@@ -4,7 +4,7 @@
  */
 
 import { referencedAssetIds } from '@/core/assets';
-import { AUDIO_FILE_INFO, detectAudioType, wavBlob } from '@/core/audio';
+import { AUDIO_FILE_INFO, AudioDecodeError, detectAudioType, wavBlob } from '@/core/audio';
 import {
   ambienceKey,
   canRenderOffline,
@@ -14,27 +14,34 @@ import {
   renderLoopMix,
   volumeGain,
 } from '@/core/audio/ambience';
-import type { ToastOptions } from '@/ui';
+import type { ConfirmOptions, ToastOptions } from '@/ui';
 import {
   assets,
   cachedPreview,
   decodeFileBuffer,
   exportFilePcm,
+  MissingAssetError,
   mixer,
   primeFile,
   probeDuration,
+  queueDecode,
+  TooLongError,
 } from './engine';
 import {
   exportFileName,
   FILE_MIN_SECONDS,
+  type FileTrack,
+  filesInUse,
+  filesTotalTooLong,
   fileTooLong,
+  formatMb,
+  lengthText,
   MAX_FILE_BYTES,
   MAX_FILE_TRACKS,
   MAX_TRACKS,
   type MixPreset,
   type MixState,
   masterGain,
-  minutesText,
   newFileTrack,
   newSynthTrack,
   presetTracks,
@@ -44,8 +51,18 @@ import {
   type SynthTrack,
   synthKey,
   type Track,
+  unknownLength,
 } from './model';
-import { MAX_SAVED, mixNow, type SavedMix, useMix, useRuntime, useSaved } from './store';
+import {
+  type FileProblem,
+  isFileProblem,
+  MAX_SAVED,
+  mixNow,
+  type SavedMix,
+  useMix,
+  useRuntime,
+  useSaved,
+} from './store';
 import { S } from './strings';
 
 /* ---------- 通知 ---------- */
@@ -53,6 +70,12 @@ import { S } from './strings';
 let notify: (o: ToastOptions) => void = () => {};
 export function setNotifier(fn: (o: ToastOptions) => void): void {
   notify = fn;
+}
+
+/* 確認對話框（ToolShell 裡的 useConfirm；沒接上時當作「不要」） */
+let confirmFn: (o: ConfirmOptions) => Promise<boolean> = async () => false;
+export function setConfirmer(fn: (o: ConfirmOptions) => Promise<boolean>): void {
+  confirmFn = fn;
 }
 
 /* ---------- 播放 ---------- */
@@ -213,57 +236,106 @@ export function deleteSaved(id: string): void {
 /* ---------- 自己的音檔 ---------- */
 
 export async function addFiles(files: readonly File[]): Promise<void> {
-  for (const file of files) {
-    const s = mixNow();
-    if (s.tracks.length >= MAX_TRACKS) {
-      notify({ title: S.limit.tracks(MAX_TRACKS), tone: 'warning' });
+  try {
+    for (const file of files) {
+      const s = mixNow();
+      if (s.tracks.length >= MAX_TRACKS) {
+        notify({ title: S.limit.tracks(MAX_TRACKS), tone: 'warning' });
+        return;
+      }
+      if (s.tracks.filter((t) => t.kind === 'file').length >= MAX_FILE_TRACKS) {
+        notify({ title: S.limit.files(MAX_FILE_TRACKS), tone: 'warning' });
+        return;
+      }
+      await addFile(file);
+    }
+  } finally {
+    useRuntime.setState({ reading: null });
+  }
+}
+
+/** 加起來會超過總長度：通知並回傳 true */
+function overTotal(name: string, seconds: number): boolean {
+  /* 找不到、解不開的不佔記憶體，不算（和開頁時的累計一樣） */
+  const status = useRuntime.getState().status;
+  const used = filesInUse(
+    mixNow().tracks,
+    (t) => status[t.key] === 'missing' || status[t.key] === 'error',
+  );
+  if (!filesTotalTooLong(used + seconds)) return false;
+  notify({ title: S.files.overTotal(name, lengthText(seconds), lengthText(used)), tone: 'danger' });
+  return true;
+}
+
+/** 加入一個音檔：大小 → 長度（WAV 檔頭、<audio> 的 metadata、讀不到時用大小估）→ 解碼 → 長度 → 存 → 一軌 */
+async function addFile(file: File): Promise<void> {
+  const name = file.name || S.files.unnamed;
+  if (file.size > MAX_FILE_BYTES) {
+    notify({ title: S.files.tooBig(name), tone: 'danger' });
+    return;
+  }
+  if (!file.size) {
+    notify({ title: S.files.empty(name), tone: 'danger' });
+    return;
+  }
+  useRuntime.setState({ reading: name });
+  try {
+    const head = new Uint8Array(await file.slice(0, 64).arrayBuffer());
+    const type = detectAudioType(head);
+    const blob = type && !file.type ? new Blob([file], { type: AUDIO_FILE_INFO[type].mime }) : file;
+    /* 解碼前先讀長度：太長的不解碼（解碼後的取樣很佔記憶體） */
+    const probe = await probeDuration(blob);
+    if (probe !== null) {
+      if (fileTooLong(probe)) {
+        notify({ title: S.files.tooLong(name, lengthText(probe)), tone: 'danger' });
+        return;
+      }
+      if (overTotal(name, probe)) return;
+    } else {
+      /* 讀不到長度：用檔案大小估（model.ts 的 unknownLength） */
+      const u = unknownLength(file.size, head, type);
+      if (u.kind === 'block') {
+        notify({
+          title: S.files.tooLong(name, S.files.atLeast(lengthText(u.atLeast))),
+          tone: 'danger',
+        });
+        return;
+      }
+      if (u.kind === 'ask') {
+        const ok = await confirmFn({
+          title: S.files.askTitle(name),
+          description: S.files.askText(formatMb(file.size)),
+          confirmLabel: S.files.askConfirm,
+          cancelLabel: S.files.askCancel,
+        });
+        if (!ok) return;
+      }
+    }
+    const buffer = await queueDecode(() => decodeFileBuffer(blob));
+    if (fileTooLong(buffer.duration)) {
+      notify({ title: S.files.tooLong(name, lengthText(buffer.duration)), tone: 'danger' });
       return;
     }
-    if (s.tracks.filter((t) => t.kind === 'file').length >= MAX_FILE_TRACKS) {
-      notify({ title: S.limit.files(MAX_FILE_TRACKS), tone: 'warning' });
+    if (buffer.duration < FILE_MIN_SECONDS) {
+      notify({ title: S.files.tooShort(name), tone: 'danger' });
       return;
     }
-    if (file.size > MAX_FILE_BYTES) {
-      notify({ title: S.files.tooBig(file.name), tone: 'danger' });
-      continue;
-    }
-    try {
-      const head = new Uint8Array(await file.slice(0, 64).arrayBuffer());
-      const type = detectAudioType(head);
-      const blob =
-        type && !file.type ? new Blob([file], { type: AUDIO_FILE_INFO[type].mime }) : file;
-      const name = file.name || S.files.unnamed;
-      /* 解碼前先估長度：太長的不解碼（解碼後的取樣很佔記憶體） */
-      const probe = await probeDuration(blob);
-      if (probe !== null && fileTooLong(probe)) {
-        notify({ title: S.files.tooLong(name, minutesText(probe)), tone: 'danger' });
-        continue;
-      }
-      const buffer = await decodeFileBuffer(blob);
-      if (fileTooLong(buffer.duration)) {
-        notify({ title: S.files.tooLong(name, minutesText(buffer.duration)), tone: 'danger' });
-        continue;
-      }
-      if (buffer.duration < FILE_MIN_SECONDS) {
-        notify({ title: S.files.tooShort(name), tone: 'danger' });
-        continue;
-      }
-      const { id, persisted } = await assets.add(blob);
-      const t = newFileTrack(mixNow().tracks, { asset: id, name, duration: buffer.duration });
-      primeFile(t, buffer);
-      step((d) => {
-        d.tracks.push(t);
-        d.mixName = '';
-      });
-      if (!persisted) notify({ title: S.files.notSaved, tone: 'warning' });
-      void play();
-    } catch (e) {
-      notify({
-        title: S.files.failed(file.name),
-        description: e instanceof Error ? e.message : String(e),
-        tone: 'danger',
-      });
-    }
+    if (overTotal(name, buffer.duration)) return;
+    const { id, persisted } = await assets.add(blob);
+    const t = newFileTrack(mixNow().tracks, { asset: id, name, duration: buffer.duration });
+    primeFile(t, buffer);
+    step((d) => {
+      d.tracks.push(t);
+      d.mixName = '';
+    });
+    if (!persisted) notify({ title: S.files.notSaved, tone: 'warning' });
+    void play();
+  } catch (e) {
+    notify({
+      title: S.files.failed(name),
+      description: e instanceof Error ? e.message : String(e),
+      tone: 'danger',
+    });
   }
 }
 
@@ -323,15 +395,14 @@ const aborted = (signal: AbortSignal) => {
   if (signal.aborted) throw new DOMException('已取消', 'AbortError');
 };
 
-/** 一軌在匯出長度裡的樣子（首尾相接、長度剛好 seconds 秒） */
+/** 一軌在匯出長度裡的樣子（首尾相接、長度剛好 seconds 秒）；音檔沒有混進去時回傳原因 */
 async function exportTrack(
   t: Track,
   s: MixState,
   renderer: ReturnType<typeof createAmbienceRenderer>,
   signal: AbortSignal,
-): Promise<OfflineMixTrack | null> {
+): Promise<OfflineMixTrack | FileProblem> {
   const gain = volumeGain(t.volume);
-  if (!(gain > 0)) return null;
   const { seconds, sampleRate } = s.export;
   if (t.kind === 'synth') {
     const o = { duration: seconds, sampleRate, seed: t.seed };
@@ -341,22 +412,45 @@ async function exportTrack(
     return { pcm, gain, swell: t.swell };
   }
   try {
-    const pcm = await exportFilePcm(t, seconds);
+    const pcm = await exportFilePcm(t, seconds, signal);
     aborted(signal);
     return { pcm, gain, swell: t.swell };
   } catch (e) {
-    if (e instanceof DOMException && e.name === 'AbortError') throw e;
-    /* 找不到、解不開、太長的音檔：不混進去 */
-    return null;
+    /* 找不到、太長、解不開的音檔：不混進去（結果裡說明） */
+    if (e instanceof MissingAssetError) return 'missing';
+    if (e instanceof TooLongError) return 'tooLong';
+    if (e instanceof AudioDecodeError) return 'error';
+    throw e;
   }
+}
+
+type Skipped = { key: string; name: string; reason: FileProblem };
+
+/** 預覽沒有載入的音檔（找不到、解不開、太長、超過總長度）：匯出也不混進去 */
+function previewProblem(t: FileTrack | SynthTrack): FileProblem | null {
+  if (t.kind !== 'file') return null;
+  if (fileTooLong(t.duration)) return 'tooLong';
+  const st = useRuntime.getState().status[t.key];
+  return isFileProblem(st) ? st : null;
 }
 
 export async function exportWav(): Promise<void> {
   if (useRuntime.getState().exporting) return;
   const s = mixNow();
-  const tracks = s.tracks.filter((t) => t.volume > 0);
+  const audible = s.tracks.filter((t) => t.volume > 0);
+  if (!audible.length) {
+    useRuntime.setState({ exportError: S.exportPanel.empty, result: null });
+    return;
+  }
+  const skipped: Skipped[] = [];
+  const tracks: Track[] = [];
+  for (const t of audible) {
+    const p = previewProblem(t);
+    if (p && t.kind === 'file') skipped.push({ key: t.key, name: t.name, reason: p });
+    else tracks.push(t);
+  }
   if (!tracks.length) {
-    useRuntime.setState({ exportError: S.exportPanel.empty });
+    useRuntime.setState({ exportError: S.exportPanel.onlySkipped(skipped), result: null });
     return;
   }
   if (!canRenderOffline()) {
@@ -386,8 +480,20 @@ export async function exportWav(): Promise<void> {
       }),
     );
     aborted(ctrl.signal);
-    const list = parts.filter((p): p is OfflineMixTrack => !!p);
-    if (!list.length) throw new Error(S.exportPanel.empty);
+    const list: OfflineMixTrack[] = [];
+    parts.forEach((p, i) => {
+      const t = tracks[i];
+      if (typeof p !== 'string') list.push(p);
+      else if (t.kind === 'file') skipped.push({ key: t.key, name: t.name, reason: p });
+    });
+    skipped.sort(
+      (a, b) =>
+        s.tracks.findIndex((t) => t.key === a.key) - s.tracks.findIndex((t) => t.key === b.key),
+    );
+    if (!list.length) {
+      useRuntime.setState({ exportError: S.exportPanel.onlySkipped(skipped) });
+      return;
+    }
     useRuntime.setState({ stage: S.exportPanel.mixing });
     const mix = await renderLoopMix(list, {
       seconds: s.export.seconds,
@@ -401,13 +507,14 @@ export async function exportWav(): Promise<void> {
       progress: 1,
       result: {
         blob,
-        name: exportFileName(s),
+        name: exportFileName(s, new Set(skipped.map((x) => x.key))),
         bytes: blob.size,
         seconds: s.export.seconds,
         sampleRate: s.export.sampleRate,
         channels: s.export.channels,
         peakDb: peakDb(mix),
         ms: performance.now() - t0,
+        skipped,
       },
     });
   } catch (e) {

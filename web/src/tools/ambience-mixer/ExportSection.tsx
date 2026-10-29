@@ -65,6 +65,7 @@ function ResultCard() {
           ms: `${(r.ms / 1000).toFixed(1)} 秒`,
         })}
       </p>
+      {r.skipped.length ? <Notice tone="warning">{S.exportPanel.skipped(r.skipped)}</Notice> : null}
       <AudioPlayer
         blob={r.blob}
         fileName={r.name}

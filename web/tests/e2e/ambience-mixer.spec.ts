@@ -38,6 +38,7 @@ interface Hook {
   level: () => number;
   renders: () => number;
   tracks: () => string[];
+  decodes: () => { active: number; max: number };
 }
 type W = { __ambienceMixer: Hook };
 const hook = <T>(page: Page, fn: (h: Hook) => T) =>
@@ -119,6 +120,14 @@ function silentWav(seconds: number, rate: number): Buffer {
   buf.write('data', 36);
   buf.writeUInt32LE(n * 2, 40);
   return buf;
+}
+
+/** 靜音的 MP3（MPEG-1 Layer III、128 kbps、44.1 kHz 的影格；每個 1152 個取樣） */
+function silentMp3(frames: number): Buffer {
+  const len = Math.floor((144 * 128000) / 44100);
+  const out = Buffer.alloc(len * frames);
+  for (let f = 0; f < frames; f++) out.set([0xff, 0xfb, 0x90, 0x00], f * len);
+  return out;
 }
 
 /** 匯出並解析下載的 WAV */
@@ -415,20 +424,24 @@ test('自己的音檔：加入、循環／只播一次、匯出時一起混進�
   expect(win(0, 0.05)).toBeLessThan(win(0.6, 0.65) * 0.3);
   expect(win(0.6, 1.4)).toBeGreaterThan(0.2);
   expect(win(2.6, 10)).toBeLessThan(1e-4);
-  /* 太短（不到 0.5 秒）、太長（超過 15 分鐘，解碼前讀 WAV 的檔頭就擋掉）的音檔不收 */
+  /* 太短（不到 0.5 秒）、太長（超過 15 分鐘，解碼前讀 WAV 的檔頭就擋掉）、空的音檔不收 */
   await addFile(page, '短.wav', sineWav(0.3));
   await expect(
     page.getByText('「短.wav」太短了（不到 0.5 秒），循環起來只會是一連串的雜音。', {
       exact: true,
     }),
   ).toBeVisible();
-  await addFile(page, '長.wav', silentWav(16 * 60, 8000));
+  /* 上限邊界：902 秒寫成「15 分 2 秒」（不會和上限一樣是「15 分鐘」） */
+  await addFile(page, '長.wav', silentWav(902, 8000));
   await expect(
     page.getByText(
-      '「長.wav」太長了（16 分鐘）：上限 15 分鐘（太長的音檔會佔用很多記憶體），請剪短後再加入。',
+      '「長.wav」太長了（15 分 2 秒）：上限 15 分鐘（太長的音檔會佔用很多記憶體），請剪短後再加入。',
       { exact: true },
     ),
   ).toBeVisible();
+  /* 0 位元組：不給 <audio> 讀（主控台不會有錯誤） */
+  await addFile(page, '空.wav', Buffer.alloc(0));
+  await expect(page.getByText('「空.wav」是空的檔案（0 位元組）', { exact: true })).toBeVisible();
   expect((await state(page)).tracks).toHaveLength(1);
   /* 非音檔 */
   await fileInput(page).setInputFiles({
@@ -474,6 +487,100 @@ test('存檔裡超過 15 分鐘的音檔：開頁時不解碼，軌上說明原�
   await expect(track(page, 'f1')).toContainText(
     '這個音檔太長了（64 分鐘），沒有載入：上限 15 分鐘（太長的音檔會佔用很多記憶體）。請拿掉，剪短後再加入。',
   );
+  /* 只剩沒有載入的音檔時匯出：照實寫原因 */
+  await page.getByTestId('export-wav').click();
+  await expect(
+    page.getByText(
+      '沒有可以匯出的聲音：「很長的錄音.mp3」（太長，超過 15 分鐘）沒有載入。請拿掉或換掉再匯出。',
+      { exact: true },
+    ),
+  ).toBeVisible();
+  await expect(page.getByTestId('export-result')).toHaveCount(0);
+  expect(errors).toEqual([]);
+});
+
+test('自己的音檔加起來最多 30 分鐘：開頁時一次解碼一個、超過的不載入；匯出時說明沒有混進去的音檔', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  for (const [i, name] of ['甲.wav', '乙.wav', '丙.wav'].entries()) {
+    await addFile(page, name, sineWav(2, 300 + i * 100));
+    await waitReady(page, i + 1);
+  }
+  /* 存檔裡的長度改成 900、900、10 秒（加起來超過 30 分鐘），重新整理 */
+  await page.evaluate(() => {
+    const k = 'trpg-toolkit:ambience-mixer';
+    const j = JSON.parse(localStorage.getItem(k) ?? '{}');
+    const d = [900, 900, 10];
+    j.state.data.tracks.forEach((t: { duration: number }, i: number) => {
+      t.duration = d[i];
+    });
+    localStorage.setItem(k, JSON.stringify(j));
+  });
+  await page.reload();
+  await expect
+    .poll(() => hook(page, (h) => h.status()), { timeout: 20_000 })
+    .toEqual({ f1: 'ready', f2: 'ready', f3: 'overTotal' });
+  expect((await hook(page, (h) => h.decodes())).max).toBe(1);
+  await expect(track(page, 'f3')).toContainText(
+    '自己的音檔加起來超過 30 分鐘，這一軌沒有載入（解碼後的音檔很佔記憶體）。拿掉前面的音檔後會自動載入。',
+  );
+  /* 再加一個：加不進來 */
+  await addFile(page, '丁.wav', sineWav(3));
+  await expect(
+    page.getByText(
+      '「丁.wav」（3 秒）加不進來：自己的音檔加起來最多 30 分鐘，目前已經有 30 分鐘。請先拿掉一些。',
+      { exact: true },
+    ),
+  ).toBeVisible();
+  expect((await state(page)).tracks).toHaveLength(3);
+  /* 匯出：沒有載入的音檔不混進去、結果裡說明、檔名不列 */
+  await pick(page, '長度', '10 秒');
+  const { name } = await exportWav(page);
+  expect(name).toBe('環境音-甲・乙-10秒.wav');
+  await expect(page.getByTestId('export-result')).toContainText(
+    '沒有混進去：「丙.wav」（音檔加起來超過 30 分鐘）。',
+  );
+  /* 拿掉第一個：第三個自動載入 */
+  await track(page, 'f1').locator('[data-action="remove"]').click();
+  await waitReady(page, 2);
+  expect((await hook(page, (h) => h.decodes())).max).toBe(1);
+  expect(errors).toEqual([]);
+});
+
+test('讀不到長度的音檔：讀取中的提示；可能太長時先問', async ({ page }) => {
+  /* 讓 <audio> 讀不到 metadata（4 秒後逾時） */
+  await page.addInitScript(() => {
+    Object.defineProperty(HTMLMediaElement.prototype, 'src', {
+      set() {},
+      get() {
+        return '';
+      },
+      configurable: true,
+    });
+  });
+  const errors = await open(page);
+  const mp3 = silentMp3(2400);
+  const add = () =>
+    fileInput(page).setInputFiles({ name: '雨.mp3', mimeType: 'audio/mpeg', buffer: mp3 });
+  await add();
+  await expect(page.getByText('正在讀取「雨.mp3」…', { exact: true })).toBeVisible();
+  const dialog = page.getByRole('alertdialog');
+  await expect(dialog).toBeVisible({ timeout: 10_000 });
+  await expect(dialog).toContainText('讀不到「雨.mp3」的長度');
+  await expect(dialog).toContainText('這個檔案 1 MB，可能超過 15 分鐘。');
+  await dialog.getByRole('button', { name: '不要', exact: true }).click();
+  await expect(page.getByText('正在讀取「雨.mp3」…', { exact: true })).toBeHidden();
+  expect((await state(page)).tracks).toHaveLength(0);
+  /* 試著載入：解碼後檢查長度（1 分多鐘，收下） */
+  await add();
+  await page
+    .getByRole('alertdialog')
+    .getByRole('button', { name: '試著載入', exact: true })
+    .click({ timeout: 10_000 });
+  await waitReady(page, 1);
+  await expect(track(page, 'f1')).toContainText('長度 1:03');
+  await expect(page.getByText('正在讀取「雨.mp3」…', { exact: true })).toBeHidden();
   expect(errors).toEqual([]);
 });
 

@@ -8,34 +8,42 @@ import { ambienceSound, sanitizeParams, wavBytes } from '@/core/audio/ambience';
 import { encodeShareHash } from '@/core/share';
 import { createRandom } from '@/core/timeline';
 import {
+  bytesReader,
   DEFAULT_EXPORT,
   EXPORT_LENGTHS,
   exportFileName,
   FILE_MAX_SECONDS,
+  FILES_TOTAL_SECONDS,
+  filesInUse,
+  filesTotalTooLong,
   fileTooLong,
   formatMb,
+  id3Size,
   initialState,
   lengthLabel,
+  lengthText,
   MAX_FILE_TRACKS,
   MAX_TRACKS,
   type MixState,
   masterGain,
-  minutesText,
   newFileTrack,
   newSynthTrack,
   nextFileKey,
+  overTotalKeys,
   PRESETS,
   PREVIEW_RATE,
   PREVIEW_SECONDS,
   presetTracks,
   randomMix,
   readShare,
+  readWavDuration,
   replaceSynth,
   SHARE_VERSION,
   type SynthTrack,
   sanitizeState,
   shareData,
-  wavDuration,
+  type Track,
+  unknownLength,
 } from '@/tools/ambience-mixer/model';
 
 const synth = (sound: string, o = {}) => {
@@ -309,6 +317,11 @@ describe('檔名、長度、大小', () => {
     const f = newFileTrack([], { asset: 'a', name: 'my/bgm?.mp3', duration: 3 });
     expect(exportFileName({ ...initialState, tracks: [f] })).toBe('環境音-my_bgm_-60秒.wav');
     expect(exportFileName(initialState)).toBe('環境音-混音-60秒.wav');
+    /* 沒有混進去的音檔不列 */
+    const g = { ...newFileTrack([f], { asset: 'b', name: 'gone.wav', duration: 3 }) };
+    expect(exportFileName({ ...initialState, tracks: [g, synth('wind')] }, new Set([g.key]))).toBe(
+      '環境音-風-60秒.wav',
+    );
   });
 
   it('長度的文字', () => {
@@ -330,24 +343,78 @@ describe('檔名、長度、大小', () => {
     expect(formatMb(850_000)).toBe('850 KB');
   });
 
-  it('音檔的長度：WAV 讀檔頭、15 分鐘上限（多 1 秒寬容）、分鐘數的文字', () => {
+  it('音檔的長度：WAV 一個區塊一個區塊讀（data 在大的 LIST 之後也讀得到）、15 分鐘上限（多 1 秒寬容）、長度的文字', async () => {
     const wav = encodeWav({
       sampleRate: 8000,
       channels: [new Float32Array(8000 * 3), new Float32Array(8000 * 3)],
     });
-    expect(wavDuration(wav.subarray(0, 4096), wav.length)).toBeCloseTo(3, 6);
+    expect(await readWavDuration(bytesReader(wav), wav.length)).toBeCloseTo(3, 6);
     /* data 的大小寫錯（0）時用檔案大小 */
     const broken = Uint8Array.from(wav);
     new DataView(broken.buffer).setUint32(40, 0, true);
-    expect(wavDuration(broken.subarray(0, 4096), broken.length)).toBeCloseTo(3, 6);
-    expect(wavDuration(new Uint8Array([1, 2, 3]), 3)).toBeNull();
-    expect(wavDuration(new TextEncoder().encode('ID3 not a wav file....'), 100)).toBeNull();
+    expect(await readWavDuration(bytesReader(broken), broken.length)).toBeCloseTo(3, 6);
+    /* fmt 之後先放 6000 位元組的 LIST，data 在 4 KB 之後 */
+    const pad = 6000;
+    const late = new Uint8Array(wav.length + 8 + pad);
+    late.set(wav.subarray(0, 36), 0);
+    late.set(new TextEncoder().encode('LIST'), 36);
+    new DataView(late.buffer).setUint32(40, pad, true);
+    late.set(wav.subarray(36), 44 + pad);
+    expect(await readWavDuration(bytesReader(late), late.length)).toBeCloseTo(3, 6);
+    expect(await readWavDuration(bytesReader(new Uint8Array([1, 2, 3])), 3)).toBeNull();
+    const id3 = new TextEncoder().encode('ID3 not a wav file....');
+    expect(await readWavDuration(bytesReader(id3), id3.length)).toBeNull();
     expect(FILE_MAX_SECONDS).toBe(900);
     expect(fileTooLong(900)).toBe(false);
     expect(fileTooLong(900.9)).toBe(false);
     expect(fileTooLong(64 * 60)).toBe(true);
-    expect(minutesText(64 * 60)).toBe('64');
-    expect(minutesText(930)).toBe('15.5');
+    /* 長度的文字無條件進位到整秒：上限邊界的 902 秒不會寫成「15 分鐘」 */
+    expect(lengthText(64 * 60)).toBe('64 分鐘');
+    expect(lengthText(902)).toBe('15 分 2 秒');
+    expect(lengthText(901.2)).toBe('15 分 2 秒');
+    expect(lengthText(930)).toBe('15 分 30 秒');
+    expect(lengthText(40)).toBe('40 秒');
+  });
+
+  it('自己的音檔加起來最多 30 分鐘：依順序累計，超過的不載入（太長、找不到的不算）', () => {
+    expect(FILES_TOTAL_SECONDS).toBe(1800);
+    expect(filesTotalTooLong(1801)).toBe(false);
+    expect(filesTotalTooLong(1803)).toBe(true);
+    const tracks: Track[] = [];
+    for (const [i, d] of [890, 890, 890, 10, 3600].entries())
+      tracks.push(newFileTrack(tracks, { asset: `a${i}`, name: `${i}.wav`, duration: d }));
+    tracks.splice(1, 0, synth('wind'));
+    /* 890＋890＝1780；第三個 890 超過；10 還放得下；3600 是太長（另外算） */
+    expect([...overTotalKeys(tracks)]).toEqual(['f3']);
+    expect(filesInUse(tracks)).toBe(1790);
+    expect(filesInUse(tracks, (t) => t.key === 'f1')).toBe(1790);
+    expect(filesInUse(tracks, (t) => t.key === 'f2')).toBe(1790);
+    /* 第一個找不到（不佔記憶體）：第三個放得下 */
+    expect([...overTotalKeys(tracks, { skip: (t) => t.key === 'f1' })]).toEqual([]);
+    /* 實際解碼出來比存檔長：照實際的算 */
+    expect([
+      ...overTotalKeys(tracks, { length: (t) => (t.key === 'f4' ? 100 : t.duration) }),
+    ]).toEqual(['f3', 'f4']);
+  });
+
+  it('讀不到長度時用檔案大小估：一定太長的擋、不可能太長的直接解碼、其餘先問', () => {
+    const none = new Uint8Array(16);
+    /* MP3 最高 320 kbps：40 MB 至少 16 分 40 秒 → 擋 */
+    expect(unknownLength(40e6, none, 'mp3')).toEqual({ kind: 'block', atLeast: 1000 });
+    /* 不到 675 KB：用 6 kbps 算也不到 15 分鐘 → 直接解碼 */
+    expect(unknownLength(600_000, none, 'mp3').kind).toBe('decode');
+    expect(unknownLength(600_000, none, null).kind).toBe('decode');
+    /* 中間：先問 */
+    expect(unknownLength(10e6, none, 'mp3').kind).toBe('ask');
+    expect(unknownLength(59e6, none, 'flac').kind).toBe('ask');
+    expect(unknownLength(59e6, none, null).kind).toBe('ask');
+    /* ID3 標籤（封面圖）不算：40 MB 裡 10 MB 是標籤 → 至少 12.5 分鐘，不擋 */
+    const tag = new Uint8Array(16);
+    tag.set([0x49, 0x44, 0x33, 4, 0]);
+    const n = 10e6 - 10;
+    tag.set([(n >> 21) & 0x7f, (n >> 14) & 0x7f, (n >> 7) & 0x7f, n & 0x7f], 6);
+    expect(id3Size(tag)).toBe(10e6);
+    expect(unknownLength(40e6, tag, 'mp3').kind).toBe('ask');
   });
 
   it('總音量：平方再乘 2', () => {

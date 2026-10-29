@@ -4,7 +4,8 @@
  *   拖滑桿時等停下來 0.15 秒才合成，最新的設定優先。
  * - 自己的音檔：從這個瀏覽器的 IndexedDB 讀出來，解碼成 44.1 kHz 的 AudioBuffer，**直接在它上面**做循環的接縫淡化
  *   （播放時用 loopEnd 只循環前段）或「只播一次」的淡入淡出，只留這一份（改了接縫、淡入淡出時重新解碼；不留原本的複本）。
- *   超過 15 分鐘的不解碼（記憶體，FILE_MAX_SECONDS）。
+ *   超過 15 分鐘的不解碼（記憶體，FILE_MAX_SECONDS）；依軌的順序累計，加起來超過 30 分鐘的軌也不解碼（FILES_TOTAL_SECONDS）。
+ *   **一次只解碼一個**（queueDecode：加入、開頁、改設定、匯出都排同一個隊，峰值不會疊起來）。
  * - 合成好的結果留在記憶體（用不到的只留最近的幾個）。
  */
 
@@ -27,11 +28,12 @@ import {
   fileTooLong,
   type MixState,
   masterGain,
+  overTotalKeys,
   PREVIEW_RATE,
   PREVIEW_SECONDS,
+  readWavDuration,
   type SynthTrack,
   TOOL_ID,
-  wavDuration,
 } from './model';
 import { type TrackStatus, useMix, useRuntime } from './store';
 
@@ -51,6 +53,19 @@ const current = new Map<string, AudioBuffer>();
 const fileBuffers = new Map<string, { buffer: AudioBuffer; loopEnd?: number }>();
 /** 每一軌正在解碼的音檔 */
 const filePending = new Map<string, { key: string; ctrl: AbortController; timer: number | null }>();
+/** 解碼過的音檔的實際長度（鍵＝資產 id）：算總長度時和存檔裡的長度取大的 */
+const decodedSeconds = new Map<string, number>();
+
+let decodeTail: Promise<unknown> = Promise.resolve();
+/**
+ * 音檔一次解碼一個：同時解好幾個的話，每一個解碼時的峰值會疊起來（驗證時六個同時解碼到 3.8 GB）。
+ * 加入、開頁、改設定、匯出都排同一個隊；job 開始時自己檢查還要不要做。
+ */
+export function queueDecode<T>(job: () => Promise<T>): Promise<T> {
+  const run = decodeTail.then(job);
+  decodeTail = run.catch(() => undefined);
+  return run;
+}
 
 /** 合成次數（測試用：確認換參數時有重新合成、沒變時沒有） */
 let renders = 0;
@@ -69,11 +84,29 @@ export const cachedPreview = (key: string): PcmAudio | null => {
   return hit ? pcmFromAudioBuffer(hit.buffer) : null;
 };
 
+/** 同時在解碼的音檔數與最多到過幾個（測試用：確認一次只解碼一個） */
+let decoding = 0;
+let maxDecoding = 0;
+export const decodeStats = (): { active: number; max: number } => ({
+  active: decoding,
+  max: maxDecoding,
+});
+
 /**
  * 解碼音檔：OfflineAudioContext 解成 44.1 kHz（聲道照原檔），回傳 AudioBuffer（不另外複製）。
- * 失敗丟 AudioDecodeError（訊息可直接顯示）。
+ * 失敗丟 AudioDecodeError（訊息可直接顯示）。要經過 queueDecode（一次一個）。
  */
 export async function decodeFileBuffer(blob: Blob): Promise<AudioBuffer> {
+  decoding++;
+  maxDecoding = Math.max(maxDecoding, decoding);
+  try {
+    return await decodeNow(blob);
+  } finally {
+    decoding--;
+  }
+}
+
+async function decodeNow(blob: Blob): Promise<AudioBuffer> {
   const g = globalThis as unknown as { OfflineAudioContext?: typeof OfflineAudioContext };
   if (!g.OfflineAudioContext) throw new AudioDecodeError('這個瀏覽器不支援音訊處理。');
   const oc = new g.OfflineAudioContext({
@@ -100,13 +133,15 @@ export async function decodeFileBuffer(blob: Blob): Promise<AudioBuffer> {
  */
 export async function probeDuration(blob: Blob, timeoutMs = 4000): Promise<number | null> {
   try {
-    const head = new Uint8Array(await blob.slice(0, 4096).arrayBuffer());
-    const wav = wavDuration(head, blob.size);
+    const read = async (a: number, b: number) =>
+      new Uint8Array(await blob.slice(a, Math.min(b, blob.size)).arrayBuffer());
+    const wav = await readWavDuration(read, blob.size);
     if (wav !== null) return wav;
   } catch {
     /* 讀不到檔頭：改用 <audio> */
   }
-  if (typeof document === 'undefined') return null;
+  /* 空的檔案不給 <audio>（主控台會有錯誤） */
+  if (typeof document === 'undefined' || !blob.size) return null;
   const url = URL.createObjectURL(blob);
   const audio = document.createElement('audio');
   audio.preload = 'metadata';
@@ -146,6 +181,7 @@ function shapeFileBuffer(
 
 /** 新加入的音檔：解碼好的 buffer 直接用在這一軌（不必再解碼一次） */
 export function primeFile(t: FileTrack, buffer: AudioBuffer): void {
+  decodedSeconds.set(t.asset, buffer.duration);
   fileBuffers.set(fileKey(t), shapeFileBuffer(buffer, t));
 }
 
@@ -153,13 +189,23 @@ export function primeFile(t: FileTrack, buffer: AudioBuffer): void {
  * 匯出用：這一軌在 seconds 秒的循環裡的樣子（首尾相接、長度剛好 seconds 秒）。
  * 每次重新解碼一份（播放用的那份已經交給 Web Audio，不再讀它），做完就丟。
  */
-export async function exportFilePcm(t: FileTrack, seconds: number): Promise<PcmAudio> {
+export async function exportFilePcm(
+  t: FileTrack,
+  seconds: number,
+  signal?: AbortSignal,
+): Promise<PcmAudio> {
   if (fileTooLong(t.duration)) throw new TooLongError(t.duration);
-  const blob = await assets.get(t.asset);
-  if (!blob) throw new MissingAssetError();
-  const pcm = pcmFromAudioBuffer(await decodeFileBuffer(blob));
-  if (!t.loop) return placeOnce(pcm, seconds, t.fadeIn, t.fadeOut);
-  return tileLoop(crossfadeLoopInPlace(pcm, t.seam), seconds, Math.max(0.05, t.seam));
+  /* 解碼與整理都在隊裡做完（一次只有一份解碼好的音檔），出來的只有 seconds 秒 */
+  return queueDecode(async () => {
+    if (signal?.aborted) throw new DOMException('已取消', 'AbortError');
+    const blob = await assets.get(t.asset);
+    if (!blob) throw new MissingAssetError();
+    const buffer = await decodeFileBuffer(blob);
+    if (fileTooLong(buffer.duration)) throw new TooLongError(buffer.duration);
+    const pcm = pcmFromAudioBuffer(buffer);
+    if (!t.loop) return placeOnce(pcm, seconds, t.fadeIn, t.fadeOut);
+    return tileLoop(crossfadeLoopInPlace(pcm, t.seam), seconds, Math.max(0.05, t.seam));
+  });
 }
 
 export class TooLongError extends Error {
@@ -285,11 +331,16 @@ function requestFile(t: FileTrack, key: string, delay: number) {
   const run = async () => {
     entry.timer = null;
     try {
-      const blob = await assets.get(t.asset);
-      if (!blob) throw new MissingAssetError();
-      if (ctrl.signal.aborted) return;
-      const buffer = await decodeFileBuffer(blob);
-      if (ctrl.signal.aborted) return;
+      /* 排隊：輪到時已經不要了（拿掉、改設定、超過總長度）就不解碼 */
+      const buffer = await queueDecode(async () => {
+        if (ctrl.signal.aborted) return null;
+        const blob = await assets.get(t.asset);
+        if (!blob) throw new MissingAssetError();
+        if (ctrl.signal.aborted) return null;
+        return decodeFileBuffer(blob);
+      });
+      if (!buffer || ctrl.signal.aborted) return;
+      decodedSeconds.set(t.asset, buffer.duration);
       if (fileTooLong(buffer.duration)) throw new TooLongError(buffer.duration);
       fileBuffers.set(key, shapeFileBuffer(buffer, t));
       if (filePending.get(t.key) === entry) filePending.delete(t.key);
@@ -312,15 +363,16 @@ function requestFile(t: FileTrack, key: string, delay: number) {
   else void run();
 }
 
-function syncFile(t: FileTrack) {
+function syncFile(t: FileTrack, over: ReadonlySet<string>) {
   const gain = volumeGain(t.volume);
   const mode = t.loop ? 'loop' : 'once';
-  /* 太長的音檔（以前存的）不解碼 */
-  if (fileTooLong(t.duration)) {
+  /* 太長的音檔（以前存的）、加起來超過總長度的不解碼（已經解好的也丟掉） */
+  const skip = fileTooLong(t.duration) ? 'tooLong' : over.has(t.key) ? 'overTotal' : null;
+  if (skip) {
     cancelFile(t.key);
     currentFile.delete(t.key);
     mixer.setTrack(t.key, { buffer: null, gain, swell: t.swell, mode });
-    setStatus(t.key, 'tooLong');
+    setStatus(t.key, skip);
     return;
   }
   const k = fileKey(t);
@@ -359,10 +411,15 @@ let lastMaster = -1;
 export function syncEngine(s: MixState): void {
   const keep = new Set<string>();
   const live = new Set<string>();
+  /* 總長度：存檔裡的長度和實際解碼出來的取大的；找不到、解不開的不佔記憶體，不算 */
+  const over = overTotalKeys(s.tracks, {
+    length: (t) => Math.max(t.duration, decodedSeconds.get(t.asset) ?? 0),
+    skip: (t) => failed.get(t.key) === fileKey(t),
+  });
   for (const t of s.tracks) {
     live.add(t.key);
     if (t.kind === 'synth') syncSynth(t, keep);
-    else syncFile(t);
+    else syncFile(t, over);
   }
   for (const id of mixer.trackIds()) {
     if (live.has(id)) continue;
@@ -375,9 +432,12 @@ export function syncEngine(s: MixState): void {
   for (const k of [...filePending.keys()]) if (!live.has(k)) cancelFile(k);
   for (const k of [...failed.keys()]) if (!live.has(k)) failed.delete(k);
   for (const k of [...currentFile.keys()]) if (!live.has(k)) currentFile.delete(k);
-  /* 用不到的音檔循環丟掉 */
-  const fileKeys = new Set(s.tracks.filter((t): t is FileTrack => t.kind === 'file').map(fileKey));
+  /* 用不到的音檔循環丟掉（超過總長度的也是） */
+  const files = s.tracks.filter((t): t is FileTrack => t.kind === 'file');
+  const fileKeys = new Set(files.filter((t) => !over.has(t.key)).map(fileKey));
   for (const k of [...fileBuffers.keys()]) if (!fileKeys.has(k)) fileBuffers.delete(k);
+  const assetIds = new Set(files.map((t) => t.asset));
+  for (const k of [...decodedSeconds.keys()]) if (!assetIds.has(k)) decodedSeconds.delete(k);
   prune(keep);
   if (s.master !== lastMaster) {
     lastMaster = s.master;

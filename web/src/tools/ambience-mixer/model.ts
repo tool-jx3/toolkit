@@ -2,6 +2,8 @@
  * 環境音混音器的資料：混音的狀態（軌、總音量、匯出設定）、整理（存檔、網址讀回來時）、預設組合、隨機組合、
  * 分享連結的格式、檔名。純函式，Node 可測。規格：docs/refactor/specs/ambience-mixer.md。
  */
+
+import type { AudioFileType } from '@/core/audio';
 import {
   type AmbienceParams,
   ambienceSound,
@@ -86,9 +88,107 @@ export const MAX_FILE_BYTES = 60 * 1024 * 1024;
 export const FILE_MAX_SECONDS = 15 * 60;
 /** 超過長度上限（多 1 秒的寬容：剛好 15 分鐘的檔案不會因為編碼的填充被擋掉） */
 export const fileTooLong = (seconds: number): boolean => seconds > FILE_MAX_SECONDS + 1;
-/** 分鐘數的文字（一位小數，例「64」「15.5」） */
-export const minutesText = (seconds: number): string =>
-  (seconds / 60).toFixed(1).replace(/\.0$/, '');
+/**
+ * 自己的音檔解碼後的**總長度**上限（秒）：依軌的順序累計，超過的不載入。每個 15 分鐘、六個加起來會到 1.9 GB
+ * （驗證時六個 14 分 50 秒的立體聲讓分頁到約 2 GB、重新整理時峰值 3.8 GB）；30 分鐘的立體聲解碼後約 635 MB。
+ */
+export const FILES_TOTAL_SECONDS = 30 * 60;
+/** 超過總長度上限（多 2 秒的寬容：兩個剛好 15 分鐘的音檔） */
+export const filesTotalTooLong = (seconds: number): boolean => seconds > FILES_TOTAL_SECONDS + 2;
+
+/**
+ * 依軌的順序累計自己的音檔的長度，回傳累計起來超過總長度上限、不載入的軌。
+ * 太長的（fileTooLong）與 skip 的（找不到、解不開：不佔記憶體）不算；length 是每一軌算幾秒（預設存檔裡的長度）。
+ */
+export function overTotalKeys(
+  tracks: readonly Track[],
+  o: { length?: (t: FileTrack) => number; skip?: (t: FileTrack) => boolean } = {},
+): Set<string> {
+  const over = new Set<string>();
+  let total = 0;
+  for (const t of tracks) {
+    if (t.kind !== 'file' || fileTooLong(t.duration) || o.skip?.(t)) continue;
+    const d = o.length ? o.length(t) : t.duration;
+    if (filesTotalTooLong(total + d)) over.add(t.key);
+    else total += d;
+  }
+  return over;
+}
+
+/** 目前載入的自己的音檔加起來幾秒（不算太長、超過總長度的，與 skip 的：找不到、解不開） */
+export function filesInUse(
+  tracks: readonly Track[],
+  skip: (t: FileTrack) => boolean = () => false,
+): number {
+  const over = overTotalKeys(tracks, { skip });
+  let total = 0;
+  for (const t of tracks)
+    if (t.kind === 'file' && !fileTooLong(t.duration) && !skip(t) && !over.has(t.key))
+      total += t.duration;
+  return total;
+}
+
+/**
+ * 音檔長度的文字（無條件進位到整秒，不會和上限看起來一樣）：「64 分鐘」「15 分 2 秒」「40 秒」。
+ */
+export function lengthText(seconds: number): string {
+  const s = Math.max(0, Math.ceil(seconds - 1e-6));
+  const m = Math.floor(s / 60);
+  const r = s % 60;
+  if (!m) return `${r} 秒`;
+  return r ? `${m} 分 ${r} 秒` : `${m} 分鐘`;
+}
+
+/**
+ * 讀不到長度時（WAV 檔頭、`<audio>` 的 metadata 都讀不到）用檔案大小估：
+ * - 每種格式保守的**最高**位元率（位元組／秒）：檔案大小 ÷ 它＝最短可能的長度；連這樣都超過上限 → 一定太長，直接擋。
+ *   MP3 320 kbps；Ogg（Vorbis、Opus）、WebM 512 kbps；AAC／M4A 576 kbps（48 kHz 立體聲的上限）；
+ *   WAV、FLAC 與認不得的照未壓縮的 192 kHz、32 位元、立體聲（實際上不會因此擋掉）。
+ * - 保守的**最低**位元率 6 kbps（Opus 的下限）：檔案大小 ÷ 它＝最長可能的長度；不超過上限 → 不可能太長，直接解碼。
+ * - 介於兩者之間：可能太長，先問（解碼後才知道，太長的話解碼時很佔記憶體）。
+ * MP3 開頭的 ID3 標籤（可能有封面圖）不算在內。
+ */
+export const MAX_BYTE_RATE: Record<AudioFileType, number> = {
+  mp3: 40_000,
+  ogg: 64_000,
+  webm: 64_000,
+  aac: 72_000,
+  m4a: 72_000,
+  wav: 1_536_000,
+  flac: 1_536_000,
+};
+export const UNKNOWN_BYTE_RATE = 1_536_000;
+export const MIN_BYTE_RATE = 750;
+
+/** MP3 開頭的 ID3v2 標籤的位元組數（沒有時 0） */
+export function id3Size(head: Uint8Array): number {
+  if (head.length < 10 || head[0] !== 0x49 || head[1] !== 0x44 || head[2] !== 0x33) return 0;
+  const n =
+    ((head[6] & 0x7f) << 21) |
+    ((head[7] & 0x7f) << 14) |
+    ((head[8] & 0x7f) << 7) |
+    (head[9] & 0x7f);
+  return 10 + n + (head[5] & 0x10 ? 10 : 0);
+}
+
+export type UnknownLength =
+  | { kind: 'block'; atLeast: number }
+  | { kind: 'ask'; atLeast: number; atMost: number }
+  | { kind: 'decode' };
+
+/** 讀不到長度時怎麼辦（上面的規則）；head：檔案開頭（至少 10 位元組） */
+export function unknownLength(
+  size: number,
+  head: Uint8Array,
+  type: AudioFileType | null,
+): UnknownLength {
+  const payload = Math.max(0, size - (type === 'mp3' ? id3Size(head) : 0));
+  const atLeast = payload / (type ? MAX_BYTE_RATE[type] : UNKNOWN_BYTE_RATE);
+  const atMost = payload / MIN_BYTE_RATE;
+  if (fileTooLong(atLeast)) return { kind: 'block', atLeast };
+  if (!fileTooLong(atMost)) return { kind: 'decode' };
+  return { kind: 'ask', atLeast, atMost };
+}
 /** 太短的音檔（解碼後）不收：循環起來只是一連串的雜音 */
 export const FILE_MIN_SECONDS = 0.5;
 /** 自己的音檔解碼成這個取樣率（預覽直接播它、匯出時由 Web Audio 換成匯出的取樣率） */
@@ -174,20 +274,28 @@ export function newFileTrack(
 }
 
 /**
- * WAV 檔頭 → 長度（秒）：從 fmt 的每秒位元組數與 data 的大小算（data 的大小不合理時用檔案大小）；不是 WAV 時 null。
- * head：檔案開頭（4 KB 就夠）；size：整個檔案的位元組數。
+ * WAV → 長度（秒）：一個一個區塊往後讀（只讀每個區塊的開頭，data 在很大的 LIST 之後也讀得到），
+ * 從 fmt 的每秒位元組數與 data 的大小算（data 的大小不合理時用檔案大小）；不是 WAV 或讀不出來時 null。
+ * read(start, end)：讀檔案的一段（Blob.slice 或測試用的陣列）；size：整個檔案的位元組數。
  */
-export function wavDuration(head: Uint8Array, size: number): number | null {
+export async function readWavDuration(
+  read: (start: number, end: number) => Promise<Uint8Array>,
+  size: number,
+): Promise<number | null> {
+  const head = await read(0, 12);
   if (head.length < 12) return null;
-  const tag = (o: number) => String.fromCharCode(head[o], head[o + 1], head[o + 2], head[o + 3]);
-  if (tag(0) !== 'RIFF' || tag(8) !== 'WAVE') return null;
-  const v = new DataView(head.buffer, head.byteOffset, head.byteLength);
+  const tag = (b: Uint8Array, o: number) => String.fromCharCode(b[o], b[o + 1], b[o + 2], b[o + 3]);
+  if (tag(head, 0) !== 'RIFF' || tag(head, 8) !== 'WAVE') return null;
   let o = 12;
   let byteRate = 0;
-  while (o + 8 <= head.length) {
-    const id = tag(o);
-    const len = v.getUint32(o + 4, true);
-    if (id === 'fmt ' && o + 20 <= head.length) byteRate = v.getUint32(o + 16, true);
+  /* 區塊最多看 64 個（正常的 WAV 只有幾個） */
+  for (let i = 0; i < 64 && o + 8 <= size; i++) {
+    const c = await read(o, o + 20);
+    if (c.length < 8) return null;
+    const v = new DataView(c.buffer, c.byteOffset, c.byteLength);
+    const id = tag(c, 0);
+    const len = v.getUint32(4, true);
+    if (id === 'fmt ' && c.length >= 20) byteRate = v.getUint32(16, true);
     if (id === 'data') {
       if (!byteRate) return null;
       const rest = Math.max(0, size - (o + 8));
@@ -198,6 +306,12 @@ export function wavDuration(head: Uint8Array, size: number): number | null {
   }
   return null;
 }
+
+/** 從一段位元組讀（測試、已經在記憶體裡的檔案） */
+export const bytesReader =
+  (bytes: Uint8Array) =>
+  async (start: number, end: number): Promise<Uint8Array> =>
+    bytes.subarray(start, Math.min(end, bytes.length));
 
 /* ---------- 整理 ---------- */
 
@@ -627,10 +741,10 @@ export function lengthLabel(seconds: number): string {
   return s ? `${m} 分 ${s} 秒` : `${m} 分`;
 }
 
-/** 匯出的檔名：環境音-<組合名或前三個聲音>-<秒數>秒.wav */
-export function exportFileName(s: MixState): string {
+/** 匯出的檔名：環境音-<組合名或前三個聲音>-<秒數>秒.wav（skipped：沒有混進去的軌，不列） */
+export function exportFileName(s: MixState, skipped: ReadonlySet<string> = new Set()): string {
   const names = s.tracks
-    .filter((t) => t.volume > 0)
+    .filter((t) => t.volume > 0 && !skipped.has(t.key))
     .map((t) => (t.kind === 'file' ? baseName(t.name) : trackLabel(t)));
   const label = s.mixName || names.slice(0, 3).join('・') || '混音';
   return `${safeFileName(`環境音-${label}-${s.export.seconds}秒`, { fallback: '環境音', maxLength: 100 })}.wav`;
