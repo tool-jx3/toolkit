@@ -1,6 +1,7 @@
 /**
  * 「事件」分頁（規格 1.2、F83）：範例的提示、選取的事件的欄位、沒有選取時的說明。
- * PL 檢視時欄位停用（上方一行「切回 GM 檢視才能編輯」），不顯示 GM 筆記。
+ * PL 檢視時欄位停用（上方一行「切回 GM 檢視才能編輯」），不顯示 GM 筆記；泳道、分類的選項與地點、角色的建議詞
+ * 只用 PL 看得到的資料。
  */
 import { Copy, Lock, Plus, Trash2, X } from 'lucide-react';
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
@@ -24,11 +25,13 @@ import { afterUnit, canonical, readTime } from '../model/time';
 import {
   type EventKind,
   eventColor,
+  type Lane,
   LIMITS,
   PALETTE,
   splitPeople,
   type TimelineEvent,
 } from '../model/types';
+import { usedCategories, type VisibleDoc } from '../model/visible';
 import {
   deleteEvent,
   displayOrder,
@@ -118,7 +121,7 @@ export function EventPanel() {
       <SampleNote />
       {pl ? <PlLock /> : null}
       {ev && visible ? (
-        <EventEditor key={ev.id} ev={ev} pl={pl} />
+        <EventEditor key={ev.id} ev={ev} pl={pl} vdoc={vdoc} />
       ) : (
         <div className="flex flex-col gap-3">
           <p className="m-0 text-sm text-muted">{S.noSelection}</p>
@@ -152,8 +155,15 @@ function defaultEnd(
   return canonical(docMode, a);
 }
 
-function EventEditor({ ev, pl }: { ev: TimelineEvent; pl: boolean }) {
+function EventEditor({ ev, pl, vdoc }: { ev: TimelineEvent; pl: boolean; vdoc: VisibleDoc }) {
   const doc = useDoc((s) => s.data);
+  /* 選項與建議詞的來源：PL 檢視只用 PL 看得到的（GM 專用的泳道、分類、地點、角色不出現） */
+  const lanesSrc = pl ? vdoc.lanes : doc.lanes;
+  const catsSrc = useMemo(
+    () => (pl ? usedCategories(vdoc) : doc.categories),
+    [pl, vdoc, doc.categories],
+  );
+  const eventsSrc = pl ? vdoc.events : doc.events;
   const focusTitle = useUi((s) => s.focusTitle);
   const titleRef = useRef<HTMLInputElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -180,23 +190,23 @@ function EventEditor({ ev, pl }: { ev: TimelineEvent; pl: boolean }) {
   const laneOptions = useMemo(
     () => [
       { value: MAIN, label: S.main },
-      ...displayOrder(doc.lanes).map((l) => ({
+      ...displayOrder(lanesSrc).map((l) => ({
         value: l.id,
         label: `${l.parentId ? '　' : ''}${l.name.trim() || S.untitled}${l.gm ? '（GM）' : ''}`,
       })),
     ],
-    [doc.lanes],
+    [lanesSrc],
   );
   const catOptions = useMemo(
     () => [
       { value: NONE, label: S.noCategory },
-      ...doc.categories.map((c) => ({ value: c.id, label: c.name.trim() || S.untitled })),
+      ...catsSrc.map((c) => ({ value: c.id, label: c.name.trim() || S.untitled })),
     ],
-    [doc.categories],
+    [catsSrc],
   );
   const places = useMemo(
-    () => [...new Set(doc.events.map((e) => e.place.trim()).filter(Boolean))].slice(0, 200),
-    [doc.events],
+    () => [...new Set(eventsSrc.map((e) => e.place.trim()).filter(Boolean))].slice(0, 200),
+    [eventsSrc],
   );
   const placesId = useId();
 
@@ -315,7 +325,7 @@ function EventEditor({ ev, pl }: { ev: TimelineEvent; pl: boolean }) {
           <option key={p} value={p} />
         ))}
       </datalist>
-      <PeopleField ev={ev} pl={pl} />
+      <PeopleField ev={ev} pl={pl} lanes={lanesSrc} events={eventsSrc} />
       <Field label={S.fCategory}>
         <Select
           value={ev.categoryId || NONE}
@@ -422,8 +432,18 @@ function EventEditor({ ev, pl }: { ev: TimelineEvent; pl: boolean }) {
 }
 
 /** 相關角色：以「、」分隔；離開欄位時整理（不重複、有上限）；下方的建議詞點一下加入 */
-function PeopleField({ ev, pl }: { ev: TimelineEvent; pl: boolean }) {
-  const doc = useDoc((s) => s.data);
+function PeopleField({
+  ev,
+  pl,
+  lanes,
+  events,
+}: {
+  ev: TimelineEvent;
+  pl: boolean;
+  /** 建議詞的來源（PL 檢視時只有 PL 看得到的） */
+  lanes: readonly Lane[];
+  events: readonly TimelineEvent[];
+}) {
   const joined = ev.people.join('、');
   const [draft, setDraft] = useState(joined);
   const [editing, setEditing] = useState(false);
@@ -450,11 +470,11 @@ function PeopleField({ ev, pl }: { ev: TimelineEvent; pl: boolean }) {
   );
   const suggestions = useMemo(() => {
     const names = new Set<string>();
-    for (const l of doc.lanes)
+    for (const l of lanes)
       if ((l.kind === 'character' || l.kind === 'npc') && l.name.trim()) names.add(l.name.trim());
-    for (const e of doc.events) for (const p of e.people) names.add(p);
+    for (const e of events) for (const p of e.people) names.add(p);
     return [...names].filter((n) => !ev.people.includes(n)).slice(0, 24);
-  }, [doc.lanes, doc.events, ev.people]);
+  }, [lanes, events, ev.people]);
   return (
     <div className="flex flex-col gap-1.5">
       <Field label={S.fPeople} hint={S.peopleHint}>

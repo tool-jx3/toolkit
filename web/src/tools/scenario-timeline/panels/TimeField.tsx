@@ -1,11 +1,13 @@
 /**
- * 時間的文字欄（規格 F02）：寬鬆地解讀，離開欄位或 Enter 時套用並改成標準寫法；看不懂時標紅、寫原因、不套用；Esc 還原。
+ * 時間的文字欄（規格 F02）：寬鬆地解讀，離開欄位或 Enter 時套用並改成標準寫法；看不懂時標紅、寫原因、不套用
+ * （離開欄位時還原，並通知「…，沒有套用」）；星期寫錯時照日期、通知已更正成哪一天；Esc 還原。
  * 欄位下方寫解讀的結果。
  * 輸入中被換掉（例如點了別的事件，編輯區換成別的事件）時，用聚焦當時的 onCommit 套用（不會套用到別的事件）。
  */
 import { useEffect, useRef, useState } from 'react';
 import { Field, TextInput } from '@/ui';
 import { canonical, formatLong, parseTime, type TimeMode } from '../model/time';
+import { notify } from '../notify';
 import { S } from '../strings';
 
 export interface TimeFieldProps {
@@ -37,6 +39,8 @@ interface Check {
   text: string;
   error: string | null;
   status: string | null;
+  /** 星期寫錯、照日期更正（更正後的寫法） */
+  fixed: string | null;
 }
 
 function check(
@@ -56,12 +60,20 @@ function check(
       text: '',
       error: allowEmpty ? null : (emptyError ?? '請輸入時間'),
       status: null,
+      fixed: null,
     };
   const parsed = parseTime(mode, draft, era);
-  if (!parsed.ok) return { empty, text: '', error: parsed.error, status: null };
+  if (!parsed.ok) return { empty, text: '', error: parsed.error, status: null, fixed: null };
   const text = canonical(mode, parsed.tv);
   const error = validate ? validate(text) : null;
-  return { empty, text, error, status: S.parsed(formatLong(mode, parsed.tv, era)) };
+  const long = formatLong(mode, parsed.tv, era);
+  return {
+    empty,
+    text,
+    error,
+    status: parsed.weekdayFixed ? S.weekdayFixedHint(long) : S.parsed(long),
+    fixed: parsed.weekdayFixed ? long : null,
+  };
 }
 
 export function TimeField(props: TimeFieldProps) {
@@ -78,26 +90,41 @@ export function TimeField(props: TimeFieldProps) {
   const latest = useRef({ draft, editing, value, props });
   latest.current = { draft, editing, value, props };
 
-  const applyDraft = (text: string, current: string, p: TimeFieldProps) => {
+  /**
+   * 套用輸入的內容；看不懂時回傳 null。leaving：離開欄位（或卸載）——看不懂時通知「…，沒有套用」（欄位還原）。
+   * 星期寫錯時通知已照日期更正。
+   */
+  const applyDraft = (text: string, current: string, p: TimeFieldProps, leaving: boolean) => {
     const r = check(text, p);
-    if (r.error) return null;
+    if (r.error) {
+      if (leaving && text.trim() !== current.trim())
+        notify({
+          title: S.timeNotApplied(r.error),
+          description: S.timeKept(p.label),
+          tone: 'warning',
+          duration: 6000,
+        });
+      return null;
+    }
     if (r.empty) {
       if (p.allowEmpty && current) commitRef.current('');
       return '';
     }
     if (r.text !== current) commitRef.current(r.text);
+    if (r.fixed) notify({ title: S.weekdayFixed(r.fixed), tone: 'info', duration: 5000 });
     return r.text;
   };
-  const apply = () => {
-    const out = applyDraft(draft, value, props);
+  const apply = (leaving: boolean) => {
+    const out = applyDraft(draft, value, props, leaving);
     if (out !== null) setDraft(out);
+    else if (leaving) setDraft(value);
   };
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: 卸載時（例如換了選取的事件）套用輸入中的內容
   useEffect(
     () => () => {
       const l = latest.current;
-      if (l.editing) applyDraft(l.draft, l.value, l.props);
+      if (l.editing) applyDraft(l.draft, l.value, l.props, true);
     },
     [],
   );
@@ -119,14 +146,14 @@ export function TimeField(props: TimeFieldProps) {
         }}
         onChange={(e) => setDraft(e.target.value)}
         onBlur={() => {
-          apply();
+          apply(true);
           setEditing(false);
         }}
         onKeyDown={(e) => {
           if (e.nativeEvent.isComposing) return;
           if (e.key === 'Enter') {
             e.preventDefault();
-            apply();
+            apply(false);
           } else if (e.key === 'Escape') {
             e.preventDefault();
             e.stopPropagation();

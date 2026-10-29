@@ -28,6 +28,8 @@ export interface Step {
 export interface Tick {
   v: number;
   label: string;
+  /** 上排的標籤放不下時依序改用的短寫法（例：3月15日（日）、3月15日、15日） */
+  short?: string[];
 }
 
 export interface AxisTicks {
@@ -210,7 +212,17 @@ export function majorTicks(mode: TimeMode, s: Step, from: number, to: number): T
       d++
     ) {
       const v = d * MINUTES_PER_DAY;
-      out.push({ v, label: mode === 'day' ? `第 ${dayNumber(v)} 天` : dateLabel(v) });
+      if (mode === 'day')
+        out.push({ v, label: `第 ${dayNumber(v)} 天`, short: [`${dayNumber(v)}`] });
+      else {
+        const p = dateParts(v);
+        const wd = dateLabel(v).slice(dateLabel(v).indexOf('（'));
+        out.push({
+          v,
+          label: dateLabel(v),
+          short: [`${p.m}月${p.d}日${wd}`, `${p.m}月${p.d}日`, `${p.d}日`],
+        });
+      }
     }
     return out;
   }
@@ -222,7 +234,7 @@ export function majorTicks(mode: TimeMode, s: Step, from: number, to: number): T
       m = addMonths(m, 1)
     ) {
       const p = dateParts(m);
-      out.push({ v: m, label: `${p.y}年${p.m}月` });
+      out.push({ v: m, label: `${p.y}年${p.m}月`, short: [`${p.m}月`] });
     }
     return out;
   }
@@ -235,6 +247,26 @@ export function majorTicks(mode: TimeMode, s: Step, from: number, to: number): T
     return out;
   }
   return [];
+}
+
+/**
+ * 上排標籤的寫法與位置：貼在格子的左邊（左邊被切到時貼在 lo）；會壓到下一格的標籤或超出 hi 時改用短寫法，
+ * 都放不下時 null（不畫，也不畫被切掉的半個字）。gap 是標籤後面要留的空白。
+ */
+export function placeMajor(
+  t: Tick,
+  x: number,
+  nextX: number | null,
+  lo: number,
+  hi: number,
+  measure: Measure,
+  gap = 8,
+): { text: string; left: number } | null {
+  const left = Math.max(x, lo) + 4;
+  const limit = Math.min(nextX ?? Number.POSITIVE_INFINITY, hi);
+  for (const text of [t.label, ...(t.short ?? [])])
+    if (left + measure(text) + gap <= limit) return { text, left };
+  return null;
 }
 
 /* ---------- 吸附單位（規格 3.5） ---------- */

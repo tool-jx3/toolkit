@@ -49,6 +49,12 @@ const FORMATS: ExportFormatOption[] = [
 ];
 const SCALES = [1, 2] as const;
 
+/** 匯出的對象：PL 檢視時固定 PL 用（畫面上不出現 GM 用的內容） */
+function useAudience(chosen: Audience): Audience {
+  const pl = usePrefs((s) => s.data.viewMode) === 'pl';
+  return pl ? 'pl' : chosen;
+}
+
 function AudienceField({
   value,
   onChange,
@@ -58,11 +64,16 @@ function AudienceField({
   onChange: (v: Audience) => void;
   secrets: boolean;
 }) {
+  const pl = usePrefs((s) => s.data.viewMode) === 'pl';
   return (
-    <Field label={S.audience} hint={secrets ? S.audienceHint : S.audienceSame}>
+    <Field
+      label={S.audience}
+      hint={pl ? S.audiencePlView : secrets ? S.audienceHint : S.audienceSame}
+    >
       <Segmented<Audience>
-        value={value}
+        value={pl ? 'pl' : value}
         fullWidth
+        disabled={pl}
         onValueChange={onChange}
         options={[
           { value: 'pl', label: S.audiencePl },
@@ -75,7 +86,9 @@ function AudienceField({
 
 export function ExportTab() {
   const doc = useDoc((s) => s.data);
-  const ex = usePrefs((s) => s.data.export);
+  const exPrefs = usePrefs((s) => s.data.export);
+  const audience = useAudience(exPrefs.audience);
+  const ex = useMemo(() => ({ ...exPrefs, audience }), [exPrefs, audience]);
   const collapsed = usePrefs((s) => s.data.collapsed);
   const win = useUi((s) => s.win);
   const winMode = useUi((s) => s.winMode);
@@ -185,10 +198,14 @@ export function ExportTab() {
         onExport={async (settings) => {
           const d = docNow();
           const p = prefsNow();
+          const exNow: ExportPrefs = {
+            ...p.export,
+            audience: p.viewMode === 'pl' ? 'pl' : p.export.audience,
+          };
           const ui = useUi.getState();
           const r = planPicture(
             d,
-            p.export,
+            exNow,
             ui.win && ui.winMode === d.mode ? ui.win : currentWin(),
             p.collapsed,
           );
@@ -197,7 +214,7 @@ export function ExportTab() {
             const out = await renderSvg(r.pic);
             return {
               blob: out.blob,
-              fileName: imageFileName(d, p.export.audience, 'svg'),
+              fileName: imageFileName(d, exNow.audience, 'svg'),
               width: r.pic.width,
               height: r.pic.height,
               details: [
@@ -211,7 +228,7 @@ export function ExportTab() {
           const out = await renderPng(r.pic, p.export.scale);
           return {
             blob: out.blob,
-            fileName: imageFileName(d, p.export.audience, 'png'),
+            fileName: imageFileName(d, exNow.audience, 'png'),
             width: out.width,
             height: out.height,
             details:
@@ -229,7 +246,9 @@ export function ExportTab() {
 
 function TextSection() {
   const doc = useDoc((s) => s.data);
-  const t = usePrefs((s) => s.data.text);
+  const tPrefs = usePrefs((s) => s.data.text);
+  const audience = useAudience(tPrefs.audience);
+  const t = useMemo(() => ({ ...tPrefs, audience }), [tPrefs, audience]);
   const secrets = useMemo(() => hasSecrets(doc), [doc]);
   const text = useMemo(() => {
     const ch = chronicle(visibleDoc(doc, t.audience), S.untitled, S.toolName);

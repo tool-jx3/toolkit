@@ -40,7 +40,8 @@ export function exampleDoc(): TimelineDoc {
         laneId: 'hall',
         place: '黑水灣燈塔',
         people: ['艾德蒙・霍爾'],
-        description: '霍爾寫信給調查員的舊識：燈塔夜裡會自己亮起綠色的光，請人來看看。',
+        description:
+          '霍爾寫信給調查員的舊識：最近半夜常有人提著燈在燈塔下的礁岩走動，鎮上的人都不肯談，請人來看看。',
       }),
       ev({
         id: 'ex-rite1',

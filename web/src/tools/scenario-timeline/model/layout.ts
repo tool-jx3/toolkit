@@ -293,3 +293,16 @@ export function contentRange(vdoc: VisibleDoc, extra: readonly number[] = []): S
   }
   return Number.isFinite(a) ? { a, b } : null;
 }
+
+/** 範圍 [a, b] 裡有沒有看得到的東西：和範圍重疊的事件、範圍裡的標記與 extra（目前進度） */
+export function hasContentIn(vdoc: VisibleDoc, span: Span, extra: readonly number[] = []): boolean {
+  for (const e of vdoc.events) {
+    const s = eventSpan(vdoc.mode, e, vdoc.era);
+    if (s && s.a <= span.b && s.b >= span.a) return true;
+  }
+  for (const m of vdoc.markers) {
+    const t = readTime(vdoc.mode, m.time, vdoc.era);
+    if (t && t.v >= span.a && t.v <= span.b) return true;
+  }
+  return extra.some((v) => v >= span.a && v <= span.b);
+}

@@ -110,6 +110,10 @@ export const S = {
   endRequired: '期間與背景要填結束',
   endAfter: '結束要比開始晚',
   parsed: (t: string) => `＝ ${t}`,
+  weekdayFixedHint: (t: string) => `＝ ${t}（星期照日期更正）`,
+  weekdayFixed: (t: string) => `星期和日期不合，已照日期更正成 ${t}`,
+  timeNotApplied: (error: string) => `${error.replace(/[。.]$/, '')}，沒有套用`,
+  timeKept: (label: string) => `「${label}」維持原本的時間。`,
 
   /* 泳道分頁 */
   lanesTitle: '泳道',
@@ -166,7 +170,10 @@ export const S = {
   convertDesc: '已有的事件與標記會換算成新的寫法（一步，可以復原）。',
   convertDayOne: '第 1 天是哪一天',
   convertDayOneHint: '例：1925-03-12',
-  convertBad: (n: number) => `有 ${n} 個時間換不過去（超出新的寫法的範圍），不能換。`,
+  convertBad: (n: number) =>
+    `有 ${n} 個事件或標記換不過去（超出新的寫法的範圍，或期間換完會倒過來），不能換。`,
+  convertLossy: (n: number) => `${n} 個事件或標記會失去精度（換回來也不會還原）：`,
+  convertEraNote: (era: string) => `曆名「${era}」在日期時間上不會顯示（仍然保存在專案裡）。`,
   convertApply: '換算',
   converted: (to: string) => `已換成「${to}」`,
   markersTitle: '標記',
@@ -199,7 +206,7 @@ export const S = {
   exFrom: '從',
   exTo: '到',
   exRangeBad: '自訂的範圍要「從」比「到」早。',
-  exEmpty: '範圍裡沒有東西可以畫。',
+  exEmpty: '範圍裡沒有事件或標記，沒有東西可以畫。',
   exWidth: '寬度',
   exWidthHint: '時間軸的寬度＋泳道名稱欄；高度跟著泳道。',
   exTitle: '標題列',
@@ -212,6 +219,7 @@ export const S = {
   audienceGm: 'GM 用',
   audienceHint: 'PL 用：拿掉 GM 專用的事件、泳道、標記與筆記。',
   audienceSame: '這份專案沒有 GM 專用的東西，兩種一樣。',
+  audiencePlView: 'PL 檢視時只匯出 PL 用的內容；要匯出 GM 用的先切回 GM 檢視。',
   gmUse: 'GM 用',
   pngLabel: 'PNG',
   pngDesc: '點陣圖，貼到 Discord、CCFOLIA。',
@@ -256,6 +264,13 @@ export const S = {
   importErrors: (list: string) => `看不懂的列：${list}`,
   importNone: '沒有可以讀入的事件',
   importFull: (n: number) => `事件最多 ${n} 個，多的沒有讀入。`,
+  importTableTitle: '讀入事件表',
+  importOver: (n: number, max: number) =>
+    `事件最多 ${max} 個：表格裡有 ${n} 列超過上限，不會讀入。`,
+  importRoom: (has: number, n: number) =>
+    n > 0
+      ? `目前已有 ${has} 個事件，「加入」只加得進 ${n} 個；「取代」可以讀入全部。`
+      : `目前已有 ${has} 個事件（上限），「加入」加不進任何事件；「取代」可以讀入。`,
   unknownFile: '看不懂這個檔案',
   dropLabel: '放開即可讀入',
   dropHint: '專案檔（JSON）或事件表（CSV、TSV）',
@@ -273,6 +288,13 @@ export const S = {
   openConfirmLabel: '開啟',
   opened: '已開啟專案檔',
   badProject: '專案檔的內容無法使用。',
+  emptyProject: '專案檔裡沒有劇本時間表的內容（是空的），沒有開啟。',
+  projectEventsUnreadable: '事件清單看不懂，沒有讀入任何事件。',
+  projectSkippedEvents: (n: number) => `略過 ${n} 個看不懂的事件（沒有開始時間或寫法看不懂）。`,
+  projectRangesToPoints: (n: number) => `${n} 個期間的結束看不懂或不比開始晚，改成時間點。`,
+  projectSkippedMarkers: (n: number) => `略過 ${n} 個看不懂的標記。`,
+  projectOver: (what: string, max: number, n: number) => `${what}最多 ${max} 個，略過 ${n} 個。`,
+  projectLanesFlattened: (n: number) => `${n} 條泳道的上層不存在或超過一層，改成最上層。`,
   resetTitle: '重設成空白的專案？',
   resetDesc: '所有事件、泳道、分類與標記都會清掉。',
   loadExample: '載入範例',
@@ -297,11 +319,11 @@ export const S = {
   keyResize: '改結束（期間、背景）',
   keyLane: '換到上一列、下一列的泳道',
   keyEnter: '編輯（焦點到標題欄）',
-  keyAlt: '拖曳時按住：不吸附',
+  keyAlt: '拖曳時按住：不吸附；上下拖只換泳道、不改時間',
 
   usage: [
     '「＋事件」、N 鍵或在時間軸的空白處雙擊新增事件；點事件後在左邊（窄畫面在下面）的「事件」分頁改標題、時間、泳道、地點、相關角色。',
-    '在時間軸上拖曳事件改時間（自動對齊到整齊的時間，按住 Alt 不對齊）、拖到別的列換泳道、拖期間的兩端改長短；拖曳空白處平移，滾輪或兩指縮放，「全覽」看全部。',
+    '在時間軸上拖曳事件改時間（自動對齊到整齊的時間，按住 Alt 不對齊）、拖到別的列換泳道（只換泳道時按住 Alt 上下拖，不改時間）、拖期間的兩端改長短；拖曳空白處平移，滾輪或兩指縮放，「全覽」看全部。',
     '三種時間寫法（「專案」分頁）：日期時間（1925-03-12 21:00，可以只寫到年、月、日）、第 N 天（第 3 天 21:00）、架空年（302，可以加曆名）。換寫法時已有的事件會換算。',
     '「泳道」分頁新增角色、NPC、地點、陣營的泳道，可以放在別的泳道底下、收合；勾「GM 專用」的泳道 PL 看不到。',
     '「GM／PL」切換檢視：PL 檢視拿掉 GM 專用的事件、泳道、標記與 GM 筆記，可以直接分享給玩家；「目前進度」開了「PL 版只到目前進度」時，PL 只看得到已經發生的事。',

@@ -10,10 +10,13 @@ import type { StateStorage } from 'zustand/middleware';
 import { createPreviewStore, createToolStore } from '@/core/storage';
 import { exampleDoc } from './model/example';
 import {
+  afterUnit,
   canonical,
+  convertLoses,
   convertTime,
   dateValue,
   dayOneValue,
+  formatLong,
   MINUTES_PER_DAY,
   readTime,
   type SnapUnit,
@@ -354,12 +357,31 @@ export function displayOrder(lanes: readonly Lane[]): Lane[] {
   return out;
 }
 
-/** 把顯示順序第 from 個移到第 to 個（子泳道只在同一個上層裡移動；上層連同子泳道一起移動） */
+/** 照上層的順序排回存檔的順序：每個上層後面接它的子泳道（kids 給了時那個上層的子泳道用這個順序） */
+function regroup(
+  tops: readonly Lane[],
+  lanes: readonly Lane[],
+  kids?: { parentId: string; list: Lane[] },
+) {
+  const out: Lane[] = [];
+  for (const t of tops) {
+    out.push(t);
+    if (kids && kids.parentId === t.id) out.push(...kids.list);
+    else for (const c of lanes) if (c.parentId === t.id) out.push(c);
+  }
+  return out;
+}
+
+/**
+ * 把顯示順序第 from 個移到第 to 個（子泳道只在同一個上層裡移動；上層連同子泳道一起移動）。
+ * 上層往下移、目標是自己的子泳道時（鍵盤 Alt＋↓）移到下一個上層之後。位置沒變時 null。
+ */
 export function moveLaneInList(lanes: readonly Lane[], from: number, to: number): Lane[] | null {
   const order = displayOrder(lanes);
   const item = order[from];
   const target = order[to];
   if (!item || !target || from === to) return null;
+  const tops = topLevelOrder(lanes);
   if (item.parentId) {
     /* 子泳道：只在同一個上層裡換位置 */
     const parentId = item.parentId;
@@ -371,28 +393,25 @@ export function moveLaneInList(lanes: readonly Lane[], from: number, to: number)
       else return null;
     }
     const fi = sibs.indexOf(item);
+    if (ti === fi) return null;
     const next = [...sibs];
     next.splice(fi, 1);
     next.splice(ti, 0, item);
-    const rest = lanes.filter((l) => l.parentId !== parentId);
-    return [...rest, ...next];
+    return regroup(tops, lanes, { parentId, list: next });
   }
-  const tops = topLevelOrder(lanes);
   const fi = tops.indexOf(item);
   const targetTop = target.parentId ? tops.find((t) => t.id === target.parentId) : target;
   if (!targetTop) return null;
   let ti = tops.indexOf(targetTop);
-  if (ti === fi) return null;
+  if (ti === fi) {
+    if (to < from || fi >= tops.length - 1) return null;
+    ti = fi + 1;
+  }
   if (ti < 0) ti = tops.length - 1;
   const nextTops = [...tops];
   nextTops.splice(fi, 1);
   nextTops.splice(ti, 0, item);
-  const out: Lane[] = [];
-  for (const t of nextTops) {
-    out.push(t);
-    for (const c of lanes) if (c.parentId === t.id) out.push(c);
-  }
-  return out;
+  return regroup(nextTops, lanes);
 }
 
 export function moveLane(from: number, to: number, step = true): void {
@@ -512,9 +531,20 @@ export function patchDoc(patch: Partial<TimelineDoc>, step = true): void {
 
 /* ---------- 換寫法（規格 F04） ---------- */
 
+export interface ConvertExample {
+  /** 事件標題、標記名稱或「目前進度」 */
+  name: string;
+  from: string;
+  to: string;
+}
+
 export interface ConvertPlan {
-  /** 換不過去的數目 */
+  /** 換不過去的數目（超出新的寫法的範圍，或期間換完會倒過來） */
   bad: number;
+  /** 會失去精度的事件、標記數目（日期→架空年、月／年→日…） */
+  lossy: number;
+  /** 失去精度的例子（最多 3 個） */
+  examples: ConvertExample[];
   apply: () => void;
 }
 
@@ -526,17 +556,56 @@ export function planConvert(to: TimeMode, dayOneText: string): ConvertPlan | nul
   if (needsDay && dayOne === null) return null;
   const opts = { era: doc.era, dayOne: dayOne ?? 0 };
   let bad = 0;
-  const conv = (s: string) => {
-    if (!s) return '';
-    const out = convertTime(doc.mode, to, s, opts);
-    if (out === null) bad++;
-    return out ?? '';
+  let lossy = 0;
+  const examples: ConvertExample[] = [];
+  const label = (mode: TimeMode, s: string) => {
+    const tv = readTime(mode, s, doc.era);
+    return tv ? formatLong(mode, tv, doc.era) : s;
   };
-  const events = doc.events.map((e) => ({ ...e, start: conv(e.start), end: conv(e.end) }));
-  const markers = doc.markers.map((m) => ({ ...m, time: conv(m.time) }));
-  const progressTime = conv(doc.progress.time);
+  /** 換一個項目的開始（與結束）；回傳 null 表示換不過去 */
+  const conv = (name: string, start: string, end = '') => {
+    if (!start) return { start: '', end: '' };
+    const s = convertTime(doc.mode, to, start, opts);
+    const e = end ? convertTime(doc.mode, to, end, { ...opts, role: 'end' }) : '';
+    if (s === null || e === null) {
+      bad++;
+      return { start: s ?? '', end: e ?? '' };
+    }
+    if (e) {
+      const st = readTime(to, s, doc.era);
+      const et = readTime(to, e, doc.era);
+      if (!st || !et || afterUnit(to, et) <= st.v) {
+        bad++;
+        return { start: s, end: e };
+      }
+    }
+    const loses =
+      convertLoses(doc.mode, to, start, doc.era) ||
+      (!!end && convertLoses(doc.mode, to, end, doc.era));
+    if (loses) {
+      lossy++;
+      if (examples.length < 3)
+        examples.push({
+          name,
+          from: end ? `${label(doc.mode, start)}～${label(doc.mode, end)}` : label(doc.mode, start),
+          to: e ? `${label(to, s)}～${label(to, e)}` : label(to, s),
+        });
+    }
+    return { start: s, end: e };
+  };
+  const events = doc.events.map((e) => ({
+    ...e,
+    ...conv(e.title.trim() || S.untitled, e.start, e.end),
+  }));
+  const markers = doc.markers.map((m) => ({
+    ...m,
+    time: conv(m.label.trim() || S.markerDefault, m.time).start,
+  }));
+  const progressTime = conv(S.progressTitle, doc.progress.time).start;
   return {
     bad,
+    lossy,
+    examples,
     apply: () => {
       if (bad || !guard()) return;
       commit((d) => {

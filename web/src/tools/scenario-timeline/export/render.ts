@@ -5,7 +5,7 @@ import { safeFileName } from '@/core/files';
 import { ensureFont, googleFontSubsetCss } from '@/core/fonts';
 import { canvasToBlob } from '@/core/image';
 import { chronicle } from '../model/chronicle';
-import { contentRange, type Span } from '../model/layout';
+import { contentRange, hasContentIn, type Span } from '../model/layout';
 import { createMeasure } from '../model/measure';
 import { formatLong, type Precision, parseTime } from '../model/time';
 import { nowValue, type TimelineDoc, todayValue } from '../model/types';
@@ -30,6 +30,7 @@ export const MAX_SIDE = 16000;
 export const measures = (): PictureMeasures => ({
   item: createMeasure(12, 500, SVG_FAMILY),
   small: createMeasure(11, 400, SVG_FAMILY),
+  major: createMeasure(11, 600, SVG_FAMILY),
   lane: createMeasure(12, 600, SVG_FAMILY),
   title: createMeasure(18, 700, SVG_FAMILY),
 });
@@ -88,6 +89,11 @@ export function planPicture(
     if (!b.ok) return { ok: false, error: `${S.exTo}：${b.error}` };
     if (b.tv.v <= a.tv.v) return { ok: false, error: S.exRangeBad };
     range = { a: a.tv.v, b: b.tv.v };
+  }
+  if (ex.range !== 'all') {
+    /* 目前畫面、自訂範圍裡沒有事件、標記、目前進度時不匯出（規格 F70） */
+    const p = progressValue(vdoc);
+    if (!hasContentIn(vdoc, range, p === null ? [] : [p])) return { ok: false, error: S.exEmpty };
   }
   if (!rangeText) {
     const p = precisionOf(doc.mode);

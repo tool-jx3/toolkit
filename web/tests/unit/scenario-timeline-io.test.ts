@@ -83,12 +83,14 @@ describe('年表（F50、3.7）', () => {
         newEvent({ title: 'A', start: '第 1 天 09:00' }),
         newEvent({ title: 'B', kind: 'range', start: '第 1 天 22:00', end: '第 2 天 02:00' }),
         newEvent({ title: 'C', start: '第 2 天' }),
+        newEvent({ title: 'D', kind: 'range', start: '第 2 天', end: '第 4 天' }),
       ],
     };
     const ch = chronicle(visibleDoc(day, 'gm'), '?', 'T');
     expect(ch.sections.map((s) => s.heading)).toEqual(['第 1 天', '第 2 天']);
     expect(ch.sections[0].rows.map((r) => r.time)).toEqual(['09:00', '22:00～第 2 天 02:00']);
-    expect(ch.sections[1].rows[0].time).toBe('整天');
+    /* 只到日：時間點與期間的開始都寫「整天」 */
+    expect(ch.sections[1].rows.map((r) => r.time)).toEqual(['整天', '整天～第 4 天']);
     const year: TimelineDoc = {
       ...blankDoc(),
       mode: 'year',
@@ -183,6 +185,67 @@ describe('CSV（F75、F76、3.9）', () => {
       a.start < b.start ? -1 : a.start > b.start ? 1 : 0,
     );
     expect(r.events.map(strip)).toEqual(sorted.map(strip));
+  });
+  it("防公式注入：文字欄加 '、時間欄不動；讀回逐欄相同", () => {
+    const base = blankDoc();
+    const ev = (over: Partial<TimelineDoc['events'][number]>) =>
+      newEvent({ start: '1925-03-12 10:00', ...over });
+    const f: TimelineDoc = {
+      ...base,
+      lanes: [{ id: 'l', name: '=泳道', kind: 'other', color: '#4f7cff', parentId: '', gm: false }],
+      categories: [{ id: 'c', name: '+分類', color: '#2fa37a' }],
+      events: [
+        ev({ title: '=1+1', laneId: 'l', categoryId: 'c', place: '@地點', people: ['-甲', '乙'] }),
+        ev({ title: '\t=tab', start: '1925-03-12 11:00', description: '=HYPERLINK("x","y")' }),
+        ev({ title: "'=已經有引號", start: '1925-03-12 12:00', gmNote: '-1' }),
+        ev({ title: "'普通引號", start: '1925-03-12 13:00' }),
+      ],
+    };
+    const csv = eventsToCsv(f).slice(1);
+    const rows = parseDelimited(csv);
+    expect(rows[1].slice(0, 8)).toEqual([
+      "'=1+1",
+      '時間點',
+      '1925-03-12 10:00',
+      '',
+      "'=泳道",
+      "'@地點",
+      "'-甲、乙",
+      "'+分類",
+    ]);
+    expect(rows[2][0]).toBe("'\t=tab");
+    expect(rows[2][10]).toBe('\'=HYPERLINK("x","y")');
+    expect(rows[3][0]).toBe("''=已經有引號");
+    expect(rows[3][11]).toBe("'-1");
+    expect(rows[4][0]).toBe("'普通引號");
+    const back = parseEventsTable(csv, f);
+    expect(back.lanes).toEqual([]);
+    expect(back.categories).toEqual([]);
+    const strip = (e: TimelineDoc['events'][number]) => ({ ...e, id: '' });
+    expect(back.events.map(strip)).toEqual(f.events.map(strip));
+    // 年份模式：負的年份（時間欄）不加 '
+    const y: TimelineDoc = {
+      ...base,
+      mode: 'year',
+      events: [newEvent({ title: '-古代', start: '-500', kind: 'range', end: '-400' })],
+    };
+    const yr = parseDelimited(eventsToCsv(y).slice(1));
+    expect(yr[1].slice(0, 4)).toEqual(["'-古代", '期間', '-500', '-400']);
+    expect(parseEventsTable(eventsToCsv(y).slice(1), y).events[0]).toMatchObject({
+      title: '-古代',
+      start: '-500',
+      end: '-400',
+    });
+  });
+  it('貼上試算表：引號包住、含換行或引號的格讀成一格', () => {
+    const tsv =
+      '標題\t開始\t說明\n事件甲\t1925-03-12 10:00\t"第一行\n第二行"\n事件乙\t1925-03-12 11:00\t"含""引號""的說明"\n';
+    const r = parseEventsTable(tsv, doc);
+    expect(r.errors).toEqual([]);
+    expect(r.events.map((e) => [e.title, e.start, e.description])).toEqual([
+      ['事件甲', '1925-03-12 10:00', '第一行\n第二行'],
+      ['事件乙', '1925-03-12 11:00', '含"引號"的說明'],
+    ]);
   });
   it('讀入：英文表頭、TSV、種類推斷、新泳道與分類、看不懂的列', () => {
     const tsv = [

@@ -3,7 +3,7 @@
  * 同一份描述畫成 PNG（canvas）或寫成 SVG，兩種輸出的版面完全相同。排版（列、堆疊、刻度、旗子）和互動的時間軸共用。
  */
 import { contrastRatio } from '@/core/color';
-import { axisTicks } from '../model/axis';
+import { axisTicks, placeMajor } from '../model/axis';
 import {
   collectFlags,
   FLAG_GAP,
@@ -115,6 +115,8 @@ export interface PictureMeasures {
   item: TextMeasure;
   /** 刻度、小字 11 px */
   small: TextMeasure;
+  /** 上排的刻度 11 px 粗（沒有時用 small） */
+  major?: TextMeasure;
   /** 泳道名稱 12 px 粗 */
   lane: TextMeasure;
   /** 標題 18 px 粗 */
@@ -359,16 +361,15 @@ export function buildPicture(input: PictureInput): Picture {
       stroke: pal.gridMajor,
       sw: 1,
     });
-    /* 左邊被切到的那一格：標籤貼在左邊；放不下（會壓到下一格的標籤）時不畫 */
+    /* 左邊被切到的那一格：標籤貼在左邊；放不下（壓到下一格、超出右邊）時用短寫法，都放不下時不畫 */
     const next = ticks.major[i + 1];
-    const w = M.small(t.label);
-    const lx = Math.max(x, LW) + 4;
-    if (next && lx + w + 8 > xOf(next.v)) return;
+    const at = placeMajor(t, x, next ? xOf(next.v) : null, LW, LW + trackW, M.major ?? M.small);
+    if (!at) return;
     grid.push({
       t: 'text',
-      x: lx,
+      x: at.left,
       y: axisTop + 16,
-      text: t.label,
+      text: at.text,
       size: 11,
       weight: 600,
       fill: pal.text,

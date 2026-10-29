@@ -106,7 +106,9 @@ export function valueBounds(mode: TimeMode): { min: number; max: number } {
 
 /* ---------- 解讀 ---------- */
 
-export type ParseResult = { ok: true; tv: Tv } | { ok: false; error: string };
+export type ParseResult =
+  /** weekdayFixed：寫了星期但和日期不合（照日期，星期不管） */
+  { ok: true; tv: Tv; weekdayFixed?: boolean } | { ok: false; error: string };
 
 const fail = (error: string): ParseResult => ({ ok: false, error });
 
@@ -130,6 +132,17 @@ function parseClock(s: string | undefined): { hh: number; mm: number } | 'bad' |
 }
 
 function parseDate(raw: string): ParseResult {
+  const r = parseDateOnly(raw);
+  if (!r.ok || (r.tv.p !== 'day' && r.tv.p !== 'minute')) return r;
+  /* 寫了星期：和日期不合時照日期（通知「已更正」） */
+  const wm = /(?:\((?:星期|週)?|星期|週)([日一二三四五六天])/.exec(raw);
+  if (!wm) return r;
+  const wd = wm[1] === '天' ? 0 : WEEKDAYS.indexOf(wm[1]);
+  const days = Math.floor(r.tv.v / MINUTES_PER_DAY);
+  return weekdayOf(days) === wd ? r : { ...r, weekdayFixed: true };
+}
+
+function parseDateOnly(raw: string): ParseResult {
   /* 星期「（四）」「(四)」、「星期四」拿掉 */
   let s = raw
     .replace(/\((?:星期|週)?[日一二三四五六天]\)/g, ' ')
@@ -367,20 +380,42 @@ export function fromDateTv(to: TimeMode, tv: Tv, dayOne: number): Tv | null {
   return { v, p };
 }
 
-/** 一個存檔的時間換到別的寫法；換不過去時 null */
+/** 時間在事件裡的角色：期間的結束包含整個單位（換算時照「單位的最後一天」換） */
+export type TimeRole = 'start' | 'end';
+
+/**
+ * 一個存檔的時間換到別的寫法；換不過去時 null。
+ * 期間的結束（role: 'end'）只到月／年、換成第 N 天時是那個單位的最後一天（1925-03 的結束＝3/31 那天結束），
+ * 期間才不會變短或倒過來；其他寫法、開始與時間點換成單位的第一天。
+ */
 export function convertTime(
   from: TimeMode,
   to: TimeMode,
   stored: string,
-  { era, dayOne }: { era: string; dayOne: number },
+  { era, dayOne, role = 'start' }: { era: string; dayOne: number; role?: TimeRole },
 ): string | null {
   const tv = readTime(from, stored, era);
   if (!tv) return null;
   if (from === to) return canonical(to, tv);
-  const mid = toDateTv(from, tv, dayOne);
+  let mid = toDateTv(from, tv, dayOne);
   if (!mid) return null;
+  if (role === 'end' && to === 'day' && (mid.p === 'month' || mid.p === 'year'))
+    mid = { v: afterUnit('date', mid) - MINUTES_PER_DAY, p: 'day' };
   const out = fromDateTv(to, mid, dayOne);
   return out ? canonical(to, out) : null;
+}
+
+/**
+ * 換寫法會不會失去精度：日期→架空年（月、日、時刻變成年）、日期的月／年→第 N 天（變成某一天）、
+ * 第 N 天→架空年、架空年→第 N 天。日期↔第 N 天的日、時刻與架空年→日期（年）不會。
+ */
+export function convertLoses(from: TimeMode, to: TimeMode, stored: string, era = ''): boolean {
+  if (from === to) return false;
+  const tv = readTime(from, stored, era);
+  if (!tv) return false;
+  if (from === 'date') return to === 'year' ? tv.p !== 'year' : tv.p === 'month' || tv.p === 'year';
+  if (from === 'day') return to === 'year';
+  return to === 'day';
 }
 
 /** 「第 1 天是哪一天」的 YYYY-MM-DD → 那天 0:00 的分鐘數（看不懂時 null） */

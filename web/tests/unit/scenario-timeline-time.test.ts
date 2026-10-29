@@ -8,6 +8,7 @@ import {
   canonical,
   civilFromDays,
   clockText,
+  convertLoses,
   convertTime,
   dateLabel,
   dateParts,
@@ -207,6 +208,33 @@ describe('換寫法（F04）', () => {
     expect(convertTime('year', 'date', '-50', opts)).toBeNull();
     expect(convertTime('year', 'day', '1925', opts)).toBe('第 -69 天');
     expect(convertTime('date', 'day', '1700-01-01', opts)).toBeNull();
+  });
+  it('期間的結束包含整個單位：只到月／年的結束換成那個單位的最後一天', () => {
+    const end = { ...opts, role: 'end' as const };
+    // 1925-03 的結束＝3/31 那天結束（第 1 天是 3/12 → 3/31 是第 20 天）
+    expect(convertTime('date', 'day', '1925-03', end)).toBe('第 20 天');
+    expect(convertTime('date', 'day', '1925', end)).toBe('第 295 天');
+    expect(convertTime('date', 'day', '1925-03-14', end)).toBe('第 3 天');
+    expect(convertTime('date', 'day', '1925-03-14 08:00', end)).toBe('第 3 天 08:00');
+    expect(convertTime('year', 'day', '1925', end)).toBe('第 295 天');
+    // 開始照舊是第一天
+    expect(convertTime('date', 'day', '1925-03', opts)).toBe('第 -10 天');
+    // 1925-03-05～1925-03 換完不會倒過來
+    const s = convertTime('date', 'day', '1925-03-05', opts);
+    const e = convertTime('date', 'day', '1925-03', end);
+    expect([s, e]).toEqual(['第 -6 天', '第 20 天']);
+  });
+  it('會不會失去精度', () => {
+    expect(convertLoses('date', 'year', '1925-03-12')).toBe(true);
+    expect(convertLoses('date', 'year', '1925')).toBe(false);
+    expect(convertLoses('date', 'day', '1925-03')).toBe(true);
+    expect(convertLoses('date', 'day', '1925')).toBe(true);
+    expect(convertLoses('date', 'day', '1925-03-12 21:00')).toBe(false);
+    expect(convertLoses('day', 'date', '第 3 天')).toBe(false);
+    expect(convertLoses('day', 'year', '第 3 天')).toBe(true);
+    expect(convertLoses('year', 'date', '302')).toBe(false);
+    expect(convertLoses('year', 'day', '302')).toBe(true);
+    expect(convertLoses('date', 'date', '1925-03')).toBe(false);
   });
   it('「第 1 天」的日期', () => {
     expect(dayOneValue('1925-03-12')).toBe(dateValue(1925, 3, 12));

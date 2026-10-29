@@ -22,7 +22,7 @@ import {
 } from 'react';
 import { cn, createPointerGesture, useMediaQuery } from '@/ui';
 import { barTextColor } from '../export/picture';
-import { axisTicks, type Tick } from '../model/axis';
+import { axisTicks, placeMajor, type Tick } from '../model/axis';
 import {
   collectFlags,
   FLAG_GAP,
@@ -82,6 +82,7 @@ import {
 } from '../store';
 import { S } from '../strings';
 import {
+  axisMajorMeasure,
   axisMeasure,
   fitFor,
   flagMeasure,
@@ -92,6 +93,8 @@ import {
 } from './shared';
 
 const AXIS_ROW = 24;
+/** 按住 Alt 拖曳時，左右移動不到這麼多 px 算「只換泳道」（時間不變） */
+const LANE_ONLY_PX = 6;
 /** 已經做過的全覽要求（時間軸卸載、重新掛上時不重複） */
 let handledFit = 0;
 const DRAG_THRESHOLD = 4;
@@ -474,9 +477,12 @@ export function Timeline() {
     let start = cur.start;
     let end = cur.end;
     if (cur.part === 'move' || !b) {
-      const ns = snapTv(mode, clampValue(mode, a.v + dv), a.p, unit);
-      start = canonical(mode, ns);
-      if (b) end = canonical(mode, snapTv(mode, clampValue(mode, b.v + (ns.v - a.v)), b.p, unit));
+      /* 按住 Alt 上下拖（左右不到 LANE_ONLY_PX）：只換泳道，時間不變（不吸附也不跟著手抖） */
+      if (!(e.altKey && Math.abs(dx) < LANE_ONLY_PX)) {
+        const ns = snapTv(mode, clampValue(mode, a.v + dv), a.p, unit);
+        start = canonical(mode, ns);
+        if (b) end = canonical(mode, snapTv(mode, clampValue(mode, b.v + (ns.v - a.v)), b.p, unit));
+      }
     } else if (cur.part === 'start') {
       const ns = snapTv(mode, clampValue(mode, a.v + dv), a.p, unit);
       start = ns.v < afterUnit(mode, b) ? canonical(mode, ns) : (prev?.start ?? cur.start);
@@ -982,21 +988,18 @@ const AxisLabels = memo(function AxisLabels({
   return (
     <>
       {major.map((t, i) => {
-        const x = xOf(t.v);
         const next = major[i + 1];
-        const w = axisMeasure(t.label) + 8;
-        /* 左邊被切到的那一格：標籤貼在左邊；放不下（會壓到下一格的標籤）時不畫 */
-        const left = Math.max(x, 0) + 4;
-        if (next && left + w > xOf(next.v)) return null;
-        if (left > width) return null;
+        /* 左邊被切到的那一格：標籤貼在左邊；放不下（壓到下一格、超出右邊）時用短寫法，都放不下時不畫 */
+        const at = placeMajor(t, xOf(t.v), next ? xOf(next.v) : null, 0, width, axisMajorMeasure);
+        if (!at) return null;
         return (
           <span
             key={`j${t.v}`}
             className="absolute top-0 flex h-6 items-center text-[11px] font-semibold whitespace-nowrap text-fg"
-            style={{ left }}
-            data-axis-major={t.label}
+            style={{ left: at.left }}
+            data-axis-major={at.text}
           >
-            {t.label}
+            {at.text}
           </span>
         );
       })}
@@ -1233,14 +1236,21 @@ const Item = memo(function Item({
       </button>
     );
   }
-  /* 期間：只畫看得到的部分（切到的那一邊沒有把手） */
+  /*
+   * 期間：只畫看得到的部分（切到的那一邊沒有把手）。色條外的標題畫在色條真正的結束之後
+   * （和堆疊用的範圍相同；左邊切到時不跟著看得到的部分移動），色條整個在左邊外面時只剩標題。
+   */
   const realW = Math.max(MIN_BAR, x2 - x1);
-  const left = Math.max(x1, -6);
-  const right = Math.min(x1 + realW, width + 6);
-  const w = Math.max(MIN_BAR, right - left);
+  const barL = Math.max(x1, -6);
+  const barR = Math.min(x1 + realW, width + 6);
+  const shown = barR > barL;
+  const left = shown ? barL : x1 + realW;
+  const w = shown ? barR - barL : 0;
   const cutL = x1 < -6;
   const cutR = x1 + realW > width + 6;
   const label = it.inside ? ellipsize(it.label, w - INSIDE_PAD * 2, itemMeasure) : it.label;
+  /* 色條外的標題：從按鈕左邊算的位置 */
+  const outside = x1 + realW + LABEL_GAP - left;
   return (
     <button
       {...common}
@@ -1256,9 +1266,7 @@ const Item = memo(function Item({
           'absolute top-0 flex h-full items-center text-[12px] font-medium whitespace-nowrap',
           it.inside ? 'pointer-events-none' : 'text-fg',
         )}
-        style={
-          it.inside ? { left: INSIDE_PAD, color: barTextColor(color) } : { left: w + LABEL_GAP }
-        }
+        style={it.inside ? { left: INSIDE_PAD, color: barTextColor(color) } : { left: outside }}
         data-item-label
       >
         {label}
@@ -1282,7 +1290,7 @@ const Item = memo(function Item({
         <span
           aria-hidden
           className="absolute top-0 size-0"
-          style={{ left: it.inside ? w : w + LABEL_GAP + it.labelW + 9 }}
+          style={{ left: it.inside ? w : outside + it.labelW + 9 }}
         >
           <NoteMark />
         </span>

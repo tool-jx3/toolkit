@@ -5,7 +5,7 @@
  * - 拖曳排序（指標事件；門檻 4 px；拖到捲動範圍上下邊緣自動捲動）；`mode="live"`（預設）拖過中線就換位置，
  *   整次拖曳以 onMoveStart／onMoveEnd 包起來（工具在這兩個時機 beginGesture／endGesture，整次拖曳算一步復原）；
  *   `mode="drop"` 放開時才移動。
- * - 鍵盤：列有焦點時 ↑／↓ 移到上一列／下一列並選取，Alt＋↑／↓ 調整順序。
+ * - 鍵盤：列有焦點時 ↑／↓ 移到上一列／下一列並選取，Alt＋↑／↓ 調整順序（之後焦點跟著移動的那一列）。
  * - `sortDisabled`（例如篩選中）：不能拖，按住只會選取。
  * - `cancelOutside`（drop 模式）：拖到清單範圍外放開不移動（一頁有好幾個清單時，拖到別的清單上不算）。
  * - `handleOnly`：滑鼠也只能從拖曳把手（`[data-drag-handle]`）開始拖（觸控本來就是），從列上其他地方按住只算點一下；
@@ -88,6 +88,9 @@ export function SortableList<T>({
   ...rest
 }: SortableListProps<T>) {
   const list = useRef<HTMLUListElement>(null);
+  /* 鍵盤移動之後找移動的那一列用（重新畫好之後的清單） */
+  const latest = useRef(items);
+  latest.current = items;
   const sortable = useSortable({
     count: items.length,
     mode,
@@ -120,8 +123,13 @@ export function SortableList<T>({
 
   const onKeyDown = (i: number, e: KeyboardEvent<HTMLLIElement>) => {
     if (e.target !== e.currentTarget) return;
+    const movedId = items[i] ? getId(items[i]) : null;
     if (sortable.keyMove(i, e)) {
-      requestAnimationFrame(() => focusRow(e.key === 'ArrowUp' ? i - 1 : i + 1));
+      /* 焦點跟著移動的那一列（工具一次移動一組、或移不動時也對；找不到時照舊上一列／下一列） */
+      requestAnimationFrame(() => {
+        const at = movedId === null ? -1 : latest.current.findIndex((it) => getId(it) === movedId);
+        focusRow(at >= 0 ? at : e.key === 'ArrowUp' ? i - 1 : i + 1);
+      });
       return;
     }
     if (e.altKey || e.ctrlKey || e.metaKey) return;

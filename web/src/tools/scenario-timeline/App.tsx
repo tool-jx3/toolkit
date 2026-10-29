@@ -20,12 +20,12 @@ import {
   withShortcut,
 } from '@/ui';
 import { fileBase } from './export/render';
-import { normalizeDoc, type TimelineDoc } from './model/types';
+import type { TimelineDoc } from './model/types';
 import { BUTTON_STEP } from './model/window';
 import { NotifyBridge, notify } from './notify';
 import { EventPanel } from './panels/EventPanel';
 import { ExportTab } from './panels/ExportTab';
-import { ImportBridge, importFiles, PasteDialog } from './panels/importer';
+import { ImportBridge, importFiles, PasteDialog, readProjectData } from './panels/importer';
 import { LanesPanel } from './panels/LanesPanel';
 import { ProjectPanel } from './panels/ProjectPanel';
 import {
@@ -126,9 +126,9 @@ function Project() {
       }}
       openedMessage={S.opened}
       onLoad={(data) => {
-        const doc = normalizeDoc(data);
-        if (!doc) throw new Error(S.badProject);
+        const { doc, warnings } = readProjectData(data);
         replaceDoc({ ...doc, sample: false });
+        return { warnings };
       }}
       onReset={() => resetBlank()}
       resetText={{ title: S.resetTitle, description: S.resetDesc }}
@@ -138,11 +138,9 @@ function Project() {
       statusText={saveError ? S.saveFailed : undefined}
       extraItems={
         <ProjectMenuItem
+          disabled={pl}
           onSelect={async () => {
-            if (prefsNow().viewMode === 'pl') {
-              notify({ title: S.needGm, tone: 'warning' });
-              return;
-            }
+            if (prefsNow().viewMode === 'pl') return;
             if (
               await confirm({
                 title: S.exampleConfirmTitle,
@@ -260,16 +258,16 @@ export function App() {
         <>
           <Glue />
           <IconButton
-            label={pl ? S.needGm : withShortcut(S.undo, 'mod+z')}
+            label={withShortcut(S.undo, 'mod+z')}
             icon={<Undo2 />}
             onClick={undo}
-            disabled={!canUndo}
+            disabled={pl || !canUndo}
           />
           <IconButton
-            label={pl ? S.needGm : withShortcut(S.redo, 'shift+mod+z')}
+            label={withShortcut(S.redo, 'shift+mod+z')}
             icon={<Redo2 />}
             onClick={redo}
-            disabled={!canRedo}
+            disabled={pl || !canRedo}
           />
           <Project />
         </>

@@ -191,10 +191,49 @@ export function validRange(mode: TimeMode, start: string, end: string, era: stri
   return afterUnit(mode, b) > a.v;
 }
 
-/** 整理成可以用的資料；完全不像時回傳 null */
-export function normalizeDoc(raw: unknown): TimelineDoc | null {
-  if (!raw || typeof raw !== 'object') return null;
+/** 整理時略過或改掉的東西（開專案檔時通知） */
+export interface NormalizeReport {
+  /** 沒有任何劇本時間表的欄位（空物件） */
+  empty: boolean;
+  /** 事件清單不是清單 */
+  eventsUnreadable: boolean;
+  /** 看不懂而略過的事件（不是物件、開始看不懂） */
+  skippedEvents: number;
+  /** 超過上限沒讀的事件 */
+  overEvents: number;
+  /** 結束看不懂或不比開始晚、改成時間點的期間 */
+  rangesToPoints: number;
+  /** 看不懂而略過的標記 */
+  skippedMarkers: number;
+  /** 超過上限沒讀的標記、泳道、分類 */
+  overMarkers: number;
+  overLanes: number;
+  overCategories: number;
+  /** 上層不存在或超過一層、改成最上層的泳道 */
+  lanesFlattened: number;
+}
+
+export const emptyReport = (): NormalizeReport => ({
+  empty: false,
+  eventsUnreadable: false,
+  skippedEvents: 0,
+  overEvents: 0,
+  rangesToPoints: 0,
+  skippedMarkers: 0,
+  overMarkers: 0,
+  overLanes: 0,
+  overCategories: 0,
+  lanesFlattened: 0,
+});
+
+const DOC_KEYS = ['title', 'mode', 'era', 'lanes', 'categories', 'events', 'markers', 'progress'];
+
+/** 整理成可以用的資料；完全不像時回傳 null。report 有給時填入略過或改掉的東西 */
+export function normalizeDoc(raw: unknown, report?: NormalizeReport): TimelineDoc | null {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
   const r = raw as Record<string, unknown>;
+  const rep = report ?? emptyReport();
+  rep.empty = !DOC_KEYS.some((k) => k in r);
   const base = blankDoc();
   const mode = oneOf<TimeMode>(r.mode, ['date', 'day', 'year'], 'date');
   const era = str(r.era, ERA_MAX);
@@ -206,7 +245,9 @@ export function normalizeDoc(raw: unknown): TimelineDoc | null {
     return id;
   };
 
-  const lanesRaw = Array.isArray(r.lanes) ? r.lanes.slice(0, LIMITS.lanes) : [];
+  const lanesAll = Array.isArray(r.lanes) ? r.lanes : [];
+  rep.overLanes = Math.max(0, lanesAll.length - LIMITS.lanes);
+  const lanesRaw = lanesAll.slice(0, LIMITS.lanes);
   const lanes: Lane[] = lanesRaw
     .filter((l): l is Record<string, unknown> => !!l && typeof l === 'object')
     .map((l, i) => ({
@@ -219,12 +260,22 @@ export function normalizeDoc(raw: unknown): TimelineDoc | null {
     }));
   const laneIds = new Set(lanes.map((l) => l.id));
   /* 上層：要存在、不是自己、本身是最上層（只有一層） */
-  for (const l of lanes) if (!laneIds.has(l.parentId) || l.parentId === l.id) l.parentId = '';
+  for (const l of lanes)
+    if (l.parentId && (!laneIds.has(l.parentId) || l.parentId === l.id)) {
+      l.parentId = '';
+      rep.lanesFlattened++;
+    }
   const top = new Set(lanes.filter((l) => !l.parentId).map((l) => l.id));
-  for (const l of lanes) if (l.parentId && !top.has(l.parentId)) l.parentId = '';
+  for (const l of lanes)
+    if (l.parentId && !top.has(l.parentId)) {
+      l.parentId = '';
+      rep.lanesFlattened++;
+    }
   /* 有子泳道的不能是別人的子泳道（上面已經保證上層是最上層） */
 
-  const catsRaw = Array.isArray(r.categories) ? r.categories.slice(0, LIMITS.categories) : [];
+  const catsAll = Array.isArray(r.categories) ? r.categories : [];
+  rep.overCategories = Math.max(0, catsAll.length - LIMITS.categories);
+  const catsRaw = catsAll.slice(0, LIMITS.categories);
   const categories: Category[] = catsRaw
     .filter((c): c is Record<string, unknown> => !!c && typeof c === 'object')
     .map((c, i) => ({
@@ -234,19 +285,30 @@ export function normalizeDoc(raw: unknown): TimelineDoc | null {
     }));
   const catIds = new Set(categories.map((c) => c.id));
 
+  rep.eventsUnreadable = r.events !== undefined && !Array.isArray(r.events);
   const eventsRaw = Array.isArray(r.events) ? r.events : [];
   const events: TimelineEvent[] = [];
   for (const e of eventsRaw) {
-    if (events.length >= LIMITS.events) break;
-    if (!e || typeof e !== 'object') continue;
+    if (!e || typeof e !== 'object') {
+      rep.skippedEvents++;
+      continue;
+    }
     const o = e as Record<string, unknown>;
     const start = cleanTime(mode, o.start, era);
-    if (!start) continue;
+    if (!start) {
+      rep.skippedEvents++;
+      continue;
+    }
+    if (events.length >= LIMITS.events) {
+      rep.overEvents++;
+      continue;
+    }
     let kind = oneOf(o.kind, EVENT_KINDS, 'point');
     let end = kind === 'point' ? '' : (cleanTime(mode, o.end, era) ?? '');
     if (kind !== 'point' && (!end || !validRange(mode, start, end, era))) {
       kind = 'point';
       end = '';
+      rep.rangesToPoints++;
     }
     events.push({
       id: uid(o.id, 'e'),
@@ -268,11 +330,20 @@ export function normalizeDoc(raw: unknown): TimelineDoc | null {
   const markersRaw = Array.isArray(r.markers) ? r.markers : [];
   const markers: Marker[] = [];
   for (const m of markersRaw) {
-    if (markers.length >= LIMITS.markers) break;
-    if (!m || typeof m !== 'object') continue;
+    if (!m || typeof m !== 'object') {
+      rep.skippedMarkers++;
+      continue;
+    }
     const o = m as Record<string, unknown>;
     const time = cleanTime(mode, o.time, era);
-    if (!time) continue;
+    if (!time) {
+      rep.skippedMarkers++;
+      continue;
+    }
+    if (markers.length >= LIMITS.markers) {
+      rep.overMarkers++;
+      continue;
+    }
     markers.push({
       id: uid(o.id, 'm'),
       label: str(o.label, LIMITS.label),

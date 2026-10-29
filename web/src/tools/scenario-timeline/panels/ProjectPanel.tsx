@@ -1,5 +1,6 @@
 /**
  * 「專案」分頁（規格 1.1、F36～F38、F80）：專案名稱、時間寫法（換算的對話框）、曆名、標記、目前進度、現在時刻。
+ * PL 檢視：只列 PL 看得到的標記（停用）。
  */
 import { Plus, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
@@ -30,11 +31,10 @@ import {
   requestFit,
   updateMarker,
   useDoc,
-  usePrefs,
   useUi,
 } from '../store';
 import { S } from '../strings';
-import { currentWin, newEventStart, snapForWidth } from '../view/shared';
+import { currentWin, newEventStart, snapForWidth, useVisibleDoc } from '../view/shared';
 import { PlLock } from './EventPanel';
 import { TimeField } from './TimeField';
 
@@ -49,7 +49,10 @@ function centerTime(): string {
 
 export function ProjectPanel() {
   const doc = useDoc((s) => s.data);
-  const pl = usePrefs((s) => s.data.viewMode) === 'pl';
+  const vdoc = useVisibleDoc();
+  const pl = vdoc.audience === 'pl';
+  /* PL 檢視：GM 專用的標記（與「只到目前進度」之後的）不列 */
+  const markers: readonly Marker[] = pl ? vdoc.markers : doc.markers;
 
   const changeMode = (to: TimeMode) => {
     if (to === doc.mode) return;
@@ -176,9 +179,9 @@ export function ProjectPanel() {
           </Button>
         }
       >
-        {doc.markers.length ? (
+        {markers.length ? (
           <ul className="m-0 flex list-none flex-col gap-3 p-0" aria-label={S.markersTitle}>
-            {doc.markers.map((m) => (
+            {markers.map((m) => (
               <MarkerRow key={m.id} m={m} pl={pl} />
             ))}
           </ul>
@@ -275,6 +278,7 @@ function MarkerRow({ m, pl }: { m: Marker; pl: boolean }) {
 function ConvertDialog() {
   const to = useUi((s) => s.convertTo);
   const mode = useDoc((s) => s.data.mode);
+  const era = useDoc((s) => s.data.era);
   const [dayOne, setDayOne] = useState('');
   useEffect(() => {
     if (to) setDayOne(defaultDayOne());
@@ -326,6 +330,24 @@ function ConvertDialog() {
           </Field>
         ) : null}
         {plan && plan.bad > 0 ? <Notice tone="warning">{S.convertBad(plan.bad)}</Notice> : null}
+        {plan && plan.bad === 0 && plan.lossy > 0 ? (
+          <div data-testid="convert-lossy">
+            <Notice tone="info">
+              <p className="m-0">{S.convertLossy(plan.lossy)}</p>
+              <ul className="m-0 mt-1 list-disc pl-5">
+                {plan.examples.map((x, i) => (
+                  // biome-ignore lint/suspicious/noArrayIndexKey: 例子固定順序、不重排
+                  <li key={i}>
+                    {x.name}：{x.from} → {x.to}
+                  </li>
+                ))}
+              </ul>
+            </Notice>
+          </div>
+        ) : null}
+        {plan && to === 'date' && mode === 'year' && era.trim() ? (
+          <p className="m-0 text-sm text-muted">{S.convertEraNote(era.trim())}</p>
+        ) : null}
       </div>
     </Dialog>
   );

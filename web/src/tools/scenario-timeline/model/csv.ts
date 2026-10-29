@@ -1,9 +1,10 @@
 /**
  * CSV／TSV 的事件表（規格 F75、F76、3.9）：匯出（完整資料，含 GM 欄）與讀入（依表頭認欄位、中英文）。純計算。
+ * 文字欄防公式注入（`'` 開頭；時間欄不動），讀入時拿掉；貼上的試算表處理引號（含換行的格）。
  */
 
 import { normalizeHex } from '@/core/color';
-import { parseDelimited, toCsv } from '@/core/csv';
+import { parseDelimited, toCsv, unguardFormula } from '@/core/csv';
 import { afterUnit, canonical, parseTime, readTime } from './time';
 import {
   type Category,
@@ -92,7 +93,10 @@ export function parseGm(text: string): boolean {
   return ['是', 'y', 'yes', 'true', '1', '✓', '✔', 'v', 'o', '○', 'gm', '有'].includes(key(text));
 }
 
-/** 事件表（CSV；UTF-8 BOM、CRLF）：依時間排 */
+/** 時間欄（開始、結束）：不防公式注入（負的年份、架空年才不會被改） */
+const TIME_COLUMNS = new Set([CSV_HEADERS.indexOf('開始'), CSV_HEADERS.indexOf('結束')]);
+
+/** 事件表（CSV；UTF-8 BOM、CRLF）：依時間排；時間以外的欄防公式注入 */
 export function eventsToCsv(doc: TimelineDoc): string {
   const laneName = new Map(doc.lanes.map((l) => [l.id, l.name]));
   const catName = new Map(doc.categories.map((c) => [c.id, c.name]));
@@ -115,7 +119,7 @@ export function eventsToCsv(doc: TimelineDoc): string {
       e.description,
       e.gmNote,
     ]);
-  return toCsv(rows, { bom: true });
+  return toCsv(rows, { bom: true, guard: (c) => !TIME_COLUMNS.has(c) });
 }
 
 export class CsvHeaderError extends Error {}
@@ -143,16 +147,18 @@ export function parseEventsTable(
   doc: Pick<TimelineDoc, 'mode' | 'era' | 'lanes' | 'categories'>,
   maxEvents: number = LIMITS.events,
 ): CsvImport {
-  const table = parseDelimited(text);
+  const table = parseDelimited(text, { quotes: true });
   if (!table.length) throw new CsvHeaderError('沒有內容。');
   const header = table[0].map((h) => ALIAS_MAP.get(key(h)) ?? null);
   if (!header.includes('start'))
     throw new CsvHeaderError(
       '第一列要是欄位名稱，而且要有「開始」（例：標題、開始、結束、泳道…）。',
     );
+  /** 欄位文字（去頭尾空白；時間以外的欄拿掉匯出時防公式加的 `'`） */
   const col = (row: string[], f: Field) => {
     const i = header.indexOf(f);
-    return i >= 0 ? (row[i] ?? '').trim() : '';
+    const text = i >= 0 ? (row[i] ?? '').trim() : '';
+    return f === 'start' || f === 'end' ? text : unguardFormula(text);
   };
   const lanes: Lane[] = [];
   const categories: Category[] = [];

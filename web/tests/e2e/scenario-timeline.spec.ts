@@ -248,6 +248,16 @@ test('拖曳：左右改時間（吸附）、上下換泳道、Esc 取消、拖�
   await expect.poll(async () => (await evOf(page, 'b'))?.start).not.toBe('第 1 天 12:00');
   const altStart = (await evOf(page, 'b'))?.start ?? '';
   expect(altStart).toMatch(/^第 1 天 12:(3[4-9]|40)$/);
+  /* 按住 Alt 上下拖（左右手抖 3 px）：只換泳道、時間不變（不吸附到整點） */
+  const b3 = await center(item(page, 'b'));
+  const rowA = await center(page.getByTestId('timeline').locator('[data-lane-row="l1"]'));
+  await page.keyboard.down('Alt');
+  await drag(page, { x: b3.x, y: b3.y }, { x: b3.x + 3, y: rowA.y });
+  await page.keyboard.up('Alt');
+  await expect.poll(async () => (await evOf(page, 'b'))?.laneId).toBe('l1');
+  expect((await evOf(page, 'b'))?.start).toBe(altStart);
+  await page.keyboard.press('Control+z');
+  await expect.poll(async () => (await evOf(page, 'b'))?.laneId).toBe('l2');
   await page.keyboard.press('Control+z');
   await expect.poll(async () => (await evOf(page, 'b'))?.start).toBe('第 1 天 12:00');
   /* 復原三步：長短、換泳道、時間 */
@@ -580,10 +590,10 @@ test('匯出：PNG、SVG、文字年表、CSV 匯出與貼上讀入', async ({ p
   const csvText = readFileSync(await csv.path(), 'utf8');
   expect(csvText.charCodeAt(0)).toBe(0xfeff);
   expect(csvText).toContain('標題,種類,開始,結束,泳道');
-  /* 貼上表格：加入 */
+  /* 貼上表格：加入（試算表複製的含換行、引號的格以引號包住） */
   await page.getByTestId('csv-paste').click();
   await field(page, 'paste').fill(
-    '標題\t開始\t泳道\n新來的\t1925-03-13 18:30\t新泳道\n壞掉\t明天\t',
+    '標題\t開始\t泳道\t說明\n新來的\t1925-03-13 18:30\t新泳道\t"第一行\n說""好"""\n壞掉\t明天\t\t',
   );
   await page.getByTestId('paste-read').click();
   await page.getByRole('button', { name: '加入' }).click();
@@ -594,6 +604,8 @@ test('匯出：PNG、SVG、文字年表、CSV 匯出與貼上讀入', async ({ p
   const doc = await docOf(page);
   expect(doc.events).toHaveLength(13);
   expect(doc.lanes.some((l) => l.name === '新泳道')).toBe(true);
+  const added = doc.events.find((e) => e.title === '新來的') as unknown as { description: string };
+  expect(added.description).toBe('第一行\n說"好"');
   expect(errors).toEqual([]);
 });
 
@@ -648,6 +660,337 @@ test('專案檔：存成專案檔、開啟；重設成空白', async ({ page }) 
   await chooser.setFiles(await file.path());
   await expect.poll(async () => (await docOf(page)).events.length).toBe(12);
   await expect(item(page, 'ex-arrive')).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
+/* ---------- 對等驗證後補的 ---------- */
+
+/** GM 專用的東西都有獨一無二的名稱（PL 檢視的整個頁面都不能出現） */
+const SECRET = {
+  laneName: '秘密泳道DELTA',
+  subLane: '秘密子泳道EPS',
+  category: '秘密分類IOTA',
+  eventTitle: '秘密事件BETA',
+  eventDesc: '秘密說明GAMMA',
+  place: '秘密地點KAPPA',
+  people: '秘密角色LAMBDA',
+  noteOnPublic: '公開事件上的筆記MU',
+  noteOnSecret: '秘密事件上的筆記NU',
+  laneEvent: '泳道內事件ZETA',
+  subLaneEvent: '子泳道內事件ETA',
+  background: '秘密背景OMEGA',
+  marker: '秘密標記THETA',
+} as const;
+
+const lane = (id: string, name: string, over: object = {}) => ({
+  id,
+  name,
+  kind: 'other',
+  color: '#4f7cff',
+  parentId: '',
+  gm: false,
+  ...over,
+});
+
+const SECRET_DOC = {
+  title: '洩漏測試',
+  mode: 'date',
+  era: '',
+  dayOne: '',
+  sample: false,
+  showNow: false,
+  lanes: [
+    lane('pub', '公開泳道', { kind: 'character' }),
+    lane('sec', SECRET.laneName, { gm: true, kind: 'npc' }),
+    lane('subsec', SECRET.subLane, { parentId: 'sec', kind: 'npc' }),
+  ],
+  categories: [
+    { id: 'cpub', name: '公開分類', color: '#2fa37a' },
+    { id: 'csec', name: SECRET.category, color: '#e0565b' },
+  ],
+  events: [
+    {
+      ...blankEvent,
+      id: 'PUB',
+      title: '公開事件',
+      start: '1925-03-12 10:00',
+      laneId: 'pub',
+      place: '公開地點',
+      people: ['公開角色'],
+      categoryId: 'cpub',
+      description: '公開說明',
+      gmNote: SECRET.noteOnPublic,
+    },
+    {
+      ...blankEvent,
+      id: 'SEC',
+      title: SECRET.eventTitle,
+      start: '1925-03-12 11:00',
+      laneId: 'pub',
+      gm: true,
+      place: SECRET.place,
+      people: [SECRET.people],
+      categoryId: 'csec',
+      description: SECRET.eventDesc,
+      gmNote: SECRET.noteOnSecret,
+    },
+    {
+      ...blankEvent,
+      id: 'LANEEV',
+      title: SECRET.laneEvent,
+      start: '1925-03-12 15:00',
+      laneId: 'sec',
+    },
+    {
+      ...blankEvent,
+      id: 'SUBEV',
+      title: SECRET.subLaneEvent,
+      start: '1925-03-12 16:00',
+      laneId: 'subsec',
+    },
+    {
+      ...blankEvent,
+      id: 'BG',
+      title: SECRET.background,
+      kind: 'background',
+      start: '1925-03-12 08:00',
+      end: '1925-03-12 09:00',
+      gm: true,
+    },
+  ],
+  markers: [
+    { id: 'msec', label: SECRET.marker, time: '1925-03-12 17:00', color: '#8a63d2', gm: true },
+    { id: 'mpub', label: '公開標記', time: '1925-03-12 18:00', color: '#2b9fc2', gm: false },
+  ],
+  progress: { on: false, time: '', plOnly: false },
+};
+
+/** 整個頁面的文字：看得到與藏起來的文字、所有屬性（title、aria-label、datalist 的 value…）、輸入欄的值 */
+const domText = (page: Page) =>
+  page.evaluate(() => {
+    const parts = [document.title, document.body.innerText, document.body.textContent ?? ''];
+    for (const el of document.querySelectorAll('*')) {
+      for (const a of el.attributes) parts.push(a.value);
+      if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) parts.push(el.value);
+    }
+    return parts.join('\n');
+  });
+
+async function expectNoSecrets(page: Page, where: string) {
+  const text = await domText(page);
+  const leaked = Object.values(SECRET).filter((s) => text.includes(s));
+  expect(leaked, `PL 檢視（${where}）不應出現 GM 專用的東西`).toEqual([]);
+}
+
+test('PL 檢視：整個頁面的 DOM 文字不含 GM 專用的名稱與筆記（各分頁、選取、年表）', async ({
+  page,
+}) => {
+  /* 匯出的對象原本選 GM 用：PL 檢視時固定 PL 用 */
+  await seed(page, SECRET_DOC, {
+    viewMode: 'pl',
+    view: 'timeline',
+    export: { audience: 'gm' },
+    text: { format: 'text', audience: 'gm' },
+  });
+  const errors = await open(page);
+  await expect(page.getByTestId('pl-badge')).toBeVisible();
+  await expect(item(page, 'PUB')).toBeVisible();
+  for (const tab of ['事件', '泳道', '專案', '匯出']) {
+    await page.getByRole('tab', { name: tab }).click();
+    await expectNoSecrets(page, `${tab}分頁`);
+  }
+  /* 泳道分頁只列 PL 看得到的泳道與分類；專案分頁只列 PL 看得到的標記 */
+  await page.getByRole('tab', { name: '泳道' }).click();
+  await expect(page.locator('[data-lane-item]')).toHaveCount(1);
+  await expect(page.locator('[data-cat-item]')).toHaveCount(1);
+  await page.getByRole('tab', { name: '專案' }).click();
+  await expect(page.locator('[data-marker-item]')).toHaveCount(1);
+  /* 匯出分頁：對象固定 PL 用、停用 */
+  await page.getByRole('tab', { name: '匯出' }).click();
+  const tab = page.getByTestId('export-tab');
+  await expect(tab.getByRole('radio', { name: 'PL 用' }).first()).toHaveAttribute(
+    'aria-checked',
+    'true',
+  );
+  await expect(tab.getByRole('radio', { name: 'GM 用' }).first()).toBeDisabled();
+  /* 選取公開事件：編輯區（泳道、分類、地點的建議、相關角色的建議） */
+  await page.getByRole('tab', { name: '事件' }).click();
+  await item(page, 'PUB').click();
+  await expect(field(page, 'title')).toHaveValue('公開事件');
+  await expectNoSecrets(page, '選取公開事件');
+  /* 年表 */
+  await page.getByRole('radio', { name: '年表' }).click();
+  await expect(page.getByTestId('chronicle')).toContainText('公開事件');
+  await expectNoSecrets(page, '年表');
+  /* 專案選單：開啟、載入範例、重設停用；頁首的復原、重做保留名稱（停用） */
+  await expect(page.getByRole('button', { name: /^復原/ })).toBeDisabled();
+  await expect(page.getByRole('button', { name: /^重做/ })).toBeDisabled();
+  await page.getByRole('button', { name: /^專案/ }).click();
+  await expect(page.getByRole('menuitem', { name: '載入範例' })).toHaveAttribute(
+    'aria-disabled',
+    'true',
+  );
+  await expect(page.getByRole('menuitem', { name: /開啟專案檔/ })).toHaveAttribute(
+    'aria-disabled',
+    'true',
+  );
+  await page.keyboard.press('Escape');
+  expect(errors).toEqual([]);
+});
+
+test('換寫法：只到月、年的結束換成那個單位的最後一天；對話框列出會失去精度的', async ({ page }) => {
+  await seed(page, {
+    ...SECRET_DOC,
+    title: '換算',
+    lanes: [],
+    categories: [],
+    markers: [],
+    events: [
+      { ...blankEvent, id: 'a', title: '時刻', start: '1925-03-12 21:00' },
+      { ...blankEvent, id: 'm', title: '只到月', start: '1925-03' },
+      {
+        ...blankEvent,
+        id: 'r',
+        title: '期間月末',
+        kind: 'range',
+        start: '1925-03-05',
+        end: '1925-03',
+      },
+    ],
+  });
+  const errors = await open(page);
+  await page.getByRole('tab', { name: '專案' }).click();
+  await page.getByRole('radio', { name: '第 N 天' }).click();
+  const dialog = page.getByRole('dialog', { name: '換成「第 N 天」' });
+  await field(page, 'day-one').fill('1925-03-10');
+  const lossy = dialog.getByTestId('convert-lossy');
+  await expect(lossy).toContainText('2 個事件或標記會失去精度');
+  await expect(lossy).toContainText('只到月：1925年3月 → 第 -8 天');
+  await expect(lossy).toContainText('期間月末：1925年3月5日（四）～1925年3月 → 第 -4 天～第 22 天');
+  await dialog.getByTestId('convert-apply').click();
+  await expect.poll(async () => (await docOf(page)).mode).toBe('day');
+  const doc = await docOf(page);
+  expect(doc.events.find((e) => e.id === 'r')).toMatchObject({
+    start: '第 -4 天',
+    end: '第 22 天',
+  });
+  expect(doc.events.find((e) => e.id === 'a')?.start).toBe('第 3 天 21:00');
+  /* 一步復原 */
+  await page.keyboard.press('Control+z');
+  await expect.poll(async () => (await docOf(page)).mode).toBe('date');
+  expect((await docOf(page)).events.find((e) => e.id === 'r')?.end).toBe('1925-03');
+  expect(errors).toEqual([]);
+});
+
+test('時間欄：看不懂時離開欄位通知「沒有套用」；星期寫錯時照日期更正並通知', async ({ page }) => {
+  const errors = await open(page);
+  await item(page, 'ex-arrive').click();
+  const start = field(page, 'start');
+  await start.fill('1925年3月12日（五）16:30');
+  await expect(page.getByText('（星期照日期更正）')).toBeVisible();
+  await start.blur();
+  await expect(
+    page.getByText('星期和日期不合，已照日期更正成 1925年3月12日（四）16:30', { exact: true }),
+  ).toBeVisible();
+  await expect(start).toHaveValue('1925-03-12 16:30');
+  expect((await evOf(page, 'ex-arrive'))?.start).toBe('1925-03-12 16:30');
+  await start.fill('亂寫');
+  await start.blur();
+  await expect(page.getByText('看不懂這個時間：「亂寫」，沒有套用', { exact: true })).toBeVisible();
+  await expect(start).toHaveValue('1925-03-12 16:30');
+  expect((await evOf(page, 'ex-arrive'))?.start).toBe('1925-03-12 16:30');
+  expect(errors).toEqual([]);
+});
+
+test('泳道清單：上層 Alt＋↓ 連同子泳道往下移、焦點跟著移動的那列', async ({ page }) => {
+  await seed(page, {
+    ...DAY_DOC,
+    lanes: [
+      lane('A', '上層甲'),
+      lane('A1', '甲的子泳道', { parentId: 'A' }),
+      lane('B', '泳道乙'),
+      lane('C', '泳道丙'),
+    ],
+  });
+  const errors = await open(page);
+  await page.getByRole('tab', { name: '泳道' }).click();
+  const order = async () => (await docOf(page)).lanes.map((l) => l.id).join(',');
+  const li = (id: string) => page.locator('li', { has: page.locator(`[data-lane-item="${id}"]`) });
+  await li('A').focus();
+  await page.keyboard.press('Alt+ArrowDown');
+  await expect.poll(order).toBe('B,A,A1,C');
+  await expect(li('A')).toBeFocused();
+  await page.keyboard.press('Alt+ArrowDown');
+  await expect.poll(order).toBe('B,C,A,A1');
+  await expect(li('A')).toBeFocused();
+  /* 最後一個：不動 */
+  await page.keyboard.press('Alt+ArrowDown');
+  await expect(li('A')).toBeFocused();
+  expect(await order()).toBe('B,C,A,A1');
+  /* 往上移過有子泳道的上層：焦點跟著 C */
+  await li('C').focus();
+  await page.keyboard.press('Alt+ArrowUp');
+  await expect.poll(order).toBe('C,B,A,A1');
+  await expect(li('C')).toBeFocused();
+  expect(errors).toEqual([]);
+});
+
+test('匯出：自訂範圍裡沒有東西時停用並寫原因', async ({ page }) => {
+  const errors = await open(page);
+  await page.getByRole('tab', { name: '匯出' }).click();
+  const tab = page.getByTestId('export-tab');
+  await tab.getByRole('radio', { name: '自訂' }).click();
+  await field(page, 'export-from').fill('1900-01-01');
+  await field(page, 'export-from').blur();
+  await field(page, 'export-to').fill('1900-02-01');
+  await field(page, 'export-to').blur();
+  await expect(tab.getByText('範圍裡沒有事件或標記，沒有東西可以畫。').first()).toBeVisible();
+  const panel = page.getByRole('region', { name: '匯出圖片' });
+  await expect(panel.getByRole('button', { name: /^匯出/ })).toBeDisabled();
+  await field(page, 'export-to').fill('1925-03-13');
+  await field(page, 'export-to').blur();
+  await expect(panel.getByRole('button', { name: /^匯出/ })).toBeEnabled();
+  expect(errors).toEqual([]);
+});
+
+test('專案檔：略過或整理掉的資料要通知；內容是空的不開啟', async ({ page }) => {
+  const errors = await open(page);
+  const project = (data: object) =>
+    JSON.stringify({
+      format: 'trpg-toolkit-project',
+      tool: 'scenario-timeline',
+      version: 1,
+      savedAt: '2026-10-29T00:00:00.000Z',
+      data,
+    });
+  await dropFiles(page, [
+    {
+      name: '壞掉一些.json',
+      type: 'application/json',
+      text: project({
+        title: '壞掉一些',
+        mode: 'date',
+        events: [
+          { id: 'ok', title: '好的', start: '1925-03-12' },
+          { id: 'bad', title: '壞的', start: '明天' },
+          { id: 'rng', title: '倒過來', kind: 'range', start: '1925-03-12', end: '1925-03-01' },
+        ],
+      }),
+    },
+  ]);
+  await page.getByRole('alertdialog').getByRole('button', { name: '開啟' }).click();
+  await expect(
+    page.getByText('略過 1 個看不懂的事件（沒有開始時間或寫法看不懂）。', { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByText('1 個期間的結束看不懂或不比開始晚，改成時間點。', { exact: true }),
+  ).toBeVisible();
+  await expect.poll(async () => (await docOf(page)).events.length).toBe(2);
+  await dropFiles(page, [{ name: '空的.json', type: 'application/json', text: project({}) }]);
+  await expect(
+    page.getByText('專案檔裡沒有劇本時間表的內容（是空的），沒有開啟。', { exact: true }),
+  ).toBeVisible();
+  expect((await docOf(page)).title).toBe('壞掉一些');
   expect(errors).toEqual([]);
 });
 

@@ -20,16 +20,25 @@ export function spanLimits(mode: TimeMode): { min: number; max: number } {
   return { min: 5, max: 1000000 };
 }
 
+/** 畫面可以到的範圍（架空年 ±1000000） */
+function viewBounds(mode: TimeMode): { lo: number; hi: number } {
+  const bounds = valueBounds(mode);
+  return mode === 'year' ? { lo: -1000000, hi: 1000000 } : { lo: bounds.min, hi: bounds.max };
+}
+
+/** 畫面範圍最長多少：上限與寫法允許的範圍較短的那個 */
+export function maxSpan(mode: TimeMode): number {
+  const { lo, hi } = viewBounds(mode);
+  return Math.min(spanLimits(mode).max, hi - lo);
+}
+
 /** 夾在上下限與允許的範圍內 */
 export function clampWindow(mode: TimeMode, w: Win): Win {
   const lim = spanLimits(mode);
-  const bounds = valueBounds(mode);
-  /* 架空年的畫面可以到 ±1000000 */
-  const lo = mode === 'year' ? -1000000 : bounds.min;
-  const hi = mode === 'year' ? 1000000 : bounds.max;
+  const { lo, hi } = viewBounds(mode);
   let span = w.end - w.start;
   if (!Number.isFinite(span) || span <= 0) span = lim.min;
-  span = Math.min(lim.max, Math.max(lim.min, span), hi - lo);
+  span = Math.min(maxSpan(mode), Math.max(lim.min, span));
   const mid = (w.start + w.end) / 2;
   let start = Number.isFinite(mid) ? mid - span / 2 : lo;
   if (start < lo) start = lo;
@@ -41,7 +50,7 @@ export function clampWindow(mode: TimeMode, w: Win): Win {
 export function zoomWindow(mode: TimeMode, w: Win, f: number, anchor?: number): Win {
   const lim = spanLimits(mode);
   const span = w.end - w.start;
-  const next = Math.min(lim.max, Math.max(lim.min, span / f));
+  const next = Math.min(maxSpan(mode), Math.max(lim.min, span / f));
   const at = anchor ?? (w.start + w.end) / 2;
   const ratio = span > 0 ? (at - w.start) / span : 0.5;
   const start = at - ratio * next;
@@ -53,11 +62,11 @@ export function panWindow(mode: TimeMode, w: Win, dv: number): Win {
   return clampWindow(mode, { start: w.start + dv, end: w.end + dv });
 }
 
-/** 縮放到頭了嗎 */
+/** 縮放到頭了嗎（縮小的上限是長度上限與寫法允許的範圍較短的那個） */
 export function zoomState(mode: TimeMode, w: Win): { canIn: boolean; canOut: boolean } {
   const lim = spanLimits(mode);
   const span = w.end - w.start;
-  return { canIn: span > lim.min * 1.0001, canOut: span < lim.max * 0.9999 };
+  return { canIn: span > lim.min * 1.0001, canOut: span < maxSpan(mode) * 0.9999 };
 }
 
 /** 沒有事件時的畫面範圍（3.3）：today＝今天 0:00；center＝目前進度 */
@@ -85,7 +94,8 @@ export function fitWindow(mode: TimeMode, range: Span | null, today: number, pad
 
 /**
  * 全覽（規格 F32、F70）：看得到的事件、標記、目前進度的範圍，前後各留 pad；
- * 右邊再留到最後面的時間點、短期間的標題放得下（時間軸寬 width px 時；算兩次就夠準）。
+ * 右邊再留到最後面的時間點、短期間的標題放得下（時間軸寬 width px 時）。右邊界直接解
+ * 「右邊界＝標題的起點＋標題寬÷比例尺（比例尺跟著右邊界變）」，再檢查變窄之後才需要留位置的短期間，到不再變為止。
  */
 export function fitWithLabels(
   vdoc: VisibleDoc,
@@ -99,16 +109,22 @@ export function fitWithLabels(
   const spans = vdoc.events
     .filter((e) => e.kind !== 'background')
     .map((e) => ({ s: eventSpan(vdoc.mode, e, vdoc.era), px: measure(e.title.trim() || '　') }));
-  for (let i = 0; i < 2; i++) {
-    const k = Math.max(1, width) / Math.max(1e-9, w.end - w.start);
+  const W = Math.max(1, width);
+  for (let i = 0; i < 12; i++) {
+    const k = W / Math.max(1e-9, w.end - w.start);
     let right = w.end;
     for (const { s, px } of spans) {
       if (!s) continue;
-      const room = px + POINT_R * 2 + LABEL_GAP + 16;
-      if (s.b === s.a || (s.b - s.a) * k < px + 16) right = Math.max(right, s.b + room / k);
+      if (!(s.b === s.a || (s.b - s.a) * k < px + 16)) continue;
+      /* 標題比時間軸還寬時最多留 85%（其餘照樣切掉） */
+      const room = Math.min(px + POINT_R * 2 + LABEL_GAP + 16, W * 0.85);
+      if (s.b + room / k <= right + 1e-9) continue;
+      right = Math.max(right, (s.b * W - room * w.start) / (W - room));
     }
-    if (right <= w.end + 1e-9) break;
-    w = clampWindow(vdoc.mode, { start: w.start, end: right });
+    if (right <= w.end + (w.end - w.start) * 1e-9) break;
+    const next = clampWindow(vdoc.mode, { start: w.start, end: right });
+    if (next.end - next.start <= w.end - w.start + 1e-9) break;
+    w = next;
   }
   return w;
 }

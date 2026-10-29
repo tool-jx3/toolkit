@@ -24,9 +24,10 @@ import { type Audience, type VisibleDoc, visibleDoc } from '../model/visible';
 import { fitWithLabels, type Win } from '../model/window';
 import { docNow, prefsNow, useDoc, usePrefs, useUi } from '../store';
 
-/** 事件標題 12 px（font-medium）、刻度 11 px、旗子 11 px 粗、泳道名稱 12 px 粗 */
+/** 事件標題 12 px（font-medium）、刻度 11 px（上排粗）、旗子 11 px 粗、泳道名稱 12 px 粗 */
 export const itemMeasure = createMeasure(12, 500);
 export const axisMeasure = createMeasure(11, 400);
+export const axisMajorMeasure = createMeasure(11, 600);
 export const flagMeasure = createMeasure(11, 600);
 export const laneMeasure = createMeasure(12, 600);
 

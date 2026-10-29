@@ -8,6 +8,7 @@ import {
   majorTicks,
   minorValues,
   pickStep,
+  placeMajor,
   snapUnitFor,
 } from '@/tools/scenario-timeline/model/axis';
 import { exampleDoc } from '@/tools/scenario-timeline/model/example';
@@ -15,8 +16,10 @@ import { collectFlags, placeFlags } from '@/tools/scenario-timeline/model/flags'
 import {
   contentRange,
   eventSpan,
+  LABEL_GAP,
   layoutRows,
   layoutTimeline,
+  POINT_R,
   rowHeight,
   stackLevels,
 } from '@/tools/scenario-timeline/model/layout';
@@ -34,9 +37,11 @@ import {
   fitWindow,
   fitWithLabels,
   isMouseWheel,
+  maxSpan,
   panWindow,
   spanLimits,
   wheelZoomFactor,
+  zoomState,
   zoomWindow,
 } from '@/tools/scenario-timeline/model/window';
 
@@ -102,6 +107,33 @@ describe('刻度（3.4）', () => {
       majorTicks('day', { unit: 'hour', n: 3 }, D + 600, 2 * D + 10).map((x) => x.label),
     ).toEqual(['第 2 天', '第 3 天']);
     expect(majorTicks('year', { unit: 'year', n: 10 }, 0, 100)).toEqual([]);
+  });
+  it('上排的標籤放不下時用短寫法；都放不下、超出右邊時不畫', () => {
+    const from = dateValue(1925, 3, 15);
+    const [t] = majorTicks('date', { unit: 'hour', n: 12 }, from, from + 60);
+    expect(t.short).toEqual(['3月15日（日）', '3月15日', '15日']);
+    const m = (x: string) => estimateWidth(x, 11);
+    /* 放得下的寬度：左邊 4 px＋字寬＋後面 8 px */
+    const need = (x: string) => 4 + m(x) + 8;
+    expect(placeMajor(t, 0, 400, 0, 1000, m)?.text).toBe('1925年3月15日（日）');
+    expect(placeMajor(t, 0, need('1925年3月15日（日）') - 1, 0, 1000, m)?.text).toBe(
+      '3月15日（日）',
+    );
+    expect(placeMajor(t, 0, need('3月15日（日）') - 1, 0, 1000, m)?.text).toBe('3月15日');
+    expect(placeMajor(t, 0, need('15日') - 1, 0, 1000, m)).toBeNull();
+    /* 左邊被切到：貼在左緣 */
+    expect(placeMajor(t, -50, 400, 0, 1000, m)?.left).toBe(4);
+    /* 最後一格：超出右邊時改短、還是放不下時不畫（不畫被切掉的字） */
+    const x = 1000 - need('3月15日（日）');
+    expect(placeMajor(t, x, null, 0, 1000, m)?.text).toBe('3月15日（日）');
+    expect(placeMajor(t, 1000 - need('15日') + 1, null, 0, 1000, m)).toBeNull();
+    const [mo] = majorTicks(
+      'date',
+      { unit: 'day', n: 1 },
+      dateValue(1925, 3, 20),
+      dateValue(1925, 3, 21),
+    );
+    expect(mo.short).toEqual(['3月']);
   });
   it('下排的標籤', () => {
     const from = dateValue(1925, 3, 12, 20);
@@ -274,6 +306,31 @@ describe('畫面範圍（3.3）', () => {
     const today = dateValue(2026, 10, 29);
     expect(fitWindow('date', null, today)).toEqual({ start: today - D, end: today + 2 * D });
     expect(fitWindow('year', { a: 300, b: 300 }, 0)).toEqual({ start: 295, end: 305 });
+  });
+  it('窄的時間軸全覽也收斂：最後面的標題（含留白）整個在畫面裡', () => {
+    const d: TimelineDoc = {
+      ...blankDoc(),
+      events: [
+        newEvent({ title: '開始', start: '1925-03-12 08:00' }),
+        newEvent({ title: '漲潮，地下室的門被沖開', start: '1925-03-14 03:00' }),
+      ],
+    };
+    const v = visibleDoc(d, 'gm');
+    for (const width of [198, 238, 268, 430]) {
+      const w = fitWithLabels(v, width, m12, 0);
+      const k = width / (w.end - w.start);
+      const last = dateValue(1925, 3, 14, 3);
+      const room = m12('漲潮，地下室的門被沖開') + POINT_R * 2 + LABEL_GAP + 16;
+      expect((last - w.start) * k + room).toBeLessThanOrEqual(width + 1e-6);
+    }
+  });
+  it('縮小的上限：寫法允許的範圍比長度上限短時用範圍（日期時間全範圍時不能再縮小）', () => {
+    const all = clampWindow('date', { start: -1e12, end: 1e12 });
+    expect(zoomState('date', all).canOut).toBe(false);
+    expect(zoomState('date', all).canIn).toBe(true);
+    expect(zoomWindow('date', all, 1 / 1.5)).toEqual(all);
+    expect(zoomState('day', { start: 0, end: 3 * D }).canOut).toBe(true);
+    expect(maxSpan('year')).toBe(1000000);
   });
   it('全覽時右邊留最後面的標題的位置', () => {
     const d: TimelineDoc = {

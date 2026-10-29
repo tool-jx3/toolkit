@@ -1,5 +1,6 @@
 /**
  * 「泳道」分頁（規格 1.3）：泳道清單（拖曳排序、顏色、名稱、種類、上層、GM 專用、刪除）與分類清單。
+ * PL 檢視：只列 PL 看得到的泳道與看得到的事件用到的分類（停用）。
  */
 import { GripVertical, Plus, Trash2 } from 'lucide-react';
 import { useRef } from 'react';
@@ -22,6 +23,7 @@ import {
   LIMITS,
   PALETTE,
 } from '../model/types';
+import { usedCategories } from '../model/visible';
 import {
   addCategory,
   addLane,
@@ -33,19 +35,23 @@ import {
   updateCategory,
   updateLane,
   useDoc,
-  usePrefs,
 } from '../store';
 import { S } from '../strings';
+import { useVisibleDoc } from '../view/shared';
 import { PlLock } from './EventPanel';
 
 const g = historyGesture(useDoc);
 const TOP = '__top';
 
 export function LanesPanel() {
-  const lanes = useDoc((s) => s.data.lanes);
-  const categories = useDoc((s) => s.data.categories);
+  const allLanes = useDoc((s) => s.data.lanes);
+  const allCategories = useDoc((s) => s.data.categories);
   const events = useDoc((s) => s.data.events);
-  const pl = usePrefs((s) => s.data.viewMode) === 'pl';
+  const vdoc = useVisibleDoc();
+  const pl = vdoc.audience === 'pl';
+  /* PL 檢視：GM 專用的泳道（與子泳道）、只有 GM 事件用的分類都不列 */
+  const lanes: readonly Lane[] = pl ? vdoc.lanes : allLanes;
+  const categories: readonly Category[] = pl ? usedCategories(vdoc) : allCategories;
   const choose = useChoice();
   const list = displayOrder(lanes);
   const focusNew = useRef<string | null>(null);
@@ -110,7 +116,7 @@ export function LanesPanel() {
             <LaneRow lane={lane} lanes={lanes} pl={pl} onDelete={() => void onDelete(lane)} />
           )}
         />
-        {lanes.length >= LIMITS.lanes ? (
+        {!pl && lanes.length >= LIMITS.lanes ? (
           <p className="m-0 text-xs text-warning">{S.lanesFull(LIMITS.lanes)}</p>
         ) : null}
       </Section>

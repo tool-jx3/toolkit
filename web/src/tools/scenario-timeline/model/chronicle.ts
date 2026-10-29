@@ -72,11 +72,11 @@ function sectionOf(mode: TimeMode, tv: Tv, era: string): { key: string; heading:
   return { key: `d${d.days}`, heading: dateLabel(tv.v) };
 }
 
-/** 段裡的開始時間：寫到分＝時刻；只到日＝「整天」（期間的開始不寫）；只到月、年＝不寫 */
-function startText(mode: TimeMode, tv: Tv, isRange: boolean): string {
+/** 段裡的開始時間：寫到分＝時刻；只到日＝「整天」（時間點與期間的開始相同：「整天～3月14日」）；只到月、年＝不寫 */
+function startText(mode: TimeMode, tv: Tv): string {
   if (mode === 'year') return '';
   if (tv.p === 'minute') return clockText(tv.v);
-  if (tv.p === 'day') return isRange ? '' : '整天';
+  if (tv.p === 'day') return '整天';
   return '';
 }
 
@@ -125,7 +125,7 @@ export function chronicle(vdoc: VisibleDoc, untitled: string, fallbackTitle: str
     const isRange = e.kind !== 'point';
     const endTv = isRange ? readTime(mode, e.end, era) : null;
     const span = eventSpan(mode, e, era);
-    let time = startText(mode, a, isRange);
+    let time = startText(mode, a);
     let fullTime = formatLong(mode, a, era);
     if (isRange) {
       const tail = e.ongoing ? '（進行中）' : endTv ? endText(mode, a, endTv, era) : '';
@@ -189,7 +189,7 @@ export function chronicle(vdoc: VisibleDoc, untitled: string, fallbackTitle: str
       row: {
         kind: 'marker',
         id: m.id,
-        time: startText(mode, t, false),
+        time: startText(mode, t),
         fullTime: formatLong(mode, t, era),
         title: m.label.trim() || untitled,
         laneName: '',
