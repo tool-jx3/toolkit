@@ -27,6 +27,11 @@ export interface LoopTrackSpec {
   swell: boolean;
   /** loop：一直循環；once：每次按播放從頭播一次 */
   mode: 'loop' | 'once';
+  /**
+   * 循環時只循環前面這麼多秒（選填；不給時整段）：大音檔原地做好接縫的交叉淡化之後，不必再複製一份比較短的
+   * （`loop.ts` 的 crossfadeLoopInPlace）。
+   */
+  loopEnd?: number;
 }
 
 export interface LoopMixer {
@@ -192,6 +197,11 @@ export function createLoopMixer(): LoopMixer {
     const src = c.createBufferSource();
     src.buffer = buffer;
     src.loop = t.spec.mode === 'loop';
+    const period = loopPeriod(t.spec, buffer);
+    if (src.loop && period < buffer.duration) {
+      src.loopStart = 0;
+      src.loopEnd = period;
+    }
     const f = c.createGain();
     if (fade > 0) {
       f.gain.setValueAtTime(0, now);
@@ -199,7 +209,7 @@ export function createLoopMixer(): LoopMixer {
     }
     src.connect(f);
     f.connect(t.vol);
-    const off = buffer.duration > 0 ? offset % buffer.duration : 0;
+    const off = period > 0 ? offset % period : 0;
     src.start(now, off);
     const v: Voice = { src, fade: f, origin: now - off };
     src.onended = () => {
@@ -207,6 +217,10 @@ export function createLoopMixer(): LoopMixer {
     };
     t.voice = v;
   };
+
+  /** 循環的長度（秒） */
+  const loopPeriod = (spec: LoopTrackSpec, buffer: AudioBuffer) =>
+    spec.loopEnd && spec.loopEnd > 0 ? Math.min(buffer.duration, spec.loopEnd) : buffer.duration;
 
   /** 目前的播放位置（秒） */
   const position = (t: Track): number => {
@@ -232,7 +246,7 @@ export function createLoopMixer(): LoopMixer {
       t.swell.gain.setTargetAtTime(s.base, now, 0.3);
       t.depth.gain.setTargetAtTime(s.depth, now, 0.3);
     }
-    if (prev.buffer !== spec.buffer || prev.mode !== spec.mode) {
+    if (prev.buffer !== spec.buffer || prev.mode !== spec.mode || prev.loopEnd !== spec.loopEnd) {
       const pos = position(t);
       stopVoice(t.voice, SWAP_FADE);
       t.voice = null;

@@ -24,7 +24,10 @@ import {
   whiteNoise,
 } from '@/core/audio/ambience/dsp';
 import {
+  applyFadesInPlace,
   crossfadeLoop,
+  crossfadeLoopInPlace,
+  crossfadeLoopLength,
   placeOnce,
   SOFT_CLIP_INPUT_SCALE,
   softClip,
@@ -229,6 +232,25 @@ describe('循環的整理', () => {
     expect(crossfadeLoop(src, 0).channels[0]).toHaveLength(1000);
     /* 太短時最多一半 */
     expect(crossfadeLoop(ramp(100), 5).channels[0]).toHaveLength(50);
+  });
+
+  it('原地做循環（大音檔不複製）：結果和 crossfadeLoop 一樣、只改開頭、回傳的是檢視', () => {
+    const src = ramp(1000);
+    const copy = { sampleRate: 1000, channels: [Float32Array.from(src.channels[0])] };
+    const views = crossfadeLoopInPlace(copy, 0.1);
+    expect(views.channels[0]).toHaveLength(900);
+    expect(views.channels[0].buffer).toBe(copy.channels[0].buffer);
+    expect(Array.from(views.channels[0])).toEqual(Array.from(crossfadeLoop(src, 0.1).channels[0]));
+    /* 結尾（第 900 個以後）沒有動 */
+    expect(copy.channels[0][950]).toBe(src.channels[0][950]);
+    expect(crossfadeLoopLength(1000, 1000, 0.1)).toBe(900);
+    expect(crossfadeLoopLength(100, 1000, 5)).toBe(50);
+    const one = { sampleRate: 1000, channels: [new Float32Array(300).fill(1)] };
+    applyFadesInPlace(one, 0.1, 0.1);
+    expect(one.channels[0][0]).toBe(0);
+    expect(one.channels[0][50]).toBeCloseTo(0.5, 5);
+    expect(one.channels[0][150]).toBe(1);
+    expect(one.channels[0][299]).toBeCloseTo(0.01, 5);
   });
 
   it('鋪滿匯出的長度：剛好整除時直接鋪，不然接縫交叉淡化', () => {

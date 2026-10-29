@@ -9,6 +9,15 @@ import { readShare, SHARE_MAX_LENGTH, SHARE_VERSION, shareData, trackLabel } fro
 import { mixNow, useMix, useRuntime } from './store';
 import { S } from './strings';
 
+/** 打開分享連結對話框的按鈕（關閉後焦點回到它） */
+let opener: HTMLElement | null = null;
+
+/** 打開分享連結對話框（記下目前有焦點的元素，關閉後還給它） */
+export function openShare(): void {
+  opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+  useRuntime.setState({ shareOpen: true });
+}
+
 export function ShareDialog() {
   const open = useRuntime((s) => s.shareOpen);
   const state = useMix((s) => s.data);
@@ -37,6 +46,7 @@ export function ShareDialog() {
       tooLong={!!hash && shareTooLong(hash, SHARE_MAX_LENGTH)}
       maxLength={SHARE_MAX_LENGTH}
       data-testid="share-dialog"
+      returnFocus={opener}
     />
   );
 }
@@ -45,6 +55,18 @@ export function ShareDialog() {
 export function useOpenShared(notify: (o: ToastOptions) => void) {
   const confirm = useConfirm();
   useEffect(() => {
+    /* moodist 的分享連結（`?share=`）：聲音不同，讀不了；說明並從網址拿掉 */
+    if (new URLSearchParams(location.search).has('share')) {
+      const q = new URLSearchParams(location.search);
+      q.delete('share');
+      const search = q.toString();
+      history.replaceState(
+        history.state,
+        '',
+        `${location.pathname}${search ? `?${search}` : ''}${location.hash}`,
+      );
+      notify({ title: S.share.moodist, tone: 'info' });
+    }
     const check = async () => {
       const r = readShare(location.hash);
       if (r.kind === 'none') return;

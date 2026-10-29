@@ -13,21 +13,25 @@ import { TrackCard } from './TrackCard';
 
 const TIMER_OPTIONS = [0, 15, 30, 45, 60, 90, 120];
 
-function useNow(active: boolean) {
+/** 現在的時間（倒數中每秒更新；開始倒數的當下就更新，不會先顯示舊的時間） */
+function useNow(end: number | null) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
-    if (!active) return;
+    if (end === null) return;
+    setNow(Date.now());
     const id = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(id);
-  }, [active]);
+  }, [end]);
   return now;
 }
 
 function TimerField() {
   const end = useRuntime((s) => s.timerEnd);
   const minutes = useRuntime((s) => s.timerMinutes);
-  const now = useNow(end !== null);
-  const left = end === null ? 0 : Math.max(0, Math.round((end - now) / 1000));
+  const now = useNow(end);
+  /* 剛選的那一瞬間 now 可能還是舊的：不超過選的分鐘數 */
+  const left =
+    end === null ? 0 : Math.max(0, Math.round(Math.min(end - now, minutes * 60_000) / 1000));
   const text = `${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`;
   return (
     <Field label={S.timer.label} hint={end === null ? S.timer.hint : undefined}>
@@ -114,9 +118,10 @@ export function MixPanel({ onShare }: { onShare: () => void }) {
           </div>
         </div>
         <p className="m-0 text-sm text-muted" aria-live="polite" data-testid="mix-summary">
+          {/* 沒有聲音時「混音中」區塊已經寫了，這裡不重複 */}
           {tracks.length
             ? `${S.play.count(tracks.length)}${preparing ? `・${S.play.preparing(preparing)}` : ''}${playing ? '' : `・${S.play.hint}`}`
-            : S.mix.empty}
+            : ''}
         </p>
       </div>
       <Section title={S.mix.title} persistKey={`${TOOL_ID}:mix`} fixed>

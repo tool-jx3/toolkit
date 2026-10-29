@@ -79,6 +79,20 @@ export const MAX_TRACKS = 12;
 export const MAX_FILE_TRACKS = 6;
 /** 自己的音檔的大小上限（位元組） */
 export const MAX_FILE_BYTES = 60 * 1024 * 1024;
+/**
+ * 自己的音檔解碼後的長度上限（秒）：解碼後是 44.1 kHz 的浮點數，每分鐘的立體聲約 21 MB，15 分鐘約 318 MB；
+ * 再長的話一個分頁就要好幾 GB 的記憶體（驗證時 64 分鐘的檔案讓分頁到 2.75 GB）。
+ */
+export const FILE_MAX_SECONDS = 15 * 60;
+/** 超過長度上限（多 1 秒的寬容：剛好 15 分鐘的檔案不會因為編碼的填充被擋掉） */
+export const fileTooLong = (seconds: number): boolean => seconds > FILE_MAX_SECONDS + 1;
+/** 分鐘數的文字（一位小數，例「64」「15.5」） */
+export const minutesText = (seconds: number): string =>
+  (seconds / 60).toFixed(1).replace(/\.0$/, '');
+/** 太短的音檔（解碼後）不收：循環起來只是一連串的雜音 */
+export const FILE_MIN_SECONDS = 0.5;
+/** 自己的音檔解碼成這個取樣率（預覽直接播它、匯出時由 Web Audio 換成匯出的取樣率） */
+export const FILE_DECODE_RATE = 44100;
 
 export const DEFAULT_VOLUME = 70;
 export const DEFAULT_MASTER = 100;
@@ -157,6 +171,32 @@ export function newFileTrack(
     fadeIn: 0.5,
     fadeOut: 1,
   };
+}
+
+/**
+ * WAV 檔頭 → 長度（秒）：從 fmt 的每秒位元組數與 data 的大小算（data 的大小不合理時用檔案大小）；不是 WAV 時 null。
+ * head：檔案開頭（4 KB 就夠）；size：整個檔案的位元組數。
+ */
+export function wavDuration(head: Uint8Array, size: number): number | null {
+  if (head.length < 12) return null;
+  const tag = (o: number) => String.fromCharCode(head[o], head[o + 1], head[o + 2], head[o + 3]);
+  if (tag(0) !== 'RIFF' || tag(8) !== 'WAVE') return null;
+  const v = new DataView(head.buffer, head.byteOffset, head.byteLength);
+  let o = 12;
+  let byteRate = 0;
+  while (o + 8 <= head.length) {
+    const id = tag(o);
+    const len = v.getUint32(o + 4, true);
+    if (id === 'fmt ' && o + 20 <= head.length) byteRate = v.getUint32(o + 16, true);
+    if (id === 'data') {
+      if (!byteRate) return null;
+      const rest = Math.max(0, size - (o + 8));
+      const bytes = len > 0 && len <= rest ? len : rest;
+      return bytes / byteRate;
+    }
+    o += 8 + len + (len % 2);
+  }
+  return null;
 }
 
 /* ---------- 整理 ---------- */
@@ -314,11 +354,12 @@ export const PRESETS: readonly MixPreset[] = [
     name: '暴風雨的船上',
     description: '大雨、狂風、巨浪，雷就在頭頂，船身不停嘎吱作響。',
     tracks: [
-      { sound: 'rain-heavy', volume: 65, params: { intensity: 75, distance: 20 } },
-      { sound: 'wind', volume: 60, params: { intensity: 80, howl: 55 } },
-      { sound: 'thunder', volume: 60, params: { frequency: 60, distance: 20 } },
-      { sound: 'waves', volume: 55, params: { size: 90, distance: 20 } },
-      { sound: 'creak', volume: 55, params: { rate: 70, pitch: 30 } },
+      /* 五軌都很大聲：音量比其他組合低一些（約 −3 dB） */
+      { sound: 'rain-heavy', volume: 55, params: { intensity: 75, distance: 20 } },
+      { sound: 'wind', volume: 50, params: { intensity: 80, howl: 55 } },
+      { sound: 'thunder', volume: 50, params: { frequency: 60, distance: 20 } },
+      { sound: 'waves', volume: 46, params: { size: 90, distance: 20 } },
+      { sound: 'creak', volume: 46, params: { rate: 70, pitch: 30 } },
     ],
   },
   {
@@ -554,7 +595,10 @@ export function readShare(
   hash: string,
 ): { kind: 'none' } | { kind: 'broken' } | { kind: 'ok'; mix: SharedMix } {
   const h = hash.startsWith('#') ? hash.slice(1) : hash;
-  if (!new URLSearchParams(h).get('s')) return { kind: 'none' };
+  const params = new URLSearchParams(h);
+  if (!params.has('s')) return { kind: 'none' };
+  /* 空的 #s=：當成壞掉的連結（清掉並通知） */
+  if (!params.get('s')) return { kind: 'broken' };
   const raw = readShareHash(hash, { version: SHARE_VERSION, maxLength: SHARE_MAX_LENGTH });
   const mix = raw === null ? null : parseShareData(raw);
   return mix ? { kind: 'ok', mix } : { kind: 'broken' };
@@ -568,6 +612,12 @@ export function trackLabel(t: Track): string {
 
 /** 去掉副檔名 */
 export const baseName = (name: string): string => name.replace(/\.[^./\\]{1,8}$/, '') || name;
+
+/** 檔案大小（1000 進位，和 CCFOLIA 的「10 MB」同一種算法）：「7.7 MB」「10 MB」「850 KB」 */
+export function formatMb(bytes: number): string {
+  if (bytes < 1e6) return `${Math.max(1, Math.round(bytes / 1e3))} KB`;
+  return `${(bytes / 1e6).toFixed(1).replace(/\.0$/, '')} MB`;
+}
 
 /** 匯出的長度的文字（30 秒、1 分、1 分 30 秒） */
 export function lengthLabel(seconds: number): string {

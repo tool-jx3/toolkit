@@ -4,7 +4,6 @@
 import { Download, X } from 'lucide-react';
 import { CCFOLIA_AUDIO_MAX_BYTES } from '@/ccfolia';
 import { wavBytes } from '@/core/audio/ambience';
-import { formatBytes } from '@/core/files';
 import {
   AudioPlayer,
   Button,
@@ -22,6 +21,7 @@ import {
   EXPORT_RATES,
   type ExportRate,
   type ExportSettings,
+  formatMb,
   lengthLabel,
   PREVIEW_RATE,
   PREVIEW_SECONDS,
@@ -53,7 +53,7 @@ function ResultCard() {
           {r.name}
         </span>
         <span className="text-sm text-muted" data-testid="export-bytes">
-          {formatBytes(r.bytes)}
+          {formatMb(r.bytes)}
         </span>
       </div>
       <p className="m-0 text-xs text-muted" data-testid="export-details">
@@ -133,13 +133,11 @@ export function ExportSection() {
           />
         </Field>
         <p className="m-0 text-sm text-muted" data-testid="export-size">
-          {S.exportPanel.size(bytes)}
+          {S.exportPanel.size(formatMb(bytes))}
           {hasSynth ? `・${same ? S.exportPanel.sameAsPreview : S.exportPanel.differs}` : ''}
         </p>
         {tooBig ? (
-          <Notice tone="warning">
-            {S.exportPanel.tooBig(formatBytes(CCFOLIA_AUDIO_MAX_BYTES))}
-          </Notice>
+          <Notice tone="warning">{S.exportPanel.tooBig(formatMb(CCFOLIA_AUDIO_MAX_BYTES))}</Notice>
         ) : null}
         <div className="flex flex-wrap items-center gap-2">
           <Button

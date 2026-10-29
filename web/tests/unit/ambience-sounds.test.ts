@@ -279,8 +279,9 @@ describe('頻譜特徵', () => {
     const pocket = render('clock', { type: 2, room: 0 }).channels[0];
     const pp = peak([pocket]);
     const n = onsets(pocket, pp * 0.3, 0.1).length;
+    /* 繞回開頭的那一聲可能在頭尾各算一次 */
     expect(n).toBeGreaterThanOrEqual(95);
-    expect(n).toBeLessThanOrEqual(100);
+    expect(n).toBeLessThanOrEqual(101);
   });
 
   it('日光燈：120 Hz（臺灣 60 Hz 的倍頻）比旁邊的頻率強很多', () => {

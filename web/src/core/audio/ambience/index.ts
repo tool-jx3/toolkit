@@ -30,7 +30,10 @@ export {
 } from './catalog';
 export { type AmbienceRenderer, createAmbienceRenderer } from './client';
 export {
+  applyFadesInPlace,
   crossfadeLoop,
+  crossfadeLoopInPlace,
+  crossfadeLoopLength,
   peakDb,
   placeOnce,
   SOFT_CLIP_INPUT_SCALE,

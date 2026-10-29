@@ -13,27 +13,55 @@ const fadePair = (x: number): [number, number] => [
   Math.cos((x * Math.PI) / 2),
 ];
 
+/** 交叉淡化的取樣數（最多一半） */
+const fadeLength = (n: number, rate: number, fadeSeconds: number) =>
+  Math.max(0, Math.min(Math.floor(n / 2), Math.round(fadeSeconds * rate)));
+
 /**
  * 首尾相接的循環：長度 F 的音訊 → 長度 F − X（X＝交叉淡化的取樣數，最多 F 的一半）。
  * 開頭 X 個取樣＝原本的開頭（淡入）＋原本最後 X 個取樣（淡出），所以循環時最後一個取樣（原本的第 F−X−1 個）
- * 接到第一個（幾乎就是原本的第 F−X 個）是連續的。X＝0 時原樣回傳（複製）。
+ * 接到第一個（幾乎就是原本的第 F−X 個）是連續的。X＝0 時原樣回傳（複製）。不改傳進來的音訊。
  */
 export function crossfadeLoop(pcm: PcmAudio, fadeSeconds: number): PcmAudio {
-  const n = pcmLength(pcm);
-  const x = Math.max(0, Math.min(Math.floor(n / 2), Math.round(fadeSeconds * pcm.sampleRate)));
-  const len = n - x;
-  return {
+  const copy = {
     sampleRate: pcm.sampleRate,
-    channels: pcm.channels.map((src) => {
-      const out = new Float32Array(len);
-      out.set(src.subarray(0, len));
-      for (let i = 0; i < x; i++) {
-        const [fi, fo] = fadePair((i + 0.5) / x);
-        out[i] = src[i] * fi + src[len + i] * fo;
-      }
-      return out;
-    }),
+    channels: pcm.channels.map((c) => Float32Array.from(c)),
   };
+  const views = crossfadeLoopInPlace(copy, fadeSeconds);
+  return { sampleRate: pcm.sampleRate, channels: views.channels.map((c) => c.slice()) };
+}
+
+/**
+ * 同 crossfadeLoop，但**直接改傳進來的取樣**（只改開頭 X 個），回傳長度 F − X 的檢視（subarray，不複製）。
+ * 大音檔用：不必多一份整段的複本（播放時用 AudioBufferSourceNode 的 loopEnd 只循環前 F − X 個取樣）。
+ */
+export function crossfadeLoopInPlace(pcm: PcmAudio, fadeSeconds: number): PcmAudio {
+  const n = pcmLength(pcm);
+  const x = fadeLength(n, pcm.sampleRate, fadeSeconds);
+  const len = n - x;
+  for (const ch of pcm.channels) {
+    for (let i = 0; i < x; i++) {
+      const [fi, fo] = fadePair((i + 0.5) / x);
+      ch[i] = ch[i] * fi + ch[len + i] * fo;
+    }
+  }
+  return { sampleRate: pcm.sampleRate, channels: pcm.channels.map((c) => c.subarray(0, len)) };
+}
+
+/** 長度 F 的音訊做成循環後的長度（取樣數）：F − X */
+export const crossfadeLoopLength = (n: number, rate: number, fadeSeconds: number): number =>
+  n - fadeLength(n, rate, fadeSeconds);
+
+/** 開頭淡入、結尾淡出（線性），**直接改傳進來的取樣**；回傳同一個物件 */
+export function applyFadesInPlace(pcm: PcmAudio, fadeIn: number, fadeOut: number): PcmAudio {
+  const n = pcmLength(pcm);
+  const fin = Math.min(n, Math.round(Math.max(0, fadeIn) * pcm.sampleRate));
+  const fout = Math.min(n, Math.round(Math.max(0, fadeOut) * pcm.sampleRate));
+  for (const ch of pcm.channels) {
+    for (let i = 0; i < fin; i++) ch[i] *= i / fin;
+    for (let i = Math.max(0, n - fout); i < n; i++) ch[i] *= (n - i) / fout;
+  }
+  return pcm;
 }
 
 /**

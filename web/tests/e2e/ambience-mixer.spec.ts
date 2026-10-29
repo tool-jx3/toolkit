@@ -101,6 +101,26 @@ async function addFile(page: Page, name: string, data: Buffer) {
   await fileInput(page).setInputFiles({ name, mimeType: 'audio/wav', buffer: data });
 }
 
+/** 很長的靜音 WAV（單聲道 16-bit；只用來測長度上限） */
+function silentWav(seconds: number, rate: number): Buffer {
+  const n = Math.round(seconds * rate);
+  const buf = Buffer.alloc(44 + n * 2);
+  buf.write('RIFF', 0);
+  buf.writeUInt32LE(36 + n * 2, 4);
+  buf.write('WAVE', 8);
+  buf.write('fmt ', 12);
+  buf.writeUInt32LE(16, 16);
+  buf.writeUInt16LE(1, 20);
+  buf.writeUInt16LE(1, 22);
+  buf.writeUInt32LE(rate, 24);
+  buf.writeUInt32LE(rate * 2, 28);
+  buf.writeUInt16LE(2, 32);
+  buf.writeUInt16LE(16, 34);
+  buf.write('data', 36);
+  buf.writeUInt32LE(n * 2, 40);
+  return buf;
+}
+
 /** 匯出並解析下載的 WAV */
 async function exportWav(page: Page): Promise<{ pcm: PcmAudio; name: string; bytes: number }> {
   await page.getByTestId('export-wav').click();
@@ -139,9 +159,11 @@ test('開頁：沒有錯誤、靈感來源、7 個分類 24 種聲音、10 個�
   await expect(page.locator('[data-category]')).toHaveCount(7);
   await expect(page.locator('button[data-preset]')).toHaveCount(10);
   await expect(page.getByTestId('play-toggle')).toBeDisabled();
-  await expect(page.getByTestId('mix-summary')).toHaveText(
-    '還沒有聲音。點選聲音卡片，或挑一個預設組合。',
-  );
+  /* 空狀態的說明只出現一次（在「混音中」區塊） */
+  await expect(page.getByTestId('mix-summary')).toHaveText('');
+  await expect(
+    page.getByText('還沒有聲音。點選聲音卡片，或挑一個預設組合。', { exact: true }),
+  ).toHaveCount(1);
   await expect(card(page, 'rain-light')).toHaveAccessibleDescription(
     '細細的雨聲，偶爾有雨滴落在水窪。',
   );
@@ -292,6 +314,8 @@ test('分享連結：對話框的網址；開連結時有聲音先確認、沒�
   const link = await dialog.getByRole('textbox').inputValue();
   expect(link).toMatch(/\/next\/ambience-mixer\/#s=/);
   await page.keyboard.press('Escape');
+  /* 關閉後焦點回到「分享連結」 */
+  await expect(page.getByTestId('share-open')).toBeFocused();
 
   /* 另一個分頁（另一個瀏覽器環境沒有存檔）：直接套用 */
   const fresh = await context.browser()?.newContext();
@@ -323,6 +347,26 @@ test('分享連結：對話框的網址；開連結時有聲音先確認、沒�
   await expect(
     p2.getByText('分享連結讀不出來（可能不完整或是舊版的連結）。', { exact: true }),
   ).toBeVisible();
+  expect((await state(p2)).mixName).toBe('森林營火');
+  /* 空的 #s=：清掉並通知（前一則同樣的通知可能還在） */
+  const brokenToast = p2.getByText('分享連結讀不出來（可能不完整或是舊版的連結）。', {
+    exact: true,
+  });
+  const before = await brokenToast.count();
+  await p2.goto(`${URL}#s=`);
+  await expect.poll(() => p2.evaluate(() => location.hash)).toBe('');
+  await expect(brokenToast).toHaveCount(before + 1);
+  /* moodist 的分享連結（?share=）：讀不了，說明並從網址拿掉 */
+  await p2.goto(`${URL}?share=${encodeURIComponent('{"rain":0.5}')}`);
+  await expect(
+    p2.getByText(
+      '這是 moodist 的分享連結，這裡讀不了（兩邊的聲音不同）；可以從預設組合或聲音卡片重新組一個。',
+      {
+        exact: true,
+      },
+    ),
+  ).toBeVisible();
+  expect(await p2.evaluate(() => location.search)).toBe('');
   expect((await state(p2)).mixName).toBe('森林營火');
   await fresh.close();
   expect(errors).toEqual([]);
@@ -361,6 +405,31 @@ test('自己的音檔：加入、循環／只播一次、匯出時一起混進�
       Math.abs(x[x.length - i] - x[x.length - i - 1]),
     );
   expect(Math.abs(x[0] - x[x.length - 1])).toBeLessThanOrEqual(local * 1.5 + 1e-3);
+  /* 只播一次：匯出的 WAV 從 0 秒開始（淡入 0.5 秒），2.5 秒之後是靜音 */
+  await t.getByRole('switch', { name: '我的鐘聲.wav：循環播放' }).click();
+  await expect.poll(async () => (await state(page)).tracks[0].loop).toBe(false);
+  const once = (await exportWav(page)).pcm.channels[0];
+  const win = (a: number, b: number) =>
+    rmsOf(once.subarray(Math.round(a * 32000), Math.round(b * 32000)));
+  expect(Math.abs(once[0])).toBeLessThan(0.01);
+  expect(win(0, 0.05)).toBeLessThan(win(0.6, 0.65) * 0.3);
+  expect(win(0.6, 1.4)).toBeGreaterThan(0.2);
+  expect(win(2.6, 10)).toBeLessThan(1e-4);
+  /* 太短（不到 0.5 秒）、太長（超過 15 分鐘，解碼前讀 WAV 的檔頭就擋掉）的音檔不收 */
+  await addFile(page, '短.wav', sineWav(0.3));
+  await expect(
+    page.getByText('「短.wav」太短了（不到 0.5 秒），循環起來只會是一連串的雜音。', {
+      exact: true,
+    }),
+  ).toBeVisible();
+  await addFile(page, '長.wav', silentWav(16 * 60, 8000));
+  await expect(
+    page.getByText(
+      '「長.wav」太長了（16 分鐘）：上限 15 分鐘（太長的音檔會佔用很多記憶體），請剪短後再加入。',
+      { exact: true },
+    ),
+  ).toBeVisible();
+  expect((await state(page)).tracks).toHaveLength(1);
   /* 非音檔 */
   await fileInput(page).setInputFiles({
     name: 'note.txt',
@@ -368,6 +437,43 @@ test('自己的音檔：加入、循環／只播一次、匯出時一起混進�
     buffer: Buffer.from('hello'),
   });
   await expect(page.getByText('這不是音檔', { exact: true })).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
+test('存檔裡超過 15 分鐘的音檔：開頁時不解碼，軌上說明原因', async ({ page }) => {
+  await page.addInitScript(() => {
+    if (sessionStorage.getItem('seeded')) return;
+    sessionStorage.setItem('seeded', '1');
+    const track = {
+      kind: 'file',
+      key: 'f1',
+      asset: 'not-here',
+      name: '很長的錄音.mp3',
+      duration: 64 * 60,
+      volume: 70,
+      swell: false,
+      loop: true,
+      seam: 1,
+      fadeIn: 0.5,
+      fadeOut: 1,
+    };
+    const data = {
+      tracks: [track],
+      master: 100,
+      export: { seconds: 60, sampleRate: 32000, channels: 2 },
+      mixName: '',
+    };
+    localStorage.setItem(
+      'trpg-toolkit:ambience-mixer',
+      JSON.stringify({ state: { data }, version: 1 }),
+    );
+  });
+  const errors = await open(page);
+  await expect(track(page, 'f1')).toBeVisible();
+  await expect.poll(() => hook(page, (h) => h.status())).toEqual({ f1: 'tooLong' });
+  await expect(track(page, 'f1')).toContainText(
+    '這個音檔太長了（64 分鐘），沒有載入：上限 15 分鐘（太長的音檔會佔用很多記憶體）。請拿掉，剪短後再加入。',
+  );
   expect(errors).toEqual([]);
 });
 
@@ -385,13 +491,14 @@ test('匯出 WAV：格式與長度、首尾相接、和 Node 的合成一模一�
   await page.getByRole('spinbutton', { name: '總音量' }).fill('50');
   await page.getByRole('spinbutton', { name: '總音量' }).press('Enter');
   await expect.poll(async () => (await state(page)).master).toBe(50);
-  /* 預設（60 秒、32 kHz、立體聲）：約 7.3 MB、和預覽一模一樣 */
-  await expect(page.getByTestId('export-size')).toHaveText('約 7.3 MB・和預覽聽到的一模一樣。');
+  /* 預設（60 秒、32 kHz、立體聲）：約 7.7 MB（1000 進位，和 CCFOLIA 的 10 MB 一致）、和預覽一模一樣 */
+  await expect(page.getByTestId('export-size')).toHaveText('約 7.7 MB・和預覽聽到的一模一樣。');
   /* 太大：3 分、44.1 kHz 立體聲 → 提醒 */
   await pick(page, '長度', '3 分');
   await pick(page, '取樣率', '44.1 kHz（CD 音質）');
   await expect(page.getByText(/超過 CCFOLIA 的音源上限/)).toBeVisible();
-  await expect(page.getByTestId('export-size')).toContainText('約 30.3 MB');
+  await expect(page.getByTestId('export-size')).toContainText('約 31.8 MB');
+  await expect(page.getByText(/每個檔案約 10 MB/)).toBeVisible();
   /* 10 秒、22.05 kHz、立體聲 */
   await pick(page, '長度', '10 秒');
   await pick(page, '取樣率', '22.05 kHz（檔案小）');
@@ -402,10 +509,10 @@ test('匯出 WAV：格式與長度、首尾相接、和 Node 的合成一模一�
   expect(pcm.sampleRate).toBe(22050);
   expect(pcm.channels).toHaveLength(2);
   await expect(page.getByTestId('export-details')).toContainText('10 秒・22.05 kHz・立體聲');
-  /* Node 裡用同樣的設定合成：匯出＝0.5 × 合成（從第 2 秒開始的一個週期；WAV 的量化誤差以內） */
+  /* Node 裡用同樣的設定合成：匯出＝0.5 × 合成（從 0 秒開始、逐取樣對齊；WAV 的量化誤差以內） */
   const ref = renderAmbience('rain-light', {}, { duration: 10, sampleRate: 22050, seed: 1 });
   const n = 10 * 22050;
-  const off = 2 * 22050;
+  const off = 0;
   let maxErr = 0;
   for (let c = 0; c < 2; c++) {
     for (let i = 0; i < n; i++)
@@ -459,7 +566,7 @@ test('自動儲存：重新整理後組合還在（暫停中，按播放開始�
   /* 定時停止 */
   await page.getByTestId('timer').click();
   await page.getByRole('option', { name: '15 分鐘後' }).click();
-  await expect(page.getByTestId('timer-left')).toHaveText(/^還有 1[45]:\d\d 慢慢停下來$/);
+  await expect(page.getByTestId('timer-left')).toHaveText(/^還有 (15:00|14:59) 慢慢停下來$/);
   await page.getByTestId('timer').click();
   await page.getByRole('option', { name: '關' }).click();
   await expect(page.getByTestId('timer-left')).toHaveCount(0);
@@ -474,8 +581,12 @@ test('定時停止：時間到時慢慢停下來', async ({ page }) => {
   await expect.poll(() => hook(page, (h) => h.playing())).toBe(true);
   await page.getByTestId('timer').click();
   await page.getByRole('option', { name: '15 分鐘後' }).click();
+  await expect(page.getByTestId('timer-left')).toHaveText('還有 15:00 慢慢停下來');
   await page.clock.fastForward('15:01');
   await expect.poll(() => hook(page, (h) => h.playing())).toBe(false);
+  /* 淡出（8 秒）結束才通知 */
+  await expect(page.getByText('定時停止：聲音已經慢慢停下來了。', { exact: true })).toHaveCount(0);
+  await page.clock.fastForward(9000);
   await expect(page.getByText('定時停止：聲音已經慢慢停下來了。', { exact: true })).toBeVisible();
   await expect(page.getByTestId('timer-left')).toHaveCount(0);
   expect(errors).toEqual([]);

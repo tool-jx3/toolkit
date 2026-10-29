@@ -28,7 +28,7 @@ export const MAX_SAVED = 30;
 
 export const useSaved = createPreviewStore<{ mixes: SavedMix[] }>(TOOL_ID, { mixes: [] });
 
-export type TrackStatus = 'loading' | 'updating' | 'ready' | 'missing' | 'error';
+export type TrackStatus = 'loading' | 'updating' | 'ready' | 'missing' | 'error' | 'tooLong';
 
 export interface ExportResult {
   blob: Blob;

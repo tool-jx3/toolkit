@@ -12,7 +12,7 @@ import { mixer, renderCount, startEngine } from './engine';
 import { FilesSection, PresetsSection, SavedSection, SoundLibrary } from './Library';
 import { MixPanel } from './MixPanel';
 import { TOOL_ID } from './model';
-import { ShareDialog, useOpenShared } from './Share';
+import { openShare, ShareDialog, useOpenShared } from './Share';
 import { mixNow, useMix, useRuntime } from './store';
 import { S } from './strings';
 
@@ -120,7 +120,7 @@ export function App() {
       }
       preview={
         <>
-          <MixPanel onShare={() => useRuntime.setState({ shareOpen: true })} />
+          <MixPanel onShare={openShare} />
           <ShareDialog />
           <Bridge />
         </>

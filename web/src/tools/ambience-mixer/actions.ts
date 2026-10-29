@@ -4,29 +4,37 @@
  */
 
 import { referencedAssetIds } from '@/core/assets';
-import { AUDIO_FILE_INFO, detectAudioType, type PcmAudio, pcmLength, wavBlob } from '@/core/audio';
+import { AUDIO_FILE_INFO, detectAudioType, wavBlob } from '@/core/audio';
 import {
   ambienceKey,
   canRenderOffline,
   createAmbienceRenderer,
-  crossfadeLoop,
   type OfflineMixTrack,
   peakDb,
-  placeOnce,
   renderLoopMix,
-  tileLoop,
   volumeGain,
 } from '@/core/audio/ambience';
 import type { ToastOptions } from '@/ui';
-import { assets, cachedPreview, decodedFile, MissingAssetError, mixer } from './engine';
+import {
+  assets,
+  cachedPreview,
+  decodeFileBuffer,
+  exportFilePcm,
+  mixer,
+  primeFile,
+  probeDuration,
+} from './engine';
 import {
   exportFileName,
+  FILE_MIN_SECONDS,
+  fileTooLong,
   MAX_FILE_BYTES,
   MAX_FILE_TRACKS,
   MAX_TRACKS,
   type MixPreset,
   type MixState,
   masterGain,
+  minutesText,
   newFileTrack,
   newSynthTrack,
   presetTracks,
@@ -224,13 +232,25 @@ export async function addFiles(files: readonly File[]): Promise<void> {
       const type = detectAudioType(head);
       const blob =
         type && !file.type ? new Blob([file], { type: AUDIO_FILE_INFO[type].mime }) : file;
+      const name = file.name || S.files.unnamed;
+      /* 解碼前先估長度：太長的不解碼（解碼後的取樣很佔記憶體） */
+      const probe = await probeDuration(blob);
+      if (probe !== null && fileTooLong(probe)) {
+        notify({ title: S.files.tooLong(name, minutesText(probe)), tone: 'danger' });
+        continue;
+      }
+      const buffer = await decodeFileBuffer(blob);
+      if (fileTooLong(buffer.duration)) {
+        notify({ title: S.files.tooLong(name, minutesText(buffer.duration)), tone: 'danger' });
+        continue;
+      }
+      if (buffer.duration < FILE_MIN_SECONDS) {
+        notify({ title: S.files.tooShort(name), tone: 'danger' });
+        continue;
+      }
       const { id, persisted } = await assets.add(blob);
-      const pcm = await decodedFile(id);
-      const t = newFileTrack(mixNow().tracks, {
-        asset: id,
-        name: file.name || S.files.unnamed,
-        duration: pcmLength(pcm) / pcm.sampleRate,
-      });
+      const t = newFileTrack(mixNow().tracks, { asset: id, name, duration: buffer.duration });
+      primeFile(t, buffer);
       step((d) => {
         d.tracks.push(t);
         d.mixName = '';
@@ -240,8 +260,7 @@ export async function addFiles(files: readonly File[]): Promise<void> {
     } catch (e) {
       notify({
         title: S.files.failed(file.name),
-        description:
-          e instanceof MissingAssetError ? undefined : e instanceof Error ? e.message : String(e),
+        description: e instanceof Error ? e.message : String(e),
         tone: 'danger',
       });
     }
@@ -283,8 +302,8 @@ export function setTimer(minutes: number): void {
     timerHandle = null;
     useRuntime.setState({ timerEnd: null, timerMinutes: 0 });
     if (mixer.playing) {
-      void mixer.pause(TIMER_FADE);
-      notify({ title: S.timer.done, tone: 'info' });
+      /* 淡出結束（真的停下來）才通知 */
+      void mixer.pause(TIMER_FADE).then(() => notify({ title: S.timer.done, tone: 'info' }));
     }
   }, minutes * 60_000);
 }
@@ -321,17 +340,15 @@ async function exportTrack(
       (await renderer.render(t.sound, t.params, o, signal));
     return { pcm, gain, swell: t.swell };
   }
-  let pcm: PcmAudio;
   try {
-    pcm = await decodedFile(t.asset);
-  } catch {
+    const pcm = await exportFilePcm(t, seconds);
+    aborted(signal);
+    return { pcm, gain, swell: t.swell };
+  } catch (e) {
+    if (e instanceof DOMException && e.name === 'AbortError') throw e;
+    /* 找不到、解不開、太長的音檔：不混進去 */
     return null;
   }
-  aborted(signal);
-  const shaped = t.loop
-    ? tileLoop(crossfadeLoop(pcm, t.seam), seconds, Math.max(0.05, t.seam))
-    : placeOnce(pcm, seconds, t.fadeIn, t.fadeOut);
-  return { pcm: shaped, gain, swell: t.swell };
 }
 
 export async function exportWav(): Promise<void> {

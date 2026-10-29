@@ -1,6 +1,4 @@
 /** 環境音混音器的介面文字（繁中；用詞照 DESIGN.md 第 5 節） */
-import { formatBytes } from '@/core/files';
-
 export const S = {
   usage: {
     intro:
@@ -61,13 +59,16 @@ export const S = {
     error: '這個聲音合成失敗，請拿掉再加入一次。',
     missing: '找不到這個音檔（可能是瀏覽器的資料被清掉了），請拿掉後重新加入。',
     fileError: '這個音檔無法播放，請換成 MP3、WAV 或 OGG。',
+    tooLong: (minutes: string) =>
+      `這個音檔太長了（${minutes} 分鐘），沒有載入：上限 15 分鐘（太長的音檔會佔用很多記憶體）。請拿掉，剪短後再加入。`,
     param: (name: string, param: string) => `${name}：${param}`,
     file: {
       loop: '循環播放',
       loopHint:
         '關掉時「只播一次」：每次按播放從頭播一次；匯出時放在循環的開頭（CCFOLIA 循環播放時每一輪播一次）。',
       seam: '接縫淡化',
-      seamHint: '把結尾交叉淡化接回開頭，錄音頭尾接不起來時也不會「喀」一聲。',
+      seamHint:
+        '把結尾交叉淡化接回開頭，錄音頭尾接不起來時也不會「喀」一聲。適合雨聲、風聲等雜訊與環境錄音；音樂或單一的音在接縫可能會變大聲（約 3 dB）。',
       fadeIn: '淡入',
       fadeOut: '淡出',
       seconds: '秒',
@@ -108,8 +109,11 @@ export const S = {
       'MP3、WAV、OGG 等加成一軌：可以循環或只播一次。只在這個瀏覽器裡處理，不會上傳；分享連結不含音檔。',
     drop: '把音檔拖到這裡',
     choose: '選擇音檔',
-    hint: '最多 6 個，每個 60 MB 以內',
+    hint: '最多 6 個，每個 60 MB、15 分鐘以內',
     tooBig: (name: string) => `「${name}」太大了（上限 60 MB）`,
+    tooLong: (name: string, minutes: string) =>
+      `「${name}」太長了（${minutes} 分鐘）：上限 15 分鐘（太長的音檔會佔用很多記憶體），請剪短後再加入。`,
+    tooShort: (name: string) => `「${name}」太短了（不到 0.5 秒），循環起來只會是一連串的雜音。`,
     failed: (name: string) => `「${name}」無法讀取`,
     notSaved: '這個瀏覽器存不了音檔（可能是空間不足或無痕模式），重新整理後要再加入一次。',
     unnamed: '音檔',
@@ -132,7 +136,7 @@ export const S = {
     channels: '聲道',
     stereo: '立體聲',
     mono: '單聲道',
-    size: (bytes: number) => `約 ${formatBytes(bytes)}`,
+    size: (text: string) => `約 ${text}`,
     sameAsPreview: '和預覽聽到的一模一樣。',
     differs: '合成的聲音會照這個長度與取樣率重新合成（同樣的設定，細節不同）。',
     tooBig: (limit: string) =>
@@ -171,6 +175,8 @@ export const S = {
     keep: '保留目前的',
     applied: '已套用分享的組合，按播放開始。',
     broken: '分享連結讀不出來（可能不完整或是舊版的連結）。',
+    moodist:
+      '這是 moodist 的分享連結，這裡讀不了（兩邊的聲音不同）；可以從預設組合或聲音卡片重新組一個。',
     nothing: '目前沒有合成的聲音可以分享。',
   },
 } as const;

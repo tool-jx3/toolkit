@@ -3,6 +3,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { CCFOLIA_AUDIO_MAX_BYTES } from '@/ccfolia';
+import { encodeWav } from '@/core/audio';
 import { ambienceSound, sanitizeParams, wavBytes } from '@/core/audio/ambience';
 import { encodeShareHash } from '@/core/share';
 import { createRandom } from '@/core/timeline';
@@ -10,12 +11,16 @@ import {
   DEFAULT_EXPORT,
   EXPORT_LENGTHS,
   exportFileName,
+  FILE_MAX_SECONDS,
+  fileTooLong,
+  formatMb,
   initialState,
   lengthLabel,
   MAX_FILE_TRACKS,
   MAX_TRACKS,
   type MixState,
   masterGain,
+  minutesText,
   newFileTrack,
   newSynthTrack,
   nextFileKey,
@@ -30,6 +35,7 @@ import {
   type SynthTrack,
   sanitizeState,
   shareData,
+  wavDuration,
 } from '@/tools/ambience-mixer/model';
 
 const synth = (sound: string, o = {}) => {
@@ -177,6 +183,9 @@ describe('預設組合', () => {
       }
       expect(presetTracks(p)).toHaveLength(p.tracks.length);
     }
+    /* 暴風雨的船上五軌都很大聲：音量比其他組合低（驗證後的裁定） */
+    const storm = PRESETS.find((p) => p.id === 'storm-ship');
+    expect(storm?.tracks.map((t) => t.volume)).toEqual([55, 50, 50, 46, 46]);
   });
 
   it('套用組合：換掉合成的聲音，自己的音檔留著（排在後面）', () => {
@@ -280,6 +289,8 @@ describe('分享連結', () => {
     expect(readShare('#s=@@@').kind).toBe('broken');
     expect(readShare(encodeShareHash(shareData(state), { version: 99 })).kind).toBe('broken');
     expect(readShare('').kind).toBe('none');
+    /* 空的 #s=：壞掉的連結（清掉並通知） */
+    expect(readShare('#s=').kind).toBe('broken');
     expect(readShare('#other=1').kind).toBe('none');
   });
 });
@@ -310,6 +321,33 @@ describe('檔名、長度、大小', () => {
     expect(wavBytes(60, 32000, 2)).toBeLessThan(CCFOLIA_AUDIO_MAX_BYTES);
     expect(wavBytes(60, 44100, 2)).toBeGreaterThan(CCFOLIA_AUDIO_MAX_BYTES);
     expect(wavBytes(180, 22050, 1)).toBeLessThan(CCFOLIA_AUDIO_MAX_BYTES);
+  });
+
+  it('大小以 1000 進位顯示（和 CCFOLIA 的「10 MB」一致）', () => {
+    expect(formatMb(CCFOLIA_AUDIO_MAX_BYTES)).toBe('10 MB');
+    expect(formatMb(wavBytes(60, 32000, 2))).toBe('7.7 MB');
+    expect(formatMb(wavBytes(180, 44100, 2))).toBe('31.8 MB');
+    expect(formatMb(850_000)).toBe('850 KB');
+  });
+
+  it('音檔的長度：WAV 讀檔頭、15 分鐘上限（多 1 秒寬容）、分鐘數的文字', () => {
+    const wav = encodeWav({
+      sampleRate: 8000,
+      channels: [new Float32Array(8000 * 3), new Float32Array(8000 * 3)],
+    });
+    expect(wavDuration(wav.subarray(0, 4096), wav.length)).toBeCloseTo(3, 6);
+    /* data 的大小寫錯（0）時用檔案大小 */
+    const broken = Uint8Array.from(wav);
+    new DataView(broken.buffer).setUint32(40, 0, true);
+    expect(wavDuration(broken.subarray(0, 4096), broken.length)).toBeCloseTo(3, 6);
+    expect(wavDuration(new Uint8Array([1, 2, 3]), 3)).toBeNull();
+    expect(wavDuration(new TextEncoder().encode('ID3 not a wav file....'), 100)).toBeNull();
+    expect(FILE_MAX_SECONDS).toBe(900);
+    expect(fileTooLong(900)).toBe(false);
+    expect(fileTooLong(900.9)).toBe(false);
+    expect(fileTooLong(64 * 60)).toBe(true);
+    expect(minutesText(64 * 60)).toBe('64');
+    expect(minutesText(930)).toBe('15.5');
   });
 
   it('總音量：平方再乘 2', () => {

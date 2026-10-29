@@ -3,7 +3,8 @@
  * 混音的節點和預覽（mixer.ts）相同：每軌的音量、起伏（10 秒週期）、總音量、柔和限幅。
  *
  * 每一軌都要已經是長度剛好 seconds 秒（或它的因數）的循環（合成的聲音本來就是；使用者的音檔先用 `loop.ts`
- * 的 tileLoop／placeOnce 整理）；這裡多算前面 warm 秒、丟掉，取剛好一個週期，所以結尾接回開頭是連續的。
+ * 的 tileLoop／placeOnce 整理）。混音的節點沒有記憶（增益、起伏的正弦從相位 0 開始、不 oversample 的 WaveShaper），
+ * 所以從 0 秒算剛好一個週期就是首尾相接的一段：輸出的第 i 個取樣＝每一軌的第 i 個取樣 × 增益（「只播一次」的音檔從 0 秒開始）。
  */
 import type { PcmAudio } from '../pcm';
 import { SOFT_CLIP_INPUT_SCALE, softClipCurve } from './loop';
@@ -25,7 +26,7 @@ export interface OfflineMixOptions {
   channels: 1 | 2;
   /** 總音量（線性增益） */
   master: number;
-  /** 前面多算幾秒再丟掉（預設 2） */
+  /** 前面多算幾秒再丟掉（預設 0；要是週期的整數倍才不會錯開，混音的節點有記憶時才需要） */
   warm?: number;
 }
 
@@ -37,7 +38,7 @@ export async function renderLoopMix(
   tracks: readonly OfflineMixTrack[],
   o: OfflineMixOptions,
 ): Promise<PcmAudio> {
-  const warm = o.warm ?? 2;
+  const warm = o.warm ?? 0;
   const rate = Math.round(o.sampleRate);
   const len = Math.round(o.seconds * rate);
   const warmLen = Math.round(warm * rate);
@@ -81,7 +82,8 @@ export async function renderLoopMix(
   const rendered = await oc.startRendering();
   const channels: Float32Array[] = [];
   for (let c = 0; c < rendered.numberOfChannels; c++) {
-    channels.push(rendered.getChannelData(c).slice(warmLen, warmLen + len));
+    const ch = rendered.getChannelData(c);
+    channels.push(warmLen ? ch.slice(warmLen, warmLen + len) : ch);
   }
   return { sampleRate: rate, channels };
 }

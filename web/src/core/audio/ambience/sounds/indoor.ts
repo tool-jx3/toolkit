@@ -27,18 +27,29 @@ import type { AmbienceSoundDef, RenderContext } from '../types';
 
 type Mode = readonly [freq: number, tau: number, gain: number];
 
-const CLOCKS: { interval: number; modes: Mode[]; tock: number; exc: number; level: number }[] = [
-  /* 掛鐘 */
+/** extra：機芯的第二下（[延遲秒數, 音量]；懷錶的擒縱是「喀喀」兩下） */
+const CLOCKS: {
+  interval: number;
+  modes: Mode[];
+  tock: number;
+  exc: number;
+  level: number;
+  extra?: readonly [number, number];
+  /** 敲擊聲的飽和（tanh；大於 0 時尾巴相對變大，同樣的峰值聽起來比較大聲） */
+  drive?: number;
+}[] = [
+  /* 掛鐘：木頭的殼＋金屬的機芯 */
   {
     interval: 1,
     modes: [
-      [1150, 0.016, 1],
-      [2450, 0.009, 0.6],
-      [4300, 0.022, 0.3],
+      [1150, 0.03, 1],
+      [2450, 0.016, 0.55],
+      [4300, 0.035, 0.3],
+      [560, 0.04, 0.45],
     ],
     tock: 0.88,
-    exc: 0.0003,
-    level: 0.55,
+    exc: 0.0005,
+    level: 1,
   },
   /* 落地鐘：低沉、有箱子的共鳴 */
   {
@@ -51,28 +62,40 @@ const CLOCKS: { interval: number; modes: Mode[]; tock: number; exc: number; leve
     ],
     tock: 0.9,
     exc: 0.0006,
-    level: 0.75,
+    level: 0.65,
   },
-  /* 懷錶：細小、很快 */
+  /* 懷錶：細小、很快（每秒 5 聲） */
   {
     interval: 0.2,
     modes: [
-      [3900, 0.006, 1],
-      [6400, 0.004, 0.6],
+      [3900, 0.022, 1],
+      [6400, 0.014, 0.6],
+      [2200, 0.03, 0.5],
+      [1350, 0.025, 0.35],
     ],
     tock: 0.93,
-    exc: 0.0002,
-    level: 0.3,
+    exc: 0.0003,
+    level: 0.9,
+    extra: [0.007, 0.75],
+    drive: 2.5,
   },
 ];
 
-function clockTick(ctx: RenderContext, modes: Mode[], mul: number, exc: number): Float32Array {
+function clockTick(ctx: RenderContext, spec: (typeof CLOCKS)[number], mul: number): Float32Array {
   const sr = ctx.sampleRate;
   const { rng } = ctx;
-  const e = noiseBurst(exc, sr, rng, 0.00005);
+  const one = noiseBurst(spec.exc, sr, rng, 0.00005);
+  let e: Float32Array = one;
+  if (spec.extra) {
+    const at = Math.round(spec.extra[0] * sr);
+    e = new Float32Array(at + one.length);
+    e.set(one);
+    const two = noiseBurst(spec.exc, sr, rng, 0.00005);
+    for (let i = 0; i < two.length; i++) e[at + i] += two[i] * spec.extra[1];
+  }
   const len = Math.round(0.25 * sr);
   const out = new Float32Array(len);
-  for (const [f, tau, g] of modes) {
+  for (const [f, tau, g] of spec.modes) {
     const r = resonate(e, f * mul * logRange(rng, 0.985, 1.015), tau, sr, len);
     for (let i = 0; i < len; i++) out[i] += r[i] * g;
   }
@@ -80,6 +103,11 @@ function clockTick(ctx: RenderContext, modes: Mode[], mul: number, exc: number):
   let pk = 0;
   for (let i = 0; i < len; i++) pk = Math.max(pk, Math.abs(out[i]));
   if (pk > 0) for (let i = 0; i < len; i++) out[i] /= pk;
+  if (spec.drive) {
+    const k = spec.drive;
+    const norm = Math.tanh(k);
+    for (let i = 0; i < len; i++) out[i] = Math.tanh(k * out[i]) / norm;
+  }
   return out;
 }
 
@@ -180,8 +208,7 @@ export const INDOOR_SOUNDS: AmbienceSoundDef[] = [
       const room = unit(p.room);
       const sr = ctx.sampleRate;
       const { rng } = ctx;
-      const variants = (mul: number) =>
-        Array.from({ length: 3 }, () => clockTick(ctx, spec.modes, mul, spec.exc));
+      const variants = (mul: number) => Array.from({ length: 3 }, () => clockTick(ctx, spec, mul));
       const ticks = variants(1);
       const tocks = variants(spec.tock);
       /* 整段剛好整數個滴答（首尾相接） */
@@ -269,15 +296,16 @@ export const INDOOR_SOUNDS: AmbienceSoundDef[] = [
         default: 45,
         ends: ['沒有', '明顯'],
       },
+      /* 最小 10：兩個都調到 0 時這一軌就完全沒有聲音了 */
       {
         kind: 'range',
         id: 'fan',
         label: '空調',
-        min: 0,
+        min: 10,
         max: 100,
         step: 1,
         default: 55,
-        ends: ['沒有', '大'],
+        ends: ['小', '大'],
       },
     ],
     gain: 3,
