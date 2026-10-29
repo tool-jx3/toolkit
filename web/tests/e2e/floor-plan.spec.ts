@@ -876,11 +876,11 @@ test('範本對話框的縮圖：捲到看得到的卡片才畫，畫過的留�
   await expect(cards).toHaveCount(57);
   /* 上面幾排先畫好；最後一個範本（魔法師之塔）捲到之前還沒畫 */
   await expect(cards.first().locator('img')).toHaveCount(1);
+  /* 看得到的卡片一張一張畫，第一張畫好時其他的可能還在畫 */
+  await expect.poll(() => cards.locator('img').count()).toBeGreaterThan(4);
   const last = dialog.getByRole('button', { name: /^魔法師之塔/ });
   await expect(last.locator('img')).toHaveCount(0);
-  const drawn = await cards.locator('img').count();
-  expect(drawn).toBeGreaterThan(4);
-  expect(drawn).toBeLessThan(56);
+  expect(await cards.locator('img').count()).toBeLessThan(56);
   await last.scrollIntoViewIfNeeded();
   await expect(last.locator('img')).toHaveCount(1);
   /* 關掉再打開：畫過的直接用 */
