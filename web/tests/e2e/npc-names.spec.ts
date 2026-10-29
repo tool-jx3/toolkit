@@ -3,8 +3,11 @@
  * - 開頁沒有錯誤、頁尾沒有靈感來源（本站的工具）、開頁自動產生一批；資料用到才載入（切換地區時才下載那個地區的檔）；
  * - 三種地區各產生一批（日本附三種讀音、臺灣「姓名」、美國「名 姓」與中間名縮寫）、年代與性別；
  * - 種子重現、「填入這個種子」；鎖定後再產生（鎖定的留在原位）；數量；
- * - 複製一個、全部複製、附上讀音；自動儲存、復原；390 寬沒有橫向捲動；1280／390 視覺基準。
+ * - 複製一個、全部複製、附上讀音；自動儲存、復原；
+ * - 第二批：最近產生的紀錄（放回、複製、清除）、匯出 TXT／CSV、窄畫面的條件摘要與固定在上方的按鈕列；
+ * - 390 寬沒有橫向捲動；1280／390 視覺基準。
  */
+import { readFileSync } from 'node:fs';
 import { expect, type Page, test } from '@playwright/test';
 import { getTool, outputDir } from '../../src/registry';
 
@@ -240,6 +243,102 @@ test('自動儲存與復原：重新整理後同一批與鎖定；換一批可�
   expect(errors).toEqual([]);
 });
 
+async function download(page: Page, item: string) {
+  await btn(page, '匯出').click();
+  const [dl] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByRole('menuitem', { name: new RegExp(`^${item}`) }).click(),
+  ]);
+  const path = await dl.path();
+  return { name: dl.suggestedFilename(), text: readFileSync(path, 'utf8') };
+}
+
+test('匯出 TXT 與 CSV：檔名、內容與畫面上的這一批相同', async ({ page }) => {
+  const errors = await open(page);
+  await setSeed(page, 'export');
+  await generate(page);
+  const texts = await nameTexts(page);
+  const txt = await download(page, 'TXT');
+  expect(txt.name).toMatch(/^NPC名字_\d{8}-\d{4}\.txt$/);
+  expect(txt.text).toBe(`${texts.join('\r\n')}\r\n`);
+
+  const csv = await download(page, 'CSV');
+  expect(csv.name).toMatch(/^NPC名字_\d{8}-\d{4}\.csv$/);
+  expect(csv.text.charCodeAt(0)).toBe(0xfeff);
+  const rows = csv.text
+    .slice(1)
+    .split('\r\n')
+    .map((line) => line.split(','));
+  expect(rows[0]).toEqual([
+    '全名',
+    '姓',
+    '名',
+    '中間名縮寫',
+    '性別',
+    '地區',
+    '年代',
+    '平假名',
+    '片假名',
+    '羅馬拼音',
+  ]);
+  expect(rows).toHaveLength(11);
+  expect(rows.slice(1).map((r) => r[0])).toEqual(texts);
+  const [full, family, given, middle, gender, region, era, hira, kata, romaji] = rows[1];
+  expect(full).toBe(`${family} ${given}`);
+  expect(middle).toBe('');
+  expect(['男', '女']).toContain(gender);
+  expect([region, era]).toEqual(['日本', '現代']);
+  expect(hira).toMatch(/^[ぁ-ゖ]+ [ぁ-ゖ]+$/);
+  expect(kata).toMatch(/^[ァ-ヶ]+ [ァ-ヶ]+$/);
+  expect(romaji).toMatch(/^[A-Z][a-z']+ [A-Z][a-z']+$/);
+  expect(errors).toEqual([]);
+});
+
+test.describe('最近產生的紀錄', () => {
+  test.use({ permissions: ['clipboard-read', 'clipboard-write'] });
+
+  test('每一批留一筆（新的在前），放回（連條件一起、可以復原）、複製、清除', async ({ page }) => {
+    const errors = await open(page);
+    const entries = page.getByTestId('history-entry');
+    await expect(entries).toHaveCount(1);
+    const first = await nameTexts(page);
+    await expect(entries.first()).toContainText('日本・現代・不限・10 個');
+    await page.waitForTimeout(1100);
+    await radio(page, '臺灣').click();
+    await expect.poll(async () => (await nameTexts(page))[0]).toMatch(/^\p{sc=Han}{3,4}$/u);
+    await expect(entries).toHaveCount(2);
+    await expect(entries.first()).toContainText('臺灣・不限・10 個');
+    await expect(entries.nth(1)).toContainText(first.slice(0, 3).join('、'));
+
+    /* 放回第一批：名字與地區都換回來；復原回到臺灣的那一批 */
+    const tw = await nameTexts(page);
+    await entries.nth(1).getByRole('button', { name: /^放回/ }).click();
+    await expect.poll(() => nameTexts(page)).toEqual(first);
+    await expect(radio(page, '日本')).toHaveAttribute('aria-checked', 'true');
+    await expect(entries).toHaveCount(2);
+    await page.getByRole('button', { name: /^復原/ }).click();
+    await expect.poll(() => nameTexts(page)).toEqual(tw);
+
+    await entries.nth(1).getByRole('button', { name: /^複製/ }).click();
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(first.join('\n'));
+
+    /* 1 秒內接連產生（例如拖數量）只留最後一批 */
+    await page.waitForTimeout(1100);
+    await btn(page, '產生').click();
+    await btn(page, '產生').click();
+    await expect(entries).toHaveCount(3);
+
+    /* 重新整理後還在；清除前先確認 */
+    await page.reload();
+    await expect(entries).toHaveCount(3);
+    await btn(page, '清除紀錄').click();
+    await page.getByRole('alertdialog').getByRole('button', { name: '清除' }).click();
+    await expect(entries).toHaveCount(0);
+    await expect(page.getByText('產生過的名字會留在這裡（最近 20 批）。')).toBeVisible();
+    expect(errors).toEqual([]);
+  });
+});
+
 test.describe('390 寬', () => {
   test.use({ viewport: { width: 390, height: 844 } });
 
@@ -252,10 +351,25 @@ test.describe('390 寬', () => {
     const regionTop = await radio(page, '日本').boundingBox();
     expect(listTop && regionTop && listTop.y < regionTop.y).toBe(true);
     await noHorizontalScroll(page);
+    /* 條件的摘要；「改條件」捲到條件區塊 */
+    await expect(page.getByTestId('conditions-summary')).toHaveText(
+      '條件：日本・現代・不限・10 個',
+    );
+    await btn(page, '改條件').click();
+    await expect(radio(page, '日本')).toBeInViewport();
+    await expect(radio(page, '日本')).toBeFocused();
+    /* 捲下去時按鈕列固定在畫面上方 */
+    await page.evaluate(() => window.scrollTo(0, 900));
+    const bar = await page.getByTestId('names-toolbar').boundingBox();
+    expect(bar && Math.round(bar.y)).toBe(0);
+    await expect(btn(page, '產生')).toBeInViewport();
     await page.mouse.move(0, 0);
     await page.evaluate(() => window.scrollTo(0, 0));
     await page.waitForTimeout(300);
-    await expect(page).toHaveScreenshot('npc-names-390.png');
+    /* 紀錄有時間，遮起來 */
+    await expect(page).toHaveScreenshot('npc-names-390.png', {
+      mask: [page.getByTestId('history-entry')],
+    });
     expect(errors).toEqual([]);
   });
 });
@@ -279,10 +393,13 @@ test('1280 寬：視覺基準（種子 shot 的一批固定）', async ({ page }
     '八木 一弘',
   ]);
   await btn(page, `鎖定「${(await nameTexts(page))[1]}」`).click();
+  await expect(page.getByTestId('conditions-summary')).toBeHidden();
   await page.getByLabel('種子', { exact: true }).blur();
   await page.mouse.move(0, 0);
   await page.waitForTimeout(300);
-  await expect(page).toHaveScreenshot('npc-names-1280.png');
+  await expect(page).toHaveScreenshot('npc-names-1280.png', {
+    mask: [page.getByTestId('history-entry')],
+  });
   await noHorizontalScroll(page);
   expect(errors).toEqual([]);
 });

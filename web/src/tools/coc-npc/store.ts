@@ -2,11 +2,12 @@
  * 狀態：
  * - useNpcs：NPC 清單（自動存檔 `trpg-toolkit:coc-npc`、復原／重做）。新版還沒有存檔時讀舊版的
  *   `iklab_coc_npc_token_v1`（舊的不刪）；讀回時整理（壞掉的欄位用預設值）。
- * - useView：目前編輯的 NPC、輸出分頁（`trpg-toolkit:coc-npc:preview`，不列入復原：切換 NPC 不算一步）。
+ * - useView：目前編輯的 NPC、輸出分頁、隨機取名的條件（`trpg-toolkit:coc-npc:preview`，不列入復原：切換 NPC 不算一步）。
  */
 import { create } from 'zustand';
 import type { StateStorage } from 'zustand/middleware';
 import type { Characteristic } from '@/core/coc';
+import type { NameGenderChoice, NameRegion } from '@/core/names';
 import { createPreviewStore, createToolStore } from '@/core/storage';
 import {
   fromLegacy,
@@ -78,6 +79,10 @@ export const useNpcs = createToolStore<NpcData>(TOOL_ID, initialData(), {
 export interface ViewState {
   currentId: string | null;
   output: OutputKind;
+  /** 隨機取名的條件（core/names；記在這台裝置、不列入復原） */
+  nameRegion: NameRegion;
+  nameEra: string;
+  nameGender: NameGenderChoice;
 }
 
 const viewSaved = readLocal(VIEW_KEY) !== null;
@@ -85,6 +90,9 @@ const viewSaved = readLocal(VIEW_KEY) !== null;
 export const useView = createPreviewStore<ViewState>(TOOL_ID, {
   currentId: viewSaved ? null : (legacy?.currentId ?? null),
   output: 'json',
+  nameRegion: 'jp',
+  nameEra: 'modern',
+  nameGender: 'any',
 });
 
 /*

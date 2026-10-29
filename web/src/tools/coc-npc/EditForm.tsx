@@ -1,8 +1,10 @@
 /**
  * 目前 NPC 的編輯表單：基本資料、屬性、衍生值、技能、指令、備註。
  */
-import { Dices, Plus, Trash2 } from 'lucide-react';
+import { Dices, Plus, Shuffle, Trash2 } from 'lucide-react';
+import { useState } from 'react';
 import { CHARACTERISTICS, type Characteristic, type CocEdition } from '@/core/coc';
+import { NAME_GENDER_LABELS, NAME_REGIONS, type NameGenderChoice } from '@/core/names';
 import {
   Button,
   Field,
@@ -11,6 +13,7 @@ import {
   NumberInput,
   Section,
   Segmented,
+  Select,
   TextArea,
   TextInput,
   Toggle,
@@ -18,11 +21,13 @@ import {
 import {
   addCommand,
   addSkill,
+  nameConditions,
   patchCommand,
   patchCurrent,
   patchCurrentStep,
   patchSkill,
   pendingSkipped,
+  randomName,
   removeCommand,
   removeSkill,
   rollAll,
@@ -30,9 +35,10 @@ import {
   setAbilityDice,
   setAbilityValue,
   setEdition,
+  setNameConditions,
 } from './actions';
 import { type CommandType, diceError, movLabel, type Npc } from './logic';
-import { useRollNotice } from './store';
+import { useRollNotice, useView } from './store';
 import { S } from './strings';
 
 const EDITION_OPTIONS = ([7, 6] as const).map((e) => ({
@@ -41,6 +47,82 @@ const EDITION_OPTIONS = ([7, 6] as const).map((e) => ({
 }));
 
 const CHECK_OPTIONS = (['CC', 'CCB'] as const).map((v) => ({ value: v, label: v }));
+
+/** 隨機取名的地區與年代（值是「地區:年代」） */
+const NAME_FROM_OPTIONS = NAME_REGIONS.map((r) => ({
+  label: r.label,
+  options: r.eras.map((e) => ({
+    value: `${r.id}:${e.id}`,
+    label: r.eras.length > 1 ? `${r.label}・${e.label}` : r.label,
+    description: e.hint,
+  })),
+}));
+
+const NAME_GENDER_OPTIONS = (['male', 'female', 'any'] as const).map((g) => ({
+  value: g,
+  label: NAME_GENDER_LABELS[g],
+}));
+
+/** 名稱欄＋隨機取名（core/names；規格 F37） */
+function NameField({ npc }: { npc: Npc }) {
+  /* 條件改了要重畫（值由 nameConditions 整理） */
+  useView((v) => `${v.data.nameRegion}:${v.data.nameEra}:${v.data.nameGender}`);
+  const cond = nameConditions();
+  const [busy, setBusy] = useState(false);
+  const [problem, setProblem] = useState<'failed' | 'none' | null>(null);
+  const pick = async () => {
+    setBusy(true);
+    setProblem(null);
+    const r = await randomName();
+    setBusy(false);
+    if (r !== 'ok') setProblem(r);
+  };
+  return (
+    <>
+      <Field label={S.basic.name}>
+        <div className="flex min-w-0 gap-2">
+          <TextInput
+            value={npc.name}
+            placeholder={S.basic.namePlaceholder}
+            onChange={(e) => patchCurrent({ name: e.target.value })}
+          />
+          <IconButton
+            label={S.basic.randomName}
+            icon={<Shuffle />}
+            variant="secondary"
+            disabled={busy}
+            onClick={() => void pick()}
+          />
+        </div>
+      </Field>
+      <Field label={S.basic.nameFrom} hint={S.basic.nameHint}>
+        <div className="flex min-w-0 flex-wrap gap-2">
+          <div className="min-w-40 flex-1">
+            <Select
+              value={`${cond.region}:${cond.era}`}
+              onValueChange={(v) => {
+                const [region, era] = v.split(':');
+                setNameConditions({ region: region as typeof cond.region, era });
+              }}
+              options={NAME_FROM_OPTIONS}
+            />
+          </div>
+          <Segmented<NameGenderChoice>
+            aria-label={S.basic.nameGender}
+            value={cond.gender}
+            onValueChange={(gender) => setNameConditions({ gender })}
+            options={NAME_GENDER_OPTIONS}
+          />
+        </div>
+      </Field>
+      {problem ? (
+        <p className="m-0 text-xs text-danger" role="alert" data-testid="random-name-problem">
+          {problem === 'failed' ? S.basic.nameFailed : S.basic.nameNone}
+        </p>
+      ) : null}
+    </>
+  );
+}
 
 function AbilityRow({ npc, stat }: { npc: Npc; stat: Characteristic }) {
   const ability = npc.abilities[stat];
@@ -90,13 +172,7 @@ export function EditForm({ npc }: { npc: Npc }) {
   return (
     <div className="flex min-w-0 flex-col gap-3" data-testid="npc-form">
       <Section title={S.basic.title} fixed>
-        <Field label={S.basic.name}>
-          <TextInput
-            value={npc.name}
-            placeholder={S.basic.namePlaceholder}
-            onChange={(e) => patchCurrent({ name: e.target.value })}
-          />
-        </Field>
+        <NameField npc={npc} />
         <Field label={S.basic.edition} hint={S.basic.editionHint}>
           <Segmented
             value={String(npc.edition)}

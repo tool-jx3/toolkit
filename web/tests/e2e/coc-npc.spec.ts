@@ -581,3 +581,65 @@ test.describe('390 寬', () => {
     expect(errors).toEqual([]);
   });
 });
+
+test('F37 隨機取名：依地區、年代、性別抽名字，不和其他 NPC 重名、可以復原；名字資料用到才載入', async ({
+  page,
+}) => {
+  const requested: string[] = [];
+  page.on('request', (r) => {
+    const m = /names-(jp|tw|us)-[\w-]+\.js$/.exec(r.url());
+    if (m) requested.push(m[1]);
+  });
+  const errors = await open(page);
+  await expect(page.getByRole('combobox', { name: '取名的地區與年代' })).toHaveText(/日本・現代/);
+  await expect(page.getByRole('radio', { name: '不限' })).toHaveAttribute('aria-checked', 'true');
+  expect(requested).toEqual([]);
+
+  /* 臺灣、女：亂數都取最小 → 第一個姓（陳）＋第一個女性名（淑芬） */
+  await page.getByRole('combobox', { name: '取名的地區與年代' }).click();
+  await page.getByRole('option', { name: /^臺灣/ }).click();
+  await page.getByRole('radio', { name: '女', exact: true }).click();
+  await setRandom(page, [0.0001]);
+  await btn(page, '隨機取名').click();
+  await expect(field(page, '名稱')).toHaveValue('陳淑芬');
+  expect(requested).toEqual(['tw']);
+  await expect(listItems(page).first()).toContainText('陳淑芬');
+
+  /* 同一串亂數只抽得到現在的名字 → 說明找不到 */
+  await btn(page, '隨機取名').click();
+  await expect(page.getByTestId('random-name-problem')).toHaveText(
+    '找不到不重複的名字，請換個條件。',
+  );
+  await expect(field(page, '名稱')).toHaveValue('陳淑芬');
+
+  /* 換一串：陳淑芬（重複，跳過）→ 陳＋最後一個女性名（素蘭） */
+  await setRandom(page, [0.0001, 0.0001, 0.0001, 0.9999]);
+  await btn(page, '隨機取名').click();
+  await expect(field(page, '名稱')).toHaveValue('陳素蘭');
+  await expect(page.getByTestId('random-name-problem')).toHaveCount(0);
+  await page.getByRole('button', { name: /^復原/ }).click();
+  await expect(field(page, '名稱')).toHaveValue('陳淑芬');
+
+  /* 另一個 NPC 不會抽到清單裡已經有的名字 */
+  await btn(page, '新增 NPC').click();
+  await setRandom(page, [0.0001, 0.0001, 0.0001, 0.9999]);
+  await btn(page, '隨機取名').click();
+  await expect(field(page, '名稱')).toHaveValue('陳素蘭');
+
+  /* 美國：名 姓（名單的第一個是兩個年代合計最多的 John，1920 年代出生也有人數）；條件記在這台裝置 */
+  await page.getByRole('combobox', { name: '取名的地區與年代' }).click();
+  await page.getByRole('option', { name: /^美國・1920 年代出生/ }).click();
+  await page.getByRole('radio', { name: '男', exact: true }).click();
+  await setRandom(page, [0.0001]);
+  await btn(page, '隨機取名').click();
+  await expect(field(page, '名稱')).toHaveValue('John Smith');
+  await page.reload();
+  await expect(page.getByRole('combobox', { name: '取名的地區與年代' })).toHaveText(
+    /美國・1920 年代出生/,
+  );
+  await expect(page.getByRole('radio', { name: '男', exact: true })).toHaveAttribute(
+    'aria-checked',
+    'true',
+  );
+  expect(errors).toEqual([]);
+});

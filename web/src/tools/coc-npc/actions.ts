@@ -2,7 +2,16 @@
  * 對 NPC 清單的操作（都經過 useNpcs，所以都可以復原）。目前的 NPC 在 useView。
  * 打字以外的操作（新增、刪除、擲骰、切換版本、開關）各算一步復原：就算緊接在打字之後（400 ms 內）也不會跟打字併成一步。
  */
-import type { Characteristic, CocEdition, DiceParseError } from '@/core/coc';
+import { type Characteristic, type CocEdition, cocRandom, type DiceParseError } from '@/core/coc';
+import {
+  eraOf,
+  generateNames,
+  isNameGenderChoice,
+  isNameRegion,
+  loadNameData,
+  type NameGenderChoice,
+  type NameRegion,
+} from '@/core/names';
 import {
   blankCommand,
   blankSkill,
@@ -153,4 +162,68 @@ export function patchCommand(id: string, patch: { name?: string; expr?: string }
 
 export function removeCommand(id: string): void {
   step(() => updateCurrent((n) => ({ ...n, commands: n.commands.filter((c) => c.id !== id) })));
+}
+
+/* ---------- 隨機取名（core/names；npc-names 引入時新增，規格 F37） ---------- */
+
+export interface NameConditions {
+  region: NameRegion;
+  era: string;
+  gender: NameGenderChoice;
+}
+
+/** 隨機取名的條件（存檔壞掉時用預設值） */
+export function nameConditions(): NameConditions {
+  const v = useView.getState().data;
+  const region = isNameRegion(v.nameRegion) ? v.nameRegion : 'jp';
+  return {
+    region,
+    era: eraOf(region, v.nameEra),
+    gender: isNameGenderChoice(v.nameGender) ? v.nameGender : 'any',
+  };
+}
+
+/** 改隨機取名的條件（換地區時年代用那個地區的第一個） */
+export function setNameConditions(patch: Partial<NameConditions>): void {
+  const cur = nameConditions();
+  const region = patch.region ?? cur.region;
+  useView.getState().patch({
+    nameRegion: region,
+    nameEra: eraOf(region, patch.era ?? (patch.region ? undefined : cur.era)),
+    nameGender: patch.gender ?? cur.gender,
+  });
+}
+
+/**
+ * 幫按下時的 NPC 隨機取一個名字（依人數加權；不和清單裡其他 NPC、也不和現在的名字相同）。
+ * 亂數用 `cocRandom`（測試可以注入 `window.__cocRandom`）。名字資料用到才載入；載入中換了 NPC 時仍然改按下時的那個。
+ * 回傳 'ok'、'none'（沒有不重複的名字）或 'failed'（資料讀不到）。改名算一步復原。
+ */
+export async function randomName(): Promise<'ok' | 'none' | 'failed'> {
+  const id = getCurrent().id;
+  const { region, era, gender } = nameConditions();
+  let data: Awaited<ReturnType<typeof loadNameData>>;
+  try {
+    data = await loadNameData(region);
+  } catch {
+    return 'failed';
+  }
+  const taken = useNpcs
+    .getState()
+    .data.npcs.map((n) => n.name.trim())
+    .filter(Boolean);
+  const { names } = generateNames(data, {
+    count: 1,
+    era,
+    gender,
+    exclude: taken,
+    random: cocRandom,
+  });
+  const name = names[0];
+  if (!name) return 'none';
+  step(() => {
+    const { data: d, replace } = useNpcs.getState();
+    replace({ ...d, npcs: d.npcs.map((n) => (n.id === id ? { ...n, name: name.text } : n)) });
+  });
+  return 'ok';
 }

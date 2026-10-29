@@ -6,14 +6,23 @@ import { type GeneratedName, parseNameData } from '@/core/names';
 import * as jpRaw from '@/core/names/jp/names-jp';
 import * as twRaw from '@/core/names/tw/names-tw';
 import {
+  CSV_HEADER,
   copyAllText,
   copyLine,
+  csvRows,
+  exportFileName,
+  HISTORY_MAX,
+  type HistoryEntry,
+  historyLabel,
   initialState,
   mergeBatch,
   type NamesState,
   nextBatch,
+  pushHistory,
+  sanitizeHistory,
   sanitizeState,
   shownReadings,
+  toTxt,
 } from '@/tools/npc-names/logic';
 
 const TW = parseNameData('tw', twRaw);
@@ -161,5 +170,95 @@ describe('sanitizeState', () => {
     expect(s.show).toEqual({ hiragana: true, katakana: false, romaji: true });
     expect(sanitizeState({ count: 0 }).count).toBe(10);
     expect(sanitizeState({ count: -3 }).count).toBe(1);
+  });
+});
+
+describe('紀錄', () => {
+  const entry = (at: number, text = `名${at}`): HistoryEntry => ({
+    id: String(at),
+    at,
+    region: 'tw',
+    era: 'now',
+    gender: 'any',
+    seed: 's',
+    names: [n(`陳${text}`)],
+  });
+
+  it('新的在前、最多 20 筆；1 秒內接連產生的取代上一筆', () => {
+    let h: HistoryEntry[] = [];
+    for (let i = 0; i < 25; i++) h = pushHistory(h, entry(i * 5000));
+    expect(h).toHaveLength(HISTORY_MAX);
+    expect(h[0].at).toBe(24 * 5000);
+    expect(h[19].at).toBe(5 * 5000);
+    const merged = pushHistory(h, entry(24 * 5000 + 400));
+    expect(merged).toHaveLength(HISTORY_MAX);
+    expect(merged[0].at).toBe(24 * 5000 + 400);
+    expect(merged[1].at).toBe(23 * 5000);
+  });
+
+  it('讀回時丟掉壞掉的；標題', () => {
+    const ok = entry(1);
+    expect(
+      sanitizeHistory([ok, null, { at: 'x' }, { ...ok, names: [] }, { ...ok, region: 'xx' }]),
+    ).toEqual([ok]);
+    expect(sanitizeHistory('nope')).toEqual([]);
+    expect(historyLabel({ region: 'jp', era: 'taisho', gender: 'female' })).toBe(
+      '日本・大正～昭和初期・女',
+    );
+    expect(historyLabel({ region: 'tw', era: 'now', gender: 'any' })).toBe('臺灣・不限');
+    expect(historyLabel({ region: 'us', era: 'born1920', gender: 'male' })).toBe(
+      '美國・1920 年代出生・男',
+    );
+  });
+});
+
+describe('匯出', () => {
+  const jp: GeneratedName = {
+    region: 'jp',
+    era: 'showa',
+    gender: 'female',
+    family: '佐藤',
+    given: '和子',
+    familyReading: 'さとう',
+    givenReading: 'かずこ',
+    text: '佐藤 和子',
+  };
+  const us: GeneratedName = {
+    region: 'us',
+    era: 'adult1920',
+    gender: 'male',
+    family: "O'Brien",
+    given: 'Harold',
+    middle: 'J.',
+    text: "Harold J. O'Brien",
+  };
+
+  it('檔名、TXT（同全部複製、CRLF）', () => {
+    expect(exportFileName('csv', new Date(2026, 9, 29, 9, 5))).toBe('NPC名字_20261029-0905.csv');
+    expect(toTxt([jp, us], { show: initialState.show, copyReading: false })).toBe(
+      "佐藤 和子\r\nHarold J. O'Brien\r\n",
+    );
+    expect(toTxt([jp], { show: initialState.show, copyReading: true })).toBe(
+      '佐藤 和子（さとう かずこ／サトウ カズコ／Satou Kazuko）\r\n',
+    );
+  });
+
+  it('CSV 的欄位：讀音三種都填（不看顯示設定），其他地區留白', () => {
+    expect(csvRows([jp, us])).toEqual([
+      [...CSV_HEADER],
+      [
+        '佐藤 和子',
+        '佐藤',
+        '和子',
+        '',
+        '女',
+        '日本',
+        '昭和中後期',
+        'さとう かずこ',
+        'サトウ カズコ',
+        'Satou Kazuko',
+      ],
+      ["Harold J. O'Brien", "O'Brien", 'Harold', 'J.', '男', '美國', '1920 年代', '', '', ''],
+    ]);
   });
 });

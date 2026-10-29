@@ -13,6 +13,7 @@ export const S = {
       '點名字複製那一個；「全部複製」把整批一行一個複製起來。日本的名字可以設定複製時附上讀音。',
       '名字依實際的人數抽：越常見的名字越容易抽到，同一批不會重複。',
       '想要重現同一批時，在「種子」填同一個字串（例如畫面上顯示的「這一批的種子」）。',
+      '「最近產生的紀錄」留著最近 20 批，可以放回來或複製；「匯出」存成 TXT 或 CSV（Excel 打得開）。',
     ],
     notesTitle: '名字的來源',
     notes: [
@@ -68,6 +69,29 @@ export const S = {
     gender: { male: '男', female: '女' },
     exhausted: '不重複的名字不夠，這一批比要求的少。',
     loadFailed: '名字資料讀不到，請檢查網路後再按一次「產生」。',
+    export: '匯出',
+    exportTxt: 'TXT（純文字）',
+    exportTxtHint: '一行一個，和「全部複製」相同',
+    exportCsv: 'CSV（試算表）',
+    exportCsvHint: '全名、姓、名、性別、地區、年代、讀音分欄',
+    conditions: '條件',
+    toConditions: '改條件',
+  },
+
+  history: {
+    title: '最近產生的紀錄',
+    empty: '產生過的名字會留在這裡（最近 20 批）。',
+    aria: '最近產生的紀錄',
+    restore: '放回',
+    restoreLabel: (when: string) => `放回 ${when} 的這一批`,
+    copy: '複製',
+    copyLabel: (when: string) => `複製 ${when} 的這一批`,
+    count: (n: number) => `${n} 個`,
+    more: (n: number) => `等 ${n} 個`,
+    clear: '清除紀錄',
+    clearTitle: '清除最近產生的紀錄？',
+    clearDescription: '紀錄裡的名字都會刪掉，目前畫面上的這一批不受影響。',
+    clearConfirm: '清除',
   },
 
   toast: {

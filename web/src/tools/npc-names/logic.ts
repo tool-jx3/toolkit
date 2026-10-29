@@ -9,6 +9,7 @@ import {
   isNameGenderChoice,
   isNameRegion,
   NAME_COUNT_MAX,
+  NAME_GENDER_LABELS,
   NAME_REGIONS,
   type NameData,
   type NameGenderChoice,
@@ -205,4 +206,126 @@ export function copyAllText(
   state: Pick<NamesState, 'show' | 'copyReading'>,
 ): string {
   return names.map((n) => copyLine(n, state)).join('\n');
+}
+
+/* ---------- 紀錄 ---------- */
+
+/** 紀錄最多留幾批（自訂） */
+export const HISTORY_MAX = 20;
+/** 上一批產生後這麼短的時間內又產生（例如拖數量的滑桿），取代上一筆紀錄，不另外記（毫秒，自訂） */
+export const HISTORY_MERGE_MS = 1000;
+
+export interface HistoryEntry {
+  id: string;
+  /** 產生的時間（毫秒時間戳） */
+  at: number;
+  region: NameRegion;
+  era: string;
+  gender: NameGenderChoice;
+  seed: string;
+  names: GeneratedName[];
+}
+
+/** 加一筆紀錄（新的在前；和上一筆相隔不到 HISTORY_MERGE_MS 時取代它；最多 HISTORY_MAX 筆） */
+export function pushHistory(
+  history: readonly HistoryEntry[],
+  entry: HistoryEntry,
+  max = HISTORY_MAX,
+): HistoryEntry[] {
+  const rest =
+    history[0] && entry.at - history[0].at >= 0 && entry.at - history[0].at < HISTORY_MERGE_MS
+      ? history.slice(1)
+      : history;
+  return [entry, ...rest].slice(0, max);
+}
+
+/** 讀回的紀錄：壞掉的丟掉 */
+export function sanitizeHistory(raw: unknown): HistoryEntry[] {
+  if (!Array.isArray(raw)) return [];
+  const out: HistoryEntry[] = [];
+  for (const item of raw) {
+    if (!item || typeof item !== 'object') continue;
+    const e = item as Partial<HistoryEntry>;
+    if (!isNameRegion(e.region) || typeof e.at !== 'number' || !Array.isArray(e.names)) continue;
+    const names = e.names.map(cleanName).filter((n): n is GeneratedName => !!n);
+    if (!names.length) continue;
+    out.push({
+      id: typeof e.id === 'string' ? e.id : String(e.at),
+      at: e.at,
+      region: e.region,
+      era: typeof e.era === 'string' ? e.era : '',
+      gender: isNameGenderChoice(e.gender) ? e.gender : 'any',
+      seed: typeof e.seed === 'string' ? e.seed : '',
+      names,
+    });
+    if (out.length >= HISTORY_MAX) break;
+  }
+  return out;
+}
+
+/** 紀錄的標題：「日本・現代・不限」 */
+export function historyLabel(entry: Pick<HistoryEntry, 'region' | 'era' | 'gender'>): string {
+  const info = NAME_REGIONS.find((r) => r.id === entry.region);
+  const era = info?.eras.find((e) => e.id === entry.era);
+  return [
+    info?.label,
+    info && info.eras.length > 1 ? era?.label : null,
+    NAME_GENDER_LABELS[entry.gender],
+  ]
+    .filter(Boolean)
+    .join('・');
+}
+
+/* ---------- 匯出 ---------- */
+
+const pad2 = (n: number) => String(n).padStart(2, '0');
+
+/** 匯出的檔名：NPC名字_20261029-1430.txt／.csv */
+export function exportFileName(ext: 'txt' | 'csv', now = new Date()): string {
+  const stamp = `${now.getFullYear()}${pad2(now.getMonth() + 1)}${pad2(now.getDate())}-${pad2(now.getHours())}${pad2(now.getMinutes())}`;
+  return `NPC名字_${stamp}.${ext}`;
+}
+
+/** TXT：和「全部複製」相同（一行一個；附讀音的設定也一樣），最後換行；換行 CRLF（Windows 的記事本） */
+export function toTxt(
+  names: readonly GeneratedName[],
+  state: Pick<NamesState, 'show' | 'copyReading'>,
+): string {
+  return `${names.map((n) => copyLine(n, state)).join('\r\n')}\r\n`;
+}
+
+export const CSV_HEADER = [
+  '全名',
+  '姓',
+  '名',
+  '中間名縮寫',
+  '性別',
+  '地區',
+  '年代',
+  '平假名',
+  '片假名',
+  '羅馬拼音',
+] as const;
+
+/** CSV 的列（第一列是標題；讀音不看顯示的設定，日本的名字三種都填） */
+export function csvRows(names: readonly GeneratedName[]): string[][] {
+  return [
+    [...CSV_HEADER],
+    ...names.map((n) => {
+      const info = NAME_REGIONS.find((r) => r.id === n.region);
+      const r = nameReadings(n);
+      return [
+        n.text,
+        n.family,
+        n.given,
+        n.middle ?? '',
+        NAME_GENDER_LABELS[n.gender],
+        info?.label ?? '',
+        info?.eras.find((e) => e.id === n.era)?.label ?? '',
+        r?.hiragana ?? '',
+        r?.katakana ?? '',
+        r?.romaji ?? '',
+      ];
+    }),
+  ];
 }
