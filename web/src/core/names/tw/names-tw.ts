@@ -1,5 +1,5 @@
 /**
- * 臺灣的姓名（core/names）。由資料整理腳本產生，不要手改；出處、授權與整理方式見同資料夾的
+ * 台灣的姓名（core/names）。由資料整理腳本產生，不要手改；出處、授權與整理方式見同資料夾的
  * meta.json、LICENSE.txt 與 docs/refactor/specs/npc-names.md 第 2 節。
  *
  * FAMILY：姓,人數；MALE／FEMALE：名,人數（內政部 112 年全國姓名統計分析，表五十七、表五十一）

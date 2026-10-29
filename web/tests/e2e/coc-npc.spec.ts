@@ -595,9 +595,9 @@ test('F37 隨機取名：依地區、年代、性別抽名字，不和其他 NPC
   await expect(page.getByRole('radio', { name: '不限' })).toHaveAttribute('aria-checked', 'true');
   expect(requested).toEqual([]);
 
-  /* 臺灣、女：亂數都取最小 → 第一個姓（陳）＋第一個女性名（淑芬） */
+  /* 台灣、女：亂數都取最小 → 第一個姓（陳）＋第一個女性名（淑芬） */
   await page.getByRole('combobox', { name: '取名的地區與年代' }).click();
-  await page.getByRole('option', { name: /^臺灣/ }).click();
+  await page.getByRole('option', { name: /^台灣/ }).click();
   await page.getByRole('radio', { name: '女', exact: true }).click();
   await setRandom(page, [0.0001]);
   await btn(page, '隨機取名').click();

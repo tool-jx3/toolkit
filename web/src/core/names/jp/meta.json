@@ -2,6 +2,6 @@
   "name": "日本的姓名與讀音（shuheilocale/japanese-personal-name-dataset，性別參考 willnet/gimei）",
   "version": "japanese-personal-name-dataset 0.4.0（054161f）、gimei b5465f3（2026-10-29 取得）",
   "license": "MIT",
-  "copyright": "Copyright (c) 2022 shuheilocale；Copyright (c) 2012 willnet",
+  "copyright": "Copyright (c) 2022 shuheilocale；Copyright (c) 2012 willnet。姓只取原作 last_name_org.csv 的「有哪些姓」（寫法與讀音；原作依名字由来net 的排行挑出），不使用名字由来net 的推定人數；人數取自原作的 birth_decades.csv：國立國會圖書館典拠（Web NDL Authorities，可以免費、不限目的使用）與 Wikidata（CC0）的人物依出生年代數的人數",
   "url": "https://github.com/shuheilocale/japanese-personal-name-dataset"
 }

@@ -80,7 +80,7 @@ describe('資料', () => {
     }
   });
 
-  it('臺灣：內政部 112 年全國姓名統計分析的數字', () => {
+  it('台灣：內政部 112 年全國姓名統計分析的數字', () => {
     const tw = DATA.tw;
     expect(tw.family.texts.slice(0, 5)).toEqual(['陳', '林', '黃', '張', '李']);
     expect(weightOf(tw, 'family', '陳', 'now')).toBe(2618994);
@@ -184,7 +184,7 @@ describe('加權抽籤', () => {
     }
   }
 
-  it('大樣本下前幾名的比例接近資料：臺灣的姓、美國 1920 年代出生的男性名、日本大正的男性名', () => {
+  it('大樣本下前幾名的比例接近資料：台灣的姓、美國 1920 年代出生的男性名、日本大正的男性名', () => {
     const n = 40000;
     expectNearData('tw', 'family', 'now', tally('tw', n, 'family'), n);
     expectNearData('us', 'male', 'born1920', tally('us', n, 'given', 'born1920'), n);
@@ -272,7 +272,7 @@ describe('generateNames', () => {
     expect(male / 4000).toBeLessThan(0.54);
   });
 
-  it('全名的寫法：日本「姓 名」、臺灣「姓名」、美國「名 中間名縮寫 姓」', () => {
+  it('全名的寫法：日本「姓 名」、台灣「姓名」、美國「名 中間名縮寫 姓」', () => {
     const jp = generateNames(DATA.jp, { count: 5, seed: 'x' }).names;
     for (const n of jp) expect(n.text).toBe(`${n.family} ${n.given}`);
     const tw = generateNames(DATA.tw, { count: 5, seed: 'x' }).names;

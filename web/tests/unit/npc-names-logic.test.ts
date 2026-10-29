@@ -205,7 +205,7 @@ describe('紀錄', () => {
     expect(historyLabel({ region: 'jp', era: 'taisho', gender: 'female' })).toBe(
       '日本・大正～昭和初期・女',
     );
-    expect(historyLabel({ region: 'tw', era: 'now', gender: 'any' })).toBe('臺灣・不限');
+    expect(historyLabel({ region: 'tw', era: 'now', gender: 'any' })).toBe('台灣・不限');
     expect(historyLabel({ region: 'us', era: 'born1920', gender: 'male' })).toBe(
       '美國・1920 年代出生・男',
     );

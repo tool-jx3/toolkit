@@ -47,7 +47,7 @@ export const NAME_REGIONS: readonly NameRegionInfo[] = [
   },
   {
     id: 'tw',
-    label: '臺灣',
+    label: '台灣',
     eras: [{ id: 'now', label: '現今', hint: '目前戶籍人口裡最常見的姓與名（不分年代）' }],
     reading: false,
     middleInitial: false,
@@ -248,7 +248,7 @@ export interface GeneratedName {
   /** 平假名（日本） */
   familyReading?: string;
   givenReading?: string;
-  /** 顯示與複製用的全名：日本「佐藤 博」、臺灣「陳家豪」、美國「Harold J. Whitmore」 */
+  /** 顯示與複製用的全名：日本「佐藤 博」、台灣「陳家豪」、美國「Harold J. Whitmore」 */
   text: string;
 }
 

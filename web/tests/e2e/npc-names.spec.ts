@@ -1,7 +1,7 @@
 /**
  * NPC 名字產生器（建置產物 next/npc-names/）的端對端測試。用「種子」讓結果固定：
  * - 開頁沒有錯誤、頁尾沒有靈感來源（本站的工具）、開頁自動產生一批；資料用到才載入（切換地區時才下載那個地區的檔）；
- * - 三種地區各產生一批（日本附三種讀音、臺灣「姓名」、美國「名 姓」與中間名縮寫）、年代與性別；
+ * - 三種地區各產生一批（日本附三種讀音、台灣「姓名」、美國「名 姓」與中間名縮寫）、年代與性別；
  * - 種子重現、「填入這個種子」；鎖定後再產生（鎖定的留在原位）；數量；
  * - 複製一個、全部複製、附上讀音；自動儲存、復原；
  * - 第二批：最近產生的紀錄（放回、複製、清除）、匯出 TXT／CSV、窄畫面的條件摘要與固定在上方的按鈕列；
@@ -81,7 +81,7 @@ test('開頁：沒有錯誤、沒有靈感來源、自動產生一批日本的�
   expect(lines[1]).toMatch(/^[ぁ-ゖ]+ [ぁ-ゖ]+$/);
   expect(lines[2]).toMatch(/^[ァ-ヶ]+ [ァ-ヶ]+$/);
   expect(lines[3]).toMatch(/^[A-Z][a-z']+ [A-Z][a-z']+$/);
-  await radio(page, '臺灣').click();
+  await radio(page, '台灣').click();
   await expect.poll(() => requested).toEqual(['jp', 'tw']);
   expect(errors).toEqual([]);
 });
@@ -97,8 +97,8 @@ test('三種地區各產生一批：寫法、年代的說明、性別、中間�
   await expect(cards(page).getByText('女', { exact: true })).toHaveCount(10);
   for (const t of await nameTexts(page)) expect(t).toMatch(/^\S+ \S+$/);
 
-  /* 臺灣：姓名連在一起、沒有讀音、只有一個年代 */
-  await radio(page, '臺灣').click();
+  /* 台灣：姓名連在一起、沒有讀音、只有一個年代 */
+  await radio(page, '台灣').click();
   await expect(radio(page, '現今')).toHaveAttribute('aria-checked', 'true');
   await expect
     .poll(async () => (await nameTexts(page)).every((t) => /^\p{sc=Han}{3,4}$/u.test(t)))
@@ -304,13 +304,13 @@ test.describe('最近產生的紀錄', () => {
     const first = await nameTexts(page);
     await expect(entries.first()).toContainText('日本・現代・不限・10 個');
     await page.waitForTimeout(1100);
-    await radio(page, '臺灣').click();
+    await radio(page, '台灣').click();
     await expect.poll(async () => (await nameTexts(page))[0]).toMatch(/^\p{sc=Han}{3,4}$/u);
     await expect(entries).toHaveCount(2);
-    await expect(entries.first()).toContainText('臺灣・不限・10 個');
+    await expect(entries.first()).toContainText('台灣・不限・10 個');
     await expect(entries.nth(1)).toContainText(first.slice(0, 3).join('、'));
 
-    /* 放回第一批：名字與地區都換回來；復原回到臺灣的那一批 */
+    /* 放回第一批：名字與地區都換回來；復原回到台灣的那一批 */
     const tw = await nameTexts(page);
     await entries.nth(1).getByRole('button', { name: /^放回/ }).click();
     await expect.poll(() => nameTexts(page)).toEqual(first);
