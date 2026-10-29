@@ -965,6 +965,12 @@ const b2Data = (name: string): unknown =>
 async function openLegacy(page: Page, name: string) {
   await openFile(page, `${name}.json`, b2Data(name));
   await expect(page.getByText(/已讀進原作的備份檔/).first()).toBeVisible();
+  /* 通知蓋在畫布右下角的縮放按鈕上，留著會吃掉之後按「全覽」的那一下 */
+  const close = page
+    .getByRole('region', { name: /^通知/ })
+    .getByRole('button', { name: '關閉通知' });
+  while ((await close.count()) > 0) await close.first().click();
+  await expect(close).toHaveCount(0);
   await settle(page);
 }
 
