@@ -345,6 +345,35 @@ describe('generateNames', () => {
     expect(twMid.every((n) => n.middle === undefined)).toBe(true);
   });
 
+  it('輸出（npc-names 2026-10）：只有名、只有姓；不給時和以前一樣是全名', () => {
+    const full = generateNames(DATA.us, { count: 10, seed: 'p', middleInitial: true }).names;
+    expect(
+      generateNames(DATA.us, { count: 10, seed: 'p', middleInitial: true, part: 'full' }).names,
+    ).toEqual(full);
+    expect(full.every((n) => n.part === undefined)).toBe(true);
+    const given = generateNames(DATA.us, {
+      count: 20,
+      seed: 'p',
+      middleInitial: true,
+      part: 'given',
+    }).names;
+    for (const n of given) {
+      expect(n).toMatchObject({ part: 'given', family: '', text: n.given });
+      expect(n.middle).toBeUndefined();
+    }
+    const family = generateNames(DATA.jp, { count: 50, seed: 'p', part: 'family' }).names;
+    expect(new Set(family.map((n) => n.text)).size).toBe(50);
+    for (const n of family) {
+      expect(n).toMatchObject({ part: 'family', given: '', text: n.family });
+      expect(n.givenReading).toBeUndefined();
+      expect(nameReadings(n)).toEqual({
+        hiragana: n.familyReading,
+        katakana: toKatakana(n.familyReading ?? ''),
+        romaji: expect.stringMatching(/^[A-Z][a-z']*$/),
+      });
+    }
+  });
+
   it('年代不屬於那個地區時用第一個', () => {
     expect(eraOf('jp', 'born1920')).toBe('modern');
     expect(eraOf('us', 'born1920')).toBe('born1920');

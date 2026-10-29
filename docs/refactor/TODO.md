@@ -40,6 +40,8 @@
 
 | 併進 | 來源 | 授權 | 補什麼 | 工作量 |
 |---|---|---|---|---|
+| npc-names | 本站（主控 2026-10-29：D16 的副作用先接受） | — | 拉丁字母的地區（英國、美國、俄羅斯、北歐、奇幻、韓國）同一批可能有重複的姓或名（不重複只以全名判斷）；之後可以選擇像原站一樣把姓與名各自洗牌配對，同一批裡名與姓都不重複（要和鎖定、種子一起設計） | 小 |
+| npc-names | [弄墨 Inknomu《角色姓名產生器》](https://inknomu.com/namegen/) | 資料 CC BY 4.0；程式未授權 | 組合模式的收藏匣與合成（姓＋名拖曳組名、長度上限）、語音朗讀（瀏覽器內建的 speechSynthesis）；2026-10 導入語料時沒有做（規格 D12）。原站的資料包更新時用 `web/scripts/inknomu-names.mjs` 重跑（SHA-256 不同會停下來） | 小～中 |
 | log-converter | [Pumpkin-Duck/COC-TRPG-LOG-TOOL](https://github.com/Pumpkin-Duck/COC-TRPG-LOG-TOOL) | 未授權 | 匯入 Discord 日誌（DiscordChatExporter HTML）、KP／HO／PL 資訊區、目錄；作者寫繁中。另外兩個小功能：同一分頁多次匯出時自動合併重疊的部分（[yurisianne/ileelog-backup-trial](https://github.com/yurisianne/ileelog-backup-trial)）、列出疑似打錯的檢查清單（[Hoo21/ccfolia-log-converter](https://github.com/Hoo21/ccfolia-log-converter)），都未授權 | 中 |
 | speech-bubble | [zZnaptime/Chat2Img](https://github.com/zZnaptime/Chat2Img)、[dearmysn1p3r/DearMySn1p3r_42](https://github.com/dearmysn1p3r/DearMySn1p3r_42)、[CyberDelaai/commlink-ui](https://github.com/CyberDelaai/commlink-ui) | 未授權／未授權／MIT（commlink 的結構與範本可以沿用，附 UPSTREAM_LICENSE） | 靜態聊天截圖：聊天室外框（狀態列、標題列、輸入列）、引用回覆、系統訊息、圖片與貼圖訊息、已讀、長圖分割。Chat2Img v3.2（10-26）加了「遊戲」「劇本」台詞框主題（NEXT▼、AUTO／SKIP／LOG）、文字模糊遮住、上傳字型、貼圖；commlink 有說話者與頭像、左右邊、泡泡內圖片、時間、聯絡人連動、版本快照、掃描線與故障效果 | 中 |
 | coc-dice | [cp-20/dice-spec-v2](https://github.com/cp-20/dice-spec-v2) | MIT | 機率：CoC 7 版單次檢定各成功等級的機率（含獎勵骰／懲罰骰）、對抗檢定的勝率、任意骰子算式的分布圖（它的帳號、分享、付款用 Firebase＋Stripe，不收） | 小～中 |
@@ -167,3 +169,5 @@
 - 2026-10-29：完成並移出清單——新工具「VTT 棋子產生器」（token-maker，參考 arcana-hanna/token-workshop、CyberDelaai/eidolon-ui、Sectr99/TokenForge，MIT）。
 - 2026-10-29：使用者要求把 Azgaar/Fantasy-Map-Generator（MIT）加進首頁的「其他網站」：只連到原站（`azgaar.github.io/Fantasy-Map-Generator/`，英文介面），不重寫；從「不收的」移除。
 - 2026-10-29：使用者提供 shinshin86/live2d-add-motion-sample-web-ui，評估後記進第二節（Live2D 模型加動作；要先決定 Cubism Core 的授權）。
+- 2026-10-29：使用者要求 npc-names 導入弄墨 Inknomu《角色姓名產生器》（inknomu.com/namegen）的姓名資料包：8 個地區 29 個包都標 CC BY 4.0，全部導入（`/data/packs/<id>.json`，2026-10-29 取得）；原站的程式與中文參考譯名表沒有標授權，不沿用。一併做了原站的「輸出」（全名／只有名／只有姓）與組合模式的搜尋（查名字）；收藏匣與合成、語音朗讀沒有做（規格 D12）。實作完成、待對等驗證（PLAN.md 上游跟進表）。
+- 2026-10-29：完成並移出清單——npc-names 導入弄墨 Inknomu 的語料、姓名（全名／只有名／只有姓）與查名字（對等驗證見規格 6.2、裁定 7.2）。

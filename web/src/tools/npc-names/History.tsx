@@ -74,7 +74,7 @@ export function History() {
                       variant="secondary"
                       icon={<Undo2 />}
                       aria-label={S.history.restoreLabel(time)}
-                      onClick={() => restoreHistory(e.id)}
+                      onClick={() => void restoreHistory(e.id)}
                     >
                       {S.history.restore}
                     </Button>

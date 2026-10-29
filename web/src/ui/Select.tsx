@@ -1,5 +1,6 @@
 /**
  * 下拉選單（Radix Select）。選項多於 5 個時使用；少的話用 Segmented。
+ * 下拉的內容最寬到畫面可用的寬度（窄畫面不超出畫面），放不下的選項與說明換行（npc-names 驗證後修正，2026-10）。
  */
 import { Check, ChevronDown } from 'lucide-react';
 import { Select as S } from 'radix-ui';
@@ -50,7 +51,7 @@ function Item<V extends string>({ o }: { o: SelectOption<V> }) {
     <S.Item
       value={o.value}
       disabled={o.disabled}
-      className="relative flex cursor-pointer select-none flex-col rounded-sm py-1.5 pr-2 pl-7 text-sm text-fg outline-none data-disabled:opacity-40 data-highlighted:bg-accent-soft"
+      className="relative flex cursor-pointer select-none flex-col break-words rounded-sm py-1.5 pr-2 pl-7 text-sm text-fg outline-none data-disabled:opacity-40 data-highlighted:bg-accent-soft"
     >
       <S.ItemIndicator className="absolute top-2 left-1.5 text-accent">
         <Check className="size-4" aria-hidden />
@@ -99,7 +100,7 @@ export function Select<V extends string = string>({
         <S.Content
           position="popper"
           sideOffset={4}
-          className="z-50 max-h-(--radix-select-content-available-height) min-w-(--radix-select-trigger-width) overflow-hidden rounded-md border border-border bg-surface shadow-2"
+          className="z-50 max-h-(--radix-select-content-available-height) max-w-(--radix-select-content-available-width) min-w-(--radix-select-trigger-width) overflow-hidden rounded-md border border-border bg-surface shadow-2"
         >
           <S.Viewport className="p-1">
             {options.map((o) =>
