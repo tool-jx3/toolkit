@@ -7,87 +7,43 @@
  * 2026-10-22（7.18）：家具不重疊（畫在底下的、桌上的小物除外）。
  */
 import { ASSET, VERTICAL_LINKS } from '@/tools/floor-plan/model/assets';
-import { DOUBLE_DOORS, OPEN, SWING_DOORS } from '@/tools/floor-plan/model/catalog';
-import { rectContains, rectsOverlap } from '@/tools/floor-plan/model/geometry';
+import {
+  blocking,
+  doorClearance,
+  doorKinds,
+  EPS,
+  overlapLen,
+  rectHits,
+  sectorHits,
+} from '@/tools/floor-plan/model/layoutRules';
 import { groundFloorIndex } from '@/tools/floor-plan/model/ops';
-import type { Floor, Item, Opening, Rect } from '@/tools/floor-plan/model/types';
+import {
+  roomCells,
+  roomContainsRoom,
+  roomHasPoint,
+  roomsOverlap,
+} from '@/tools/floor-plan/model/shape';
+import { restsOn } from '@/tools/floor-plan/model/tabletop';
+import type { Floor, Item, Opening } from '@/tools/floor-plan/model/types';
 import { computeWalls, wallLines } from '@/tools/floor-plan/model/walls';
 
-export const EPS = 1e-6;
-
-/* ---------- 格局規則用的幾何 ---------- */
-
-/** 門前（牆的兩側各一條）要空出來的深度：一格 */
-export const FRONT = 1;
-
-/** 四分之一圓：圓心（鉸鍊）、半徑（門板長），往 (dx, dy) 那一象限 */
-interface Sector {
-  cx: number;
-  cy: number;
-  r: number;
-  dx: 1 | -1;
-  dy: 1 | -1;
-}
-
-/**
- * 門要空出來的範圍：門前一格（牆的兩側，寬度＝門寬）；會開的門另加門板掃過的扇形
- * （單開門類：鉸鍊為圓心、門寬為半徑；雙開門類〔雙開門、大型雙開門，`DOUBLE_DOORS`〕：兩端各一片、半徑是門寬的一半），
- * 折門加門板折出來的深度，旋轉門加圓往牆的兩側凸出的半個寬度（2026-10 第三批後半）。
+/*
+ * 門的開門範圍、門前一格、擋路的家具、長方形的重疊：2026-10-29 搬到 `model/layoutRules.ts`
+ * （連接房間放門、整理家具也用同一份規則），這裡照舊匯出。
  */
-export function doorClearance(o: Opening): { rects: Rect[]; sectors: Sector[] } {
-  const h = o.o === 'h';
-  const a = h ? o.x : o.y;
-  const c = h ? o.y : o.x;
-  const s = o.side < 0 ? -1 : 1;
-  /** 沿著牆 [a0, a0＋len]、往牆的 side 那一側 depth 格的長方形 */
-  const band = (a0: number, len: number, side: 1 | -1, depth: number): Rect => {
-    const c0 = side > 0 ? c : c - depth;
-    return h ? { x: a0, y: c0, w: len, h: depth } : { x: c0, y: a0, w: depth, h: len };
-  };
-  const rects = [band(a, o.len, 1, FRONT), band(a, o.len, -1, FRONT)];
-  const sectors: Sector[] = [];
-  const leaf = (at: number, dir: 1 | -1, r: number) =>
-    sectors.push(h ? { cx: at, cy: c, r, dx: dir, dy: s } : { cx: c, cy: at, r, dx: s, dy: dir });
-  if (DOUBLE_DOORS.has(o.kind)) {
-    leaf(a, 1, o.len / 2);
-    leaf(a + o.len, -1, o.len / 2);
-  } else if (SWING_DOORS.has(o.kind)) {
-    if (o.hinge) leaf(a + o.len, -1, o.len);
-    else leaf(a, 1, o.len);
-  } else if (o.kind === 'folding') {
-    const panel = o.len >= 2.4 ? o.len / 2 : o.len;
-    rects.push(band(a, o.len, s, panel / 2));
-  } else if (o.kind === 'revolve') {
-    rects.push(band(a, o.len, 1, o.len / 2), band(a, o.len, -1, o.len / 2));
-  }
-  return { rects, sectors };
-}
+export {
+  blocking,
+  doorClearance,
+  doorKinds,
+  EPS,
+  FRONT,
+  overlapLen,
+  rectHits,
+  sectorHits,
+} from '@/tools/floor-plan/model/layoutRules';
+/* 桌上的小物的名單：2026-10-29 搬到 `model/tabletop.ts`（F255、F256） */
+export { SURFACES, TABLETOP } from '@/tools/floor-plan/model/tabletop';
 
-export const overlapLen = (a0: number, a1: number, b0: number, b1: number) =>
-  Math.min(a1, b1) - Math.max(a0, b0);
-
-export const rectHits = (a: Rect, b: Rect) =>
-  overlapLen(a.x, a.x + a.w, b.x, b.x + b.w) > EPS &&
-  overlapLen(a.y, a.y + a.h, b.y, b.y + b.h) > EPS;
-
-/** 長方形碰到四分之一圓（不算剛好貼著） */
-export function sectorHits(s: Sector, r: Rect): boolean {
-  const qx0 = Math.min(s.cx, s.cx + s.dx * s.r);
-  const qy0 = Math.min(s.cy, s.cy + s.dy * s.r);
-  const x0 = Math.max(r.x, qx0);
-  const x1 = Math.min(r.x + r.w, qx0 + s.r);
-  const y0 = Math.max(r.y, qy0);
-  const y1 = Math.min(r.y + r.h, qy0 + s.r);
-  if (x1 - x0 <= EPS || y1 - y0 <= EPS) return false;
-  const px = Math.min(Math.max(s.cx, x0), x1);
-  const py = Math.min(Math.max(s.cy, y0), y1);
-  return Math.hypot(px - s.cx, py - s.cy) < s.r - 1e-3;
-}
-
-/** 擋路的家具：畫在其他家具底下的（地毯、血跡、舞台…）不算 */
-export const blocking = (it: Item) => !ASSET[it.t]?.under;
-
-export const doorKinds = (o: Opening) => OPEN[o.kind].group === 'door';
 const at = (o: Opening) => `${o.kind}@${o.o}${o.x},${o.y}`;
 const box = (it: Item) => `${it.t}(${it.x},${it.y},${it.w}×${it.h})`;
 
@@ -140,10 +96,8 @@ export function itemsAcrossWalls(f: Floor): string[] {
 
 /** 地面層以外的門：兩側都要是房間（陽台、走廊也算），不能開到建築外面的半空中 */
 export function doorsToNowhere(f: Floor): string[] {
-  const inRoom = (x: number, y: number) =>
-    f.rooms.some(
-      (r) => x > r.x + EPS && x < r.x + r.w - EPS && y > r.y + EPS && y < r.y + r.h - EPS,
-    );
+  /* L 形房間（2026-10-29）：缺角裡不算 */
+  const inRoom = (x: number, y: number) => f.rooms.some((r) => roomHasPoint(r, x, y));
   return f.openings
     .filter(doorKinds)
     .filter((o) => {
@@ -165,7 +119,7 @@ export function halfOverlaps(f: Floor): string[] {
     for (let j = i + 1; j < f.rooms.length; j++) {
       const a = f.rooms[i];
       const b = f.rooms[j];
-      if (rectsOverlap(a, b) && !rectContains(a, b) && !rectContains(b, a))
+      if (roomsOverlap(a, b) && !roomContainsRoom(a, b) && !roomContainsRoom(b, a))
         out.push(`${f.name}：${a.name} / ${b.name}`);
     }
   return out;
@@ -216,72 +170,15 @@ export function stuckOpenings(f: Floor): string[] {
 }
 
 /**
- * 有桌面的家具（2026-10-22 依 7.18）：桌子、書桌、祭壇、工作台、櫃台…，上面可以放 `TABLETOP` 的小物。
+ * 有意疊放：小物放在有桌面的家具上（2026-10-29 起和「桌上的小物跟著桌子」同一條規則：
+ * 中心在桌面上、面積 70% 以上在桌面上，F256；原本是整個落在桌面上）
  */
-export const SURFACES: ReadonlySet<string> = new Set([
-  'table',
-  'table_round',
-  'lowtable',
-  'desk',
-  'desk_set',
-  'office_desk',
-  'nightstand',
-  'dresser',
-  'altar',
-  'ritual_table',
-  'counter',
-  'workbench',
-  'lab_bench',
-  'island',
-  'reception',
-  'register',
-  'zataku',
-  'chart_table',
-  'ops_table',
-  'holo_table',
-  'display_case',
-  'pedestal',
-  'picnic',
-]);
-
-/** 放在桌面上的小物（線索、文件、蠟燭、神像、水晶球、筆電、顯微鏡…） */
-export const TABLETOP: ReadonlySet<string> = new Set([
-  'memo',
-  'diary',
-  'key',
-  'knife',
-  'photo',
-  'phone',
-  'pills',
-  'papers',
-  'file_folder',
-  'laptop',
-  'recorder',
-  'camera',
-  'wallet',
-  'flashlight',
-  'tools',
-  'bag',
-  'candle',
-  'idol',
-  'crystal_ball',
-  'cursed_item',
-  'microscope',
-]);
-
-/** 有意疊放：小物整個落在有桌面的家具上 */
-const onSurface = (small: Item, big: Item) =>
-  TABLETOP.has(small.t) &&
-  SURFACES.has(big.t) &&
-  small.x >= big.x - EPS &&
-  small.y >= big.y - EPS &&
-  small.x + small.w <= big.x + big.w + EPS &&
-  small.y + small.h <= big.y + big.h + EPS;
+const onSurface = restsOn;
 
 /**
  * 疊在一起的家具（2026-10-22 依 7.18：三合院的床壓在衣櫃上）：兩件家具的外框重疊（只碰到邊不算）。
  * 有意疊放的不算：①畫在其他家具底下的（地毯、血跡、舞台、水池、斑馬線…，`under`）；
- * ②桌上的小物（`TABLETOP` 整個落在 `SURFACES` 上，例如祭壇上的蠟燭與神像、桌上的筆電與照片）。
+ * ②桌上的小物（`TABLETOP` 放在 `SURFACES` 上：中心在桌面上、面積 70% 以上在桌面上〔F256〕，例如祭壇上的蠟燭與神像、桌上的筆電與照片）。
  * 貼牆素材也算（不要蓋在靠牆的家具上）。
  */
 export function overlappingItems(f: Floor): string[] {
@@ -334,8 +231,7 @@ export function unreachableRooms(floors: readonly Floor[]): string[] {
   const owners = floors.map((f) => {
     const owner = new Map<string, number>();
     f.rooms.forEach((r, i) => {
-      for (let x = r.x; x < r.x + r.w; x++)
-        for (let y = r.y; y < r.y + r.h; y++) owner.set(`${x},${y}`, i);
+      for (const [x, y] of roomCells(r)) owner.set(`${x},${y}`, i);
     });
     return owner;
   });

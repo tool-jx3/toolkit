@@ -340,6 +340,28 @@ const lamp: FurnDraw = (c, S, w, h) => {
   lw(c, S);
 };
 
+/**
+ * 檯燈（2026-10-29，桌上的小物）：圓的底座、往前伸的燈臂、燈罩（亮的一圈）。
+ */
+const deskLamp: FurnDraw = (c, S, w, h) => {
+  const R = Math.min(w, h) / 2;
+  disc(c, S, w * 0.3, h * 0.3, R * 0.42, S.shade);
+  lw(c, S, 1.4);
+  seg(c, w * 0.3, h * 0.3, w * 0.62, h * 0.62);
+  lw(c, S);
+  disc(c, S, w * 0.64, h * 0.64, R * 0.5, S.fire);
+  disc(c, S, w * 0.64, h * 0.64, R * 0.24, S.paper);
+};
+
+/**
+ * 桌上螢幕（2026-10-29，桌上的小物）：背面（上）是腳架的底座，前面一片細長的面板、朝前的一面是螢幕色。
+ */
+const deskMonitor: FurnDraw = (c, S, w, h) => {
+  block(c, S, w * 0.36, h * 0.04, w * 0.28, h * 0.34, 0.04, S.shade);
+  block(c, S, 0, h * 0.38, w, h * 0.42, 0.03, S.ink);
+  block(c, S, w * 0.04, h * 0.62, w * 0.92, h * 0.14, 0.01, S.screen);
+};
+
 /** 鍵盤：x～x+w、y～y+h 的白鍵線＋黑鍵 */
 function keys(c: Ctx, S: FurnStyle, x: number, y: number, w: number, h: number): void {
   block(c, S, x, y, w, h, 0, S.paper);
@@ -672,6 +694,9 @@ const troughSink: FurnDraw = (c, S, w, h) => {
 };
 
 export const HOME: Record<string, FurnDraw> = {
+  /* 2026-10-29：桌上的小物 */
+  desk_lamp: deskLamp,
+  desk_monitor: deskMonitor,
   stairs,
   stairs_u: stairsU,
   spiral,

@@ -13,7 +13,9 @@ import {
   TOKEN_GRID_OPACITY,
   wallThickness,
 } from '../model/catalog';
+import { type CoordLabels, columnName } from '../model/coords';
 import { itemLocalSize, type ShownFloor, type ShownRoom, visibleFloor } from '../model/geometry';
+import { traceRoom } from '../model/shape';
 import type { Floor, Item, Opening, Rect, SizeMode, TextLabel, Wall } from '../model/types';
 import { computeWalls, type WallRun } from '../model/walls';
 import { FURNITURE_DRAW, type FurnStyle } from './furniture';
@@ -68,7 +70,8 @@ export function drawPattern(c: Ctx, room: ShownRoom, theme: FloorTheme, lw: numb
   const { x, y, w, h } = room;
   c.save();
   c.beginPath();
-  c.rect(x, y, w, h);
+  /* L 形（2026-10-29）：花紋照外框排、剪在 L 形裡 */
+  traceRoom(c, room);
   c.clip();
   c.strokeStyle = theme.pattern;
   c.fillStyle = theme.pattern;
@@ -1612,6 +1615,61 @@ export function drawTokenGrid(c: Ctx, theme: FloorTheme, zoom: number, g: TokenG
   c.restore();
 }
 
+/* ---------- 座標標示（2026-10-29，F264） ---------- */
+
+/**
+ * 欄名（A、B…）寫在上緣、列號（1、2…）寫在左緣，每一格的邊界一道短刻度。字色＝樣式的字色（光暈同房間名字）。
+ */
+export function drawCoordLabels(c: Ctx, L: CoordLabels, theme: FloorTheme, zoom: number): void {
+  const font = { weight: 700, size: L.font, family: theme.font };
+  c.save();
+  c.textBaseline = 'middle';
+  c.textAlign = 'center';
+  for (let i = 0; i < L.cols; i++)
+    haloText(
+      c,
+      columnName(i),
+      L.x0 + (i + 0.5) * L.cell,
+      L.colY,
+      font,
+      theme.label,
+      theme.halo,
+      L.font * 0.28,
+    );
+  c.textAlign = 'right';
+  for (let j = 0; j < L.rows; j++)
+    haloText(
+      c,
+      String(j + 1),
+      L.rowX,
+      L.y0 + (j + 0.5) * L.cell,
+      font,
+      theme.label,
+      theme.halo,
+      L.font * 0.28,
+    );
+  /* 刻度：每一格的邊界 */
+  const tick = L.font * 0.45;
+  c.strokeStyle = theme.sub;
+  c.globalAlpha = 0.7;
+  c.lineWidth = Math.max(1 / zoom, 0.03);
+  c.beginPath();
+  const ty = L.colY + L.font / 2;
+  for (let i = 0; i <= L.cols; i++) {
+    const x = L.x0 + i * L.cell;
+    c.moveTo(x, ty - tick);
+    c.lineTo(x, ty);
+  }
+  const tx = L.rowX + L.font * 0.25;
+  for (let j = 0; j <= L.rows; j++) {
+    const y = L.y0 + j * L.cell;
+    c.moveTo(tx, y);
+    c.lineTo(tx + tick, y);
+  }
+  c.stroke();
+  c.restore();
+}
+
 /* ---------- 一層樓 ---------- */
 
 export interface DrawFloorOptions {
@@ -1633,6 +1691,8 @@ export interface DrawFloorOptions {
   ghost?: Floor | null;
   /** 棋子方格（2026-10；沒有＝不畫） */
   tokenGrid?: TokenGridDraw;
+  /** 座標標示（2026-10-29，F264；沒有＝不畫） */
+  coords?: CoordLabels | null;
 }
 
 export function drawFloor(c: Ctx, floorIn: Floor, opts: DrawFloorOptions): ShownFloor {
@@ -1645,19 +1705,28 @@ export function drawFloor(c: Ctx, floorIn: Floor, opts: DrawFloorOptions): Shown
   }
   if (opts.grid && opts.viewRect) drawGrid(c, opts.viewRect, theme, opts.zoom);
 
+  /* 長方形的房間照舊用 fillRect（輸出逐位元組不變）；L 形房間（2026-10-29）填多邊形 */
+  const fillRoom = (room: ShownRoom) => {
+    if (!room.cut) c.fillRect(room.x, room.y, room.w, room.h);
+    else {
+      c.beginPath();
+      traceRoom(c, room);
+      c.fill();
+    }
+  };
   for (const room of floor.rooms) {
     if (room.masked) {
       c.fillStyle = theme.defaultFill;
-      c.fillRect(room.x, room.y, room.w, room.h);
+      fillRoom(room);
       c.save();
       c.globalAlpha = 0.38;
       c.fillStyle = theme.arc;
-      c.fillRect(room.x, room.y, room.w, room.h);
+      fillRoom(room);
       c.restore();
       continue;
     }
     c.fillStyle = roomFill(theme, room, Boolean(CAT[room.cat]?.outdoor));
-    c.fillRect(room.x, room.y, room.w, room.h);
+    fillRoom(room);
     drawPattern(c, room, theme, lw);
   }
 
@@ -1690,7 +1759,7 @@ export function drawFloor(c: Ctx, floorIn: Floor, opts: DrawFloorOptions): Shown
       if (!room.gm) continue;
       c.save();
       c.beginPath();
-      c.rect(room.x, room.y, room.w, room.h);
+      traceRoom(c, room);
       c.clip();
       c.strokeStyle = theme.gm;
       c.globalAlpha = 0.28;
@@ -1712,5 +1781,6 @@ export function drawFloor(c: Ctx, floorIn: Floor, opts: DrawFloorOptions): Shown
 
   for (const room of floor.rooms) if (!room.masked) drawRoomLabel(c, room, theme, opts);
   for (const t of floor.texts) drawText(c, t, theme, opts);
+  if (opts.coords) drawCoordLabels(c, opts.coords, theme, opts.zoom);
   return floor;
 }

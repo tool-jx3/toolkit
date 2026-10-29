@@ -1,14 +1,38 @@
 /**
  * 匯出圖片（PNG）：範圍（這一層／所有樓層排成一張／每層各一張）、對象（PL／GM）、隱藏線索、樣式、每格大小、
  * 格線、透明背景；預覽與輸出尺寸；下載或複製到剪貼簿。
+ * 2026-10-29（參考 KIIN マップ制作スタジオ）：用途「VTT 用」（每格 50／70／100 px、整數格、格數可以複製、上限），
+ * 「在地圖演出產生器開啟」（共用的 core/handoff 交給 map-fx）。
  */
+import { Copy, Film } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
-import { copyImage, downloadBlob, downloadSequentially } from '@/core/files';
+import { copyImage, copyText, downloadBlob, downloadSequentially } from '@/core/files';
+import { beginHandoff, failHandoff, handoffHref, sendHandoff } from '@/core/handoff';
 import { canvasToBlob } from '@/core/image';
-import { Button, Dialog, Field, Notice, Segmented, Select, Toggle } from '@/ui';
+import { getTool, hrefToTool } from '@/registry';
+import { Button, Dialog, Field, IconButton, Notice, Segmented, Select, Toggle } from '@/ui';
 import { exportLayout, hasExportContent, renderImage } from '../draw/export';
-import { CELL_M, EXPORT_PX, type ExportPx, THEME_IDS } from '../model/catalog';
-import { exportFloors, exportJobs, exportOptions, tokenGridPx } from '../model/exportPlan';
+import { getTheme } from '../draw/themes';
+import {
+  CELL_M,
+  DEFAULT_CELL,
+  EXPORT_PX,
+  type ExportPx,
+  THEME_IDS,
+  VTT_PX,
+  type VttPx,
+} from '../model/catalog';
+import {
+  exportFloors,
+  exportJobs,
+  exportOptions,
+  isVtt,
+  tokenGridPx,
+  vttCell,
+  vttCells,
+  vttPxOf,
+  vttTooLarge,
+} from '../model/exportPlan';
 import { floorHasClues } from '../model/geometry';
 import type { ThemeId } from '../model/types';
 import { S } from '../strings';
@@ -23,6 +47,12 @@ const setExp = (patch: Partial<Prefs['exp']>) =>
 
 /** 這一頁選過的匯出樣式（關掉對話框再開還在；重新整理後回到地圖的樣式） */
 let sessionTheme: ThemeId | null = null;
+
+/** 地圖演出產生器的網址（還沒上線時在 next/；F267） */
+const MAP_FX_HREF = hrefToTool(getTool('map-fx') ?? { id: 'map-fx', status: 'next' });
+/** 地圖演出產生器的「1 格幾 px」的範圍（房間遮罩 ZIP；map-fx 規格 F64） */
+const FX_GRID_MIN = 8;
+const FX_GRID_MAX = 200;
 
 export function ExportDialog() {
   const open = useEditor((s) => s.exportOpen);
@@ -49,6 +79,24 @@ export function ExportDialog() {
     () => (empty ? null : exportLayout(floors, exportOptions(project, e2, theme, e2.px))),
     [empty, floors, project, theme, e2],
   );
+  const vtt = isVtt(exp);
+  const cell = vttCell(project);
+  /* VTT 用：每一張都要在上限裡（每層各一張時每張各自算，F266） */
+  const vttLayouts = useMemo(() => {
+    if (!vtt || empty) return [];
+    return exportJobs(project, e2)
+      .filter((j) => hasExportContent(j.floors, e2.view === 'pl', e2.clues === 'hide'))
+      .map((j) => exportLayout(j.floors, exportOptions(project, e2, theme, e2.px)));
+  }, [vtt, empty, project, e2, theme]);
+  const tooLarge = vttLayouts.find(vttTooLarge) ?? null;
+  const cells = vtt && layout ? vttCells(layout, cell) : null;
+  const vttLine =
+    vtt && layout && cells
+      ? `${S.exp.vttInfo(cells.x, cells.y, layout.pxWidth, layout.pxHeight)}${
+          range === 'each' && multi ? S.exp.vttEach(project.floors.length) : ''
+        }`
+      : '';
+  const blocked = empty || !!tooLarge;
 
   useEffect(() => {
     if (!open || empty) {
@@ -57,7 +105,7 @@ export function ExportDialog() {
     }
     const t = setTimeout(() => {
       try {
-        const c = renderImage(floors, exportOptions(project, e2, theme, Math.min(e2.px, 16)));
+        const c = renderImage(floors, exportOptions(project, e2, theme, Math.min(e2.px, 16), true));
         setPreview(c.toDataURL('image/png'));
       } catch {
         setPreview(null);
@@ -92,6 +140,66 @@ export function ExportDialog() {
     }
   };
 
+  /**
+   * 送到地圖演出產生器（F267）：這一張（每層各一張時是這一層）＋名稱＋「1 格幾 px」。
+   * 新分頁在點擊的當下（任何 await 之前）開，網址帶交接編號；圖畫好、寫進 IndexedDB 之後 map-fx 才讀得到
+   * （map-fx 那邊顯示「正在接收」等它；畫不出來或寫不進去時 map-fx 馬上知道，2026-10-29 主控追加）。
+   */
+  const sendToFx = () => {
+    const id = beginHandoff('map-fx');
+    const tab = window.open(handoffHref(MAP_FX_HREF, id), '_blank');
+    if (tab) tab.opener = null;
+    void deliverToFx(id, !tab);
+  };
+
+  const deliverToFx = async (id: string, blockedTab: boolean) => {
+    setBusy(true);
+    try {
+      const jobs = exportJobs(project, e2);
+      const job = range === 'each' && multi ? jobs[project.active] : jobs[0];
+      if (!job) {
+        await failHandoff('map-fx', id);
+        return;
+      }
+      const opts = exportOptions(project, e2, theme, exp.px);
+      const L = exportLayout(job.floors, opts);
+      const blob = await canvasToBlob(renderImage(job.floors, opts), 'image/png');
+      const gridPx = vtt
+        ? vttPxOf(exp)
+        : Math.round(L.scale * (project.tokenGrid || DEFAULT_CELL) * 100) / 100;
+      const meta =
+        Number.isInteger(gridPx) && gridPx >= FX_GRID_MIN && gridPx <= FX_GRID_MAX
+          ? { gridPx }
+          : {};
+      const ok = await sendHandoff({
+        to: 'map-fx',
+        from: 'floor-plan',
+        name: job.name.replace(/\.png$/i, ''),
+        blob,
+        meta,
+        id,
+      });
+      if (!ok) {
+        notify(S.exp.sendFxFailed, 'warning');
+        return;
+      }
+      notify(
+        blockedTab ? S.exp.sendFxBlocked : S.exp.sendFxDone,
+        blockedTab ? 'warning' : 'success',
+      );
+    } catch {
+      await failHandoff('map-fx', id);
+      notify(S.exp.failed, 'danger');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const copyVtt = async () => {
+    if (!vttLine) return;
+    if (await copyText(vttLine)) notify(S.msg.copiedVtt, 'success');
+  };
+
   const copy = async () => {
     let canvas: HTMLCanvasElement;
     try {
@@ -110,7 +218,7 @@ export function ExportDialog() {
     !!navigator.clipboard?.write &&
     typeof (globalThis as { ClipboardItem?: unknown }).ClipboardItem !== 'undefined' &&
     range !== 'each';
-  const shrunk = layout ? layout.scale < exp.px - 1e-9 : false;
+  const shrunk = !vtt && layout ? layout.scale < exp.px - 1e-9 : false;
 
   return (
     <Dialog
@@ -120,15 +228,24 @@ export function ExportDialog() {
       size="xl"
       footer={
         <>
+          <Button
+            icon={<Film />}
+            disabled={blocked || busy}
+            onClick={sendToFx}
+            title={S.exp.sendFxHint}
+            data-testid="export-send-fx"
+          >
+            {S.exp.sendFx}
+          </Button>
           {canCopy ? (
-            <Button disabled={empty} onClick={() => void copy()}>
+            <Button disabled={blocked} onClick={() => void copy()}>
               {S.exp.copy}
             </Button>
           ) : null}
           <Button
             variant="primary"
             loading={busy}
-            disabled={empty}
+            disabled={blocked}
             onClick={() => void download()}
             data-testid="export-download"
           >
@@ -142,6 +259,17 @@ export function ExportDialog() {
         data-testid="export-dialog"
       >
         <div className="flex min-w-0 flex-col gap-3">
+          <Field label={S.exp.mode}>
+            <Segmented
+              size="sm"
+              value={vtt ? 'vtt' : 'image'}
+              onValueChange={(v) => setExp({ mode: v })}
+              options={[
+                { value: 'image', label: S.exp.modeImage },
+                { value: 'vtt', label: S.exp.modeVtt },
+              ]}
+            />
+          </Field>
           {multi ? (
             <Field label={S.exp.range}>
               <Segmented
@@ -190,29 +318,80 @@ export function ExportDialog() {
               options={THEME_IDS.map((id) => ({ value: id, label: S.themes[id] }))}
             />
           </Field>
-          <Field label={S.exp.px} hint={S.exp.pxNote}>
-            <Segmented
-              size="sm"
-              value={String(exp.px)}
-              onValueChange={(v) => setExp({ px: Number(v) as ExportPx })}
-              options={EXPORT_PX.map((v) => ({ value: String(v), label: `${v}px` }))}
-            />
-          </Field>
-          <Field label={S.exp.tokenGrid} hint={S.exp.tokenGridHint}>
-            <TokenGridSelect testId="export-token-grid" />
-          </Field>
+          {getTheme(theme).effect ? (
+            <Field label={S.exp.noise} hint={S.exp.noiseHint} layout="inline">
+              <Toggle checked={exp.noise !== false} onCheckedChange={(v) => setExp({ noise: v })} />
+            </Field>
+          ) : null}
+          {vtt ? (
+            <>
+              <Field label={S.exp.vttCell} hint={S.exp.vttCellHint}>
+                <TokenGridSelect testId="export-token-grid" offLabel={S.exp.vttCellOff} />
+              </Field>
+              <Field label={S.exp.vttPx}>
+                <Segmented
+                  size="sm"
+                  value={String(vttPxOf(exp))}
+                  onValueChange={(v) => setExp({ vttPx: Number(v) as VttPx })}
+                  options={VTT_PX.map((v) => ({ value: String(v), label: `${v}px` }))}
+                />
+              </Field>
+            </>
+          ) : (
+            <>
+              <Field label={S.exp.px} hint={S.exp.pxNote}>
+                <Segmented
+                  size="sm"
+                  value={String(exp.px)}
+                  onValueChange={(v) => setExp({ px: Number(v) as ExportPx })}
+                  options={EXPORT_PX.map((v) => ({ value: String(v), label: `${v}px` }))}
+                />
+              </Field>
+              <Field label={S.exp.tokenGrid} hint={S.exp.tokenGridHint}>
+                <TokenGridSelect testId="export-token-grid" />
+              </Field>
+            </>
+          )}
           <Field label={S.exp.grid} layout="inline">
             <Toggle checked={exp.grid} onCheckedChange={(v) => setExp({ grid: v })} />
           </Field>
           <Field label={S.exp.transparent} layout="inline">
             <Toggle checked={exp.transparent} onCheckedChange={(v) => setExp({ transparent: v })} />
           </Field>
-          <p className="m-0 text-sm tabular-nums" data-testid="export-info">
-            {layout
-              ? `${S.exp.info(layout.pxWidth, layout.pxHeight)}${range === 'each' && multi ? ` × ${project.floors.length}` : ''}`
-              : ''}
-          </p>
-          {layout?.tokenGrid ? (
+          {vtt ? (
+            <div className="flex flex-col gap-0.5">
+              <div className="flex items-center gap-1.5">
+                <p className="m-0 min-w-0 text-sm tabular-nums" data-testid="export-info">
+                  {vttLine}
+                </p>
+                {vttLine ? (
+                  <IconButton
+                    size="sm"
+                    variant="ghost"
+                    icon={<Copy />}
+                    label={S.exp.vttCopyLabel}
+                    onClick={() => void copyVtt()}
+                    data-testid="export-vtt-copy"
+                  />
+                ) : null}
+              </div>
+              <p className="m-0 text-xs text-muted">{S.exp.vttNote}</p>
+            </div>
+          ) : (
+            <p className="m-0 text-sm tabular-nums" data-testid="export-info">
+              {layout
+                ? `${S.exp.info(layout.pxWidth, layout.pxHeight)}${range === 'each' && multi ? ` × ${project.floors.length}` : ''}`
+                : ''}
+            </p>
+          )}
+          {tooLarge ? (
+            <div data-testid="export-vtt-too-large">
+              <Notice tone="danger">
+                {S.exp.vttTooLarge(tooLarge.pxWidth, tooLarge.pxHeight, range === 'all' && multi)}
+              </Notice>
+            </div>
+          ) : null}
+          {!vtt && layout?.tokenGrid ? (
             <div className="flex flex-col gap-0.5">
               <p className="m-0 text-sm tabular-nums" data-testid="export-token-info">
                 {S.exp.tokenGridInfo(

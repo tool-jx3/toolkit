@@ -11,6 +11,7 @@ import {
   OPEN,
   PING_M2,
 } from './catalog';
+import { roomCellArea, roomContainsRoom, roomHasPoint } from './shape';
 import type { Floor, Item, Opening, Project, Rect, Room, SizeMode, TextLabel } from './types';
 
 let seq = 0;
@@ -164,9 +165,9 @@ export function floorsBounds(floors: readonly Floor[]): Rect | null {
   return box;
 }
 
-/** 房間面積（㎡） */
-export function roomArea(room: Pick<Room, 'w' | 'h'>): number {
-  return room.w * room.h * CELL_M * CELL_M;
+/** 房間面積（㎡）；L 形是外框減缺角（2026-10-29） */
+export function roomArea(room: Pick<Room, 'w' | 'h' | 'cut'>): number {
+  return roomCellArea({ x: 0, y: 0, ...room }) * CELL_M * CELL_M;
 }
 
 /** 一位小數（去掉 -0） */
@@ -181,14 +182,17 @@ export const metersText = (w: number, h: number): string => `${meterText(w)}×${
 /** 坪數（一位小數） */
 export const pingText = (areaM2: number): string => `${fixed1(areaM2 / PING_M2)} 坪`;
 
-/** 房間名字下方的面積文字 */
-export function sizeText(room: Pick<Room, 'w' | 'h'>, mode: SizeMode | undefined): string {
+/** 房間名字下方的面積文字（長 × 寬：L 形是外框，加「（L 形）」） */
+export function sizeText(room: Pick<Room, 'w' | 'h' | 'cut'>, mode: SizeMode | undefined): string {
   if (!mode || mode === 'none') return '';
   const area = roomArea(room);
   if (mode === 'ping') return pingText(area);
   if (mode === 'm2') return `${fixed1(area)}㎡`;
-  return `${fixed1(room.w * CELL_M)}×${fixed1(room.h * CELL_M)}m`;
+  return `${fixed1(room.w * CELL_M)}×${fixed1(room.h * CELL_M)}m${room.cut ? L_SUFFIX : ''}`;
 }
+
+/** 「長 × 寬」顯示 L 形房間時加在後面 */
+export const L_SUFFIX = '（L 形）';
 
 /** 畫面／匯出用的房間（PL 檢視的 GM 房間只剩框：masked） */
 export type ShownRoom = Room & { masked?: boolean };
@@ -214,8 +218,8 @@ export function visibleFloor(floor: Floor, playerView: boolean, hideClues = fals
   const f: ShownFloor = hideClues ? withoutClues(floor) : floor;
   if (!playerView) return f;
   const hidden = f.rooms.filter((r) => r.gm);
-  const inside = (x: number, y: number) =>
-    hidden.some((r) => x > r.x && x < r.x + r.w && y > r.y && y < r.y + r.h);
+  /* L 形（2026-10-29）：缺角裡的東西不算在房間裡 */
+  const inside = (x: number, y: number) => hidden.some((r) => roomHasPoint(r, x, y));
   /* 牆框照 GM 檢視：種類、不產生牆、房間的牆種類（2026-10 第二批）都留著，牆才不會變 */
   const masked = (r: Room): ShownRoom => ({
     id: r.id,
@@ -226,13 +230,14 @@ export function visibleFloor(floor: Floor, playerView: boolean, hideClues = fals
     cat: r.cat,
     noWall: r.noWall,
     ...(r.wall ? { wall: r.wall } : {}),
+    ...(r.cut ? { cut: { ...r.cut } } : {}),
     name: '',
     masked: true,
   });
   return {
     ...f,
     rooms: f.rooms
-      .filter((r) => r.gm || !hidden.some((g) => rectContains(g, r)))
+      .filter((r) => r.gm || !hidden.some((g) => roomContainsRoom(g, r)))
       .map((r) => (r.gm ? masked(r) : r)),
     walls: f.walls.filter((w) => !w.gm && !inside((w.x1 + w.x2) / 2, (w.y1 + w.y2) / 2)),
     openings: f.openings.filter((o) => {

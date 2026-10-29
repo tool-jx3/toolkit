@@ -1,5 +1,7 @@
 /**
- * 地圖的顯示樣式（五種）：只換顏色與字型，結構不變。顏色是本站自己配的。
+ * 地圖的顯示樣式（七種）：只換顏色與字型，結構不變。顏色是本站自己配的。
+ * 2026-10-29（參考 KIIN マップ制作スタジオ）：黑色電影、監視終端——房間的底色由彩色樣式的明度推出來（深淺不同的灰／暗綠），
+ * 另外有畫面效果（底片顆粒與暗角、掃描線與取景框，draw/effects.ts）。
  */
 import type { RoomCategory, ThemeId } from '../model/types';
 
@@ -57,6 +59,8 @@ export interface FloorTheme {
   /** 圓標（文字的樣式，2026-10）：圓、字、外圍的邊 */
   badge: { fill: string; text: string; ring: string };
   font: string;
+  /** 畫面效果（2026-10-29）：grain＝底片顆粒＋暗角、scan＝掃描線＋雜訊＋取景框（draw/effects.ts） */
+  effect?: 'grain' | 'scan';
 }
 
 export const SANS =
@@ -391,7 +395,146 @@ const horror: FloorTheme = {
   font: SERIF,
 };
 
-export const THEMES: Record<ThemeId, FloorTheme> = { clean, mono, blueprint, paper, horror };
+/* ---------- 2026-10-29：黑色電影、監視終端（參考 KIIN；配色本站自己設計） ---------- */
+
+const hexRgb = (hex: string): [number, number, number] => {
+  const n = Number.parseInt(hex.slice(1, 7), 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+};
+const toHex = (r: number, g: number, b: number) =>
+  `#${[r, g, b]
+    .map((v) =>
+      Math.round(Math.min(255, Math.max(0, v)))
+        .toString(16)
+        .padStart(2, '0'),
+    )
+    .join('')}`;
+/** 彩色樣式的底色的相對明度（0～1） */
+const luma = (hex: string) => {
+  const [r, g, b] = hexRgb(hex);
+  return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+};
+/**
+ * 由彩色樣式的種類色推出新樣式的底色：明度 0.74～0.97 對應到 0～1，再交給 tone 換成那個樣式的顏色。
+ * 深淺的順序和彩色樣式相同（淺的種類在新樣式裡也比較淺），所以種類分得出來。
+ */
+const derivedFills = (tone: (t: number) => string): Partial<Record<RoomCategory, string>> =>
+  Object.fromEntries(
+    Object.entries(clean.fills).map(([k, v]) => [
+      k,
+      tone(Math.min(1, Math.max(0, (luma(v as string) - 0.74) / 0.23))),
+    ]),
+  );
+
+const noir: FloorTheme = {
+  id: 'noir',
+  bg: '#151413',
+  grid: 'rgba(236, 228, 210, 0.05)',
+  gridMajor: 'rgba(236, 228, 210, 0.11)',
+  wall: '#ebe4d3',
+  rail: '#9a948a',
+  label: '#f2ecdd',
+  sub: '#aaa397',
+  halo: 'rgba(21, 20, 19, 0.86)',
+  /* 帶一點暖色的灰：明度 0～1 → 34～68 */
+  fills: derivedFills((t) => {
+    const v = 34 + t * 34;
+    return toHex(v + 3, v + 1, v - 1);
+  }),
+  defaultFill: '#1d1c1a',
+  outdoorFill: '#191817',
+  pattern: 'rgba(236, 228, 210, 0.08)',
+  furn: {
+    paper: '#2b2a28',
+    ink: '#d9d2c2',
+    tint: '#383633',
+    shade: '#5e5a54',
+    faint: '#8b857a',
+    water: '#2a3034',
+    leaf: '#2c302a',
+    leafInk: '#9aa08e',
+    alert: '#c95c4a',
+    blood: 'rgba(150, 40, 32, 0.8)',
+    gold: '#c8a45a',
+    occult: '#b38fc9',
+    occultTint: '#3a3040',
+    fire: '#e6a04a',
+    chalk: '#efe8d8',
+    cloth: '#33312e',
+    wood: '#4a4239',
+    screen: '#7d8f9a',
+  },
+  door: '#ebe4d3',
+  arc: '#8f897e',
+  window: '#d9d2c2',
+  glass: '#3c4247',
+  gm: '#c9a24a',
+  clue: '#e2574c',
+  badge: { fill: '#0e0d0c', text: '#f2ecdd', ring: '#ebe4d3' },
+  font: SANS,
+  effect: 'grain',
+};
+
+const terminal: FloorTheme = {
+  id: 'terminal',
+  /* 帶螢光感的深綠（2026-10-29 驗證後換掉原本的近黑墨綠：和 KIIN 的底色太像；L* 10、色相偏黃綠） */
+  bg: '#002208',
+  grid: 'rgba(110, 255, 190, 0.05)',
+  gridMajor: 'rgba(110, 255, 190, 0.11)',
+  wall: '#7af0b4',
+  rail: '#3e9a72',
+  label: '#b6ffd9',
+  sub: '#5fc795',
+  halo: 'rgba(6, 18, 14, 0.88)',
+  /* 暗綠：明度 0～1 → 深到淺 */
+  fills: derivedFills((t) => toHex(8 + t * 10, 27 + t * 27, 21 + t * 18)),
+  defaultFill: '#0b1d17',
+  outdoorFill: '#08160f',
+  pattern: 'rgba(122, 240, 180, 0.09)',
+  furn: {
+    paper: '#0e2a20',
+    ink: '#8ff5c3',
+    tint: '#14372a',
+    shade: '#2b6b51',
+    faint: '#4f9e7c',
+    water: '#0f2b2f',
+    leaf: '#123222',
+    leafInk: '#6fd99e',
+    alert: '#ff7a5c',
+    blood: 'rgba(255, 110, 90, 0.55)',
+    gold: '#e8c860',
+    occult: '#ff8ad8',
+    occultTint: '#2a1f2c',
+    fire: '#ffc061',
+    chalk: '#c7ffe3',
+    cloth: '#11281f',
+    wood: '#1c3a2c',
+    screen: '#56d6ff',
+  },
+  door: '#7af0b4',
+  arc: '#3e9a72',
+  window: '#8ff5c3',
+  glass: '#103a33',
+  gm: '#ffb547',
+  clue: '#5ad4ff',
+  badge: { fill: '#031009', text: '#b6ffd9', ring: '#7af0b4' },
+  font: SANS,
+  effect: 'scan',
+};
+
+export const THEMES: Record<ThemeId, FloorTheme> = {
+  clean,
+  mono,
+  blueprint,
+  paper,
+  horror,
+  noir,
+  terminal,
+};
+
+/** 深色的樣式（污漬用淡色、圓標的對比…） */
+export const isDarkTheme = (t: Pick<FloorTheme, 'bg'>): boolean =>
+  t.bg.startsWith('#') ? luma(t.bg) < 0.35 : true;
 
 export function getTheme(id: string | null | undefined): FloorTheme {
   return (id && THEMES[id as ThemeId]) || clean;
