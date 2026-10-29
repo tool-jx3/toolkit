@@ -1,0 +1,76 @@
+本資料夾的 inknomu-<地區>.ts（姓、名、讀音、涵義、備註、綽號與各包的說明、命名規則）、catalog.ts（包的清單）
+與 sources.ts（各地區頁面列的資料來源）取自下列資料，由 web/scripts/inknomu-names.mjs 轉成本站的格式（下面「三」）。抽籤、讀音的片假名與羅馬拼音、
+介面上的標題與說明是本站自己寫的，不在此列。
+
+一、原始資料
+
+  名稱：角色姓名產生器（姓名資料包）
+  作者：弄墨 Inknomu（個人創作專案；聯絡：inknomu@gmail.com）
+  網站：https://inknomu.com/namegen/
+        各地區的頁面（底部列有資料來源：政府統計、文獻、書籍、網站）：
+        https://inknomu.com/namegen/tw、/jp、/kr、/uk、/us、/ru、/nordic、/fantasy
+  檔案：https://inknomu.com/data/packs/<id>.json（2026-10-29 取得），29 個包與 SHA-256：
+        jp-sengoku            452152e806b2d5909d5b719a5ef505a11b4583997eda4ca118bbc8c142031cfe  日本・戰國時代（1467–1615）
+        jp-edo                1cf4ee17290626c6521bea63e6fa127da409dc4b09df00c40e3a746d0dc21f66  日本・江戶時代（1603–1868）
+        jp-taisho             1a48f01a521cc5a4a480ab6057c44ebce453ab95167c50db2d104dc45229b265  日本・大正時代（1912–1926，含明治後期）
+        jp-showa              d579ae3e49a2199b8c7ac1614ae2fb05e91f40c3a2c59713ade365bcc9214043  日本・昭和時代（1926–1989）
+        jp-modern             d37d3cc04df4145fa479c1f071b7664d9262a87e0aa4a387cc979408e1f94c71  日本・平成令和時代（1989–今）
+        jp-rare               6d8536beef8823721cc2a28c4ec44d8027746b8e5a278391bae178aab0e1f4fa  日本・珍稀難讀姓名
+        tw-qing               342864f5eb7470e3d1ae28ca2f772d306f22e9cb91daaa9566f046d6258d98b4  台灣・清領時代（1683–1895）
+        tw-japanese           c5ad58fe48cd669fabcc73580ec2b13f9d6f6e73a8fb009cd6de657ff58bcf3d  台灣・日治時代（1895–1945）
+        tw-modern             b7a07a1fc9a2e4eb3da99b288c9633612fc65f0ed32c230825ef0da756cd5f6b  台灣・現代（1945–今）
+        tw-y2k                394ab7e2ce117b7ad3823b649253830b80e07372fcc11acb3a6d3d98d7df11b1  台灣・二千年後（2000–）
+        tw-wuxia              a918a18dbcfee712bd706500ac537ee7caf13fa3a77a4692b980efe7cb437513  台灣・武俠江湖
+        kr-modern             9649681546f5ce6c53414eb229eb733bad937792b1cc11cd7f4ee8b77b9a89ff  韓國・現代
+        uk-medieval           40041e6a65bb8d53ef52f1caed8deb029e9d50ce91424a582c9bfdb24e8299b3  英國・中世紀（1066–1485）
+        uk-regency            452b2807d565430fde5d16d5538d61d24ff07a19d9940db3ce37219a5d65fa8f  英國・攝政時代（1780–1837）
+        uk-victorian          025f33f4e2cc05d1b347440a6f588e4c63d0e629e320dc6c595cb36e6f88a455  英國・維多利亞時代（1837–1901）
+        uk-modern             a4773cc8e26818a66d71aae825c595d661102b4a171d23974b559d564bebb4d0  英國・現代（1990–今）
+        us-classic            b481874693d96ffa34a2cc8b3c5336b13a796464a8e853f64521fd47cf47120c  美國・經典時代（1880–1950）
+        us-modern             b52a9e023ed45a344ffda08577a92a796e2d62addc0ff822a14a112db0f4fd06  美國・現代（1990–今）
+        us-latino             96d3c7464177189a16eaa5a881652dafaa18f795b6cce2926a26bb3e90a7cd51  美國・拉美裔（西班牙語系命名傳統）
+        us-african-american   2616f141ea22079098ad90979a7707b3d5cc3d3e204e9547d3d6b152f45e5d0a  美國・非裔（African American命名傳統）
+        ru-imperial           c054eeb4f3be2e174b12cd60474dcb572a07ff1e86f725a411bd409d57728dbe  俄羅斯・帝俄時代（1721–1917）
+        ru-modern             be634f1d005bef2f5e32077d53289148cfda748c7ba7e7e85d851c403d15d633  俄羅斯・現代（1991–今）
+        nordic-viking         61de6d3f69e8e4be7b11400f67f416ff97b1bd7686006db8cd97250403c13011  北歐・維京時代（793–1066）
+        nordic-modern         ed8212b13778f12516d2249120fbd61ccdcaba44ca87996ad29fc1fce1dad156  北歐・現代（1990–今）
+        fantasy-human         4489bf211ecdf9651da107a0a3a8ae41f4fb72a89954321deae46d8aeec007ba  奇幻・人類
+        fantasy-elf           ab705e8b4c138fedf31d6a759e7d2d9c31bb8ee9f7eea8a0e054fa3f5a514d98  奇幻・精靈
+        fantasy-dwarf         9520869e94b4bac424509a04e578a2b67329c1758812ac26a5a816603f5a8228  奇幻・矮人
+        fantasy-orc           a652d125b5fd5613aa5cd12649a1bd81aa3a5c049ac58eddc230adc82bde3b7d  奇幻・獸人／半獸人
+        fantasy-halfling      03095efbcec9f26176f33330844a35ffd4aa358e30d0010099a22e03a025cf6e  奇幻・半身人
+  授權：創用 CC 姓名標示 4.0 國際（Creative Commons Attribution 4.0 International，CC BY 4.0）
+        https://creativecommons.org/licenses/by/4.0/
+        授權條款全文：https://creativecommons.org/licenses/by/4.0/legalcode
+        （每個包的 license 欄都是 https://creativecommons.org/licenses/by/4.0/）
+  作者的授權說明（照原文，每個包的 license_note 欄）：
+        語料整理自公開統計和文獻，本站的涵義標注、時代分包和編輯著作採CC BY 4.0授權，引用請註明出處。
+
+二、沒有使用的部分
+
+  - 中文參考譯名表（https://inknomu.com/data/translit/<地區>.json）：沒有標示授權，不使用。
+  - 原站的程式（app.js、build.js）：沒有標示授權，只參考產生名字的規則（見 docs/refactor/specs/npc-names.md 3.5），
+    程式是本站自己寫的；原站的彩蛋、「組合模式」（搜尋零件、收藏、合成）、發音功能沒有做。
+
+三、本站做的變更
+
+  1. 格式：29 個 JSON 依地區合併成 8 個 TypeScript 資料檔（inknomu-jp.ts、-tw、-kr、-uk、-us、-ru、-nordic、-fantasy），
+     一筆一行；包的順序與每個包裡的順序照原檔。
+  2. 拿掉本站用不到的欄位：
+     - 包：region、era、coverage（地區與年代另見 label）、license、license_note（寫在本檔）、tts（發音）、group（分組名稱）。
+     - 姓：weight（常見度；原站說明是備用欄位，抽名不參與，本站同樣平均抽）、tags、zh（韓國姓的漢字，涵義裡已經有）。
+     - 名：weight、confidence（推定的標記）、tags。
+     - 綽號：original（古諾斯語原文）。
+     - 沒有值的欄位（null 或空字串，例如空白的 note、name_sep）不寫。
+  3. 其他欄位（姓名的寫法、reading、meaning、note、class、countries、f_form、f_reading、pat、diminutive、綽號的 e、meaning、note，
+     包的 id、label、note、corpus_note、rules、name_order、name_sep）照原文，沒有改寫；例外見下面第 6 點。
+  4. catalog.ts 是從同一份資料算出來的摘要（有沒有中性名、階級與國家的標記、讀音的種類、是不是以父名構成、原檔的 SHA-256）。
+  5. sources.ts：8 個地區頁面（https://inknomu.com/namegen/<地區>）底部「資料來源」的清單（2026-10-29 整理），
+     分組、每一筆的文字與連結照原文；只留 https 的連結。
+  6. 翻譯：日本三個包的說明（note）原文是日文，本站譯成繁體中文（本站的介面只有繁中）：
+     - jp-taisho：原文「大正改元（1912）にちなむ「正」字が男女名に大流行、女性名は伝統的な仮名二字名からの「〇子」萌芽期。」
+     - jp-showa：原文「昭和改元にちなむ「昭」字ブーム、女性名は「〇子」全盛期（和子が13年連続1位）を経て、戦後は誠・大輔など時代を象徴する名が長期支配。」
+     - jp-modern：原文「元号との連動が薄れ、自然・和風モチーフ（翔・陽・蓮・葵）が主流化。「〇子」は退潮し、個性重視の当て字・読みが多様化。」
+     譯文寫在轉換腳本的 NOTE_TRANSLATIONS；原站改了這三句時腳本會停下來。
+
+  本站的改寫依 CC BY 4.0 提供，不另加限制。

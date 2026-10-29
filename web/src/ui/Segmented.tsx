@@ -1,6 +1,7 @@
 /**
  * 分段選擇（Radix ToggleGroup，單選）。選項少（2～5 個）時取代下拉選單。
  * 方向鍵在選項間移動；不能取消選取（一定有一個值）。再按一次已選的選項時呼叫 onReselect（有給的話）。
+ * `columns`：排成固定欄數的格子（選項比較多、一行放不下時，例如 8 個地區排成 4 欄 2 列；npc-names 2026-10 新增）。
  */
 import { ToggleGroup } from 'radix-ui';
 import type { ReactNode } from 'react';
@@ -27,6 +28,8 @@ export interface SegmentedProps<V extends string> {
   size?: 'sm' | 'md';
   /** 撐滿寬度、平均分配 */
   fullWidth?: boolean;
+  /** 排成固定欄數的格子（撐滿寬度、每格一樣寬）；不給時排成一行（fullWidth 時放不下會換行） */
+  columns?: number;
   disabled?: boolean;
   className?: string;
 }
@@ -38,6 +41,7 @@ export function Segmented<V extends string>({
   options,
   size = 'md',
   fullWidth,
+  columns,
   disabled,
   className,
   ...rest
@@ -57,10 +61,12 @@ export function Segmented<V extends string>({
       aria-describedby={field['aria-describedby']}
       id={field.id}
       className={cn(
-        'inline-flex max-w-full rounded-md border border-border bg-surface-2 p-0.5',
-        fullWidth && 'flex w-full flex-wrap',
+        'rounded-md border border-border bg-surface-2 p-0.5',
+        columns ? 'grid w-full gap-0.5' : 'inline-flex max-w-full',
+        !columns && fullWidth && 'flex w-full flex-wrap',
         className,
       )}
+      style={columns ? { gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` } : undefined}
     >
       {options.map((o) => (
         <ToggleGroup.Item
@@ -73,7 +79,7 @@ export function Segmented<V extends string>({
             'hover:text-fg data-[state=on]:bg-accent data-[state=on]:text-accent-contrast disabled:opacity-40',
             '[&_svg]:size-4',
             size === 'sm' ? 'h-6 text-xs' : 'h-7 text-sm',
-            fullWidth && 'flex-[1_0_auto]',
+            columns ? 'w-full' : fullWidth && 'flex-[1_0_auto]',
           )}
         >
           {o.icon ? (

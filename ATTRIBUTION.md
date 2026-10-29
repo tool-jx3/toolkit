@@ -88,7 +88,7 @@
 | `bg-remover` | 立繪去背工具 | [SkyTNT/anime-segmentation](https://github.com/SkyTNT/anime-segmentation)（Apache-2.0） | —（新收錄，沒有舊版） |
 | `coc-dice` | CoC 擲骰工具 | [ihoukentiku/ihoukentiku.github.io](https://github.com/ihoukentiku/ihoukentiku.github.io)（MIT；舊版 trpg-lab 的擲骰頁與 BCDice 傷害加總頁合併） | `6957b28` |
 | `coc-npc` | CoC NPC 產生器 | [ihoukentiku/ihoukentiku.github.io](https://github.com/ihoukentiku/ihoukentiku.github.io)（MIT；舊版 trpg-lab 的 NPC 頁） | `6957b28` |
-| `npc-names` | NPC 名字產生器 | 本站原創，沒有原作（名字資料的出處見下方） | —（新收錄，沒有舊版） |
+| `npc-names` | NPC 名字產生器 | 本站原創，沒有原作（名字資料的出處見下方；考據語料：[弄墨 Inknomu《角色姓名產生器》](https://inknomu.com/namegen/)，CC BY 4.0） | —（新收錄，沒有舊版） |
 | `grid-maker` | 網格產生器 | [ihoukentiku/ihoukentiku.github.io](https://github.com/ihoukentiku/ihoukentiku.github.io)（MIT；舊版 trpg-lab 的方格與六角格產生器合併） | `6957b28` |
 | `range-ruler` | 距離量尺產生器 | [ihoukentiku/ihoukentiku.github.io](https://github.com/ihoukentiku/ihoukentiku.github.io)（MIT；舊版 trpg-lab 的方格與六角格量尺合併） | `6957b28` |
 | `coc-sheet` | CoC 7 版調查員角色卡 | [ihoukentiku/ihoukentiku.github.io](https://github.com/ihoukentiku/ihoukentiku.github.io)（MIT；舊版 trpg-lab 的調查員角色卡） | `6b497bd` |
@@ -168,7 +168,7 @@
 
 `geo-bloom` 照新工具引入流程直接在新框架做：原作（commit `3097b39`，「Geometric Bloom」；2026-10-29 跟進到 `edb6828`）沒有授權條款，只照原作的功能、數值與做法（廣度優先長出圖形與線、亂數的順序、各種圖形的畫法、三角形與摩斯環、把種子刻進圖形的編碼，同樣的種子與設定畫出同樣的圖，兩邊刻的種子互相讀得出來），程式、介面文字與說明（原作是日文）與 8 組範本都由本站自做。
 
-`npc-names` 是本站原創的工具，沒有原作。名字資料的出處與授權（全文在 `web/src/core/names/{jp,tw,us}/` 的 `meta.json` 與 `LICENSE.txt`，建置時列進 THIRD_PARTY_NOTICES）：日本是 shuheilocale/japanese-personal-name-dataset（MIT，人數來自國立國會圖書館的人名權威檔與 Wikidata）與 willnet/gimei（MIT）；台灣是內政部戶政司《112 年全國姓名統計分析》（政府資料開放授權條款第 1 版）；美國是社會安全局的嬰兒名字與 1990、2000 年人口普查的姓氏（公有領域）。coc-npc 的隨機取名用同一份資料。
+`npc-names` 是本站原創的工具，沒有原作。名字資料的出處與授權（全文在 `web/src/core/names/{jp,tw,us}/` 的 `meta.json` 與 `LICENSE.txt`，建置時列進 THIRD_PARTY_NOTICES）：日本是 shuheilocale/japanese-personal-name-dataset（MIT，人數來自國立國會圖書館的人名權威檔與 Wikidata）與 willnet/gimei（MIT）；台灣是內政部戶政司《112 年全國姓名統計分析》（政府資料開放授權條款第 1 版）；美國是社會安全局的嬰兒名字與 1990、2000 年人口普查的姓氏（公有領域）。coc-npc 的隨機取名用同一份資料。2026-10 導入弄墨 Inknomu《角色姓名產生器》（https://inknomu.com/namegen/）的 29 個姓名資料包（CC BY 4.0，2026-10-29 取得；日本、台灣、韓國、英國、美國、俄羅斯、北歐、奇幻的年代、族裔與種族，姓 2,148、名 6,600，附涵義）：姓名、讀音、涵義、備註與說明照原文，本站只改寫格式、拿掉用不到的欄位（`web/scripts/inknomu-names.mjs` 轉換；出處、各包的 SHA-256 與本站的變更在 `web/src/core/names/inknomu/` 的 `meta.json` 與 `LICENSE.txt`，建置時列進 THIRD_PARTY_NOTICES）；原站的程式沒有授權，只參考產生名字與搜尋的規則，程式自己寫；原站沒有標授權的中文參考譯名表不使用。工具裡的出處在「關於這份語料」（連到原站各地區的頁面與授權），頁尾不放。coc-npc 不用這份語料。
 
 `vhs-frame` 照新工具引入流程直接在新框架做：原作（commit `cd24d0e`）沒有授權條款，只照原作的功能、效果的演算法與數值（同樣的照片、時間點與磨損度畫出和原作逐像素相同的畫面），程式、介面文字（原作是韓文）與範例文字都由本站自做。
 

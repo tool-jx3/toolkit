@@ -1,5 +1,6 @@
 /**
- * NPC 名字產生器：選地區、年代、性別與數量 → 一批依人數加權、不重複的名字（core/names）。
+ * NPC 名字產生器：選地區、年代、性別與數量 → 一批不重複的名字。兩種資料：依真實人數加權的名單（core/names；
+ * 日本、台灣、美國），與弄墨 Inknomu 的考據語料（core/names/corpus；8 個地區，附涵義，平均抽）。
  * 點名字複製、全部複製、鎖定的名字再產生時留著；給種子時結果固定。
  * 寬畫面：左邊條件、右邊名字；窄畫面：名字在上、條件在下。規格：docs/refactor/specs/npc-names.md。
  */
@@ -13,15 +14,29 @@ import {
   Shuffle,
   Undo2,
 } from 'lucide-react';
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { NAME_COUNT_MAX, type NamePart, regionInfo } from '@/core/names';
 import {
-  NAME_COUNT_MAX,
-  NAME_GENDER_LABELS,
-  NAME_REGIONS,
-  type NameGenderChoice,
-  type NameRegion,
-  regionInfo,
-} from '@/core/names';
+  CORPUS_COUNTRY_LABELS,
+  CORPUS_GENDER_LABELS,
+  CORPUS_RANK_LABELS,
+  CORPUS_REGIONS,
+  CORPUS_RULE_LABELS,
+  type CorpusCountry,
+  type CorpusGenderChoice,
+  type CorpusRank,
+  type CorpusRegion,
+  corpusPack,
+  corpusRegionInfo,
+  corpusRuleNotice,
+  INKNOMU_SOURCE,
+  type InknomuPackInfo,
+  type InknomuSourceGroup,
+  loadCorpus,
+  loadCorpusSources,
+  loadedCorpus,
+  sourceSegments,
+} from '@/core/names/corpus';
 import { historyGesture, useUndoRedo } from '@/core/storage';
 import {
   Button,
@@ -32,6 +47,8 @@ import {
   Notice,
   Section,
   Segmented,
+  Select,
+  type SelectGroup,
   type Shortcut,
   Slider,
   TextInput,
@@ -53,10 +70,24 @@ import {
   useStatus,
 } from './actions';
 import { History } from './History';
-import { historyLabel, sanitizeState, TOOL_ID } from './logic';
+import {
+  currentEra,
+  type EraOption,
+  effectiveConditions,
+  eraOptions,
+  fromCurrentSource,
+  historyLabel,
+  PART_LABELS,
+  partOptions,
+  sanitizeState,
+  TOOL_ID,
+} from './logic';
 import { NameCard } from './NameCard';
+import { SearchPanel } from './Search';
 import { useNames } from './store';
 import { S } from './strings';
+
+const LINK = 'text-accent underline';
 
 function Usage() {
   return (
@@ -69,7 +100,26 @@ function Usage() {
       </ul>
       <p className="mt-2 font-semibold">{S.usage.notesTitle}</p>
       <ul>
-        {S.usage.notes.map((line) => (
+        {S.usage.notes.slice(0, -1).map((line) => (
+          <li key={line}>{line}</li>
+        ))}
+        <li data-testid="usage-corpus-note">
+          {S.usage.corpusNote.prefix}
+          <a className={LINK} href={INKNOMU_SOURCE.url} target="_blank" rel="noopener noreferrer">
+            {INKNOMU_SOURCE.name}
+          </a>
+          （
+          <a
+            className={LINK}
+            href={INKNOMU_SOURCE.licenseUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            {INKNOMU_SOURCE.license}
+          </a>
+          ）{S.usage.corpusNote.suffix}
+        </li>
+        {S.usage.notes.slice(-1).map((line) => (
           <li key={line}>{line}</li>
         ))}
       </ul>
@@ -90,11 +140,177 @@ function toConditions() {
 /** 數量的滑桿：拖曳中的變更（每一格都換一批）放開時記成一步復原 */
 const countGesture = historyGesture(useNames);
 
-const REGION_OPTIONS = NAME_REGIONS.map((r) => ({ value: r.id, label: r.label }));
-const GENDER_OPTIONS = (['male', 'female', 'any'] as const).map((g) => ({
-  value: g,
-  label: NAME_GENDER_LABELS[g],
+const REGION_OPTIONS = CORPUS_REGIONS.map((r) => ({ value: r.id, label: r.label }));
+/** 地區排成 4 欄 2 列（390 px 寬也放得下、不必橫向捲動） */
+const REGION_COLUMNS = 4;
+const genderOptions = (neutral: boolean) =>
+  (neutral
+    ? (['male', 'female', 'neutral', 'any'] as const)
+    : (['male', 'female', 'any'] as const)
+  ).map((g) => ({ value: g, label: CORPUS_GENDER_LABELS[g] }));
+const RANK_OPTIONS = (['all', 'noble', 'common'] as const).map((v) => ({
+  value: v,
+  label: CORPUS_RANK_LABELS[v],
 }));
+const COUNTRY_OPTIONS = (['all', 'se', 'no', 'dk', 'fi'] as const).map((v) => ({
+  value: v,
+  label: CORPUS_COUNTRY_LABELS[v],
+}));
+
+/** 年代選單：依人數的名單與考據語料分兩組（每個選項的第二行是說明） */
+function eraGroups(options: readonly EraOption[]): SelectGroup[] {
+  const item = (o: EraOption) => ({ value: o.id, label: o.label, description: o.hint });
+  const count = options.filter((o) => o.source.kind === 'count');
+  const corpus = options.filter((o) => o.source.kind === 'corpus');
+  return [
+    ...(count.length ? [{ label: S.conditions.countGroup, options: count.map(item) }] : []),
+    ...(corpus.length ? [{ label: S.conditions.corpusGroup, options: corpus.map(item) }] : []),
+  ];
+}
+
+/** 一個包的資料（說明、規則）；這個地區的語料還沒載入時先載入 */
+function useCorpusPack(region: CorpusRegion, id: string) {
+  const [, setTick] = useState(0);
+  const data = loadedCorpus(region);
+  useEffect(() => {
+    if (loadedCorpus(region)) return;
+    let live = true;
+    loadCorpus(region).then(
+      () => live && setTick((n) => n + 1),
+      () => {},
+    );
+    return () => {
+      live = false;
+    };
+  }, [region]);
+  return data ? (corpusPack(data, id) ?? null) : null;
+}
+
+/** 這個地區頁面的資料來源（第一次打開「關於這份語料」時才載入；讀不到就不顯示） */
+function useCorpusSources(region: CorpusRegion) {
+  const [sources, setSources] = useState<{
+    region: CorpusRegion;
+    groups: readonly InknomuSourceGroup[];
+  } | null>(null);
+  useEffect(() => {
+    let live = true;
+    loadCorpusSources(region).then(
+      (groups) => live && setSources({ region, groups }),
+      () => {},
+    );
+    return () => {
+      live = false;
+    };
+  }, [region]);
+  return sources?.region === region ? sources.groups : null;
+}
+
+/** 資料來源：照原站分組（各組標筆數），連結另開分頁 */
+function CorpusSources({ region }: { region: CorpusRegion }) {
+  const groups = useCorpusSources(region);
+  if (!groups?.length) return null;
+  return (
+    <div data-testid="corpus-sources">
+      <p className="m-0 text-xs font-semibold text-muted">{S.about.sources}</p>
+      {groups.map((g) => (
+        <div key={g.group} className="mt-1" data-testid="corpus-source-group">
+          <p className="m-0 text-xs font-medium text-fg">
+            {S.about.sourceGroup(g.group, g.items.length)}
+          </p>
+          <ul className="m-0 list-disc pl-5 text-xs">
+            {g.items.map((item) => (
+              <li key={item.text} className="break-words">
+                {sourceSegments(item).map((seg, i) =>
+                  seg.url ? (
+                    <a
+                      // biome-ignore lint/suspicious/noArrayIndexKey: 一筆裡的片段不會重排
+                      key={i}
+                      className={LINK}
+                      href={seg.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      {seg.text}
+                    </a>
+                  ) : (
+                    // biome-ignore lint/suspicious/noArrayIndexKey: 一筆裡的片段不會重排
+                    <span key={i}>{seg.text}</span>
+                  ),
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** 「關於這份語料」：包的說明、來源與考據、命名規則（照原文），與出處 */
+function AboutCorpus({ pack }: { pack: InknomuPackInfo }) {
+  const data = useCorpusPack(pack.region, pack.id);
+  const region = corpusRegionInfo(pack.region);
+  const rules = Object.entries(data?.rules ?? {}).filter(([, r]) => r.note);
+  return (
+    <Section
+      title={S.about.title}
+      description={pack.label}
+      persistKey={`${TOOL_ID}:about`}
+      defaultOpen={false}
+    >
+      <div data-testid="corpus-about" className="flex flex-col gap-2 text-sm leading-relaxed">
+        {data ? (
+          <>
+            <div>
+              <p className="m-0 text-xs font-semibold text-muted">{S.about.note}</p>
+              <p className="m-0 break-words">{data.note}</p>
+            </div>
+            <div>
+              <p className="m-0 text-xs font-semibold text-muted">{S.about.corpusNote}</p>
+              <p className="m-0 break-words">{data.corpus_note}</p>
+            </div>
+            {rules.length ? (
+              <div>
+                <p className="m-0 text-xs font-semibold text-muted">{S.about.rules}</p>
+                <ul className="m-0 list-disc pl-5">
+                  {rules.map(([key, rule]) => {
+                    const notice = corpusRuleNotice(data, key);
+                    return (
+                      <li key={key} className="break-words">
+                        <span className="font-medium">{CORPUS_RULE_LABELS[key] ?? key}：</span>
+                        {rule.note}
+                        {notice ? <span className="text-muted">（{notice}）</span> : null}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            ) : null}
+          </>
+        ) : (
+          <p className="m-0 text-muted">{S.list.generating}</p>
+        )}
+        <CorpusSources region={pack.region} />
+        <p className="m-0 text-xs text-muted" data-testid="corpus-credit">
+          {S.about.creditPrefix}
+          <a className={LINK} href={region.url} target="_blank" rel="noopener noreferrer">
+            {INKNOMU_SOURCE.name}
+          </a>
+          （
+          <a
+            className={LINK}
+            href={INKNOMU_SOURCE.licenseUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            {INKNOMU_SOURCE.license}
+          </a>
+          ）{S.about.creditSuffix}
+        </p>
+      </div>
+    </Section>
+  );
+}
 
 /** 複製的通知（成功：短暫的「已複製」；失敗：說明怎麼自己複製） */
 function useCopyNotice() {
@@ -123,15 +339,19 @@ function Settings() {
   const raw = useNames((s) => s.data);
   const state = useMemo(() => sanitizeState(raw), [raw]);
   const update = useNames((s) => s.update);
-  const info = regionInfo(state.region);
-  const era = info.eras.find((e) => e.id === state.eras[state.region]) ?? info.eras[0];
+  const era = currentEra(state);
+  const options = eraOptions(state.region);
+  const pack = era.source.kind === 'corpus' ? era.source.pack : null;
+  const middleInitial = era.source.kind === 'count' && regionInfo(era.source.region).middleInitial;
+  const cond = effectiveConditions(state);
+  const parts = partOptions(state);
 
   return (
     <>
       <div id={CONDITIONS_ID} className="scroll-mt-3">
         <Section title={S.conditions.title} fixed>
           <Field label={S.conditions.region}>
-            <Segmented<NameRegion>
+            <Segmented<CorpusRegion>
               value={state.region}
               onValueChange={(v) =>
                 setConditions((d) => {
@@ -139,30 +359,72 @@ function Settings() {
                 })
               }
               options={REGION_OPTIONS}
-              fullWidth
+              columns={REGION_COLUMNS}
             />
           </Field>
-          <Field label={S.conditions.era} hint={era.hint}>
-            <Segmented<string>
+          <Field label={corpusRegionInfo(state.region).eraLabel} hint={era.hint}>
+            <Select
               value={era.id}
               onValueChange={(v) =>
                 setConditions((d) => {
                   d.eras[d.region] = v;
                 })
               }
-              options={info.eras.map((e) => ({ value: e.id, label: e.label }))}
-              fullWidth
+              options={eraGroups(options)}
             />
           </Field>
           <Field label={S.conditions.gender}>
-            <Segmented<NameGenderChoice>
-              value={state.gender}
+            <Segmented<CorpusGenderChoice>
+              value={cond.gender}
               onValueChange={(v) =>
                 setConditions((d) => {
                   d.gender = v;
                 })
               }
-              options={GENDER_OPTIONS}
+              options={genderOptions(!!pack?.neutral)}
+              fullWidth
+            />
+          </Field>
+          <Field label={S.conditions.rank} hint={S.conditions.rankHint} hidden={!pack?.rank}>
+            <Segmented<CorpusRank>
+              value={state.rank}
+              onValueChange={(v) =>
+                setConditions((d) => {
+                  d.rank = v;
+                })
+              }
+              options={RANK_OPTIONS}
+              fullWidth
+            />
+          </Field>
+          <Field
+            label={S.conditions.country}
+            hint={S.conditions.countryHint}
+            hidden={!pack?.countries}
+          >
+            <Segmented<CorpusCountry>
+              value={state.country}
+              onValueChange={(v) =>
+                setConditions((d) => {
+                  d.country = v;
+                })
+              }
+              options={COUNTRY_OPTIONS}
+              fullWidth
+            />
+          </Field>
+          <Field label={S.conditions.part} hint={S.conditions.partHint} hidden={!parts.length}>
+            <Segmented<NamePart>
+              value={cond.part}
+              onValueChange={(v) =>
+                setConditions((d) => {
+                  d.part = v;
+                })
+              }
+              options={(parts.length ? parts : (['full'] as NamePart[])).map((v) => ({
+                value: v,
+                label: PART_LABELS[v],
+              }))}
               fullWidth
             />
           </Field>
@@ -185,7 +447,7 @@ function Settings() {
             label={S.conditions.middle}
             hint={S.conditions.middleHint}
             layout="inline"
-            hidden={!info.middleInitial}
+            hidden={!middleInitial}
           >
             <Toggle
               checked={state.middleInitial}
@@ -199,10 +461,12 @@ function Settings() {
         </Section>
       </div>
 
+      {pack ? <AboutCorpus pack={pack} /> : null}
+
       <Section title={S.display.title} persistKey={`${TOOL_ID}:display`}>
-        <Field label={S.display.readings} hint={S.display.jpOnly}>
+        <Field label={S.display.readings} hint={S.display.readingsHint}>
           <div className="flex flex-wrap gap-x-4 gap-y-2">
-            {(['hiragana', 'katakana', 'romaji'] as const).map((k) => (
+            {(['hiragana', 'katakana', 'romaji', 'original'] as const).map((k) => (
               <Checkbox
                 key={k}
                 label={S.display[k]}
@@ -215,6 +479,16 @@ function Settings() {
               />
             ))}
           </div>
+        </Field>
+        <Field label={S.display.meaning} hint={S.display.meaningHint} layout="inline">
+          <Toggle
+            checked={state.show.meaning}
+            onCheckedChange={(v) =>
+              update((d) => {
+                d.show.meaning = v;
+              })
+            }
+          />
         </Field>
         <Field label={S.display.copyReading} hint={S.display.copyReadingHint} layout="inline">
           <Toggle
@@ -330,8 +604,8 @@ function NameList() {
           {S.list.conditions}：
           {historyLabel({
             region: state.region,
-            era: state.eras[state.region],
-            gender: state.gender,
+            era: currentEra(state).id,
+            ...effectiveConditions(state),
           })}
           ・{S.history.count(state.count)}
         </span>
@@ -372,6 +646,7 @@ function NameList() {
         <p className="m-0 text-muted">{S.list.empty}</p>
       )}
       <History />
+      <SearchPanel />
     </div>
   );
 }
@@ -379,10 +654,10 @@ function NameList() {
 export function App() {
   const { undo, redo, canUndo, canRedo } = useUndoRedo(useNames);
 
-  /* 開頁時還沒有名字（第一次開、或上次切換地區時資料讀不到、重新整理之後）就產生一批 */
+  /* 開頁時還沒有這個地區與年代的名字（第一次開、或上次切換時資料讀不到、重新整理之後）就產生一批 */
   useEffect(() => {
     const state = sanitizeState(useNames.getState().data);
-    if (!state.names.some((n) => n.region === state.region)) void generate();
+    if (!state.names.some((n) => fromCurrentSource(n, state))) void generate();
   }, []);
 
   const shortcuts = useMemo<Shortcut[]>(

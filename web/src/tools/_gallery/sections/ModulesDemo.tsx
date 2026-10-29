@@ -7,7 +7,7 @@ import { EdgeRunsDemo, GridDemo, MapGridDemo } from './GridDemo';
 import { LyricFxDemo } from './LyricFxDemo';
 import { ModelDemo } from './ModelDemo';
 import { MusicDemo } from './MusicDemo';
-import { NamesDemo } from './NamesDemo';
+import { CorpusDemo, NamesDemo } from './NamesDemo';
 import { PagedDemo } from './PagedDemo';
 import { PostDemo } from './PostDemo';
 import { PrintDemo } from './PrintDemo';
@@ -91,6 +91,7 @@ export function ModulesDemo() {
       <ThreeDemo />
       <CocDemo />
       <NamesDemo />
+      <CorpusDemo />
       <GridDemo />
       <MapGridDemo />
       <EdgeRunsDemo />

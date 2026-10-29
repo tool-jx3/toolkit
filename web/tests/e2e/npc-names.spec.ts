@@ -6,6 +6,7 @@
  * - 複製一個、全部複製、附上讀音；自動儲存、復原；
  * - 第二批：最近產生的紀錄（放回、複製、清除）、匯出 TXT／CSV、窄畫面的條件摘要與固定在上方的按鈕列；
  * - 390 寬沒有橫向捲動；1280／390 視覺基準。
+ * 2026-10 的考據語料（弄墨 Inknomu）、輸出與查名字在 npc-names-inknomu.spec.ts；年代改成下拉選單（Select）。
  */
 import { readFileSync } from 'node:fs';
 import { expect, type Page, test } from '@playwright/test';
@@ -32,6 +33,15 @@ const cards = (page: Page) => page.getByTestId('name-card');
 const nameTexts = (page: Page) => page.getByTestId('name-text').allInnerTexts();
 const radio = (page: Page, name: string) => page.getByRole('radio', { name, exact: true });
 const btn = (page: Page, name: string) => page.getByRole('button', { name, exact: true });
+const eraBox = (page: Page) => page.getByRole('combobox', { name: /^(年代|種族|年代與分類)$/ });
+const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/** 年代的下拉選單選一個（選項的第二行是說明，所以比對開頭） */
+async function pickEra(page: Page, label: string) {
+  await eraBox(page).click();
+  await page.getByRole('option', { name: new RegExp(`^${escapeRe(label)}`) }).click();
+  await expect(eraBox(page)).toHaveText(label);
+}
 
 async function setSeed(page: Page, seed: string) {
   const field = page.getByLabel('種子', { exact: true });
@@ -70,7 +80,7 @@ test('開頁：沒有錯誤、沒有靈感來源、自動產生一批日本的�
   const errors = await open(page);
   await expect(page.getByText(/靈感來源/)).toHaveCount(0);
   await expect(radio(page, '日本')).toHaveAttribute('aria-checked', 'true');
-  await expect(radio(page, '現代')).toHaveAttribute('aria-checked', 'true');
+  await expect(eraBox(page)).toHaveText('現代');
   await expect(page.getByTestId('names-summary')).toHaveText('共 10 個');
   expect(requested).toEqual(['jp']);
   /* 讀音三行：平假名、片假名、羅馬拼音 */
@@ -91,15 +101,15 @@ test('三種地區各產生一批：寫法、年代的說明、性別、中間�
   await setSeed(page, 'regions');
   await generate(page);
   /* 日本：大正～昭和初期、女性 */
-  await radio(page, '大正～昭和初期').click();
-  await expect(page.getByText('1870～1910 年代出生的人')).toBeVisible();
+  await pickEra(page, '大正～昭和初期');
+  await expect(page.getByText('1870～1910 年代出生的人', { exact: true })).toBeVisible();
   await radio(page, '女').click();
   await expect(cards(page).getByText('女', { exact: true })).toHaveCount(10);
   for (const t of await nameTexts(page)) expect(t).toMatch(/^\S+ \S+$/);
 
-  /* 台灣：姓名連在一起、沒有讀音、只有一個年代 */
+  /* 台灣：姓名連在一起、沒有讀音；依人數的名單只有「現今」一個年代 */
   await radio(page, '台灣').click();
-  await expect(radio(page, '現今')).toHaveAttribute('aria-checked', 'true');
+  await expect(eraBox(page)).toHaveText('現今');
   await expect
     .poll(async () => (await nameTexts(page)).every((t) => /^\p{sc=Han}{3,4}$/u.test(t)))
     .toBe(true);
@@ -110,7 +120,9 @@ test('三種地區各產生一批：寫法、年代的說明、性別、中間�
 
   /* 美國：1920 年代（1880～1909 年出生）、名 姓；中間名縮寫 */
   await radio(page, '美國').click();
-  await expect(page.getByText('1880～1909 年出生的人（1920 年代的大人）')).toBeVisible();
+  await expect(
+    page.getByText('1880～1909 年出生的人（1920 年代的大人）', { exact: true }),
+  ).toBeVisible();
   await expect
     .poll(async () =>
       (await nameTexts(page)).every((t) => /^[A-Z][a-z]+ [A-Z][A-Za-z' ]+$/.test(t)),
@@ -122,11 +134,15 @@ test('三種地區各產生一批：寫法、年代的說明、性別、中間�
       (await nameTexts(page)).every((t) => /^[A-Z][a-z]+ [A-Z]\. [A-Z][A-Za-z' ]+$/.test(t)),
     )
     .toBe(true);
-  await radio(page, '1920 年代出生').click();
-  await expect(page.getByText('1920～1929 年出生的人', { exact: false })).toBeVisible();
+  await pickEra(page, '1920 年代出生');
+  await expect(
+    page.getByText('1920～1929 年出生的人（1940～50 年代的大人、1920 年代的小孩）', {
+      exact: true,
+    }),
+  ).toBeVisible();
   /* 地區各自記住年代 */
   await radio(page, '日本').click();
-  await expect(radio(page, '大正～昭和初期')).toHaveAttribute('aria-checked', 'true');
+  await expect(eraBox(page)).toHaveText('大正～昭和初期');
   expect(errors).toEqual([]);
 });
 
@@ -280,10 +296,15 @@ test('匯出 TXT 與 CSV：檔名、內容與畫面上的這一批相同', async
     '平假名',
     '片假名',
     '羅馬拼音',
+    '原文／拼音',
+    '涵義',
+    '備註',
   ]);
   expect(rows).toHaveLength(11);
   expect(rows.slice(1).map((r) => r[0])).toEqual(texts);
-  const [full, family, given, middle, gender, region, era, hira, kata, romaji] = rows[1];
+  const [full, family, given, middle, gender, region, era, hira, kata, romaji, ...corpus] = rows[1];
+  /* 依人數的名單：原文／拼音、涵義、備註留白 */
+  expect(corpus).toEqual(['', '', '']);
   expect(full).toBe(`${family} ${given}`);
   expect(middle).toBe('');
   expect(['男', '女']).toContain(gender);
@@ -307,7 +328,7 @@ test.describe('最近產生的紀錄', () => {
     await radio(page, '台灣').click();
     await expect.poll(async () => (await nameTexts(page))[0]).toMatch(/^\p{sc=Han}{3,4}$/u);
     await expect(entries).toHaveCount(2);
-    await expect(entries.first()).toContainText('台灣・不限・10 個');
+    await expect(entries.first()).toContainText('台灣・現今・不限・10 個');
     await expect(entries.nth(1)).toContainText(first.slice(0, 3).join('、'));
 
     /* 放回第一批：名字與地區都換回來；復原回到台灣的那一批 */

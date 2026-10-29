@@ -9,10 +9,14 @@
  * - 給種子（`seed`）時結果固定：同樣的資料、選項、種子與排除名單，每次抽出同樣的姓名（`seededRandom`：
  *   sfc32，種子字串以 cyrb128 雜湊成 128 位元）。
  * - 讀音：日本的姓名附平假名（資料），片假名與羅馬拼音由平假名轉（`toKatakana`、`kanaToRomaji`）。
+ * - 輸出（`part`，npc-names 2026-10 新增，不給時是全名）：只有名或只有姓時全名就是那一段，不重複也以那一段判斷。
+ * - 弄墨 Inknomu 的考據語料（8 個地區、附涵義）在 `@/core/names/corpus`。
  */
 export type NameRegion = 'jp' | 'tw' | 'us';
 export type NameGender = 'male' | 'female';
 export type NameGenderChoice = NameGender | 'any';
+/** 輸出：全名、只有名、只有姓 */
+export type NamePart = 'full' | 'given' | 'family';
 
 export interface NameEra {
   id: string;
@@ -251,6 +255,8 @@ export interface GeneratedName {
   /** 平假名（日本） */
   familyReading?: string;
   givenReading?: string;
+  /** 只有名或只有姓（`part`；這時另一段是空字串、全名就是那一段） */
+  part?: 'given' | 'family';
   /** 顯示與複製用的全名：日本「佐藤 博」、台灣「陳家豪」、美國「Harold J. Whitmore」 */
   text: string;
 }
@@ -259,6 +265,8 @@ export interface DrawNameOptions {
   era?: string;
   gender?: NameGenderChoice;
   middleInitial?: boolean;
+  /** 輸出（預設全名）；只有名時不加中間名縮寫 */
+  part?: NamePart;
 }
 
 export type RandomFn = () => number;
@@ -301,6 +309,19 @@ export function drawName(
   if (region === 'jp') {
     name.familyReading = data.family.readings[fi];
     name.givenReading = pool.readings[gi];
+  }
+  const part = options.part ?? 'full';
+  if (part === 'given' || part === 'family') {
+    name.part = part;
+    if (part === 'given') {
+      name.family = '';
+      delete name.familyReading;
+    } else {
+      name.given = '';
+      delete name.givenReading;
+    }
+    name.text = part === 'given' ? name.given : name.family;
+    return name;
   }
   if (options.middleInitial && regionInfo(region).middleInitial) {
     const mi = pickWeighted(pool.cumulative[era], random());
@@ -484,8 +505,14 @@ export interface NameReadings {
   romaji: string;
 }
 
-/** 日本姓名的三種讀音（姓在前、以空白分開）；沒有讀音的姓名回傳 null */
+/** 日本姓名的三種讀音（姓在前、以空白分開；只有名或只有姓時只有那一段）；沒有讀音的姓名回傳 null */
 export function nameReadings(name: GeneratedName): NameReadings | null {
+  if (name.part) {
+    const one = name.part === 'given' ? name.givenReading : name.familyReading;
+    return one
+      ? { hiragana: one, katakana: toKatakana(one), romaji: capitalize(kanaToRomaji(one)) }
+      : null;
+  }
   if (!name.familyReading || !name.givenReading) return null;
   const hira = `${name.familyReading} ${name.givenReading}`;
   return {
