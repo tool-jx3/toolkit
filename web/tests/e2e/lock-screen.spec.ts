@@ -676,9 +676,9 @@ test('外框構圖：照片（1：1）、變暗、漸層、手機位置；改了
 
 /* ---------- 預覽與動畫 ---------- */
 
-test('預覽：靜態畫面、動畫的時間點、點預覽播放、播完回到靜態、改設定時停止、空白鍵（F41～F45）', async ({
-  page,
-}) => {
+test('預覽：靜態畫面、動畫的時間點、點預覽播放、播完回到靜態、改設定時停止、空白鍵（F41～F45）', {
+  tag: '@serial',
+}, async ({ page }) => {
   const errors = await open(page);
   await setPreview(page, '手機畫面');
   const still = await pixel(page, ...CARD_POINT);

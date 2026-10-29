@@ -635,7 +635,7 @@ function fastPng(w: number, h: number, px: Uint8Array): Buffer {
  * 目標（主控裁定）：與舊版同等級，這台機器 1.6 秒以內。重新開頁量 3 次、取最快的一次判定（避開機器忙碌時的偶發延遲），
  * 每次的時間都記在測試報告的 annotations。預算可用環境變數 PS_PERF_BUDGET_MS 調整。
  */
-test('效能：8 張 2000×3000 的 PNG 處理時間', async ({ page }, testInfo) => {
+test('效能：8 張 2000×3000 的 PNG 處理時間', { tag: '@serial' }, async ({ page }, testInfo) => {
   test.setTimeout(240_000);
   const budget = Number(process.env.PS_PERF_BUDGET_MS ?? 1600);
   const errors = await open(page);

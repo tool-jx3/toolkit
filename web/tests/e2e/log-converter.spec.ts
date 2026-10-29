@@ -391,7 +391,9 @@ test.describe('介面', () => {
     expect(errors).toEqual([]);
   });
 
-  test('預覽區段：1200 則、起始超出範圍的修正、Enter、全部（F72～F74）', async ({ page }) => {
+  test('預覽區段：1200 則、起始超出範圍的修正、Enter、全部（F72～F74）', {
+    tag: '@serial',
+  }, async ({ page }) => {
     const errors = await open(page);
     await loadFiles(page, [fileOf('長團 [main].html', longLog(ATT))]);
     const t0 = Date.now();
@@ -1086,20 +1088,36 @@ test.describe('EPUB 電子書（2026-10）', () => {
     return { exportTasks, convertTasks };
   }
 
-  test('大日誌：2 萬則在 Worker 裡產生、畫面不凍住（5. D8）', async ({ page }) => {
+  test('大日誌：2 萬則在 Worker 裡產生、畫面不凍住（5. D8）', { tag: '@serial' }, async ({
+    page,
+  }) => {
     test.setTimeout(240_000);
     const errors = await open(page);
     const workers: string[] = [];
     page.on('worker', (w) => workers.push(w.url()));
-    const { exportTasks, convertTasks } = await bigExport(page, 'Worker');
+    const { exportTasks } = await bigExport(page, 'Worker');
     expect(workers.some((u) => /epub\.worker/.test(u))).toBe(true);
-    /* 量得到長工作（既有的轉換本身在主執行緒），匯出 EPUB 時沒有超過 300 ms 的 */
-    expect(convertTasks.length).toBeGreaterThan(0);
+    /* 匯出 EPUB 時沒有超過 300 ms 的長工作 */
     expect(Math.max(0, ...exportTasks)).toBeLessThan(300);
+    /* 確認量得到長工作：故意讓主執行緒忙 150 ms（轉換本身在快的機器上不一定超過 50 ms，不能拿來確認）。
+       要放在頁面自己的工作（setTimeout）裡；page.evaluate 直接跑的不算長工作 */
+    await watchLongTasks(page);
+    await page.evaluate(() => {
+      setTimeout(() => {
+        const t = performance.now();
+        while (performance.now() - t < 150);
+      });
+    });
+    await expect
+      .poll(async () => Math.max(0, ...(await longTasks(page))))
+      .toBeGreaterThanOrEqual(100);
     expect(errors).toEqual([]);
   });
 
-  test('大日誌：Worker 載不到時改在主執行緒分段產生（5. D8）', async ({ page, context }) => {
+  test('大日誌：Worker 載不到時改在主執行緒分段產生（5. D8）', { tag: '@serial' }, async ({
+    page,
+    context,
+  }) => {
     test.setTimeout(240_000);
     await context.route(/epub\.worker[^/]*\.js/, (r) => r.abort());
     const errors = await open(page);

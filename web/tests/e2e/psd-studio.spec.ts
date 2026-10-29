@@ -17,6 +17,7 @@ import { unzipSync } from 'fflate';
 import { decodeApng } from '../../src/core/decode/png';
 import { zipFiles } from '../../src/core/files';
 import { getTool, outputDir } from '../../src/registry';
+import { waitForFileChooser } from '../helpers/fileChooser';
 import {
   ballApng,
   loop0Apng,
@@ -180,10 +181,7 @@ test('開頁：空狀態、模式與統計、頁尾只放靈感來源、說明',
   /* F03：點載入區的空白處也開選檔視窗（可多選；接受圖片、ZIP、PSD） */
   const zone = page.getByTestId('empty-drop');
   const box = (await zone.boundingBox())!;
-  const [chooser] = await Promise.all([
-    page.waitForEvent('filechooser'),
-    page.mouse.click(box.x + 10, box.y + 10),
-  ]);
+  const chooser = await waitForFileChooser(page, () => page.mouse.click(box.x + 10, box.y + 10));
   expect(chooser.isMultiple()).toBe(true);
   expect(await chooser.element().getAttribute('accept')).toBe('image/*,.zip,.psd');
   /* 頁尾：只有靈感來源，沒有原作者的條款 */
@@ -688,6 +686,44 @@ test('APNG：播放次數（整體／個別）、延遲 0 保留；檢視器的�
 test('壓縮狀態文字（F89）：單張下載、容量試算、匯出結束後都清空（晚到的進度不會蓋回去）', async ({
   page,
 }) => {
+  /*
+   * 測試的圖很小，Worker 幾毫秒就壓完：「進度」和「結果」常在同一次畫面更新前都到了，狀態文字根本沒畫出來。
+   * 這裡讓 Worker 的訊息一個畫格交一個，每個狀態都會先畫出來（順序不變，只是慢一點）。
+   */
+  await page.addInitScript(() => {
+    const add = Worker.prototype.addEventListener;
+    Worker.prototype.addEventListener = function (
+      this: Worker,
+      type: string,
+      fn: EventListenerOrEventListenerObject,
+      opts?: boolean | AddEventListenerOptions,
+    ) {
+      if (type !== 'message' || typeof fn !== 'function') return add.call(this, type, fn, opts);
+      const queue: Event[] = [];
+      let running = false;
+      const pump = () => {
+        const ev = queue.shift();
+        if (!ev) {
+          running = false;
+          return;
+        }
+        fn.call(this, ev);
+        requestAnimationFrame(pump);
+      };
+      return add.call(
+        this,
+        type,
+        (ev) => {
+          queue.push(ev);
+          if (!running) {
+            running = true;
+            requestAnimationFrame(pump);
+          }
+        },
+        opts,
+      );
+    };
+  });
   const errors = await open(page);
   await load(page, [file('ball.png', await ballApng()), file('loop0.png', await loop0Apng())]);
   const status = page.getByTestId('compress-status');

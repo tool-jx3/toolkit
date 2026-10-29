@@ -18,6 +18,7 @@ npm run dev         # 開發伺服器：http://localhost:5173/ 列出所有工�
 npm run build       # 建置整個網站到 web/dist/（見下方）
 npm test            # Vitest：核心模組單元測試＋元件測試
 npm run e2e         # 先 build，再用 Playwright 測建置產物（http-server 開 web/dist，port 8123）
+npm run e2e:run -- tests/e2e/<檔名>.spec.ts   # 不重新 build；可以只跑某些檔案，或加 -g <測試名稱>
 npm run e2e:update  # 同上，並重產視覺回歸基準圖（tests/__screenshots__/）
 npm run lint        # Biome（格式＋檢查）；npm run format 自動修正
 npm run typecheck   # tsc（瀏覽器端與 Node 端兩份設定）
@@ -92,3 +93,8 @@ web/
 - 測試環境沒有設定系統語系時，Chromium 會把中文下載檔名換成「download」，所以 `playwright.config.ts` 讓瀏覽器以 `LANG=C.UTF-8` 啟動。
 - e2e 會把 Google Fonts 的請求換成空樣式（離線可跑、截圖穩定），所以截圖裡的中文是系統備用字型。
 - 視覺回歸基準圖與執行環境（字型、Chromium 版本）有關；換環境後先用 `npm run e2e:update` 重產再比對。
+- e2e 平行跑：同時跑的數量預設是 CPU 核心數的 75%，可以用 `E2E_WORKERS` 改。
+  - 結果受機器忙碌程度影響的測試要標 `{ tag: '@serial' }`，例如量主執行緒長工作、每秒格數、即時播放的時間點、用 `Date.now()` 量耗時的測試，以及吃重的匯出。
+  - `npm run e2e`／`e2e:run`（`tests/run-e2e.mjs`）會先平行跑其他測試，再一個一個跑標 `@serial` 的。失敗的截圖與紀錄在 `test-results/`（`@serial` 的在 `test-results/serial/`）。
+  - 直接 `npx playwright test` 時兩組會一起跑。
+- e2e 預設不錄 trace（每個測試都錄約慢 14%），失敗時只留截圖。要看 trace 時重跑那個測試：`npx playwright test <檔案> -g <名稱> --trace retain-on-failure`。

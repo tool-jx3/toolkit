@@ -4,6 +4,7 @@
  * - `linearIndex` 逐一比對所有圖形（原作的做法）；
  * - `gridIndex` 用空間格子先挑出「可能相碰」的圖形，再用同一個判定確認：只會多挑、不會少挑，所以結果和逐一比對完全相同，
  *   但大畫布（圖形幾千個、每條線最多試 14 次）快上百倍。
+ * - `segmentsCross` 與 `lineIndex`：線不跨過既有的線（原作 2026-10，F76）；同樣先用格子挑、再用原作的判定確認。
  */
 
 export interface Circle {
@@ -148,5 +149,148 @@ export function gridIndex<T extends Circle>(
         test,
       );
     },
+  };
+}
+
+/* ---------- 線段（線不跨過既有的線） ---------- */
+
+export interface Segment {
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+}
+
+/**
+ * 兩條線段真的交叉（照原作：平行的不算；交點要在兩條線段的內部，離兩端都超過線長的 0.1%，所以接在同一點的線不算交叉）。
+ * 運算的順序照原作（差一個位元就可能翻轉）。
+ */
+export function segmentsCross(
+  ax: number,
+  ay: number,
+  bx: number,
+  by: number,
+  cx: number,
+  cy: number,
+  dx: number,
+  dy: number,
+): boolean {
+  const rx = bx - ax;
+  const ry = by - ay;
+  const qx = dx - cx;
+  const qy = dy - cy;
+  const den = rx * qy - ry * qx;
+  if (Math.abs(den) < 1e-9) return false;
+  const t = ((cx - ax) * qy - (cy - ay) * qx) / den;
+  const u = ((cx - ax) * ry - (cy - ay) * rx) / den;
+  return t > 1e-3 && t < 1 - 1e-3 && u > 1e-3 && u < 1 - 1e-3;
+}
+
+/** 線段碰到圓（圓心到線段的最短距離＜半徑；同 segmentTouches，半徑另給） */
+export function segmentHitsCircle(s: Segment, x: number, y: number, r: number): boolean {
+  return segmentTouches({ x, y, r }, s.x1, s.y1, s.x2, s.y2);
+}
+
+export interface SegmentIndex<T extends Segment> {
+  add(s: T): void;
+  /** 線段 (x1, y1)–(x2, y2) 有沒有跨過已經登記的線 */
+  crosses(x1: number, y1: number, x2: number, y2: number): boolean;
+  /** 圓 (x, y, r) 有沒有碰到 skip 以外已經登記的線 */
+  circleHits(x: number, y: number, r: number, skip: T | null): boolean;
+}
+
+/**
+ * 線段的格子：沿著線段每半格取一點，登記在那一點所在的格子與周圍 8 格；查詢的線段也一樣取點、看周圍 9 格。
+ * 交叉點離兩條線段各自最近的取樣點都不到半格，所以兩邊的格子一定相鄰——只會多挑、不會少挑（結果和逐一比對相同）。
+ */
+export function lineIndex<T extends Segment>(cellSize = 64): SegmentIndex<T> {
+  const items: T[] = [];
+  const cells = new Map<number, number[]>();
+  const seen: number[] = [];
+  let tick = 0;
+  const cellOf = (v: number) => Math.floor(v / cellSize);
+
+  /** 線段經過的格子（含周圍一格）；座標不是有限數時回傳 null（改成逐一比對） */
+  const cellsAlong = (x1: number, y1: number, x2: number, y2: number): number[] | null => {
+    if (!finite(x1, y1, x2, y2)) return null;
+    const steps = Math.max(1, Math.ceil(Math.hypot(x2 - x1, y2 - y1) / (cellSize / 2)));
+    const keys = new Set<number>();
+    for (let i = 0; i <= steps; i++) {
+      const ix = cellOf(x1 + ((x2 - x1) * i) / steps);
+      const iy = cellOf(y1 + ((y2 - y1) * i) / steps);
+      for (let dx = -1; dx <= 1; dx++)
+        for (let dy = -1; dy <= 1; dy++) keys.add(cellKey(ix + dx, iy + dy));
+    }
+    return [...keys];
+  };
+  /** 不登記在格子裡的（座標不是有限數） */
+  const loose: number[] = [];
+
+  const visit = (keys: number[] | null, test: (s: T) => boolean): boolean => {
+    for (const i of loose) if (test(items[i])) return true;
+    if (!keys) {
+      for (const s of items) if (test(s)) return true;
+      return false;
+    }
+    tick++;
+    for (const k of keys) {
+      const list = cells.get(k);
+      if (!list) continue;
+      for (const i of list) {
+        if (seen[i] === tick) continue;
+        seen[i] = tick;
+        if (test(items[i])) return true;
+      }
+    }
+    return false;
+  };
+
+  return {
+    add(s) {
+      const i = items.push(s) - 1;
+      seen.push(0);
+      const keys = cellsAlong(s.x1, s.y1, s.x2, s.y2);
+      if (!keys) {
+        loose.push(i);
+        return;
+      }
+      for (const k of keys) {
+        const list = cells.get(k);
+        if (list) list.push(i);
+        else cells.set(k, [i]);
+      }
+    },
+    crosses(x1, y1, x2, y2) {
+      return visit(cellsAlong(x1, y1, x2, y2), (s) =>
+        segmentsCross(x1, y1, x2, y2, s.x1, s.y1, s.x2, s.y2),
+      );
+    },
+    circleHits(x, y, r, skip) {
+      const e = r + SLACK;
+      if (!finite(x, y, e)) return visit(null, (s) => s !== skip && segmentHitsCircle(s, x, y, r));
+      const keys: number[] = [];
+      const ix0 = cellOf(x - e);
+      const ix1 = cellOf(x + e);
+      const iy0 = cellOf(y - e);
+      const iy1 = cellOf(y + e);
+      if ((ix1 - ix0 + 1) * (iy1 - iy0 + 1) > items.length * 9 + 9)
+        return visit(null, (s) => s !== skip && segmentHitsCircle(s, x, y, r));
+      for (let ix = ix0; ix <= ix1; ix++)
+        for (let iy = iy0; iy <= iy1; iy++) keys.push(cellKey(ix, iy));
+      return visit(keys, (s) => s !== skip && segmentHitsCircle(s, x, y, r));
+    },
+  };
+}
+
+/** 線段逐一比對（測試用來對照 lineIndex） */
+export function linearSegments<T extends Segment>(): SegmentIndex<T> {
+  const items: T[] = [];
+  return {
+    add: (s) => {
+      items.push(s);
+    },
+    crosses: (x1, y1, x2, y2) =>
+      items.some((s) => segmentsCross(x1, y1, x2, y2, s.x1, s.y1, s.x2, s.y2)),
+    circleHits: (x, y, r, skip) => items.some((s) => s !== skip && segmentHitsCircle(s, x, y, r)),
   };
 }

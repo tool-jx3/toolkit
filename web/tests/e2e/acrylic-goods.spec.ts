@@ -291,7 +291,7 @@ test('立牌：換圖、背面、正反面各自算、底座、錯誤訊息', as
   expect(errors).toEqual([]);
 });
 
-test('搖搖樂：零件、外框、物理、搖晃、陀螺儀、錯誤訊息', async ({ page }) => {
+test('搖搖樂：零件、外框、物理、搖晃、陀螺儀、錯誤訊息', { tag: '@serial' }, async ({ page }) => {
   const errors = await open(page);
   await page.getByRole('tab', { name: '壓克力搖搖樂' }).click();
   await ready(page, 'shaker');

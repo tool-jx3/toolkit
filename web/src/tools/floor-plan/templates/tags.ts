@@ -71,6 +71,7 @@ export const TEMPLATE_TAGS: Readonly<Record<string, readonly TagId[]>> = {
   'night-market': ['modern', 'outdoor', 'shop', 'leisure', 'religious', 'gm'],
   theatre: ['modern', 'indoor', 'leisure', 'underground', 'hidden', 'gm', 'multifloor', 'large'],
   karaoke: ['modern', 'indoor', 'leisure', 'gm'],
+  gym: ['modern', 'indoor', 'public', 'leisure', 'hidden', 'gm'],
   station: [
     'modern',
     'outdoor',

@@ -88,6 +88,7 @@
 | `bg-remover` | 立繪去背工具 | [SkyTNT/anime-segmentation](https://github.com/SkyTNT/anime-segmentation)（Apache-2.0） | —（新收錄，沒有舊版） |
 | `coc-dice` | CoC 擲骰工具 | [ihoukentiku/ihoukentiku.github.io](https://github.com/ihoukentiku/ihoukentiku.github.io)（MIT；舊版 trpg-lab 的擲骰頁與 BCDice 傷害加總頁合併） | `6957b28` |
 | `coc-npc` | CoC NPC 產生器 | [ihoukentiku/ihoukentiku.github.io](https://github.com/ihoukentiku/ihoukentiku.github.io)（MIT；舊版 trpg-lab 的 NPC 頁） | `6957b28` |
+| `npc-names` | NPC 名字產生器 | 本站原創，沒有原作（名字資料的出處見下方） | —（新收錄，沒有舊版） |
 | `grid-maker` | 網格產生器 | [ihoukentiku/ihoukentiku.github.io](https://github.com/ihoukentiku/ihoukentiku.github.io)（MIT；舊版 trpg-lab 的方格與六角格產生器合併） | `6957b28` |
 | `range-ruler` | 距離量尺產生器 | [ihoukentiku/ihoukentiku.github.io](https://github.com/ihoukentiku/ihoukentiku.github.io)（MIT；舊版 trpg-lab 的方格與六角格量尺合併） | `6957b28` |
 | `coc-sheet` | CoC 7 版調查員角色卡 | [ihoukentiku/ihoukentiku.github.io](https://github.com/ihoukentiku/ihoukentiku.github.io)（MIT；舊版 trpg-lab 的調查員角色卡） | `6b497bd` |
@@ -118,6 +119,7 @@
 | `session-calendar` | 團期行事曆 | [くま。／卓準備カレンダー](https://kumachansteps.github.io/trpg-web-tools/tools/session-check-calendar/)（未授權）、[utiyoso/taku_calendar](https://github.com/utiyoso/taku_calendar)（未授權） | —（新收錄，沒有舊版） |
 | `ui-frame` | UI 框素材產生器 | [KIIN／ノベワク STUDIO](https://novewaku-studio.pages.dev)（BOOTH 販售的工具，條款禁止再散布程式，視同未授權） | —（新收錄，沒有舊版） |
 | `pdf-compress` | PDF 壓縮器 | [mrflamingchad67/qcompress](https://github.com/mrflamingchad67/qcompress)（MIT）、[ECgear/wise-pdf](https://github.com/ECgear/wise-pdf)（MIT） | —（新收錄，沒有舊版） |
+| `token-maker` | VTT 棋子產生器 | [arcana-hanna/token-workshop](https://github.com/arcana-hanna/token-workshop)（MIT）、[CyberDelaai/eidolon-ui](https://github.com/CyberDelaai/eidolon-ui)（MIT）、[Sectr99/TokenForge](https://github.com/Sectr99/TokenForge)（MIT，只參考開口偵測） | —（新收錄，沒有舊版） |
 | `anime-rig` | 2.5D 動態立繪 | [852wa/Anime2.5DRig](https://github.com/852wa/Anime2.5DRig)（MIT） | `6957b28` |
 
 `music-frame` 是照 [docs/refactor/PROCESS.md](docs/refactor/PROCESS.md) 第 6 節「新工具引入流程」直接在新框架做的工具，沒有收錄過原作的副本（原作 commit `0c24db2`）。原作未附授權條款，預設封面、預設文字與說明都由本站自做，只照原作的功能、版面與數值。
@@ -134,7 +136,7 @@
 
 `speech-bubble` 照新工具引入流程直接在新框架做：原作（commit `b81c5b7`）只有範本預覽頁、沒有授權條款，製作工具本體在作者的 Postype（付費、不公開）。範本一覽照預覽頁的行為做；編輯與匯出的功能依預覽動畫逐格量到的數值、由本站自己設計；28 組範本的文字、配色與造型都由本站自做，不沿用原作的預覽圖與文字。2026-10 整合 aokmri/dp-cardmaker（commit `b97dd12`，沒有授權條款）的對話卡片功能（整段貼上拆成泡泡、左右兩側的預設樣式、說話者與日期、卡片底、樣式預設、泡泡裡的部分文字格式）：只照功能與做法，程式、介面文字、內建樣式與紋理都由本站自做；頁尾的靈感來源仍只放 TextBubbleMaker-preview。
 
-`floor-plan` 照新工具引入流程直接在新框架做：原作沒有授權條款（網站的利用規約只禁止轉載站內的圖片與圖示），只照原作的功能、牆壁與匯出的算法和數值，程式、介面文字、說明、範本、家具圖形與配色都由本站自做；可以開啟原作存的 `.trpgmap.json`（帖換算成坪）。2026-10 加的分享連結（含拿掉 GM 資訊的 PL 用連結）與房間編號圓標，參考 GMW 的 Maptsukuri（maptsukuri.pages.dev，沒有授權條款）的功能，程式與文字由本站自做。
+`floor-plan` 照新工具引入流程直接在新框架做：原作沒有授權條款（網站的利用規約只禁止轉載站內的圖片與圖示），只照原作的功能、牆壁與匯出的算法和數值，程式、介面文字、說明、範本、家具圖形與配色都由本站自做；可以開啟原作存的 `.trpgmap.json`（帖換算成坪）。2026-10 加的分享連結（含拿掉 GM 資訊的 PL 用連結）與房間編號圓標，參考 GMW 的 Maptsukuri（maptsukuri.pages.dev，沒有授權條款）的功能，程式與文字由本站自做。2026-10-29 跟進原作 v1.15（雙開拉門、8 種家具、健身房範本）：家具的圖形、範本的格局與器材配置都由本站自做。
 
 `rank-chart` 照新工具引入流程直接在新框架做：原作（commit `f323b87`）是 MIT（授權全文在通知檔），盲選排行的玩法、版面數值與預設文字照原作（翻成繁中），圖上不放原作名稱與作者帳號；可以開啟原作存的設定檔（JSON）。
 
@@ -164,7 +166,9 @@
 
 `social-post` 照新工具引入流程直接在新框架做：原作（commit `3297da5`）沒有授權條款，只照原作的功能、版面數值與做法（各畫面的區塊位置、比例、限時動態的分割與貼紙），程式、介面文字、範例帳號與貼文、範例照片（程式畫的）、圖示與配色都由本站自做；原作仿 Instagram 的名稱、標誌與專有圖示不沿用，做成通用的「相片社群 App」樣式。2026-10 跟進原作到 commit `beb5ef1`：首頁動態、朋友的貼文與限時動態、私訊列表與對話、多則限時動態接著看、貼文照片滑動（同樣只照功能與實際量到的版面數值；原作的問題回報表單、把網址照片交給第三方中繼不收）。
 
-`geo-bloom` 照新工具引入流程直接在新框架做：原作（commit `3097b39`，「Geometric Bloom」）沒有授權條款，只照原作的功能、數值與做法（廣度優先長出圖形與線、亂數的順序、各種圖形的畫法，同樣的種子與設定畫出同樣的圖），程式、介面文字（原作是日文）與 6 組範本都由本站自做。
+`geo-bloom` 照新工具引入流程直接在新框架做：原作（commit `3097b39`，「Geometric Bloom」；2026-10-29 跟進到 `edb6828`）沒有授權條款，只照原作的功能、數值與做法（廣度優先長出圖形與線、亂數的順序、各種圖形的畫法、三角形與摩斯環、把種子刻進圖形的編碼，同樣的種子與設定畫出同樣的圖，兩邊刻的種子互相讀得出來），程式、介面文字與說明（原作是日文）與 8 組範本都由本站自做。
+
+`npc-names` 是本站原創的工具，沒有原作。名字資料的出處與授權（全文在 `web/src/core/names/{jp,tw,us}/` 的 `meta.json` 與 `LICENSE.txt`，建置時列進 THIRD_PARTY_NOTICES）：日本是 shuheilocale/japanese-personal-name-dataset（MIT，人數來自國立國會圖書館的人名權威檔與 Wikidata）與 willnet/gimei（MIT）；台灣是內政部戶政司《112 年全國姓名統計分析》（政府資料開放授權條款第 1 版）；美國是社會安全局的嬰兒名字與 1990、2000 年人口普查的姓氏（公有領域）。coc-npc 的隨機取名用同一份資料。
 
 `vhs-frame` 照新工具引入流程直接在新框架做：原作（commit `cd24d0e`）沒有授權條款，只照原作的功能、效果的演算法與數值（同樣的照片、時間點與磨損度畫出和原作逐像素相同的畫面），程式、介面文字（原作是韓文）與範例文字都由本站自做。
 
@@ -187,6 +191,8 @@
 `ui-frame` 照新工具引入流程直接在新框架做：原作是 KIIN 的「ノベワク STUDIO」（和 screenshot-fx、map-fx 同一位作者），條款禁止再散布程式與改作版本，視同未授權。本站只拿得到免費體驗版的 HTML，從中讀出功能、選項與數值範圍（製品版的功能照體驗版頁面的比較表），框的形狀、四角裝飾、質感、按鈕的畫法、範例背景與立繪、預設集（第一版和原作的搭配太像，驗證時發現後整組重新設計）與說明文字都由本站自做，不放 `UPSTREAM_LICENSE`；體驗版的限制不做。產生的 TyranoScript 配置程式碼照 TyranoScript 官方原始碼裡的標籤定義撰寫（本站不收錄、不散布 TyranoScript 本體）。
 
 `pdf-compress` 照新工具引入流程直接在新框架做，參考兩個 MIT 原作的程式改寫：mrflamingchad67/qcompress（commit `d60a155`）的 qpdf 結構整理、影像重新壓縮與候選比較，以及 ECgear/wise-pdf（commit `0fe3907`）的壓縮等級、依解析度縮小與整頁轉圖；兩份授權全文在 `web/src/tools/pdf-compress/UPSTREAM_LICENSE`。引擎用 npm 的 qpdf（Apache-2.0，`@neslinesli93/qpdf-wasm`）、mozjpeg（`@jsquash/jpeg`）、pdf.js（Apache-2.0）與 pdf-lib，都打包在本站、只在這個工具頁載入；WebAssembly 裡靜態連結的 zlib、libjpeg-turbo、Emscripten 執行環境，以及 pdf.js 的 CMap 與標準字型（含 GPL-2.0 with font exception 的 Liberation Sans，原樣單獨散布）的授權條文都整理在 THIRD_PARTY_NOTICES。壓縮效果最好的 Ghostscript、MuPDF 是 AGPL-3.0，和本站的 MIT 不相容，所以沒有使用。
+
+`token-maker` 照新工具引入流程直接在新框架做，參考三個 MIT 原作的程式改寫：arcana-hanna/token-workshop（commit `c27f41e`）的 16 種環形外框與 18 組外觀、金屬與石材的光照、程式產生的質感、魔術棒與自動偵測主體的出框、嵌進 PNG 的設定；CyberDelaai/eidolon-ui（commit `43c44b6`）的 12 種外框、自訂外框與遮罩、名單、名字牌與弧形文字、徽章、編號組 ZIP、色彩調整、效果與參考輪廓的剪影；Sectr99/TokenForge（commit `ff7ad73`）只參考自訂外框的開口半徑偵測，不用它的圖檔。外框、名字牌與剪影的畫法為了和原作逐像素相同，和原作的程式幾乎一對一（MIT 允許，見規格 7.1）；三份授權全文在 `web/src/tools/token-maker/UPSTREAM_LICENSE`、原作清單在 `UPSTREAM_SOURCES.json`。eidolon-ui 的範例圖（吉祥物）與預覽圖不拿；介面文字與說明由本站自己寫繁中。也讀得出 token-workshop 匯出、勾了「Keep editable」的 PNG。
 
 `log-converter` 的 EPUB 匯出（2026-10）參考 sotsotssi/CcfoliaLogConverter 的功能（原作沒有授權條款：只照功能與做法，程式、介面文字與版面都由本站自做）；原作在控制字元、`<wbr>`、`<font>` 與新格式的日誌會產生不合規的電子書或遺失內容，本站的輸出都通過 epubcheck。
 
@@ -251,6 +257,13 @@
 繁中（預設）到 `https://852wa.github.io/JIZURA/zh-hant/`，日文到原站首頁，韓文到 `ko/`；
 沒有 JavaScript 時由 `<meta http-equiv="refresh">` 導到繁中版。以前收錄版的日文頁網址
 `tools/jizura/ja/` 也留著，會導到原站的日文版。新首頁直接連到原站（標「其他網站」）。
+
+## fantasy-map：奇幻世界地圖產生器（連到原站）
+
+上游 [Azgaar/Fantasy-Map-Generator](https://github.com/Azgaar/Fantasy-Map-Generator)（MIT，Max Haniyeu〔Azgaar〕）是奇幻世界地圖的產生與編輯器：
+地形、氣候與生態、河流、國家與省份、城鎮、文化、宗教、道路、軍隊等都能產生後逐項編輯，匯出 PNG、SVG、GeoJSON 或存成地圖檔。
+規模太大、而且原站持續更新，合輯不收副本也不重寫：2026-10-29 起首頁的「其他網站」直接連到
+`https://azgaar.github.io/Fantasy-Map-Generator/`（原站只有英文介面）。
 
 ## text-fx：文字演出產生器（無塵室開發）
 

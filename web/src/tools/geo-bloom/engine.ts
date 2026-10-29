@@ -2,7 +2,14 @@
  * 產生＋繪製的流程（Worker 與主執行緒共用）：同一組設定只產生一次（記住上一次的結果），
  * 預覽依長邊縮小畫，PNG 與 SVG 一律全尺寸。
  */
-import { type BloomScene, type BloomStats, generateBloom, sceneStats } from './generate';
+import { type DecodeImage, decodeSize } from './decode';
+import {
+  type BloomCodeInfo,
+  type BloomScene,
+  type BloomStats,
+  generateBloom,
+  sceneStats,
+} from './generate';
 import { drawBloom, previewScale } from './render';
 import { type BloomConfig, resolveConfig, type Settings } from './settings';
 import { bloomSvg } from './svg';
@@ -42,6 +49,8 @@ export interface PreviewOutput {
   /** 縮小倍率（≤ 1） */
   scale: number;
   stats: BloomStats;
+  /** 刻種子時：容量夠不夠 */
+  code?: BloomCodeInfo;
   /** 產生＋繪製的時間（毫秒） */
   ms: number;
 }
@@ -62,7 +71,14 @@ export function drawPreview(settings: Settings, canvas: AnyCanvas): PreviewOutpu
   canvas.width = width;
   canvas.height = height;
   drawBloom(context2d(canvas), cfg, scene, scale);
-  return { width, height, scale, stats: sceneStats(scene), ms: performance.now() - t0 };
+  return {
+    width,
+    height,
+    scale,
+    stats: sceneStats(scene),
+    ...(scene.code ? { code: scene.code } : {}),
+    ms: performance.now() - t0,
+  };
 }
 
 /** 全尺寸畫到給的畫布 */
@@ -82,4 +98,34 @@ export function svgText(settings: Settings): string {
 /** 測試用：產生的資料 */
 export function sceneOf(settings: Settings): BloomScene {
   return prepare(settings).scene;
+}
+
+/** 讀種子用的圖：像素、縮過的圖（畫標記用）、原本的大小（縮過時說明用） */
+export interface LoadedDecodeImage {
+  image: DecodeImage;
+  bitmap: ImageBitmap;
+  source: { width: number; height: number };
+}
+
+/**
+ * 讀種子用的圖：解碼圖片、縮到長邊最多 4000 px（原作同：drawImage 縮放），取出像素。
+ * Worker 用 OffscreenCanvas，主執行緒用 canvas。
+ */
+export async function loadDecodeImage(blob: Blob): Promise<LoadedDecodeImage> {
+  const src = await createImageBitmap(blob);
+  const source = { width: src.width, height: src.height };
+  const { width, height } = decodeSize(src.width, src.height);
+  const canvas =
+    typeof OffscreenCanvas !== 'undefined'
+      ? new OffscreenCanvas(width, height)
+      : Object.assign(document.createElement('canvas'), { width, height });
+  const ctx = context2d(canvas);
+  ctx.clearRect(0, 0, width, height);
+  ctx.drawImage(src, 0, 0, width, height);
+  src.close();
+  const data = ctx.getImageData(0, 0, width, height);
+  const bitmap = await createImageBitmap(canvas);
+  canvas.width = 0;
+  canvas.height = 0;
+  return { image: { width, height, data: data.data }, bitmap, source };
 }

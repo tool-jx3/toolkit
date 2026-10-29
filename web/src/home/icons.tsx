@@ -12,8 +12,11 @@ import {
   CircleUser,
   Clapperboard,
   ClipboardList,
+  Coins,
+  Contact,
   Crop,
   Dices,
+  Earth,
   Eraser,
   Feather,
   FileArchive,
@@ -113,6 +116,7 @@ const ICONS: Record<string, LucideIcon> = {
   'color-palette': Palette,
   'emotion-maker': Smile,
   'anime-rig': ScanFace,
+  'token-maker': Coins,
   /* G4 OBS 疊加 */
   'status-bar': Gauge,
   'chat-window': MessagesSquare,
@@ -166,6 +170,7 @@ const ICONS: Record<string, LucideIcon> = {
   'coc-npc': UserCog,
   'house-rules': ListChecks,
   'coc-sheet': NotebookTabs,
+  'npc-names': Contact,
   'trpg-lab': FlaskConical,
   /* G10 地圖與網格 */
   battlemap: MapIcon,
@@ -176,6 +181,7 @@ const ICONS: Record<string, LucideIcon> = {
   'map-fx': Route,
   /* 其他網站 */
   jizura: MicVocal,
+  'fantasy-map': Earth,
 };
 
 export function toolIcon(id: string): LucideIcon {

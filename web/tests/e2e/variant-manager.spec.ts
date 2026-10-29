@@ -15,6 +15,7 @@ import { type Download, expect, type Locator, type Page, test } from '@playwrigh
 import { unzipSync } from 'fflate';
 import { encodePng } from '../../src/core/encode/png';
 import { getTool, outputDir } from '../../src/registry';
+import { waitForFileChooser } from '../helpers/fileChooser';
 
 const URL = `/${outputDir(getTool('variant-manager') ?? { id: 'variant-manager', status: 'next' })}/`;
 
@@ -178,10 +179,7 @@ test('選檔載入：點整個載入區、只列 PNG／JPEG／WebP、類型過�
   const errors = await open(page);
   /* F01：點載入區的空白處（不是按鈕）也會開選檔視窗 */
   const box = (await zone(page).boundingBox())!;
-  const [chooser] = await Promise.all([
-    page.waitForEvent('filechooser'),
-    page.mouse.click(box.x + 12, box.y + 12),
-  ]);
+  const chooser = await waitForFileChooser(page, () => page.mouse.click(box.x + 12, box.y + 12));
   expect(chooser.isMultiple()).toBe(true);
   const accept = await chooser.element().getAttribute('accept');
   expect(accept?.split(',')).toEqual(
@@ -695,10 +693,7 @@ test('快捷鍵：Ctrl＋Shift＋O／E／L／Enter（文字欄、開關、按鈕
   await expect(status(page)).toHaveText(/先載入同一個角色的差分圖/);
 
   /* O：開啟選檔視窗 */
-  const [chooser] = await Promise.all([
-    page.waitForEvent('filechooser'),
-    page.keyboard.press('Control+Shift+O'),
-  ]);
+  const chooser = await waitForFileChooser(page, () => page.keyboard.press('Control+Shift+O'));
   expect(chooser.isMultiple()).toBe(true);
   await chooser.setFiles([file('alice_smile.png', await RED()), file('b.png', await GREEN())]);
   await expect(rows(page)).toHaveCount(2);

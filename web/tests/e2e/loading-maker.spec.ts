@@ -194,7 +194,9 @@ test('開頁：預設畫面、支援度、狀態列、總長的組成與預估',
   expect(errors).toEqual([]);
 });
 
-test('播放／暫停、時間軸、預覽速度、預覽開場與結尾、目前影格 PNG', async ({ page }) => {
+test('播放／暫停、時間軸、預覽速度、預覽開場與結尾、目前影格 PNG', { tag: '@serial' }, async ({
+  page,
+}) => {
   const errors = await open(page);
   await page.getByRole('button', { name: '暫停' }).click();
   await expect(page.getByRole('button', { name: '播放' })).toBeVisible();
@@ -224,7 +226,8 @@ test('播放／暫停、時間軸、預覽速度、預覽開場與結尾、目�
   await page.getByRole('button', { name: '播放' }).click();
   await page.getByRole('button', { name: '暫停' }).click();
   await fadeBtn.click();
-  expect(await hook<boolean>(page, '(lm) => lm.playing')).toBe(true);
+  /* 跳轉要求在預覽的下一次畫面更新後才開始播放：等它開始，再看是不是從頭播（量即時時間，所以 @serial） */
+  await expect.poll(() => hook<boolean>(page, '(lm) => lm.playing')).toBe(true);
   expect(await hook<number>(page, '(lm) => lm.time')).toBeLessThan(0.5);
   /* 淡入期間停在第 0 秒：畫面＝第 0 秒的畫面 × 不透明度 */
   const t0 = await stats(page, 0.71);
@@ -233,8 +236,7 @@ test('播放／暫停、時間軸、預覽速度、預覽開場與結尾、目�
   expect(mid.sum / t0.sum).toBeLessThan(0.6);
   /* 預覽結尾：跳到結尾開始處並播放 */
   await page.getByRole('button', { name: '預覽結尾' }).click();
-  const t = await hook<number>(page, '(lm) => lm.time');
-  expect(t).toBeGreaterThanOrEqual(4.05);
+  await expect.poll(() => hook<number>(page, '(lm) => lm.time')).toBeGreaterThanOrEqual(4.05);
   await set(page, 'bar.vanish', 'none');
   await expect(page.getByRole('button', { name: '預覽結尾' })).toBeDisabled();
   /* 目前影格 PNG */

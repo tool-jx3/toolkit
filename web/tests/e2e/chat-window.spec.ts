@@ -653,10 +653,13 @@ test.describe('聊天視窗產生器', () => {
     await expect(obs).toHaveAttribute('aria-selected', 'true');
     await page.keyboard.press('ArrowLeft');
     await expect(page.getByRole('tab', { name: '動態' })).toHaveAttribute('aria-selected', 'true');
+    /* Radix 的分頁在下一個計時器才移動焦點：連按時等焦點到了再按下一下（忙的時候按鍵會比計時器先處理） */
     await page.keyboard.press('ArrowRight');
+    await expect(obs).toBeFocused();
     await page.keyboard.press('ArrowRight');
     await expect(first).toHaveAttribute('aria-selected', 'true');
     await page.keyboard.press('ArrowLeft');
+    await expect(obs).toBeFocused();
     await page.keyboard.press('ArrowLeft');
     await expect(page.getByRole('tab', { name: '動態' })).toHaveAttribute('aria-selected', 'true');
     await page.waitForTimeout(600);

@@ -3,9 +3,20 @@
  * 預覽畫在 OffscreenCanvas 上、以 ImageBitmap 轉移回去；PNG 用 convertToBlob（全尺寸）。
  */
 import { exposeApi, transfer } from '@/core/worker';
-import { drawFull, drawPreview, type PreviewOutput, sceneOf, svgText } from './engine';
+import { type DecodeImage, type DecodeMode, type DecodeResult, decodeImage } from './decode';
+import {
+  drawFull,
+  drawPreview,
+  loadDecodeImage,
+  type PreviewOutput,
+  sceneOf,
+  svgText,
+} from './engine';
 import type { BloomScene } from './generate';
 import type { Settings } from './settings';
+
+/** 從圖片讀種子：讀過的圖留著（換讀的方式、點中心時再讀不必重新解碼圖片） */
+let decodeSource: DecodeImage | null = null;
 
 const api = {
   preview(settings: Settings): PreviewOutput & { bitmap: ImageBitmap } {
@@ -28,6 +39,23 @@ const api = {
   },
   scene(settings: Settings): BloomScene {
     return sceneOf(settings);
+  },
+  /** 讀一張圖（縮到長邊最多 4000 px）：回傳結果、縮過的圖（畫標記用）與原本的大小 */
+  async decodeLoad(
+    blob: Blob,
+    mode: DecodeMode,
+  ): Promise<{
+    result: DecodeResult;
+    bitmap: ImageBitmap;
+    source: { width: number; height: number };
+  }> {
+    const { image, bitmap, source } = await loadDecodeImage(blob);
+    decodeSource = image;
+    return transfer({ result: decodeImage(image, mode), bitmap, source }, [bitmap]);
+  },
+  /** 同一張圖換讀的方式或點的位置再讀 */
+  decodeAgain(mode: DecodeMode, center: [number, number] | null): DecodeResult | null {
+    return decodeSource ? decodeImage(decodeSource, mode, center) : null;
   },
 };
 

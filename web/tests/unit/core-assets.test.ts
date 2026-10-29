@@ -37,6 +37,24 @@ describe('core/assets：bitmap 的快取', () => {
     expect(src(assets.peekBitmap('a1'))).toBe('first');
   });
 
+  it('releaseBitmap：放掉解碼的快取（close），原檔留著，之後重新解碼', async () => {
+    const assets = createAssetStore('assets-release');
+    await assets.put('r1', blob('img'));
+    const first = (await assets.bitmap('r1')) as unknown as FakeBitmap;
+    const closed = vi.fn();
+    first.close = closed;
+    assets.releaseBitmap('r1');
+    expect(closed).toHaveBeenCalledTimes(1);
+    expect(assets.peekBitmap('r1')).toBeUndefined();
+    expect(assets.has('r1')).toBe(true);
+    const again = await assets.bitmap('r1');
+    expect(src(again)).toBe('img');
+    expect(again).not.toBe(first);
+    expect(decode).toHaveBeenCalledTimes(2);
+    /* 沒解碼過的、不存在的 id：什麼都不做 */
+    assets.releaseBitmap('nope');
+  });
+
   it('缺圖的專案檔讀取失敗後，完整的專案檔（importAssetFiles）讀得進來', async () => {
     const assets = createAssetStore('assets-miss-import');
     /* 第一次：ZIP 裡沒有 a2 這張 → 找不到 */

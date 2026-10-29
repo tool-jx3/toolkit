@@ -350,9 +350,9 @@ test.describe('選角畫面產生器', () => {
     expect(errors).toEqual([]);
   });
 
-  test('GIF 只寫變化的範圍（F146、5. D22）：解碼後每一格和改版前相同、檔案變小；透明背景時照舊', async ({
-    page,
-  }) => {
+  test('GIF 只寫變化的範圍（F146、5. D22）：解碼後每一格和改版前相同、檔案變小；透明背景時照舊', {
+    tag: '@serial',
+  }, async ({ page }) => {
     const errors = await open(page);
     const gif = async () => (await exportAs(page, 'GIF')).bytes;
     /* 預設的漸層背景整張不透明：66 格（3.7），第 2 格起只寫變化的範圍 */

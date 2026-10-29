@@ -823,6 +823,16 @@ test('自動儲存：重新整理後還原', async ({ page }) => {
   await page.locator('body').press('Delete');
   await expect.poll(async () => (await data(page)).elements.length).toBe(6);
   await pauseAt(page, 1.25);
+  /* 暫停時的播放頭在畫面更新後才存進 localStorage：存好了才重新整理（忙的時候不會先重新整理） */
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          JSON.parse(localStorage.getItem('trpg-toolkit:magic-circle:preview') ?? '{}').state?.data
+            ?.playhead,
+      ),
+    )
+    .toBeCloseTo(1.25);
   await page.reload();
   await page.waitForFunction(
     () => !!(window as unknown as { __magicCircle?: unknown }).__magicCircle,

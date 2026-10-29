@@ -949,6 +949,26 @@ export const TOOLS: readonly ToolEntry[] = [
       url: 'https://github.com/mrflamingchad67/qcompress',
     },
   },
+  {
+    id: 'npc-names',
+    name: 'NPC 名字產生器',
+    summary:
+      'KP 臨時要幫 NPC 取名時，一鍵產生一批像樣的名字：日本（現代、昭和、大正～昭和初期，附平假名、片假名與羅馬拼音）、台灣、1920 年代的美國，依實際的人數抽、同一批不重複，點一下就複製，喜歡的可以鎖定留著。',
+    group: 'G9',
+    status: 'live',
+  },
+  {
+    id: 'token-maker',
+    name: 'VTT 棋子產生器',
+    summary:
+      '把立繪、頭像做成 CCFOLIA、Roll20、Foundry 等 VTT 用的圓形棋子：放進有花紋的外框，頭、角、武器可以出框蓋在外框上，敵人可以做成編號 1～N 的一組，存成透明背景的 PNG；檔案不會上傳。',
+    group: 'G3',
+    status: 'live',
+    inspiration: {
+      name: 'arcana-hanna/token-workshop',
+      url: 'https://github.com/arcana-hanna/token-workshop',
+    },
+  },
 ];
 
 export function getTool(id: string): ToolEntry | undefined {

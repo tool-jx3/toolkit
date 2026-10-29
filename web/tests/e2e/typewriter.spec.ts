@@ -159,7 +159,9 @@ function beepWav(): Buffer {
 test.describe('打字機動畫產生器', () => {
   test.use({ contextOptions: { reducedMotion: 'reduce' }, viewport: { width: 1280, height: 900 } });
 
-  test('模式切換保留設定、文字即時更新、影格計數、播放控制、空文字', async ({ page }) => {
+  test('模式切換保留設定、文字即時更新、影格計數、播放控制、空文字', { tag: '@serial' }, async ({
+    page,
+  }) => {
     const errors = await open(page);
     /* 預設：打字、減少動態效果時停在打完的那一格 */
     await expect(page.getByRole('tab', { name: '打字' })).toHaveAttribute('aria-selected', 'true');

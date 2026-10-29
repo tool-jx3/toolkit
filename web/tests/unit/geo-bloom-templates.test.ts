@@ -18,9 +18,11 @@ import { matchTemplate, TEMPLATES, withTemplate } from '@/tools/geo-bloom/templa
 import { recordCanvas } from '../helpers/canvasRecorder';
 
 describe('範本', () => {
-  it('六個範本：id 不重複；設定都在範圍內（整理後不變）', () => {
+  it('八個範本：id 不重複；設定都在範圍內（整理後不變）', () => {
     expect(TEMPLATES.map((t) => t.name)).toEqual([
       '基本',
+      '電報',
+      '三角星盤',
       '星座',
       '魔法陣',
       '科幻介面',
@@ -50,6 +52,33 @@ describe('範本', () => {
       expect(matchTemplate(next)).toBe(t.id);
       /* 範本的圖形種類是複本（改了不會動到範本） */
       expect(next.shapes).not.toBe(t.settings.shapes);
+    }
+  });
+
+  it('電報、三角星盤示範新的設定（D21）：摩斯電碼的文字與摩斯橋、三角心與三角環', () => {
+    const tel = TEMPLATES.find((t) => t.id === 'telegraph');
+    const tri = TEMPLATES.find((t) => t.id === 'tri-astrolabe');
+    expect(tel?.settings.morse).toBe(true);
+    expect(tel?.settings.morseText).not.toBe('');
+    expect(tel?.settings.bridges).toBe(true);
+    expect(tri?.settings.shapes.triCore && tri.settings.shapes.triRing).toBe(true);
+    if (!tel || !tri) return;
+    const telScene = generateBloom(
+      resolveConfig({ ...tel.settings, seed: tel.sampleSeed, lockSeed: false }),
+      tel.sampleSeed,
+    );
+    expect(telScene.shapes.some((s) => s.bridges?.length)).toBe(true);
+    const triScene = generateBloom(
+      resolveConfig({ ...tri.settings, seed: tri.sampleSeed, lockSeed: false }),
+      tri.sampleSeed,
+    );
+    expect(triScene.shapes.filter((s) => s.tri).length).toBeGreaterThan(3);
+  });
+
+  it('舊值的範本，示範種子的中央是圓（和改版前的縮圖幾乎一樣，3.8）', () => {
+    for (const t of TEMPLATES.filter((x) => !x.settings.rootRings)) {
+      const cfg = resolveConfig({ ...t.settings, seed: t.sampleSeed, lockSeed: false });
+      expect(generateBloom(cfg, t.sampleSeed).shapes[0].kind, t.name).toBe('circle');
     }
   });
 
@@ -104,7 +133,9 @@ describe('一次動作一步復原（不和前後的變更合併）', () => {
     regenerate();
     const s1 = settingsNow().seed;
     regenerate();
-    applyTemplate(TEMPLATES[2]);
+    const magic = TEMPLATES.find((t) => t.id === 'magic-circle');
+    if (!magic) throw new Error('沒有魔法陣範本');
+    applyTemplate(magic);
     expect(settingsNow().rootMin).toBe(220);
     const undo = () => useSettings.temporal.getState().undo();
     undo();

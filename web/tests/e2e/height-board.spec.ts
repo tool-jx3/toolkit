@@ -732,9 +732,9 @@ test('基準線：直接拖動（凍結比例、5% 限制、滑桿同步、一�
   expect(errors).toEqual([]);
 });
 
-test('方向鍵：螢幕 1 px／Shift 10 px、0.8 秒內合併成一步、輸入欄有焦點時不作用', async ({
-  page,
-}) => {
+test('方向鍵：螢幕 1 px／Shift 10 px、0.8 秒內合併成一步、輸入欄有焦點時不作用', {
+  tag: '@serial',
+}, async ({ page }) => {
   const errors = await open(page);
   await addOne(page, file('A.png', await imgA()), 160);
   const x0 = (await chars(page))[0].x;

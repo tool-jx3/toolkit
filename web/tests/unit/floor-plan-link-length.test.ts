@@ -80,9 +80,9 @@ const range = (pick: (r: Row) => number): [number, number] => {
 };
 
 describe('分享連結的長度（3.7、D41）', () => {
-  it('56 個範本都量到了（2026-10 第三批後半 15 → 56）；最短是套房、最長是洋館（2026-10-22 依 7.18 重新設計後仍是洋館）', () => {
+  it('57 個範本都量到了（2026-10 第三批後半 15 → 56，2026-10-29 加健身房）；最短是套房、最長是洋館（2026-10-22 依 7.18 重新設計後仍是洋館）', () => {
     expect(rows.map((r) => r.id)).toEqual(TEMPLATES.map((t) => t.id));
-    expect(rows).toHaveLength(56);
+    expect(rows).toHaveLength(57);
     const by = (pick: (r: Row) => number, f: (...n: number[]) => number) =>
       rows.find((r) => pick(r) === f(...rows.map(pick)))?.id;
     expect(by((r) => r.full, Math.min)).toBe('studio');

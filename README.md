@@ -32,7 +32,10 @@
 [saturn97v](https://github.com/saturn97v) 與
 [mrflamingchad67](https://github.com/mrflamingchad67) 與
 [ECgear](https://github.com/ECgear) 與
-[SkyTNT](https://github.com/SkyTNT) 等人製作的網頁小工具與開源專案為靈感來源的 77 個 TRPG 工具合輯（「文字演出產生器」以くま。的工具為靈感，由本 repo 以無塵室方式獨立撰寫；其中三個工具的作者不明），另外連到 JIZURA 字面的原站。所有工具都由本站以共用的框架改寫，只有繁體中文介面。
+[arcana-hanna](https://github.com/arcana-hanna) 與
+[CyberDelaai](https://github.com/CyberDelaai) 與
+[Sectr99](https://github.com/Sectr99) 與
+[SkyTNT](https://github.com/SkyTNT) 等人製作的網頁小工具與開源專案為靈感來源的 79 個 TRPG 工具合輯（NPC 名字產生器由本站原創；「文字演出產生器」以くま。的工具為靈感，由本 repo 以無塵室方式獨立撰寫；其中三個工具的作者不明），另外連到 JIZURA 字面與 Azgaar 的 Fantasy Map Generator 的原站。所有工具都由本站以共用的框架改寫，只有繁體中文介面。
 
 **https://tool-jx3.github.io/toolkit/**
 
@@ -83,17 +86,19 @@
 | [影片轉動圖工具](https://tool-jx3.github.io/toolkit/tools/video-anim/) | 把影片選定的區間轉成無損 APNG、Animated WebP 或 256 色 GIF，可裁切範圍、調影格率與逐格檢視 |
 | [GIF 接合器](https://tool-jx3.github.io/toolkit/tools/gif-combiner/) | 把多張 GIF 的影格對齊時間軸排進同一張畫面，拖曳排版後合成一張 GIF |
 | [音樂播放畫面產生器](https://tool-jx3.github.io/toolkit/tools/music-frame/) | 放進封面與音樂，做出跑團 BGM、角色主題曲的「正在播放」畫面：三種版面、聲音視覺化、邊框與隨時間出現的歌詞（LRC／SRT），存成 1920 × 1080 的 PNG 或有聲音的影片 |
-| [幾何花紋產生器](https://tool-jx3.github.io/toolkit/tools/geo-bloom/) | 一鍵產生從中央的圓長出線條、圓與方形的幾何花紋，像星座圖、魔法陣或科幻介面：同一個種子畫出同一張，調數量、大小、重疊與配色，匯出 PNG 或 SVG |
+| [幾何花紋產生器](https://tool-jx3.github.io/toolkit/tools/geo-bloom/) | 一鍵產生從中央的圓長出線條、圓、方形與三角形的幾何花紋，像星座圖、魔法陣或科幻介面：同一個種子畫出同一張，可以加摩斯電碼的環、把種子刻進圖裡再從圖片讀回；調數量、大小、重疊與配色，匯出 PNG 或 SVG |
 | [錄影帶畫面產生器](https://tool-jx3.github.io/toolkit/tools/vhs-frame/) | 把照片做成 VHS 錄影帶或監視器畫面：磨損、掃描線、雜訊與偏色，左上的 PLAY／REC、播放時間或日期時間碼、兩行字幕，存成 PNG，或字幕逐字打出的 GIF、APNG、WebP |
 | [CoC 擲骰工具](https://tool-jx3.github.io/toolkit/tools/coc-dice/) | CoC 7 版的技能檢定（獎勵骰、懲罰骰、自動判定成功等級）與自訂算式擲骰，附擲骰紀錄；另有傷害計算：貼上 BCDice 的結果扣護甲後加總成「:HP-」指令 |
 | [CoC 7 版調查員角色卡](https://tool-jx3.github.io/toolkit/tools/coc-sheet/) | 在瀏覽器填好 CoC 7 版調查員角色卡：屬性的困難／極限、HP、SAN、DB、移動力與技能點數自動算，可以管理多張角色卡、裁切頭像，印成 A4 兩頁或存成 PDF、PNG，也能複製成 CCFOLIA 角色 |
-| [CoC NPC 產生器](https://tool-jx3.github.io/toolkit/tools/coc-npc/) | 一次管理多個 CoC 7 版／6 版的 NPC：擲屬性、自動算衍生值、加技能與攻擊指令，輸出可以直接貼進 CCFOLIA 的角色 JSON 與聊天面板 |
+| [CoC NPC 產生器](https://tool-jx3.github.io/toolkit/tools/coc-npc/) | 一次管理多個 CoC 7 版／6 版的 NPC：擲屬性、自動算衍生值、加技能與攻擊指令、隨機取名，輸出可以直接貼進 CCFOLIA 的角色 JSON 與聊天面板 |
+| [NPC 名字產生器](https://tool-jx3.github.io/toolkit/tools/npc-names/) | 臨時要幫 NPC 取名時一鍵產生一批：日本（現代、昭和、大正～昭和初期，附假名與羅馬拼音）、台灣、1920 年代的美國，依實際的人數抽、同一批不重複，點一下就複製 |
 | [CoC 房規表產生器](https://tool-jx3.github.io/toolkit/tools/house-rules/) | 把 CoC 6 版／7 版團的房規整理成一張表：從常見的規則勾選、調整數值、寫注記，匯出 PNG、純文字或 Markdown |
 | [網格產生器](https://tool-jx3.github.io/toolkit/tools/grid-maker/) | 產生透明背景的方格或六角格 PNG：格數、大小、線條與發光，可以加上 1-1、A1、流水號等座標；六角格能網格化成 CCFOLIA 對得齊的尺寸 |
 | [距離量尺產生器](https://tool-jx3.github.io/toolkit/tools/range-ruler/) | 以中心格為起點，把每一格的距離寫在格子上、依距離上色，做成可以疊在地圖上的方格或六角格量尺 PNG |
 | [地圖編輯器](https://tool-jx3.github.io/toolkit/tools/map-editor/) | 在方格或六角格上畫戰鬥地圖與平面圖：地面、牆壁、房間、家具與地圖符號、格子填色、手繪與文字，可以群組與布林運算；地圖自動存在瀏覽器，選範圍匯出 PNG、JPEG、SVG |
 | [室內平面圖產生器](https://tool-jx3.github.io/toolkit/tools/floor-plan/) | 探索場景用的室內平面圖：從住宅、洋館、飯店、醫院、廢墟等範本開始擺房間（牆自動產生）、門窗與家具，GM 用與 PL 用分開匯出 PNG |
 | [JIZURA 字面](https://tool-jx3.github.io/toolkit/tools/jizura/) | 貼上歌詞、點按拍點，自動排出文字 PV（歌詞動態影片）：一鍵換方案，版面、登場、特效等可以逐段替換，匯出 MP4、綠幕、黑幕或 PNG 序列（連到原作者網站的官方繁中版） |
+| [奇幻世界地圖產生器](https://azgaar.github.io/Fantasy-Map-Generator/) | 一鍵產生整片大陸的奇幻世界地圖：地形、氣候、河流、國家、城鎮、文化、宗教與道路都能逐項編輯，匯出 PNG、SVG 或存成地圖檔（連到 Azgaar 的 Fantasy Map Generator 原站，英文介面） |
 | [2.5D 動態立繪](https://tool-jx3.github.io/toolkit/tools/anime-rig/) | 拖進分好部件的 PSD 就自動綁定、當場動起來：眨眼、嘴型、頭髮物理（直接接受 [see-through](https://github.com/shitagaki-lab/see-through) 從單張插圖拆出來的 PSD，連深度 PSD 一起給時轉頭更立體），可以用攝影機（臉部追蹤，模型第一次使用時下載約 3.8 MB）或麥克風帶動，匯出透明 PNG 或影片 |
 | [CoC 劇本排版工具](https://tool-jx3.github.io/toolkit/tools/coc-typesetter/) | 把克蘇魯神話 TRPG 劇本貼進來，排成書本般的紙面：章節自動編號、自動目錄，描述、檢定、KP 資訊、理智檢定各有樣式，印成 A5／B5／A4 的 PDF |
 | [輕量轉場 APNG 產生器](https://tool-jx3.github.io/toolkit/tools/apng-wipe/) | 做出 15×15 px 起跳、只有幾 KB 的透明轉場動畫：淡入淡出或 8 個方向的抹除，可選顏色、秒數、播一次或循環 |
@@ -103,6 +108,7 @@
 | [截圖演出產生器](https://tool-jx3.github.io/toolkit/tools/screenshot-fx/) | 在截圖上畫放大框、螢光筆、塗黑：周圍變暗、框彈出放大、螢光筆畫出來、塗黑揭開或蓋上，背景可以模糊、單色或透明，加上出處，匯出 PNG、APNG 或影片 |
 | [地圖演出產生器](https://tool-jx3.github.io/toolkit/tools/map-fx/) | 在地圖或平面圖上畫區域放大、移動路線與地點、房間遮罩：路線一路畫過去、迷霧散開、房間出現，匯出 PNG、APNG、影片，或給 CCFOLIA 自由探索用的每個房間一張遮罩 PNG；進階 3D 把平面圖變成線框立體空間，鏡頭沿路線走過去並存成影片 |
 | [簡易頭像產生器](https://tool-jx3.github.io/toolkit/tools/icon-maker/) | 從 PNG 立繪做出 1:1 的 TRPG 角色頭像，可加外框、背景、名字（直書或橫書）與 HO 標籤 |
+| [VTT 棋子產生器](https://tool-jx3.github.io/toolkit/tools/token-maker/) | 把立繪、頭像做成 CCFOLIA、Roll20、Foundry 等 VTT 用的圓形棋子：28 種有花紋的外框，頭、角、武器可以出框蓋在外框上，名字牌與徽章，敵人可以做成編號 1～N 的一組，存成透明背景的 PNG（設定嵌在圖裡，之後可以再開來改） |
 | [跑團紀錄簿](https://tool-jx3.github.io/toolkit/tools/session-log/) | 記錄玩過的團，整理感想、團報與已通關劇本清單；可匯入試算表或團報文字，每一團都能直接送到團報產生器 |
 | [團報產生器](https://tool-jx3.github.io/toolkit/tools/session-report/) | 填入劇本、KP／PL／PC 與結果，從 17 種範本產生可直接貼到 X 的團報文，能即時預覽、編輯 |
 | [團期行事曆](https://tool-jx3.github.io/toolkit/tools/session-calendar/) | 把場次、準備事項和其他預定排在同一張月曆：台灣的國定假日與補假、拖曳新增多日預定、配色與 CP 色、輸出空檔日期揪團、整月或整年存成 PNG、JSON／iCal 匯出入（可讀 Google 日曆匯出的檔案），一團可以直接送到跑團紀錄簿 |
@@ -202,6 +208,7 @@ CI（GitHub Actions）在 pull request 與 main 上跑 `npm test`、lint、typec
 | `bg-remover` | [立繪去背工具](https://tool-jx3.github.io/toolkit/tools/bg-remover/) | [SkyTNT/anime-segmentation](https://github.com/SkyTNT/anime-segmentation) |
 | `coc-dice` | [CoC 擲骰工具](https://tool-jx3.github.io/toolkit/tools/coc-dice/) | [ihoukentiku/ihoukentiku.github.io](https://github.com/ihoukentiku/ihoukentiku.github.io) |
 | `coc-npc` | [CoC NPC 產生器](https://tool-jx3.github.io/toolkit/tools/coc-npc/) | [ihoukentiku/ihoukentiku.github.io](https://github.com/ihoukentiku/ihoukentiku.github.io) |
+| `npc-names` | [NPC 名字產生器](https://tool-jx3.github.io/toolkit/tools/npc-names/) | 本站原創（名字資料：willnet/gimei、japanese-personal-name-dataset、內政部姓名統計、美國社會安全局與人口普查） |
 | `grid-maker` | [網格產生器](https://tool-jx3.github.io/toolkit/tools/grid-maker/) | [ihoukentiku/ihoukentiku.github.io](https://github.com/ihoukentiku/ihoukentiku.github.io) |
 | `range-ruler` | [距離量尺產生器](https://tool-jx3.github.io/toolkit/tools/range-ruler/) | [ihoukentiku/ihoukentiku.github.io](https://github.com/ihoukentiku/ihoukentiku.github.io) |
 | `anime-rig` | [2.5D 動態立繪](https://tool-jx3.github.io/toolkit/tools/anime-rig/) | [852wa/Anime2.5DRig](https://github.com/852wa/Anime2.5DRig) |
@@ -230,6 +237,7 @@ CI（GitHub Actions）在 pull request 與 main 上跑 `npm test`、lint、typec
 | `geo-bloom` | [幾何花紋產生器](https://tool-jx3.github.io/toolkit/tools/geo-bloom/) | [al1scut/tkmizGeo](https://github.com/al1scut/tkmizGeo) |
 | `vhs-frame` | [錄影帶畫面產生器](https://tool-jx3.github.io/toolkit/tools/vhs-frame/) | [dearmysn1p3r/VHS_Maker](https://github.com/dearmysn1p3r/VHS_Maker) |
 | `handout-maker` | [線索道具產生器](https://tool-jx3.github.io/toolkit/tools/handout-maker/) | [KKumuu/trpgforkk](https://github.com/KKumuu/trpgforkk)（`D.html`） |
+| `token-maker` | [VTT 棋子產生器](https://tool-jx3.github.io/toolkit/tools/token-maker/) | [arcana-hanna/token-workshop](https://github.com/arcana-hanna/token-workshop)、[CyberDelaai/eidolon-ui](https://github.com/CyberDelaai/eidolon-ui)、[Sectr99/TokenForge](https://github.com/Sectr99/TokenForge)（自訂外框的開口偵測） |
 
 開發與建置見 [web/README.md](web/README.md)；流程與規格見 [docs/refactor/](docs/refactor/PLAN.md)。
 
