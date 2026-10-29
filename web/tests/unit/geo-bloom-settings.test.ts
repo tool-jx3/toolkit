@@ -5,14 +5,17 @@
 import { describe, expect, it } from 'vitest';
 import { randomSeedText, seedNumber, seedRandom } from '@/tools/geo-bloom/random';
 import {
+  clampValue,
   DEFAULT_SETTINGS,
   exportFileName,
+  LEGACY_FIELDS,
   looksLikeSettings,
   RANGE,
   resolveConfig,
   SEED_MAX_LENGTH,
   type Settings,
   sanitizeSettings,
+  upgradeSettings,
 } from '@/tools/geo-bloom/settings';
 
 describe('種子（3.1）', () => {
@@ -105,9 +108,125 @@ describe('設定的整理（2.、3.8）', () => {
       15,
     ]);
     expect([d.lineWidth, d.pFill, d.fromEdge, d.lockSeed]).toEqual([2, 10, true, false]);
-    expect(Object.values(d.shapes).every(Boolean)).toBe(true);
+    expect(d.shapes).toEqual({
+      circle: true,
+      rings: true,
+      semi: true,
+      mix: true,
+      square: true,
+      doubleSquare: true,
+      triCore: false,
+      triRing: false,
+    });
     expect(RANGE.width).toEqual([64, 8000]);
     expect(RANGE.lineWidth).toEqual([0.25, 40]);
+  });
+
+  it('原作 2026-10 的新設定：預設值與範圍（原作的欄位）', () => {
+    const d = DEFAULT_SETTINGS;
+    expect([d.pAttach, d.attachDepth, d.pDrop, d.pTri, d.triRing, d.noCross]).toEqual([
+      0,
+      0,
+      0,
+      30,
+      'first',
+      false,
+    ]);
+    expect([d.startRing, d.endAtRing, d.rootRings, d.minRings]).toEqual(['ring2', true, true, 3]);
+    expect([d.morse, d.solidInner, d.solidFollow, d.pMorse, d.morseDot, d.morseDash]).toEqual([
+      true,
+      2,
+      true,
+      100,
+      6,
+      3,
+    ]);
+    expect([d.morseGap, d.morseLetterGap, d.morseWordGap, d.pMorseDash, d.pMorseWord]).toEqual([
+      1, 3, 7, 45, 18,
+    ]);
+    expect([d.morseWidth, d.morseShrink, d.morseRound, d.morseCap, d.morseText]).toEqual([
+      1,
+      60,
+      false,
+      true,
+      '',
+    ]);
+    expect([d.bridges, d.pBridge]).toEqual([false, 50]);
+    expect([RANGE.attachDepth, RANGE.minRings, RANGE.solidInner]).toEqual([
+      [-50, 80],
+      [2, 50],
+      [0, 20],
+    ]);
+    expect([RANGE.morseDot, RANGE.morseDash, RANGE.morseGap, RANGE.morseLetterGap]).toEqual([
+      [1, 80],
+      [1.5, 12],
+      [0.5, 8],
+      [1, 15],
+    ]);
+    expect([RANGE.morseWordGap, RANGE.morseWidth]).toEqual([
+      [2, 30],
+      [0.25, 5],
+    ]);
+  });
+
+  it('一格：0.5（短點、長點、字母與單字間隔）、0.25（符號間隔、摩斯線的粗細、線寬），其他整數', () => {
+    expect(clampValue('morseDot', 6.3)).toBe(6.5);
+    expect(clampValue('morseDash', 1.1)).toBe(1.5);
+    expect(clampValue('morseGap', 0.3)).toBe(0.5);
+    expect(clampValue('morseGap', 1.13)).toBe(1.25);
+    expect(clampValue('morseWidth', 0.6)).toBe(0.5);
+    expect(clampValue('morseWordGap', 40)).toBe(30);
+    expect(clampValue('attachDepth', -70)).toBe(-50);
+    expect(clampValue('pTri', 12.6)).toBe(13);
+  });
+
+  it('新的選項：不在清單裡時用預設', () => {
+    const s = sanitizeSettings({ startRing: 'all', triRing: 'r', morseText: 'x'.repeat(300) });
+    expect([s.startRing, s.triRing, s.morseText.length]).toEqual(['ring2', 'first', 200]);
+  });
+});
+
+describe('舊的資料版本（3.8）', () => {
+  /** 資料版本 1（原作 3097b39 時）的設定：沒有新的欄位、圖形種類只有六個 */
+  const v1 = {
+    seed: 'old',
+    lockSeed: true,
+    width: 1200,
+    height: 900,
+    maxShapes: 80,
+    shapes: {
+      circle: true,
+      rings: false,
+      semi: true,
+      mix: true,
+      square: false,
+      doubleSquare: true,
+    },
+    overlapMode: 'line',
+    lineWidth: 3.5,
+  };
+
+  it('版本 1：沒有的欄位補舊版的值（沒有摩斯環、中央是圓或同心圓、線從最外圈出發、同心圓至少 2 層）', () => {
+    const s = upgradeSettings(v1, 1);
+    expect(s).toMatchObject({ ...LEGACY_FIELDS, seed: 'old', lockSeed: true, width: 1200 });
+    expect([s.rootRings, s.minRings, s.startRing, s.morse, s.bridges]).toEqual([
+      false,
+      2,
+      'edge',
+      false,
+      false,
+    ]);
+    expect(s.shapes).toEqual({ ...v1.shapes, triCore: false, triRing: false });
+    expect([s.overlapMode, s.lineWidth, s.maxShapes]).toEqual(['line', 3.5, 80]);
+    /* 其他新欄位是預設值 */
+    expect([s.morseDot, s.pTri, s.endAtRing]).toEqual([6, 30, true]);
+  });
+
+  it('版本 1 但已經有的欄位照用；版本 2 照一般的整理（缺的用新的預設）', () => {
+    expect(upgradeSettings({ ...v1, morse: true }, 1).morse).toBe(true);
+    const s = upgradeSettings(v1, 2);
+    expect([s.rootRings, s.minRings, s.startRing, s.morse]).toEqual([true, 3, 'ring2', true]);
+    expect(upgradeSettings(null, 1)).toEqual(DEFAULT_SETTINGS);
   });
 
   it('專案檔看起來是不是這個工具的設定', () => {

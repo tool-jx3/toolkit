@@ -12,18 +12,21 @@ import {
   type Shortcut,
   ToolShell,
   UsageSection,
+  useToast,
   withShortcut,
 } from '@/ui';
 import { sceneFor } from './client';
+import { DecodeDialog, DecodeWindowDrop } from './Decode';
 import { SettingsPanels } from './Panels';
 import { Preview } from './Preview';
-import { looksLikeSettings, type Settings, sanitizeSettings } from './settings';
+import { looksLikeSettings, type Settings, upgradeSettings } from './settings';
 import {
   DATA_VERSION,
   regenerate,
   resetSettings,
   settingsNow,
   TOOL_ID,
+  takeLegacyRestore,
   useSettings,
 } from './store';
 import { S } from './strings';
@@ -43,6 +46,16 @@ function Usage() {
       ))}
     </ul>
   );
+}
+
+/** 讀回的自動儲存是改版前的：通知一次（3.8、D20；通知要在 ToolShell 裡面） */
+function LegacyRestoreNotice() {
+  const toast = useToast();
+  useEffect(() => {
+    if (takeLegacyRestore())
+      toast({ title: S.legacyTitle, description: S.legacyChange, tone: 'info', duration: 12000 });
+  }, [toast]);
+  return null;
 }
 
 export function App() {
@@ -87,11 +100,12 @@ export function App() {
             toolId={TOOL_ID}
             version={DATA_VERSION}
             getData={() => useSettings.getState().data}
-            onLoad={(d) => {
+            onLoad={(d, file) => {
               if (!looksLikeSettings(d)) return false;
-              useSettings.getState().replace(sanitizeSettings(d));
+              /* 舊的資料版本（1）補舊版的值；畫法改了，同一個種子畫出來和以前不同，通知一次（3.8、D20） */
+              useSettings.getState().replace(upgradeSettings(d, file.version));
               clear();
-              return true;
+              return file.version < DATA_VERSION ? { warnings: [S.legacyNotice] } : true;
             }}
             onReset={resetSettings}
             savedAt={savedAt}
@@ -110,7 +124,14 @@ export function App() {
           <UsageSection persistKey={TOOL_ID}>{usage}</UsageSection>
         </>
       }
-      preview={<Preview exportRef={exportRef} />}
+      preview={
+        <>
+          <Preview exportRef={exportRef} />
+          <DecodeDialog />
+          <DecodeWindowDrop />
+          <LegacyRestoreNotice />
+        </>
+      }
     />
   );
 }

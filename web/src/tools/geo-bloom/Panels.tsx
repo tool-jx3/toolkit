@@ -1,8 +1,8 @@
 /**
- * 設定欄（規格 1.2～1.8、1.10 的範本）：範本、畫布、數量上限、大小、機率、圖形的種類、重疊、樣式。
- * 每個設定改了就寫進 store（自動儲存、可以復原），預覽由 Preview 依最新的設定重畫。
+ * 設定欄（規格 1.2～1.8、1.10 的範本、1.11 原作 2026-10 的更新）：範本、畫布、數量上限、大小、機率、圖形的種類、
+ * 重疊、樣式、同心圓、摩斯環。每個設定改了就寫進 store（自動儲存、可以復原），預覽由 Preview 依最新的設定重畫。
  */
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import {
   Checkbox,
   ColorField,
@@ -11,21 +11,30 @@ import {
   NumberInput,
   Section,
   Segmented,
+  Select,
   Slider,
   TemplateGallery,
+  TextInput,
   Toggle,
 } from '@/ui';
+import { DecodeSection } from './Decode';
 import { generateBloom } from './generate';
+import { morseNotation, morseTokens, textToMorse, unsupportedChars } from './morse';
 import { drawBloom } from './render';
 import {
+  CODE_VERSIONS,
   clampValue,
-  LINE_WIDTH_STEP,
+  MORSE_TEXT_MAX_LENGTH,
   type NumericKey,
   OVERLAP_MODES,
   RANGE,
   resolveConfig,
-  SHAPE_KINDS,
-  type ShapeKind,
+  type Settings,
+  SHAPE_TOGGLES,
+  type ShapeToggle,
+  START_RINGS,
+  STEP,
+  TRI_RINGS,
 } from './settings';
 import { applyTemplate, setOption, setSetting, setShapeKind, TOOL_ID, useSettings } from './store';
 import { S } from './strings';
@@ -40,13 +49,32 @@ const UNIT: Partial<Record<NumericKey, string>> = {
   lineMax: 'px',
   gap: 'px',
   lineWidth: 'px',
+  morseDot: 'px',
   shrink: '%',
   pShape: '%',
   pBranch: '%',
   pDot: '%',
+  pAttach: '%',
+  attachDepth: '%',
+  pDrop: '%',
   regularity: '%',
+  pTri: '%',
   pAccent: '%',
   pFill: '%',
+  pMorse: '%',
+  pMorseDash: '%',
+  pMorseWord: '%',
+  morseShrink: '%',
+  pBridge: '%',
+  morseDash: S.times,
+  morseGap: S.times,
+  morseLetterGap: S.times,
+  morseWordGap: S.times,
+  morseWidth: S.times,
+  codeUnit: 'px',
+  codeScale: S.times,
+  codeWidth: S.times,
+  codeRootR: 'px',
 };
 
 function NumberSlider({ k, hint, disabled }: { k: NumericKey; hint?: string; disabled?: boolean }) {
@@ -59,10 +87,33 @@ function NumberSlider({ k, hint, disabled }: { k: NumericKey; hint?: string; dis
         onChange={(v) => setSetting(k, clampValue(k, v))}
         min={min}
         max={max}
-        step={k === 'lineWidth' ? LINE_WIDTH_STEP : 1}
+        step={STEP[k] ?? 1}
         unit={UNIT[k]}
         disabled={disabled}
       />
+    </Field>
+  );
+}
+
+type BooleanKey = {
+  [K in keyof Settings]: Settings[K] extends boolean ? K : never;
+}[keyof Settings];
+
+function OptionToggle({
+  k,
+  label,
+  hint,
+  disabled,
+}: {
+  k: BooleanKey;
+  label: string;
+  hint?: string;
+  disabled?: boolean;
+}) {
+  const on = useSettings((st) => st.data[k]);
+  return (
+    <Field label={label} hint={hint} layout="inline">
+      <Toggle checked={on} onCheckedChange={(v) => setOption(k, v)} disabled={disabled} />
     </Field>
   );
 }
@@ -129,17 +180,25 @@ function SizesSection() {
 }
 
 function ChancesSection() {
+  const attach = useSettings((st) => st.data.pAttach);
   return (
     <Section title={S.sections.chances} persistKey={`${TOOL_ID}:chances`}>
       <NumberSlider k="pShape" hint={S.hints.pShape} />
       <NumberSlider k="pBranch" hint={S.hints.pBranch} />
       <NumberSlider k="pDot" hint={S.hints.pDot} />
+      <NumberSlider k="pAttach" hint={S.hints.pAttach} />
+      <NumberSlider
+        k="attachDepth"
+        hint={attach === 0 ? S.hints.attachDepthOff : S.hints.attachDepth}
+        disabled={attach === 0}
+      />
+      <NumberSlider k="pDrop" hint={S.hints.pDrop} />
       <NumberSlider k="regularity" hint={S.hints.regularity} />
     </Section>
   );
 }
 
-function shapeIconBody(kind: ShapeKind) {
+function shapeIconBody(kind: ShapeToggle) {
   switch (kind) {
     case 'circle':
       return (
@@ -175,11 +234,28 @@ function shapeIconBody(kind: ShapeKind) {
           <rect x="8" y="8" width="8" height="8" transform="rotate(45 12 12)" />
         </>
       );
+    case 'triCore':
+      return (
+        <>
+          <circle cx="12" cy="12" r="9.5" />
+          <circle cx="12" cy="12" r="6.5" />
+          <path d="M12 7.5 15.9 14.25H8.1Z" />
+        </>
+      );
+    case 'triRing':
+      return (
+        <>
+          <circle cx="12" cy="12" r="9.5" />
+          <circle cx="12" cy="12" r="6.5" />
+          <path d="M12 5.5 17.63 15.25H6.37Z" />
+          <circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none" />
+        </>
+      );
   }
 }
 
 /** 種類的小圖示（本站自己畫，24 × 24） */
-export function ShapeIcon({ kind }: { kind: ShapeKind }) {
+export function ShapeIcon({ kind }: { kind: ShapeToggle }) {
   return (
     <svg
       aria-hidden="true"
@@ -189,6 +265,7 @@ export function ShapeIcon({ kind }: { kind: ShapeKind }) {
       fill="none"
       stroke="currentColor"
       strokeWidth={1.6}
+      strokeLinejoin="round"
       data-shape-icon={kind}
     >
       {shapeIconBody(kind)}
@@ -196,13 +273,24 @@ export function ShapeIcon({ kind }: { kind: ShapeKind }) {
   );
 }
 
+const TRI_RING_OPTIONS = TRI_RINGS.map((value) => ({ value, label: S.triRings[value] }));
+
 function ShapesSection() {
   const shapes = useSettings((st) => st.data.shapes);
+  const triRing = useSettings((st) => st.data.triRing);
+  const anyTri = shapes.triCore || shapes.triRing;
+  const anyPlain =
+    shapes.circle ||
+    shapes.rings ||
+    shapes.semi ||
+    shapes.mix ||
+    shapes.square ||
+    shapes.doubleSquare;
   return (
     <Section title={S.sections.shapes} persistKey={`${TOOL_ID}:shapes`}>
       {/* biome-ignore lint/a11y/useSemanticElements: 勾選框的群組，標題在 Section */}
       <div role="group" aria-label={S.sections.shapes} className="grid grid-cols-2 gap-x-3 gap-y-2">
-        {SHAPE_KINDS.map((k) => (
+        {SHAPE_TOGGLES.map((k) => (
           <Checkbox
             key={k}
             checked={shapes[k]}
@@ -219,6 +307,16 @@ function ShapesSection() {
         ))}
       </div>
       <p className="m-0 text-xs text-muted">{S.hints.shapes}</p>
+      <NumberSlider k="pTri" hint={S.hints.pTri} disabled={!anyTri || !anyPlain} />
+      <Field label={S.triRing} hint={S.hints.triRing}>
+        <Segmented
+          fullWidth
+          value={triRing}
+          onValueChange={(v) => setOption('triRing', v)}
+          options={TRI_RING_OPTIONS}
+          disabled={!shapes.triRing}
+        />
+      </Field>
     </Section>
   );
 }
@@ -228,13 +326,9 @@ const OVERLAP_OPTIONS = OVERLAP_MODES.map((value) => ({ value, label: S.overlapM
 function OverlapSection() {
   const avoid = useSettings((st) => st.data.avoidOverlap);
   const mode = useSettings((st) => st.data.overlapMode);
-  const lineAvoid = useSettings((st) => st.data.lineAvoid);
-  const inBounds = useSettings((st) => st.data.inBounds);
   return (
     <Section title={S.sections.overlap} persistKey={`${TOOL_ID}:overlap`}>
-      <Field label={S.avoidOverlap} hint={S.hints.avoidOverlap} layout="inline">
-        <Toggle checked={avoid} onCheckedChange={(on) => setOption('avoidOverlap', on)} />
-      </Field>
+      <OptionToggle k="avoidOverlap" label={S.avoidOverlap} hint={S.hints.avoidOverlap} />
       <Field label={S.overlapMode} hint={S.hints.overlapMode}>
         <Segmented
           fullWidth
@@ -245,12 +339,9 @@ function OverlapSection() {
         />
       </Field>
       <NumberSlider k="gap" hint={S.hints.gap} disabled={!avoid} />
-      <Field label={S.lineAvoid} hint={S.hints.lineAvoid} layout="inline">
-        <Toggle checked={lineAvoid} onCheckedChange={(on) => setOption('lineAvoid', on)} />
-      </Field>
-      <Field label={S.inBounds} hint={S.hints.inBounds} layout="inline">
-        <Toggle checked={inBounds} onCheckedChange={(on) => setOption('inBounds', on)} />
-      </Field>
+      <OptionToggle k="lineAvoid" label={S.lineAvoid} hint={S.hints.lineAvoid} />
+      <OptionToggle k="noCross" label={S.noCross} hint={S.hints.noCross} />
+      <OptionToggle k="inBounds" label={S.inBounds} hint={S.hints.inBounds} />
     </Section>
   );
 }
@@ -266,9 +357,7 @@ function StyleSection() {
           disabled={s.transparent}
         />
       </Field>
-      <Field label={S.transparent} hint={S.hints.transparent} layout="inline">
-        <Toggle checked={s.transparent} onCheckedChange={(on) => setOption('transparent', on)} />
-      </Field>
+      <OptionToggle k="transparent" label={S.transparent} hint={S.hints.transparent} />
       <Field label={S.lineColor}>
         <ColorField value={s.lineColor} onChange={(v) => setSetting('lineColor', v)} />
       </Field>
@@ -278,9 +367,144 @@ function StyleSection() {
       <NumberSlider k="pAccent" hint={S.hints.pAccent} />
       <NumberSlider k="lineWidth" hint={S.hints.lineWidth} />
       <NumberSlider k="pFill" hint={S.hints.pFill} />
-      <Field label={S.fromEdge} hint={S.hints.fromEdge} layout="inline">
-        <Toggle checked={s.fromEdge} onCheckedChange={(on) => setOption('fromEdge', on)} />
+      <OptionToggle k="fromEdge" label={S.fromEdge} hint={S.hints.fromEdge} />
+    </Section>
+  );
+}
+
+const START_RING_OPTIONS = START_RINGS.map((value) => ({ value, label: S.startRings[value] }));
+
+function RingsSection() {
+  const startRing = useSettings((st) => st.data.startRing);
+  return (
+    <Section title={S.sections.rings} persistKey={`${TOOL_ID}:rings`}>
+      <Field label={S.startRing} hint={S.hints.startRing}>
+        <Select
+          value={startRing}
+          onValueChange={(v) => setOption('startRing', v)}
+          options={START_RING_OPTIONS}
+        />
       </Field>
+      <OptionToggle k="endAtRing" label={S.endAtRing} hint={S.hints.endAtRing} />
+      <OptionToggle k="rootRings" label={S.rootRings} hint={S.hints.rootRings} />
+      <NumberSlider k="minRings" hint={S.hints.minRings} />
+    </Section>
+  );
+}
+
+/** 自訂文字排成的摩斯電碼、略過的字 */
+function MorseTextNote({ text }: { text: string }) {
+  const note = useMemo(() => {
+    if (!text.trim()) return null;
+    const tokens = morseTokens(text);
+    const skipped = unsupportedChars(text);
+    return {
+      code: tokens ? morseNotation(textToMorse(text)) : null,
+      skipped: skipped.join('、'),
+    };
+  }, [text]);
+  if (!note) return null;
+  return (
+    <div className="flex flex-col gap-0.5 text-xs text-muted" data-testid="morse-note">
+      {note.code ? (
+        <span className="break-all font-mono">{S.morseAs(note.code)}</span>
+      ) : (
+        <span>{S.morseNone}</span>
+      )}
+      {note.skipped ? <span>{S.morseSkipped(note.skipped)}</span> : null}
+    </div>
+  );
+}
+
+function MorseSection() {
+  const s = useSettings((st) => st.data);
+  const follows =
+    s.solidFollow &&
+    (s.startRing === 'ring1' || s.startRing === 'ring2' || s.startRing === 'ring12');
+  const custom = morseTokens(s.morseText) !== null;
+  return (
+    <Section title={S.sections.morse} persistKey={`${TOOL_ID}:morse`}>
+      <OptionToggle k="morse" label={S.morse} hint={S.hints.morse} />
+      <NumberSlider
+        k="solidInner"
+        hint={follows ? S.hints.solidInnerFollow(s.startRing === 'ring1' ? 1 : 2) : undefined}
+        disabled={follows}
+      />
+      <OptionToggle k="solidFollow" label={S.solidFollow} hint={S.hints.solidFollow} />
+      <NumberSlider k="pMorse" hint={S.hints.pMorse} />
+      <Field label={S.morseText} hint={S.hints.morseText}>
+        <TextInput
+          value={s.morseText}
+          maxLength={MORSE_TEXT_MAX_LENGTH}
+          placeholder={S.morseTextPlaceholder}
+          spellCheck={false}
+          autoComplete="off"
+          onChange={(e) =>
+            setSetting(
+              'morseText',
+              Array.from(e.currentTarget.value).slice(0, MORSE_TEXT_MAX_LENGTH).join(''),
+            )
+          }
+          data-testid="morse-text"
+        />
+      </Field>
+      <MorseTextNote text={s.morseText} />
+      <NumberSlider k="morseDot" hint={S.hints.morseDot} />
+      <NumberSlider k="morseDash" />
+      <NumberSlider k="morseGap" />
+      <NumberSlider k="morseLetterGap" />
+      <NumberSlider k="morseWordGap" hint={S.hints.morseGaps} />
+      <NumberSlider k="pMorseDash" disabled={custom} />
+      <NumberSlider k="pMorseWord" hint={S.hints.randomMorse} disabled={custom} />
+      <NumberSlider k="morseWidth" hint={S.hints.morseWidth} />
+      <NumberSlider k="morseShrink" hint={S.hints.morseShrink} />
+      <OptionToggle k="morseRound" label={S.morseRound} />
+      <OptionToggle k="morseCap" label={S.morseCap} />
+      <OptionToggle k="bridges" label={S.bridges} hint={S.hints.bridges} />
+      <NumberSlider k="pBridge" disabled={!s.bridges} />
+    </Section>
+  );
+}
+
+const CODE_VERSION_OPTIONS = CODE_VERSIONS.map((value) => ({
+  value,
+  label: S.codeVersions[value],
+}));
+
+function CodeSection() {
+  const on = useSettings((st) => st.data.code);
+  const version = useSettings((st) => st.data.codeVersion);
+  const v1Off = !on || version !== 'v1';
+  return (
+    <Section title={S.sections.code} persistKey={`${TOOL_ID}:code`}>
+      <OptionToggle k="code" label={S.code} hint={S.hints.code} />
+      <Field label={S.codeVersion} hint={S.hints.codeVersion}>
+        <Segmented
+          fullWidth
+          value={version}
+          onValueChange={(v) => setOption('codeVersion', v)}
+          options={CODE_VERSION_OPTIONS}
+          disabled={!on}
+        />
+      </Field>
+      <OptionToggle
+        k="codeSettings"
+        label={S.codeSettings}
+        hint={S.hints.codeSettings}
+        disabled={!on}
+      />
+      <NumberSlider k="codeUnit" hint={S.hints.codeUnit} disabled={!on} />
+      <NumberSlider k="codeScale" hint={S.hints.codeScale} disabled={!on} />
+      <NumberSlider k="codeWidth" hint={S.hints.codeWidth} disabled={!on} />
+      <p className="m-0 text-xs text-muted">{S.hints.v1Only}</p>
+      <NumberSlider k="codeMin" disabled={v1Off} />
+      <NumberSlider k="codeMax" hint={S.hints.codeMax} disabled={v1Off} />
+      <OptionToggle k="codeConvert" label={S.codeConvert} disabled={v1Off} />
+      <OptionToggle k="codeWhole" label={S.codeWhole} disabled={v1Off} />
+      <OptionToggle k="codeOrient" label={S.codeOrient} disabled={v1Off} />
+      <OptionToggle k="codeGuard" label={S.codeGuard} disabled={v1Off} />
+      <OptionToggle k="codeFit" label={S.codeFit} disabled={v1Off} />
+      <NumberSlider k="codeRootR" hint={S.hints.codeRootR} disabled={v1Off} />
     </Section>
   );
 }
@@ -340,6 +564,10 @@ export function SettingsPanels() {
       <ShapesSection />
       <OverlapSection />
       <StyleSection />
+      <RingsSection />
+      <MorseSection />
+      <CodeSection />
+      <DecodeSection />
     </div>
   );
 }
