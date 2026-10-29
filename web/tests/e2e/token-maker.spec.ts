@@ -3,11 +3,15 @@
  * - 開頁沒有錯誤、空白預覽（點一下選圖）、頁尾只有靈感來源；
  * - 讀圖 → 擺放（拖曳、滾輪、Shift＋滾輪、方向鍵、鏡像、重設、兩指捏合）→ 出框（魔術棒、Alt、容許度、筆刷、自動、清除、讀入遮罩圖）；
  * - 匯出 PNG（解碼檢查尺寸、四角透明、出框的像素在外框之外、檔名）、尺寸預設與自訂；
- * - 自動儲存與重新整理、復原；390 寬沒有橫向捲動；1280 與 390 的視覺基準。
+ * - 名單（一次讀好幾張、切換、移除、清空）、編號組與全部打包的 ZIP（解開檢查檔名、尺寸、徽章）、
+ *   把設定嵌進 PNG 再讀回來（開啟成棋子／當成一般圖片）、名字與徽章（拖曳與吸附）、預設外觀、自訂外框與遮罩、
+ *   參考輪廓（只在預覽）、效果、自動配色；
+ * - 自動儲存與重新整理、復原；390 寬每個分頁都沒有橫向捲動；1280 與 390 的視覺基準。
  * 測試圖片都由程式產生。
  */
 import { readFileSync } from 'node:fs';
 import { expect, type Page, test } from '@playwright/test';
+import { unzipSync } from 'fflate';
 import { encodePng } from '../../src/core/encode/png';
 import { getTool, outputDir } from '../../src/registry';
 import { decodePixels, parseChunks, readIhdr } from '../helpers/png';
@@ -96,11 +100,14 @@ interface Token {
   mask: { id: string; width: number; height: number } | null;
   popOn: boolean;
   name: string;
+  badge: string;
+  adjust: { bright: number; contrast: number; sat: number; hue: number };
 }
 interface Doc {
-  look: Record<string, unknown>;
+  look: Record<string, unknown> & { fx: Record<string, unknown> };
   tokens: Token[];
   current: string | null;
+  custom: { frame: { id: string; name: string } | null; mask: { id: string; name: string } | null };
 }
 
 const doc = (page: Page): Promise<Doc> =>
@@ -117,7 +124,7 @@ const cur = async (page: Page) => {
 const dropInput = (page: Page) =>
   page.getByRole('group', { name: '圖片載入區' }).locator('input[type=file]');
 const layer = (page: Page) => page.getByTestId('token-interaction');
-const tab = (page: Page, name: '圖片' | '出框' | '外框' | '匯出') =>
+const tab = (page: Page, name: '圖片' | '出框' | '外框' | '名字' | '效果' | '匯出') =>
   page.getByRole('tab', { name });
 const toolBtn = (page: Page, name: '移動' | '魔術棒' | '筆刷') =>
   page.getByRole('toolbar', { name: '預覽的工具' }).getByRole('button', { name, exact: true });
@@ -184,13 +191,44 @@ function readPng(bytes: Uint8Array): Png {
   };
 }
 
-async function downloadPng(page: Page): Promise<{ name: string; png: Png }> {
+async function downloadPng(page: Page): Promise<{ name: string; png: Png; path: string }> {
   await tab(page, '匯出').click();
   const [dl] = await Promise.all([
     page.waitForEvent('download'),
     page.getByRole('button', { name: '下載 PNG' }).click(),
   ]);
-  return { name: dl.suggestedFilename(), png: readPng(readFileSync((await dl.path()) as string)) };
+  const path = (await dl.path()) as string;
+  return { name: dl.suggestedFilename(), png: readPng(readFileSync(path)), path };
+}
+
+async function downloadZip(page: Page, testId: 'zip-all' | 'zip-set') {
+  await tab(page, '匯出').click();
+  const [dl] = await Promise.all([page.waitForEvent('download'), page.getByTestId(testId).click()]);
+  return {
+    name: dl.suggestedFilename(),
+    files: unzipSync(new Uint8Array(readFileSync((await dl.path()) as string))),
+  };
+}
+
+const roster = (page: Page) => page.getByRole('list', { name: '棋子名單' });
+
+/** 400 × 400 的單色圖（名單用） */
+async function solidPng(rgb: [number, number, number]): Promise<Buffer> {
+  const px = new Uint8Array(400 * 400 * 4);
+  for (let i = 0; i < px.length; i += 4) px.set([...rgb, 255], i);
+  return Buffer.from(await encodePng(px, 400, 400));
+}
+
+/** 白色的環（自訂外框；外半徑 100、內半徑 75，200 × 200 透明背景） */
+async function ringFramePng(): Promise<Buffer> {
+  const n = 200;
+  const px = new Uint8Array(n * n * 4);
+  for (let y = 0; y < n; y++)
+    for (let x = 0; x < n; x++) {
+      const d = Math.hypot(x + 0.5 - 100, y + 0.5 - 100);
+      if (d >= 75 && d <= 99) px.set([255, 255, 255, 255], (y * n + x) * 4);
+    }
+  return Buffer.from(await encodePng(px, n, n));
 }
 
 async function noHorizontalScroll(page: Page) {
@@ -202,6 +240,13 @@ async function noHorizontalScroll(page: Page) {
 }
 
 const near = (a: Rgba, b: Rgba, tol = 40) => a.every((v, i) => Math.abs(v - b[i]) <= tol);
+
+/** 棋子座標（R 為單位、相對中心）→ 螢幕座標 */
+async function unitToScreen(page: Page, ux: number, uy: number) {
+  const pad = await padOf(page);
+  const R = N * (0.5 - pad);
+  return tokenToScreen(page, N / 2 + ux * R, N / 2 + uy * R);
+}
 
 /* ---------- 測試 ---------- */
 
@@ -379,7 +424,7 @@ test('出框：自動（透明背景用透明度）、讀入遮罩圖、更多�
     .getByRole('toolbar', { name: '預覽的工具' })
     .getByRole('button', { name: '自動' })
     .click();
-  await expect(page.getByText('已用圖片的透明度選出主體。')).toBeVisible();
+  await expect(page.getByText('已用圖片的透明度選出主體。').first()).toBeVisible();
   const area = ((Math.PI * 100 * 100 + 200 * 149) / (300 * 400)) * 100;
   await expect
     .poll(async () => Number((await ratio(page).textContent())?.match(/[\d.]+/)?.[0] ?? 0))
@@ -398,7 +443,7 @@ test('出框：自動（透明背景用透明度）、讀入遮罩圖、更多�
     page.getByRole('button', { name: '讀入遮罩圖…' }).click(),
   ]);
   await chooser.setFiles(file('mask.png', await halfMaskPng()));
-  await expect(page.getByText('已讀入遮罩圖。')).toBeVisible();
+  await expect(page.getByText('已讀入遮罩圖。').first()).toBeVisible();
   await expect(ratio(page)).toHaveText(/已選取圖片的 5[0-3]%/);
   /* 遮罩在圖片的座標：移動圖片時遮罩 id 不變 */
   const before = (await cur(page)).mask?.id;
@@ -428,7 +473,7 @@ test('匯出 PNG：尺寸、四角透明、出框的像素在外框之外、檔�
   await expect.poll(async () => (await cur(page)).mask).not.toBeNull();
   /* 回到自動邊距：外框縮到剛好不切到帽子 */
   await page.getByRole('switch', { name: '自動邊距' }).click();
-  await tab(page, '圖片').click();
+  await tab(page, '名字').click();
   await page.getByRole('textbox', { name: '名稱' }).fill('哥布林');
   await page.getByRole('textbox', { name: '名稱' }).blur();
   const pad = await padOf(page);
@@ -499,7 +544,10 @@ test('自動儲存：重新整理之後棋子、圖片、出框都還在', async
   await page.mouse.click(hat.x, hat.y);
   await expect.poll(async () => (await cur(page)).mask).not.toBeNull();
   await tab(page, '外框').click();
-  await page.getByRole('radio', { name: '齒輪' }).click();
+  await page
+    .getByRole('radiogroup', { name: '外框樣式' })
+    .getByRole('radio', { name: '齒輪', exact: true })
+    .click();
   const before = await doc(page);
   await page.reload();
   await expect(page.getByRole('heading', { level: 1, name: 'VTT 棋子產生器' })).toBeVisible();
@@ -519,6 +567,346 @@ test('自動儲存：重新整理之後棋子、圖片、出框都還在', async
   expect(errors).toEqual([]);
 });
 
+test('名單：一次讀好幾張、切換、移除（可以復原）、清空先確認；重新整理之後還在', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  await dropInput(page).setInputFiles([
+    file('red.png', await solidPng([220, 30, 30])),
+    file('blue.png', await solidPng([30, 30, 220])),
+    file('note.txt', Buffer.from('hello'), 'text/plain'),
+  ]);
+  await expect(page.getByText('已讀入 2 張圖片').first()).toBeVisible();
+  await expect(page.getByText('「note.txt」不是圖片').first()).toBeVisible();
+  await expect(roster(page).getByRole('listitem')).toHaveCount(2);
+  await expect(page.getByTestId('roster-count')).toHaveText('2／60 個');
+  /* 選取第一個新的；點第二個切換（切換不算一步復原） */
+  let d = await doc(page);
+  expect(d.current).toBe(d.tokens[0].id);
+  await roster(page).getByRole('listitem').nth(1).click();
+  await expect.poll(async () => (await cur(page)).image?.name).toBe('blue.png');
+  await expect(page.getByTestId('image-info')).toContainText('blue.png');
+  /* 縮圖畫好了（不是佔位） */
+  await expect(roster(page).locator('canvas')).toHaveCount(2);
+  /* 每個棋子各自的擺放 */
+  await page.locator('body').click({ position: { x: 5, y: 880 } });
+  await page.keyboard.press('Shift+ArrowLeft');
+  d = await doc(page);
+  expect(d.tokens[1].view.x).toBeCloseTo(-0.05);
+  expect(d.tokens[0].view.x).toBe(0);
+  /* 移除（可以復原） */
+  await roster(page).getByRole('button', { name: '移除「red」' }).click();
+  await expect(roster(page).getByRole('listitem')).toHaveCount(1);
+  await page.keyboard.press('Control+z');
+  await expect(roster(page).getByRole('listitem')).toHaveCount(2);
+  /* 換圖片：目前的棋子換一張圖 */
+  await roster(page).getByRole('listitem').nth(1).click();
+  const [chooser] = await Promise.all([
+    page.waitForEvent('filechooser'),
+    page.getByRole('button', { name: '換圖片' }).click(),
+  ]);
+  await chooser.setFiles(file('green.png', await solidPng([30, 200, 30])));
+  await expect.poll(async () => (await cur(page)).image?.name).toBe('green.png');
+  expect((await cur(page)).view.x).toBe(0);
+  expect((await doc(page)).tokens).toHaveLength(2);
+  /* 重新整理之後名單還在 */
+  await page.reload();
+  await expect(roster(page).getByRole('listitem')).toHaveCount(2);
+  /* 清空：先確認 */
+  await page.getByRole('button', { name: '清空名單' }).click();
+  await page.getByRole('alertdialog').getByRole('button', { name: '清空' }).click();
+  await expect(page.getByTestId('token-pick')).toBeVisible();
+  expect((await doc(page)).tokens).toHaveLength(0);
+  await page.keyboard.press('Control+z');
+  await expect.poll(async () => (await doc(page)).tokens.length).toBe(2);
+  expect(errors).toEqual([]);
+});
+
+test('編號組與全部打包：ZIP 裡的檔名、尺寸；編號組的徽章 1～N', async ({ page }) => {
+  const errors = await open(page);
+  await dropInput(page).setInputFiles([
+    file('red.png', await solidPng([220, 30, 30])),
+    file('blue.png', await solidPng([30, 30, 220])),
+  ]);
+  await expect(roster(page).getByRole('listitem')).toHaveCount(2);
+  await tab(page, '名字').click();
+  await page.getByRole('textbox', { name: '名稱' }).fill('骷髏兵');
+  await page.getByRole('textbox', { name: '名稱' }).blur();
+  /* 徽章的底色改成純藍，量得到 */
+  await page.getByTestId('badge-from').click();
+  await page.getByRole('option', { name: '自訂' }).click();
+  await page.getByRole('textbox', { name: '徽章的底色' }).fill('#0000ff');
+  await page.getByRole('textbox', { name: '徽章的底色' }).press('Enter');
+  await tab(page, '匯出').click();
+  await page.getByTestId('size-select').click();
+  await page.getByRole('option', { name: '256 px' }).click();
+  await page.getByRole('spinbutton', { name: '張數' }).fill('3');
+  await page.getByRole('spinbutton', { name: '張數' }).press('Enter');
+  await expect(page.getByTestId('zip-set')).toHaveText('下載編號組（3 張）');
+  const set = await downloadZip(page, 'zip-set');
+  expect(set.name).toBe('骷髏兵_編號組3_256.zip');
+  expect(Object.keys(set.files).sort()).toEqual([
+    '骷髏兵_1_256.png',
+    '骷髏兵_2_256.png',
+    '骷髏兵_3_256.png',
+  ]);
+  const pngs = Object.values(set.files).map((b) => readPng(b));
+  for (const p of pngs) expect([p.width, p.height]).toEqual([256, 256]);
+  /* 徽章（右下 0.74 R）是藍色的；三張的徽章文字不同 → 像素不同 */
+  const pad = await padOf(page);
+  const R = 256 * (0.5 - pad);
+  const bx = Math.round(128 + 0.74 * R);
+  const badgeBlue = (p: Png) => {
+    let n = 0;
+    for (let y = bx - 12; y <= bx + 12; y++)
+      for (let x = bx - 12; x <= bx + 12; x++) if (near(p.at(x, y), [0, 0, 255, 255], 30)) n++;
+    return n;
+  };
+  for (const p of pngs) expect(badgeBlue(p)).toBeGreaterThan(80);
+  const sig = (p: Png) =>
+    Array.from(
+      { length: 25 * 25 },
+      (_, i) => p.at(bx - 12 + (i % 25), bx - 12 + Math.floor(i / 25))[0],
+    ).join(',');
+  expect(new Set(pngs.map(sig)).size).toBe(3);
+  /* 全部打包：名單的每個棋子各一張（檔名照單張的規則） */
+  const all = await downloadZip(page, 'zip-all');
+  expect(all.name).toMatch(/^棋子_\d{8}-\d{4}_256\.zip$/);
+  expect(Object.keys(all.files).sort()).toEqual(['blue_256.png', '骷髏兵_256.png'].sort());
+  expect(errors).toEqual([]);
+});
+
+test('把設定嵌進 PNG：讀回來開啟成棋子（圖片、出框、擺放、名字、外觀）或當成一般圖片', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  await loadImage(page, await heroPng());
+  await page.keyboard.press('w');
+  const hat = await imageToScreen(page, 200, 40);
+  await page.mouse.click(hat.x, hat.y);
+  await expect.poll(async () => (await cur(page)).mask).not.toBeNull();
+  await page.keyboard.press('v');
+  await page.locator('body').click({ position: { x: 5, y: 880 } });
+  await page.keyboard.press('Shift+ArrowDown');
+  await tab(page, '外框').click();
+  await page
+    .getByRole('radiogroup', { name: '外框樣式' })
+    .getByRole('radio', { name: '鉚釘', exact: true })
+    .click();
+  await tab(page, '名字').click();
+  await page.getByRole('textbox', { name: '名稱' }).fill('巫師');
+  await page.getByRole('textbox', { name: '名稱' }).blur();
+  const before = await cur(page);
+  const { name, path } = await downloadPng(page);
+  expect(name).toBe('巫師_512.png');
+  const bytes = new Uint8Array(readFileSync(path));
+  expect(parseChunks(bytes).some((c) => c.type === 'iTXt')).toBe(true);
+
+  /* 外觀換掉、清空名單，再讀回來 */
+  await tab(page, '外框').click();
+  await page
+    .getByRole('radiogroup', { name: '外框樣式' })
+    .getByRole('radio', { name: '六角', exact: true })
+    .click();
+  await tab(page, '圖片').click();
+  await page.getByRole('button', { name: '清空名單' }).click();
+  await page.getByRole('alertdialog').getByRole('button', { name: '清空' }).click();
+  await dropInput(page).setInputFiles(file('巫師_512.png', Buffer.from(bytes)));
+  const dialog = page.getByRole('alertdialog');
+  await expect(dialog).toContainText('這張圖嵌了棋子的設定');
+  await dialog.getByRole('button', { name: '開啟成棋子' }).click();
+  await expect(page.getByText('已開啟 1 個嵌了設定的棋子').first()).toBeVisible();
+  const t = await cur(page);
+  expect(t.name).toBe('巫師');
+  expect(t.view).toEqual(before.view);
+  expect(t.image?.width).toBe(400);
+  expect(t.mask).not.toBeNull();
+  expect((await doc(page)).look.frame).toBe('studs');
+  await expect(ratio(page)).toHaveText(/已選取圖片的 3\.\d%/);
+
+  /* 當成一般圖片：圖片就是那張 PNG（512 × 512），沒有出框 */
+  await dropInput(page).setInputFiles(file('again.png', Buffer.from(bytes)));
+  await page.getByRole('alertdialog').getByRole('button', { name: '當成一般圖片' }).click();
+  await expect.poll(async () => (await cur(page)).image?.name).toBe('again.png');
+  expect((await cur(page)).image?.width).toBe(512);
+  expect((await cur(page)).mask).toBeNull();
+  expect((await doc(page)).tokens).toHaveLength(2);
+  /* 關掉嵌入：PNG 裡沒有 iTXt */
+  await tab(page, '匯出').click();
+  await page.getByRole('switch', { name: '把設定嵌進 PNG' }).click();
+  const plain = await downloadPng(page);
+  expect(parseChunks(new Uint8Array(readFileSync(plain.path))).some((c) => c.type === 'iTXt')).toBe(
+    false,
+  );
+  expect(errors).toEqual([]);
+});
+
+test('名字與徽章：打開時先填好文字；在預覽上拖曳徽章會吸附到角落，Alt 不吸附', async ({ page }) => {
+  const errors = await open(page);
+  await loadImage(page, await heroPng());
+  await tab(page, '名字').click();
+  await page.getByRole('switch', { name: '顯示名字' }).click();
+  await expect(page.getByRole('textbox', { name: '名稱' })).toHaveValue('角色名');
+  await expect(page.getByRole('textbox', { name: '徽章文字' })).toHaveValue('');
+  await page.getByRole('switch', { name: '顯示徽章' }).click();
+  await page.getByRole('switch', { name: '顯示徽章' }).click();
+  await expect(page.getByRole('textbox', { name: '徽章文字' })).toHaveValue('1');
+  await page.getByRole('radio', { name: '弧形文字' }).click();
+  expect((await doc(page)).look.labelStyle).toBe('arc');
+  /* 拖曳徽章：右下 → 接近左上 → 吸到 (-0.74, -0.74) */
+  const from = await unitToScreen(page, 0.74, 0.74);
+  const to = await unitToScreen(page, -0.68, -0.8);
+  await page.mouse.move(from.x, from.y);
+  await page.mouse.down();
+  await page.mouse.move(to.x, to.y, { steps: 6 });
+  await page.mouse.up();
+  let l = (await doc(page)).look;
+  expect([l.badgeX, l.badgeY]).toEqual([-0.74, -0.74]);
+  /* 一次拖曳＝一步復原 */
+  await page.keyboard.press('Control+z');
+  l = (await doc(page)).look;
+  expect([l.badgeX, l.badgeY]).toEqual([0.74, 0.74]);
+  /* Alt：不吸附 */
+  await page.mouse.move(from.x, from.y);
+  await page.mouse.down();
+  await page.keyboard.down('Alt');
+  await page.mouse.move(to.x, to.y, { steps: 6 });
+  await page.mouse.up();
+  await page.keyboard.up('Alt');
+  l = (await doc(page)).look;
+  expect(l.badgeX as number).toBeCloseTo(-0.68, 1);
+  expect(l.badgeY as number).toBeCloseTo(-0.8, 1);
+  /* 拖曳名字不會移動圖片 */
+  expect((await cur(page)).view.x).toBe(0);
+  await page.getByRole('button', { name: '重設位置' }).click();
+  l = (await doc(page)).look;
+  expect([l.labelX, l.labelY, l.badgeX, l.badgeY]).toEqual([0, 0.8, 0.74, 0.74]);
+  expect(errors).toEqual([]);
+});
+
+test('預設外觀、隨機、我的預設；效果；自動配色', async ({ page }) => {
+  const errors = await open(page);
+  await loadImage(page, await heroPng());
+  await tab(page, '外框').click();
+  const presets = page.getByRole('radiogroup', { name: '預設外觀' });
+  await presets.getByRole('radio', { name: '金色齒輪' }).click();
+  let l = (await doc(page)).look;
+  expect(l.frame).toBe('gear');
+  await expect(presets.getByRole('radio', { name: '金色齒輪' })).toHaveAttribute(
+    'aria-checked',
+    'true',
+  );
+  /* 範例：整組外觀（含效果） */
+  await presets.getByRole('radio', { name: '頭目' }).click();
+  l = (await doc(page)).look;
+  expect(l.frame).toBe('arcs');
+  expect(l.fx.on).toBe(true);
+  await page.keyboard.press('Control+z');
+  expect((await doc(page)).look.frame).toBe('gear');
+  await page.getByTestId('preset-shuffle').click();
+  /* 存成我的預設、套用、刪除 */
+  await page.getByTestId('preset-name').fill('我的金環');
+  await page.getByTestId('preset-save').click();
+  await expect(page.getByText('已存成「我的金環」').first()).toBeVisible();
+  const mine = page.getByRole('list', { name: '我的預設' });
+  await expect(mine.getByRole('listitem')).toHaveCount(1);
+  const saved = (await doc(page)).look.frame;
+  await page
+    .getByRole('radiogroup', { name: '外框樣式' })
+    .getByRole('radio', { name: '方框', exact: true })
+    .click();
+  await mine
+    .getByRole('button', { name: /我的金環/ })
+    .first()
+    .click();
+  expect((await doc(page)).look.frame).toBe(saved);
+  await mine.getByRole('button', { name: '刪除「我的金環」' }).click();
+  await page.getByRole('alertdialog').getByRole('button', { name: '刪除' }).click();
+  await expect(mine).toHaveCount(0);
+  /* 自動配色：外框色換成圖片裡的顏色 */
+  await page.getByTestId('auto-color-frame').click();
+  await expect.poll(async () => (await doc(page)).look.colorKey).toBe('custom');
+  /* 效果：打開掃描線（順便打開總開關）、重設 */
+  await tab(page, '效果').click();
+  await page.getByRole('switch', { name: '掃描線' }).click();
+  l = (await doc(page)).look;
+  expect(l.fx.scan).toBe(true);
+  expect(l.fx.on).toBe(true);
+  await page.getByTestId('fx-reset').click();
+  expect((await doc(page)).look.fx.on).toBe(false);
+  expect(errors).toEqual([]);
+});
+
+test('自訂外框（自動偵測開口）與自訂遮罩；參考輪廓只在預覽', async ({ page }) => {
+  const errors = await open(page);
+  await loadImage(page, await heroPng());
+  await tab(page, '外框').click();
+  await page.getByRole('button', { name: '自訂外框與遮罩' }).click();
+  let [chooser] = await Promise.all([
+    page.waitForEvent('filechooser'),
+    page.getByTestId('custom-frame-load').click(),
+  ]);
+  await chooser.setFiles(file('ring.png', await ringFramePng()));
+  await expect(page.getByText(/已讀入自訂外框（開口半徑 \d+%）/).first()).toBeVisible();
+  let d = await doc(page);
+  expect(d.look.frame).toBe('custom');
+  expect(d.custom.frame?.name).toBe('ring.png');
+  /* 內半徑 75 ÷ 100 → 第 90 百分位＋4 px（512 上）≈ 76～78% */
+  expect(d.look.customInner as number).toBeGreaterThanOrEqual(75);
+  expect(d.look.customInner as number).toBeLessThanOrEqual(80);
+  await expect(page.getByRole('spinbutton', { name: '開口半徑' })).toBeVisible();
+  /* 預覽：環上是主色（金），開口裡是圖片 */
+  const pad = await padOf(page);
+  const R = N * (0.5 - pad);
+  const at = (x: number, y: number) =>
+    page
+      .getByTestId('token-canvas')
+      .evaluate(
+        (el, [x, y]) =>
+          Array.from(
+            (el as HTMLCanvasElement).getContext('2d')?.getImageData(x, y, 1, 1).data ?? [],
+          ),
+        [x, y],
+      );
+  await expect.poll(async () => (await at(512, Math.round(512 - R * 0.87)))[3]).toBe(255);
+  /* 自訂遮罩：右半黑 → 開口的右半被切掉 */
+  const half = new Uint8Array(40 * 40 * 4);
+  for (let i = 0; i < 1600; i++)
+    half.set(i % 40 < 20 ? [255, 255, 255, 255] : [0, 0, 0, 255], i * 4);
+  [chooser] = await Promise.all([
+    page.waitForEvent('filechooser'),
+    page.getByTestId('custom-mask-load').click(),
+  ]);
+  await chooser.setFiles(file('half.png', Buffer.from(await encodePng(half, 40, 40))));
+  await expect(page.getByText('已讀入自訂遮罩。').first()).toBeVisible();
+  await expect.poll(async () => (await at(512 + Math.round(R * 0.3), 512))[3]).toBe(0);
+  expect((await at(512 - Math.round(R * 0.3), 512))[3]).toBe(255);
+  /* 拿掉自訂外框：回到單純 */
+  await page.getByRole('button', { name: '拿掉自訂外框' }).click();
+  d = await doc(page);
+  expect(d.look.frame).toBe('plain');
+  await page.getByRole('button', { name: '拿掉自訂遮罩' }).click();
+  /* 參考輪廓：提示層有青色的剪影，匯出不受影響（和關掉時的匯出一模一樣） */
+  const plain = await downloadPng(page);
+  await tab(page, '圖片').click();
+  await page.getByRole('button', { name: '參考輪廓' }).click();
+  await page.getByTestId('ref-kind').click();
+  await page.getByRole('option', { name: '頭肩' }).click();
+  await page.getByRole('radio', { name: '中心十字' }).click();
+  const cyan = await page.getByTestId('token-overlay').evaluate((el) => {
+    const c = el as HTMLCanvasElement;
+    const p =
+      c.getContext('2d')?.getImageData(0, 0, c.width, c.height).data ?? new Uint8ClampedArray();
+    let n = 0;
+    for (let i = 0; i < p.length; i += 4) if (p[i + 3] > 20 && p[i + 2] > p[i] + 40) n++;
+    return n;
+  });
+  expect(cyan).toBeGreaterThan(5000);
+  const withRef = await downloadPng(page);
+  expect(Buffer.from(withRef.png.bytes).equals(Buffer.from(plain.png.bytes))).toBe(true);
+  expect(errors).toEqual([]);
+});
+
 test('390 寬沒有橫向捲動；視覺基準 1280／390', async ({ page }) => {
   const errors = await open(page);
   await loadImage(page, await heroPng());
@@ -534,7 +922,7 @@ test('390 寬沒有橫向捲動；視覺基準 1280／390', async ({ page }) => 
   await noHorizontalScroll(page);
   await page.mouse.move(0, 0);
   await expect(page).toHaveScreenshot('token-maker-390.png', { fullPage: true });
-  for (const t of ['出框', '外框', '匯出'] as const) {
+  for (const t of ['出框', '外框', '名字', '效果', '匯出'] as const) {
     await tab(page, t).click();
     await noHorizontalScroll(page);
   }

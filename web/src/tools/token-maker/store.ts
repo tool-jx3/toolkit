@@ -26,13 +26,17 @@ import {
   type MaskRef,
   newToken,
   nextTokenId,
+  normalizeLook,
   normalizeState,
   RANGES,
   rotateView,
+  TOKEN_MAX,
   type TokenItem,
   type TokenView,
   zoomViewAt,
 } from './model';
+import { type LookPreset, PRESET_MAX, PRESET_NAME_MAX } from './presets';
+import type { Guides, RefKind } from './reference';
 import { assets, boundaryOf, peekImageWork, peekMask, putMask, TOOL_ID } from './sources';
 import type { TabId, ToolId } from './strings';
 
@@ -91,6 +95,11 @@ export function editCurrent(recipe: (t: TokenItem) => void): void {
 export function historyStep(kind: 'undo' | 'redo'): void {
   flushBurst();
   if (useDoc.inGesture() || useUi.getState().painting) return;
+  /* 遮罩還在存（剛畫完一筆、剛點完魔術棒）：存好再復原，不然會復原到前一步 */
+  if (pendingMasks > 0) {
+    void maskSaved.then(() => historyStep(kind));
+    return;
+  }
   const t = useDoc.temporal.getState();
   if (kind === 'undo') t.undo();
   else t.redo();
@@ -114,6 +123,19 @@ export interface Prefs {
   sizeChoice: number | 'custom';
   customSize: number;
   format: ExportFormat;
+  /** 把設定嵌進 PNG */
+  embed: boolean;
+  /** 編號組的張數 */
+  setCount: number;
+  /** 預設外觀：顯示範例、存的時候含輸出設定、我的預設 */
+  showExamples: boolean;
+  presetOutput: boolean;
+  myPresets: LookPreset[];
+  /** 參考輪廓：種類、不透明度 %、輔助線、自訂參考圖（資產 id） */
+  refKind: RefKind;
+  refOpacity: number;
+  guides: Guides;
+  refImage: string | null;
 }
 
 export const initialPrefs = (): Prefs => ({
@@ -128,7 +150,42 @@ export const initialPrefs = (): Prefs => ({
   sizeChoice: DEFAULT_SIZE,
   customSize: 300,
   format: 'png',
+  embed: true,
+  setCount: 4,
+  showExamples: true,
+  presetOutput: false,
+  myPresets: [],
+  refKind: 'off',
+  refOpacity: 40,
+  guides: 'off',
+  refImage: null,
 });
+
+const TAB_IDS: TabId[] = ['image', 'popout', 'frame', 'text', 'fx', 'export'];
+const REF_KINDS: RefKind[] = ['off', 'bust', 'head', 'body', 'profile', 'custom'];
+
+export function normalizeMyPresets(raw: unknown): LookPreset[] {
+  if (!Array.isArray(raw)) return [];
+  const out: LookPreset[] = [];
+  for (const p of raw) {
+    if (!p || typeof p !== 'object') continue;
+    const o = p as Record<string, unknown>;
+    if (typeof o.name !== 'string' || !o.name.trim() || typeof o.patch !== 'object' || !o.patch)
+      continue;
+    out.push({
+      id: typeof o.id === 'string' ? o.id : `mine-${out.length + 1}`,
+      name: o.name.trim().slice(0, PRESET_NAME_MAX),
+      kind: 'mine',
+      patch: normalizeLook(o.patch),
+      ...(o.output && typeof o.output === 'object'
+        ? { output: o.output as LookPreset['output'] }
+        : {}),
+      savedAt: typeof o.savedAt === 'number' ? o.savedAt : 0,
+    });
+    if (out.length >= PRESET_MAX) break;
+  }
+  return out;
+}
 
 export const usePrefs = createPreviewStore<Prefs>(TOOL_ID, initialPrefs());
 
@@ -136,7 +193,7 @@ export const usePrefs = createPreviewStore<Prefs>(TOOL_ID, initialPrefs());
   const p = usePrefs.getState().data;
   const d = initialPrefs();
   const fixed: Prefs = {
-    tab: (['image', 'popout', 'frame', 'export'] as TabId[]).includes(p.tab) ? p.tab : d.tab,
+    tab: TAB_IDS.includes(p.tab) ? p.tab : d.tab,
     tool: (['move', 'wand', 'brush'] as ToolId[]).includes(p.tool) ? p.tool : d.tool,
     mode: p.mode === 'sub' ? 'sub' : 'add',
     tolerance: clamp(Math.round(Number(p.tolerance) || d.tolerance), 1, 100),
@@ -154,6 +211,22 @@ export const usePrefs = createPreviewStore<Prefs>(TOOL_ID, initialPrefs());
       CUSTOM_SIZE.max,
     ),
     format: p.format === 'webp' ? 'webp' : 'png',
+    embed: p.embed !== false,
+    setCount: clamp(
+      Math.round(Number(p.setCount) || d.setCount),
+      RANGES.setCount.min,
+      RANGES.setCount.max,
+    ),
+    showExamples: p.showExamples !== false,
+    presetOutput: p.presetOutput === true,
+    myPresets: normalizeMyPresets(p.myPresets),
+    refKind:
+      REF_KINDS.includes(p.refKind) && (p.refKind !== 'custom' || typeof p.refImage === 'string')
+        ? p.refKind
+        : 'off',
+    refOpacity: clamp(Math.round(Number(p.refOpacity) || d.refOpacity), 5, 100),
+    guides: p.guides === 'cross' || p.guides === 'grid' ? p.guides : 'off',
+    refImage: typeof p.refImage === 'string' ? p.refImage : null,
   };
   if (JSON.stringify(fixed) !== JSON.stringify(p)) usePrefs.getState().replace(fixed);
 }
@@ -199,6 +272,8 @@ export interface UiState {
   lockedPad: number | null;
   /** 預覽下方的一行說明（魔術棒加入了多少…） */
   hint: string | null;
+  /** 自動配色按了幾次（每次換下一個候選） */
+  autoSeed: number;
 }
 
 export const useUi = create<UiState>(() => ({
@@ -210,6 +285,7 @@ export const useUi = create<UiState>(() => ({
   busy: null,
   lockedPad: null,
   hint: null,
+  autoSeed: 0,
 }));
 
 /** 目前的模式（按住 Alt 時反過來） */
@@ -249,26 +325,99 @@ export function setFrame(frame: FrameId): void {
 
 /* ---------- 棋子與圖片 ---------- */
 
-/** 放進一張新圖片：有目前的棋子就換掉它的圖片（擺放重設、遮罩清掉），沒有就新增一個棋子 */
-export function applyImage(ref: ImageRef): string {
-  const d = docNow();
-  const cur = currentToken(d);
-  if (cur) {
-    editToken(cur.id, (t) => {
-      t.image = { ...ref };
-      t.view = defaultView();
-      t.mask = null;
-      t.popOn = true;
-    });
-    useUi.setState({ wand: null });
-    return cur.id;
-  }
-  const id = nextTokenId(d.tokens);
-  edit((x) => {
-    x.tokens.push(newToken(id, { ...ref }));
-    x.current = id;
+/** 換掉一個棋子的圖片（擺放重設、遮罩清掉、顯示出框打開） */
+export function replaceImage(tokenId: string, ref: ImageRef): void {
+  editToken(tokenId, (t) => {
+    t.image = { ...ref };
+    t.view = defaultView();
+    t.mask = null;
+    t.popOn = true;
   });
-  return id;
+  useUi.setState({ wand: null });
+}
+
+/** 加入棋子（每張圖一個；一步復原）；選取第一個新的。回傳新的 id */
+export function addTokens(list: readonly Partial<TokenItem>[]): string[] {
+  const d = docNow();
+  const room = Math.max(0, TOKEN_MAX - d.tokens.length);
+  const ids: string[] = [];
+  const all = [...d.tokens];
+  for (const item of list.slice(0, room)) {
+    const id = nextTokenId(all);
+    const t: TokenItem = { ...newToken(id, item.image ?? null), ...item, id };
+    all.push(t);
+    ids.push(id);
+  }
+  if (!ids.length) return ids;
+  edit((x) => {
+    x.tokens = all.map((t) => (x.tokens.find((o) => o.id === t.id) ?? t) as TokenItem);
+    x.current = ids[0];
+  });
+  useUi.setState({ wand: null });
+  return ids;
+}
+
+export function selectToken(id: string | null): void {
+  if (docNow().current === id) return;
+  flushBurst();
+  /* 切換棋子不算一步復原 */
+  useDoc.temporal.getState().pause();
+  useDoc.getState().update((d) => {
+    d.current = id;
+  });
+  useDoc.temporal.getState().resume();
+  useUi.setState({ wand: null, liveMask: null });
+}
+
+export function removeToken(id: string): void {
+  edit((d) => {
+    const i = d.tokens.findIndex((t) => t.id === id);
+    if (i < 0) return;
+    d.tokens.splice(i, 1);
+    if (d.current === id) d.current = d.tokens[Math.min(i, d.tokens.length - 1)]?.id ?? null;
+  });
+  useUi.setState({ wand: null });
+}
+
+export function clearTokens(): void {
+  edit((d) => {
+    d.tokens = [];
+    d.current = null;
+  });
+  useUi.setState({ wand: null, liveMask: null });
+}
+
+export function moveToken(from: number, to: number): void {
+  edit((d) => {
+    const [t] = d.tokens.splice(from, 1);
+    if (t) d.tokens.splice(to, 0, t);
+  });
+}
+
+/* ---------- 自訂外框與遮罩 ---------- */
+
+export function setCustomFrame(ref: ImageRef | null, inner?: number): void {
+  edit((d) => {
+    d.custom.frame = ref;
+    if (ref) {
+      d.look.frame = 'custom';
+      if (inner !== undefined) d.look.customInner = inner;
+    } else if (d.look.frame === 'custom') d.look.frame = 'plain';
+  });
+}
+
+export function setCustomMask(ref: ImageRef | null): void {
+  edit((d) => {
+    d.custom.mask = ref;
+  });
+}
+
+/* ---------- 預設外觀 ---------- */
+
+export function applyLookPatch(next: Look): void {
+  edit((d) => {
+    d.look = next.frame === 'custom' && !d.custom.frame ? { ...next, frame: 'plain' } : next;
+  });
 }
 
 /* ---------- 擺放 ---------- */
@@ -347,14 +496,28 @@ export function keyRotate(delta: number): void {
 /* ---------- 遮罩 ---------- */
 
 /** 換掉一個棋子的遮罩（先存進資產庫，再寫進狀態＝一步復原）；回傳新的遮罩 id */
-export async function commitMask(tokenId: string, mask: Mask | null): Promise<string | null> {
-  const r = mask ? await putMask(mask) : null;
-  editToken(tokenId, (t) => {
-    t.mask = r ? r.ref : null;
-    if (r) t.popOn = true;
-  });
-  return r?.ref.id ?? null;
+export function commitMask(tokenId: string, mask: Mask | null): Promise<string | null> {
+  const job = (async () => {
+    const r = mask ? await putMask(mask) : null;
+    editToken(tokenId, (t) => {
+      t.mask = r ? r.ref : null;
+      if (r) t.popOn = true;
+    });
+    return r?.ref.id ?? null;
+  })();
+  pendingMasks++;
+  const done = job
+    .catch(() => null)
+    .finally(() => {
+      pendingMasks--;
+    });
+  maskSaved = Promise.all([maskSaved, done]);
+  return job;
 }
+
+/** 還在存的遮罩數（復原要等它們存好） */
+let pendingMasks = 0;
+let maskSaved: Promise<unknown> = Promise.resolve();
 
 /* ---------- 連續動作（滾輪、方向鍵）合成一步 ---------- */
 
@@ -388,11 +551,17 @@ export function flushBurst(): void {
 
 /* ---------- 資產 ---------- */
 
-export const docAssetIds = (d: DocState): string[] =>
-  d.tokens.flatMap((t) => [t.image?.id, t.mask?.id].filter((x): x is string => !!x));
+export const docAssetIds = (d: DocState): string[] => [
+  ...d.tokens.flatMap((t) => [t.image?.id, t.mask?.id].filter((x): x is string => !!x)),
+  ...[d.custom.frame?.id, d.custom.mask?.id].filter((x): x is string => !!x),
+];
 
+/** 目前的狀態、復原紀錄、參考圖用到的圖（開頁的整理時保留） */
 export function referencedImages(): Set<string> {
-  return referencedAssetIds(useDoc, docAssetIds);
+  const ids = referencedAssetIds(useDoc, docAssetIds);
+  const ref = prefsNow().refImage;
+  if (ref) ids.add(ref);
+  return ids;
 }
 
 export { assets };

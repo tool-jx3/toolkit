@@ -1015,6 +1015,8 @@ export const FRAMES: Record<FrameId, FrameDef> = {
     polyCorners(k, 'diamond', k.w / 2, 0.2, Math.max(1, k.w * 0.22), k.accFill);
   }),
   none: neon('none', 'circle', () => {}, 0),
+  /* 自訂外框：圖由繪製時另外畫（render.ts），開口依「開口半徑」 */
+  custom: { id: 'custom', group: 'neon', shape: 'circle', cut: 0, accent: 'none', draw: () => {} },
 };
 
 export const frameDef = (id: FrameId): FrameDef => FRAMES[id] ?? FRAMES.plain;

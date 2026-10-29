@@ -8,6 +8,7 @@
  */
 import { normalizeHex } from '@/core/color';
 import { safeFileName } from '@/core/files';
+import type { FontValue } from '@/core/fonts';
 
 /* ---------- 外框 ---------- */
 
@@ -47,8 +48,10 @@ export const NEON_FRAMES = [
   'none',
 ] as const;
 
-export type FrameId = (typeof RELIEF_FRAMES)[number] | (typeof NEON_FRAMES)[number];
-export const FRAME_IDS: readonly FrameId[] = [...RELIEF_FRAMES, ...NEON_FRAMES];
+export type BuiltinFrameId = (typeof RELIEF_FRAMES)[number] | (typeof NEON_FRAMES)[number];
+/** 'custom'＝自訂外框（讀進來的 PNG；第二批） */
+export type FrameId = BuiltinFrameId | 'custom';
+export const FRAME_IDS: readonly BuiltinFrameId[] = [...RELIEF_FRAMES, ...NEON_FRAMES];
 
 export type TextureId = 'none' | 'stone' | 'scratched' | 'hammered' | 'wood' | 'liquid' | 'energy';
 export const TEXTURE_IDS: readonly TextureId[] = [
@@ -171,7 +174,82 @@ export interface Look {
   /** 出框的柔邊（遮罩 px）與陰影（%） */
   feather: number;
   shadow: number;
+  /** 自訂外框的開口半徑（外半徑的 %；讀入時自動偵測） */
+  customInner: number;
+  /* ---- 名字與徽章（eidolon-ui） ---- */
+  labelOn: boolean;
+  labelStyle: LabelStyle;
+  plateFrom: ColorSource;
+  plateColor: string;
+  labelFrom: ColorSource;
+  labelColor: string;
+  badgeOn: boolean;
+  badgeFrom: ColorSource;
+  badgeColor: string;
+  badgeTextFrom: ColorSource | 'auto';
+  badgeTextColor: string;
+  /** 名字、徽章的中心：離棋子中心的位移（R 為單位）；弧形文字只用方向 */
+  labelX: number;
+  labelY: number;
+  badgeX: number;
+  badgeY: number;
+  font: FontValue;
+  /* ---- 效果（所有棋子共用） ---- */
+  fx: Fx;
 }
+
+export type LabelStyle = 'plate' | 'arc';
+/** 名字牌、徽章的顏色從哪裡來：外框色、第二色、背景色、自訂 */
+export type ColorSource = 'frame' | 'accent' | 'bg' | 'custom';
+export const COLOR_SOURCES: readonly ColorSource[] = ['frame', 'accent', 'bg', 'custom'];
+
+export type ToneMode = 'none' | 'mono' | 'neon' | 'holo';
+export const TONE_MODES: readonly ToneMode[] = ['none', 'mono', 'neon', 'holo'];
+
+/** 效果（eidolon-ui 的 FX）：總開關＋各自的開關與設定 */
+export interface Fx {
+  on: boolean;
+  tone: ToneMode;
+  toneMix: number;
+  glitch: boolean;
+  glitchAmt: number;
+  glitchSeed: number;
+  rgb: boolean;
+  rgbAmt: number;
+  grain: boolean;
+  grainAmt: number;
+  vig: boolean;
+  vigColor: string;
+  vigAmt: number;
+  scan: boolean;
+  scanAmt: number;
+  scanGap: number;
+}
+
+export const DEFAULT_FX: Readonly<Fx> = Object.freeze({
+  on: false,
+  tone: 'none',
+  toneMix: 100,
+  glitch: false,
+  glitchAmt: 40,
+  glitchSeed: 1,
+  rgb: false,
+  rgbAmt: 4,
+  grain: false,
+  grainAmt: 25,
+  vig: false,
+  vigColor: '#000000',
+  vigAmt: 60,
+  scan: false,
+  scanAmt: 30,
+  scanGap: 4,
+} satisfies Fx);
+
+export const DEFAULT_FONT_VALUE: Readonly<FontValue> = Object.freeze({
+  source: 'google',
+  family: 'Noto Sans TC',
+  weight: 900,
+} satisfies FontValue);
 
 export const DEFAULT_LOOK: Readonly<Look> = Object.freeze({
   frame: 'plain',
@@ -203,6 +281,24 @@ export const DEFAULT_LOOK: Readonly<Look> = Object.freeze({
   margin: 8,
   feather: 0.5,
   shadow: 0,
+  customInner: 78,
+  labelOn: false,
+  labelStyle: 'plate',
+  plateFrom: 'frame',
+  plateColor: '#00f0ff',
+  labelFrom: 'custom',
+  labelColor: '#050507',
+  badgeOn: true,
+  badgeFrom: 'accent',
+  badgeColor: '#fcee0a',
+  badgeTextFrom: 'auto',
+  badgeTextColor: '#050507',
+  labelX: 0,
+  labelY: 0.8,
+  badgeX: 0.74,
+  badgeY: 0.74,
+  font: DEFAULT_FONT_VALUE,
+  fx: DEFAULT_FX,
 } satisfies Look);
 
 /** 數值的範圍（滑桿與讀檔時的夾值） */
@@ -223,6 +319,17 @@ export const RANGES = {
   rotate: { min: -180, max: 180, step: 1 },
   tolerance: { min: 1, max: 100, step: 1 },
   brush: { min: 2, max: 40, step: 1 },
+  customInner: { min: 30, max: 100, step: 1 },
+  adjust: { min: 0, max: 200, step: 1 },
+  hue: { min: -180, max: 180, step: 1 },
+  toneMix: { min: 0, max: 100, step: 1 },
+  glitchAmt: { min: 0, max: 100, step: 1 },
+  rgbAmt: { min: 1, max: 16, step: 1 },
+  grainAmt: { min: 0, max: 100, step: 1 },
+  vigAmt: { min: 0, max: 100, step: 1 },
+  scanAmt: { min: 0, max: 100, step: 1 },
+  scanGap: { min: 2, max: 12, step: 1 },
+  setCount: { min: 2, max: 99, step: 1 },
 } as const;
 
 /* ---------- 棋子 ---------- */
@@ -258,8 +365,29 @@ export interface TokenItem {
   mask: MaskRef | null;
   /** 顯示出框 */
   popOn: boolean;
-  /** 名稱（檔名） */
+  /** 名稱（檔名、名字牌） */
   name: string;
+  /** 徽章（數字、字母，最多 4 字） */
+  badge: string;
+  /** 色彩調整（亮度、對比、飽和度 %，色相 度） */
+  adjust: Adjust;
+}
+
+export interface Adjust {
+  bright: number;
+  contrast: number;
+  sat: number;
+  hue: number;
+}
+
+export const defaultAdjust = (): Adjust => ({ bright: 100, contrast: 100, sat: 100, hue: 0 });
+export const isDefaultAdjust = (a: Adjust): boolean =>
+  a.bright === 100 && a.contrast === 100 && a.sat === 100 && !a.hue;
+
+/** 自訂外框、自訂遮罩（讀進來的圖；存在資產庫） */
+export interface CustomAssets {
+  frame: ImageRef | null;
+  mask: ImageRef | null;
 }
 
 export interface DocState {
@@ -267,7 +395,11 @@ export interface DocState {
   tokens: TokenItem[];
   /** 目前的棋子 */
   current: string | null;
+  custom: CustomAssets;
 }
+
+export const BADGE_MAX = 4;
+export const NAME_MAX = 40;
 
 export const IMAGE_MAX_SIDE = 2048;
 export const MASK_MAX_SIDE = 1024;
@@ -277,13 +409,29 @@ export const PREVIEW_SIZE = 1024;
 export const defaultView = (): TokenView => ({ x: 0, y: 0, zoom: 1, rotate: 0, flip: false });
 
 export function newToken(id: string, image: ImageRef | null = null): TokenItem {
-  return { id, image, view: defaultView(), mask: null, popOn: true, name: '' };
+  return {
+    id,
+    image,
+    view: defaultView(),
+    mask: null,
+    popOn: true,
+    name: '',
+    badge: '',
+    adjust: defaultAdjust(),
+  };
 }
 
+export const initialLook = (): Look => ({
+  ...DEFAULT_LOOK,
+  font: { ...DEFAULT_LOOK.font },
+  fx: { ...DEFAULT_LOOK.fx },
+});
+
 export const initialState = (): DocState => ({
-  look: { ...DEFAULT_LOOK },
+  look: initialLook(),
   tokens: [],
   current: null,
+  custom: { frame: null, mask: null },
 });
 
 export function nextTokenId(used: readonly { id: string }[]): string {
@@ -459,6 +607,58 @@ export function tokenFileName(
   return `${base}_${N}.${format}`;
 }
 
+const p2 = (n: number) => String(n).padStart(2, '0');
+
+/** 時間戳（YYYYMMDD-HHmm）：全部打包的 ZIP 名稱 */
+export function stamp(d = new Date()): string {
+  return `${d.getFullYear()}${p2(d.getMonth() + 1)}${p2(d.getDate())}-${p2(d.getHours())}${p2(d.getMinutes())}`;
+}
+
+/** 編號組裡第 k 張的檔名（編號補零到 n 的位數） */
+export function setFileName(
+  token: Pick<TokenItem, 'name' | 'image'>,
+  k: number,
+  n: number,
+  N: number,
+  format: ExportFormat,
+): string {
+  const base = safeFileName(tokenBaseName(token), { fallback: '棋子', maxLength: 60 });
+  return `${base}_${String(k).padStart(String(n).length, '0')}_${N}.${format}`;
+}
+
+export function setZipName(token: Pick<TokenItem, 'name' | 'image'>, n: number, N: number): string {
+  const base = safeFileName(tokenBaseName(token), { fallback: '棋子', maxLength: 60 });
+  return `${base}_編號組${n}_${N}.zip`;
+}
+
+export const allZipName = (N: number, d = new Date()): string => `棋子_${stamp(d)}_${N}.zip`;
+
+export interface ZipJob {
+  token: TokenItem;
+  badge?: string | null;
+  name: string;
+}
+
+/** 名單裡的每個棋子各一張 */
+export function zipAllJobs(
+  tokens: readonly TokenItem[],
+  N: number,
+  format: ExportFormat,
+): ZipJob[] {
+  return tokens
+    .filter((t) => t.image)
+    .map((t) => ({ token: t, name: tokenFileName(t, N, format) }));
+}
+
+/** 編號組：同一個棋子 × n，徽章 1～n */
+export function setJobs(token: TokenItem, n: number, N: number, format: ExportFormat): ZipJob[] {
+  return Array.from({ length: n }, (_, i) => ({
+    token,
+    badge: String(i + 1),
+    name: setFileName(token, i + 1, n, N, format),
+  }));
+}
+
 /* ---------- 讀檔時的整理 ---------- */
 
 const isObj = (v: unknown): v is Record<string, unknown> =>
@@ -474,11 +674,44 @@ const ranged = (v: unknown, r: { min: number; max: number }, fallback: number): 
   return n === undefined ? fallback : clamp(n, r.min, r.max);
 };
 
+const bool = (v: unknown, fallback: boolean): boolean => (typeof v === 'boolean' ? v : fallback);
+
+export function normalizeFx(raw: unknown): Fx {
+  const d = isObj(raw) ? raw : {};
+  const D = DEFAULT_FX;
+  return {
+    on: bool(d.on, D.on),
+    tone: pick(d.tone, TONE_MODES, D.tone),
+    toneMix: ranged(d.toneMix, RANGES.toneMix, D.toneMix),
+    glitch: bool(d.glitch, D.glitch),
+    glitchAmt: ranged(d.glitchAmt, RANGES.glitchAmt, D.glitchAmt),
+    glitchSeed: Math.round(ranged(d.glitchSeed, { min: 1, max: 1e9 }, D.glitchSeed)),
+    rgb: bool(d.rgb, D.rgb),
+    rgbAmt: ranged(d.rgbAmt, RANGES.rgbAmt, D.rgbAmt),
+    grain: bool(d.grain, D.grain),
+    grainAmt: ranged(d.grainAmt, RANGES.grainAmt, D.grainAmt),
+    vig: bool(d.vig, D.vig),
+    vigColor: color(d.vigColor, D.vigColor),
+    vigAmt: ranged(d.vigAmt, RANGES.vigAmt, D.vigAmt),
+    scan: bool(d.scan, D.scan),
+    scanAmt: ranged(d.scanAmt, RANGES.scanAmt, D.scanAmt),
+    scanGap: ranged(d.scanGap, RANGES.scanGap, D.scanGap),
+  };
+}
+
+function normalizeFont(raw: unknown): FontValue {
+  const d = isObj(raw) ? raw : {};
+  const src = d.source === 'local' || d.source === 'upload' ? d.source : 'google';
+  const family = typeof d.family === 'string' && d.family.trim() ? d.family.slice(0, 100) : '';
+  if (!family) return { ...DEFAULT_FONT_VALUE };
+  return { source: src, family, weight: Math.round(ranged(d.weight, { min: 100, max: 900 }, 900)) };
+}
+
 export function normalizeLook(raw: unknown): Look {
   const d = isObj(raw) ? raw : {};
   const D = DEFAULT_LOOK;
   return {
-    frame: pick(d.frame, FRAME_IDS, D.frame),
+    frame: d.frame === 'custom' ? 'custom' : pick(d.frame, FRAME_IDS, 'plain'),
     width: ranged(d.width, RANGES.width, D.width),
     count: Math.round(ranged(d.count, { min: 1, max: 120 }, D.count)),
     depth: ranged(d.depth, RANGES.depth, D.depth),
@@ -507,6 +740,35 @@ export function normalizeLook(raw: unknown): Look {
     margin: ranged(d.margin, RANGES.margin, D.margin),
     feather: ranged(d.feather, RANGES.feather, D.feather),
     shadow: ranged(d.shadow, RANGES.shadow, D.shadow),
+    customInner: ranged(d.customInner, RANGES.customInner, D.customInner),
+    labelOn: bool(d.labelOn, D.labelOn),
+    labelStyle: d.labelStyle === 'arc' ? 'arc' : 'plate',
+    plateFrom: pick(d.plateFrom, COLOR_SOURCES, D.plateFrom),
+    plateColor: color(d.plateColor, D.plateColor),
+    labelFrom: pick(d.labelFrom, COLOR_SOURCES, D.labelFrom),
+    labelColor: color(d.labelColor, D.labelColor),
+    badgeOn: bool(d.badgeOn, D.badgeOn),
+    badgeFrom: pick(d.badgeFrom, COLOR_SOURCES, D.badgeFrom),
+    badgeColor: color(d.badgeColor, D.badgeColor),
+    badgeTextFrom:
+      d.badgeTextFrom === 'auto' ? 'auto' : pick(d.badgeTextFrom, COLOR_SOURCES, 'auto'),
+    badgeTextColor: color(d.badgeTextColor, D.badgeTextColor),
+    labelX: ranged(d.labelX, { min: -1.2, max: 1.2 }, D.labelX),
+    labelY: ranged(d.labelY, { min: -1.2, max: 1.2 }, D.labelY),
+    badgeX: ranged(d.badgeX, { min: -1.2, max: 1.2 }, D.badgeX),
+    badgeY: ranged(d.badgeY, { min: -1.2, max: 1.2 }, D.badgeY),
+    font: normalizeFont(d.font),
+    fx: normalizeFx(d.fx),
+  };
+}
+
+export function normalizeAdjust(raw: unknown): Adjust {
+  const d = isObj(raw) ? raw : {};
+  return {
+    bright: ranged(d.bright, RANGES.adjust, 100),
+    contrast: ranged(d.contrast, RANGES.adjust, 100),
+    sat: ranged(d.sat, RANGES.adjust, 100),
+    hue: ranged(d.hue, RANGES.hue, 0),
   };
 }
 
@@ -558,7 +820,9 @@ export function normalizeToken(raw: unknown, used: Set<string>): TokenItem | nul
     view: normalizeView(raw.view),
     mask: image ? normalizeMask(raw.mask) : null,
     popOn: typeof raw.popOn === 'boolean' ? raw.popOn : true,
-    name: typeof raw.name === 'string' ? raw.name.slice(0, 40) : '',
+    name: typeof raw.name === 'string' ? raw.name.slice(0, NAME_MAX) : '',
+    badge: typeof raw.badge === 'string' ? raw.badge.slice(0, BADGE_MAX) : '',
+    adjust: normalizeAdjust(raw.adjust),
   };
 }
 
@@ -575,5 +839,9 @@ export function normalizeState(raw: unknown): DocState {
     typeof d.current === 'string' && tokens.some((t) => t.id === d.current)
       ? d.current
       : (tokens[0]?.id ?? null);
-  return { look: normalizeLook(d.look), tokens, current };
+  const c = isObj(d.custom) ? d.custom : {};
+  const custom: CustomAssets = { frame: normalizeImage(c.frame), mask: normalizeImage(c.mask) };
+  const look = normalizeLook(d.look);
+  if (look.frame === 'custom' && !custom.frame) look.frame = 'plain';
+  return { look, tokens, current, custom };
 }

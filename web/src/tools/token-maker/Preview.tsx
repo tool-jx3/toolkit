@@ -10,6 +10,7 @@ import {
   useRef,
   useState,
 } from 'react';
+import { ensureFont } from '@/core/fonts';
 import { type BrushMode, StrokePainter } from '@/core/image';
 import {
   Button,
@@ -25,9 +26,11 @@ import {
   useToast,
 } from '@/ui';
 import { changeMask, retuneWand, runAuto, selectionText, wandAt } from './actions';
+import { badgeText, labelText, type OverlayKind, overlayAt, snapOverlay } from './labels';
 import { copyMask, emptyMask, type Mask, maskSizeFor } from './mask';
 import {
   clamp,
+  type Geom,
   geom,
   type ImageTransform,
   PREVIEW_SIZE,
@@ -37,12 +40,20 @@ import {
   tokenToImage,
   zoomViewAt,
 } from './model';
-import { drawOverlay } from './overlay';
-import { renderToken } from './render';
-import { hardMaskCanvas, peekMask, softMaskCanvas, useTokenData } from './sources';
+import { drawOverlay, type OverlayInput } from './overlay';
+import { type Drawable, renderToken } from './render';
+import {
+  hardMaskCanvas,
+  peekMask,
+  softMaskCanvas,
+  useCustomData,
+  useRefImage,
+  useTokenData,
+} from './sources';
 import {
   commitMask,
   currentToken,
+  editLook,
   effectiveMode,
   gesture,
   setPrefs,
@@ -60,6 +71,22 @@ import { onTextureReady, requestTexture } from './textures';
 
 type AnyCanvas = HTMLCanvasElement | OffscreenCanvas;
 const N = PREVIEW_SIZE;
+
+/** 預覽的繪製結果（操作層換算座標用） */
+interface DrawInfo {
+  t: ImageTransform | null;
+  R: number;
+  g: Geom;
+}
+
+type SnapInfo = OverlayInput['snap'];
+
+/** 量名字牌、弧形文字大小用的畫布（點選名字時） */
+let measureCtx: CanvasRenderingContext2D | null = null;
+function measure(): CanvasRenderingContext2D | null {
+  if (!measureCtx) measureCtx = document.createElement('canvas').getContext('2d');
+  return measureCtx;
+}
 
 /** 正在畫的一筆：遮罩的複本＋共用的筆刷（只更新畫到的範圍） */
 class LivePaint {
@@ -123,15 +150,46 @@ export function Preview({ onPick }: { onPick: () => void }) {
   const wand = useUi((s) => s.wand);
   const space = useUi((s) => s.space);
   const data = useTokenData(token?.image ?? null, token?.mask ?? null);
+  const custom = useDoc((s) => s.data.custom);
+  const customFrameId = look.frame === 'custom' ? (custom.frame?.id ?? null) : null;
+  const cdata = useCustomData(customFrameId, custom.mask?.id ?? null);
+  const refKind = usePrefs((s) => s.data.refKind);
+  const refOpacity = usePrefs((s) => s.data.refOpacity);
+  const guides = usePrefs((s) => s.data.guides);
+  const refImageId = usePrefs((s) => s.data.refImage);
+  const refImage = useRefImage(refKind === 'custom' ? refImageId : null);
   const [paintTick, setPaintTick] = useState(0);
   const [texTick, setTexTick] = useState(0);
+  const [fontTick, setFontTick] = useState(0);
   const paint = useRef<LivePaint | null>(null);
   const main = useRef<HTMLCanvasElement>(null);
   const over = useRef<HTMLCanvasElement>(null);
   const cursor = useRef<{ x: number; y: number } | null>(null);
-  const info = useRef<{ t: ImageTransform | null; R: number }>({ t: null, R: N / 2 });
+  const snap = useRef<SnapInfo>(null);
+  const info = useRef<DrawInfo>({ t: null, R: N / 2, g: geom(N, 0) });
+  /** 提示層要用、但不在 store 裡的東西 */
+  const extras = useRef<{ customMask: Drawable | null; refImage: Drawable | null }>({
+    customMask: null,
+    refImage: null,
+  });
+  extras.current = { customMask: cdata.mask, refImage };
 
   useEffect(() => onTextureReady(() => setTexTick((t) => t + 1)), []);
+
+  /* 名字、徽章的字型：載好再重畫一次 */
+  const text = `${labelText(look, token)}${badgeText(look, token)}`;
+  useEffect(() => {
+    if (!text || !look.font.family) return;
+    let alive = true;
+    void ensureFont(look.font.family, look.font.weight, text)
+      .catch(() => false)
+      .then(() => {
+        if (alive) setFontTick((t) => t + 1);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [look.font.family, look.font.weight, text]);
 
   const liveMask = live && token && live.tokenId === token.id ? live.mask : null;
   const mask = liveMask ?? data.mask;
@@ -140,7 +198,7 @@ export function Preview({ onPick }: { onPick: () => void }) {
   const ready = data.status === 'ready';
 
   /* 主畫布：和匯出同一段繪製 */
-  // biome-ignore lint/correctness/useExhaustiveDependencies: paintTick、texTick 讓正在畫的一筆、產生好的質感重畫
+  // biome-ignore lint/correctness/useExhaustiveDependencies: paintTick、texTick、fontTick 讓正在畫的一筆、產生好的質感、載好的字型重畫
   useEffect(() => {
     const ctx = main.current?.getContext('2d');
     if (!ctx) return;
@@ -159,11 +217,14 @@ export function Preview({ onPick }: { onPick: () => void }) {
         size: token?.image ?? null,
         popMask,
         texture: requestTexture(look.texture, look.texSeed),
+        customFrame: cdata.frame,
+        customFrameId,
+        customMask: cdata.mask,
       },
     );
-    info.current = { t: r.transform, R: r.geom.R };
+    info.current = { t: r.transform, R: r.geom.R, g: r.geom };
     drawHints();
-  }, [look, token, data.work, mask, pad, paintTick, texTick]);
+  }, [look, token, data.work, mask, pad, paintTick, texTick, fontTick, cdata.frame, cdata.mask]);
 
   /** 提示層（選取、被藏起來的部分、筆刷圓圈）：游標移動時只重畫這一層 */
   const drawHints = useCallback(() => {
@@ -178,7 +239,7 @@ export function Preview({ onPick }: { onPick: () => void }) {
     const m = lv ?? (tk?.mask ? maskOf(tk) : null);
     const selection: AnyCanvas | null =
       p && tk && p.tokenId === tk.id ? p.canvas : m ? hardMaskCanvas(m) : null;
-    const g = geom(N, ui.lockedPad ?? tokenPad(s.look, tk));
+    const g = info.current.g;
     const c = cursor.current;
     const seed = ui.wand && tk && ui.wand.tokenId === tk.id ? ui.wand : null;
     let wandPoint: { x: number; y: number } | null = null;
@@ -215,6 +276,14 @@ export function Preview({ onPick }: { onPick: () => void }) {
               erase: effectiveMode() === 'sub',
             }
           : null,
+      customMask: extras.current.customMask,
+      ref: {
+        kind: prefs.refKind,
+        image: extras.current.refImage,
+        opacity: prefs.refOpacity,
+        guides: prefs.guides,
+      },
+      snap: snap.current,
     });
   }, [data.work]);
 
@@ -223,7 +292,7 @@ export function Preview({ onPick }: { onPick: () => void }) {
   // biome-ignore lint/correctness/useExhaustiveDependencies: 這些改變時重畫提示層
   useEffect(() => {
     drawHints();
-  }, [tool, showOutline, alt, space, wand, drawHints]);
+  }, [tool, showOutline, alt, space, wand, drawHints, refKind, refOpacity, guides, refImage]);
 
   return (
     <div className="flex min-w-0 flex-col gap-2">
@@ -252,6 +321,7 @@ export function Preview({ onPick }: { onPick: () => void }) {
               info={info}
               paint={paint}
               cursor={cursor}
+              snap={snap}
               onPaint={() => setPaintTick((t) => t + 1)}
               onHover={drawHints}
             />
@@ -481,10 +551,12 @@ function StatusLine({ token, mask }: { token: TokenItem | null; mask: Mask | nul
 /* ---------- 操作層 ---------- */
 
 interface DragState {
-  kind: 'pan' | 'pinch' | 'paint';
+  kind: 'pan' | 'pinch' | 'paint' | 'overlay';
   tokenId: string;
   start: TokenView;
   cur: TokenView;
+  /** 拖曳的是名字或徽章 */
+  which?: OverlayKind;
 }
 
 function InteractionLayer({
@@ -493,14 +565,16 @@ function InteractionLayer({
   info,
   paint,
   cursor,
+  snap,
   onPaint,
   onHover,
 }: {
   token: TokenItem;
   ready: boolean;
-  info: React.RefObject<{ t: ImageTransform | null; R: number }>;
+  info: React.RefObject<DrawInfo>;
   paint: React.RefObject<LivePaint | null>;
   cursor: React.RefObject<{ x: number; y: number } | null>;
+  snap: React.RefObject<SnapInfo>;
   onPaint: () => void;
   onHover: () => void;
 }) {
@@ -509,6 +583,19 @@ function InteractionLayer({
   const drag = useRef<DragState | null>(null);
   const tool = usePrefs((s) => s.data.tool);
   const space = useUi((s) => s.space);
+  const [overOverlay, setOverOverlay] = useState(false);
+
+  /** 指標下是名字還是徽章（移動工具時才拖得動） */
+  const overlayHit = useCallback(
+    (px: number, py: number): OverlayKind | null => {
+      const ctx = measure();
+      if (!ctx) return null;
+      const s = useDoc.getState().data;
+      const tk = s.tokens.find((t) => t.id === token.id) ?? null;
+      return overlayAt(ctx, info.current.g, s.look, tk, px, py);
+    },
+    [info, token.id],
+  );
 
   const local = useCallback((clientX: number, clientY: number) => {
     const r = el.current?.getBoundingClientRect();
@@ -537,8 +624,12 @@ function InteractionLayer({
     if (d.kind === 'pan' || d.kind === 'pinch') {
       gesture.commit();
       useUi.setState({ lockedPad: null });
+    } else if (d.kind === 'overlay') {
+      gesture.commit();
+      snap.current = null;
+      onHover();
     }
-  }, []);
+  }, [snap, onHover]);
 
   const finishPaint = useCallback(async () => {
     const p = paint.current;
@@ -611,8 +702,14 @@ function InteractionLayer({
     const view = useDoc.getState().data.tokens.find((t) => t.id === token.id)?.view ?? token.view;
     const pad = useUi.getState().lockedPad ?? tokenPad(useDoc.getState().data.look, token);
     if (g.current.count() === 2) {
-      /* 第二指：改成捏合縮放（畫到一半的一筆作廢） */
+      /* 第二指：改成捏合縮放（畫到一半的一筆作廢、拖到一半的名字放下） */
       if (drag.current?.kind === 'paint') cancelPaint();
+      if (drag.current?.kind === 'overlay') {
+        gesture.commit();
+        snap.current = null;
+        drag.current = null;
+        onHover();
+      }
       if (!drag.current || drag.current.kind === 'paint') {
         gesture.begin();
         useUi.setState({ lockedPad: pad });
@@ -622,7 +719,23 @@ function InteractionLayer({
       return;
     }
     const prefs = usePrefs.getState().data;
-    const panning = prefs.tool === 'move' || useUi.getState().space || e.button === 1;
+    const spaceDown = useUi.getState().space;
+    if (prefs.tool === 'move' && !spaceDown && e.button === 0) {
+      const which = overlayHit(p.x, p.y);
+      if (which) {
+        gesture.begin();
+        const l = useDoc.getState().data.look;
+        snap.current = {
+          which,
+          style: l.labelStyle,
+          at: which === 'badge' ? [l.badgeX, l.badgeY] : [l.labelX, l.labelY],
+        };
+        drag.current = { kind: 'overlay', tokenId: token.id, start: view, cur: view, which };
+        onHover();
+        return;
+      }
+    }
+    const panning = prefs.tool === 'move' || spaceDown || e.button === 1;
     if (panning) {
       gesture.begin();
       useUi.setState({ lockedPad: pad });
@@ -647,7 +760,37 @@ function InteractionLayer({
     const s = g.current.move(e.pointerId, e.clientX, e.clientY);
     const d = drag.current;
     if (!s || !d) {
-      if (usePrefs.getState().data.tool === 'brush') onHover();
+      const t = usePrefs.getState().data.tool;
+      if (t === 'brush') onHover();
+      else if (t === 'move' && !useUi.getState().space) {
+        const hit = !!overlayHit(p.x, p.y);
+        if (hit !== overOverlay) setOverOverlay(hit);
+      }
+      return;
+    }
+    if (d.kind === 'overlay' && d.which) {
+      const gm = info.current.g;
+      const which = d.which;
+      const style = useDoc.getState().data.look.labelStyle;
+      const [x, y] = snapOverlay(
+        which,
+        style,
+        (p.x - gm.c) / gm.R,
+        (p.y - gm.c) / gm.R,
+        useUi.getState().alt || e.altKey,
+      );
+      const r4 = (v: number) => Math.round(clamp(v, -1.2, 1.2) * 1e4) / 1e4;
+      editLook((l) => {
+        if (which === 'badge') {
+          l.badgeX = r4(x);
+          l.badgeY = r4(y);
+        } else {
+          l.labelX = r4(x);
+          l.labelY = r4(y);
+        }
+      });
+      snap.current = { which, style, at: [r4(x), r4(y)] };
+      onHover();
       return;
     }
     const Rs = info.current.R / p.k;
@@ -735,9 +878,11 @@ function InteractionLayer({
 
   const cursorStyle =
     space || tool === 'move'
-      ? drag.current
-        ? 'grabbing'
-        : 'grab'
+      ? drag.current?.kind === 'overlay' || (!space && overOverlay)
+        ? 'move'
+        : drag.current
+          ? 'grabbing'
+          : 'grab'
       : tool === 'brush'
         ? 'none'
         : 'crosshair';

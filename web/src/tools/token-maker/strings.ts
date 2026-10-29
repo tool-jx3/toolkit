@@ -1,15 +1,20 @@
 /** VTT 棋子產生器的介面文字（台灣繁體中文） */
-import type { FrameId, GlowMode, TextureId } from './model';
+import type { ColorSource, FrameId, GlowMode, LabelStyle, TextureId, ToneMode } from './model';
+import type { Guides, RefShape } from './reference';
 
-export type TabId = 'image' | 'popout' | 'frame' | 'export';
+export type TabId = 'image' | 'popout' | 'frame' | 'text' | 'fx' | 'export';
 export type ToolId = 'move' | 'wand' | 'brush';
 
 export const S = {
   tabsLabel: '設定分類',
-  tabs: { image: '圖片', popout: '出框', frame: '外框', export: '匯出' } satisfies Record<
-    TabId,
-    string
-  >,
+  tabs: {
+    image: '圖片',
+    popout: '出框',
+    frame: '外框',
+    text: '名字',
+    fx: '效果',
+    export: '匯出',
+  } satisfies Record<TabId, string>,
 
   /* ---------- 讀圖 ---------- */
   dropArea: '圖片載入區',
@@ -17,7 +22,7 @@ export const S = {
   dropHint: '立繪、頭像都可以（PNG、JPEG、WebP…）。檔案不會上傳。',
   dropButton: '選擇圖片',
   windowDrop: '放開即可讀入圖片',
-  windowDropHint: '讀入後換掉目前棋子的圖片',
+  windowDropHint: '每張圖加入成一個新的棋子',
   previewEmpty: '點一下選角色圖，或把圖拖進來',
   imageInfo: (name: string, w: number, h: number) => `${name}・${w} × ${h} px`,
   imageShrunk: (w: number, h: number) => `（原圖較大，存成 ${w} × ${h} px）`,
@@ -25,11 +30,68 @@ export const S = {
   notImage: (name: string) => `「${name}」不是圖片`,
   readFailed: (name: string) => `「${name}」讀不出來，檔案可能已損壞`,
   imageLoaded: (name: string) => `已讀入「${name}」`,
+  imagesLoaded: (n: number) => `已讀入 ${n} 張圖片`,
+  imageReplaced: (name: string) => `已換成「${name}」`,
+  noneLoaded: '沒有讀入任何圖片',
+  rosterFull: (n: number) => `名單最多 60 個棋子，只加入了 ${n} 個`,
+  embeddedOpened: (n: number) => `已開啟 ${n} 個嵌了設定的棋子`,
   imageNotSaved: '這張圖存不進這個瀏覽器，重新整理之後就不見了。',
-  onlyFirst: (names: string) => `一次只用第一張圖片：「${names}」沒有讀入`,
   autoDetectLabel: '讀入時自動選出主體',
   autoDetectHint:
     '讀圖後馬上選出整個主體（有透明背景的立繪用透明度；不透明的圖從四邊的背景色往內找）。全身立繪的身體也會出框，之後用筆刷擦掉不要的部分。',
+
+  /* ---------- 名單 ---------- */
+  roster: '名單',
+  rosterLabel: '棋子名單',
+  rosterCount: (n: number, max: number) => `${n}／${max} 個`,
+  rosterEmpty: '還沒有棋子：讀入圖片，每張圖是一個棋子。',
+  rosterHint: '點一下切換要編輯的棋子；拖曳排序。外觀（外框、名字的樣式、效果）所有棋子共用。',
+  rosterAdd: '加入圖片',
+  rosterClear: '清空名單',
+  rosterClearTitle: '清空名單？',
+  rosterClearDesc: '名單裡的棋子都會移除（可以復原）。',
+  rosterClearConfirm: '清空',
+  rosterCleared: '已清空名單（可以復原）。',
+  rosterRemove: (name: string) => `移除「${name}」`,
+  rosterAsRef: '當參考',
+  rosterAsRefTitle: (name: string) => `把「${name}」當成預覽上的參考`,
+  untitled: '（未命名）',
+  replaceImage: '換圖片',
+  replaceImageTitle: '目前的棋子換一張圖（擺放重設、選取清掉）',
+  embedAskTitle: (n: number) => (n > 1 ? `有 ${n} 張圖嵌了棋子的設定` : '這張圖嵌了棋子的設定'),
+  embedAskDesc:
+    '可以開啟成可以再編輯的棋子（圖片、出框、擺放、名字與外觀都回來），或當成一般圖片讀入。',
+  embedAskOpen: '開啟成棋子',
+  embedAskPlain: '當成一般圖片',
+
+  /* ---------- 色彩調整 ---------- */
+  adjustSection: '色彩調整',
+  adjustHint: '只調這個棋子的圖片。',
+  bright: '亮度',
+  contrast: '對比',
+  saturation: '飽和度',
+  hue: '色相',
+  adjustReset: '重設色彩',
+
+  /* ---------- 參考輪廓 ---------- */
+  refSection: '參考輪廓',
+  refHint: '只在預覽上幫忙對齊，不會匯出。',
+  refKind: '參考',
+  refKinds: {
+    off: '關',
+    bust: '頭肩',
+    head: '近照',
+    body: '全身',
+    profile: '側面',
+    custom: '參考圖',
+  } satisfies Record<'off' | RefShape | 'custom', string>,
+  refOpacity: '不透明度',
+  refLoad: '讀入參考圖…',
+  refClear: '拿掉參考圖',
+  refLoaded: '已讀入參考圖。',
+  refFromToken: (name: string) => `已把「${name}」當成參考。`,
+  guides: '輔助線',
+  guideModes: { off: '關', cross: '中心十字', grid: '三分線' } satisfies Record<Guides, string>,
 
   /* ---------- 擺放 ---------- */
   placement: '擺放',
@@ -55,10 +117,36 @@ export const S = {
   } as Record<'none' | 'color' | 'extend', string>,
   bgColor: '背景色',
 
-  /* ---------- 名稱 ---------- */
+  /* ---------- 名字與徽章 ---------- */
+  nameSection: '名字',
   nameLabel: '名稱',
   namePlaceholder: '例：哥布林',
-  nameHint: '用在下載的檔名；空白時用圖片的檔名。',
+  nameHint: '下載的檔名與名字牌的文字；空白時檔名用圖片的檔名。',
+  labelOn: '顯示名字',
+  labelDefault: '角色名',
+  labelStyle: '樣式',
+  labelStyles: { plate: '名字牌', arc: '弧形文字' } satisfies Record<LabelStyle, string>,
+  plateColor: '名字牌的底色',
+  labelColor: '名字的顏色',
+  colorSources: {
+    frame: '外框色',
+    accent: '第二色',
+    bg: '背景色',
+    custom: '自訂',
+  } satisfies Record<ColorSource, string>,
+  colorAuto: '自動',
+  badgeSection: '徽章',
+  badgeLabel: '徽章文字',
+  badgePlaceholder: '例：1、A',
+  badgeHint: '數字或字母，最多 4 字；編號組會換成 1～N。',
+  badgeOn: '顯示徽章',
+  badgeColor: '徽章的底色',
+  badgeTextColor: '徽章的文字',
+  fontSection: '字型',
+  fontLabel: '名字與徽章的字型',
+  resetPositions: '重設位置',
+  overlayHint: '在預覽上用移動工具拖曳名字或徽章：會吸附到上下、四角等位置，按住 Alt 不吸附。',
+  noTokenText: '先讀入一張圖片，再幫棋子取名字。',
 
   /* ---------- 工具列 ---------- */
   toolbarLabel: '預覽的工具',
@@ -121,6 +209,38 @@ export const S = {
     '想要更乾淨的主體？可以先用「立繪去背工具」把背景去掉，再讀進來（有透明背景時自動選出主體會直接用透明度）。',
   aiLink: '立繪去背工具',
 
+  /* ---------- 預設外觀 ---------- */
+  presetSection: '預設外觀',
+  presetHint: '套用一組外框的樣式、顏色與質感（可以復原）；範例另外包含名字、光暈與效果。',
+  presetRing: '外框',
+  presetExample: '範例',
+  presetMine: '我的預設',
+  presetShuffle: '隨機',
+  presetShuffleTitle: '隨機挑一組浮雕環的樣式、顏色與質感',
+  showExamples: '顯示內建的預設',
+  presetName: '名稱',
+  presetNamePlaceholder: '例：我的頭目',
+  presetSave: '存成我的預設',
+  presetWithOutput: '含輸出設定（尺寸、格式）',
+  presetSaved: (name: string) => `已存成「${name}」`,
+  presetOverwritten: (name: string) => `已覆寫「${name}」`,
+  presetFull: (n: number) => `我的預設最多 ${n} 組，請先刪掉一些。`,
+  presetApplied: (name: string) => `已套用「${name}」`,
+  presetOverwrite: '覆寫',
+  presetOverwriteTitle: (name: string) => `用目前的外觀覆寫「${name}」`,
+  presetDelete: (name: string) => `刪除「${name}」`,
+  presetDeleteTitle: (name: string) => `刪除「${name}」？`,
+  presetDeleteDesc: '這組預設會從這個瀏覽器刪掉。',
+  presetDeleteConfirm: '刪除',
+  presetDeleted: (name: string) => `已刪除「${name}」`,
+  presetExport: '匯出 JSON',
+  presetImport: '匯入 JSON…',
+  presetImported: (n: number) => `已匯入 ${n} 組預設`,
+  presetImportNone: '這個檔案裡沒有可以用的預設。',
+  presetNoneMine: '還沒有自己的預設：調好外觀後按「存成我的預設」。',
+  presetExportName: '棋子的預設外觀.json',
+  presetOutputNote: '含輸出設定',
+
   /* ---------- 外框 ---------- */
   frameSection: '外框樣式',
   frameGroups: { relief: '浮雕環', neon: '霓虹與幾何' } as Record<'relief' | 'neon', string>,
@@ -153,8 +273,30 @@ export const S = {
     octa: '八角',
     diamond: '菱形',
     none: '無外框',
+    custom: '自訂外框',
   } satisfies Record<FrameId, string>,
   frameWidth: '外框寬度',
+  customSection: '自訂外框與遮罩',
+  customHint:
+    '外框：透明背景的 PNG（白色的部分依主色上色）；遮罩：灰階圖，白色＝開口、黑色＝切掉。',
+  customFrameLoad: '讀入自訂外框…',
+  customFrameClear: '拿掉自訂外框',
+  customFrameUse: '使用自訂外框',
+  customInner: '開口半徑',
+  customInnerHint: '讀入時自動偵測；外框的外半徑的 %。',
+  customMaskLoad: '讀入自訂遮罩…',
+  customMaskClear: '拿掉自訂遮罩',
+  customFrameLoaded: (inner: number) => `已讀入自訂外框（開口半徑 ${inner}%）`,
+  customMaskLoaded: '已讀入自訂遮罩。',
+  customFrameCleared: '已拿掉自訂外框。',
+  customMaskCleared: '已拿掉自訂遮罩。',
+  customFrameName: (name: string) => `外框：${name}`,
+  customMaskName: (name: string) => `遮罩：${name}`,
+  autoColor: '自動配色',
+  autoColorFrame: '外框色',
+  autoColorAccent: '第二色',
+  autoColorHint: '從目前棋子的圖片挑顏色；再按一次換下一個。',
+  autoColorNone: '從圖片找不到合適的顏色。',
   param: {
     teeth: '齒數',
     toothDepth: '齒深',
@@ -280,6 +422,32 @@ export const S = {
   >,
   opacity: '外框不透明度',
 
+  /* ---------- 效果 ---------- */
+  fxSection: '效果',
+  fxHint: '所有棋子共用；色調、故障、RGB 分離、顆粒只套在圖片上，暗角與掃描線也蓋在出框的部分。',
+  fxOn: '使用效果',
+  fxReset: '重設效果',
+  tone: '色調',
+  tones: { none: '無', mono: '單色', neon: '霓虹', holo: '全像' } satisfies Record<
+    ToneMode,
+    string
+  >,
+  toneHint: '霓虹：暗部 → 外框色 → 第二色；全像：外框色加掃描條紋。',
+  toneMix: '混合',
+  glitch: '故障',
+  glitchAmt: '強度',
+  glitchReseed: '換一組',
+  rgb: 'RGB 分離',
+  rgbAmt: '距離',
+  grain: '顆粒',
+  grainAmt: '強度',
+  vig: '暗角',
+  vigColor: '顏色',
+  vigAmt: '強度',
+  scan: '掃描線',
+  scanAmt: '強度',
+  scanGap: '間距',
+
   /* ---------- 匯出 ---------- */
   sizeSection: '尺寸',
   sizeLabel: '尺寸',
@@ -308,6 +476,17 @@ export const S = {
   tableSizeHint: '在跑團桌上縮小時還看得清楚嗎？',
   tableSizes: { 96: '大', 64: '中', 40: '小' } as Record<number, string>,
   noImageExport: '還沒有圖片：先讀入一張角色圖。',
+  embed: '把設定嵌進 PNG',
+  embedHint:
+    '之後把這張 PNG 讀回來就能再編輯（圖片、出框、擺放、名字與外觀）；檔案會大一些。WebP 不能嵌。',
+  batchSection: '一次匯出很多張',
+  zipAll: (n: number) => `全部打包（${n} 張）`,
+  zipAllHint: '名單裡的每個棋子各一張，打包成 ZIP。',
+  setCount: '張數',
+  zipSet: (n: number) => `下載編號組（${n} 張）`,
+  zipSetHint: '目前的棋子 × N 張，徽章換成 1～N（適合同一種敵人）。',
+  zipProgress: (i: number, n: number) => `正在產生 ${i}／${n}…`,
+  zipDone: (name: string) => `已下載「${name}」`,
 
   /* ---------- 其他 ---------- */
   undo: '復原',
@@ -348,10 +527,11 @@ export const S = {
   openConfirmLabel: '開啟',
 
   usage: [
-    '在「圖片」讀入角色圖（立繪、頭像），在預覽上拖曳、滾輪縮放，把要露出來的部分放進外框裡。',
+    '在「圖片」讀入角色圖（立繪、頭像；可以一次好幾張，每張是名單裡的一個棋子），在預覽上拖曳、滾輪縮放，把要露出來的部分放進外框裡。',
     '在「出框」用魔術棒點一下、或用筆刷塗出要蓋在外框上面的部分（頭、角、武器）；「自動」會幫你選出主體。',
-    '在「外框」挑樣式、顏色、光照與質感。',
-    '在「匯出」選尺寸（Roll20 280 px、Foundry 400 px…）下載透明背景的 PNG。',
-    '圖片只在這個瀏覽器裡處理，不會上傳；設定與圖片會自動儲存。',
+    '在「外框」挑預設外觀，或自己調樣式、顏色、光照與質感；也可以讀入自訂外框。',
+    '在「名字」加上名字牌或徽章（在預覽上拖曳換位置）；「效果」可以加色調、故障、掃描線。',
+    '在「匯出」選尺寸（Roll20 280 px、Foundry 400 px…）下載透明背景的 PNG；名單可以全部打包，同一種敵人可以做成徽章 1～N 的編號組。',
+    'PNG 嵌了設定時，之後讀回來還能再編輯。圖片只在這個瀏覽器裡處理，不會上傳；設定與圖片會自動儲存。',
   ],
 } as const;

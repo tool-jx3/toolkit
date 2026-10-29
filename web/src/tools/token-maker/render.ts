@@ -6,6 +6,8 @@
  *   B 外框層：外框（主色依光照、配色）＋漸層色＋質感
  *   G 光暈：B 的模糊減掉 B 本身，可以只留內側或外側
  *   P 出框層：遮罩（柔邊）依擺放畫上去，只留 U 在遮罩裡的部分 → 蓋在外框上面；陰影只落在外框上
+ *   最後畫名字、徽章。色彩調整與效果（色調、故障、RGB、顆粒）在 U 上做；暗角、掃描線疊在 L 與 P 上。
+ *   自訂外框是讀進來的圖（依主色上色），自訂遮罩取代外框形狀的開口。
  *
  * 外框層與光暈依外觀快取（拖曳圖片時不重畫外框）。全部用 2D 畫布的基本功能（不用 ctx.filter：Safari、Node 沒有），
  * 所以單元測試可以用 node-canvas 真的畫出來量像素。
@@ -22,12 +24,15 @@ import {
   shapePath,
   textureHole,
 } from './frames';
+import { applyAdjust, overlayFx, portraitFx, portraitFxActive } from './fx';
+import { badgeText, drawBadge, drawLabel, labelText, lookColors } from './labels';
 import {
   clamp,
   type Geom,
   geom,
   type ImageTransform,
   imageTransform,
+  isDefaultAdjust,
   type Look,
   type TokenItem,
 } from './model';
@@ -44,6 +49,11 @@ export interface RenderSources {
   popMask: Drawable | null;
   /** 質感圖（還沒產生好時 null，先畫沒有質感的） */
   texture: Drawable | null;
+  /** 自訂外框的圖與它的 id（外框層的快取用） */
+  customFrame?: Drawable | null;
+  customFrameId?: string | null;
+  /** 自訂遮罩（不透明度＝開口；拉伸到外框的範圍） */
+  customMask?: Drawable | null;
 }
 
 export interface RenderOptions {
@@ -51,9 +61,16 @@ export interface RenderOptions {
   /** 邊距（N 的比例） */
   pad: number;
   look: Look;
-  token: Pick<TokenItem, 'view' | 'popOn'> | null;
+  token:
+    | (Pick<TokenItem, 'view' | 'popOn'> &
+        Partial<Pick<TokenItem, 'id' | 'name' | 'badge' | 'adjust'>>)
+    | null;
   /** 外框層要不要快取（縮圖不要） */
   cacheFrame?: boolean;
+  /** 徽章換成這個文字（編號組；不管徽章的開關） */
+  badge?: string | null;
+  /** 不畫名字與徽章（縮圖用） */
+  noLabels?: boolean;
 }
 
 const ctx2d = (c: AnyCanvas): Ctx2D => c.getContext('2d') as Ctx2D;
@@ -181,22 +198,51 @@ function luminance(hex: string): number {
   return 0.3 * ((n >> 16) & 255) + 0.59 * ((n >> 8) & 255) + 0.11 * (n & 255);
 }
 
+/**
+ * 自訂外框：圖拉伸到外框的範圍（2R 的正方形），乘上主色（漸層時乘上漸層；白色＝主色、黑色留黑），
+ * 再留回圖本身的不透明度。
+ */
+export function drawCustomFrame(ctx: Ctx2D, img: Drawable, look: Look, g: Geom): void {
+  const x0 = g.c - g.R;
+  const size = 2 * g.R;
+  ctx.save();
+  ctx.drawImage(img, x0, x0, size, size);
+  ctx.globalCompositeOperation = 'multiply';
+  if (look.colorMode === 'gradient') {
+    const a = rad(look.gAngle);
+    const dx = Math.cos(a) * g.R;
+    const dy = Math.sin(a) * g.R;
+    const gr = ctx.createLinearGradient(g.c - dx, g.c - dy, g.c + dx, g.c + dy);
+    gr.addColorStop(0, look.g1);
+    gr.addColorStop(1, look.g2);
+    ctx.fillStyle = gr;
+  } else ctx.fillStyle = look.color;
+  ctx.fillRect(x0, x0, size, size);
+  ctx.globalCompositeOperation = 'destination-in';
+  ctx.drawImage(img, x0, x0, size, size);
+  ctx.restore();
+}
+
 /** 完整的外框層：外框＋漸層色（overlay）＋質感 */
 export function drawFrameLayer(
   target: AnyCanvas,
   look: Look,
   g: Geom,
   texture: Drawable | null,
+  customFrame: Drawable | null = null,
 ): void {
   const N = g.N;
   const ctx = ctx2d(target);
   ctx.clearRect(0, 0, N, N);
   const def = frameDef(look.frame);
   const gradient = look.colorMode === 'gradient';
-  drawFrameBase(ctx, def, look, g, gradient ? '#808080' : look.color);
+  const custom = look.frame === 'custom';
+  if (custom) {
+    if (customFrame) drawCustomFrame(ctx, customFrame, look, g);
+  } else drawFrameBase(ctx, def, look, g, gradient ? '#808080' : look.color);
   const w = bandWidth(look, g.R);
-  const hole = textureHole(def, g.R - w);
-  if (gradient) {
+  const hole = custom ? null : textureHole(def, g.R - w);
+  if (gradient && !custom) {
     const { ctx: l, canvas } = scratch('grad', N);
     const a = rad(look.gAngle);
     const dx = Math.cos(a) * g.R;
@@ -284,8 +330,9 @@ interface FrameEntry {
 const frameCache = new Map<string, FrameEntry>();
 const FRAME_CACHE_MAX = 6;
 
-function frameKey(look: Look, g: Geom, texReady: boolean): string {
+function frameKey(look: Look, g: Geom, texReady: boolean, customId: string | null): string {
   return JSON.stringify([
+    customId,
     look.frame,
     look.width,
     look.count,
@@ -318,12 +365,13 @@ export function frameLayers(
   g: Geom,
   texture: Drawable | null,
   cache = true,
+  custom: { image: Drawable | null; id: string | null } = { image: null, id: null },
 ): FrameEntry {
-  const key = frameKey(look, g, !!texture);
+  const key = frameKey(look, g, !!texture, look.frame === 'custom' ? custom.id : null);
   const hit = cache ? frameCache.get(key) : undefined;
   if (hit) return hit;
   const frame = makeCanvas(g.N, g.N);
-  drawFrameLayer(frame, look, g, texture);
+  drawFrameLayer(frame, look, g, texture, look.frame === 'custom' ? custom.image : null);
   let glow: AnyCanvas | null = null;
   if (look.glow !== 'off') {
     glow = makeCanvas(g.N, g.N);
@@ -342,17 +390,41 @@ export function frameLayers(
 
 /* ---------- 開口與背景 ---------- */
 
+/** 開口從外緣往內縮幾 px：外框寬 × cut；自訂外框依「開口半徑」 */
+function cutoutInset(look: Look, g: Geom): number {
+  if (look.frame === 'custom') return g.R * (1 - look.customInner / 100);
+  return cutInset(frameDef(look.frame), bandWidth(look, g.R));
+}
+
 /** 開口的路徑（外框形狀、從外緣往內 cut × 外框寬；無外框時就是外緣） */
 export function cutoutPath(ctx: Ctx2D, look: Look, g: Geom): void {
-  const def = frameDef(look.frame);
   ctx.beginPath();
-  shapePath(ctx, def.shape, g.c, g.R, cutInset(def, bandWidth(look, g.R)));
+  shapePath(ctx, frameDef(look.frame).shape, g.c, g.R, cutoutInset(look, g));
+}
+
+/** 只留開口裡的東西（自訂遮罩時用遮罩的不透明度，否則用外框形狀的開口） */
+export function clipToCutout(
+  ctx: Ctx2D,
+  look: Look,
+  g: Geom,
+  customMask: Drawable | null = null,
+): void {
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.globalAlpha = 1;
+  ctx.globalCompositeOperation = 'destination-in';
+  if (customMask) ctx.drawImage(customMask, g.c - g.R, g.c - g.R, 2 * g.R, 2 * g.R);
+  else {
+    ctx.fillStyle = '#000';
+    cutoutPath(ctx, look, g);
+    ctx.fill();
+  }
+  ctx.restore();
 }
 
 /** 開口的半徑（圓形外框時；自動測試與說明用） */
 export function cutoutRadius(look: Look, g: Geom): number {
-  const def = frameDef(look.frame);
-  return g.R - cutInset(def, bandWidth(look, g.R));
+  return g.R - cutoutInset(look, g);
 }
 
 /** 依擺放的轉換畫一張圖片大小的東西（圖片本身、遮罩、延伸背景） */
@@ -427,6 +499,7 @@ function drawExtend(
   size: { width: number; height: number },
   t: ImageTransform,
   N: number,
+  adjust: TokenItem['adjust'] | undefined,
 ): void {
   const M = Math.max(32, Math.min(256, Math.round(N / 8)));
   const k = M / N;
@@ -452,6 +525,7 @@ function drawExtend(
     e.drawImage(img, 0, 0, size.width, size.height);
   });
   const data = e.getImageData(0, 0, M, M);
+  if (adjust && !isDefaultAdjust(adjust)) applyAdjust(data, adjust);
   blurRgba(data.data, M, M, Math.max(1, Math.round(M * 0.025)));
   e.putImageData(data, 0, 0);
   ctx.save();
@@ -483,33 +557,45 @@ export function renderToken(ctx: Ctx2D, opts: RenderOptions, src: RenderSources)
   const size = src.size;
   const t = src.image && size && token ? imageTransform(g, size, token.view) : null;
 
-  /* U：圖片層 */
+  /* U：圖片層（＋色彩調整、效果） */
   let U: AnyCanvas | null = null;
   if (t && src.image && size) {
     const s = scratch('U', N);
     withImageTransform(s.ctx, t, size, () => {
       s.ctx.drawImage(src.image as Drawable, 0, 0, size.width, size.height);
     });
+    const adjust = token?.adjust && !isDefaultAdjust(token.adjust) ? token.adjust : null;
+    const fxOn = portraitFxActive(look.fx);
+    if (adjust || fxOn) {
+      const px = s.ctx.getImageData(0, 0, N, N);
+      if (adjust) applyAdjust(px, adjust);
+      if (fxOn) {
+        const c = lookColors(look);
+        portraitFx(px, look.fx, c.frame, c.accent, token?.id ?? '');
+      }
+      s.ctx.putImageData(px, 0, 0);
+    }
     U = s.canvas;
   }
 
   /* L：背景＋圖片，剪成開口 */
   const { ctx: l, canvas: L } = scratch('L', N);
-  if (look.bg === 'extend' && t && src.image && size) drawExtend(l, src.image, size, t, N);
+  if (look.bg === 'extend' && t && src.image && size)
+    drawExtend(l, src.image, size, t, N, token?.adjust);
   else if (look.bg !== 'none') {
     l.fillStyle = look.bgColor;
     l.fillRect(0, 0, N, N);
   }
   if (U) l.drawImage(U, 0, 0);
-  l.globalCompositeOperation = 'destination-in';
-  l.fillStyle = '#000';
-  cutoutPath(l, look, g);
-  l.fill();
-  l.globalCompositeOperation = 'source-over';
+  overlayFx(l, look.fx, N, g.c, g.R);
+  clipToCutout(l, look, g, src.customMask ?? null);
   ctx.drawImage(L, 0, 0);
 
   /* B、G：外框與光暈 */
-  const layers = frameLayers(look, g, src.texture, opts.cacheFrame !== false);
+  const layers = frameLayers(look, g, src.texture, opts.cacheFrame !== false, {
+    image: src.customFrame ?? null,
+    id: src.customFrameId ?? null,
+  });
   ctx.globalAlpha = look.opacity / 100;
   if (layers.glow) ctx.drawImage(layers.glow, 0, 0);
   ctx.drawImage(layers.frame, 0, 0);
@@ -524,6 +610,8 @@ export function renderToken(ctx: Ctx2D, opts: RenderOptions, src: RenderSources)
     p.globalCompositeOperation = 'source-in';
     p.drawImage(U, 0, 0);
     p.globalCompositeOperation = 'source-over';
+    /* 暗角、掃描線也要蓋在出框的部分上，不然看起來像另外貼上去的 */
+    overlayFx(p, look.fx, N, g.c, g.R);
     if (look.shadow > 0) {
       const sh = look.shadow / 100;
       const { ctx: s, canvas: S } = scratch('shadow', N);
@@ -543,6 +631,14 @@ export function renderToken(ctx: Ctx2D, opts: RenderOptions, src: RenderSources)
     }
     ctx.drawImage(P, 0, 0);
   }
+
+  /* 名字與徽章 */
+  if (!opts.noLabels) {
+    const label = labelText(look, token ? { name: token.name ?? '' } : null);
+    if (label) drawLabel(ctx, label, g, look);
+    const badge = badgeText(look, token ? { badge: token.badge ?? '' } : null, opts.badge);
+    if (badge) drawBadge(ctx, badge, g, look);
+  }
   ctx.restore();
   return { geom: g, transform: t };
 }
@@ -555,10 +651,19 @@ export function renderTokenCanvas(opts: RenderOptions, src: RenderSources): AnyC
 }
 
 /** 外框的縮圖（選外框的格子）：目前的顏色、光照，不畫質感、外框寬一點比較看得清楚 */
-export function drawFrameThumb(ctx: Ctx2D, look: Look, size: number): void {
+export function drawFrameThumb(
+  ctx: Ctx2D,
+  look: Look,
+  size: number,
+  customFrame: Drawable | null = null,
+): void {
   const g: Geom = { N: size, c: size / 2, R: size * 0.46 };
   const def = frameDef(look.frame);
   ctx.clearRect(0, 0, size, size);
+  if (look.frame === 'custom') {
+    if (customFrame) drawCustomFrame(ctx, customFrame, look, g);
+    return;
+  }
   const gradient = look.colorMode === 'gradient';
   ctx.save();
   drawFrameBase(

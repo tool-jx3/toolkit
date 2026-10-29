@@ -2,12 +2,16 @@
  * 預覽上的提示層（只在預覽，不會匯出）：
  * - 魔術棒、筆刷工具時：外框開口外面被藏起來的圖片淡淡地顯示（看得出還有哪些部分可以出框）、選取範圍上淡紅色；
  * - 選取範圍的外框（黑白斜紋，可以關掉）；
- * - 筆刷的圓圈（畫是綠、擦是紅）、魔術棒上次點的位置。
+ * - 筆刷的圓圈（畫是綠、擦是紅）、魔術棒上次點的位置；
+ * - 參考輪廓（剪影剪在開口裡、參考圖整張）與輔助線；
+ * - 拖曳名字、徽章時可以吸附的位置。
  */
 import { makeCanvas } from '@/core/image';
 import type { Ctx2D } from './frames';
-import type { Geom, ImageTransform, Look } from './model';
-import { cutoutPath, type Drawable, withImageTransform } from './render';
+import { type OverlayKind, SNAPS } from './labels';
+import type { Geom, ImageTransform, LabelStyle, Look } from './model';
+import { drawGuides, drawRefShape, type Guides, type RefKind } from './reference';
+import { clipToCutout, cutoutPath, type Drawable, withImageTransform } from './render';
 
 type AnyCanvas = HTMLCanvasElement | OffscreenCanvas;
 
@@ -27,6 +31,12 @@ export interface OverlayInput {
   wandPoint: { x: number; y: number } | null;
   /** 筆刷的圓圈（棋子座標）；mode：畫或擦 */
   cursor: { x: number; y: number; r: number; erase: boolean } | null;
+  /** 自訂遮罩（開口的形狀） */
+  customMask?: Drawable | null;
+  /** 參考輪廓與輔助線 */
+  ref?: { kind: RefKind; image: Drawable | null; opacity: number; guides: Guides } | null;
+  /** 正在拖曳名字或徽章：可以吸附的位置（R 為單位） */
+  snap?: { which: OverlayKind; style: LabelStyle; at: [number, number] } | null;
 }
 
 const scratchMap = new Map<string, AnyCanvas>();
@@ -85,11 +95,33 @@ export function drawOverlay(ctx: Ctx2D, o: OverlayInput): void {
     );
     g.globalAlpha = 1;
     g.globalCompositeOperation = 'destination-out';
-    g.fillStyle = '#000';
-    cutoutPath(g, o.look, o.geom);
-    g.fill();
+    if (o.customMask) {
+      const { c, R } = o.geom;
+      g.drawImage(o.customMask, c - R, c - R, 2 * R, 2 * R);
+    } else {
+      g.fillStyle = '#000';
+      cutoutPath(g, o.look, o.geom);
+      g.fill();
+    }
     g.globalCompositeOperation = 'source-over';
     ctx.drawImage(canvas, 0, 0);
+  }
+  const ref = o.ref;
+  if (ref && ref.kind !== 'off') {
+    const a = ref.opacity / 100;
+    if (ref.kind === 'custom') {
+      if (ref.image) {
+        /* 參考圖整張蓋在棋子的範圍上（可能自己就有外框，不剪） */
+        ctx.globalAlpha = a;
+        ctx.drawImage(ref.image, 0, 0, N, N);
+        ctx.globalAlpha = 1;
+      }
+    } else {
+      const { ctx: r, canvas } = scratch('ref', N);
+      drawRefShape(r, o.geom, ref.kind, a);
+      clipToCutout(r, o.look, o.geom, o.customMask ?? null);
+      ctx.drawImage(canvas, 0, 0);
+    }
   }
   if (t && size && o.selection) {
     if (editing) {
@@ -136,6 +168,8 @@ export function drawOverlay(ctx: Ctx2D, o: OverlayInput): void {
       ctx.globalAlpha = 1;
     }
   }
+  if (ref && ref.guides !== 'off') drawGuides(ctx, o.geom, ref.opacity / 100, ref.guides);
+  if (o.snap) drawSnaps(ctx, o.geom, o.snap);
   if (o.wandPoint && o.tool === 'wand') {
     const r = N / 70;
     ctx.beginPath();
@@ -164,4 +198,28 @@ export function drawOverlay(ctx: Ctx2D, o: OverlayInput): void {
     ctx.strokeStyle = '#ffffff';
     ctx.stroke();
   }
+}
+
+/** 拖曳名字、徽章時：可以吸附的位置（小圓圈）與目前的位置 */
+function drawSnaps(ctx: Ctx2D, g: Geom, s: NonNullable<OverlayInput['snap']>): void {
+  const u = g.N / 512;
+  const pts: [number, number][] =
+    s.which === 'label' && s.style === 'arc'
+      ? Array.from({ length: 8 }, (_, i) => [
+          Math.cos((i * Math.PI) / 4) * 0.8,
+          Math.sin((i * Math.PI) / 4) * 0.8,
+        ])
+      : SNAPS[s.which];
+  ctx.save();
+  ctx.lineWidth = 1.5 * u;
+  for (const [x, y] of pts) {
+    const on = Math.abs(x - s.at[0]) < 1e-3 && Math.abs(y - s.at[1]) < 1e-3;
+    ctx.beginPath();
+    ctx.arc(g.c + x * g.R, g.c + y * g.R, (on ? 7 : 5) * u, 0, Math.PI * 2);
+    ctx.fillStyle = on ? 'rgba(0,240,255,.9)' : 'rgba(0,0,0,.35)';
+    ctx.strokeStyle = 'rgba(255,255,255,.9)';
+    ctx.fill();
+    ctx.stroke();
+  }
+  ctx.restore();
 }

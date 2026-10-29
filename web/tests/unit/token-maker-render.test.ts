@@ -6,7 +6,10 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import { makeCanvas } from '../../src/core/image';
 import {
+  type Adjust,
+  DEFAULT_FX,
   DEFAULT_LOOK,
+  defaultAdjust,
   FRAME_IDS,
   geom,
   type Look,
@@ -42,6 +45,12 @@ function draw(
     mask?: ReturnType<typeof canvasOf> | null;
     popOn?: boolean;
     texture?: ReturnType<typeof canvasOf> | null;
+    customFrame?: ReturnType<typeof canvasOf> | null;
+    customMask?: ReturnType<typeof canvasOf> | null;
+    name?: string;
+    badge?: string;
+    adjust?: Adjust;
+    override?: string | null;
   } = {},
 ): Img {
   const c = makeCanvas(N, N);
@@ -53,14 +62,25 @@ function draw(
       N,
       pad,
       look: l,
-      token: { view: { x: 0, y: 0, zoom: 1, rotate: 0, flip: false }, popOn: opts.popOn ?? true },
+      token: {
+        id: 't1',
+        view: { x: 0, y: 0, zoom: 1, rotate: 0, flip: false },
+        popOn: opts.popOn ?? true,
+        name: opts.name ?? '',
+        badge: opts.badge ?? '',
+        adjust: opts.adjust ?? defaultAdjust(),
+      },
       cacheFrame: false,
+      badge: opts.override,
     },
     {
       image,
       size: image ? { width: image.width, height: image.height } : null,
       popMask: opts.mask ?? null,
       texture: opts.texture ?? null,
+      customFrame: opts.customFrame ?? null,
+      customFrameId: opts.customFrame ? 'cf' : null,
+      customMask: opts.customMask ?? null,
     },
   );
   return { data: ctx.getImageData(0, 0, N, N).data, width: N };
@@ -205,5 +225,103 @@ describe.runIf(!!canvasLib)('棋子的繪製（node-canvas）', () => {
       );
       expect([c.width, c.height]).toEqual([N, N]);
     }
+  });
+
+  /* ---------- 第二批 ---------- */
+
+  it('自訂外框：依主色上色（白 × 主色），開口半徑照設定', () => {
+    /* 白色的環（外框圖的 0.8～1 倍半徑），其他透明 */
+    const frame = canvasOf(100, 100, (x, y) => {
+      const d = Math.hypot(x + 0.5 - 50, y + 0.5 - 50);
+      return d > 40 && d < 50 ? [255, 255, 255, 255] : [0, 0, 0, 0];
+    });
+    const l = look({ frame: 'custom', color: '#00ff00', customInner: 80 });
+    const img = draw(200, 0.2, l, { image: red(), customFrame: frame, popOn: false });
+    /* 環上（離中心 0.9 R）：綠色 */
+    const ring = px(img, 100, 100 - 54);
+    expect(ring[1]).toBeGreaterThan(200);
+    expect(ring[0]).toBeLessThan(40);
+    /* 開口在 0.8 R 以內：圖片；0.85 R 的地方被切掉（環的圖在那裡也有，但會被外框蓋住） */
+    expect(isRed(px(img, 100, 100 - 40))).toBe(true);
+    expect(cutoutRadius(l, geom(200, 0.2))).toBeCloseTo(48);
+  });
+
+  it('自訂遮罩：開口變成遮罩的形狀（白＝留下）', () => {
+    /* 左半白、右半黑（已經轉成不透明度的遮罩：左半不透明） */
+    const mask = canvasOf(100, 100, (x) => (x < 50 ? [0, 0, 0, 255] : [0, 0, 0, 0]));
+    const img = draw(200, 0.2, look({ frame: 'none', bg: 'none' }), {
+      image: red(),
+      customMask: mask,
+      popOn: false,
+    });
+    expect(isRed(px(img, 80, 100))).toBe(true);
+    expect(px(img, 120, 100)[3]).toBe(0);
+  });
+
+  it('名字牌與徽章：打開時畫在設定的位置；編號組的徽章不管開關', () => {
+    const base = draw(200, 0.2, look({ labelOn: false, badgeOn: false }), {
+      image: red(),
+      name: 'ORC',
+      badge: '7',
+    });
+    /* 徽章在 (0.74, 0.74) R＝(144.4, 144.4) */
+    const withBadge = draw(
+      200,
+      0.2,
+      look({ badgeOn: true, badgeFrom: 'custom', badgeColor: '#0000ff' }),
+      {
+        image: red(),
+        badge: '7',
+      },
+    );
+    const b = px(withBadge, 144 - 8, 144);
+    expect(b[2]).toBeGreaterThan(200);
+    expect(px(base, 136, 144)).not.toEqual(b);
+    /* 編號組：徽章關掉也畫 */
+    const forced = draw(
+      200,
+      0.2,
+      look({ badgeOn: false, badgeFrom: 'custom', badgeColor: '#0000ff' }),
+      {
+        image: red(),
+        override: '3',
+      },
+    );
+    expect(px(forced, 136, 144)[2]).toBeGreaterThan(200);
+    /* 名字牌在 (0, 0.8) R＝(100, 148)，底色是外框色（金） */
+    const named = draw(200, 0.2, look({ labelOn: true }), { image: red(), name: 'ORC' });
+    expect(isRed(px(named, 100, 148))).toBe(false);
+    expect(isRed(px(base, 100, 148))).toBe(true);
+  });
+
+  it('色彩調整只動圖片；暗角讓開口的邊緣變暗', () => {
+    const dim = draw(200, 0.2, look({ bg: 'none' }), {
+      image: red(),
+      popOn: false,
+      adjust: { ...defaultAdjust(), bright: 50 },
+    });
+    expect(px(dim, 100, 100)[0]).toBeLessThan(130);
+    expect(isGoldish(px(dim, 100, 43))).toBe(true);
+    const vig = draw(
+      200,
+      0.2,
+      look({ bg: 'none', fx: { ...DEFAULT_FX, on: true, vig: true, vigAmt: 100 } }),
+      {
+        image: red(),
+        popOn: false,
+      },
+    );
+    /* 總開關關掉：沒有暗角 */
+    const off = draw(
+      200,
+      0.2,
+      look({ bg: 'none', fx: { ...DEFAULT_FX, on: false, vig: true, vigAmt: 100 } }),
+      {
+        image: red(),
+        popOn: false,
+      },
+    );
+    expect(px(vig, 100, 52)[0]).toBeLessThan(px(off, 100, 52)[0] - 20);
+    expect(Math.abs(px(vig, 100, 100)[0] - px(off, 100, 100)[0])).toBeLessThan(15);
   });
 });

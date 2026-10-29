@@ -1,15 +1,20 @@
 /**
- * 設定欄的四個分頁：圖片（讀圖、名稱、擺放、背景）、出框（選取、柔邊、陰影、邊距）、
- * 外框（樣式、顏色、光照、質感、光暈）、匯出（尺寸、格式、下載、複製、實際大小）。
+ * 設定欄的分頁：圖片（讀圖、名單、擺放、色彩調整、背景、參考輪廓）、出框（選取、柔邊、陰影、邊距）、
+ * 外框（預設外觀、樣式、自訂外框與遮罩、顏色、光照、質感、光暈）、匯出（尺寸、格式、嵌入設定、下載、複製、打包、實際大小）。
+ * 「名字」與「效果」在 TextTab、FxTab。
  */
 import {
   ArrowLeftRight,
   Copy,
   Download,
+  FileArchive,
   FlipHorizontal2,
+  ImageUp,
   RotateCcw,
   Shuffle,
+  Sparkles,
   Upload,
+  X,
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { copyImage, downloadBlob, pickFiles } from '@/core/files';
@@ -29,28 +34,40 @@ import {
   Select,
   Show,
   Slider,
-  TextInput,
   Toggle,
   useToast,
   useWebpSupport,
 } from '@/ui';
 import {
+  allZipName,
+  autoPickColor,
+  type BatchNotice,
   changeMask,
+  loadCustomFrame,
+  loadCustomMaskFile,
   loadMaskFile,
+  loadRefImage,
   renderTokenBlob,
   runAuto,
   selectionText,
+  setJobs,
+  setZipName,
   tokenFileName,
+  zipAllJobs,
+  zipTokens,
 } from './actions';
 import { FRAMES, type FrameDef, frameDef, metalStops } from './frames';
 import {
+  type Adjust,
   type BgMode,
   CUSTOM_SIZE,
+  defaultAdjust,
   FRAME_IDS,
   type FrameId,
   GLOW_MODES,
   type GlowMode,
   GRADIENTS,
+  isDefaultAdjust,
   type Look,
   METALS,
   NEONS,
@@ -62,10 +79,14 @@ import {
   type TextureId,
   type TokenItem,
 } from './model';
-import { drawFrameThumb, renderToken } from './render';
-import { imageGradient, imagePalette, peekMask, softMaskCanvas, useTokenData } from './sources';
+import { PresetSection } from './Presets';
+import { RosterSection } from './Roster';
+import { type Guides, REF_SHAPES, type RefKind } from './reference';
+import { drawFrameThumb } from './render';
+import { imageGradient, imagePalette, peekMask, useCustomData, useTokenData } from './sources';
 import {
   currentToken,
+  docNow,
   editCurrent,
   editLook,
   exportSizeOf,
@@ -73,6 +94,8 @@ import {
   gesture,
   patchView,
   resetView,
+  setCustomFrame,
+  setCustomMask,
   setFrame,
   setPrefs,
   tokenPad,
@@ -81,6 +104,7 @@ import {
 } from './store';
 import { S } from './strings';
 import { requestTexture } from './textures';
+import { drawTokenThumb } from './thumbs';
 
 const useLook = () => useDoc((s) => s.data.look);
 const useCurrent = () => useDoc((s) => currentToken(s.data));
@@ -97,6 +121,13 @@ function lookSlider<K extends keyof Look>(key: K) {
   };
 }
 
+function useNotice() {
+  const toast = useToast();
+  return (n: BatchNotice | null) => {
+    if (n) toast({ title: n.title, description: n.description, tone: n.tone, replace: true });
+  };
+}
+
 /** 圖片的代表色（每個顏色欄旁的快速色票） */
 function useImagePalette(): string[] {
   const token = useCurrent();
@@ -106,20 +137,28 @@ function useImagePalette(): string[] {
 
 /* ---------- 圖片 ---------- */
 
-export function ImageTab({ onFiles }: { onFiles: (files: File[]) => void }) {
+export function ImageTab({
+  onFiles,
+  onPick,
+}: {
+  onFiles: (files: File[]) => void;
+  onPick: () => void;
+}) {
   const token = useCurrent();
   const look = useLook();
   const autoDetect = usePrefs((s) => s.data.autoDetect);
+  const hasTokens = useDoc((s) => s.data.tokens.length > 0);
   const pal = useImagePalette();
   return (
     <div className="flex min-w-0 flex-col gap-3">
       <ImageDrop
         aria-label={S.dropArea}
         onFiles={onFiles}
+        multiple
         label={S.dropLabel}
         buttonLabel={S.dropButton}
         hint={S.dropHint}
-        compact={!!token?.image}
+        compact={hasTokens}
         filterByAccept={false}
       />
       {token?.image ? (
@@ -130,9 +169,17 @@ export function ImageTab({ onFiles }: { onFiles: (files: File[]) => void }) {
       <Field label={S.autoDetectLabel} hint={S.autoDetectHint} layout="inline">
         <Toggle checked={autoDetect} onCheckedChange={(v) => setPrefs({ autoDetect: v })} />
       </Field>
-      {token ? <NameField token={token} /> : null}
+      {hasTokens ? <RosterSection onAdd={onPick} /> : null}
       <Section title={S.placement} persistKey="token-maker:placement">
         <PlacementFields token={token} />
+      </Section>
+      <Section
+        title={S.adjustSection}
+        description={S.adjustHint}
+        persistKey="token-maker:adjust"
+        defaultOpen={false}
+      >
+        <AdjustFields token={token} />
       </Section>
       <Section title={S.background} persistKey="token-maker:background">
         <Field label={S.bgMode} hint={S.bgModeHint[look.bg]}>
@@ -165,28 +212,132 @@ export function ImageTab({ onFiles }: { onFiles: (files: File[]) => void }) {
           </Field>
         </Show>
       </Section>
+      <ReferenceSection />
     </div>
   );
 }
 
-function NameField({ token }: { token: TokenItem }) {
+const ADJUST_FIELDS: {
+  key: keyof Adjust;
+  label: string;
+  min: number;
+  max: number;
+  unit: string;
+}[] = [
+  { key: 'bright', label: S.bright, min: RANGES.adjust.min, max: RANGES.adjust.max, unit: '%' },
+  { key: 'contrast', label: S.contrast, min: RANGES.adjust.min, max: RANGES.adjust.max, unit: '%' },
+  { key: 'sat', label: S.saturation, min: RANGES.adjust.min, max: RANGES.adjust.max, unit: '%' },
+  { key: 'hue', label: S.hue, min: RANGES.hue.min, max: RANGES.hue.max, unit: '°' },
+];
+
+/** 色彩調整（每個棋子） */
+function AdjustFields({ token }: { token: TokenItem | null }) {
+  const disabled = !token?.image;
+  const a = token?.adjust ?? defaultAdjust();
   return (
-    <Field label={S.nameLabel} hint={S.nameHint}>
-      <TextInput
-        value={token.name}
-        maxLength={40}
-        placeholder={S.namePlaceholder}
-        data-testid="token-name"
-        onFocus={gesture.begin}
-        onBlur={gesture.commit}
-        onChange={(e) => {
-          const v = e.target.value;
-          editCurrent((t) => {
-            t.name = v;
-          });
-        }}
-      />
-    </Field>
+    <>
+      {ADJUST_FIELDS.map((f) => (
+        <Field key={f.key} label={f.label}>
+          <Slider
+            value={a[f.key]}
+            min={f.min}
+            max={f.max}
+            unit={f.unit}
+            disabled={disabled}
+            onChange={gesture.live((v: number) =>
+              editCurrent((t) => {
+                t.adjust = { ...t.adjust, [f.key]: v };
+              }),
+            )}
+            onCommit={gesture.commit}
+          />
+        </Field>
+      ))}
+      <div>
+        <Button
+          size="sm"
+          variant="secondary"
+          icon={<RotateCcw />}
+          disabled={disabled || isDefaultAdjust(a)}
+          onClick={() =>
+            editCurrent((t) => {
+              t.adjust = defaultAdjust();
+            })
+          }
+        >
+          {S.adjustReset}
+        </Button>
+      </div>
+    </>
+  );
+}
+
+/** 參考輪廓（只在預覽） */
+function ReferenceSection() {
+  const kind = usePrefs((s) => s.data.refKind);
+  const opacity = usePrefs((s) => s.data.refOpacity);
+  const guides = usePrefs((s) => s.data.guides);
+  const refImage = usePrefs((s) => s.data.refImage);
+  const notify = useNotice();
+  const pickRef = async () => {
+    const [f] = await pickFiles({ accept: 'image/*' });
+    if (f) notify(await loadRefImage(f));
+  };
+  const kinds: RefKind[] = ['off', ...REF_SHAPES, 'custom'];
+  return (
+    <Section
+      title={S.refSection}
+      description={S.refHint}
+      persistKey="token-maker:reference"
+      defaultOpen={false}
+    >
+      <Field label={S.refKind}>
+        <Select<RefKind>
+          value={kind}
+          data-testid="ref-kind"
+          onValueChange={(v) => {
+            if (v === 'custom' && !refImage) void pickRef();
+            else setPrefs({ refKind: v });
+          }}
+          options={kinds.map((k) => ({ value: k, label: S.refKinds[k] }))}
+        />
+      </Field>
+      <div className="flex flex-wrap gap-2">
+        <Button size="sm" variant="secondary" icon={<ImageUp />} onClick={() => void pickRef()}>
+          {S.refLoad}
+        </Button>
+        {refImage ? (
+          <Button
+            size="sm"
+            variant="ghost"
+            icon={<X />}
+            onClick={() => setPrefs({ refImage: null, refKind: kind === 'custom' ? 'off' : kind })}
+          >
+            {S.refClear}
+          </Button>
+        ) : null}
+      </div>
+      <Field label={S.guides}>
+        <Segmented<Guides>
+          value={guides}
+          onValueChange={(v) => setPrefs({ guides: v })}
+          options={(['off', 'cross', 'grid'] as Guides[]).map((g) => ({
+            value: g,
+            label: S.guideModes[g],
+          }))}
+        />
+      </Field>
+      <Field label={S.refOpacity}>
+        <Slider
+          value={opacity}
+          min={5}
+          max={100}
+          unit="%"
+          disabled={kind === 'off' && guides === 'off'}
+          onChange={(v) => setPrefs({ refOpacity: v })}
+        />
+      </Field>
+    </Section>
   );
 }
 
@@ -381,8 +532,13 @@ export function PopoutTab() {
 const frameItems: EffectGridItem<FrameId>[] = FRAME_IDS.map((id) => ({
   value: id,
   label: S.frames[id],
-  group: S.frameGroups[FRAMES[id].group],
+  group: S.frameGroups[FRAMES[id].group as 'relief' | 'neon'],
 }));
+const customFrameItem: EffectGridItem<FrameId> = {
+  value: 'custom',
+  label: S.frames.custom,
+  group: S.customSection,
+};
 
 /** 一排色票（點一下套用；目前的醒目） */
 function Swatches({
@@ -420,6 +576,9 @@ const metalCss = (hex: string) => `linear-gradient(135deg, ${metalStops(hex, 1).
 export function FrameTab() {
   const look = useLook();
   const pal = useImagePalette();
+  const notify = useNotice();
+  const custom = useDoc((s) => s.data.custom);
+  const cdata = useCustomData(custom.frame?.id ?? null, custom.mask?.id ?? null);
   const def = frameDef(look.frame);
   const drawThumb = useCallback(
     (ctx: CanvasRenderingContext2D, id: FrameId) => {
@@ -430,10 +589,15 @@ export function FrameTab() {
         ctx,
         { ...look, frame: id, ...(id === look.frame ? {} : paramDefaults(FRAMES[id])) },
         k,
+        cdata.frame,
       );
       ctx.restore();
     },
-    [look],
+    [look, cdata.frame],
+  );
+  const gridItems = useMemo(
+    () => (custom.frame ? [...frameItems, customFrameItem] : frameItems),
+    [custom.frame],
   );
   const imgGrad = useMemo(() => imageGradient(pal), [pal]);
   const colorName =
@@ -459,10 +623,11 @@ export function FrameTab() {
   const showAccent = def.accent !== 'none';
   return (
     <div className="flex min-w-0 flex-col gap-3">
+      <PresetSection />
       <Section title={S.frameSection} persistKey="token-maker:frame">
         <EffectGrid<FrameId>
           aria-label={S.frameSection}
-          items={frameItems}
+          items={gridItems}
           value={look.frame}
           onValueChange={(v) => v && setFrame(v)}
           draw={drawThumb}
@@ -471,15 +636,27 @@ export function FrameTab() {
           animate="none"
           minItemWidth={84}
         />
-        <Field label={S.frameWidth}>
-          <Slider
-            value={look.width}
-            {...lookSlider('width')}
-            min={RANGES.width.min}
-            max={RANGES.width.max}
-            unit="%"
-          />
-        </Field>
+        {look.frame === 'custom' ? (
+          <Field label={S.customInner} hint={S.customInnerHint}>
+            <Slider
+              value={look.customInner}
+              {...lookSlider('customInner')}
+              min={RANGES.customInner.min}
+              max={RANGES.customInner.max}
+              unit="%"
+            />
+          </Field>
+        ) : (
+          <Field label={S.frameWidth}>
+            <Slider
+              value={look.width}
+              {...lookSlider('width')}
+              min={RANGES.width.min}
+              max={RANGES.width.max}
+              unit="%"
+            />
+          </Field>
+        )}
         {def.count ? (
           <Field label={S.param[def.count.label]}>
             <Slider
@@ -510,6 +687,83 @@ export function FrameTab() {
       </Section>
 
       <Section
+        title={S.customSection}
+        description={S.customHint}
+        persistKey="token-maker:custom"
+        defaultOpen={false}
+      >
+        {custom.frame ? (
+          <p className="m-0 break-all text-xs text-muted" data-testid="custom-frame-name">
+            {S.customFrameName(custom.frame.name)}
+          </p>
+        ) : null}
+        <div className="flex flex-wrap gap-2">
+          <Button
+            size="sm"
+            variant="secondary"
+            icon={<Upload />}
+            data-testid="custom-frame-load"
+            onClick={async () => {
+              const [f] = await pickFiles({ accept: 'image/*' });
+              if (f) notify(await loadCustomFrame(f));
+            }}
+          >
+            {S.customFrameLoad}
+          </Button>
+          {custom.frame && look.frame !== 'custom' ? (
+            <Button size="sm" variant="secondary" onClick={() => setFrame('custom')}>
+              {S.customFrameUse}
+            </Button>
+          ) : null}
+          {custom.frame ? (
+            <Button
+              size="sm"
+              variant="ghost"
+              icon={<X />}
+              onClick={() => {
+                setCustomFrame(null);
+                notify({ title: S.customFrameCleared, tone: 'info' });
+              }}
+            >
+              {S.customFrameClear}
+            </Button>
+          ) : null}
+        </div>
+        {custom.mask ? (
+          <p className="m-0 break-all text-xs text-muted" data-testid="custom-mask-name">
+            {S.customMaskName(custom.mask.name)}
+          </p>
+        ) : null}
+        <div className="flex flex-wrap gap-2">
+          <Button
+            size="sm"
+            variant="secondary"
+            icon={<Upload />}
+            data-testid="custom-mask-load"
+            onClick={async () => {
+              const [f] = await pickFiles({ accept: 'image/*' });
+              if (f) notify(await loadCustomMaskFile(f));
+            }}
+          >
+            {S.customMaskLoad}
+          </Button>
+          {custom.mask ? (
+            <Button
+              size="sm"
+              variant="ghost"
+              icon={<X />}
+              onClick={() => {
+                setCustomMask(null);
+                notify({ title: S.customMaskCleared, tone: 'info' });
+              }}
+            >
+              {S.customMaskClear}
+            </Button>
+          ) : null}
+        </div>
+      </Section>
+
+      <Section
         title={S.colorSection}
         persistKey="token-maker:color"
         actions={
@@ -518,6 +772,28 @@ export function FrameTab() {
           </span>
         }
       >
+        <Field label={S.autoColor} hint={S.autoColorHint}>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              size="sm"
+              variant="secondary"
+              icon={<Sparkles />}
+              data-testid="auto-color-frame"
+              onClick={async () => notify(await autoPickColor('frame'))}
+            >
+              {S.autoColorFrame}
+            </Button>
+            <Button
+              size="sm"
+              variant="secondary"
+              icon={<Sparkles />}
+              disabled={!showAccent}
+              onClick={async () => notify(await autoPickColor('accent'))}
+            >
+              {S.autoColorAccent}
+            </Button>
+          </div>
+        </Field>
         <Field label={S.colorGroupMetal}>
           <Swatches
             label={S.colorGroupMetal}
@@ -817,11 +1093,12 @@ export function ExportTab() {
   const format = prefs.format === 'webp' && webp ? 'webp' : 'png';
   const fileName = token ? tokenFileName(token, N, format) : '';
 
+  const embed = format === 'png' && prefs.embed;
   const download = async () => {
     if (!token?.image || busy) return;
     setBusy(true);
     try {
-      const blob = await renderTokenBlob(token, look, N, format);
+      const blob = await renderTokenBlob(token, look, N, format, { embed });
       downloadBlob(blob, fileName);
       toast({ title: S.downloaded(fileName), tone: 'success', replace: true });
     } catch {
@@ -883,6 +1160,13 @@ export function ExportTab() {
             ]}
           />
         </Field>
+        <Field label={S.embed} hint={S.embedHint} layout="inline">
+          <Toggle
+            checked={prefs.embed}
+            disabled={format !== 'png'}
+            onCheckedChange={(v) => setPrefs({ embed: v })}
+          />
+        </Field>
       </Section>
       {!token?.image ? <Notice tone="info">{S.noImageExport}</Notice> : null}
       <div className="flex flex-wrap gap-2">
@@ -904,8 +1188,85 @@ export function ExportTab() {
           {S.fileNameRule(fileName)}
         </p>
       ) : null}
+      <BatchExport N={N} format={format} embed={embed} />
       {token?.image ? <TableSize token={token} /> : null}
     </div>
+  );
+}
+
+/** 全部打包、編號組（ZIP） */
+function BatchExport({ N, format, embed }: { N: number; format: 'png' | 'webp'; embed: boolean }) {
+  const tokens = useDoc((s) => s.data.tokens);
+  const token = useCurrent();
+  const setCount = usePrefs((s) => s.data.setCount);
+  const toast = useToast();
+  const [progress, setProgress] = useState<{ kind: 'all' | 'set'; i: number; n: number } | null>(
+    null,
+  );
+  const ready = tokens.filter((t) => t.image).length;
+  const run = async (kind: 'all' | 'set') => {
+    if (progress) return;
+    const look = docNow().look;
+    const list = docNow().tokens;
+    const cur = currentToken();
+    const jobs =
+      kind === 'all'
+        ? zipAllJobs(list, N, format)
+        : cur?.image
+          ? setJobs(cur, setCount, N, format)
+          : [];
+    if (!jobs.length) return;
+    const name = kind === 'all' ? allZipName(N) : setZipName(cur as TokenItem, setCount, N);
+    setProgress({ kind, i: 0, n: jobs.length });
+    try {
+      const blob = await zipTokens(jobs, look, N, format, embed, (i, n) =>
+        setProgress({ kind, i, n }),
+      );
+      downloadBlob(blob, name);
+      toast({ title: S.zipDone(name), tone: 'success', replace: true });
+    } catch {
+      toast({ title: S.exportFailed, tone: 'danger' });
+    } finally {
+      setProgress(null);
+    }
+  };
+  return (
+    <Section title={S.batchSection} persistKey="token-maker:batch">
+      <p className="m-0 text-xs text-muted">{S.zipAllHint}</p>
+      <div>
+        <Button
+          variant="secondary"
+          icon={<FileArchive />}
+          loading={progress?.kind === 'all'}
+          disabled={!ready || (!!progress && progress.kind !== 'all')}
+          data-testid="zip-all"
+          onClick={() => void run('all')}
+        >
+          {progress?.kind === 'all' ? S.zipProgress(progress.i, progress.n) : S.zipAll(ready)}
+        </Button>
+      </div>
+      <p className="m-0 text-xs text-muted">{S.zipSetHint}</p>
+      <Field label={S.setCount}>
+        <NumberInput
+          value={setCount}
+          min={RANGES.setCount.min}
+          max={RANGES.setCount.max}
+          onChange={(v) => setPrefs({ setCount: Math.round(v) })}
+        />
+      </Field>
+      <div>
+        <Button
+          variant="secondary"
+          icon={<FileArchive />}
+          loading={progress?.kind === 'set'}
+          disabled={!token?.image || (!!progress && progress.kind !== 'set')}
+          data-testid="zip-set"
+          onClick={() => void run('set')}
+        >
+          {progress?.kind === 'set' ? S.zipProgress(progress.i, progress.n) : S.zipSet(setCount)}
+        </Button>
+      </div>
+    </Section>
   );
 }
 
@@ -915,7 +1276,10 @@ const TABLE_SIZES = [96, 64, 40] as const;
 function TableSize({ token }: { token: TokenItem }) {
   const look = useLook();
   const data = useTokenData(token.image, token.mask);
+  const custom = useDoc((s) => s.data.custom);
+  const cdata = useCustomData(custom.frame?.id ?? null, custom.mask?.id ?? null);
   const refs = useRef<(HTMLCanvasElement | null)[]>([]);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: data.mask 讀好時重畫（drawTokenThumb 直接拿讀好的遮罩）
   useEffect(() => {
     if (!data.work) return;
     const N = 192;
@@ -923,16 +1287,11 @@ function TableSize({ token }: { token: TokenItem }) {
     big.width = big.height = N;
     const ctx = big.getContext('2d');
     if (!ctx) return;
-    renderToken(
-      ctx,
-      { N, pad: tokenPad(look, token, data.mask), look, token, cacheFrame: false },
-      {
-        image: data.work.bitmap,
-        size: token.image,
-        popMask: data.mask && token.popOn ? softMaskCanvas(data.mask, look.feather) : null,
-        texture: requestTexture(look.texture, look.texSeed),
-      },
-    );
+    drawTokenThumb(ctx, token, look, N, {
+      frame: cdata.frame,
+      frameId: custom.frame?.id ?? null,
+      mask: cdata.mask,
+    });
     const dpr = Math.min(2, window.devicePixelRatio || 1);
     refs.current.forEach((c, i) => {
       if (!c) return;
@@ -943,7 +1302,7 @@ function TableSize({ token }: { token: TokenItem }) {
       x.imageSmoothingQuality = 'high';
       x.drawImage(big, 0, 0, px, px);
     });
-  }, [data.work, data.mask, look, token]);
+  }, [data.work, data.mask, look, token, cdata.frame, cdata.mask, custom.frame]);
   return (
     <Section title={S.tableSize} description={S.tableSizeHint} persistKey="token-maker:table">
       <div className="checker flex flex-wrap items-end gap-4 rounded-md p-3">

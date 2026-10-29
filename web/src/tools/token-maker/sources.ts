@@ -8,6 +8,7 @@ import { useEffect, useState } from 'react';
 import { addImageFile, createAssetStore } from '@/core/assets';
 import { encodePng } from '@/core/encode';
 import { featherMask, getImageData, loadImage, makeCanvas } from '@/core/image';
+import { grayMaskCanvas } from './custom';
 import { type Mask, maskBoundary, maskSizeFor, type Rgba } from './mask';
 import { IMAGE_MAX_SIDE, type ImageRef, type MaskRef } from './model';
 
@@ -333,4 +334,67 @@ export function useTokenData(image: ImageRef | null, mask: MaskRef | null): Toke
         ? 'missing'
         : 'loading';
   return { work, mask: m, status };
+}
+
+/* ---------- 自訂外框、自訂遮罩 ---------- */
+
+const grayMasks = new Map<string, HTMLCanvasElement | OffscreenCanvas>();
+
+/** 自訂遮罩的畫布（灰階 → 不透明度；同一個 id 只做一次） */
+export async function loadCustomMask(
+  id: string,
+): Promise<HTMLCanvasElement | OffscreenCanvas | null> {
+  const hit = grayMasks.get(id);
+  if (hit) return hit;
+  const bmp = await assets.bitmap(id).catch(() => undefined);
+  if (!bmp) return null;
+  const c = grayMaskCanvas(bmp);
+  grayMasks.set(id, c);
+  return c;
+}
+
+export const peekCustomMask = (id: string) => grayMasks.get(id) ?? null;
+
+export interface CustomData {
+  frame: ImageBitmap | null;
+  mask: HTMLCanvasElement | OffscreenCanvas | null;
+}
+
+/** 自訂外框與遮罩（讀好就重畫） */
+export function useCustomData(frameId: string | null, maskId: string | null): CustomData {
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    let alive = true;
+    if (frameId && !assets.peekBitmap(frameId))
+      void assets
+        .bitmap(frameId)
+        .catch(() => undefined)
+        .then(() => alive && setTick((t) => t + 1));
+    if (maskId && !grayMasks.has(maskId))
+      void loadCustomMask(maskId).then(() => alive && setTick((t) => t + 1));
+    return () => {
+      alive = false;
+    };
+  }, [frameId, maskId]);
+  return {
+    frame: frameId ? (assets.peekBitmap(frameId) ?? null) : null,
+    mask: maskId ? (grayMasks.get(maskId) ?? null) : null,
+  };
+}
+
+/** 參考圖（自訂；記在偏好裡的資產 id） */
+export function useRefImage(id: string | null): ImageBitmap | null {
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    let alive = true;
+    if (id && !assets.peekBitmap(id))
+      void assets
+        .bitmap(id)
+        .catch(() => undefined)
+        .then(() => alive && setTick((t) => t + 1));
+    return () => {
+      alive = false;
+    };
+  }, [id]);
+  return id ? (assets.peekBitmap(id) ?? null) : null;
 }

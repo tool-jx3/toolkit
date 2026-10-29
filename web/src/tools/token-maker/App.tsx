@@ -12,6 +12,7 @@ import {
   type Shortcut,
   Tabs,
   ToolShell,
+  useChoice,
   useToast,
   WindowDrop,
   withShortcut,
@@ -19,10 +20,12 @@ import {
 import {
   type BatchNotice,
   changeMask,
+  type EmbedChoice,
   loadImageFiles,
   renderTokenBlob,
   tokenFileName,
 } from './actions';
+import { FxTab } from './FxTab';
 import { initialState, RANGES } from './model';
 import { ExportTab, FrameTab, ImageTab, PopoutTab } from './Panels';
 import { Preview } from './Preview';
@@ -51,6 +54,7 @@ import {
   useUi,
 } from './store';
 import { S, type TabId } from './strings';
+import { TextTab } from './TextTab';
 
 /** 開頁約 5 秒後整理一次圖片庫：以前留下、目前的狀態與復原紀錄都沒用到的圖才刪 */
 function useAssetCleanup() {
@@ -67,15 +71,28 @@ function useAssetCleanup() {
  * 快捷鍵與預覽的「點一下選圖」也能通知。
  */
 const toaster: { current: ((n: BatchNotice) => void) | null } = { current: null };
+/** 嵌了設定的 PNG 要怎麼開（同樣由 ToolShell 裡的元件接上 useChoice） */
+const asker: { current: ((count: number) => Promise<EmbedChoice>) | null } = { current: null };
 
 function ToastBridge() {
   const toast = useToast();
+  const choose = useChoice();
   useEffect(() => {
     toaster.current = (n) => toast({ title: n.title, description: n.description, tone: n.tone });
+    asker.current = (count) =>
+      choose<'open' | 'plain'>({
+        title: S.embedAskTitle(count),
+        description: S.embedAskDesc,
+        choices: [
+          { value: 'open', label: S.embedAskOpen },
+          { value: 'plain', label: S.embedAskPlain, variant: 'secondary' },
+        ],
+      });
     return () => {
       toaster.current = null;
+      asker.current = null;
     };
-  }, [toast]);
+  }, [toast, choose]);
   return null;
 }
 
@@ -87,9 +104,10 @@ function useNotify() {
 
 function useImageLoader() {
   const notify = useNotify();
-  const load = async (files: File[]) => notify(await loadImageFiles(files));
+  const load = async (files: File[]) =>
+    notify(await loadImageFiles(files, (n) => asker.current?.(n) ?? Promise.resolve('open')));
   const pick = async () => {
-    const files = await pickFiles({ accept: 'image/*' });
+    const files = await pickFiles({ accept: 'image/*', multiple: true });
     if (files.length) await load(files);
   };
   return { load, pick };
@@ -141,10 +159,12 @@ function Settings() {
     {
       value: 'image',
       label: S.tabs.image,
-      content: <ImageTab onFiles={(f) => void loader.load(f)} />,
+      content: <ImageTab onFiles={(f) => void loader.load(f)} onPick={() => void loader.pick()} />,
     },
     { value: 'popout', label: S.tabs.popout, content: <PopoutTab /> },
     { value: 'frame', label: S.tabs.frame, content: <FrameTab /> },
+    { value: 'text', label: S.tabs.text, content: <TextTab /> },
+    { value: 'fx', label: S.tabs.fx, content: <FxTab /> },
     { value: 'export', label: S.tabs.export, content: <ExportTab /> },
   ];
   return (
@@ -237,6 +257,7 @@ function useTestHook() {
         const u = useUi.getState();
         return { alt: u.alt, space: u.space, painting: u.painting, busy: u.busy, wand: u.wand };
       },
+      canUndo: () => useDoc.temporal.getState().pastStates.length > 0,
     };
   }, []);
 }
@@ -251,7 +272,9 @@ function useQuickDownload() {
     const N = exportSizeOf(p);
     const fmt = p.format;
     try {
-      const blob = await renderTokenBlob(token, docNow().look, N, fmt);
+      const blob = await renderTokenBlob(token, docNow().look, N, fmt, {
+        embed: fmt === 'png' && p.embed,
+      });
       const name = tokenFileName(token, N, fmt);
       downloadBlob(blob, name);
       notify({ title: S.downloaded(name), tone: 'success' });
