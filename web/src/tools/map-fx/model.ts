@@ -4,6 +4,8 @@
  * 三種演出框（區域放大、路線・地點、房間遮罩）與它們的選項、預設值、整理存檔；路線的形狀與點；
  * 房間遮罩 ZIP 的檔名與格數、X 用 MP4 的大小。
  */
+
+import { HANDOFF_CORNERS, type HandoffCorner, type HandoffRooms } from '@/core/handoff';
 import {
   BASE_RANGES,
   type BaseRangeKey,
@@ -133,8 +135,10 @@ export const REVEAL_FXS: readonly RevealFx[] = ['fade', 'h', 'v'];
 export const RANGES = {
   ...BASE_RANGES,
   grid: { min: 8, max: 200, step: 1 },
+  /** L 形房間遮罩的缺角（外框的 %；2026-10-29，F86） */
+  cut: { min: 5, max: 95, step: 1 },
 } as const;
-export type RangeKey = BaseRangeKey | 'grid';
+export type RangeKey = BaseRangeKey | 'grid' | 'cut';
 
 export const snapRange = (key: RangeKey, v: unknown, fallback: number): number =>
   snapTo(RANGES[key], v, fallback);
@@ -168,9 +172,29 @@ export interface RouteFrame extends Rect {
   from?: DragCorner;
 }
 
+/** 外框的四個角（L 形房間遮罩的缺角在哪個角；2026-10-29） */
+export type MaskCorner = HandoffCorner;
+export const MASK_CORNERS: readonly MaskCorner[] = HANDOFF_CORNERS;
+
+/**
+ * L 形房間遮罩的缺角（2026-10-29，F86）：外框（x、y、w、h）的 c 那個角缺一塊——w、h 是**外框寬、深的比例**（0～1，不含兩端）。
+ * 存比例而不是 px：拖曳控點、方向鍵、複製時外框怎麼變，缺角都照比例跟著，不會一步一步四捨五入走樣。
+ */
+export interface MaskCut {
+  c: MaskCorner;
+  w: number;
+  h: number;
+}
+
+/** 缺角的比例的範圍（L 的兩隻手至少留 1%） */
+export const CUT_MIN = 0.01;
+export const CUT_MAX = 0.99;
+
 export interface RedactFrame extends RedactFrameBase<RedactStyle, RevealFx> {
   /** 房名（黑暗遮罩寫在「？」下面） */
   label: string;
+  /** L 形（沒有＝長方形；2026-10-29，平面圖產生器送來的 L 形房間、屬性面板的「形狀」） */
+  cut?: MaskCut;
 }
 
 export type Frame = ZoomFrame | RouteFrame | RedactFrame;
@@ -476,6 +500,7 @@ export function normalizeFrame(v: unknown, image: Size, d = initialDefaults()): 
     edge: pick(v.edge, EDGE_FXS, d.redact.edge),
     glow: snapRange('glow', v.glow, d.redact.glow),
     label: lineText(v.label, MAP_LIMITS.label),
+    ...cutField(normalizeCut(v.cut)),
   };
 }
 
@@ -557,11 +582,232 @@ export function makePointRoute(
   };
 }
 
-/** 範圍改了（拖曳、控點、方向鍵）：點選路線的點跟著動 */
+/** 範圍改了（拖曳、控點、方向鍵）：點選路線的點跟著動（L 形房間遮罩的缺角是比例，本來就跟著） */
 export function applyRect(draft: Frame, r: Rect): void {
   if (draft.kind === 'route' && draft.shape === 'points')
     draft.points = movePoints(draft.points, draft, r);
   Object.assign(draft, r);
+}
+
+/* ---------- L 形的房間遮罩（2026-10-29，F86） ---------- */
+
+const cutField = (cut: MaskCut | null) => (cut ? { cut } : {});
+
+const cutRatio = (v: number) => clamp(v, CUT_MIN, CUT_MAX);
+
+/** 存檔裡的缺角：角看不懂、寬深不是 0～1 之間的數字時 null（＝長方形）；太靠近 0 或 1 的夾到 1%～99% */
+export function normalizeCut(v: unknown): MaskCut | null {
+  if (!isObj(v) || !MASK_CORNERS.includes(v.c as MaskCorner)) return null;
+  const w = num(v.w, Number.NaN);
+  const h = num(v.h, Number.NaN);
+  if (!(w > 0 && w < 1 && h > 0 && h < 1)) return null;
+  return { c: v.c as MaskCorner, w: cutRatio(w), h: cutRatio(h) };
+}
+
+/** 預設的缺角：外框的一半 */
+export const defaultCut = (c: MaskCorner): MaskCut => ({ c, w: 0.5, h: 0.5 });
+
+/** 缺角（px）→ 比例：外框寬 boxW、深 boxH 的 L 形缺一塊 w × h px；不是 L 形（缺角 ≤ 0 或 ≥ 外框）時 null */
+export function cutFromPx(
+  c: MaskCorner,
+  w: number,
+  h: number,
+  boxW: number,
+  boxH: number,
+): MaskCut | null {
+  if (!(boxW > 0 && boxH > 0 && w > 0 && h > 0 && w < boxW && h < boxH)) return null;
+  return { c, w: cutRatio(w / boxW), h: cutRatio(h / boxH) };
+}
+
+/**
+ * L 形：外框 r（原圖 px 或畫面 px）裡缺的那一塊（缺角是外框的比例，所以框跟著放大時也對）。長方形的框 null。
+ */
+export function maskCutRect(f: Pick<RedactFrame, 'cut'>, r: Rect): Rect | null {
+  const c = f.cut;
+  if (!c) return null;
+  const w = c.w * r.w;
+  const h = c.h * r.h;
+  return {
+    x: c.c === 'nw' || c.c === 'sw' ? r.x : r.x + r.w - w,
+    y: c.c === 'nw' || c.c === 'ne' ? r.y : r.y + r.h - h,
+    w,
+    h,
+  };
+}
+
+/** L 形的外形（6 點，順時針；長方形 4 點）：外框 r 的 c 那個角缺一塊 cut.w × cut.h（和 r 同一個單位） */
+export function lPolygon(r: Rect, cut: MaskCut | null): [number, number][] {
+  const x1 = r.x;
+  const y1 = r.y;
+  const x2 = r.x + r.w;
+  const y2 = r.y + r.h;
+  if (!cut)
+    return [
+      [x1, y1],
+      [x2, y1],
+      [x2, y2],
+      [x1, y2],
+    ];
+  const { w, h } = cut;
+  switch (cut.c) {
+    case 'nw':
+      return [
+        [x1 + w, y1],
+        [x2, y1],
+        [x2, y2],
+        [x1, y2],
+        [x1, y1 + h],
+        [x1 + w, y1 + h],
+      ];
+    case 'ne':
+      return [
+        [x1, y1],
+        [x2 - w, y1],
+        [x2 - w, y1 + h],
+        [x2, y1 + h],
+        [x2, y2],
+        [x1, y2],
+      ];
+    case 'se':
+      return [
+        [x1, y1],
+        [x2, y1],
+        [x2, y2 - h],
+        [x2 - w, y2 - h],
+        [x2 - w, y2],
+        [x1, y2],
+      ];
+    default:
+      return [
+        [x1, y1],
+        [x2, y1],
+        [x2, y2],
+        [x1 + w, y2],
+        [x1 + w, y2 - h],
+        [x1, y2 - h],
+      ];
+  }
+}
+
+/** 框在畫面上的外形（r＝畫面上的外框；缺角照 r 與框的比例換算） */
+export function maskPolygon(f: Pick<RedactFrame, 'cut'>, r: Rect): [number, number][] {
+  const k = maskCutRect(f, r);
+  return lPolygon(r, k && f.cut ? { c: f.cut.c, w: k.w, h: k.h } : null);
+}
+
+/**
+ * L 形裡最大的長方形（「？」與房名放在這裡，同平面圖產生器的規則）：缺角上面或下面的整列與左邊或右邊的整欄取面積大的，
+ * 一樣大時取整列。長方形的框是 r 本身。
+ */
+export function maskMainRect(f: Pick<RedactFrame, 'cut'>, r: Rect): Rect {
+  const k = maskCutRect(f, r);
+  if (!k || !f.cut) return r;
+  const north = f.cut.c === 'nw' || f.cut.c === 'ne';
+  const west = f.cut.c === 'nw' || f.cut.c === 'sw';
+  const row: Rect = north
+    ? { x: r.x, y: r.y + k.h, w: r.w, h: r.h - k.h }
+    : { x: r.x, y: r.y, w: r.w, h: r.h - k.h };
+  const col: Rect = west
+    ? { x: r.x + k.w, y: r.y, w: r.w - k.w, h: r.h }
+    : { x: r.x, y: r.y, w: r.w - k.w, h: r.h };
+  return col.w * col.h > row.w * row.h ? col : row;
+}
+
+/**
+ * L 形拆成兩塊不重疊的長方形（原圖 px，取整；進階 3D 的房間用）：第一塊是最大的那一塊；長方形的框是它自己。
+ * 缺角的大小取整、至少 1 px、比外框少至少 1 px。
+ */
+export function maskPieces(f: Pick<RedactFrame, 'x' | 'y' | 'w' | 'h' | 'cut'>): Rect[] {
+  const box = { x: f.x, y: f.y, w: f.w, h: f.h };
+  if (!f.cut || box.w < 2 || box.h < 2) return [box];
+  const cw = clamp(Math.round(f.cut.w * box.w), 1, box.w - 1);
+  const ch = clamp(Math.round(f.cut.h * box.h), 1, box.h - 1);
+  const px = { ...f, cut: { c: f.cut.c, w: cw / box.w, h: ch / box.h } };
+  const k = maskCutRect(px, box);
+  if (!k) return [box];
+  const main = maskMainRect(px, box);
+  const north = f.cut.c === 'nw' || f.cut.c === 'ne';
+  const west = f.cut.c === 'nw' || f.cut.c === 'sw';
+  /* 另一塊：缺角旁邊的那一段（最大的那一塊是整列時在缺角的左右，是整欄時在缺角的上下） */
+  const other: Rect =
+    main.w === box.w
+      ? {
+          x: west ? box.x + cw : box.x,
+          y: north ? box.y : box.y + box.h - ch,
+          w: box.w - cw,
+          h: ch,
+        }
+      : {
+          x: west ? box.x : box.x + box.w - cw,
+          y: north ? box.y + ch : box.y,
+          w: cw,
+          h: box.h - ch,
+        };
+  return [main, other].map((r) => ({
+    x: Math.round(r.x),
+    y: Math.round(r.y),
+    w: Math.round(r.w),
+    h: Math.round(r.h),
+  }));
+}
+
+/* ---------- 平面圖產生器送來的房間（2026-10-29，F85） ---------- */
+
+export interface PlanMasks {
+  /** 做好的房間遮罩（照送來的順序，最多到框的上限） */
+  frames: RedactFrame[];
+  /** 送來的房間數（有效的） */
+  total: number;
+}
+
+/**
+ * 平面圖產生器送來的房間範圍 → 房間遮罩：照「新畫的框的預設」（房間遮罩），房名＝房間的名字；
+ * 範圍換算成這張圖的原圖 px（送來的座標以 rooms.width × rooms.height 的圖為準）、取整、夾在圖裡；L 形帶缺角。
+ * GM 專用的房間：一直蓋著、濃度 100%（樣式是迷霧或馬賽克時改成黑暗；看得出底下的內容）、不寫房名（名字就是劇透）。
+ * 最多 `room` 個（框的上限扣掉已經有的）。
+ */
+export function masksFromPlan(
+  rooms: HandoffRooms,
+  image: Size,
+  defaults: FrameDefaults['redact'],
+  newId: (taken: Set<string>) => string,
+  room: number = LIMITS.frames,
+): PlanMasks {
+  const sx = image.width / rooms.width;
+  const sy = image.height / rooms.height;
+  const taken = new Set<string>();
+  const frames: RedactFrame[] = [];
+  let total = 0;
+  for (const r of rooms.list) {
+    const x0 = Math.round(r.x * sx);
+    const y0 = Math.round(r.y * sy);
+    const rect = clampRect(
+      { x: x0, y: y0, w: Math.round((r.x + r.w) * sx) - x0, h: Math.round((r.y + r.h) * sy) - y0 },
+      image,
+    );
+    total++;
+    if (frames.length >= Math.max(0, room)) continue;
+    const id = newId(taken);
+    taken.add(id);
+    const f: RedactFrame = {
+      id,
+      kind: 'redact',
+      ...rect,
+      ...defaults,
+      label: r.gm ? '' : lineText(r.name.trim(), MAP_LIMITS.label),
+    };
+    if (r.gm) {
+      f.mode = 'static';
+      f.density = 100;
+      if (f.style !== 'dark' && f.style !== 'keepout') f.style = 'dark';
+    }
+    if (r.cut) {
+      const cut = cutFromPx(r.cut.c, r.cut.w, r.cut.h, r.w, r.h);
+      if (cut) f.cut = cut;
+    }
+    frames.push(f);
+  }
+  return { frames, total };
 }
 
 /** 複製：往右下移一點（夾在圖裡）、新的 id */

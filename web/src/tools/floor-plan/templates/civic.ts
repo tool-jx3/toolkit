@@ -42,12 +42,16 @@ const meetingTable = (f: Frame, w: number) => {
 
 const clubStairs = (b: FloorBuilder) => b.item('stairs', 1.5, 0.6);
 
+/**
+ * 每層的走廊：從西端的樓梯口轉進東西向的中走廊，一間 L 形房間（缺右上角＝北側那一排社辦；2026-10-29，規格 D81）。
+ * 原本是「樓梯間」「走廊」兩間拼起來，中間的開口兩邊各留一小段牆。
+ */
+const clubHall = (b: FloorBuilder) =>
+  b.room('走廊', 'hall', 0, 0, 40, 10, { hideLabel: true, cut: { c: 'ne', w: 35, h: 7 } });
+
 export function clubBuilding(): TplFloor[] {
   const g = new FloorBuilder('1F');
-  g.room('樓梯間', 'hall', 0, 0, 5, 7, { hideLabel: true })
-    .room('走廊', 'hall', 0, 7, 40, 3, { hideLabel: true })
-    .room('玄關', 'hall', 12, 10, 4, 8, { ly: 1 })
-    .room('中庭', 'porch', 0, 18, 40, 5);
+  clubHall(g).room('玄關', 'hall', 12, 10, 4, 8, { ly: 1 }).room('中庭', 'porch', 0, 18, 40, 5);
   clubStairs(g);
   clubRoom(g, '攝影社', 'office', 5, 7, false, (f) => {
     f.item('locker', 0.1, 0.6, 270)
@@ -112,8 +116,7 @@ export function clubBuilding(): TplFloor[] {
       .item('crate', 6.6, 0.3)
       .item('pallet', 2.4, 3.6);
   });
-  g.dh(0.5, 7, 4, 1, 0, 'open')
-    .dh(13.25, 18, 1.5, -1, 0, 'door2')
+  g.dh(13.25, 18, 1.5, -1, 0, 'door2')
     .dh(12.5, 10, 3, 1, 0, 'open')
     .dv(40, 7.75, 1.5, 1, 0)
     .wh(6.5, 0, 2)
@@ -133,9 +136,7 @@ export function clubBuilding(): TplFloor[] {
     .item('bush', 20, 20);
 
   const u = new FloorBuilder('2F');
-  u.room('樓梯間', 'hall', 0, 0, 5, 7, { hideLabel: true }).room('走廊', 'hall', 0, 7, 40, 3, {
-    hideLabel: true,
-  });
+  clubHall(u);
   clubStairs(u);
   clubRoom(u, '神祕學研究會', 'special', 5, 8, false, (f) => {
     f.item('bookshelf', 0.2, 0.1)
@@ -221,8 +222,7 @@ export function clubBuilding(): TplFloor[] {
   clubRoom(u, '器材室', 'storage', 34, 6, true, (f) => {
     f.item('supply_shelf', 0.1, 0.6, 270).item('cardboard', 2, 0.3).item('speaker', 3.6, 0.3);
   });
-  u.dh(0.5, 7, 4, 1, 0, 'open')
-    .wh(7, 0, 2)
+  u.wh(7, 0, 2)
     .wh(15, 0, 2)
     .wh(30, 0, 2)
     .wh(36, 0, 2)
@@ -236,16 +236,21 @@ export function clubBuilding(): TplFloor[] {
 
 /* ---------- 博物館（1F 展示室、B1 收藏庫） ---------- */
 
+/**
+ * 每層的走廊：北端是樓梯與貨梯，往南轉進東西向的走廊，一間 L 形房間（缺右上角＝修復室、燻蒸室那一塊；
+ * 2026-10-29，規格 D81）。原本是「樓梯・貨梯」「走廊」兩間拼起來，中間的開口兩邊各留一小段牆。
+ */
+const museumHall = (b: FloorBuilder, name: string) =>
+  b.room(name, 'hall', 16, 0, 12, 14, { hideLabel: true, cut: { c: 'ne', w: 6, h: 8 } });
+
 function museumCore(b: FloorBuilder): void {
-  b.room('樓梯・貨梯', 'hall', 16, 0, 6, 8, { hideLabel: true });
   b.item('stairs', 16.5, 0.5).item('elevator', 18.6, 0.5, 0, { size: [3.2, 3.2] });
 }
 
 export function museum(): TplFloor[] {
   const g = new FloorBuilder('1F');
-  g.room('常設展示室', 'public', 0, 0, 16, 28)
-    .room('修復室', 'office', 22, 0, 6, 8)
-    .room('走廊', 'hall', 16, 8, 12, 6, { hideLabel: true })
+  g.room('常設展示室', 'public', 0, 0, 16, 28).room('修復室', 'office', 22, 0, 6, 8);
+  museumHall(g, '走廊')
     .room('特展室', 'public', 28, 0, 16, 14)
     .room('大廳', 'public', 16, 14, 12, 14)
     .room('館長室', 'office', 28, 14, 8, 8)
@@ -257,7 +262,6 @@ export function museum(): TplFloor[] {
   g.dh(20.5, 28, 3, -1, 0, 'auto')
     .dv(16, 18, 4, 1, 0, 'open')
     .dh(19, 14, 6, 1, 0, 'open')
-    .dh(17, 8, 4, 1, 0, 'open')
     .dh(23.5, 8, 1.5, -1, 0)
     .dv(28, 9.5, 3, 1, 0, 'door2')
     .dv(28, 17.5, 1.5, 1, 0)
@@ -309,9 +313,8 @@ export function museum(): TplFloor[] {
   g.item('tree', 10.4, 29).item('tree', 30.6, 29).item('garden_bench', 14, 31.6, 180);
 
   const bm = new FloorBuilder('B1');
-  bm.room('收藏庫', 'storage', 0, 0, 16, 14)
-    .room('燻蒸室', 'danger', 22, 0, 6, 8)
-    .room('地下走廊', 'hall', 16, 8, 12, 6, { hideLabel: true })
+  bm.room('收藏庫', 'storage', 0, 0, 16, 14).room('燻蒸室', 'danger', 22, 0, 6, 8);
+  museumHall(bm, '地下走廊')
     .room('機房', 'garage', 28, 0, 8, 14)
     .room('未登錄品庫', 'special', 0, 14, 16, 8, {
       gm: true,
@@ -319,7 +322,6 @@ export function museum(): TplFloor[] {
     });
   museumCore(bm);
   bm.dv(16, 10, 3, -1, 0, 'door2')
-    .dh(17, 8, 4, 1, 0, 'open')
     .dh(23.5, 8, 1.5, -1, 0, 'steel')
     .dv(28, 10, 1.5, 1, 0, 'steel')
     .dh(6, 14, 1.5, 1, 0, 'secret');

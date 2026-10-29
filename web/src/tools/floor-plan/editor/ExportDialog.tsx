@@ -26,6 +26,7 @@ import {
   exportFloors,
   exportJobs,
   exportOptions,
+  handoffRoomsOf,
   isVtt,
   tokenGridPx,
   vttCell,
@@ -141,7 +142,8 @@ export function ExportDialog() {
   };
 
   /**
-   * 送到地圖演出產生器（F267）：這一張（每層各一張時是這一層）＋名稱＋「1 格幾 px」。
+   * 送到地圖演出產生器（F267）：這一張（每層各一張時是這一層）＋名稱＋「1 格幾 px」＋房間的範圍（F271：換算成這張圖的 px；
+   * PL 用的圖不帶 GM 專用的房間）。
    * 新分頁在點擊的當下（任何 await 之前）開，網址帶交接編號；圖畫好、寫進 IndexedDB 之後 map-fx 才讀得到
    * （map-fx 那邊顯示「正在接收」等它；畫不出來或寫不進去時 map-fx 馬上知道，2026-10-29 主控追加）。
    */
@@ -167,10 +169,12 @@ export function ExportDialog() {
       const gridPx = vtt
         ? vttPxOf(exp)
         : Math.round(L.scale * (project.tokenGrid || DEFAULT_CELL) * 100) / 100;
-      const meta =
+      const meta: Record<string, unknown> =
         Number.isInteger(gridPx) && gridPx >= FX_GRID_MIN && gridPx <= FX_GRID_MAX
           ? { gridPx }
           : {};
+      const rooms = handoffRoomsOf(job.floors, L, opts);
+      if (rooms.list.length) meta.rooms = rooms;
       const ok = await sendHandoff({
         to: 'map-fx',
         from: 'floor-plan',

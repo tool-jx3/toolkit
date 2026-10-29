@@ -1,10 +1,12 @@
 /**
  * 匯出的計畫（純函式）：要畫哪幾層、用什麼設定、檔名。匯出對話框、測試共用。
  */
+import type { HandoffRoom, HandoffRooms } from '@/core/handoff';
 import {
   type ExportImageOptions,
   type ExportLayout,
   exportLayout,
+  floorOffset,
   hasExportContent,
 } from '../draw/export';
 import { S } from '../strings';
@@ -19,7 +21,8 @@ import {
 import { coordGrid } from './coords';
 import { floorHasClues } from './geometry';
 import { composedFloor } from './interior';
-import type { Floor, Project, Rect, ThemeId } from './types';
+import { cutRect, roomContainsRoom } from './shape';
+import type { Floor, Project, Rect, Room, ThemeId } from './types';
 
 export type ExportRange = 'current' | 'all' | 'each';
 
@@ -165,4 +168,55 @@ export function wearSheet(p: Project, exp: ExportSettings, showClues: boolean): 
   const L = exportLayout(floors, exportOptions(p, e, p.theme, 24));
   const f = L.frames[0];
   return { x: f.x, y: f.y, w: L.width, h: L.height };
+}
+
+/**
+ * 送到地圖演出產生器的房間範圍（2026-10-29，F271、D82；map-fx F85）：匯出的這張圖（`L`＝它的版面）上每一間房的外框與 L 形的缺角，
+ * 換算成圖的 px（含四周的留白、座標的字、GM 字帶、樓層名稱列與好幾層排成一張時的位置；每條邊各自四捨五入，相鄰的房間共用同一條線）。
+ *
+ * - 帶哪些：「不顯示名字」的房間（拼接的小塊、走廊）不帶；PL 用的圖（`playerView`）不帶 GM 專用的房間與在它裡面的房間（只剩牆框，
+ *   名字也不能帶）。順序同「替這一層的房間編號」（F219）：每一層 PL 看得到的房間由上到下、由左到右，GM 專用的接在後面；樓層照圖上的順序。
+ * - 名字：圖上寫的名字（PL 用的圖用「給 PL 看的名字」）；匯出時不顯示房間名字（`hideNames`）就是空的。
+ * - `gm`：GM 用的圖上只有 GM 看得到的房間（含在 GM 專用房間裡面的）。
+ */
+export function handoffRoomsOf(
+  floors: readonly Floor[],
+  L: ExportLayout,
+  opts: Pick<ExportImageOptions, 'playerView' | 'hideNames'>,
+): HandoffRooms {
+  const s = L.scale;
+  const list: HandoffRoom[] = [];
+  floors.forEach((floor, i) => {
+    if (!L.frames[i]) return;
+    const o = floorOffset(L, i);
+    const px = (v: number, d: number) => Math.round((v + d) * s);
+    const hidden = floor.rooms.filter((r) => r.gm);
+    const isGm = (r: Room) => !!r.gm || hidden.some((g) => g !== r && roomContainsRoom(g, r));
+    const byPosition = (a: Room, b: Room) => a.y - b.y || a.x - b.x;
+    const target = floor.rooms.filter((r) => !r.hideLabel);
+    const visible = target.filter((r) => !isGm(r)).sort(byPosition);
+    const gmOnly = opts.playerView ? [] : target.filter(isGm).sort(byPosition);
+    for (const r of [...visible, ...gmOnly]) {
+      const x0 = px(r.x, o.x);
+      const y0 = px(r.y, o.y);
+      const x1 = px(r.x + r.w, o.x);
+      const y1 = px(r.y + r.h, o.y);
+      if (x1 - x0 < 1 || y1 - y0 < 1) continue;
+      const name = opts.hideNames ? '' : (opts.playerView && r.plName) || r.name || '';
+      const room: HandoffRoom = { name, x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
+      const k = cutRect(r);
+      if (k && r.cut) {
+        /* 缺角的內側那一點也各自四捨五入（和牆線對齊） */
+        const west = r.cut.c === 'nw' || r.cut.c === 'sw';
+        const north = r.cut.c === 'nw' || r.cut.c === 'ne';
+        const cw = west ? px(k.x + k.w, o.x) - x0 : x1 - px(k.x, o.x);
+        const ch = north ? px(k.y + k.h, o.y) - y0 : y1 - px(k.y, o.y);
+        if (cw >= 1 && ch >= 1 && cw < room.w && ch < room.h)
+          room.cut = { c: r.cut.c, w: cw, h: ch };
+      }
+      if (isGm(r)) room.gm = true;
+      list.push(room);
+    }
+  });
+  return { width: L.pxWidth, height: L.pxHeight, list };
 }

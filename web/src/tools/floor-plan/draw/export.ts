@@ -175,6 +175,19 @@ export function exportLayout(floors: readonly Floor[], opts: ExportImageOptions)
   };
 }
 
+/**
+ * 第 i 層在整張圖上的位置（格）：世界座標 (x, y) 畫在圖上的 ((x + o.x) × scale, (y + o.y) × scale) px。
+ * 一排裡由左到右、排與排之間空 gap；最上面是 GM 字帶（2026-10-29 抽出來：送房間的範圍給地圖演出產生器也用，F271）。
+ */
+export function floorOffset(L: ExportLayout, i: number): { x: number; y: number } {
+  const row = Math.floor(i / L.cols);
+  const fh = Math.max(...L.frames.map((f) => f.h));
+  let offset = 0;
+  for (let j = row * L.cols; j < i; j++) offset += L.frames[j].w + L.gap;
+  const f = L.frames[i];
+  return { x: offset - f.x, y: L.badgeH + row * (fh + L.gap) - f.y };
+}
+
 /** 畫成 canvas */
 export function renderImage(floors: readonly Floor[], opts: ExportImageOptions): HTMLCanvasElement {
   const theme = getTheme(opts.theme);
@@ -189,14 +202,11 @@ export function renderImage(floors: readonly Floor[], opts: ExportImageOptions):
     c.fillRect(0, 0, canvas.width, canvas.height);
   }
   const s = L.scale;
-  const fh = Math.max(...L.frames.map((f) => f.h));
-  let offset = 0;
   floors.forEach((floor, i) => {
     const f = L.frames[i];
-    const row = Math.floor(i / L.cols);
-    if (i % L.cols === 0) offset = 0;
+    const o = floorOffset(L, i);
     c.save();
-    c.setTransform(s, 0, 0, s, (offset - f.x) * s, (L.badgeH + row * (fh + L.gap) - f.y) * s);
+    c.setTransform(s, 0, 0, s, o.x * s, o.y * s);
     drawFloor(c, floor, {
       theme: opts.transparent ? { ...theme, bg: 'transparent' } : theme,
       zoom: s,
@@ -234,7 +244,6 @@ export function renderImage(floors: readonly Floor[], opts: ExportImageOptions):
       );
     }
     c.restore();
-    offset += f.w + L.gap;
   });
   if (L.badgeH && opts.gmBadge) {
     c.save();

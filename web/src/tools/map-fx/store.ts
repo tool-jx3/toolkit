@@ -28,6 +28,7 @@ import {
   type MapState,
   makeFrame,
   makePointRoute,
+  maskPieces,
   normalizeDefaults,
   normalizeState,
   type Point,
@@ -505,11 +506,16 @@ export function nudgeWalkSelected(dx: number, dy: number): boolean {
   return true;
 }
 
-/** 房間遮罩當草稿：清單裡的房間遮罩做成房間（房名照抄、範圍相同的不重複加）；回傳加了幾個 */
+/**
+ * 房間遮罩當草稿：清單裡的房間遮罩做成房間（房名照抄、範圍相同的不重複加）；回傳加了幾個。
+ * L 形的遮罩（2026-10-29）拆成兩個長方形的房間：最大的那一塊寫房名，另一塊不寫（3D 的房間都是長方形，中間的牆照樣有）。
+ */
 export function roomsFromRedacts(): number {
   const s = docNow();
   if (!s.image) return 0;
-  const masks = s.frames.filter((f) => f.kind === 'redact');
+  const masks = s.frames
+    .filter((f) => f.kind === 'redact')
+    .flatMap((f) => maskPieces(f).map((p, i) => ({ ...p, label: i === 0 ? f.label : '' })));
   const image = s.image;
   const add = roomsFromMasks(masks, s.walk.rooms, image, (taken) => newFrameId(taken));
   if (!add.length) return 0;

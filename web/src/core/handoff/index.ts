@@ -17,6 +17,13 @@
  * 失敗也寫一筆小小的紀錄（`failed:<id>`），收件的分頁晚一點開也看得到。
  *
  * session-log → session-report 的交接（`@/core/sessions`，localStorage、只有文字）是更早的做法，沒有改用這裡。
+ *
+ * **`meta` 的共通欄位**（2026-10-29 起；收件的工具看得懂才用，沒有時照舊）：
+ * - `gridPx`：圖上 1 格幾 px（整數）。
+ * - `rooms`：圖上的房間範圍 `{ width, height, list }`（`HandoffRooms`；座標是寬 width、高 height 的圖的 px）。
+ *   每一間 `{ name, x, y, w, h, cut?, gm? }`：長方形的外框，`cut`＝外框的 c 那個角缺一塊 w × h（L 形），
+ *   `gm`＝只有 GM 看得到的房間。室內平面圖產生器送給地圖演出產生器時帶（floor-plan F271、map-fx F85）。
+ *   讀的那一邊用 `readHandoffRooms(meta)`：看不懂的整個 null、看不懂的那一間略過。
  */
 import {
   hasIndexedDb,
@@ -40,6 +47,75 @@ export interface HandoffInput {
   meta?: Record<string, unknown>;
   /** 交接編號（`beginHandoff` 取的；先開分頁、後送資料時用） */
   id?: string;
+}
+
+/** 外框的四個角（左上、右上、右下、左下） */
+export type HandoffCorner = 'nw' | 'ne' | 'se' | 'sw';
+export const HANDOFF_CORNERS: readonly HandoffCorner[] = ['nw', 'ne', 'se', 'sw'];
+
+/** 圖上的一間房間（px）：外框＋選填的缺角（L 形） */
+export interface HandoffRoom {
+  /** 圖上寫的名字（沒寫名字時空字串） */
+  name: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  /** L 形：外框的 c 那個角缺一塊 w × h（0 < w < 外框寬、0 < h < 外框高） */
+  cut?: { c: HandoffCorner; w: number; h: number };
+  /** 只有 GM 看得到的房間 */
+  gm?: boolean;
+}
+
+/** `meta.rooms`：座標是寬 width、高 height 的圖的 px */
+export interface HandoffRooms {
+  width: number;
+  height: number;
+  list: HandoffRoom[];
+}
+
+const finite = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
+
+/**
+ * 讀 `meta.rooms`（寄件的工具可能是舊版或別的工具）：沒有、圖的大小看不懂時 null；
+ * 範圍看不懂（不是數字、寬高 ≤ 0）的那一間略過；缺角看不懂（角不對、不在 0～外框之間）時當成長方形；名字截到 200 字。
+ */
+export function readHandoffRooms(meta: Record<string, unknown> | undefined): HandoffRooms | null {
+  const raw = meta?.rooms;
+  if (!raw || typeof raw !== 'object') return null;
+  const r = raw as Record<string, unknown>;
+  if (!finite(r.width) || !finite(r.height) || r.width <= 0 || r.height <= 0) return null;
+  if (!Array.isArray(r.list)) return null;
+  const list: HandoffRoom[] = [];
+  for (const v of r.list) {
+    if (!v || typeof v !== 'object') continue;
+    const o = v as Record<string, unknown>;
+    if (![o.x, o.y, o.w, o.h].every(finite)) continue;
+    const room: HandoffRoom = {
+      name: typeof o.name === 'string' ? Array.from(o.name).slice(0, 200).join('') : '',
+      x: o.x as number,
+      y: o.y as number,
+      w: o.w as number,
+      h: o.h as number,
+    };
+    if (room.w <= 0 || room.h <= 0) continue;
+    const c = o.cut as Record<string, unknown> | undefined;
+    if (
+      c &&
+      typeof c === 'object' &&
+      HANDOFF_CORNERS.includes(c.c as HandoffCorner) &&
+      finite(c.w) &&
+      finite(c.h) &&
+      c.w > 0 &&
+      c.h > 0 &&
+      c.w < room.w &&
+      c.h < room.h
+    )
+      room.cut = { c: c.c as HandoffCorner, w: c.w, h: c.h };
+    if (o.gm === true) room.gm = true;
+    list.push(room);
+  }
+  return { width: r.width, height: r.height, list };
 }
 
 export interface Handoff extends HandoffInput {

@@ -11,7 +11,7 @@ import { labelLayout } from '../draw/labels';
 import { THEMES } from '../draw/themes';
 import { ASSET } from '../model/assets';
 import { OPEN, SWING_DOORS } from '../model/catalog';
-import { rectContains } from '../model/geometry';
+import { roomContainsRect, roomContainsRoom, roomMainRect, roomRects } from '../model/shape';
 import type { Rect } from '../model/types';
 import type { TplFloor } from './builder';
 
@@ -135,20 +135,27 @@ export function findSpot(
         0.25,
       ),
     );
-  for (const r of f.rooms) if (r !== room && rectContains(room, r)) blocks.push(grow(r, 0.2));
+  /* 巢狀的房間（L 形：兩塊長方形各自擋住；2026-10-29） */
+  for (const r of f.rooms)
+    if (r !== room && roomContainsRoom(room, r))
+      for (const p of roomRects(r)) blocks.push(grow(p, 0.2));
   const c = measureCtx();
   if (c)
     for (const showSize of ['none', 'm2'] as const) {
       const lab = labelLayout(c, { ...room, id: '' }, { showSize }, THEMES.clean);
       if (lab) blocks.push(grow(lab.box, 0.2));
     }
-  else blocks.push({ x: room.x + room.w / 2 - 1.6, y: room.y + room.h / 2 - 0.8, w: 3.2, h: 1.6 });
-  const cx = room.x + room.w / 2;
-  const cy = room.y + room.h / 2;
+  /* L 形房間（2026-10-29）：名字與「中心」都以最大的那一塊長方形為準，缺角裡（含內縮）不放 */
+  const main = roomMainRect(room);
+  if (!c)
+    blocks.push({ x: main.x + main.w / 2 - 1.6, y: main.y + main.h / 2 - 0.8, w: 3.2, h: 1.6 });
+  const cx = main.x + main.w / 2;
+  const cy = main.y + main.h / 2;
   let best: { x: number; y: number; d: number } | null = null;
   for (let y = room.y + inset; y + h <= room.y + room.h - inset + 1e-6; y += step)
     for (let x = room.x + inset; x + w <= room.x + room.w - inset + 1e-6; x += step) {
       const r = { x, y, w, h };
+      if (room.cut && !roomContainsRect(room, grow(r, inset - 1e-6))) continue;
       if (blocks.some((b) => hits(r, b))) continue;
       const d = Math.hypot(x + w / 2 - cx, y + h / 2 - cy);
       if (!best || d < best.d) best = { x, y, d };

@@ -282,8 +282,11 @@ export function lodge(): TplFloor[] {
     .item('plant', 26.4, 22.4);
 
   const u = new FloorBuilder('2F');
-  u.room('走廊', 'hall', 0, 8, 18, 3, { hideLabel: true })
-    .room('樓梯', 'hall', 18, 0, 4, 11, { hideLabel: true })
+  /*
+   * 走廊從樓梯口轉個彎通到客房：一間 L 形房間（缺左上角＝客房 1、2 那一塊；2026-10-29，規格 D81）。
+   * 原本是「走廊」「樓梯」兩間拼起來，中間是一整段開口。
+   */
+  u.room('走廊', 'hall', 0, 0, 22, 11, { hideLabel: true, cut: { c: 'nw', w: 18, h: 8 } })
     .room('儲藏室', 'storage', 18, 11, 4, 9)
     .room('浴室', 'wet', 22, 0, 6, 7)
     .room('主人房', 'bedroom', 22, 7, 6, 13);
@@ -291,8 +294,7 @@ export function lodge(): TplFloor[] {
   lodgeRoom(u, 9, 0, 8, false, 2);
   lodgeRoom(u, 0, 11, 9, true, 3);
   lodgeRoom(u, 9, 11, 9, true, 4);
-  u.dv(18, 8, 3, 1, 0, 'open')
-    .dh(18.5, 11, 1.5, 1, 0)
+  u.dh(18.5, 11, 1.5, 1, 0)
     .dv(22, 2.5, 1.5, 1, 0)
     .dv(22, 9, 1.5, 1, 0)
     .wv(0, 8.75, 1.5)

@@ -5,8 +5,9 @@
 import { seeded } from '../draw/furniture/kit';
 import { ASSET, VERTICAL_LINKS } from '../model/assets';
 import { CAT, OPEN } from '../model/catalog';
-import { rectContains, rectsOverlap } from '../model/geometry';
-import type { Rect } from '../model/types';
+import { rectsOverlap } from '../model/geometry';
+import { roomContainsRect, roomMainRect } from '../model/shape';
+import type { Rect, RoomCut } from '../model/types';
 import type { TplFloor } from './builder';
 
 export interface DecayOptions {
@@ -47,23 +48,26 @@ export function decay(floors: TplFloor[], seed: number, options: DecayOptions = 
             : { x: o.x - L, y: o.y - 0.2, w: L * 2, h: L + 0.4 },
         );
       }
-      for (const r of f.rooms)
+      for (const r of f.rooms) {
+        /* 名字的位置：L 形房間（2026-10-29）是最大的那一塊的中央 */
+        const m = roomMainRect(r);
         zones.push({
-          x: r.x + r.w / 2 + (r.lx || 0) - 2.2,
-          y: r.y + r.h / 2 + (r.ly || 0) - 0.8,
+          x: m.x + m.w / 2 + (r.lx || 0) - 2.2,
+          y: m.y + m.h / 2 + (r.ly || 0) - 0.8,
           w: 4.4,
           h: 1.6,
         });
+      }
       return zones;
     };
-    const scatter = (t: string, room: Rect) => {
+    const scatter = (t: string, room: Rect & { cut?: RoomCut }) => {
       const a = ASSET[t];
       const zones = blocked();
       for (let k = 0; k < 30; k++) {
         const x = Math.round((room.x + 0.3 + rnd() * Math.max(0, room.w - a.w - 0.6)) * 4) / 4;
         const y = Math.round((room.y + 0.3 + rnd() * Math.max(0, room.h - a.h - 0.6)) * 4) / 4;
         const box = { x, y, w: a.w, h: a.h };
-        if (!rectContains(room, box) || zones.some((z) => rectsOverlap(z, box))) continue;
+        if (!roomContainsRect(room, box) || zones.some((z) => rectsOverlap(z, box))) continue;
         f.items.push({ t, x, y, w: a.w, h: a.h, rot: 0 });
         return;
       }
