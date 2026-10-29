@@ -36,6 +36,15 @@ export const EXTERNAL: readonly HomeEntry[] = [
     group: null,
     kind: 'external',
   },
+  {
+    id: 'fantasy-map',
+    name: '奇幻世界地圖產生器',
+    summary:
+      'Azgaar 的 Fantasy Map Generator：一鍵產生整片大陸的奇幻世界地圖，地形、氣候、河流、國家、城鎮、文化、宗教與道路都能逐項編輯，匯出 PNG、SVG 或存成地圖檔；英文介面。',
+    href: 'https://azgaar.github.io/Fantasy-Map-Generator/',
+    group: null,
+    kind: 'external',
+  },
 ];
 
 /**

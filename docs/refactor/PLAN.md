@@ -62,6 +62,7 @@
 | trpg-lab | 違法建築的 TRPG 實驗室（9 個子工具＋地圖編輯器） | ihoukentiku | MIT | G9 |
 | anime-rig | Anime2.5DRig | 852wa/Anime2.5DRig | MIT | G9 |
 | jizura | JIZURA 字面 | 852wa/JIZURA | MIT | 外部連結（不重寫，維持轉址） |
+| fantasy-map | 奇幻世界地圖產生器 | Azgaar/Fantasy-Map-Generator | MIT | 外部連結（不重寫；2026-10-29 使用者要求加到首頁的「其他網站」） |
 
 ## 3. 群組（共用引擎＋同一套外框）
 

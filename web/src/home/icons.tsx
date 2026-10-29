@@ -16,6 +16,7 @@ import {
   Contact,
   Crop,
   Dices,
+  Earth,
   Eraser,
   Feather,
   FileArchive,
@@ -180,6 +181,7 @@ const ICONS: Record<string, LucideIcon> = {
   'map-fx': Route,
   /* 其他網站 */
   jizura: MicVocal,
+  'fantasy-map': Earth,
 };
 
 export function toolIcon(id: string): LucideIcon {

@@ -110,7 +110,6 @@
   - 要後端或帳號：spectrum527/TRPG-webtools、OEC309/trpg-consensus、minarin0179/trpg-gakkyukai、sonata9x/logcontainer、momo102938/MUNgs_doran、
     dan0030/lope、Poncirus917/FishDice、MarinMP2009/TRPG_Scenario_Review、MrSyrett/dungeon_crawlers_companion、doyoon-c-dev/TRPG_Printable_PDF_Maker。
   - GPL／AGPL／非商業授權：evillollive/Dungeon-Mapper、ursusmeles/wilderness-almanac、AkiHruka17/trpg-log-workbench、baiguai/coctools、nofevid/trpg-table。
-  - 太大，原站直接用就好：Azgaar/Fantasy-Map-Generator。
   - 其他：2zH/trpg-dice（未授權；3D 骰子改看 dice-box-threejs）、3d-dice/dice-box（BabylonJS，比本站的 three 重）、
     chirorutyoco/Pasting-tokens（瀏覽器擴充）、ECgear/FitImage（命令列）。
   - 和本站重複：Tetoriapot 的 koyomi、style-atlas 等；dearmysn1p3r 的 ARCH 系列（_04、_37、_55）。
@@ -165,3 +164,4 @@
 - 2026-10-29：完成並移出清單——floor-plan 跟進原作 v1.15、geo-bloom 跟進原作到 `edb6828`、新工具「NPC 名字產生器」（npc-names，本站原創；coc-npc 加隨機取名）。
 - 2026-10-29：使用者提供 uemegu/AnimeVRM.Motions，評估後不收（見「不收的」）。
 - 2026-10-29：完成並移出清單——新工具「VTT 棋子產生器」（token-maker，參考 arcana-hanna/token-workshop、CyberDelaai/eidolon-ui、Sectr99/TokenForge，MIT）。
+- 2026-10-29：使用者要求把 Azgaar/Fantasy-Map-Generator（MIT）加進首頁的「其他網站」：只連到原站（`azgaar.github.io/Fantasy-Map-Generator/`，英文介面），不重寫；從「不收的」移除。

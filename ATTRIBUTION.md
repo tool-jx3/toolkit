@@ -258,6 +258,13 @@
 沒有 JavaScript 時由 `<meta http-equiv="refresh">` 導到繁中版。以前收錄版的日文頁網址
 `tools/jizura/ja/` 也留著，會導到原站的日文版。新首頁直接連到原站（標「其他網站」）。
 
+## fantasy-map：奇幻世界地圖產生器（連到原站）
+
+上游 [Azgaar/Fantasy-Map-Generator](https://github.com/Azgaar/Fantasy-Map-Generator)（MIT，Max Haniyeu〔Azgaar〕）是奇幻世界地圖的產生與編輯器：
+地形、氣候與生態、河流、國家與省份、城鎮、文化、宗教、道路、軍隊等都能產生後逐項編輯，匯出 PNG、SVG、GeoJSON 或存成地圖檔。
+規模太大、而且原站持續更新，合輯不收副本也不重寫：2026-10-29 起首頁的「其他網站」直接連到
+`https://azgaar.github.io/Fantasy-Map-Generator/`（原站只有英文介面）。
+
 ## text-fx：文字演出產生器（無塵室開發）
 
 `text-fx` 不是收錄的工具，程式是本 repo 自己寫的（MIT，見根目錄 [LICENSE](LICENSE)；原本是獨立的單頁程式，已移植到新框架 `web/`，
