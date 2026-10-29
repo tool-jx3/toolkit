@@ -7,9 +7,9 @@
  * - 畫一次就知道用到哪些字型與哪些字（`fonts`），先載好字型再畫正式的。
  */
 import { clampPlacement, drawPlacedCrop, type FramePlacement, roundRectPath } from '@/core/image';
+import { qrMatrix } from '@/core/qr/encode';
 import { CODE128_QUIET, code128Modules, code128Widths } from './code128';
 import { alpha } from './colors';
-import { qrMatrix } from './qr';
 
 export type Ctx = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
 

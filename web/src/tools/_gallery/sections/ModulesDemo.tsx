@@ -11,6 +11,7 @@ import { CorpusDemo, NamesDemo } from './NamesDemo';
 import { PagedDemo } from './PagedDemo';
 import { PostDemo } from './PostDemo';
 import { PrintDemo } from './PrintDemo';
+import { QrDemo } from './QrDemo';
 import { RichEditorDemo } from './RichEditorDemo';
 import { ThreeDemo } from './ThreeDemo';
 import { TypesetDemo } from './TypesetDemo';
@@ -95,6 +96,7 @@ export function ModulesDemo() {
       <GridDemo />
       <MapGridDemo />
       <EdgeRunsDemo />
+      <QrDemo />
     </div>
   );
 }
