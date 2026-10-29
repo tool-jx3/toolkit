@@ -116,6 +116,7 @@
     chirorutyoco/Pasting-tokens（瀏覽器擴充）、ECgear/FitImage（命令列）。
   - 和本站重複：Tetoriapot 的 koyomi、style-atlas 等；dearmysn1p3r 的 ARCH 系列（_04、_37、_55）。
   - 系統專用：LANCER、HârnMaster、D&D 5e 地城追蹤、UH TRPG。
+- [uemegu/AnimeVRM.Motions](https://github.com/uemegu/AnimeVRM.Motions)（https://uemegu.github.io/AnimeVRM.Motions/，2026-10-28 建立）：VRM 用的 80 個姿勢動作（Mixamo 格式的 FBX）配布站，用作者的 AnimeVRM engine 與角色「アオイ」預覽、在瀏覽器裡調呼吸的強度再下載。repo 與 engine 都沒有授權條款，動作檔也沒寫使用條件；`aoi.vrm` 的 VRM 授權是不可再散布、只限個人非營利。核心是動作素材，本站不能放，也不重做（2026-10-29 使用者決定只記下來）。之後若要做「讀自己的 VRM、擺姿勢、匯出透明 PNG 立繪」的工具，姿勢要另找授權清楚的來源或自己做。
 - 需要後端或登入的（Supabase／Firebase）、瀏覽器擴充、bot、AI GM、D&D 專用 DM 工具；其餘排除清單見檢查紀錄裡的報告。
 
 ## 檢查紀錄
@@ -163,3 +164,4 @@
   不在 GitHub 的原作（KIIN 三個、TEXTSCENE、PaiTei4234、gagyedo、Maptsukuri、scenario-tool-jade、Mellow Noise）和所有 *.github.io 還是連不到。
   追蹤的新作者：cp-20、arcana-hanna、QTR-Games、ichieh42、TK2F、Sectr99、pierretusseau、script-wizards、mephitrpg。
 - 2026-10-29：完成並移出清單——floor-plan 跟進原作 v1.15、geo-bloom 跟進原作到 `edb6828`、新工具「NPC 名字產生器」（npc-names，本站原創；coc-npc 加隨機取名）。
+- 2026-10-29：使用者提供 uemegu/AnimeVRM.Motions，評估後不收（見「不收的」）。
