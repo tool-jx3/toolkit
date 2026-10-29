@@ -69,6 +69,7 @@ import {
   ScanFace,
   ScanSearch,
   ScrollText,
+  ShieldUser,
   Smartphone,
   Smile,
   Sparkles,
@@ -161,6 +162,7 @@ const ICONS: Record<string, LucideIcon> = {
   'social-post': MessageSquareHeart,
   'family-tree': TreeDeciduous,
   'qr-maker': QrCode,
+  'pl-profile': ShieldUser,
   /* G8 影像與動圖 */
   'video-anim': Film,
   'gif-combiner': Images,

@@ -981,6 +981,18 @@ export const TOOLS: readonly ToolEntry[] = [
       url: 'https://github.com/arcana-hanna/token-workshop',
     },
   },
+  {
+    id: 'pl-profile',
+    name: 'PL 自介卡與地雷表',
+    summary:
+      '揪團、開團前的自我介紹卡＋地雷表：暱稱、頭像、玩過的系統、喜歡的風格、可以的時段，跑團常見的題材用「盡量來～地雷」五級標出來；存成圖片、純文字或分享連結，KP 還能把幾個 PL 的地雷表合成對照表。',
+    group: 'G7',
+    status: 'live',
+    inspiration: {
+      name: 'sonata9x/trpg-profile-maker',
+      url: 'https://github.com/sonata9x/trpg-profile-maker',
+    },
+  },
 ];
 
 export function getTool(id: string): ToolEntry | undefined {

@@ -11,7 +11,7 @@
  * const back = decodeShareHash(location.hash, schema, { version: 1 }); // 型別＝schema 的型別，或 null
  * ```
  */
-import { deflateSync, inflateSync, strFromU8, strToU8 } from 'fflate';
+import { deflateSync, Inflate, inflateSync, strFromU8, strToU8 } from 'fflate';
 
 /* ---------- base64url ---------- */
 
@@ -151,10 +151,43 @@ export function encodeShareHash(data: unknown, { version, key = 's' }: ShareOpti
   return `#${key}=${toBase64Url(deflateSync(strToU8(json), { level: 9 }))}`;
 }
 
-/** 網址的 # 部分裡的分享內容（原始 JSON；沒有、損壞、版本不符、太長時 null） */
+/**
+ * 解壓縮（deflate），解開的資料超過 maxBytes 時丟錯。壓縮過的資料一次只餵一小段（64 位元組，最多解出約 66 KB），
+ * 所以很小的連結也不能解出很大的資料把記憶體灌爆（解壓炸彈；pl-profile 驗證後新增，2026-10）。
+ */
+export function inflateLimited(data: Uint8Array, maxBytes: number): Uint8Array {
+  const parts: Uint8Array[] = [];
+  let total = 0;
+  const inflater = new Inflate((chunk) => {
+    total += chunk.length;
+    if (total > maxBytes) throw new Error('解壓縮後的資料太大');
+    parts.push(chunk);
+  });
+  const STEP = 64;
+  if (!data.length) inflater.push(new Uint8Array(0), true);
+  for (let i = 0; i < data.length; i += STEP)
+    inflater.push(data.subarray(i, i + STEP), i + STEP >= data.length);
+  const out = new Uint8Array(total);
+  let o = 0;
+  for (const p of parts) {
+    out.set(p, o);
+    o += p.length;
+  }
+  return out;
+}
+
+/**
+ * 網址的 # 部分裡的分享內容（原始 JSON；沒有、損壞、版本不符、太長時 null）。
+ * `maxBytes`（選填，不給時不限制、和以前相同）：解壓縮後超過這麼多位元組就當成讀不出來（例：pl-profile 用 256 KB）。
+ */
 export function readShareHash(
   hash: string,
-  { version, key = 's', maxLength = 8000 }: ShareOptions & { maxLength?: number },
+  {
+    version,
+    key = 's',
+    maxLength = 8000,
+    maxBytes,
+  }: ShareOptions & { maxLength?: number; maxBytes?: number },
 ): unknown | null {
   const h = hash.startsWith('#') ? hash.slice(1) : hash;
   if (!h || h.length > maxLength) return null;
@@ -162,7 +195,9 @@ export function readShareHash(
   const raw = params.get(key);
   if (!raw) return null;
   try {
-    const json = JSON.parse(strFromU8(inflateSync(fromBase64Url(raw))));
+    const bytes = fromBase64Url(raw);
+    const plain = maxBytes === undefined ? inflateSync(bytes) : inflateLimited(bytes, maxBytes);
+    const json = JSON.parse(strFromU8(plain));
     if (!isObj(json) || json.v !== version) return null;
     return json.d ?? null;
   } catch {
@@ -174,7 +209,7 @@ export function readShareHash(
 export function decodeShareHash<T>(
   hash: string,
   schema: Schema<T>,
-  options: ShareOptions & { maxLength?: number },
+  options: ShareOptions & { maxLength?: number; maxBytes?: number },
 ): T | null {
   const raw = readShareHash(hash, options);
   return raw === null ? null : schema.parse(raw);
