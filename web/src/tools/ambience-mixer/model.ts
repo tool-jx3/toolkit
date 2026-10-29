@@ -11,7 +11,9 @@ import {
   isAmbienceSoundId,
   sanitizeParams,
   volumeGain,
+  wavBytes,
 } from '@/core/audio/ambience';
+import { mp3LoopBytes } from '@/core/audio/mp3';
 import { safeFileName } from '@/core/files';
 import { readShareHash, type Schema, sh } from '@/core/share';
 
@@ -58,12 +60,35 @@ export type Track = SynthTrack | FileTrack;
 export const EXPORT_LENGTHS = [10, 20, 30, 60, 90, 120, 180] as const;
 export const EXPORT_RATES = [44100, 32000, 22050] as const;
 export type ExportRate = (typeof EXPORT_RATES)[number];
+/** 匯出的格式（2026-10-29 加 MP3） */
+export const EXPORT_FORMATS = ['mp3', 'wav'] as const;
+export type ExportFormat = (typeof EXPORT_FORMATS)[number];
+/** MP3 的位元率（kbps）：128（建議）、192（高音質；22.05 kHz 時是 160，見 mp3Kbps） */
+export const MP3_KBPS = [128, 192] as const;
+export type Mp3Kbps = (typeof MP3_KBPS)[number];
 
 export interface ExportSettings {
   /** 秒數（10 的倍數：起伏的週期是 10 秒） */
   seconds: number;
   sampleRate: ExportRate;
   channels: 1 | 2;
+  format: ExportFormat;
+  /** MP3 的位元率（WAV 時不用，但記著） */
+  kbps: Mp3Kbps;
+}
+
+/**
+ * 實際用的 MP3 位元率：22.05 kHz 的 MP3（MPEG-2）最高 160 kbps，192 換成 160。
+ * （44.1 kHz 立體聲低於 112 kbps、32 kHz 立體聲低於 80 kbps 時 LAME 會自己降取樣率，所以選項只有 128 以上。）
+ */
+export const mp3Kbps = (kbps: number, sampleRate: number): number =>
+  sampleRate < 32000 ? Math.min(160, kbps) : kbps;
+
+/** 匯出檔的大小（位元組；WAV 是準確的，MP3 估到幾個位元組以內） */
+export function exportBytes(e: ExportSettings): number {
+  return e.format === 'mp3'
+    ? mp3LoopBytes(e.seconds, e.sampleRate, mp3Kbps(e.kbps, e.sampleRate))
+    : wavBytes(e.seconds, e.sampleRate, e.channels);
 }
 
 export interface MixState {
@@ -210,10 +235,13 @@ export const FADE_MAX = 10;
 export const PREVIEW_SECONDS = 60;
 export const PREVIEW_RATE: ExportRate = 32000;
 
+/** 預設 MP3（檔案小很多：1 分鐘約 1 MB；WAV 約 7.7 MB）、128 kbps */
 export const DEFAULT_EXPORT: ExportSettings = {
   seconds: PREVIEW_SECONDS,
   sampleRate: PREVIEW_RATE,
   channels: 2,
+  format: 'mp3',
+  kbps: 128,
 };
 
 export const initialState: MixState = {
@@ -389,7 +417,13 @@ export function sanitizeExport(raw: unknown): ExportSettings {
     ? (Number(src.sampleRate) as ExportRate)
     : DEFAULT_EXPORT.sampleRate;
   const channels = Number(src.channels) === 1 ? 1 : 2;
-  return { seconds, sampleRate, channels };
+  const format = (EXPORT_FORMATS as readonly unknown[]).includes(src.format)
+    ? (src.format as ExportFormat)
+    : DEFAULT_EXPORT.format;
+  const kbps = (MP3_KBPS as readonly number[]).includes(Number(src.kbps))
+    ? (Number(src.kbps) as Mp3Kbps)
+    : DEFAULT_EXPORT.kbps;
+  return { seconds, sampleRate, channels, format, kbps };
 }
 
 export function sanitizeState(raw: unknown): MixState {
@@ -526,6 +560,27 @@ export const PRESETS: readonly MixPreset[] = [
       { sound: 'bell', volume: 40, params: { interval: 60, pitch: 20, distance: 85 } },
     ],
   },
+  /* 2026-10-29 加的兩個（用到新合成的雨打在帳篷上、房間底噪） */
+  {
+    id: 'rainy-camp',
+    name: '雨中的帳篷',
+    description: '帳篷外下著大雨，邊緣不停滴水，風一陣陣，遠處打雷。',
+    tracks: [
+      { sound: 'rain-tent', volume: 70, params: { canopy: 0, intensity: 60, drips: 45 } },
+      { sound: 'wind', volume: 30, params: { intensity: 30, howl: 10 } },
+      { sound: 'thunder', volume: 45, params: { frequency: 25, distance: 75 } },
+    ],
+  },
+  {
+    id: 'night-library',
+    name: '深夜的圖書館',
+    description: '閉館的圖書館，一片寂靜，落地鐘滴答，地板偶爾嘎吱。',
+    tracks: [
+      { sound: 'room-tone', volume: 70, params: { hum: 20, traffic: 20, room: 75 } },
+      { sound: 'clock', volume: 35, params: { type: 1, room: 60 } },
+      { sound: 'creak', volume: 30, params: { rate: 15, pitch: 35 } },
+    ],
+  },
 ];
 
 export const presetById = (id: string): MixPreset | undefined => PRESETS.find((p) => p.id === id);
@@ -564,6 +619,8 @@ const RANDOM_BEDS = [
   'crowd',
   'office-hum',
   'cave-drips',
+  'rain-tent',
+  'room-tone',
 ] as const;
 
 /** 點綴（一到兩個） */
@@ -594,6 +651,10 @@ const RANDOM_CONFLICTS: Record<string, readonly string[]> = {
   waves: ['clock', 'vinyl'],
   stream: ['clock', 'vinyl', 'rain-window'],
   fireplace: [],
+  /* 野外的雨：沒有時鐘、唱片、屋裡的嘎吱聲，雨中也沒有蟲鳴與貓頭鷹 */
+  'rain-tent': ['rain-window', 'clock', 'vinyl', 'creak', 'crickets', 'owl'],
+  /* 安靜的房間：都可以（窗外的雷、雨、風），貓頭鷹除外 */
+  'room-tone': ['owl'],
 };
 
 export type RandomFn = () => number;
@@ -741,11 +802,11 @@ export function lengthLabel(seconds: number): string {
   return s ? `${m} 分 ${s} 秒` : `${m} 分`;
 }
 
-/** 匯出的檔名：環境音-<組合名或前三個聲音>-<秒數>秒.wav（skipped：沒有混進去的軌，不列） */
+/** 匯出的檔名：環境音-<組合名或前三個聲音>-<秒數>秒.mp3／.wav（skipped：沒有混進去的軌，不列） */
 export function exportFileName(s: MixState, skipped: ReadonlySet<string> = new Set()): string {
   const names = s.tracks
     .filter((t) => t.volume > 0 && !skipped.has(t.key))
     .map((t) => (t.kind === 'file' ? baseName(t.name) : trackLabel(t)));
   const label = s.mixName || names.slice(0, 3).join('・') || '混音';
-  return `${safeFileName(`環境音-${label}-${s.export.seconds}秒`, { fallback: '環境音', maxLength: 100 })}.wav`;
+  return `${safeFileName(`環境音-${label}-${s.export.seconds}秒`, { fallback: '環境音', maxLength: 100 })}.${s.export.format}`;
 }

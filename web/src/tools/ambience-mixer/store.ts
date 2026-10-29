@@ -8,7 +8,13 @@ import { create } from 'zustand';
 import { createPreviewStore, createToolStore } from '@/core/storage';
 import { initialState, type MixState, type SynthTrack, sanitizeState, TOOL_ID } from './model';
 
+/**
+ * 存檔的版本：2（2026-10-29：匯出設定加了格式與 MP3 的位元率）。1 版的存檔照讀（沒有的欄位用預設值，見 sanitizeExport）。
+ */
+export const MIX_STORE_VERSION = 2;
+
 export const useMix = createToolStore<MixState>(TOOL_ID, initialState, {
+  version: MIX_STORE_VERSION,
   migrate: (persisted) => sanitizeState(persisted),
 });
 
@@ -49,6 +55,9 @@ export const isFileProblem = (s: TrackStatus | undefined): s is FileProblem =>
 export interface ExportResult {
   blob: Blob;
   name: string;
+  format: 'mp3' | 'wav';
+  /** MP3 的位元率（WAV 時 0） */
+  kbps: number;
   bytes: number;
   seconds: number;
   sampleRate: number;

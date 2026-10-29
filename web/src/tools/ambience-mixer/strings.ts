@@ -14,19 +14,19 @@ const problemList = (list: readonly { name: string; reason: FileProblem }[]) =>
 export const S = {
   usage: {
     intro:
-      '把雨、風、雷、海浪、營火、時鐘、心跳、人聲等環境音疊在一起，做出跑團場景的背景聲，再匯出成可以無縫循環的 WAV 放進 CCFOLIA 當 BGM。',
+      '把雨、風、雷、海浪、營火、時鐘、心跳、人聲等環境音疊在一起，做出跑團場景的背景聲，再匯出成可以無縫循環的 MP3 或 WAV 放進 CCFOLIA 當 BGM。',
     steps: [
       '點聲音卡片加入（再點一次拿掉），或從「預設組合」挑一個場景；加入後馬上開始播放。',
       '在「混音中」調每個聲音的音量；按「調整」改強度、距離等參數，按「換一種變化」換同一種聲音的另一個版本。',
       '「自己的音檔」可以把 MP3、WAV、OGG 加成一軌（只在這個瀏覽器裡處理，不會上傳）。',
-      '在「匯出」選長度、取樣率與聲道，按「匯出 WAV」；檔案頭尾接得起來，在 CCFOLIA 開「重複播放」就會一直循環。',
+      '在「匯出」選格式（MP3 檔案小、WAV 最無縫）、長度、取樣率與聲道，按「匯出」；檔案頭尾接得起來，在 CCFOLIA 開「重複播放」就會一直循環。',
       '「分享連結」把目前的組合放進網址（只有合成的聲音，不含自己的音檔），對方開連結就能聽到同樣的組合。',
     ],
     notesTitle: '小提醒',
     notes: [
       '所有聲音都是程式即時合成的（本站自己做的，不是錄音），可以自由使用；匯出的檔案也是。',
       '瀏覽器規定要先點一下頁面才能出聲：重新整理後按「播放」或空白鍵開始。',
-      'CCFOLIA 的音源每個檔案上限約 10 MB；太大時縮短長度、改成單聲道或降低取樣率。',
+      'CCFOLIA 的音源每個檔案上限約 10 MB：MP3 不會超過；WAV 太大時縮短長度、改成單聲道、降低取樣率或改用 MP3。',
       '設定自動存在這個瀏覽器，可以復原／重做；自己的音檔也存在這個瀏覽器裡。',
     ],
   },
@@ -149,7 +149,16 @@ export const S = {
   },
   exportPanel: {
     title: '匯出',
-    description: '匯出可以無縫循環的 WAV（頭尾接得起來），放進 CCFOLIA 當 BGM、開「重複播放」。',
+    description:
+      '匯出可以無縫循環的 MP3 或 WAV（頭尾接得起來），放進 CCFOLIA 當 BGM、開「重複播放」。',
+    format: '格式',
+    formats: { mp3: 'MP3', wav: 'WAV' } as Record<'mp3' | 'wav', string>,
+    mp3Hint:
+      'MP3 的檔案小很多（1 分鐘約 1 MB）。Chrome、Edge 等看得懂 MP3 循環資訊（LAME 標頭）的播放器一樣首尾相接；看不懂的播放器在接縫會有約 0.01～0.03 秒很短的停頓。要最無縫時選 WAV。',
+    wavHint: 'WAV 不壓縮、最無縫（頭尾的取樣直接接起來，任何播放器都一樣），但檔案大。',
+    kbps: '位元率',
+    kbpsLabel: (kbps: number, high: boolean) => `${kbps} kbps（${high ? '高音質' : '建議'}）`,
+    kbpsValue: (kbps: number) => `${kbps} kbps`,
     length: '長度',
     rate: '取樣率',
     rateLabels: {
@@ -162,13 +171,15 @@ export const S = {
     mono: '單聲道',
     size: (text: string) => `約 ${text}`,
     sameAsPreview: '和預覽聽到的一模一樣。',
+    sameAsPreviewMp3: '和預覽是同一段聲音（MP3 有壓縮）。',
     differs: '合成的聲音會照這個長度與取樣率重新合成（同樣的設定，細節不同）。',
     tooBig: (limit: string) =>
-      `超過 CCFOLIA 的音源上限（每個檔案約 ${limit}）：縮短長度、改成單聲道或降低取樣率。`,
-    button: '匯出 WAV',
+      `超過 CCFOLIA 的音源上限（每個檔案約 ${limit}）：改用 MP3、縮短長度、改成單聲道或降低取樣率。`,
+    button: (format: string) => `匯出 ${format}`,
     cancel: '取消',
     preparing: '合成中…',
     mixing: '混音中…',
+    encoding: '編碼 MP3…',
     empty: '沒有可以匯出的聲音：每一軌的音量都是 0。',
     skipped: (list: readonly { name: string; reason: FileProblem }[]) =>
       `沒有混進去：${problemList(list)}。`,
@@ -179,9 +190,16 @@ export const S = {
     failed: (msg: string) => `匯出失敗：${msg}`,
     result: '匯出結果',
     listen: '試聽（循環播放，聽聽看接縫）',
-    download: '下載 WAV',
-    details: (o: { length: string; rate: string; channels: string; peak: string; ms: string }) =>
-      `${o.length}・${o.rate}・${o.channels}・最大音量 ${o.peak}・${o.ms}`,
+    download: (format: string) => `下載 ${format}`,
+    details: (o: {
+      length: string;
+      rate: string;
+      channels: string;
+      kbps: string;
+      peak: string;
+      ms: string;
+    }) =>
+      `${o.length}・${o.rate}・${o.channels}・${o.kbps ? `${o.kbps}・` : ''}最大音量 ${o.peak}・${o.ms}`,
     progress: '匯出進度',
   },
   share: {

@@ -68,7 +68,7 @@
 | floor-plan | Maptsukuri（maptsukuri.pages.dev，不在 GitHub） | 未授權 | .dd2vtt 匯出、隨機配置 | 中 |
 | ui-frame | [knightleft/trpg-overlay](https://github.com/knightleft/trpg-overlay)（原本列為新工具候選「直播版面產生器」） | 未授權 | OBS 直播版面（作者寫繁中）：和 ui-frame 的 TRPG・直播模式重疊，可以補整面版面配置 | 中 |
 | floor-plan | 本站（2026-10-29 參考 KIIN マップ制作スタジオ時沒做，規格 D73、D78） | — | 挑一兩個範本改成 L 形房間（要重驗格局與線索位置）；「在地圖演出產生器開啟」時把房間範圍也帶過去（map-fx 的房間遮罩） | 小～中 |
-| ambience-mixer | 本站（2026-10-29，規格 D1、D3、D17） | — | 再合成「房間底噪」「雨打在帳篷／傘上」；OGG／MP3 匯出（候選：wasm-media-encoders〔MIT＋LAME LGPL＋libvorbis BSD，約 3 MB〕、@breezystack/lamejs〔LGPL-3.0〕、WebCodecs 的 Opus＋自己寫 Ogg 封裝〔部分瀏覽器〕）；另找逐檔標明 CC0 的真實錄音內建 | 小～中 |
+| ambience-mixer | 本站（2026-10-29，規格 D1、D23） | — | 另找逐檔標明 CC0 的真實錄音內建（使用者 2026-10-29 選了「收逐檔標 CC0 的錄音」，這個環境連不到 Freesound 等來源，等開網路）；在 CCFOLIA 試聽一次 MP3 的循環接縫（預設是 MP3，聽得出接縫就改回 WAV，D23） | 小～中 |
 | scenario-timeline | 本站（第二批，規格 F90～F94） | — | 多選、搜尋與篩選、架空曆的月日、事件之間的關聯線、讀入 vis-timeline 的資料 | 中 |
 
 ## 內部改善

@@ -1,5 +1,5 @@
 /**
- * 動作：加入／拿掉聲音、播放／暫停、套用組合（預設、隨機、我的組合、分享連結）、自己的音檔、定時停止、匯出 WAV。
+ * 動作：加入／拿掉聲音、播放／暫停、套用組合（預設、隨機、我的組合、分享連結）、自己的音檔、定時停止、匯出 MP3／WAV。
  * 通知（toast）由 App 用 setNotifier 接上共用的 useToast。
  */
 
@@ -14,6 +14,7 @@ import {
   renderLoopMix,
   volumeGain,
 } from '@/core/audio/ambience';
+import { encodeMp3 } from '@/core/audio/mp3';
 import type { ConfirmOptions, ToastOptions } from '@/ui';
 import {
   assets,
@@ -42,6 +43,7 @@ import {
   type MixPreset,
   type MixState,
   masterGain,
+  mp3Kbps,
   newFileTrack,
   newSynthTrack,
   presetTracks,
@@ -434,7 +436,8 @@ function previewProblem(t: FileTrack | SynthTrack): FileProblem | null {
   return isFileProblem(st) ? st : null;
 }
 
-export async function exportWav(): Promise<void> {
+/** 匯出（照匯出設定的格式：MP3 或 WAV） */
+export async function exportMix(): Promise<void> {
   if (useRuntime.getState().exporting) return;
   const s = mixNow();
   const audible = s.tracks.filter((t) => t.volume > 0);
@@ -468,8 +471,11 @@ export async function exportWav(): Promise<void> {
     exportError: '',
     result: null,
   });
+  const { format } = s.export;
+  const kbps = format === 'mp3' ? mp3Kbps(s.export.kbps, s.export.sampleRate) : 0;
   try {
-    const total = tracks.length + 1;
+    /* 進度：每一軌一格、混音一格，MP3 再加編碼兩格（編碼比混音久） */
+    const total = tracks.length + 1 + (format === 'mp3' ? 2 : 0);
     let done = 0;
     const parts = await Promise.all(
       tracks.map(async (t) => {
@@ -502,17 +508,36 @@ export async function exportWav(): Promise<void> {
       master: masterGain(s.master),
     });
     aborted(ctrl.signal);
-    const blob = wavBlob(mix);
+    const peak = peakDb(mix);
+    let blob: Blob;
+    if (format === 'mp3') {
+      const base = (tracks.length + 1) / total;
+      useRuntime.setState({ stage: S.exportPanel.encoding, progress: base });
+      const bytes = await encodeMp3(
+        mix,
+        { kbps },
+        {
+          signal: ctrl.signal,
+          onProgress: (f) => useRuntime.setState({ progress: base + (1 - base) * f }),
+        },
+      );
+      aborted(ctrl.signal);
+      blob = new Blob([bytes as Uint8Array<ArrayBuffer>], { type: 'audio/mpeg' });
+    } else {
+      blob = wavBlob(mix);
+    }
     useRuntime.setState({
       progress: 1,
       result: {
         blob,
         name: exportFileName(s, new Set(skipped.map((x) => x.key))),
+        format,
+        kbps,
         bytes: blob.size,
         seconds: s.export.seconds,
         sampleRate: s.export.sampleRate,
         channels: s.export.channels,
-        peakDb: peakDb(mix),
+        peakDb: peak,
         ms: performance.now() - t0,
         skipped,
       },

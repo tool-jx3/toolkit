@@ -1,6 +1,6 @@
 /**
  * 環境音混音器：程式合成的環境音（雨、風、雷、海浪、營火、時鐘、心跳、人聲…）疊在一起播放，預設組合、隨機組合、
- * 我的組合、分享連結，自己的音檔，匯出可以無縫循環的 WAV 給 CCFOLIA 當 BGM。
+ * 我的組合、分享連結，自己的音檔，匯出可以無縫循環的 MP3 或 WAV 給 CCFOLIA 當 BGM。
  * 寬畫面：左邊聲音與組合、右邊混音與匯出；窄畫面：混音在上。規格：docs/refactor/specs/ambience-mixer.md。
  */
 import { Redo2, Undo2 } from 'lucide-react';

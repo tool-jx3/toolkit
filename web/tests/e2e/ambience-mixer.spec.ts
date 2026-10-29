@@ -5,12 +5,15 @@
  * - 我的組合、分享連結（開連結時先確認）、自己的音檔（循環／只播一次）、定時停止、自動儲存、鍵盤；
  * - 匯出 WAV：格式、長度、首尾相接、和 Node 裡的合成一模一樣（預覽＝匯出；OfflineAudioContext 的混音只乘上音量）、
  *   檔案大小與 CCFOLIA 上限的提醒；
+ * - 匯出 MP3（預設）：lamejs 按下匯出才載入（獨立的 chunk、Worker）；用 Chromium 的 decodeAudioData 解碼，
+ *   長度剛好（LAME 的 Info 標頭）、和 Node 的合成對齊、接縫附近和中間一樣；新的兩種聲音與預設組合；
  * - 390 寬沒有橫向捲動、1280／390 視覺基準；
- * - @serial：即時播放（AudioContext 的時間往前走、主輸出有聲音；暫停後沒有聲音）。
+ * - @serial：即時播放（AudioContext 的時間往前走、主輸出有聲音；暫停後沒有聲音）；MP3 編碼中取消。
  */
 import { readFileSync } from 'node:fs';
 import { expect, type Page, test } from '@playwright/test';
 import { renderAmbience } from '../../src/core/audio/ambience/render';
+import { listMp3Frames, readMp3InfoTag } from '../../src/core/audio/mp3/frames';
 import { encodeWav, type PcmAudio, parseWav } from '../../src/core/audio/pcm';
 import { getTool, outputDir } from '../../src/registry';
 
@@ -130,22 +133,64 @@ function silentMp3(frames: number): Buffer {
   return out;
 }
 
-/** 匯出並解析下載的 WAV */
-async function exportWav(page: Page): Promise<{ pcm: PcmAudio; name: string; bytes: number }> {
-  await page.getByTestId('export-wav').click();
+/** 匯出並下載（格式照目前的設定），回傳檔案 */
+async function exportFile(
+  page: Page,
+  label: 'WAV' | 'MP3',
+): Promise<{ data: Buffer; name: string }> {
+  await expect(page.getByTestId('export-run')).toHaveText(`匯出 ${label}`);
+  await page.getByTestId('export-run').click();
   const result = page.getByTestId('export-result');
   await expect(result).toBeVisible({ timeout: 60_000 });
   const [download] = await Promise.all([
     page.waitForEvent('download'),
-    result.getByRole('link', { name: '下載 WAV' }).click(),
+    result.getByRole('link', { name: `下載 ${label}` }).click(),
   ]);
-  const path = await download.path();
-  const bytes = readFileSync(path);
-  return {
-    pcm: parseWav(new Uint8Array(bytes)),
-    name: download.suggestedFilename(),
-    bytes: bytes.length,
-  };
+  return { data: readFileSync(await download.path()), name: download.suggestedFilename() };
+}
+
+/** 格式選 WAV（預設是 MP3），匯出並解析下載的 WAV */
+async function exportWav(page: Page): Promise<{ pcm: PcmAudio; name: string; bytes: number }> {
+  await page.getByRole('radio', { name: 'WAV', exact: true }).click();
+  const { data, name } = await exportFile(page, 'WAV');
+  return { pcm: parseWav(new Uint8Array(data)), name, bytes: data.length };
+}
+
+/** 在瀏覽器裡用 decodeAudioData 解碼（OfflineAudioContext 的取樣率＝rate，不重新取樣） */
+async function decodeInBrowser(page: Page, data: Buffer, rate: number): Promise<Float32Array[]> {
+  const out = await page.evaluate(
+    async ({ b64, rate }) => {
+      const bin = atob(b64);
+      const u = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
+      const buf = await new OfflineAudioContext(1, 1, rate).decodeAudioData(u.buffer);
+      const chans: string[] = [];
+      for (let c = 0; c < buf.numberOfChannels; c++) {
+        const b = new Uint8Array(buf.getChannelData(c).slice().buffer);
+        let s = '';
+        for (let i = 0; i < b.length; i += 32768)
+          s += String.fromCharCode(...b.subarray(i, i + 32768));
+        chans.push(btoa(s));
+      }
+      return { rate: buf.sampleRate, chans };
+    },
+    { b64: data.toString('base64'), rate },
+  );
+  expect(out.rate).toBe(rate);
+  return out.chans.map((c) => new Float32Array(Buffer.from(c, 'base64').buffer.slice(0)));
+}
+
+/** 訊號與誤差的比（dB）：y 和參考 ref 在 [from, from + len) 環狀的範圍 */
+function snrDb(y: Float32Array, ref: Float32Array, from: number, len: number): number {
+  const n = ref.length;
+  let s = 0;
+  let e = 0;
+  for (let k = 0; k < len; k++) {
+    const i = (((from + k) % n) + n) % n;
+    s += ref[i] * ref[i];
+    e += (y[i] - ref[i]) ** 2;
+  }
+  return 10 * Math.log10(s / Math.max(e, 1e-20));
 }
 
 /** 選匯出設定（下拉選單） */
@@ -156,7 +201,7 @@ async function pick(page: Page, label: string, option: string) {
 
 const rmsOf = (x: Float32Array) => Math.sqrt(x.reduce((a, v) => a + v * v, 0) / x.length);
 
-test('開頁：沒有錯誤、靈感來源、7 個分類 24 種聲音、10 個預設組合；沒有聲音時播放鍵停用', async ({
+test('開頁：沒有錯誤、靈感來源、7 個分類 26 種聲音、12 個預設組合；沒有聲音時播放鍵停用', async ({
   page,
 }) => {
   const errors = await open(page);
@@ -164,9 +209,9 @@ test('開頁：沒有錯誤、靈感來源、7 個分類 24 種聲音、10 個�
     'href',
     'https://github.com/remvze/moodist',
   );
-  await expect(page.locator('button[data-sound]')).toHaveCount(24);
+  await expect(page.locator('button[data-sound]')).toHaveCount(26);
   await expect(page.locator('[data-category]')).toHaveCount(7);
-  await expect(page.locator('button[data-preset]')).toHaveCount(10);
+  await expect(page.locator('button[data-preset]')).toHaveCount(12);
   await expect(page.getByTestId('play-toggle')).toBeDisabled();
   /* 空狀態的說明只出現一次（在「混音中」區塊） */
   await expect(page.getByTestId('mix-summary')).toHaveText('');
@@ -483,12 +528,20 @@ test('存檔裡超過 15 分鐘的音檔：開頁時不解碼，軌上說明原�
   });
   const errors = await open(page);
   await expect(track(page, 'f1')).toBeVisible();
+  /* 第 1 版的存檔（匯出設定沒有格式與位元率）照讀：補上預設的 MP3、128 kbps */
+  expect((await state(page)).export).toEqual({
+    seconds: 60,
+    sampleRate: 32000,
+    channels: 2,
+    format: 'mp3',
+    kbps: 128,
+  });
   await expect.poll(() => hook(page, (h) => h.status())).toEqual({ f1: 'tooLong' });
   await expect(track(page, 'f1')).toContainText(
     '這個音檔太長了（64 分鐘），沒有載入：上限 15 分鐘（太長的音檔會佔用很多記憶體）。請拿掉，剪短後再加入。',
   );
   /* 只剩沒有載入的音檔時匯出：照實寫原因 */
-  await page.getByTestId('export-wav').click();
+  await page.getByTestId('export-run').click();
   await expect(
     page.getByText(
       '沒有可以匯出的聲音：「很長的錄音.mp3」（太長，超過 15 分鐘）沒有載入。請拿掉或換掉再匯出。',
@@ -588,7 +641,9 @@ test('匯出 WAV：格式與長度、首尾相接、和 Node 的合成一模一�
   page,
 }) => {
   const errors = await open(page);
-  await expect(page.getByTestId('export-wav')).toBeDisabled();
+  await expect(page.getByTestId('export-run')).toBeDisabled();
+  await page.getByRole('radio', { name: 'WAV', exact: true }).click();
+  await expect(page.getByTestId('export-format-hint')).toContainText('WAV 不壓縮、最無縫');
   await card(page, 'rain-light').click();
   await waitReady(page, 1);
   await btn(page, '暫停').click();
@@ -600,6 +655,8 @@ test('匯出 WAV：格式與長度、首尾相接、和 Node 的合成一模一�
   await expect.poll(async () => (await state(page)).master).toBe(50);
   /* 預設（60 秒、32 kHz、立體聲）：約 7.7 MB（1000 進位，和 CCFOLIA 的 10 MB 一致）、和預覽一模一樣 */
   await expect(page.getByTestId('export-size')).toHaveText('約 7.7 MB・和預覽聽到的一模一樣。');
+  /* WAV 沒有位元率 */
+  await expect(page.getByRole('combobox', { name: '位元率' })).toHaveCount(0);
   /* 太大：3 分、44.1 kHz 立體聲 → 提醒 */
   await pick(page, '長度', '3 分');
   await pick(page, '取樣率', '44.1 kHz（CD 音質）');
@@ -640,6 +697,135 @@ test('匯出 WAV：格式與長度、首尾相接、和 Node 的合成一模一�
     monoErr = Math.max(monoErr, Math.abs(mono.pcm.channels[0][i] - want));
   }
   expect(monoErr).toBeLessThan(3 / 32768);
+  expect(errors).toEqual([]);
+});
+
+test('匯出 MP3（預設）：lamejs 按下匯出才載入；Chromium 解碼後長度剛好、和 Node 的合成對齊、接縫和中間一樣；格式與位元率記得', async ({
+  page,
+}) => {
+  const loaded: string[] = [];
+  page.on('request', (r) => {
+    if (/\/(lamejs|mp3\.worker)-[^/]*\.js/.test(r.url())) loaded.push(r.url());
+  });
+  const errors = await open(page);
+  await card(page, 'rain-light').click();
+  await waitReady(page, 1);
+  await btn(page, '暫停').click();
+  await track(page, 's:rain-light').getByRole('slider', { name: '小雨的音量' }).focus();
+  await page.keyboard.press('End');
+  await page.getByRole('spinbutton', { name: '總音量' }).fill('50');
+  await page.getByRole('spinbutton', { name: '總音量' }).press('Enter');
+  await expect.poll(async () => (await state(page)).master).toBe(50);
+  /* 預設：MP3、128 kbps；1 分鐘約 962 KB，和預覽是同一段（MP3 有壓縮） */
+  await expect(page.getByRole('radio', { name: 'MP3', exact: true })).toHaveAttribute(
+    'aria-checked',
+    'true',
+  );
+  await expect(page.getByRole('combobox', { name: '位元率' })).toHaveText('128 kbps（建議）');
+  await expect(page.getByTestId('export-size')).toHaveText(
+    /^約 96\d KB・和預覽是同一段聲音（MP3 有壓縮）。$/,
+  );
+  await expect(page.getByTestId('export-format-hint')).toContainText('要最無縫時選 WAV');
+  /* 22.05 kHz 時高音質是 160 kbps（MPEG-2 的上限） */
+  await pick(page, '取樣率', '22.05 kHz（檔案小）');
+  await page.getByRole('combobox', { name: '位元率' }).click();
+  await expect(page.getByRole('option', { name: '160 kbps（高音質）' })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await pick(page, '取樣率', '32 kHz（建議）');
+  await pick(page, '長度', '10 秒');
+  /* 還沒匯出：編碼器沒有下載 */
+  expect(loaded).toEqual([]);
+  const { data, name } = await exportFile(page, 'MP3');
+  expect(name).toBe('環境音-小雨-10秒.mp3');
+  expect(loaded.some((u) => /\/lamejs-/.test(u))).toBe(true);
+  expect(loaded.some((u) => /\/mp3\.worker-/.test(u))).toBe(true);
+  await expect(page.getByTestId('export-details')).toContainText('10 秒・32 kHz・立體聲・128 kbps');
+  /* 結構：Info 標頭（編碼器延遲 576、填充）＋聲音影格；大小和估計的差不到幾個位元組 */
+  const tag = readMp3InfoTag(new Uint8Array(data));
+  expect(tag).toMatchObject({ kind: 'Info', bytes: data.length, delay: 576, tagCrcOk: true });
+  expect(listMp3Frames(new Uint8Array(data))).toHaveLength(1 + (tag?.frames ?? 0));
+  expect((tag?.frames ?? 0) * 1152 - (tag?.delay ?? 0) - (tag?.padding ?? 0)).toBe(320000);
+  /* Chromium 解碼：照標頭裁掉開頭與結尾，剛好 10 秒；第 0 個取樣就是循環的第 0 個（和 Node 的合成 × 0.5 對齊） */
+  const y = await decodeInBrowser(page, data, 32000);
+  expect(y).toHaveLength(2);
+  expect(y[0]).toHaveLength(320000);
+  const ref = renderAmbience('rain-light', {}, { duration: 10, sampleRate: 32000, seed: 1 });
+  const n = 320000;
+  for (let c = 0; c < 2; c++) {
+    const r = ref.channels[c].map((v) => v * 0.5);
+    /* 對齊：前後錯開 1～2 個取樣時差很多 */
+    const whole = snrDb(y[c], r, 0, n);
+    const shifted = snrDb(y[c].subarray(1), r.subarray(0, n - 1), 0, n - 1);
+    expect(whole).toBeGreaterThan(5);
+    expect(whole).toBeGreaterThan(shifted + 3);
+    /* 接縫（最後 2048 個取樣接回開頭 2048 個）的誤差和中間差不多：首尾相接 */
+    const seam = snrDb(y[c], r, n - 2048, 4096);
+    const middle = snrDb(y[c], r, n / 2 - 2048, 4096);
+    expect(seam).toBeGreaterThan(Math.min(middle, whole) - 4);
+  }
+  /* 位元率改 192、重新整理後格式與位元率都還在 */
+  await pick(page, '位元率', '192 kbps（高音質）');
+  await expect(page.getByTestId('export-result')).toHaveCount(0);
+  await page.reload();
+  await expect(page.getByRole('radio', { name: 'MP3', exact: true })).toHaveAttribute(
+    'aria-checked',
+    'true',
+  );
+  expect((await state(page)).export).toMatchObject({ format: 'mp3', kbps: 192, seconds: 10 });
+  expect(errors).toEqual([]);
+});
+
+test('新的兩種聲音：雨打在帳篷／傘上、房間底噪；預設組合「雨中的帳篷」「深夜的圖書館」；匯出和 Node 的合成一樣', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  await expect(card(page, 'rain-tent')).toHaveAccessibleDescription(
+    '躲在帳篷裡或撐著傘：雨滴打在布上悶悶的「噗噗」聲，邊緣不停滴水。',
+  );
+  await expect(card(page, 'room-tone')).toBeVisible();
+  await page.locator('[data-preset="rainy-camp"]').click();
+  await waitReady(page, 3);
+  expect((await state(page)).tracks.map((t) => t.key)).toEqual([
+    's:rain-tent',
+    's:wind',
+    's:thunder',
+  ]);
+  await page.locator('[data-preset="night-library"]').click();
+  await waitReady(page, 3);
+  const s = await state(page);
+  expect(s.mixName).toBe('深夜的圖書館');
+  expect(s.tracks[0]).toMatchObject({
+    key: 's:room-tone',
+    params: { hum: 20, traffic: 20, room: 75 },
+  });
+  await btn(page, '暫停').click();
+  /* 「在哪裡」選傘下（選項參數） */
+  await page.locator('[data-preset="rainy-camp"]').click();
+  await waitReady(page, 3);
+  await btn(page, '暫停').click();
+  const tent = track(page, 's:rain-tent');
+  await tent.getByRole('button', { name: '調整' }).click();
+  await tent.getByRole('radio', { name: '傘下', exact: true }).click();
+  await expect.poll(async () => (await state(page)).tracks[0].params?.canopy).toBe(1);
+  /* 拿掉另外兩軌，匯出 10 秒的 WAV：和 Node 的合成一模一樣（音量 70% → 0.49、總音量 100% → 2 倍；柔和限幅在線性的範圍內不變） */
+  await track(page, 's:wind').getByRole('button', { name: '拿掉「風」' }).click();
+  await track(page, 's:thunder').getByRole('button', { name: '拿掉「雷」' }).click();
+  await waitReady(page, 1);
+  await pick(page, '長度', '10 秒');
+  const { pcm } = await exportWav(page);
+  const ref = renderAmbience(
+    'rain-tent',
+    { canopy: 1, intensity: 60, drips: 45 },
+    { duration: 10, sampleRate: 32000, seed: 1 },
+  );
+  /* 混音：x × 0.49 × 2（柔和限幅只壓 0.6 以上的少數取樣，不比） */
+  let maxErr = 0;
+  for (let c = 0; c < 2; c++)
+    for (let i = 0; i < 320000; i++) {
+      const want = ref.channels[c][i] * 0.98;
+      if (Math.abs(want) < 0.6) maxErr = Math.max(maxErr, Math.abs(pcm.channels[c][i] - want));
+    }
+  expect(maxErr).toBeLessThan(3 / 32768);
   expect(errors).toEqual([]);
 });
 
@@ -729,6 +915,30 @@ test('1280 寬：視覺基準（雨夜洋館、暫停中）', async ({ page }) =
   await page.mouse.move(0, 0);
   await expect(page).toHaveScreenshot('ambience-mixer-1280.png');
   await noHorizontalScroll(page);
+  expect(errors).toEqual([]);
+});
+
+test('匯出 MP3 的編碼中取消：沒有結果也沒有錯誤；之後照常匯出', {
+  tag: '@serial',
+}, async ({ page }) => {
+  const errors = await open(page);
+  await card(page, 'white-noise').click();
+  await waitReady(page, 1);
+  await btn(page, '暫停').click();
+  /* 3 分鐘 44.1 kHz 的立體聲：編碼要十幾秒，來得及取消 */
+  await pick(page, '長度', '3 分');
+  await pick(page, '取樣率', '44.1 kHz（CD 音質）');
+  await page.getByTestId('export-run').click();
+  await expect(page.getByText('編碼 MP3…', { exact: true })).toBeVisible({ timeout: 60_000 });
+  await btn(page, '取消').click();
+  await expect(page.getByTestId('export-run')).toBeEnabled();
+  await expect(page.getByTestId('export-result')).toHaveCount(0);
+  await expect(page.getByText(/^匯出失敗/)).toHaveCount(0);
+  /* 再匯出一次（短的）：照常完成 */
+  await pick(page, '長度', '10 秒');
+  const { data, name } = await exportFile(page, 'MP3');
+  expect(name).toBe('環境音-白噪音-10秒.mp3');
+  expect(readMp3InfoTag(new Uint8Array(data))?.bytes).toBe(data.length);
   expect(errors).toEqual([]);
 });
 
