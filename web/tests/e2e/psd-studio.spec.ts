@@ -17,6 +17,7 @@ import { unzipSync } from 'fflate';
 import { decodeApng } from '../../src/core/decode/png';
 import { zipFiles } from '../../src/core/files';
 import { getTool, outputDir } from '../../src/registry';
+import { waitForFileChooser } from '../helpers/fileChooser';
 import {
   ballApng,
   loop0Apng,
@@ -180,10 +181,7 @@ test('開頁：空狀態、模式與統計、頁尾只放靈感來源、說明',
   /* F03：點載入區的空白處也開選檔視窗（可多選；接受圖片、ZIP、PSD） */
   const zone = page.getByTestId('empty-drop');
   const box = (await zone.boundingBox())!;
-  const [chooser] = await Promise.all([
-    page.waitForEvent('filechooser'),
-    page.mouse.click(box.x + 10, box.y + 10),
-  ]);
+  const chooser = await waitForFileChooser(page, () => page.mouse.click(box.x + 10, box.y + 10));
   expect(chooser.isMultiple()).toBe(true);
   expect(await chooser.element().getAttribute('accept')).toBe('image/*,.zip,.psd');
   /* 頁尾：只有靈感來源，沒有原作者的條款 */

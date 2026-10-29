@@ -15,6 +15,7 @@ import { strFromU8, strToU8, unzipSync, zipSync } from 'fflate';
 import { encodePng } from '../../src/core/encode/png';
 import { parseWebp } from '../../src/core/encode/webp';
 import { getTool, outputDir } from '../../src/registry';
+import { waitForFileChooser } from '../helpers/fileChooser';
 import { parseGif } from '../helpers/gif';
 import { expectSameGifFrames, exportGifBeforeAfter } from '../helpers/gifCrop';
 import { composeApng, parseApng, parseChunks, readIhdr } from '../helpers/png';
@@ -649,10 +650,7 @@ test.describe('快捷鍵與存檔', () => {
   }) => {
     const errors = await open(page);
     /* Ctrl＋Shift＋O：開啟選檔視窗 */
-    const [chooser] = await Promise.all([
-      page.waitForEvent('filechooser'),
-      page.keyboard.press('Control+Shift+O'),
-    ]);
+    const chooser = await waitForFileChooser(page, () => page.keyboard.press('Control+Shift+O'));
     expect(chooser.isMultiple()).toBe(true);
     await chooser.setFiles([file('k.png', await pngOf(320, 180, [80, 80, 80]))]);
     await expect(info(page)).toContainText('k.png');
@@ -1887,10 +1885,7 @@ test.describe('圖片切換模式（接續）', () => {
     page,
   }) => {
     const errors = await openDeck(page);
-    const [chooser] = await Promise.all([
-      page.waitForEvent('filechooser'),
-      page.keyboard.press('Control+Shift+O'),
-    ]);
+    const chooser = await waitForFileChooser(page, () => page.keyboard.press('Control+Shift+O'));
     expect(chooser.isMultiple()).toBe(true);
     await chooser.setFiles([
       file('k1.png', await pngOf(320, 180, RED)),

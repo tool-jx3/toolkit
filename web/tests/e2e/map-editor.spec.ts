@@ -14,6 +14,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { expect, type Locator, type Page, test } from '@playwright/test';
 import { getTool, outputDir } from '../../src/registry';
+import { waitForFileChooser } from '../helpers/fileChooser';
 import { decodePixels, parseChunks, readIhdr } from '../helpers/png';
 
 const TOOL_URL = `/${outputDir(getTool('map-editor') ?? { id: 'map-editor', status: 'next' })}/`;
@@ -88,6 +89,9 @@ async function createMap(
   } = {},
 ): Promise<string> {
   const dlg = page.getByTestId('new-map-dialog');
+  /* 還沒有地圖時，清單讀完會自動打開對話框（和清單同一次畫面更新）；
+     讀完之前就判斷的話，對話框會在按「新增地圖」前一刻蓋上來擋住按鈕 */
+  await expect(page.getByTestId('map-list').getByText('讀取中…')).toHaveCount(0);
   if (!(await dlg.isVisible())) await page.getByRole('button', { name: '新增地圖' }).click();
   await expect(dlg).toBeVisible();
   if (opts.kind) await dlg.getByRole('radio', { name: opts.kind }).click();
@@ -1016,9 +1020,8 @@ test.describe('地圖工具', () => {
     await expect.poll(async () => names(page)).toEqual(['文字1']);
     /* 圖片 */
     await page.keyboard.press('Escape');
-    const chooser = page.waitForEvent('filechooser');
-    await page.keyboard.press('i');
-    await (await chooser).setFiles({ name: 'map.png', mimeType: 'image/png', buffer: PNG_FILE() });
+    const chooser = await waitForFileChooser(page, () => page.keyboard.press('i'));
+    await chooser.setFiles({ name: 'map.png', mimeType: 'image/png', buffer: PNG_FILE() });
     await expect.poll(async () => names(page)).toEqual(['文字1', '圖片1']);
     const img = await detail(page, '圖片1');
     expect(img).toMatchObject({
