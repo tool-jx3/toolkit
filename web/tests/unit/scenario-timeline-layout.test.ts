@@ -32,6 +32,7 @@ import {
 import {
   clampWindow,
   fitWindow,
+  fitWithLabels,
   isMouseWheel,
   panWindow,
   spanLimits,
@@ -273,6 +274,29 @@ describe('畫面範圍（3.3）', () => {
     const today = dateValue(2026, 10, 29);
     expect(fitWindow('date', null, today)).toEqual({ start: today - D, end: today + 2 * D });
     expect(fitWindow('year', { a: 300, b: 300 }, 0)).toEqual({ start: 295, end: 305 });
+  });
+  it('全覽時右邊留最後面的標題的位置', () => {
+    const d: TimelineDoc = {
+      ...blankDoc(),
+      events: [
+        newEvent({ title: '開始', start: '1925-03-12 08:00' }),
+        newEvent({ title: '一個很長很長很長的結尾事件標題', start: '1925-03-12 20:00' }),
+      ],
+    };
+    const v = visibleDoc(d, 'gm');
+    const plain = fitWindow(
+      'date',
+      { a: dateValue(1925, 3, 12, 8), b: dateValue(1925, 3, 12, 20) },
+      0,
+    );
+    const w = fitWithLabels(v, 600, m12, 0);
+    expect(w.start).toBe(plain.start);
+    const k = 600 / (w.end - w.start);
+    const last = dateValue(1925, 3, 12, 20);
+    /* 標題的右端在畫面裡 */
+    expect((last - w.start) * k + 10 + m12('一個很長很長很長的結尾事件標題')).toBeLessThanOrEqual(
+      600,
+    );
   });
   it('內容範圍含標記與目前進度', () => {
     const doc = exampleDoc();

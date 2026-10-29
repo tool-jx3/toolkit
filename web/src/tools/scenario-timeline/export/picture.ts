@@ -336,6 +336,8 @@ export function buildPicture(input: PictureInput): Picture {
       stroke: pal.grid,
       sw: 1,
     });
+    /* 左邊被切到的格子不寫標籤 */
+    if (x < LW - 1) continue;
     grid.push({
       t: 'text',
       x: x + 4,

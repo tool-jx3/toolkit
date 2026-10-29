@@ -345,8 +345,8 @@ h1{font-size:17pt;margin:0 0 2pt}
 .range{color:#555;margin:0 0 10pt}
 h2{font-size:12pt;margin:12pt 0 4pt;padding-bottom:2pt;border-bottom:1px solid #999;break-after:avoid}
 ol{list-style:none;margin:0;padding:0}
-li{display:grid;grid-template-columns:7.5em 1fr;gap:0 10pt;padding:3pt 0;border-bottom:1px solid #e5e5e5;break-inside:avoid}
-.time{color:#333;font-variant-numeric:tabular-nums;white-space:nowrap}
+li{display:grid;grid-template-columns:8.5em 1fr;gap:0 10pt;padding:3pt 0;border-bottom:1px solid #e5e5e5;break-inside:avoid}
+.time{color:#333;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
 .title{font-weight:700}
 .tag{display:inline-block;font-size:8.5pt;font-weight:400;border:1px solid #bbb;border-radius:3pt;padding:0 3pt;margin-left:4pt;color:#444}
 .tag.gm{border-color:#c08414;color:#8a5a12}

@@ -23,8 +23,19 @@ export interface Span {
   b: number;
 }
 
+/** 解讀過的範圍（同一個事件物件、同樣的寫法只解讀一次：縮放時重新排版不用再解讀時間） */
+const spanCache = new WeakMap<object, { mode: TimeMode; era: string; span: Span | null }>();
+
 /** 事件在時間軸上的範圍（時間點 b＝a；期間的結束含整個單位；PL 版只到目前進度時剪掉） */
 export function eventSpan(mode: TimeMode, e: VisibleEvent, era: string): Span | null {
+  const hit = spanCache.get(e);
+  if (hit && hit.mode === mode && hit.era === era) return hit.span;
+  const span = computeSpan(mode, e, era);
+  spanCache.set(e, { mode, era, span });
+  return span;
+}
+
+function computeSpan(mode: TimeMode, e: VisibleEvent, era: string): Span | null {
   const a = readTime(mode, e.start, era);
   if (!a) return null;
   if (e.kind === 'point') return { a: a.v, b: a.v };

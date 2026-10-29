@@ -203,6 +203,7 @@ function MarkerRow({ m, pl }: { m: Marker; pl: boolean }) {
         <ColorField
           value={m.color}
           showInput={false}
+          className="w-auto shrink-0"
           swatches={PALETTE}
           disabled={pl}
           aria-label={`${S.markerColor}：${name}`}

@@ -112,6 +112,14 @@ const DAY_DOC = {
       end: '第 1 天 14:00',
       laneId: 'l2',
     },
+    {
+      ...blankEvent,
+      id: 'bg',
+      title: '暴風雨',
+      kind: 'background',
+      start: '第 1 天 17:00',
+      end: '第 1 天 22:00',
+    },
   ],
   markers: [{ id: 'm1', label: '鐘響', time: '第 1 天 16:00', color: '#8a63d2', gm: false }],
   progress: { on: false, time: '', plOnly: false },
@@ -151,6 +159,18 @@ async function drag(page: Page, from: { x: number; y: number }, to: { x: number;
   await page.mouse.move(from.x + 6, from.y, { steps: 2 });
   await page.mouse.move(to.x, to.y, { steps: 10 });
   await page.mouse.up();
+}
+
+/** 把檔案拖進視窗（WindowDrop） */
+async function dropFiles(page: Page, files: { name: string; type: string; text: string }[]) {
+  await page.evaluate((list) => {
+    const dt = new DataTransfer();
+    for (const f of list) dt.items.add(new File([f.text], f.name, { type: f.type }));
+    window.dispatchEvent(new DragEvent('dragenter', { dataTransfer: dt, bubbles: true }));
+    window.dispatchEvent(
+      new DragEvent('drop', { dataTransfer: dt, bubbles: true, cancelable: true }),
+    );
+  }, files);
 }
 
 const center = async (loc: Locator) => {
@@ -220,6 +240,16 @@ test('拖曳：左右改時間（吸附）、上下換泳道、Esc 取消、拖�
   await drag(page, { x: right, y: b.y }, { x: right + 60 * k, y: b.y });
   await expect.poll(async () => (await evOf(page, 'b'))?.end).toBe('第 1 天 15:00');
   expect((await evOf(page, 'b'))?.start).toBe('第 1 天 12:00');
+  /* 按住 Alt 拖曳：不吸附（以分鐘為單位） */
+  const b2 = await center(item(page, 'b'));
+  await page.keyboard.down('Alt');
+  await drag(page, { x: b2.x, y: b2.y }, { x: b2.x + 37 * k, y: b2.y });
+  await page.keyboard.up('Alt');
+  await expect.poll(async () => (await evOf(page, 'b'))?.start).not.toBe('第 1 天 12:00');
+  const altStart = (await evOf(page, 'b'))?.start ?? '';
+  expect(altStart).toMatch(/^第 1 天 12:(3[4-9]|40)$/);
+  await page.keyboard.press('Control+z');
+  await expect.poll(async () => (await evOf(page, 'b'))?.start).toBe('第 1 天 12:00');
   /* 復原三步：長短、換泳道、時間 */
   await page.keyboard.press('Control+z');
   await expect.poll(async () => (await evOf(page, 'b'))?.end).toBe('第 1 天 14:00');
@@ -264,15 +294,19 @@ test('雙擊空白處新增、縮放與平移、全覽、旗子拖曳', async ({
   await seed(page, DAY_DOC, DAY_WINDOW);
   const errors = await open(page);
   const { box, k, w } = await trackGeometry(page);
-  /* 泳道甲的 18:00 雙擊 */
+  /* 泳道甲的 20:00 雙擊（在背景「暴風雨」的區段裡：區段不擋點選） */
   const row = await center(page.getByTestId('timeline').locator('[data-lane-row="l1"]'));
-  await page.mouse.dblclick(box.x + (18 * 60 - w.start) * k, row.y);
+  await page.mouse.dblclick(box.x + (20 * 60 - w.start) * k, row.y);
   await expect(field(page, 'title')).toBeFocused();
   await page.keyboard.type('新的事件');
   await page.keyboard.press('Tab');
   const doc = await docOf(page);
   const added = doc.events.find((e) => e.title === '新的事件');
-  expect(added).toMatchObject({ start: '第 1 天 18:00', laneId: 'l1', kind: 'point' });
+  expect(added).toMatchObject({ start: '第 1 天 20:00', laneId: 'l1', kind: 'point' });
+  /* 背景：點左上角的標題選取 */
+  await item(page, 'bg').locator('[data-band-label]').click();
+  await expect(item(page, 'bg')).toHaveAttribute('data-selected', 'true');
+  await expect(field(page, 'title')).toHaveValue('暴風雨');
   /* 旗子往左拖 2 小時 */
   const flag = await center(page.getByTestId('timeline').locator('[data-flag-id="m1"]'));
   await drag(page, { x: flag.b.x + 4, y: flag.y }, { x: flag.b.x + 4 - 120 * k, y: flag.y });
@@ -352,10 +386,10 @@ test('事件分頁：新增、時間欄的解讀與錯誤、種類、複製、�
   /* 複製一份、刪除 */
   await page.getByRole('button', { name: '複製一份' }).click();
   await expect(field(page, 'title')).toHaveValue('開場（複本）');
-  await expect.poll(async () => (await docOf(page)).events.length).toBe(4);
+  await expect.poll(async () => (await docOf(page)).events.length).toBe(5);
   await page.getByTestId('delete-event').click();
-  await expect.poll(async () => (await docOf(page)).events.length).toBe(3);
-  await expect(page.getByTestId('event-count')).toHaveText('共 3 個事件');
+  await expect.poll(async () => (await docOf(page)).events.length).toBe(4);
+  await expect(page.getByTestId('event-count')).toHaveText('共 4 個事件');
   const copy = (await docOf(page)).events.find((e) => e.title === '開場');
   expect(copy).toMatchObject({ place: '港口' });
   expect(errors).toEqual([]);
@@ -560,6 +594,30 @@ test('匯出：PNG、SVG、文字年表、CSV 匯出與貼上讀入', async ({ p
   const doc = await docOf(page);
   expect(doc.events).toHaveLength(13);
   expect(doc.lanes.some((l) => l.name === '新泳道')).toBe(true);
+  expect(errors).toEqual([]);
+});
+
+test('拖進視窗：CSV 讀入、看不懂的檔案', async ({ page }) => {
+  await seed(page, DAY_DOC, DAY_WINDOW);
+  const errors = await open(page);
+  await dropFiles(page, [
+    {
+      name: '事件表.csv',
+      type: 'text/csv',
+      text: '標題,開始,結束,泳道\n夜襲,第2天22:00,第3天1:00,泳道乙\n',
+    },
+  ]);
+  await page.getByRole('button', { name: '加入' }).click();
+  await expect(page.getByText('已讀入 1 個事件', { exact: true })).toBeVisible();
+  const ev = (await docOf(page)).events.find((e) => e.title === '夜襲');
+  expect(ev).toMatchObject({
+    kind: 'range',
+    start: '第 2 天 22:00',
+    end: '第 3 天 01:00',
+    laneId: 'l2',
+  });
+  await dropFiles(page, [{ name: '圖.png', type: 'image/png', text: 'x' }]);
+  await expect(page.getByText('看不懂這個檔案', { exact: true })).toBeVisible();
   expect(errors).toEqual([]);
 });
 

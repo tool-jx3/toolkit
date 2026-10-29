@@ -288,6 +288,17 @@ export function Timeline() {
       ),
     [vdoc, xOf, showNow, now],
   );
+  /* 提示與顏色只跟著資料變（縮放、平移時不重算） */
+  const looks = useMemo(() => {
+    const laneNames = new Map(vdocBase.lanes.map((l) => [l.id, l.name.trim() || S.untitled]));
+    const out = new Map<string, { title: string; color: string }>();
+    for (const e of vdocBase.events)
+      out.set(e.id, {
+        title: eventTitleText(vdocBase, e, e.laneId ? (laneNames.get(e.laneId) ?? S.main) : S.main),
+        color: eventColor(vdocBase, e),
+      });
+    return out;
+  }, [vdocBase]);
   const flagH = flagRowHeight(flags.levels);
   const headerH = AXIS_ROW * 2 + flagH;
   const bodyH = Math.max(layout.height, viewH - headerH - 2);
@@ -708,11 +719,16 @@ export function Timeline() {
         if (s) setWin(revealWindow(mode, cur.w, s.a, s.b));
       }
       /* 換了列或畫面捲動後，焦點留在同一個事件上 */
-      requestAnimationFrame(() =>
-        rootRef.current
-          ?.querySelector<HTMLElement>(`[data-event-id="${CSS.escape(id)}"]`)
-          ?.focus({ preventScroll: true }),
-      );
+      requestAnimationFrame(() => {
+        const el = rootRef.current?.querySelector<HTMLElement>(
+          `[data-event-id="${CSS.escape(id)}"]`,
+        );
+        /* 背景事件的焦點在左上角的標題按鈕 */
+        const target = el?.matches('button')
+          ? el
+          : el?.querySelector<HTMLElement>('[data-band-label]');
+        target?.focus({ preventScroll: true });
+      });
     },
     [mode],
   );
@@ -750,8 +766,7 @@ export function Timeline() {
 
   /* ---------- 畫 ---------- */
 
-  const laneName = (key: string) =>
-    key ? vdoc.lanes.find((l) => l.id === key)?.name.trim() || S.untitled : S.main;
+  /* 畫面上的事件（Tab 的順序：由上而下、由早到晚） */
   const visItems = layout.items.filter((it) => {
     const x1 = xOf(it.a);
     const x2 = xOf(it.b);
@@ -761,6 +776,7 @@ export function Timeline() {
         : x2;
     return right >= -20 && x1 - POINT_R <= width + 20;
   });
+  visItems.sort((p, q) => p.row - q.row || p.a - q.a || p.level - q.level);
 
   return (
     <section
@@ -872,7 +888,7 @@ export function Timeline() {
                 <BackgroundBand
                   key={bg.id}
                   e={bg.event}
-                  color={eventColor(vdoc, bg.event)}
+                  color={looks.get(bg.id)?.color ?? ''}
                   left={Math.max(-4, x1)}
                   right={Math.min(width + 4, x2)}
                   cutLeft={x1 < -4}
@@ -882,7 +898,7 @@ export function Timeline() {
                   selected={selectedId === bg.id}
                   gm={!pl}
                   editable={!pl}
-                  title={eventTitleText(vdoc, bg.event, row ? laneName(row.key) : S.main)}
+                  title={looks.get(bg.id)?.title ?? ''}
                   dragging={drag?.id === bg.id}
                   onKeyDown={onItemKeyDown}
                 />
@@ -910,12 +926,12 @@ export function Timeline() {
                 x1={xOf(it.a)}
                 x2={xOf(it.b)}
                 width={width}
-                color={eventColor(vdoc, it.event)}
+                color={looks.get(it.id)?.color ?? ''}
                 selected={selectedId === it.id}
                 dragging={drag?.id === it.id}
                 gm={!pl}
                 editable={!pl}
-                title={eventTitleText(vdoc, it.event, laneName(layout.rows[it.row]?.key ?? ''))}
+                title={looks.get(it.id)?.title ?? ''}
                 onKeyDown={onItemKeyDown}
               />
             ))}
@@ -984,7 +1000,8 @@ const AxisLabels = memo(function AxisLabels({
       })}
       {minor.map((t) => {
         const x = xOf(t.v);
-        if (x > width || x < -200) return null;
+        /* 左邊被切到的格子不寫標籤（只剩半個字） */
+        if (x > width || x < -1) return null;
         return (
           <span
             key={`n${t.v}`}
@@ -1315,23 +1332,16 @@ function BackgroundBand({
   onKeyDown: (e: ReactKeyboardEvent<HTMLElement>, id: string) => void;
 }) {
   const w = Math.max(2, right - left);
+  /* 區段本身不擋點選（和 vis-timeline 一樣，點、雙擊空白處照常）；左上角的標題是按鈕（選取、拖曳移動），兩端拖曳改長短 */
   return (
-    <button
-      type="button"
-      title={title}
-      aria-label={title.split('\n').slice(0, 3).join('，')}
-      aria-pressed={selected}
+    <div
       data-event-id={e.id}
       data-kind="background"
       data-selected={selected || undefined}
       data-secret={(gm && e.secret) || undefined}
-      onKeyDown={(ev) => onKeyDown(ev, e.id)}
-      onFocus={() => selectOnFocus(e.id)}
       className={cn(
-        'absolute z-[1] cursor-pointer outline-none',
-        selected
-          ? 'ring-2 ring-focus ring-inset'
-          : 'focus-visible:ring-2 focus-visible:ring-focus focus-visible:ring-inset',
+        'pointer-events-none absolute z-[1]',
+        selected && 'ring-2 ring-focus ring-inset',
         dragging && 'opacity-80',
       )}
       style={{ left, top, width: w, height }}
@@ -1340,28 +1350,36 @@ function BackgroundBand({
       {gm && e.secret ? (
         <span aria-hidden className="absolute inset-0" style={{ backgroundImage: GM_STRIPES }} />
       ) : null}
-      <span
-        className="pointer-events-none absolute top-0.5 left-1 max-w-[calc(100%-0.5rem)] truncate text-[11px] font-semibold text-muted"
-        data-item-label
+      <button
+        type="button"
+        title={title}
+        aria-label={title.split('\n').slice(0, 3).join('，')}
+        aria-pressed={selected}
+        data-band-label
+        onKeyDown={(ev) => onKeyDown(ev, e.id)}
+        onFocus={() => selectOnFocus(e.id)}
+        className="pointer-events-auto absolute top-0.5 left-1 flex max-w-[calc(100%-0.5rem)] cursor-pointer items-center gap-1 rounded-sm px-0.5 text-[11px] font-semibold text-muted outline-none hover:text-fg focus-visible:ring-2 focus-visible:ring-focus"
       >
-        {e.title.trim() || S.untitled}
-      </span>
-      {gm && e.gm ? <GmBadge className="absolute top-4 left-1" /> : null}
+        <span className="truncate" data-item-label>
+          {e.title.trim() || S.untitled}
+        </span>
+        {gm && e.gm ? <GmBadge className="shrink-0" /> : null}
+      </button>
       {editable && !cutLeft ? (
         <span
           data-handle="start"
           aria-hidden
-          className="absolute top-0 left-0 h-full w-[6px] cursor-ew-resize"
+          className="pointer-events-auto absolute top-0 left-0 h-full w-[6px] cursor-ew-resize"
         />
       ) : null}
       {editable && !cutRight ? (
         <span
           data-handle="end"
           aria-hidden
-          className="absolute top-0 right-0 h-full w-[6px] cursor-ew-resize"
+          className="pointer-events-auto absolute top-0 right-0 h-full w-[6px] cursor-ew-resize"
         />
       ) : null}
-    </button>
+    </div>
   );
 }
 

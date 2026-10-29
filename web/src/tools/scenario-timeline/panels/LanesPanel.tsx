@@ -179,6 +179,7 @@ function LaneRow({
         <ColorField
           value={lane.color}
           showInput={false}
+          className="w-auto shrink-0"
           swatches={PALETTE}
           disabled={pl}
           aria-label={`${S.laneColor}：${name}`}
@@ -271,6 +272,7 @@ function CategoryRow({ c, pl }: { c: Category; pl: boolean }) {
       <ColorField
         value={c.color}
         showInput={false}
+        className="w-auto shrink-0"
         swatches={PALETTE}
         disabled={pl}
         aria-label={`${S.catColor}：${name}`}

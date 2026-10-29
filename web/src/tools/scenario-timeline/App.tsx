@@ -184,6 +184,13 @@ function Glue() {
         label={S.dropLabel}
         hint={S.dropHint}
         onDrop={(files) => void importFiles(files)}
+        onReject={(files) =>
+          notify({
+            title: S.unknownFile,
+            description: files.map((f) => f.name).join('、'),
+            tone: 'danger',
+          })
+        }
       />
     </>
   );
