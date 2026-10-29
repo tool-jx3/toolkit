@@ -4,6 +4,10 @@
  * ```tsx
  * <Chips aria-label="差分名建議" items={['普通', '笑', '生氣', '哭', '驚訝']} onPick={(v) => setVariantName(v)} />
  * ```
+ *
+ * 複選（pl-profile 加的，選填）：給 `values` 時每個在清單裡的按鈕都標示選取中（aria-pressed），
+ * 點一下照樣呼叫 onPick，由呼叫端切換：
+ * `<Chips aria-label="喜歡的風格" items={…} values={picked} onPick={toggle} />`
  */
 import { cn } from './cn';
 
@@ -14,6 +18,8 @@ export interface ChipsProps {
   onPick: (value: string) => void;
   /** 目前的值（相同的按鈕標示為選取中） */
   value?: string | null;
+  /** 複選：在這個清單裡的按鈕都標示為選取中（給了就不看 value） */
+  values?: readonly string[];
   disabled?: boolean;
   size?: 'sm' | 'md';
   'aria-label': string;
@@ -24,6 +30,7 @@ export function Chips({
   items,
   onPick,
   value,
+  values,
   disabled,
   size = 'sm',
   className,
@@ -39,13 +46,13 @@ export function Chips({
       {items.map((it) => {
         const v = typeof it === 'string' ? it : it.value;
         const label = typeof it === 'string' ? it : (it.label ?? it.value);
-        const on = value != null && value === v;
+        const on = values ? values.includes(v) : value != null && value === v;
         return (
           <button
             key={v}
             type="button"
             disabled={disabled}
-            aria-pressed={value !== undefined ? on : undefined}
+            aria-pressed={values || value !== undefined ? on : undefined}
             title={typeof it === 'string' ? undefined : it.title}
             onClick={() => onPick(v)}
             className={cn(

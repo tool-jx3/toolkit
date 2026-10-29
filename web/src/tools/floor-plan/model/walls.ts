@@ -10,6 +10,7 @@
  */
 import { type EdgeRun, squareEdgeRuns, subtractSpans } from '@/core/grid';
 import { CAT, WALL } from './catalog';
+import { roomCells } from './shape';
 import type { Floor, Opening, Room, Wall, WallKind } from './types';
 
 /** 牆的段的種類：zone＝「不產生牆」的分區線 */
@@ -79,8 +80,8 @@ export function roomRuns(rooms: readonly Room[]): EdgeRun<RunKind>[] {
   let x1 = Number.NEGATIVE_INFINITY;
   let y1 = Number.NEGATIVE_INFINITY;
   for (const r of rooms) {
-    for (let x = r.x; x < r.x + r.w; x++)
-      for (let y = r.y; y < r.y + r.h; y++) owner.set(key(x, y), r);
+    /* L 形房間（2026-10-29）：缺角的格子不是這間房的（底下的房間或外面） */
+    for (const [x, y] of roomCells(r)) owner.set(key(x, y), r);
     x0 = Math.min(x0, r.x);
     y0 = Math.min(y0, r.y);
     x1 = Math.max(x1, r.x + r.w);

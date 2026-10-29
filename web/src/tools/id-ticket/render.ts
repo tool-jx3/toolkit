@@ -5,6 +5,7 @@
  * - 畫的時候順便記下可以點的範圍（Region）與用到的字型。
  */
 import { makeCanvas } from '@/core/image';
+import { qrMatrix } from '@/core/qr/encode';
 import { mix, rgbOf, tint } from './colors';
 import { employee, highschool, press, university } from './faces/cards1';
 import { detective, member, police } from './faces/cards2';
@@ -25,7 +26,6 @@ import {
   type Side,
   UNITS_PER_MM,
 } from './model';
-import { qrMatrix } from './qr';
 import {
   ID_TEMPLATES,
   type IdTemplate,

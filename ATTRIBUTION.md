@@ -98,7 +98,7 @@
 | `scenario-text` | 劇本文字產生器 | [shiki365/scenario-text-maker](https://github.com/shiki365/scenario-text-maker)（MIT） | —（新收錄，沒有舊版） |
 | `house-rules` | CoC 房規表產生器 | [くま。／TRPG WEBツール観測所](https://kumachansteps.github.io/trpg-web-tools/)（`house-rule-table`，未授權） | —（新收錄，沒有舊版） |
 | `speech-bubble` | 動態對話泡泡產生器 | [sotsotssi/TextBubbleMaker-preview](https://github.com/sotsotssi/TextBubbleMaker-preview)（未授權）、[aokmri/dp-cardmaker](https://github.com/aokmri/dp-cardmaker)（對話卡片，未授權） | —（新收錄，沒有舊版） |
-| `floor-plan` | 室內平面圖產生器 | [くま。／TRPG WEBツール観測所](https://kumachansteps.github.io/trpg-web-tools/)（`indoor-map-maker`，未授權）、[GMW／Maptsukuri](https://maptsukuri.pages.dev/)（分享連結與房間編號的功能參考，未授權） | —（新收錄，沒有舊版） |
+| `floor-plan` | 室內平面圖產生器 | [くま。／TRPG WEBツール観測所](https://kumachansteps.github.io/trpg-web-tools/)（`indoor-map-maker`，未授權）、[GMW／Maptsukuri](https://maptsukuri.pages.dev/)（分享連結與房間編號的功能參考，未授權）、[KIIN／マップ制作スタジオ](https://kiin.booth.pm/)（自動化、L 形房間、圖面風格與座標、VTT 匯出的功能參考，未授權） | —（新收錄，沒有舊版） |
 | `rank-chart` | 排行榜產生器 | [sotsotssi/would-you-rank](https://github.com/sotsotssi/would-you-rank)（MIT） | —（新收錄，沒有舊版） |
 | `char-chart` | 角色分析圖產生器 | [sotsotssi/char-quadrant](https://github.com/sotsotssi/char-quadrant)、[sotsotssi/visual-coupling-map](https://github.com/sotsotssi/visual-coupling-map)（都未授權） | —（新收錄，沒有舊版） |
 | `review-grid` | 劇本心得九宮格 | [sotsotssi/scenario-review](https://github.com/sotsotssi/scenario-review)（未授權） | —（新收錄，沒有舊版） |
@@ -120,6 +120,10 @@
 | `ui-frame` | UI 框素材產生器 | [KIIN／ノベワク STUDIO](https://novewaku-studio.pages.dev)（BOOTH 販售的工具，條款禁止再散布程式，視同未授權） | —（新收錄，沒有舊版） |
 | `pdf-compress` | PDF 壓縮器 | [mrflamingchad67/qcompress](https://github.com/mrflamingchad67/qcompress)（MIT）、[ECgear/wise-pdf](https://github.com/ECgear/wise-pdf)（MIT） | —（新收錄，沒有舊版） |
 | `token-maker` | VTT 棋子產生器 | [arcana-hanna/token-workshop](https://github.com/arcana-hanna/token-workshop)（MIT）、[CyberDelaai/eidolon-ui](https://github.com/CyberDelaai/eidolon-ui)（MIT）、[Sectr99/TokenForge](https://github.com/Sectr99/TokenForge)（MIT，只參考開口偵測） | —（新收錄，沒有舊版） |
+| `qr-maker` | QR Code 產生器 | [kozakdenys/qr-code-styling](https://github.com/kozakdenys/qr-code-styling)（MIT） | —（新收錄，沒有舊版） |
+| `pl-profile` | PL 自介卡與地雷表 | [sonata9x/trpg-profile-maker](https://github.com/sonata9x/trpg-profile-maker)、[Jara03mofu/trpg-jirai-check](https://github.com/Jara03mofu/trpg-jirai-check)、[Tetoriapot/sosaku-sheet-maker](https://github.com/Tetoriapot/sosaku-sheet-maker)、[dearmysn1p3r/DearMySn1p3r_25](https://github.com/dearmysn1p3r/DearMySn1p3r_25)、[OEC309/trpg-consensus](https://github.com/OEC309/trpg-consensus)（都未授權，只參考功能） | —（新收錄，沒有舊版） |
+| `scenario-timeline` | 劇本時間表 | [visjs/vis-timeline](https://github.com/visjs/vis-timeline)（Apache-2.0 或 MIT 二選一，本站選 MIT） | —（新收錄，沒有舊版） |
+| `ambience-mixer` | 環境音混音器 | [remvze/moodist](https://github.com/remvze/moodist)（程式 MIT；音效的授權分不清，一個都沒收） | —（新收錄，沒有舊版） |
 | `anime-rig` | 2.5D 動態立繪 | [852wa/Anime2.5DRig](https://github.com/852wa/Anime2.5DRig)（MIT） | `6957b28` |
 
 `music-frame` 是照 [docs/refactor/PROCESS.md](docs/refactor/PROCESS.md) 第 6 節「新工具引入流程」直接在新框架做的工具，沒有收錄過原作的副本（原作 commit `0c24db2`）。原作未附授權條款，預設封面、預設文字與說明都由本站自做，只照原作的功能、版面與數值。
@@ -136,7 +140,7 @@
 
 `speech-bubble` 照新工具引入流程直接在新框架做：原作（commit `b81c5b7`）只有範本預覽頁、沒有授權條款，製作工具本體在作者的 Postype（付費、不公開）。範本一覽照預覽頁的行為做；編輯與匯出的功能依預覽動畫逐格量到的數值、由本站自己設計；28 組範本的文字、配色與造型都由本站自做，不沿用原作的預覽圖與文字。2026-10 整合 aokmri/dp-cardmaker（commit `b97dd12`，沒有授權條款）的對話卡片功能（整段貼上拆成泡泡、左右兩側的預設樣式、說話者與日期、卡片底、樣式預設、泡泡裡的部分文字格式）：只照功能與做法，程式、介面文字、內建樣式與紋理都由本站自做；頁尾的靈感來源仍只放 TextBubbleMaker-preview。
 
-`floor-plan` 照新工具引入流程直接在新框架做：原作沒有授權條款（網站的利用規約只禁止轉載站內的圖片與圖示），只照原作的功能、牆壁與匯出的算法和數值，程式、介面文字、說明、範本、家具圖形與配色都由本站自做；可以開啟原作存的 `.trpgmap.json`（帖換算成坪）。2026-10 加的分享連結（含拿掉 GM 資訊的 PL 用連結）與房間編號圓標，參考 GMW 的 Maptsukuri（maptsukuri.pages.dev，沒有授權條款）的功能，程式與文字由本站自做。2026-10-29 跟進原作 v1.15（雙開拉門、8 種家具、健身房範本）：家具的圖形、範本的格局與器材配置都由本站自做。
+`floor-plan` 照新工具引入流程直接在新框架做：原作沒有授權條款（網站的利用規約只禁止轉載站內的圖片與圖示），只照原作的功能、牆壁與匯出的算法和數值，程式、介面文字、說明、範本、家具圖形與配色都由本站自做；可以開啟原作存的 `.trpgmap.json`（帖換算成坪）。2026-10 加的分享連結（含拿掉 GM 資訊的 PL 用連結）與房間編號圓標，參考 GMW 的 Maptsukuri（maptsukuri.pages.dev，沒有授權條款）的功能，程式與文字由本站自做。2026-10-29 跟進原作 v1.15（雙開拉門、8 種家具、健身房範本）：家具的圖形、範本的格局與器材配置都由本站自做。2026-10-29 另外參考 KIIN 的「マップ制作スタジオ」（BOOTH，使用者上傳的 v1.0，沒有授權條款）加了自動化（打通兩間房、自動擺放家具、家具跟著房間縮放、桌上小物跟著桌子）、L 形房間、黑色電影與監視終端兩種顯示樣式、紙的污漬與摺痕、座標標示、VTT 用的整格匯出與「在地圖演出產生器開啟」：只參考功能與數值範圍，程式、介面文字、配色、效果與污漬的畫法都由本站自做；頁尾的靈感來源仍只放くま。。
 
 `rank-chart` 照新工具引入流程直接在新框架做：原作（commit `f323b87`）是 MIT（授權全文在通知檔），盲選排行的玩法、版面數值與預設文字照原作（翻成繁中），圖上不放原作名稱與作者帳號；可以開啟原作存的設定檔（JSON）。
 
@@ -193,6 +197,14 @@
 `pdf-compress` 照新工具引入流程直接在新框架做，參考兩個 MIT 原作的程式改寫：mrflamingchad67/qcompress（commit `d60a155`）的 qpdf 結構整理、影像重新壓縮與候選比較，以及 ECgear/wise-pdf（commit `0fe3907`）的壓縮等級、依解析度縮小與整頁轉圖；兩份授權全文在 `web/src/tools/pdf-compress/UPSTREAM_LICENSE`。引擎用 npm 的 qpdf（Apache-2.0，`@neslinesli93/qpdf-wasm`）、mozjpeg（`@jsquash/jpeg`）、pdf.js（Apache-2.0）與 pdf-lib，都打包在本站、只在這個工具頁載入；WebAssembly 裡靜態連結的 zlib、libjpeg-turbo、Emscripten 執行環境，以及 pdf.js 的 CMap 與標準字型（含 GPL-2.0 with font exception 的 Liberation Sans，原樣單獨散布）的授權條文都整理在 THIRD_PARTY_NOTICES。壓縮效果最好的 Ghostscript、MuPDF 是 AGPL-3.0，和本站的 MIT 不相容，所以沒有使用。
 
 `token-maker` 照新工具引入流程直接在新框架做，參考三個 MIT 原作的程式改寫：arcana-hanna/token-workshop（commit `c27f41e`）的 16 種環形外框與 18 組外觀、金屬與石材的光照、程式產生的質感、魔術棒與自動偵測主體的出框、嵌進 PNG 的設定；CyberDelaai/eidolon-ui（commit `43c44b6`）的 12 種外框、自訂外框與遮罩、名單、名字牌與弧形文字、徽章、編號組 ZIP、色彩調整、效果與參考輪廓的剪影；Sectr99/TokenForge（commit `ff7ad73`）只參考自訂外框的開口半徑偵測，不用它的圖檔。外框、名字牌與剪影的畫法為了和原作逐像素相同，和原作的程式幾乎一對一（MIT 允許，見規格 7.1）；三份授權全文在 `web/src/tools/token-maker/UPSTREAM_LICENSE`、原作清單在 `UPSTREAM_SOURCES.json`。eidolon-ui 的範例圖（吉祥物）與預覽圖不拿；介面文字與說明由本站自己寫繁中。也讀得出 token-workshop 匯出、勾了「Keep editable」的 PNG。
+
+`qr-maker` 照新工具引入流程直接在新框架做，參考 kozakdenys/qr-code-styling（MIT，commit `43d4171`＝npm 1.9.2，授權全文在 `web/src/tools/qr-maker/UPSTREAM_LICENSE`）的程式改寫：點、三個角的外框與中心的形狀、漸層、背景圓角、中間放圖、圓形的畫法照原作（對 1.9.2 並排 451 組 0 差異），QR 的編碼用本站原本就有的 qrcode-generator（id-ticket 的 QR 搬進共用的 `core/qr`，輸出不變）；讀得出來的檢查（解碼器與定位方框的判斷）、外觀預設、專案檔是本站加的。原作 README 的範例圖與預設配色不拿。
+
+`pl-profile` 照新工具引入流程直接在新框架做，參考五個沒有授權條款的原作的功能：sonata9x/trpg-profile-maker（自介卡，頁尾的靈感來源）、Jara03mofu/trpg-jirai-check 與 Tetoriapot/sosaku-sheet-maker（地雷表）、dearmysn1p3r/DearMySn1p3r_25（自介卡的版型）、OEC309/trpg-consensus（幾個人的地雷表合成對照表；它有後端，只參考題目的結構）。程式、介面文字、版型、配色都是本站的；地雷表的主題清單、五級的名稱與符號、對照表的用語第一版和 trpg-consensus 的預設清單太像，對等驗證後由沒看過任何原作的人從零重寫（見 [docs/refactor/specs/pl-profile.md](docs/refactor/specs/pl-profile.md) 第 7 節）。
+
+`scenario-timeline` 照新工具引入流程直接在新框架做，參考 visjs/vis-timeline（Apache-2.0 或 MIT 二選一，本站選 MIT；commit `eb7ab7c`，授權全文在 `web/src/tools/scenario-timeline/UPSTREAM_LICENSE`）的互動：縮放與平移、時間點／期間／背景三種事件、泳道與巢狀、拖曳改時間與長短、自動堆疊、依標籤寬度挑刻度的間隔。不用 vis-timeline 套件本身，時間的計算、刻度、畫法（DOM＋SVG／canvas）、年表、PL 檢視、CSV 都是本站的；範例（1925 年的黑水灣）是本站原創。
+
+`ambience-mixer` 照新工具引入流程直接在新框架做，參考 remvze/moodist（MIT，commit `11c0be2`，授權全文在 `web/src/tools/ambience-mixer/UPSTREAM_LICENSE`）的功能與數值：聲音卡片、各自的音量、起伏（10 秒、40%～100%）、0.25 秒的淡入淡出、隨機組合、定時停止、分享連結。moodist 的音效混用 Pixabay Content License 與 CC0、沒有逐檔標示，所以**一個音效檔都沒有收**：本站的 24 種環境音全部由程式合成（`web/src/core/audio/ambience/`），預設組合是本站設計的跑團場景；使用者自己的音檔只存在自己的瀏覽器。
 
 `log-converter` 的 EPUB 匯出（2026-10）參考 sotsotssi/CcfoliaLogConverter 的功能（原作沒有授權條款：只照功能與做法，程式、介面文字與版面都由本站自做）；原作在控制字元、`<wbr>`、`<font>` 與新格式的日誌會產生不合規的電子書或遺失內容，本站的輸出都通過 epubcheck。
 

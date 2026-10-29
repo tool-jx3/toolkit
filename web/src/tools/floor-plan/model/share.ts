@@ -61,6 +61,8 @@ export function playerProject(p: Project): { project: Project; removed: PlRemove
         if (r.noWall) out.noWall = true;
         /* 房間的牆種類決定牆框的樣子（PL 檢視也看得到），留著（2026-10 第二批） */
         if (r.wall) out.wall = r.wall;
+        /* L 形的牆框（2026-10-29） */
+        if (r.cut) out.cut = { ...r.cut };
         return out;
       }
       const { plName, note: _note, masked: _m, ...rest } = r;
@@ -120,6 +122,11 @@ export function packProject(p: Project): Record<string, unknown> {
     ...(p.tokenGrid ? { tokenGrid: p.tokenGrid } : {}),
     ...(p.tokenGridColor ? { tokenGridColor: p.tokenGridColor } : {}),
     ...(p.tokenGridOpacity ? { tokenGridOpacity: p.tokenGridOpacity } : {}),
+    /* 2026-10-29（參考 KIIN）：污漬與摺痕、座標標示、家具不跟著房間（有設定時才寫） */
+    ...(p.wear ? { wear: p.wear } : {}),
+    ...(p.wearSeed !== undefined ? { wearSeed: p.wearSeed } : {}),
+    ...(p.coords ? { coords: true } : {}),
+    ...(p.fixedFurniture ? { fixedFurniture: true } : {}),
     floors: p.floors.map((f) => {
       const out: Record<string, unknown> = {
         name: f.name,

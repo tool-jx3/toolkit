@@ -2,8 +2,8 @@
  * 屬性面板：沒有選取時是地圖設定；選了一個東西時是它的屬性；選了好幾個時是共同的開關與動作。
  * 文字欄、數字欄從聚焦到離開算一步復原；調色盤按下到放開算一步。
  */
-import { ListOrdered, Lock, LockOpen, RotateCw } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { Link2, ListOrdered, Lock, LockOpen, RotateCw, Shuffle, Sparkles } from 'lucide-react';
+import { type KeyboardEvent, type ReactNode, useRef } from 'react';
 import { historyGesture } from '@/core/storage';
 import {
   Button,
@@ -33,9 +33,11 @@ import {
   THEME_IDS,
   TOKEN_GRID_OPACITY,
   WALL_KINDS,
+  WEAR_DEFAULT,
 } from '../model/catalog';
 import { clamp, metersText, meterText, pingText, roomArea, round2 } from '../model/geometry';
 import { getObj, rotateItem } from '../model/ops';
+import { CORNERS, L_MIN } from '../model/shape';
 import type { Item, Opening, Room, SelRef, TextLabel, Wall } from '../model/types';
 import { S } from '../strings';
 import * as act from './actions';
@@ -284,6 +286,7 @@ function MapProps() {
         />
       </Field>
       <TokenGridFields />
+      <KiinFields />
       <FloorFields />
       <p className="m-0 border-t border-border pt-3 text-xs text-muted" data-testid="map-stats">
         {f.name}：{S.props.stats(f.rooms.length, f.items.length, f.openings.length)}
@@ -301,6 +304,113 @@ function MapProps() {
         </Button>
         <p className="m-0 text-xs text-muted">{S.props.numberRoomsHint}</p>
       </div>
+    </>
+  );
+}
+
+/** 2026-10-29（參考 KIIN）：家具跟著房間、座標標示、紙的污漬與摺痕 */
+function KiinFields() {
+  const p = useProject((s) => s.data);
+  const strength = Math.round((p.wear ?? WEAR_DEFAULT) * 100);
+  return (
+    <>
+      <Field label={S.props.follow} layout="inline" hint={S.props.followHint}>
+        <Toggle checked={!p.fixedFurniture} onCheckedChange={act.setFollowFurniture} />
+      </Field>
+      <Field label={S.props.coords} layout="inline" hint={S.props.coordsHint}>
+        <Toggle checked={!!p.coords} onCheckedChange={act.setCoords} />
+      </Field>
+      <Field label={S.props.wear} layout="inline" hint={S.props.wearHint}>
+        <Toggle checked={!!p.wear} onCheckedChange={act.setWear} />
+      </Field>
+      {p.wear ? (
+        <div className="flex items-end gap-2">
+          <Typing>
+            <Field label={S.props.wearStrength} className="min-w-0 flex-1">
+              <Slider
+                value={strength}
+                min={10}
+                max={100}
+                step={5}
+                unit="%"
+                aria-label={S.props.wearStrength}
+                onChange={(v) => act.setWearStrength(v / 100)}
+              />
+            </Field>
+          </Typing>
+          <Button
+            size="sm"
+            icon={<Shuffle />}
+            onClick={act.shuffleWear}
+            title={S.props.wearShuffleHint}
+            data-testid="wear-shuffle"
+            className="shrink-0"
+          >
+            {S.props.wearShuffle}
+          </Button>
+        </div>
+      ) : null}
+    </>
+  );
+}
+
+/** L 形房間（F259）：形狀、缺角、缺角的寬與深 */
+function RoomShapeFields({ r }: { r: Room }) {
+  const ref: SelRef = { type: 'room', id: r.id };
+  const small = r.w < L_MIN || r.h < L_MIN;
+  return (
+    <>
+      <Field label={S.props.shape} hint={small && !r.cut ? S.props.shapeTooSmall : undefined}>
+        <Segmented
+          size="sm"
+          value={r.cut ? 'l' : 'rect'}
+          disabled={r.locked}
+          onValueChange={(v) => act.setRoomShape(r.id, v === 'l')}
+          options={[
+            { value: 'rect', label: S.props.shapes.rect },
+            { value: 'l', label: S.props.shapes.l, disabled: small },
+          ]}
+        />
+      </Field>
+      {r.cut ? (
+        <>
+          <Field label={S.props.cutCorner}>
+            <Segmented
+              size="sm"
+              value={r.cut.c}
+              disabled={r.locked}
+              onValueChange={(v) => act.setRoomCut(ref.id, { c: v })}
+              options={CORNERS.map((c) => ({ value: c, label: S.props.corners[c] }))}
+            />
+          </Field>
+          <Typing>
+            <FieldRow columns={2}>
+              <Field label={S.props.cutW}>
+                <NumberInput
+                  value={r.cut.w}
+                  step={1}
+                  min={1}
+                  max={r.w - 1}
+                  unit={S.props.cells}
+                  disabled={r.locked}
+                  onChange={(v) => act.setRoomCut(ref.id, { w: v })}
+                />
+              </Field>
+              <Field label={S.props.cutH}>
+                <NumberInput
+                  value={r.cut.h}
+                  step={1}
+                  min={1}
+                  max={r.h - 1}
+                  unit={S.props.cells}
+                  disabled={r.locked}
+                  onChange={(v) => act.setRoomCut(ref.id, { h: v })}
+                />
+              </Field>
+            </FieldRow>
+          </Typing>
+        </>
+      ) : null}
     </>
   );
 }
@@ -367,22 +477,78 @@ function RoomProps({ r }: { r: Room }) {
   const theme = getTheme(useProject((s) => s.data.theme));
   const area = roomArea(r);
   const edit = (fn: (o: Room) => void) => act.editObj<Room>(ref, fn);
-  const num = (label: string, key: 'x' | 'y' | 'w' | 'h', min?: number) => (
-    <Field label={label}>
+  /*
+   * 寬、深的一次輸入（第一個按鍵到 Enter／離開欄位／方向鍵）：從開始時的位置重算家具（F254），記成一步復原；
+   * 打「14」先經過 1 也不會把家具擠在一起（2026-10-29 驗證後修訂）
+   */
+  const sizing = useRef<{ start: act.RoomResizeStart; misfit: number } | null>(null);
+  const finishSize = () => {
+    const s = sizing.current;
+    if (!s) return;
+    sizing.current = null;
+    act.endRoomResize();
+    if (s.misfit) act.notify(S.msg.followMisfit(s.misfit), 'warning');
+  };
+  /* 欄位裡的 Ctrl＋Z／Ctrl＋Y：不用瀏覽器的文字復原（會把打到一半的數字再套一次），改成和「復原」按鈕一樣 */
+  const sizeKeys = (e: KeyboardEvent<HTMLDivElement>) => {
+    if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
+    const redo = e.code === 'KeyY' || (e.code === 'KeyZ' && e.shiftKey);
+    if (e.code !== 'KeyZ' && !redo) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const input = e.target instanceof HTMLElement ? e.target : null;
+    /* 先離開欄位（打到一半的數字照 Enter 確定、記成一步），再復原或重做；之後回到欄位 */
+    input?.blur();
+    if (redo) act.redo();
+    else act.undo();
+    if (input?.isConnected) input.focus();
+  };
+  const num = (label: string, key: 'x' | 'y' | 'w' | 'h', min?: number) => {
+    const size = key === 'w' || key === 'h';
+    const field = (
       <NumberInput
         value={r[key]}
         step={1}
         min={min}
         unit={S.props.cells}
         disabled={r.locked}
-        onChange={(v) =>
-          edit((o) => {
-            o[key] = Math.max(min ?? -Infinity, Math.round(v));
-          })
-        }
+        onChange={(v) => {
+          const value = Math.max(min ?? -Infinity, Math.round(v));
+          if (!size) {
+            edit((o) => {
+              o[key] = value;
+            });
+            return;
+          }
+          /* 寬、深：家具跟著房間（F254）、L 形的缺角夾到合法的大小 */
+          if (!sizing.current) {
+            const start = act.beginRoomResize(r.id);
+            if (!start) return;
+            sizing.current = { start, misfit: 0 };
+          }
+          const o = sizing.current.start.orig;
+          sizing.current.misfit = act.resizeRoom(
+            r.id,
+            { x: o.x, y: o.y, w: o.w, h: o.h, [key]: value },
+            sizing.current.start,
+          );
+        }}
+        onCommit={size ? finishSize : undefined}
       />
-    </Field>
-  );
+    );
+    return (
+      <Field label={label}>
+        {size ? (
+          // biome-ignore lint/a11y/noStaticElementInteractions: 只攔欄位裡的復原快捷鍵與離開欄位
+          <div className="min-w-0" onBlur={finishSize} onKeyDownCapture={sizeKeys}>
+            {field}
+          </div>
+        ) : (
+          field
+        )}
+      </Field>
+    );
+  };
   return (
     <>
       <Head
@@ -444,16 +610,26 @@ function RoomProps({ r }: { r: Room }) {
       </Field>
       <Readout
         label={S.props.area}
-        value={`${metersText(r.w, r.h)} · ${round2(area)}㎡ · ${pingText(area)}`}
+        value={
+          r.cut
+            ? S.props.areaL(
+                metersText(r.w, r.h),
+                metersText(r.cut.w, r.cut.h),
+                round2(area),
+                pingText(area),
+              )
+            : `${metersText(r.w, r.h)} · ${round2(area)}㎡ · ${pingText(area)}`
+        }
       />
       <Typing>
         <FieldRow columns={2}>
           {num(S.props.x, 'x')}
           {num(S.props.y, 'y')}
-          {num(S.props.w, 'w', 1)}
-          {num(S.props.h, 'h', 1)}
+          {num(S.props.w, 'w', r.cut ? L_MIN : 1)}
+          {num(S.props.h, 'h', r.cut ? L_MIN : 1)}
         </FieldRow>
       </Typing>
+      <RoomShapeFields r={r} />
       {r.locked ? <p className="m-0 text-xs text-muted">{S.props.lockedNote}</p> : null}
       <ColorRow
         value={r.color}
@@ -474,6 +650,18 @@ function RoomProps({ r }: { r: Room }) {
           />
         </Field>
       </Typing>
+      <div className="flex flex-col gap-1.5 border-t border-border pt-3">
+        <Button
+          size="sm"
+          icon={<Sparkles />}
+          onClick={() => act.arrangeRoomFurniture(r.id)}
+          data-testid="arrange-room"
+          className="self-start"
+        >
+          {S.props.arrange}
+        </Button>
+        <p className="m-0 text-xs text-muted">{S.props.arrangeHint}</p>
+      </div>
       <Actions>
         {r.lx || r.ly ? (
           <Button
@@ -755,6 +943,20 @@ function MultiProps({
         <Field label={S.props.clue} layout="inline">
           <Toggle checked={clue} onCheckedChange={act.toggleClue} />
         </Field>
+      ) : null}
+      {rooms.length === 2 && refs.length === 2 ? (
+        <div className="flex flex-col gap-1.5">
+          <Button
+            size="sm"
+            icon={<Link2 />}
+            onClick={act.connectSelection}
+            data-testid="connect-rooms"
+            className="self-start"
+          >
+            {S.props.connect}
+          </Button>
+          <p className="m-0 text-xs text-muted">{S.props.connectHint}</p>
+        </div>
       ) : null}
       <div className="flex flex-wrap gap-1.5">
         {rooms.length ? (

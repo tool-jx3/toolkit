@@ -23,15 +23,12 @@
 | 候選 | 來源 | 授權 | 內容 | 跑團用途 | 工作量 |
 |---|---|---|---|---|---|
 | CoC 日誌分析 | [Liesegang/coc-ccfolia-tools](https://github.com/Liesegang/coc-ccfolia-tools)、[756y/SkillRoll_Analytics](https://github.com/756y/SkillRoll_Analytics)、[tukasa0001/DiceStats](https://github.com/tukasa0001/DiceStats)、[cp-20/dice-spec-v2](https://github.com/cp-20/dice-spec-v2) | 未授權／未授權／MIT／MIT | 從 CCFOLIA 日誌統計成長檢定、骰運。dice-spec-v2 的 `src/features/log-analysis/ccfolia/` 有 CoC 6／7 版、新舊 HTML、JSON 的解析器，附樣本與測試，可以當範本；成長擲骰可以和 coc-sheet 的「幕間成長」（見第三節）共用規則 | CoC 7 版團後整理 | 中 |
-| PL 自我介紹卡／地雷表 | [sonata9x/trpg-profile-maker](https://github.com/sonata9x/trpg-profile-maker)、[Jara03mofu/trpg-jirai-check](https://github.com/Jara03mofu/trpg-jirai-check)、[Tetoriapot/sosaku-sheet-maker](https://github.com/Tetoriapot/sosaku-sheet-maker)、dearmysn1p3r _25 | 未授權 | 跑過的系統、KP／PL、地雷與 NG；五級量表（大歓迎、好き、普通、要相談、NG）可以參考 [OEC309/trpg-consensus](https://github.com/OEC309/trpg-consensus) 的題目結構（它有後端，只參考） | 揪團 | 小～中 |
 | 分級表（Tier 表） | [Tetoriapot/character-attribute-maker](https://github.com/Tetoriapot/character-attribute-maker) 的 `tier-atelier/`（10-27～28） | 未授權 | 分級可以增刪、改名、配色、鎖定、收合；圖片和文字項目拖曳、未分類區、多選一起移動；PNG／JPEG／WebP；JSON 備份與多個專案。rank-chart 規格 D1 寫過「分級表另外當新工具評估」 | 劇本、角色的 tier 表 | 中 |
 | CoC 追逐面板 | [ichieh42/coc-chase-panel](https://github.com/ichieh42/coc-chase-panel)（簡中，10-28） | 未授權 | CoC 7 版的追逐：角色與載具卡庫（MOV 自動算）、速度檢定、地點軌、行動點、險境與障礙、衝突、載具事故、躲藏、中途加入、日誌、JSON 匯入匯出。規則速查要自己寫，不能抄規則書原文 | 追逐規則複雜，KP 常常略過不跑；放 G9 | 中 |
 | Live2D 模型加動作 | [shinshin86/live2d-add-motion-sample-web-ui](https://github.com/shinshin86/live2d-add-motion-sample-web-ui)（`d89d5ee`，2026-10-22） | MIT（Live2D Cubism Core 是 Live2D 的專有授權；範例模型桃瀨日和不可再散布） | 不用 Cubism Editor、只改 `.motion3.json` 就替模型加動作：快樂、眨單眼、點頭、思考、驚訝、害羞、搖頭 7 種配方（照模型現有的參數，產生器＋驗證器），網頁上播放、單發／循環、對嘴（模擬、音檔、麥克風）、表情、臉部與上半身追蹤、錄製、OBS 串流頁。原作要 Python＋程式助手產生動作、本機伺服器播放，沒有線上版。本站要做就改寫成瀏覽器工具（讀模型 ZIP → 選動作 → 預覽 → 匯出 ZIP）；**前提是決定 Cubism Core 怎麼處理**：原作從 Live2D 的 CDN 載入（本站規則 6 不從 CDN 載 JS），放進 repo 要像 relation-chart 開授權例外，事業規模大時要 Live2D 的出版授權 | 用 Live2D 立繪跑團、直播的 PL／KP；和 anime-rig（PSD 的 2.5D 動態立繪）互補 | 大 |
 | 卡牌列印與小冊子拼版 | [mephitrpg/rpg-cards](https://github.com/mephitrpg/rpg-cards)、[lukaszlasek/imposition-imp](https://github.com/lukaszlasek/imposition-imp) | MIT／MIT | rpg-cards：二十多種卡片尺寸、雙面對齊或只印正面、每頁張數、出血、裁切線（內容元素偏 D&D，版型自己做；圖示若用 game-icons.net 是 CC BY 3.0，要標出處）。imposition-imp：騎馬釘或多台拼版、雙面偏移校正、爬移補償，用的是本站已有的 pdf-lib | 實體團的道具卡、線索卡，自印劇本小冊子；放 G6，拼版也可以當 pdf-compress 的模式 | 中 |
 | 直播小道具 | [TK2F/kasaneru](https://github.com/TK2F/kasaneru) | MIT | OBS 疊加層：倒數與正數計時器、時鐘、BGM 清單、輪盤、塗鴉、跑馬燈、擲骰；控制面板（OBS dock）和疊加層用 BroadcastChannel 溝通 | 「休息中」倒數、抽選輪盤、跑馬燈；本站 G4 都是 CSS 產生器，沒有這種互動疊加層 | 中 |
 | 開鎖小遊戲（可考慮） | [pierretusseau/lockpick-minigame](https://github.com/pierretusseau/lockpick-minigame) | MIT | GM 設難度與時限，用連結或 QR 碼發給玩家，玩家輸入擲骰結果後轉環形卡榫開鎖 | 解謎道具（和 crossword、scratch-card 同類），可改成 CoC 鎖匠的成功等級 | 中 |
-| 環境音混音（可考慮） | [remvze/moodist](https://github.com/remvze/moodist) | 程式 MIT；音效有 CC0 也有 Pixabay 授權 | 84 種環境音疊加、預設組合、網址分享；只收 CC0 的音效，匯出可以循環的 BGM 給 CCFOLIA | 場景環境音；放 G8 | 中 |
-| 劇本時間表／年表（低） | [visjs/vis-timeline](https://github.com/visjs/vis-timeline)（或自己用 canvas 畫） | Apache-2.0 或 MIT 二選一 | 可以縮放的互動時間軸 | 事件經過、NPC 行動表；放 G6 | 中 |
 | 匿名論壇貼文 | [dearmysn1p3r/DearMySn1p3r_05](https://github.com/dearmysn1p3r/DearMySn1p3r_05)、[_09](https://github.com/dearmysn1p3r/DearMySn1p3r_09) | 未授權 | 匿名討論串截圖（作者與留言者自動編號、回覆、反應數） | 現代背景的都市傳說 handout | 中 |
 | 電影字幕／片尾名單 | [dearmysn1p3r/DearMySn1p3r_15](https://github.com/dearmysn1p3r/DearMySn1p3r_15)（可併 [_40](https://github.com/dearmysn1p3r/DearMySn1p3r_40)、[_18](https://github.com/dearmysn1p3r/DearMySn1p3r_18) 封面） | 未授權 | 字幕截圖、片尾名單捲動、海報、評分卡、預告 | 團報宣傳、戰役結束的片尾名單 | 中～大 |
 | 角色貼圖組 | [dearmysn1p3r/DearMySn1p3r_39](https://github.com/dearmysn1p3r/DearMySn1p3r_39)、[_57](https://github.com/dearmysn1p3r/DearMySn1p3r_57) | 未授權 | 去背、文字、14 種動作、ZIP 匯出 | Discord／CCFOLIA 表情圖 | 中 |
@@ -51,7 +48,7 @@
 | char-chart | [utiyoso/cross-chart-maker](https://github.com/utiyoso/cross-chart-maker)（10-27） | 未授權 | 四象限的外觀：依氣氛產生漸層背景加顆粒、標題與軸名的字型和描邊、自動配對比色、臉部圖示、對話框；功能和本站重疊，優先度低 | 小～中 |
 | anime-rig | [shinshin86/still2rig-psd](https://github.com/shinshin86/still2rig-psd) | MIT | 用 see-through 組成「相容 Anime2.5DRig」的 PSD，多了表情圖層（`eyes_angry`、`eyes_sad`、`eyes_half`、`eye_smile`、`mouth_laugh`、`mouth_frown`、`tears`、`sweat` 等）；本站只認 `mouth_open`／`mouth_close`／`eye_close`，可以補表情切換。要先拿一份樣本 PSD 試讀 | 小～中 |
 | battlemap | [ondras/rot.js](https://github.com/ondras/rot.js) | BSD-3-Clause | 洞窟、迷宮等生成法與地圖尺寸選項（本站固定 22×16 格、只有地城） | 小～中 |
-| handout-maker、lock-screen | 本站已有的 qrcode-generator（id-ticket 用）；造型參考 [kozakdenys/qr-code-styling](https://github.com/kozakdenys/qr-code-styling)（MIT） | MIT | 真的掃得出來的 QR 碼（點的形狀、中間放圖示） | 小 |
+| handout-maker、lock-screen | 共用的 `core/qr`（qr-maker 的造型 QR 與讀得出來的檢查） | 本站 | 真的掃得出來的造型 QR 碼（點的形狀、中間放圖示），直接用 qr-maker 的設定 | 小 |
 | review-grid | [futakad/trpg-fullcourse](https://github.com/futakad/trpg-fullcourse) | 作者條款（只取點子） | 「TRPG 人生全餐」版型：把跑過的 8 個劇本排成一份菜單（1200×1600） | 小 |
 | session-calendar | [CyberDelaai/chronos-ui](https://github.com/CyberDelaai/chronos-ui) | MIT | 點日期輪流蓋上 5 種顏色的標記並畫進 PNG（其他功能本站大多已有；優先度低） | 小 |
 | lock-screen | [dearmysn1p3r/DearMySn1p3r_11](https://github.com/dearmysn1p3r/DearMySn1p3r_11) | 未授權 | 來電、視訊、簡訊對話、相簿四種畫面；通知的 App 類型 | 中 |
@@ -70,6 +67,9 @@
 | music-frame | [dearmysn1p3r/MOMO_MusicCloud](https://github.com/dearmysn1p3r/MOMO_MusicCloud)（取代 _16／_27／_54） | 未授權 | 黑膠、CD、卡帶、串流的樣品圖、播放清單影片；原作 10-17～10-20 大改，10-25 只有一個小修，已經穩定 | 中 |
 | floor-plan | Maptsukuri（maptsukuri.pages.dev，不在 GitHub） | 未授權 | .dd2vtt 匯出、隨機配置 | 中 |
 | ui-frame | [knightleft/trpg-overlay](https://github.com/knightleft/trpg-overlay)（原本列為新工具候選「直播版面產生器」） | 未授權 | OBS 直播版面（作者寫繁中）：和 ui-frame 的 TRPG・直播模式重疊，可以補整面版面配置 | 中 |
+| floor-plan | 本站（2026-10-29 參考 KIIN マップ制作スタジオ時沒做，規格 D73、D78） | — | 挑一兩個範本改成 L 形房間（要重驗格局與線索位置）；「在地圖演出產生器開啟」時把房間範圍也帶過去（map-fx 的房間遮罩） | 小～中 |
+| ambience-mixer | 本站（2026-10-29，規格 D1、D3、D17） | — | 再合成「房間底噪」「雨打在帳篷／傘上」；OGG／MP3 匯出（候選：wasm-media-encoders〔MIT＋LAME LGPL＋libvorbis BSD，約 3 MB〕、@breezystack/lamejs〔LGPL-3.0〕、WebCodecs 的 Opus＋自己寫 Ogg 封裝〔部分瀏覽器〕）；另找逐檔標明 CC0 的真實錄音內建 | 小～中 |
+| scenario-timeline | 本站（第二批，規格 F90～F94） | — | 多選、搜尋與篩選、架空曆的月日、事件之間的關聯線、讀入 vis-timeline 的資料 | 中 |
 
 ## 內部改善
 
@@ -84,6 +84,10 @@
 - relation-chart 的 e2e「畫布：拖曳、碰撞推擠…」（Esc 後 focus-active 沒消）偶發失敗：main 35 次失敗 1 次；和 hover 重新設定有關，待查。
 - pdf-compress 的大檔結果打包 ZIP 時整份放在記憶體（`fflate` 的 zipSync）；大檔無損又沒變小時可能很吃記憶體，可以改成串流寫 ZIP。WORKERFS 讀取緩衝依賴 qpdf-wasm 0.3.0 壓縮後的內部名稱（找不到時退回不緩衝，有測試），升級 qpdf-wasm 時要再看。
 - map-fx 的 e2e「進階 3D：…復原（F74～F76、F82）」（`map-fx.spec.ts:1108`）在 2026-10-28 的 main（838ddea）連續 3 次失敗：方向鍵連按 3 次後 Ctrl+Z 只復原最後一步（房間 x 是 98、應該是 96）。合併靠共用 store 的 `coalesceMs`（0.4 秒），按鍵間隔一超過就拆成兩步；前一次全部 e2e 時是通過的，像是跟機器速度有關。要查是預覽每次按鍵重畫太慢，還是測試要改成不受時間影響。
+- 分享連結對話框（`ShareLinkDialog`）關閉後焦點落在 body：2026-10-29 加了選填的 `returnFocus`（ambience-mixer 用），scratch-card、clue-map 還沒傳（ambience-mixer 驗證時發現）。
+- CSV 匯出的公式注入防護：`core/csv` 2026-10-29 加了選填的 `guard`／`guardFormula`（scenario-timeline 用），session-log、npc-names 等其他匯出 CSV 的工具還沒用。
+- PL 檢視時專案選單的一致性：scenario-timeline 的 PL 檢視停用「開啟、重設、載入範例」，family-tree 的 PL 檢視可以開啟與重設；之後統一（scenario-timeline 驗證時發現）。
+- family-tree：Ctrl＋滾輪（含觸控板捏合）改成依位移量連續縮放（scenario-timeline 的做法）；SVG 嵌字改用共用的 `googleFontSubsetCss`（`@/core/fonts`，2026-10-29 新增）。
 
 ## 四、先觀察
 
@@ -171,3 +175,8 @@
 - 2026-10-29：使用者提供 shinshin86/live2d-add-motion-sample-web-ui，評估後記進第二節（Live2D 模型加動作；要先決定 Cubism Core 的授權）。
 - 2026-10-29：使用者要求 npc-names 導入弄墨 Inknomu《角色姓名產生器》（inknomu.com/namegen）的姓名資料包：8 個地區 29 個包都標 CC BY 4.0，全部導入（`/data/packs/<id>.json`，2026-10-29 取得）；原站的程式與中文參考譯名表沒有標授權，不沿用。一併做了原站的「輸出」（全名／只有名／只有姓）與組合模式的搜尋（查名字）；收藏匣與合成、語音朗讀沒有做（規格 D12）。實作完成、待對等驗證（PLAN.md 上游跟進表）。
 - 2026-10-29：完成並移出清單——npc-names 導入弄墨 Inknomu 的語料、姓名（全名／只有名／只有姓）與查名字（對等驗證見規格 6.2、裁定 7.2）。
+- 2026-10-29：使用者問日本／台灣／美國（依真實人數的名單）為什麼不顯示涵義，選了「人數名單抽出的姓或名，考據語料裡有同一個就附上那一筆的涵義並標出處」：
+  npc-names 規格 F57（日本要讀音也相同、依年代的包順序、只顯示涵義不顯示備註；查得到的比例見規格 3.7），實作完成、待對等驗證（PLAN.md 上游跟進表）。
+- 2026-10-29：完成並移出清單——npc-names 的人數名單也附涵義（F57；對等驗證見規格 6.3、裁定 7.3）。
+- 2026-10-29：使用者要求做待做清單的三個新工具（環境音混音、劇本時間表／年表、PL 自我介紹卡／地雷表）與 QR Code 產生器（參考 kozakdenys/qr-code-styling）；另外上傳 KIIN 的「マップ制作スタジオ v1.0」，選擇併進室內平面圖產生器（自動化、L 形房間、圖面風格與座標、VTT 匯出與串接）。
+- 2026-10-29：完成並移出清單——新工具 QR Code 產生器（qr-maker）、PL 自介卡與地雷表（pl-profile）、劇本時間表（scenario-timeline，第一批）、環境音混音器（ambience-mixer）；floor-plan 參考 KIIN マップ制作スタジオ的功能（規格 6.8、7.22）。沒做的記在第三節與內部改善。

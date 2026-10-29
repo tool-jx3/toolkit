@@ -4,6 +4,7 @@
  */
 import qrcode from 'qrcode-generator';
 import { describe, expect, it } from 'vitest';
+import { qrMatrix } from '@/core/qr';
 import {
   CODE128_PATTERNS,
   code128Codes,
@@ -33,7 +34,6 @@ import {
   stateAssetIds,
   ticketFileName,
 } from '@/tools/id-ticket/model';
-import { qrMatrix } from '@/tools/id-ticket/qr';
 import {
   GIF_LONG_OPTIONS,
   gifLayout,

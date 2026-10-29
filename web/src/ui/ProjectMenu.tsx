@@ -141,18 +141,24 @@ export interface ProjectMenuProps<T> {
 const itemClass =
   'flex cursor-pointer select-none items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-fg outline-none data-highlighted:bg-accent-soft [&_svg]:size-4 [&_svg]:text-muted';
 
-/** 選單項目（給 extraItems 用） */
+/** 選單項目（給 extraItems 用）；disabled：停用（scenario-timeline 新增，不給時行為不變） */
 export function ProjectMenuItem({
   children,
   onSelect,
   icon,
+  disabled,
 }: {
   children: ReactNode;
   onSelect: () => void;
   icon?: ReactNode;
+  disabled?: boolean;
 }) {
   return (
-    <DropdownMenu.Item className={itemClass} onSelect={onSelect}>
+    <DropdownMenu.Item
+      className={cn(itemClass, 'data-disabled:cursor-not-allowed data-disabled:opacity-50')}
+      disabled={disabled}
+      onSelect={onSelect}
+    >
       {icon}
       {children}
     </DropdownMenu.Item>

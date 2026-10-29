@@ -6,11 +6,12 @@
  * 原始 JSON 在本機時（`INKNOMU_PACKS=<資料夾> npx vitest run tests/unit/core-names-corpus`）另外逐筆比對文字和原檔相同。
  */
 import { describe, expect, it } from 'vitest';
-import { kanaToRomaji } from '@/core/names';
+import { type GeneratedName, kanaToRomaji, NAME_REGIONS } from '@/core/names';
 import {
   CORPUS_PACK_HINTS,
   CORPUS_PACKS,
   CORPUS_REGIONS,
+  COUNT_MEANING_PACKS,
   type CorpusData,
   type CorpusName,
   type CorpusRegion,
@@ -20,14 +21,18 @@ import {
   corpusOriginal,
   corpusPack,
   corpusPackLabel,
+  corpusPackShortLabel,
   corpusPacksOf,
   corpusRuleNotice,
   corpusSearchIndex,
+  countMeaningPacks,
+  countNameMeanings,
   DEFAULT_SEARCH_FILTERS,
   drawCorpusName,
   EPITHET_CHANCE,
   filterEntries,
   filterSearchHits,
+  findCountMeaning,
   generateCorpusNames,
   givenPool,
   type InknomuPack,
@@ -954,5 +959,275 @@ describe('精簡版與查回（紀錄用，2026-10 驗證後的裁定）', () =>
         text: '정없는이름',
       }),
     ).toBeNull();
+  });
+});
+
+describe('人數名單的涵義（F57，2026-10 修訂）', () => {
+  it('年代的順序：每個人數名單的年代都有，包都是那個地區的、不重複；年代看不懂時用第一個年代', () => {
+    for (const region of NAME_REGIONS) {
+      for (const era of region.eras) {
+        const order = countMeaningPacks(region.id, era.id);
+        expect(order).toEqual(COUNT_MEANING_PACKS[region.id][era.id]);
+        expect(new Set(order).size).toBe(order.length);
+        /* 那個地區的語料的包全部都在 */
+        expect([...order].sort()).toEqual(
+          corpusPacksOf(region.id)
+            .map((p) => p.id)
+            .sort(),
+        );
+      }
+    }
+    expect(COUNT_MEANING_PACKS.jp.modern).toEqual([
+      'jp-modern',
+      'jp-showa',
+      'jp-taisho',
+      'jp-edo',
+      'jp-sengoku',
+      'jp-rare',
+    ]);
+    expect(COUNT_MEANING_PACKS.jp.showa.slice(0, 3)).toEqual([
+      'jp-showa',
+      'jp-taisho',
+      'jp-modern',
+    ]);
+    expect(COUNT_MEANING_PACKS.jp.taisho.slice(0, 4)).toEqual([
+      'jp-taisho',
+      'jp-showa',
+      'jp-edo',
+      'jp-modern',
+    ]);
+    expect(COUNT_MEANING_PACKS.tw.now).toEqual([
+      'tw-modern',
+      'tw-y2k',
+      'tw-japanese',
+      'tw-qing',
+      'tw-wuxia',
+    ]);
+    expect(COUNT_MEANING_PACKS.us.adult1920).toEqual(COUNT_MEANING_PACKS.us.born1920);
+    expect(COUNT_MEANING_PACKS.us.adult1920[0]).toBe('us-classic');
+    expect(countMeaningPacks('jp', 'nope')).toEqual(COUNT_MEANING_PACKS.jp.modern);
+  });
+
+  const meaningOf = (packId: string, list: 'surnames' | 'm' | 'f' | 'u', text: string) => {
+    const p = pack(packId);
+    const entries: { meaning: string; s?: string; g?: string }[] =
+      list === 'surnames' ? [...p.surnames] : [...p.given[list]];
+    const hit = entries.find((x) => (x.s ?? x.g) === text);
+    if (!hit) throw new Error(`${packId} ${text}`);
+    return hit.meaning;
+  };
+
+  it('日本：寫法與讀音都相同才算；依年代的順序取第一個有的包', () => {
+    /* 誠（まこと）：三個包都有，平成令和的涵義不同 */
+    expect(findCountMeaning(DATA.jp, 'modern', 'male', '誠', 'まこと')).toEqual({
+      meaning: meaningOf('jp-modern', 'm', '誠'),
+      pack: 'jp-modern',
+    });
+    expect(findCountMeaning(DATA.jp, 'showa', 'male', '誠', 'まこと')?.pack).toBe('jp-showa');
+    expect(findCountMeaning(DATA.jp, 'taisho', 'male', '誠', 'まこと')?.pack).toBe('jp-taisho');
+    expect(meaningOf('jp-modern', 'm', '誠')).not.toBe(meaningOf('jp-showa', 'm', '誠'));
+    /* 博（ひろし）：平成令和沒有 → 現代找到昭和 */
+    expect(findCountMeaning(DATA.jp, 'modern', 'male', '博', 'ひろし')?.pack).toBe('jp-showa');
+    /* 讀音不同就不算（浅井：語料是あざい；島津：語料是しまづ） */
+    expect(findCountMeaning(DATA.jp, 'modern', 'family', '浅井', 'あさい')).toBeNull();
+    expect(findCountMeaning(DATA.jp, 'modern', 'family', '島津', 'しまず')).toBeNull();
+    expect(findCountMeaning(DATA.jp, 'modern', 'family', '島津', 'しまづ')?.pack).toBe('jp-modern');
+    /* 戰國的島津涵義不同：照年代的順序，大正～昭和初期是大正的 */
+    expect(findCountMeaning(DATA.jp, 'taisho', 'family', '島津', 'しまづ')?.meaning).toBe(
+      meaningOf('jp-taisho', 'surnames', '島津'),
+    );
+    /* 沒有讀音的日本名字不比對 */
+    expect(findCountMeaning(DATA.jp, 'modern', 'male', '誠')).toBeNull();
+  });
+
+  it('日本：語料的讀音有好幾種讀法（のぞみ／のぞむ）時任一個對上就算', () => {
+    /* 望：昭和是中性名「のぞみ／のぞむ」，平成令和只有「のぞみ」 */
+    expect(pack('jp-showa').given.u.find((g) => g.g === '望')?.reading).toBe('のぞみ／のぞむ');
+    expect(findCountMeaning(DATA.jp, 'showa', 'male', '望', 'のぞむ')?.pack).toBe('jp-showa');
+    expect(findCountMeaning(DATA.jp, 'showa', 'female', '望', 'のぞみ')?.pack).toBe('jp-showa');
+    /* 現代：のぞみ 在平成令和就有；のぞむ 平成令和對不上，往下找到昭和 */
+    expect(findCountMeaning(DATA.jp, 'modern', 'female', '望', 'のぞみ')?.pack).toBe('jp-modern');
+    expect(findCountMeaning(DATA.jp, 'modern', 'male', '望', 'のぞむ')?.pack).toBe('jp-showa');
+    /* 整串「のぞみ／のぞむ」不是一種讀法 */
+    expect(findCountMeaning(DATA.jp, 'showa', 'male', '望', 'のぞみ／のぞむ')).toBeNull();
+  });
+
+  it('性別：男＝男性名＋中性名、女＝女性名＋中性名；姓不分性別', () => {
+    /* Mary 只在女性名 */
+    expect(findCountMeaning(DATA.us, 'adult1920', 'female', 'Mary')?.pack).toBe('us-classic');
+    expect(findCountMeaning(DATA.us, 'adult1920', 'male', 'Mary')).toBeNull();
+    /* 台灣：家豪 只在男性名、淑芬 只在女性名 */
+    expect(findCountMeaning(DATA.tw, 'now', 'male', '家豪')?.pack).toBe('tw-modern');
+    expect(findCountMeaning(DATA.tw, 'now', 'female', '家豪')).toBeNull();
+    expect(findCountMeaning(DATA.tw, 'now', 'female', '淑芬')?.pack).toBe('tw-modern');
+    expect(findCountMeaning(DATA.tw, 'now', 'male', '淑芬')).toBeNull();
+    /* 中性名：男女都對得上（望，上一個測試）；名不會對到姓、姓不會對到名 */
+    expect(findCountMeaning(DATA.tw, 'now', 'family', '陳')?.pack).toBe('tw-modern');
+    expect(findCountMeaning(DATA.tw, 'now', 'male', '陳')).toBeNull();
+    expect(findCountMeaning(DATA.us, 'adult1920', 'family', 'John')).toBeNull();
+  });
+
+  it('同一個包裡同名有兩筆以上時取第一筆（女：女性名在中性名前；男：男性名在中性名前）', () => {
+    /* 經典時代的 Jean：女性名一筆、中性名一筆，涵義不同 */
+    const f = meaningOf('us-classic', 'f', 'Jean');
+    const u = meaningOf('us-classic', 'u', 'Jean');
+    expect(f).not.toBe(u);
+    expect(findCountMeaning(DATA.us, 'adult1920', 'female', 'Jean')).toEqual({
+      meaning: f,
+      pack: 'us-classic',
+    });
+    expect(findCountMeaning(DATA.us, 'adult1920', 'male', 'Jean')).toEqual({
+      meaning: u,
+      pack: 'us-classic',
+    });
+    /* 自己做的包：同一個姓兩筆、同名同讀音兩筆，取第一筆 */
+    const fake: CorpusData = {
+      region: 'jp',
+      packs: [
+        {
+          ...pack('jp-modern'),
+          surnames: [
+            { s: '甲', reading: 'こう', meaning: '第一筆' },
+            { s: '甲', reading: 'こう', meaning: '第二筆' },
+          ],
+          given: {
+            m: [{ g: '乙', reading: 'おつ', meaning: '男一' }],
+            f: [],
+            u: [{ g: '乙', reading: 'おつ', meaning: '中性' }],
+          },
+        },
+      ],
+    };
+    expect(findCountMeaning(fake, 'modern', 'family', '甲', 'こう')?.meaning).toBe('第一筆');
+    expect(findCountMeaning(fake, 'modern', 'male', '乙', 'おつ')?.meaning).toBe('男一');
+    expect(findCountMeaning(fake, 'modern', 'female', '乙', 'おつ')?.meaning).toBe('中性');
+  });
+
+  it('台灣、美國：寫法完全相同（NFC 後比較、不轉大小寫）', () => {
+    const jose = 'Jose\u0301';
+    expect(jose).not.toBe('José');
+    expect(findCountMeaning(DATA.us, 'born1920', 'male', jose)).toEqual({
+      meaning: meaningOf('us-latino', 'm', 'José'),
+      pack: 'us-latino',
+    });
+    /* 重音不拿掉：沒有重音的 Jose 是現代的包的另一筆 */
+    expect(findCountMeaning(DATA.us, 'born1920', 'male', 'Jose')).toEqual({
+      meaning: meaningOf('us-modern', 'm', 'Jose'),
+      pack: 'us-modern',
+    });
+    expect(findCountMeaning(DATA.us, 'born1920', 'male', 'john')).toBeNull();
+    expect(findCountMeaning(DATA.us, 'born1920', 'male', 'JOHN')).toBeNull();
+    expect(findCountMeaning(DATA.us, 'born1920', 'male', 'John')?.pack).toBe('us-classic');
+    /* 美國兩個年代的順序相同；Garcia 只在現代的包 */
+    expect(findCountMeaning(DATA.us, 'adult1920', 'family', 'Garcia')?.pack).toBe('us-modern');
+    /* 比對表看的是這份資料：語料不是這三個地區的不查 */
+    expect(findCountMeaning(DATA.kr, 'modern', 'family', '김')).toBeNull();
+    expect(findCountMeaning(DATA.us, 'adult1920', 'male', '')).toBeNull();
+  });
+
+  const gn = (patch: Partial<GeneratedName> & Pick<GeneratedName, 'region'>): GeneratedName => ({
+    era: '',
+    gender: 'male',
+    family: '',
+    given: '',
+    text: '',
+    ...patch,
+  });
+
+  it('一個名字：姓與名各自查、依姓名順序（日本、台灣先姓；美國先名），用到的包不重複', () => {
+    const satoHiroshi = gn({
+      region: 'jp',
+      era: 'modern',
+      family: '佐藤',
+      given: '博',
+      familyReading: 'さとう',
+      givenReading: 'ひろし',
+    });
+    expect(countNameMeanings(DATA.jp, satoHiroshi)).toEqual({
+      meanings: [
+        `姓：${meaningOf('jp-modern', 'surnames', '佐藤')}`,
+        `名：${meaningOf('jp-showa', 'm', '博')}`,
+      ],
+      packs: ['jp-modern', 'jp-showa'],
+    });
+    const satoMakoto = { ...satoHiroshi, given: '誠', givenReading: 'まこと' };
+    expect(countNameMeanings(DATA.jp, satoMakoto)?.packs).toEqual(['jp-modern']);
+    /* 美國：名在前 */
+    const harold = gn({
+      region: 'us',
+      era: 'adult1920',
+      family: 'Smith',
+      given: 'Harold',
+      middle: 'J.',
+    });
+    expect(countNameMeanings(DATA.us, harold)).toEqual({
+      meanings: [
+        `名：${meaningOf('us-classic', 'm', 'Harold')}`,
+        `姓：${meaningOf('us-classic', 'surnames', 'Smith')}`,
+      ],
+      packs: ['us-classic'],
+    });
+    /* 只對上一段：只有那一段；兩段都對不上：null */
+    const whitmore = { ...harold, family: 'Whitmore' };
+    expect(countNameMeanings(DATA.us, whitmore)?.meanings).toEqual([
+      `名：${meaningOf('us-classic', 'm', 'Harold')}`,
+    ]);
+    expect(countNameMeanings(DATA.us, { ...whitmore, given: 'Zzz' })).toBeNull();
+    /* 台灣：先姓 */
+    const tw = gn({ region: 'tw', era: 'now', gender: 'female', family: '陳', given: '淑芬' });
+    expect(countNameMeanings(DATA.tw, tw)?.meanings.map((m) => m.slice(0, 2))).toEqual([
+      '姓：',
+      '名：',
+    ]);
+    /* 語料的地區和名字的不同：null */
+    expect(countNameMeanings(DATA.jp, tw)).toBeNull();
+  });
+
+  it('只有名、只有姓：另一段是空字串，只查那一段', () => {
+    const given = gn({
+      region: 'jp',
+      era: 'modern',
+      given: '誠',
+      givenReading: 'まこと',
+      part: 'given',
+    });
+    expect(countNameMeanings(DATA.jp, given)?.meanings).toEqual([
+      `名：${meaningOf('jp-modern', 'm', '誠')}`,
+    ]);
+    const family = gn({
+      region: 'us',
+      era: 'born1920',
+      family: 'Smith',
+      part: 'family',
+    });
+    expect(countNameMeanings(DATA.us, family)?.meanings).toEqual([
+      `姓：${meaningOf('us-classic', 'surnames', 'Smith')}`,
+    ]);
+  });
+
+  it('比對表每份資料只建一次（建好之後資料再改也不會重建）', () => {
+    const surnames = [{ s: 'Aaa', meaning: '一' }];
+    const fresh: CorpusData = {
+      region: 'us',
+      packs: [{ ...pack('us-classic'), surnames }],
+    };
+    expect(findCountMeaning(fresh, 'adult1920', 'family', 'Aaa')?.meaning).toBe('一');
+    surnames.push({ s: 'Bbb', meaning: '二' });
+    expect(findCountMeaning(fresh, 'adult1920', 'family', 'Bbb')).toBeNull();
+    /* 另一份資料（另一次載入）另外建 */
+    const again: CorpusData = { region: 'us', packs: fresh.packs };
+    expect(findCountMeaning(again, 'adult1920', 'family', 'Bbb')?.meaning).toBe('二');
+  });
+
+  it('出處的短名稱：去掉地區與最後的括號', () => {
+    const short = (id: string) =>
+      corpusPackShortLabel(CORPUS_PACKS.find((p) => p.id === id) ?? { label: '' });
+    expect(short('jp-modern')).toBe('平成令和時代');
+    expect(short('jp-taisho')).toBe('大正時代');
+    expect(short('jp-rare')).toBe('珍稀難讀姓名');
+    expect(short('tw-modern')).toBe('現代');
+    expect(short('us-classic')).toBe('經典時代');
+    expect(short('us-african-american')).toBe('非裔');
+    expect(short('us-latino')).toBe('拉美裔');
   });
 });

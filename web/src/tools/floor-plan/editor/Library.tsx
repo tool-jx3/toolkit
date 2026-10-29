@@ -76,7 +76,10 @@ function endDrag() {
 
 function RoomCard({ p }: { p: RoomPreset }) {
   const active = useEditor(
-    (s) => s.tool === 'room' && s.armed?.kind === 'room' && s.armed.preset === p.id,
+    (s) =>
+      (s.tool === 'room' || s.tool === 'lroom') &&
+      s.armed?.kind === 'room' &&
+      s.armed.preset === p.id,
   );
   const name = S.presets[p.id];
   return (
@@ -87,7 +90,13 @@ function RoomCard({ p }: { p: RoomPreset }) {
       draggable
       onDragStart={(e) => startDrag(e, { kind: 'room', preset: p.id })}
       onDragEnd={endDrag}
-      onClick={() => toggleArmed('room', { kind: 'room', preset: p.id })}
+      onClick={() =>
+        /* L 形房間工具（J）拿著時照樣用 L 形（2026-10-29，F258） */
+        toggleArmed(useEditor.getState().tool === 'lroom' ? 'lroom' : 'room', {
+          kind: 'room',
+          preset: p.id,
+        })
+      }
       title={`${name} ${mText(p.w, p.h)}`}
       data-room={p.id}
     >

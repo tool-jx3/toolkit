@@ -23,6 +23,7 @@ import {
   eraOption,
   exportFileName,
   type HistoryEntry,
+  isCorpusName,
   type NamesState,
   type NpcName,
   needsDetails,
@@ -194,11 +195,19 @@ export function exportTxt(): void {
   downloadText(toTxt(state.names, state), exportFileName('txt'));
 }
 
-export function exportCsv(): void {
+/**
+ * 匯出 CSV（匯出當下的這一批）。依人數的名單的列的涵義（F57）從那個地區的考據語料查：還沒載入時先載入
+ * （不管「顯示涵義」開不開；讀不到時那一欄留白）。
+ */
+export async function exportCsv(): Promise<void> {
   const state = currentState();
   if (!state.names.length) return;
+  const regions = new Set(state.names.filter((n) => !isCorpusName(n)).map((n) => n.region));
+  for (const region of regions) {
+    if (!loadedCorpus(region)) await loadCorpus(region).catch(() => null);
+  }
   downloadText(
-    toCsv(csvRows(state.names), { bom: true }),
+    toCsv(csvRows(state.names, loadedCorpus), { bom: true }),
     exportFileName('csv'),
     'text/csv;charset=utf-8',
   );

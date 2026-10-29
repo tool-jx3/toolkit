@@ -7,6 +7,7 @@
  */
 import { BADGE_DIAMETER, BADGE_PAD } from '../model/catalog';
 import { badgeLabel, sizeText } from '../model/geometry';
+import { roomMainRect } from '../model/shape';
 import type { Rect, Room, SizeMode, TextLabel } from '../model/types';
 import type { FloorTheme } from './themes';
 
@@ -40,13 +41,16 @@ export function roomDisplayName(room: Room, opts: LabelOptions): string {
 
 export function labelLayout(
   c: CanvasRenderingContext2D,
-  room: Room,
+  shape: Room,
   opts: LabelOptions,
   theme: Pick<FloorTheme, 'font'>,
 ): LabelLayout | null {
-  const name = roomDisplayName(room, opts);
-  const size = sizeText(room, opts.showSize);
+  const name = roomDisplayName(shape, opts);
+  const size = sizeText(shape, opts.showSize);
   if (!name && !size) return null;
+  /* L 形房間（2026-10-29）：名字排在最大的那一塊長方形裡（長方形的房間就是外框） */
+  const main = roomMainRect(shape);
+  const room = { ...main, lx: shape.lx, ly: shape.ly };
   let fs = Math.max(0.46, Math.min(0.68, Math.min(room.w, room.h) * 0.16 + 0.3));
   let width = measureText(c, name, { weight: 800, size: fs, family: theme.font });
   let vertical = false;

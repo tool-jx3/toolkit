@@ -70,7 +70,8 @@ test('8 個地區；年代分兩組；考據語料用到才載入那個地區的
   const errors = await open(page);
   for (const r of ['日本', '台灣', '韓國', '英國', '美國', '俄羅斯', '北歐', '奇幻'])
     await expect(radio(page, r)).toBeVisible();
-  expect(requested).toEqual(['names-jp']);
+  /* 開頁是日本・現代（人數名單）；顯示涵義開著，所以也載入日本的語料查涵義（F57，2026-10 修訂） */
+  await expect.poll(() => requested).toEqual(['names-jp', 'inknomu-jp']);
   /* 日本：9 個選項分兩組 */
   await eraBox(page).click();
   const listbox = page.getByRole('listbox');
@@ -86,6 +87,7 @@ test('8 個地區；年代分兩組；考據語料用到才載入那個地區的
   const before = await nameTexts(page);
   await pickEra(page, '江戶時代（1603–1868）');
   await changed(page, before);
+  /* 同一個檔，不再下載 */
   await expect.poll(() => requested).toEqual(['names-jp', 'inknomu-jp']);
   await expect(
     page.getByText('武家的通稱與町人、百姓的名字（平民的姓是屋號）', { exact: true }),

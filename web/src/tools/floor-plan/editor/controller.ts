@@ -3,13 +3,18 @@
  * React 只負責外框；畫布的事件與重畫都在這裡，避免每次移動滑鼠都重新渲染元件。
  */
 
+import { drawThemeEffect, drawWear } from '../draw/effects';
 import { labelLayout, textBox } from '../draw/labels';
 import { drawFloor, drawItem, drawOpening, lineWidthFor } from '../draw/render';
 import { getTheme, roomFill } from '../draw/themes';
 import { ASSET } from '../model/assets';
 import { CELL_M, ROOM_PRESETS } from '../model/catalog';
+import { coordGrid, coordLabels } from '../model/coords';
+import { type ExportSettings, wearSheet } from '../model/exportPlan';
+import { resizeWithFollow } from '../model/follow';
 import {
   clamp,
+  floorBounds,
   metersText,
   meterText,
   openingRect,
@@ -19,9 +24,20 @@ import {
   type ShownFloor,
   snap,
   uid,
+  unionRect,
   visibleFloor,
 } from '../model/geometry';
 import { type AnyObj, getObj, movable } from '../model/ops';
+import {
+  cutHandlePoint,
+  defaultCut,
+  fitCut,
+  L_MIN,
+  roomCellArea,
+  roomHasPointClosed,
+  roomMainRect,
+  traceRoom,
+} from '../model/shape';
 import {
   axisLock,
   dragOpeningSpan,
@@ -71,7 +87,15 @@ const OPENLEN_DRAG_PX = 6;
 const SEL = '#2f7cf6';
 
 type P = { x: number; y: number };
-type Handle = { id: string; x: number; y: number; cursor: string; round?: boolean };
+type Handle = {
+  id: string;
+  x: number;
+  y: number;
+  cursor: string;
+  round?: boolean;
+  /** 菱形（L 形房間的缺角，2026-10-29） */
+  diamond?: boolean;
+};
 
 type Drag =
   | { mode: 'pan'; sx: number; sy: number; ox: number; oy: number; button: number; moved: boolean }
@@ -103,7 +127,11 @@ type Drag =
       cursor: string;
       moved: boolean;
       before: Project;
+      /** 家具跟著房間（2026-10-29，F254）：放開時通知放不下的家具組數 */
+      misfit: number;
     }
+  /* L 形房間的缺角（2026-10-29，F258） */
+  | { mode: 'cut'; id: string; orig: Room; moved: boolean; before: Project }
   | { mode: 'label'; id: string; start: P; lx: number; ly: number; moved: boolean; before: Project }
   | { mode: 'marquee'; start: P; add: boolean; base: SelRef[]; rect: Rect | null; moved: boolean }
   | { mode: 'room'; a: P; sx: number; sy: number; rect: Rect | null; moved: boolean }
@@ -281,6 +309,9 @@ export class EditorController {
         box.h = y2 - box.y;
       }
     }
+    /* 座標標示（2026-10-29）：欄名與列號也放進畫面 */
+    const grid = box && p.coords ? coordGrid(p.floors, p.tokenGrid) : null;
+    if (box && grid) box = unionRect(box, coordLabels(grid, box).rect);
     const b = box ?? { x: 0, y: 0, w: 24, h: 16 };
     const padL = 60;
     const padR = 20;
@@ -364,6 +395,22 @@ export class EditorController {
   }
 
   /** 東西的範圍（選取框、範圍選取用） */
+  /** 紙的範圍（F263）：專案、匯出設定、線索的顯示沒變時沿用上一次算的 */
+  private wearMemo: {
+    p: Project;
+    exp: ExportSettings;
+    clues: boolean;
+    sheet: Rect | null;
+  } | null = null;
+
+  private wearSheetFor(p: Project, exp: ExportSettings, clues: boolean): Rect | null {
+    const m = this.wearMemo;
+    if (m && m.p === p && m.exp === exp && m.clues === clues) return m.sheet;
+    const sheet = wearSheet(p, exp, clues);
+    this.wearMemo = { p, exp, clues, sheet };
+    return sheet;
+  }
+
   objBounds(type: ObjType, o: AnyObj): Rect {
     if (type === 'room' || type === 'item') {
       const r = o as Room;
@@ -454,8 +501,9 @@ export class EditorController {
     if (opts.skipRooms) return null;
     let best: { id: string; area: number; index: number } | null = null;
     f.rooms.forEach((r, index) => {
-      if (!inRect(r)) return;
-      const area = r.w * r.h;
+      /* L 形（2026-10-29）：缺角裡點不到 */
+      if (!roomHasPointClosed(r, wx, wy)) return;
+      const area = roomCellArea(r);
       if (!best || area < best.area || (area === best.area && index > best.index))
         best = { id: r.id, area, index };
     });
@@ -510,6 +558,12 @@ export class EditorController {
       ];
       if (!small) pts.push(['n', cx, y1], ['e', x2, cy], ['s', cx, y2], ['w', x1, cy]);
       for (const [hid, x, y] of pts) out.push({ id: hid, x, y, cursor: CURSORS[hid] });
+      /* L 形房間：轉角裡面的那一點改缺角（2026-10-29，F258） */
+      const cp = type === 'room' ? cutHandlePoint(r) : null;
+      if (cp) {
+        const sp = this.toScreen(cp.x, cp.y);
+        out.push({ id: 'cut', x: sp.x, y: sp.y, cursor: 'move', diamond: true });
+      }
       if (type === 'room') labelHandle(r);
     } else if (type === 'opening') {
       const o = obj as Opening;
@@ -558,7 +612,16 @@ export class EditorController {
     c.setTransform(dpr * z, 0, 0, dpr * z, dpr * ox, dpr * oy);
     const viewRect = { x: -ox / z, y: -oy / z, w: this.view.w / z, h: this.view.h / z };
     const ghost = prefs.ghost && p.active > 0 ? p.floors[p.active - 1] : null;
-    drawFloor(c, drawnFloor(), {
+    const drawn = drawnFloor();
+    /* 座標標示（2026-10-29，F264）：字寫在這一層看得到的東西的外面 */
+    const grid = p.coords ? coordGrid(p.floors, p.tokenGrid) : null;
+    const coords = grid
+      ? coordLabels(
+          grid,
+          floorBounds(visibleFloor(drawn, ed.playerView, !prefs.showClues) as Floor),
+        )
+      : null;
+    drawFloor(c, drawn, {
       theme,
       zoom: z,
       showSize: p.showSize,
@@ -577,7 +640,20 @@ export class EditorController {
             rect: viewRect,
           }
         : undefined,
+      coords,
     });
+    /* 紙的污漬與摺痕（F263）：匯出這一層時整張圖的範圍當一張紙（和匯出的圖同一個位置） */
+    if (p.wear) {
+      const sheet = this.wearSheetFor(p, prefs.exp, prefs.showClues);
+      if (sheet) drawWear(c, sheet, p.wearSeed ?? 0, p.wear, theme);
+    }
+    /* 樣式的畫面效果（F261、F262）：螢幕的像素座標 */
+    if (theme.effect) {
+      c.save();
+      c.setTransform(1, 0, 0, 1, 0, 0);
+      drawThemeEffect(c, theme, this.canvas.width, this.canvas.height, dpr);
+      c.restore();
+    }
     this.drawOverlays(c);
     if (!ed.playerView) {
       c.save();
@@ -631,6 +707,23 @@ export class EditorController {
       c.restore();
       return;
     }
+    if (type === 'room' && (obj as Room).cut) {
+      /* L 形房間（2026-10-29）：照外形描 */
+      const px = 1 / this.view.zoom;
+      c.save();
+      c.lineJoin = 'miter';
+      c.beginPath();
+      traceRoom(c, obj as Room);
+      c.lineWidth = (width + 2) * px;
+      c.strokeStyle = 'rgba(255,255,255,0.9)';
+      c.stroke();
+      c.lineWidth = width * px;
+      c.strokeStyle = SEL;
+      if (dash) c.setLineDash([4 * px, 3 * px]);
+      c.stroke();
+      c.restore();
+      return;
+    }
     this.outline(c, this.objBounds(type, obj), width, dash);
   }
 
@@ -661,8 +754,10 @@ export class EditorController {
     const ed = useEditor.getState();
     /* GM 筆記的標記（GM 檢視） */
     if (!ed.playerView)
-      for (const r of f.rooms) {
-        if (!r.note) continue;
+      for (const room of f.rooms) {
+        if (!room.note) continue;
+        /* L 形房間：放在最大的那一塊的角上（2026-10-29） */
+        const r = roomMainRect(room);
         const s = Math.min(0.55, r.w * 0.2, r.h * 0.2);
         const x = r.x + r.w - s - 0.22;
         const y = r.y + 0.22;
@@ -687,8 +782,9 @@ export class EditorController {
         c.restore();
       }
     /* 鎖定的房間：左上角一個鎖 */
-    for (const r of f.rooms) {
-      if (!r.locked || (ed.playerView && r.gm)) continue;
+    for (const room of f.rooms) {
+      if (!room.locked || (ed.playerView && room.gm)) continue;
+      const r = roomMainRect(room);
       const s = Math.min(0.55, r.w * 0.2, r.h * 0.2);
       const x = r.x + 0.22;
       const y = r.y + 0.22;
@@ -735,12 +831,15 @@ export class EditorController {
         const r = obj as Room;
         c.save();
         c.fillStyle = 'rgba(47, 124, 246, 0.07)';
-        c.fillRect(r.x, r.y, r.w, r.h);
+        c.beginPath();
+        traceRoom(c, r);
+        c.fill();
         c.restore();
       }
       this.objOutline(c, s.type, obj, 1.6);
     }
-    const hs = d && d.mode !== 'resize' && d.mode !== 'label' ? [] : this.handles();
+    const hs =
+      d && d.mode !== 'resize' && d.mode !== 'label' && d.mode !== 'cut' ? [] : this.handles();
     if (hs.length) {
       const { dpr } = this.view;
       c.save();
@@ -750,7 +849,15 @@ export class EditorController {
         c.strokeStyle = SEL;
         c.lineWidth = 1.5;
         c.beginPath();
-        if (h.round) {
+        if (h.diamond) {
+          c.moveTo(h.x, h.y - 6);
+          c.lineTo(h.x + 6, h.y);
+          c.lineTo(h.x, h.y + 6);
+          c.lineTo(h.x - 6, h.y);
+          c.closePath();
+          c.fill();
+          c.stroke();
+        } else if (h.round) {
           c.arc(h.x, h.y, 5.5, 0, Math.PI * 2);
           c.fill();
           c.stroke();
@@ -772,20 +879,25 @@ export class EditorController {
       const r = d.rect;
       const armed = ed.armed;
       const cat = armed?.kind === 'room' ? ROOM_PRESETS[armed.preset].cat : 'living';
+      /* L 形房間工具：預覽也是 L 形（2026-10-29） */
+      const cut = ed.tool === 'lroom' ? defaultCut(r.w, r.h) : undefined;
+      const shape = { ...r, cut };
       c.save();
       c.fillStyle = roomFill(theme, { cat });
       c.globalAlpha = 0.85;
-      c.fillRect(r.x, r.y, r.w, r.h);
+      c.beginPath();
+      traceRoom(c, shape);
+      c.fill();
       c.globalAlpha = 1;
       c.strokeStyle = SEL;
       c.lineWidth = 2 * px;
       c.setLineDash([5 * px, 3 * px]);
-      c.strokeRect(r.x, r.y, r.w, r.h);
+      c.stroke();
       c.restore();
       const sp = this.toScreen(r.x + r.w / 2, r.y + r.h);
       this.screenLabel(
         c,
-        `${metersText(r.w, r.h)} · ${pingText(r.w * r.h * CELL_M * CELL_M)}`,
+        `${metersText(r.w, r.h)} · ${pingText(roomCellArea(shape) * CELL_M * CELL_M)}`,
         sp.x,
         sp.y + 8,
       );
@@ -828,6 +940,18 @@ export class EditorController {
           o.o === 'h' ? o.y : o.y + o.len / 2,
         );
         this.screenLabel(c, `${meterText(o.len)}m`, sp.x, sp.y + 14);
+      }
+    }
+    if (d?.mode === 'cut') {
+      const r = getObj(f, 'room', d.id) as Room | null;
+      if (r?.cut) {
+        const sp = this.toScreen(r.x + r.w / 2, r.y + r.h);
+        this.screenLabel(
+          c,
+          `${S.props.cutCorner} ${metersText(r.cut.w, r.cut.h)}`,
+          sp.x,
+          sp.y + 12,
+        );
       }
     }
     if (d?.mode === 'resize') {
@@ -1010,6 +1134,14 @@ export class EditorController {
               moved: false,
               before,
             };
+          } else if (hd.id === 'cut') {
+            this.drag = {
+              mode: 'cut',
+              id,
+              orig: structuredClone(obj as Room),
+              moved: false,
+              before,
+            };
           } else
             this.drag = {
               mode: 'resize',
@@ -1020,6 +1152,7 @@ export class EditorController {
               cursor: hd.cursor,
               moved: false,
               before,
+              misfit: 0,
             };
           this.updateCursor();
           return;
@@ -1075,6 +1208,7 @@ export class EditorController {
         return;
       }
       case 'room':
+      case 'lroom':
         this.drag = {
           mode: 'room',
           a: { x: Math.round(w.x), y: Math.round(w.y) },
@@ -1230,6 +1364,10 @@ export class EditorController {
         d.moved = true;
         this.dragResize(d, w, e);
         break;
+      case 'cut':
+        d.moved = true;
+        this.dragCut(d, w);
+        break;
       case 'label':
         d.moved = true;
         useProject.getState().update((p) => {
@@ -1376,6 +1514,25 @@ export class EditorController {
     });
   }
 
+  /** L 形房間的缺角：拖轉角裡面的那一點改寬與深（整格，1～外框減 1；2026-10-29，F258） */
+  private dragCut(d: Extract<Drag, { mode: 'cut' }>, w: P): void {
+    const o = d.orig;
+    if (!o.cut) return;
+    const west = o.cut.c === 'nw' || o.cut.c === 'sw';
+    const north = o.cut.c === 'nw' || o.cut.c === 'ne';
+    const cw = west ? Math.round(w.x) - o.x : o.x + o.w - Math.round(w.x);
+    const ch = north ? Math.round(w.y) - o.y : o.y + o.h - Math.round(w.y);
+    useProject.getState().update((p) => {
+      const r = getObj(p.floors[p.active], 'room', d.id) as Room | null;
+      if (!r?.cut) return;
+      r.cut = {
+        c: o.cut?.c ?? 'ne',
+        w: clamp(cw, 1, Math.max(1, r.w - 1)),
+        h: clamp(ch, 1, Math.max(1, r.h - 1)),
+      };
+    });
+  }
+
   private dragResize(d: Extract<Drag, { mode: 'resize' }>, w: P, e: PointerEvent): void {
     const wallPt = d.type === 'wall' ? this.wallPoint(w) : null;
     useProject.getState().update((p) => {
@@ -1387,7 +1544,8 @@ export class EditorController {
         const orig = d.orig as Room;
         const r = o as Room;
         const step = d.type === 'room' ? 1 : e.altKey ? 0.05 : 0.25;
-        const min = d.type === 'room' ? 1 : 0.25;
+        /* L 形房間的外框至少 2 × 2（2026-10-29） */
+        const min = d.type === 'room' ? (orig.cut ? L_MIN : 1) : 0.25;
         const s = (v: number) => snap(v, step);
         let x1 = orig.x;
         let y1 = orig.y;
@@ -1397,6 +1555,16 @@ export class EditorController {
         if (hd.includes('e')) x2 = Math.max(s(w.x), x1 + min);
         if (hd.includes('n')) y1 = Math.min(s(w.y), y2 - min);
         if (hd.includes('s')) y2 = Math.max(s(w.y), y1 + min);
+        if (d.type === 'room') {
+          /* 缺角跟著它的角、夾到合法的大小；家具跟著房間（F254；地圖設定關掉或按住 Alt 時不跟） */
+          const before = d.before.floors[d.before.active];
+          const cut = fitCut(orig.cut, round2(x2 - x1), round2(y2 - y1));
+          const geo = { x: x1, y: y1, w: x2 - x1, h: y2 - y1, ...(cut ? { cut } : {}) };
+          /* 每次從拖曳前的位置算（家具回到原位再移） */
+          d.misfit = resizeWithFollow(f, before, orig, geo, !p.fixedFurniture && !e.altKey);
+          if (cut) r.cut = cut;
+          else delete r.cut;
+        }
         r.x = round2(x1);
         r.y = round2(y1);
         r.w = round2(x2 - x1);
@@ -1457,7 +1625,7 @@ export class EditorController {
           rect = { x: Math.round(w.x - p.w / 2), y: Math.round(w.y - p.h / 2), w: p.w, h: p.h };
         }
         if (rect) {
-          const room = act.newRoom(rect, preset);
+          const room = act.newRoom(rect, preset, ed.tool === 'lroom');
           act.addObject('room', room);
           setEditor({ sel: [{ type: 'room', id: room.id }] });
         } else {
@@ -1489,6 +1657,10 @@ export class EditorController {
             if (hit) setEditor({ sel: [hit] });
           }
         } else this.endEdit();
+        break;
+      case 'resize':
+        this.endEdit();
+        if (d.moved && d.misfit) act.notify(S.msg.followMisfit(d.misfit), 'warning');
         break;
       default:
         this.endEdit();

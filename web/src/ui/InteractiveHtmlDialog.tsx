@@ -171,6 +171,8 @@ export interface ShareLinkDialogProps {
   /** 連結 `#` 後面的字數上限（只用來顯示；判斷是否太長由呼叫端用 `shareTooLong` 做，才會是同一個量法） */
   maxLength: number;
   'data-testid'?: string;
+  /** 關閉後把焦點還給這個元素（選填，見 Dialog 的 returnFocus；ambience-mixer 新增，不給時行為不變） */
+  returnFocus?: HTMLElement | null;
 }
 
 /** 網址 `#` 後面的字數（沒有 # 時 0；和 `shareTooLong` 同一個量法） */
@@ -187,9 +189,17 @@ export function ShareLinkDialog({
   tooLong,
   maxLength,
   'data-testid': testId,
+  returnFocus,
 }: ShareLinkDialogProps) {
   return (
-    <Dialog open={open} onOpenChange={onOpenChange} title={s.title} description={s.lead} size="lg">
+    <Dialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title={s.title}
+      description={s.lead}
+      size="lg"
+      returnFocus={returnFocus}
+    >
       <div className="flex min-w-0 flex-col gap-3" data-testid={testId}>
         <p className="m-0 text-sm text-muted">{s.note}</p>
         {url === null ? (

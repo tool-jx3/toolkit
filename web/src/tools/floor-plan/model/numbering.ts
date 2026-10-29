@@ -8,7 +8,8 @@
  * - 外觀層打開「顯示內部」時（F230）呼叫端傳外觀層自己留下來的那一份（ownFloor）：疊上來的房間與拿掉的屋頂不編。
  */
 import { BADGE_DIAMETER, BADGE_PAD } from './catalog';
-import { rectContains, round2, uid } from './geometry';
+import { round2, uid } from './geometry';
+import { roomContainsRoom, roomMainRect } from './shape';
 import type { Floor, Room, TextLabel } from './types';
 
 /** 編號圓標的字級（格） */
@@ -23,8 +24,9 @@ export const isRoomNumber = (t: Pick<TextLabel, 'text' | 'badge'>): boolean =>
 
 const byPosition = (a: Room, b: Room) => a.y - b.y || a.x - b.x;
 
-/** 圓標的中心：左上角往內一點；小房間放中央 */
-function badgeAt(r: Room, label: string): { x: number; y: number } {
+/** 圓標的中心：左上角往內一點；小房間放中央。L 形房間用最大的那一塊長方形（2026-10-29） */
+function badgeAt(room: Room, label: string): { x: number; y: number } {
+  const r = roomMainRect(room);
   if (Math.min(r.w, r.h) < 2) return { x: round2(r.x + r.w / 2), y: round2(r.y + r.h / 2) };
   const d = NUMBER_SIZE * BADGE_DIAMETER;
   const w = Math.max(d, NUMBER_SIZE * (label.length * DIGIT_W + BADGE_PAD));
@@ -48,7 +50,7 @@ export interface Numbered {
  */
 export function numberRooms(floor: Floor): Numbered | null {
   const hidden = floor.rooms.filter((r) => r.gm);
-  const isGm = (r: Room) => !!r.gm || hidden.some((g) => g !== r && rectContains(g, r));
+  const isGm = (r: Room) => !!r.gm || hidden.some((g) => g !== r && roomContainsRoom(g, r));
   const target = floor.rooms.filter((r) => !r.hideLabel);
   if (!target.length) return null;
   const visible = target.filter((r) => !isGm(r)).sort(byPosition);

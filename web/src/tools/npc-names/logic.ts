@@ -29,12 +29,15 @@ import {
   type CorpusRef,
   type CorpusRegion,
   type CorpusSearchEntry,
+  type CountNameMeanings,
   corpusKanaReadings,
   corpusPack,
   corpusPackInfo,
   corpusPackLabel,
+  corpusPackShortLabel,
   corpusPacksOf,
   corpusRegionInfo,
+  countNameMeanings,
   generateCorpusNames,
   type InknomuPackInfo,
   isCorpusCountry,
@@ -425,6 +428,25 @@ export function corpusDetails(n: {
   ];
 }
 
+/**
+ * 依人數的名單的名字的涵義（F57）：考據語料裡有同一個姓或名時，那一筆的涵義（「姓：…」「名：…」，依姓名順序）
+ * 與出處的包。語料的名字、那個地區的語料還沒載入（`data` 是 null）或兩段都查不到時 null。備註不附（語料的備註多半是
+ * 那個年代的排行、人數，放在別的年代的名字上會誤導）。
+ */
+export function countMeanings(name: NpcName, data: CorpusData | null): CountNameMeanings | null {
+  if (isCorpusName(name) || !data) return null;
+  return countNameMeanings(data, name);
+}
+
+/** 依人數的名單的涵義的出處（括號裡）：「日本・平成令和時代」；用到兩個包時「日本・平成令和時代、昭和時代」 */
+export function meaningCreditLabel(region: CorpusRegion, packs: readonly string[]): string {
+  const labels = packs
+    .map((id) => corpusPackInfo(id))
+    .filter((info): info is InknomuPackInfo => !!info)
+    .map(corpusPackShortLabel);
+  return `${corpusRegionInfo(region).label}・${labels.join('、')}`;
+}
+
 /** 名字卡上的性別 */
 export const genderLabel = (n: NpcName) => CORPUS_GENDER_LABELS[n.gender];
 
@@ -659,10 +681,14 @@ export const CSV_HEADER = [
 const CELL_SEP = '；';
 
 /**
- * CSV 的列（第一列是標題；讀音不看顯示的設定，有的都填）。依人數的名單的列，原文／拼音、涵義、備註留白；
- * 考據語料的涵義依姓名順序（「姓：…；名：…」）、備註是名的備註、綽號、暱稱、姓的另一個性別形。
+ * CSV 的列（第一列是標題；讀音不看顯示的設定，有的都填）。考據語料的涵義依姓名順序（「姓：…；名：…」）、
+ * 備註是名的備註、綽號、暱稱、姓的另一個性別形。依人數的名單的列：原文／拼音、備註留白；涵義在語料裡查得到時填
+ * （同樣的格式，F57；`corpusOf` 給那個地區已經載入的語料，沒有時留白）。
  */
-export function csvRows(names: readonly NpcName[]): string[][] {
+export function csvRows(
+  names: readonly NpcName[],
+  corpusOf: (region: CorpusRegion) => CorpusData | null = () => null,
+): string[][] {
   return [
     [...CSV_HEADER],
     ...names.map((n) => {
@@ -699,7 +725,7 @@ export function csvRows(names: readonly NpcName[]): string[][] {
         kana?.katakana ?? '',
         kana?.romaji ?? '',
         '',
-        '',
+        countMeanings(n, corpusOf(n.region))?.meanings.join(CELL_SEP) ?? '',
         '',
       ];
     }),

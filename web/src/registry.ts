@@ -896,6 +896,18 @@ export const TOOLS: readonly ToolEntry[] = [
     inspiration: { name: '가계도 편집기', url: 'https://gagyedo.j-segrc.workers.dev' },
   },
   {
+    id: 'qr-maker',
+    name: 'QR Code 產生器',
+    summary:
+      '把劇本販售頁、handout 的線索、角色卡的連結做成有樣式的 QR code：點與三個角的形狀和顏色（單色或漸層）、背景、中間放 Logo 或頭像、圓形，挑一組外觀預設就好看；產生後自動讀一次確認掃得出來，匯出 PNG、JPEG、WebP、SVG 或直接複製。',
+    group: 'G7',
+    status: 'live',
+    inspiration: {
+      name: 'kozakdenys/qr-code-styling',
+      url: 'https://github.com/kozakdenys/qr-code-styling',
+    },
+  },
+  {
     id: 'map-fx',
     name: '地圖演出產生器',
     summary:
@@ -968,6 +980,36 @@ export const TOOLS: readonly ToolEntry[] = [
       name: 'arcana-hanna/token-workshop',
       url: 'https://github.com/arcana-hanna/token-workshop',
     },
+  },
+  {
+    id: 'pl-profile',
+    name: 'PL 自介卡與地雷表',
+    summary:
+      '揪團、開團前的自我介紹卡＋地雷表：暱稱、頭像、玩過的系統、喜歡的風格、可以的時段，跑團常見的題材用「盡量來～地雷」五級標出來；存成圖片、純文字或分享連結，KP 還能把幾個 PL 的地雷表合成對照表。',
+    group: 'G7',
+    status: 'live',
+    inspiration: {
+      name: 'sonata9x/trpg-profile-maker',
+      url: 'https://github.com/sonata9x/trpg-profile-maker',
+    },
+  },
+  {
+    id: 'scenario-timeline',
+    name: '劇本時間表',
+    summary:
+      '把劇本的事件經過、NPC 的行動排在可以縮放的時間軸上：1925 年這類真實日期、「第 N 天 21:00」或架空曆的年份都可以，依角色、NPC、地點分泳道，拖曳改時間；也能轉成年表列印或複製，PL 檢視拿掉 GM 專用的事件給玩家看，匯出 PNG、SVG、文字年表與 CSV。',
+    group: 'G6',
+    status: 'live',
+    inspiration: { name: 'visjs/vis-timeline', url: 'https://github.com/visjs/vis-timeline' },
+  },
+  {
+    id: 'ambience-mixer',
+    name: '環境音混音器',
+    summary:
+      '把雨聲、風、雷、海浪、營火、時鐘、心跳、遠方的人聲等環境音疊成跑團場景的背景聲：預設組合一鍵套用，各自調音量與強度，分享連結，再匯出可以無縫循環的 WAV 放進 CCFOLIA 當 BGM；聲音都是程式合成的，可以自由使用。',
+    group: 'G8',
+    status: 'live',
+    inspiration: { name: 'remvze/moodist', url: 'https://github.com/remvze/moodist' },
   },
 ];
 

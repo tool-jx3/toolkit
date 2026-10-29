@@ -586,9 +586,12 @@ test('F37 隨機取名：依地區、年代、性別抽名字，不和其他 NPC
   page,
 }) => {
   const requested: string[] = [];
+  /* 考據語料（npc-names 的涵義，F57）不載入：coc-npc 的隨機取名不顯示涵義 */
+  const corpus: string[] = [];
   page.on('request', (r) => {
     const m = /names-(jp|tw|us)-[\w-]+\.js$/.exec(r.url());
     if (m) requested.push(m[1]);
+    if (/(inknomu|corpus)-[\w-]+\.js$/.test(r.url())) corpus.push(r.url());
   });
   const errors = await open(page);
   await expect(page.getByRole('combobox', { name: '取名的地區與年代' })).toHaveText(/日本・現代/);
@@ -641,6 +644,7 @@ test('F37 隨機取名：依地區、年代、性別抽名字，不和其他 NPC
     'aria-checked',
     'true',
   );
+  expect(corpus).toEqual([]);
   expect(errors).toEqual([]);
 });
 

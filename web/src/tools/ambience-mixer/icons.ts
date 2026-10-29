@@ -1,0 +1,57 @@
+/** 每個聲音的圖示（lucide） */
+import {
+  AirVent,
+  AppWindow,
+  AudioLines,
+  AudioWaveform,
+  BellRing,
+  Bird,
+  Bug,
+  Clock,
+  CloudDrizzle,
+  CloudLightning,
+  CloudRain,
+  Disc3,
+  Droplet,
+  Droplets,
+  Fence,
+  Fish,
+  Flame,
+  FlameKindling,
+  HeartPulse,
+  type LucideIcon,
+  Users,
+  Waves,
+  Wind,
+} from 'lucide-react';
+
+const ICONS: Record<string, LucideIcon> = {
+  'rain-light': CloudDrizzle,
+  'rain-heavy': CloudRain,
+  'rain-window': AppWindow,
+  thunder: CloudLightning,
+  wind: Wind,
+  waves: Waves,
+  stream: Droplets,
+  'cave-drips': Droplet,
+  underwater: Fish,
+  campfire: FlameKindling,
+  fireplace: Flame,
+  clock: Clock,
+  heartbeat: HeartPulse,
+  'office-hum': AirVent,
+  vinyl: Disc3,
+  creak: Fence,
+  crickets: Bug,
+  owl: Bird,
+  crowd: Users,
+  drone: AudioWaveform,
+  bell: BellRing,
+  'white-noise': AudioLines,
+  'pink-noise': AudioLines,
+  'brown-noise': AudioLines,
+};
+
+export function soundIcon(id: string): LucideIcon {
+  return ICONS[id] ?? AudioLines;
+}

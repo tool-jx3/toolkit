@@ -23,6 +23,7 @@ import {
   CORPUS_REGIONS,
   CORPUS_RULE_LABELS,
   type CorpusCountry,
+  type CorpusData,
   type CorpusGenderChoice,
   type CorpusRank,
   type CorpusRegion,
@@ -71,12 +72,15 @@ import {
 } from './actions';
 import { History } from './History';
 import {
+  countMeanings,
   currentEra,
   type EraOption,
   effectiveConditions,
   eraOptions,
   fromCurrentSource,
   historyLabel,
+  isCorpusName,
+  type NpcName,
   PART_LABELS,
   partOptions,
   sanitizeState,
@@ -541,12 +545,43 @@ function Settings() {
   );
 }
 
+/**
+ * 依人數的名單的名字要查涵義時（F57）：「顯示涵義」開著、這一批裡有那個地區的人數名單名字時，載入那個地區的考據語料
+ * （和選語料的包時是同一個檔，只載一次）。載入中或讀不到時名字照常顯示、只是沒有涵義（不另外提示）。
+ * 回傳查已經載入的語料的函式（載入完成時重新繪製）。
+ */
+function useCountMeaningCorpus(
+  names: readonly NpcName[],
+  enabled: boolean,
+): (region: CorpusRegion) => CorpusData | null {
+  const [, setTick] = useState(0);
+  const regions = enabled
+    ? [...new Set(names.filter((n) => !isCorpusName(n)).map((n) => n.region))].sort().join(',')
+    : '';
+  useEffect(() => {
+    if (!regions) return;
+    let live = true;
+    /* 已經載入的也重畫一次：繪製之後、這裡執行之前，可能剛被別的地方（查名字）載入完 */
+    for (const region of regions.split(',') as CorpusRegion[]) {
+      loadCorpus(region).then(
+        () => live && setTick((n) => n + 1),
+        () => {},
+      );
+    }
+    return () => {
+      live = false;
+    };
+  }, [regions]);
+  return loadedCorpus;
+}
+
 function NameList() {
   const raw = useNames((s) => s.data);
   const state = useMemo(() => sanitizeState(raw), [raw]);
   const status = useStatus();
   useCopyNotice();
   const locked = new Set(state.locked);
+  const corpusOf = useCountMeaningCorpus(state.names, state.show.meaning);
 
   return (
     <div className="flex min-w-0 flex-col gap-3">
@@ -587,7 +622,7 @@ function NameList() {
               label: S.list.exportCsv,
               description: S.list.exportCsvHint,
               icon: <FileSpreadsheet />,
-              onSelect: exportCsv,
+              onSelect: () => void exportCsv(),
             },
           ]}
         />
@@ -637,6 +672,7 @@ function NameList() {
               name={n}
               locked={locked.has(n.text)}
               show={state.show}
+              countMeaning={state.show.meaning ? countMeanings(n, corpusOf(n.region)) : null}
               onCopy={(text) => void copyOne(text)}
               onToggleLock={toggleLock}
             />

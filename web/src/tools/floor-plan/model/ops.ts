@@ -4,7 +4,15 @@
  */
 import { isWallMounted } from './assets';
 import { SWING_DOORS } from './catalog';
-import { openingMid, rectContains, round2, uid } from './geometry';
+import { openingMid, round2, uid } from './geometry';
+import {
+  roomCellArea,
+  roomContainsRoom,
+  roomHasPoint,
+  roomHasPointClosed,
+  rotateCutCW,
+} from './shape';
+import { withTabletop } from './tabletop';
 import {
   type Floor,
   type Item,
@@ -36,13 +44,9 @@ export const refKey = (s: SelRef): string => `${s.type}:${s.id}`;
  */
 export function roomContents(floor: Floor, room: Room): SelRef[] {
   const out: SelRef[] = [];
-  const closed = (x: number, y: number) =>
-    x >= room.x - 1e-6 &&
-    x <= room.x + room.w + 1e-6 &&
-    y >= room.y - 1e-6 &&
-    y <= room.y + room.h + 1e-6;
-  const open = (x: number, y: number) =>
-    x > room.x && x < room.x + room.w && y > room.y && y < room.y + room.h;
+  /* L 形（2026-10-29）：缺角裡不算；缺角的兩條內側的邊是房間的邊 */
+  const closed = (x: number, y: number) => roomHasPointClosed(room, x, y);
+  const open = (x: number, y: number) => roomHasPoint(room, x, y);
   for (const i of floor.items) {
     const cx = i.x + i.w / 2;
     const cy = i.y + i.h / 2;
@@ -55,13 +59,16 @@ export function roomContents(floor: Floor, room: Room): SelRef[] {
     if (closed(m.x, m.y)) out.push({ type: 'opening', id: o.id });
   }
   for (const r of floor.rooms)
-    if (r.id !== room.id && rectContains(room, r)) out.push({ type: 'room', id: r.id });
+    if (r.id !== room.id && roomContainsRoom(room, r)) out.push({ type: 'room', id: r.id });
   for (const w of floor.walls)
     if (closed(w.x1, w.y1) && closed(w.x2, w.y2)) out.push({ type: 'wall', id: w.id });
   return out;
 }
 
-/** 選取的東西＋選取的房間裡的東西（alone＝只有房間本身） */
+/**
+ * 選取的東西＋選取的房間裡的東西（alone＝只有房間本身）＋放在選取的桌子上的小物（2026-10-29，F255：
+ * 移動、複製桌子時一起帶著；alone 也一樣，Alt 只管房間裡的東西）
+ */
 export function withContents(floor: Floor, sel: readonly SelRef[], alone = false): SelRef[] {
   const seen = new Set<string>();
   const out: SelRef[] = [];
@@ -78,7 +85,7 @@ export function withContents(floor: Floor, sel: readonly SelRef[], alone = false
       const r = getObj(floor, 'room', s.id) as Room | null;
       if (r) for (const c of roomContents(floor, r)) add(c);
     }
-  return out;
+  return withTabletop(floor, out);
 }
 
 /**
@@ -164,7 +171,8 @@ export function movable(floor: Floor, sel: readonly SelRef[], alone = false): Se
     pinned.add(`room:${r.id}`);
     for (const c of roomContents(floor, r)) {
       const k = refKey(c);
-      if (!carried.some((cr) => cr.keys.has(k) && cr.room.w * cr.room.h < r.w * r.h)) pinned.add(k);
+      if (!carried.some((cr) => cr.keys.has(k) && roomCellArea(cr.room) < roomCellArea(r)))
+        pinned.add(k);
     }
   }
   const picked = new Set(top.map(refKey));
@@ -234,6 +242,8 @@ export function rotateRoomsCW(floor: Floor, rooms: readonly Room[], refs: readon
     if (type === 'room') {
       const r = o as Room;
       rect(r);
+      /* L 形的缺角跟著轉（2026-10-29） */
+      if (r.cut) r.cut = rotateCutCW(r.cut);
       if (r.lx || r.ly) {
         const lx = round2(-(r.ly || 0));
         const ly = round2(r.lx || 0);

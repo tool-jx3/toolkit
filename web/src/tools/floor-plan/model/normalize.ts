@@ -15,6 +15,8 @@ import {
   isWallKind,
   TOKEN_GRID_OPACITY,
   TOKEN_GRID_OPACITY_MIN,
+  WEAR_MIN,
+  WEAR_SEEDS,
 } from './catalog';
 import {
   type CompatReport,
@@ -24,6 +26,7 @@ import {
   noteDroppedOpening,
 } from './compat';
 import { clamp, emptyFloor, uid } from './geometry';
+import { isCorner, validCut } from './shape';
 import type {
   Floor,
   Item,
@@ -32,6 +35,7 @@ import type {
   Project,
   Room,
   RoomCategory,
+  RoomCut,
   TextLabel,
   Wall,
   WallKind,
@@ -100,6 +104,15 @@ function roomWall(v: unknown, report: CompatReport): WallKind | undefined {
   return undefined;
 }
 
+/** L 形的缺角（2026-10-29）：角認得、寬深是整數而且 1～外框減 1 才留著，不然當成長方形 */
+function roomCut(v: unknown, w: number, h: number): RoomCut | undefined {
+  if (!v || typeof v !== 'object') return undefined;
+  const c = v as Record<string, unknown>;
+  if (!isCorner(c.c)) return undefined;
+  const cut: RoomCut = { c: c.c, w: Math.round(num(c.w, 0)), h: Math.round(num(c.h, 0)) };
+  return validCut({ w, h }, cut) ? cut : undefined;
+}
+
 /** 每一類的 id 不重複（重複或沒有的給新的） */
 function ids<T extends { id: string }>(arr: T[], prefix: string): T[] {
   const seen = new Set<string>();
@@ -133,6 +146,7 @@ function room(r: Record<string, unknown>, report: CompatReport): Room | null {
     lx: isNum(r.lx) && num(r.lx) !== 0 ? num(r.lx) : undefined,
     ly: isNum(r.ly) && num(r.ly) !== 0 ? num(r.ly) : undefined,
     wall: roomWall(r.wall, report),
+    cut: roomCut(r.cut, w, h),
   });
 }
 
@@ -290,6 +304,13 @@ export function normalizeProject(
     const o = Math.round(clamp(num(p.tokenGridOpacity), TOKEN_GRID_OPACITY_MIN, 1) * 100) / 100;
     if (o !== TOKEN_GRID_OPACITY) out.tokenGridOpacity = o;
   }
+  /* 2026-10-29（參考 KIIN）：紙的污漬與摺痕、座標標示、家具不跟著房間（都只在有設定時寫） */
+  /* 0 以下＝關（不寫這個欄位）；0～0.1 的夾到 0.1、超過 1 的夾到 1（2026-10-29 驗證後修訂：原本 0 也變成 0.1） */
+  if (isNum(p.wear) && num(p.wear) > 0)
+    out.wear = Math.round(clamp(num(p.wear), WEAR_MIN, 1) * 100) / 100;
+  if (isNum(p.wearSeed)) out.wearSeed = Math.abs(Math.round(num(p.wearSeed))) % WEAR_SEEDS;
+  if (p.coords === true) out.coords = true;
+  if (p.fixedFurniture === true) out.fixedFurniture = true;
   return out;
 }
 

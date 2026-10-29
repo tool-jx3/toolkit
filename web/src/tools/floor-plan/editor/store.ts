@@ -24,9 +24,11 @@ export const TOOL_ID = 'floor-plan';
  * `tokenGridOpacity`，2026-10 第一批）。4：新的房間、門窗、牆種類，房間的牆種類（`rooms[].wall`），
  * 外觀層的「顯示內部」（`floors[].showInside`、`inside`）（2026-10 第二批）。5：新的家具 238 種
  * （`items[].t` 的代號，2026-10 第三批；欄位不變）。6：新的門窗種類（雙開拉門）與新的家具 8 種（2026-10-29 跟進原作 v1.15；欄位不變）。
- * 舊版本的存檔與專案檔不必轉換（少了欄位就是沒有圓標、沒有方格、牆照規則、不顯示內部），讀進來一律經過 normalizeProject。
+ * 7：L 形房間（`rooms[].cut`）、樣式 `noir`／`terminal`、紙的污漬與摺痕（`wear`、`wearSeed`）、座標標示（`coords`）、
+ * 家具不跟著房間（`fixedFurniture`）、桌上的小物 2 種（2026-10-29 參考 KIIN マップ制作スタジオ；D79）。
+ * 舊版本的存檔與專案檔不必轉換（少了欄位就是沒有圓標、沒有方格、牆照規則、不顯示內部、長方形的房間…），讀進來一律經過 normalizeProject。
  */
-export const DATA_VERSION = 6;
+export const DATA_VERSION = 7;
 
 /** 開頁第一次（沒有存檔）時的地圖：第一個範本 */
 export function starterProject(): Project {
@@ -108,7 +110,7 @@ export const useProject = createToolStore<Project>(TOOL_ID, starterProject(), {
   historyLimit: 120,
   coalesceMs: 0,
   storage: projectStorage,
-  /* 版本 1 → 2 → 3 → 4 → 5：欄位只多不少，整理一次就好 */
+  /* 版本 1 → … → 7：欄位只多不少，整理一次就好 */
   migrate: (persisted) => normalizeProject(persisted, isAsset) ?? starterProject(),
 });
 
@@ -138,7 +140,17 @@ export const usePrefs = createPreviewStore<Prefs>(TOOL_ID, {
   ghost: true,
   showClues: true,
   libTab: 'rooms',
-  exp: { range: 'current', view: 'pl', clues: 'show', px: 48, grid: false, transparent: false },
+  exp: {
+    range: 'current',
+    view: 'pl',
+    clues: 'show',
+    px: 48,
+    grid: false,
+    transparent: false,
+    mode: 'image',
+    vttPx: 100,
+    noise: true,
+  },
   share: 'pl',
 });
 
@@ -146,6 +158,8 @@ export type ToolId =
   | 'select'
   | 'hand'
   | 'room'
+  /* L 形房間（2026-10-29，F258） */
+  | 'lroom'
   | 'wall'
   | 'door'
   | 'window'

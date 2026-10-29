@@ -270,3 +270,9 @@ export function nextShrinkStep(target: ExportTarget, s: ShrinkState): ShrinkStep
   }
   return null;
 }
+
+/**
+ * CCFOLIA 的音源（BGM、音效）每個檔案的容量上限：官方帳號 2019 年的說明是「音源 10 MB」（介面上可以放 MP3、OGG、WAV）。
+ * 不確定是 10,000,000 還是 10 × 1024 × 1024 位元組，以較小的 10,000,000 計（觀察日期 2026-10-29；ambience-mixer 引入時新增）。
+ */
+export const CCFOLIA_AUDIO_MAX_BYTES = 10_000_000;

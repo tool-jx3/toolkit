@@ -68,6 +68,8 @@ export interface AudioPlayerProps {
   'aria-label'?: string;
   /** 下載後（例如記錄或提示） */
   onDownload?: () => void;
+  /** 循環播放（ambience-mixer 新增：聽聽看循環的接縫；不給時不循環，行為不變） */
+  loop?: boolean;
   className?: string;
 }
 
@@ -76,6 +78,7 @@ export function AudioPlayer({
   fileName,
   downloadLabel = '下載 WAV',
   onDownload,
+  loop,
   className,
   'aria-label': ariaLabel = '試聽',
 }: AudioPlayerProps) {
@@ -93,7 +96,13 @@ export function AudioPlayer({
   return (
     <div className={cn('flex flex-wrap items-center gap-2', className)}>
       {/* biome-ignore lint/a11y/useMediaCaption: 合成的音效沒有語音內容，不需要字幕 */}
-      <audio controls src={url} aria-label={ariaLabel} className="h-9 min-w-0 max-w-full flex-1" />
+      <audio
+        controls
+        loop={loop}
+        src={url}
+        aria-label={ariaLabel}
+        className="h-9 min-w-0 max-w-full flex-1"
+      />
       <a
         href={url}
         download={fileName}

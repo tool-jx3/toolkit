@@ -23,6 +23,7 @@ import {
   imageFxShortcuts,
   useFxAssetCleanup,
 } from '@/ui/imagefx';
+import { FloorPlanHandoff } from './handoff';
 import { type BatchNotice, loadImageFiles, loadSample } from './media';
 import { Settings } from './Panel';
 import { type PlayerHandle, Preview } from './Preview';
@@ -105,6 +106,8 @@ function PreviewColumn({
   const [WalkPreview, setWalkPreview] = useState(() => lazy(loadWalkPreview));
   return (
     <>
+      {/* 室內平面圖產生器送來的圖（F84）：「正在接收…」放在預覽的上面（窄畫面一開頁就看得到，2026-10-29 驗證後修訂） */}
+      <FloorPlanHandoff />
       {active ? null : <Preview playerRef={playerRef} exportRef={exportRef} onSample={onSample} />}
       {opened || active ? (
         <div hidden={!active} className="min-w-0">
