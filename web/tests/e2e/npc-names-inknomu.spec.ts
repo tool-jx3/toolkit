@@ -208,7 +208,12 @@ test('中性、階級、國家只在有標記的包出現；性別標記「中�
     .poll(async () => (await cards(page).getByText('女', { exact: true }).count()) === 10)
     .toBe(true);
   await expect(cards(page).first().getByTestId('name-meaning')).toContainText('姓氏男性形 ');
-  await expect(cards(page).first().getByRole('button').first()).toContainText(/[А-Яа-яЁё]/);
+  /* 帝俄的 Tolstaya、Trubetskaya 沒有女性形的讀音，那兩張沒有原文一行（D19）；其他每張都有 */
+  for (const card of await cards(page).all()) {
+    const text = (await card.getByRole('button').first().textContent()) ?? '';
+    if (/Tolstaya|Trubetskaya/.test(text)) expect(text).not.toMatch(/[А-Яа-яЁё]/);
+    else expect(text).toMatch(/[А-Яа-яЁё]/);
+  }
 
   /* 北歐：維京沒有國家；現代有國家，選瑞典 */
   await radio(page, '北歐').click();

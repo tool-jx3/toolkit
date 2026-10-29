@@ -9,7 +9,7 @@
 
 ## 進行中
 
-- npc-names 導入弄墨 Inknomu 的姓名語料（含輸出與查名字）：實作完成，待對等驗證（規格 npc-names.md 1.5、1.6、2.5）。
+（沒有）
 
 ## 一、已收錄工具的原作更新
 
@@ -170,3 +170,4 @@
 - 2026-10-29：使用者要求把 Azgaar/Fantasy-Map-Generator（MIT）加進首頁的「其他網站」：只連到原站（`azgaar.github.io/Fantasy-Map-Generator/`，英文介面），不重寫；從「不收的」移除。
 - 2026-10-29：使用者提供 shinshin86/live2d-add-motion-sample-web-ui，評估後記進第二節（Live2D 模型加動作；要先決定 Cubism Core 的授權）。
 - 2026-10-29：使用者要求 npc-names 導入弄墨 Inknomu《角色姓名產生器》（inknomu.com/namegen）的姓名資料包：8 個地區 29 個包都標 CC BY 4.0，全部導入（`/data/packs/<id>.json`，2026-10-29 取得）；原站的程式與中文參考譯名表沒有標授權，不沿用。一併做了原站的「輸出」（全名／只有名／只有姓）與組合模式的搜尋（查名字）；收藏匣與合成、語音朗讀沒有做（規格 D12）。實作完成、待對等驗證（PLAN.md 上游跟進表）。
+- 2026-10-29：完成並移出清單——npc-names 導入弄墨 Inknomu 的語料、姓名（全名／只有名／只有姓）與查名字（對等驗證見規格 6.2、裁定 7.2）。
