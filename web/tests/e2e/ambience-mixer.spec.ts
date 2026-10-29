@@ -321,7 +321,7 @@ test('分享連結：對話框的網址；開連結時有聲音先確認、沒�
   await page.getByTestId('share-open').click();
   const dialog = page.getByTestId('share-dialog');
   const link = await dialog.getByRole('textbox').inputValue();
-  expect(link).toMatch(/\/next\/ambience-mixer\/#s=/);
+  expect(link).toContain(`${URL}#s=`);
   await page.keyboard.press('Escape');
   /* 關閉後焦點回到「分享連結」 */
   await expect(page.getByTestId('share-open')).toBeFocused();
