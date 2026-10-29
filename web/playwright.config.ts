@@ -11,6 +11,8 @@ if (!process.env.PLAYWRIGHT_BROWSERS_PATH && existsSync('/opt/pw-browsers')) {
 const webDir = path.dirname(fileURLToPath(import.meta.url));
 /* 多個工作樹同時跑 e2e 時用 E2E_PORT 錯開（reuseExistingServer 會沿用同一個 port 上別人的伺服器） */
 const PORT = Number(process.env.E2E_PORT ?? 8123);
+/* E2E_WORKERS：數字（2）或百分比（50%）；Playwright 只收數字或百分比字串 */
+const WORKERS = process.env.E2E_WORKERS;
 
 export default defineConfig({
   testDir: 'tests/e2e',
@@ -20,7 +22,7 @@ export default defineConfig({
   timeout: 90_000,
   /* 每個測試有自己的瀏覽器環境，可以平行跑；這台 4 核心的容器約 3 個最快（E2E_WORKERS 可以改） */
   fullyParallel: true,
-  workers: process.env.E2E_WORKERS ?? '75%',
+  workers: WORKERS ? (WORKERS.endsWith('%') ? WORKERS : Number(WORKERS)) : '75%',
   /* 量時間的測試（主執行緒長工作、每秒格數、即時播放的時間點）和吃重的匯出標 @serial，平行時會搶 CPU 誤判：
      npm run e2e（tests/run-e2e.mjs）先跑 main，再一個一個跑 serial。直接 playwright test 時兩個專案一起跑 */
   projects: [
