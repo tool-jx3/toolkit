@@ -91,7 +91,7 @@
 | [CoC 擲骰工具](https://tool-jx3.github.io/toolkit/tools/coc-dice/) | CoC 7 版的技能檢定（獎勵骰、懲罰骰、自動判定成功等級）與自訂算式擲骰，附擲骰紀錄；另有傷害計算：貼上 BCDice 的結果扣護甲後加總成「:HP-」指令 |
 | [CoC 7 版調查員角色卡](https://tool-jx3.github.io/toolkit/tools/coc-sheet/) | 在瀏覽器填好 CoC 7 版調查員角色卡：屬性的困難／極限、HP、SAN、DB、移動力與技能點數自動算，可以管理多張角色卡、裁切頭像，印成 A4 兩頁或存成 PDF、PNG，也能複製成 CCFOLIA 角色 |
 | [CoC NPC 產生器](https://tool-jx3.github.io/toolkit/tools/coc-npc/) | 一次管理多個 CoC 7 版／6 版的 NPC：擲屬性、自動算衍生值、加技能與攻擊指令、隨機取名，輸出可以直接貼進 CCFOLIA 的角色 JSON 與聊天面板 |
-| [NPC 名字產生器](https://tool-jx3.github.io/toolkit/tools/npc-names/) | 臨時要幫 NPC 取名時一鍵產生一批：日本（現代、昭和、大正～昭和初期，附假名與羅馬拼音）、台灣、1920 年代的美國，依實際的人數抽、同一批不重複，點一下就複製 |
+| [NPC 名字產生器](https://tool-jx3.github.io/toolkit/tools/npc-names/) | 臨時要幫 NPC 取名時一鍵產生一批：日本（現代、昭和、大正～昭和初期，附假名與羅馬拼音）、台灣、1920 年代的美國依實際的人數抽；另有弄墨 Inknomu 的考據語料（日本、台灣、韓國、英國、美國、俄羅斯、北歐、奇幻共 29 個年代與種族，每個姓與名附涵義），可以只要名或只要姓、在語料裡查名字；同一批不重複，點一下就複製 |
 | [CoC 房規表產生器](https://tool-jx3.github.io/toolkit/tools/house-rules/) | 把 CoC 6 版／7 版團的房規整理成一張表：從常見的規則勾選、調整數值、寫注記，匯出 PNG、純文字或 Markdown |
 | [網格產生器](https://tool-jx3.github.io/toolkit/tools/grid-maker/) | 產生透明背景的方格或六角格 PNG：格數、大小、線條與發光，可以加上 1-1、A1、流水號等座標；六角格能網格化成 CCFOLIA 對得齊的尺寸 |
 | [距離量尺產生器](https://tool-jx3.github.io/toolkit/tools/range-ruler/) | 以中心格為起點，把每一格的距離寫在格子上、依距離上色，做成可以疊在地圖上的方格或六角格量尺 PNG |
@@ -208,7 +208,7 @@ CI（GitHub Actions）在 pull request 與 main 上跑 `npm test`、lint、typec
 | `bg-remover` | [立繪去背工具](https://tool-jx3.github.io/toolkit/tools/bg-remover/) | [SkyTNT/anime-segmentation](https://github.com/SkyTNT/anime-segmentation) |
 | `coc-dice` | [CoC 擲骰工具](https://tool-jx3.github.io/toolkit/tools/coc-dice/) | [ihoukentiku/ihoukentiku.github.io](https://github.com/ihoukentiku/ihoukentiku.github.io) |
 | `coc-npc` | [CoC NPC 產生器](https://tool-jx3.github.io/toolkit/tools/coc-npc/) | [ihoukentiku/ihoukentiku.github.io](https://github.com/ihoukentiku/ihoukentiku.github.io) |
-| `npc-names` | [NPC 名字產生器](https://tool-jx3.github.io/toolkit/tools/npc-names/) | 本站原創（名字資料：willnet/gimei、japanese-personal-name-dataset、內政部姓名統計、美國社會安全局與人口普查） |
+| `npc-names` | [NPC 名字產生器](https://tool-jx3.github.io/toolkit/tools/npc-names/) | 本站原創（名字資料：willnet/gimei、japanese-personal-name-dataset、內政部姓名統計、美國社會安全局與人口普查；考據語料：[弄墨 Inknomu《角色姓名產生器》](https://inknomu.com/namegen/)〔CC BY 4.0〕） |
 | `grid-maker` | [網格產生器](https://tool-jx3.github.io/toolkit/tools/grid-maker/) | [ihoukentiku/ihoukentiku.github.io](https://github.com/ihoukentiku/ihoukentiku.github.io) |
 | `range-ruler` | [距離量尺產生器](https://tool-jx3.github.io/toolkit/tools/range-ruler/) | [ihoukentiku/ihoukentiku.github.io](https://github.com/ihoukentiku/ihoukentiku.github.io) |
 | `anime-rig` | [2.5D 動態立繪](https://tool-jx3.github.io/toolkit/tools/anime-rig/) | [852wa/Anime2.5DRig](https://github.com/852wa/Anime2.5DRig) |
