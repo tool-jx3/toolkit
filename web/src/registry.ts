@@ -969,6 +969,15 @@ export const TOOLS: readonly ToolEntry[] = [
       url: 'https://github.com/arcana-hanna/token-workshop',
     },
   },
+  {
+    id: 'ambience-mixer',
+    name: '環境音混音器',
+    summary:
+      '把雨聲、風、雷、海浪、營火、時鐘、心跳、遠方的人聲等環境音疊成跑團場景的背景聲：預設組合一鍵套用，各自調音量與強度，分享連結，再匯出可以無縫循環的 WAV 放進 CCFOLIA 當 BGM；聲音都是程式合成的，可以自由使用。',
+    group: 'G8',
+    status: 'next',
+    inspiration: { name: 'remvze/moodist', url: 'https://github.com/remvze/moodist' },
+  },
 ];
 
 export function getTool(id: string): ToolEntry | undefined {

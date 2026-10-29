@@ -30,6 +30,7 @@ import {
   Gauge,
   Grid2x2Check,
   Grid3x3,
+  Headphones,
   HeartHandshake,
   Highlighter,
   House,
@@ -165,6 +166,7 @@ const ICONS: Record<string, LucideIcon> = {
   'music-frame': Music,
   'geo-bloom': Flower,
   'vhs-frame': CassetteTape,
+  'ambience-mixer': Headphones,
   /* G9 CoC 跑團輔助 */
   'coc-dice': Dices,
   'coc-npc': UserCog,
