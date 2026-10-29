@@ -40,14 +40,18 @@ const api = {
   scene(settings: Settings): BloomScene {
     return sceneOf(settings);
   },
-  /** 讀一張圖（縮到長邊最多 4000 px）：回傳結果與縮過的圖（畫標記用） */
+  /** 讀一張圖（縮到長邊最多 4000 px）：回傳結果、縮過的圖（畫標記用）與原本的大小 */
   async decodeLoad(
     blob: Blob,
     mode: DecodeMode,
-  ): Promise<{ result: DecodeResult; bitmap: ImageBitmap }> {
-    const { image, bitmap } = await loadDecodeImage(blob);
+  ): Promise<{
+    result: DecodeResult;
+    bitmap: ImageBitmap;
+    source: { width: number; height: number };
+  }> {
+    const { image, bitmap, source } = await loadDecodeImage(blob);
     decodeSource = image;
-    return transfer({ result: decodeImage(image, mode), bitmap }, [bitmap]);
+    return transfer({ result: decodeImage(image, mode), bitmap, source }, [bitmap]);
   },
   /** 同一張圖換讀的方式或點的位置再讀 */
   decodeAgain(mode: DecodeMode, center: [number, number] | null): DecodeResult | null {

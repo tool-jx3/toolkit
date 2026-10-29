@@ -639,7 +639,7 @@ test('範本：套用前確認，換掉種子以外的設定，可以復原', as
   const errors = await open(page);
   await apply(page, { seed: 'tpl' });
   const gallery = page.getByRole('list', { name: '花紋範本' });
-  await expect(gallery.getByRole('button')).toHaveCount(6);
+  await expect(gallery.getByRole('button')).toHaveCount(8);
   await expect(gallery.getByRole('button', { name: /基本/ })).toHaveAttribute(
     'aria-pressed',
     'true',
@@ -661,6 +661,30 @@ test('範本：套用前確認，換掉種子以外的設定，可以復原', as
   expect(await state(page)).toMatchObject({ seed: 'tpl', width: 1920, height: 1080 });
   await page.keyboard.press('Control+z');
   await expect.poll(async () => (await state(page)).rootMin).toBe(220);
+  /* 示範新功能的兩組（D21）：電報＝摩斯電碼的文字＋摩斯橋；三角星盤＝三角心＋三角環 */
+  await gallery.getByRole('button', { name: /電報/ }).click();
+  await page.getByRole('alertdialog').getByRole('button', { name: '套用' }).click();
+  await ready(page);
+  expect(await state(page)).toMatchObject({
+    seed: 'tpl',
+    morse: true,
+    morseText: 'CQ CQ DE BLOOM',
+    bridges: true,
+  });
+  await expect(stats(page)).toContainText('／橋 ');
+  await expect(page.getByTestId('morse-text')).toHaveValue('CQ CQ DE BLOOM');
+  await gallery.getByRole('button', { name: /三角星盤/ }).click();
+  await page.getByRole('alertdialog').getByRole('button', { name: '套用' }).click();
+  await ready(page);
+  expect(await state(page)).toMatchObject({
+    seed: 'tpl',
+    morse: false,
+    shapes: { triCore: true, triRing: true },
+  });
+  await expect(gallery.getByRole('button', { name: /三角星盤/ })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
   expect(errors).toEqual([]);
 });
 
@@ -784,8 +808,8 @@ test('把種子刻進圖形：容量提示；匯出 PNG 再選檔讀回；用這
   await toggle(page, '把種子刻進圖形').click();
   await ready(page);
   const info = page.getByTestId('code-info');
-  await expect(info).toContainText('新方式：資料 104 個位元（8 位元組）');
-  await expect(info).toContainText('✔ 全部刻進去了');
+  await expect(info).toContainText('新方式：種子 8 位元組，連同檢查碼共 104 個位元');
+  await expect(info).toContainText('✔ 整份都刻進去了');
   await expect(info).toHaveAttribute('data-ok', 'true');
   /* 舊方式的設定在新方式時停用 */
   await expect(spin(page, '一個圖形最多放幾個位元')).toBeDisabled();
@@ -801,18 +825,23 @@ test('把種子刻進圖形：容量提示；匯出 PNG 再選檔讀回；用這
   await chooser.setFiles({ name: 'coded.png', mimeType: 'image/png', buffer: png.bytes });
   await decoded(page);
   await expect(decodeOut(page)).toHaveAttribute('data-ok', 'true');
-  await expect(decodeOut(page)).toContainText('新方式：找到同心圓');
+  await expect(decodeOut(page)).toContainText('新方式：圖裡有');
+  await expect(decodeOut(page)).toContainText('✔ 讀到種子了');
   await expect(decodeOut(page)).toContainText('種子：e2e-code');
-  await expect(decodeOut(page)).toContainText('設定：沒有（用目前的設定重畫）');
+  await expect(decodeOut(page)).toContainText('圖裡只刻了種子，重畫時沿用現在的設定。');
   await expect(page.getByTestId('decode-canvas')).toBeVisible();
   /* 換讀的方式：只用舊方式讀不出來，換回自動又讀得出來 */
   await page.getByRole('radio', { name: '只用舊方式' }).click();
   await expect(decodeOut(page)).toHaveAttribute('data-ok', 'false');
-  await expect(decodeOut(page)).toContainText('舊方式：候選');
+  await expect(decodeOut(page)).toContainText('舊方式：檢查了');
   await page.getByRole('radio', { name: '自動（先新後舊）' }).click();
   await expect(decodeOut(page)).toHaveAttribute('data-ok', 'true');
   await page.getByTestId('decode-apply').click();
   await expect(page.getByTestId('decode-dialog')).toHaveCount(0);
+  /* 焦點回到「選擇圖片…」 */
+  await expect(
+    page.getByRole('group', { name: '選擇或拖放圖片' }).locator('input[type="file"]'),
+  ).toBeFocused();
   await expect.poll(async () => (await state(page)).seed).toBe('e2e-code');
   expect((await state(page)).lockSeed).toBe(true);
   await ready(page);
@@ -838,7 +867,7 @@ test('設定也一起刻：改掉設定後拖進視窗讀回，種子與設定�
     background: '#203040',
   };
   await apply(page, original);
-  await expect(page.getByTestId('code-info')).toContainText('含設定');
+  await expect(page.getByTestId('code-info')).toContainText('新方式：種子與設定');
   await expect(page.getByTestId('code-info')).toHaveAttribute('data-ok', 'true');
   const sig = await previewSig(page);
   const png = await exportAs(page, 'PNG');
@@ -851,7 +880,7 @@ test('設定也一起刻：改掉設定後拖進視窗讀回，種子與設定�
   await dropImage(page, 'coded.png', 'image/png', png.bytes);
   await decoded(page);
   await expect(decodeOut(page)).toContainText('種子：with-settings');
-  await expect(decodeOut(page)).toContainText(/設定：\d+ 項（重畫時一起換）/);
+  await expect(decodeOut(page)).toContainText(/另外刻了 \d+ 項設定，重畫時一起套用。/);
   await page.getByTestId('decode-apply').click();
   await expect.poll(async () => (await state(page)).seed).toBe('with-settings');
   expect(await state(page)).toMatchObject({ ...original, lockSeed: true });
@@ -860,15 +889,17 @@ test('設定也一起刻：改掉設定後拖進視窗讀回，種子與設定�
   /* 舊方式：讀目前的圖（畫成全尺寸再讀） */
   await radio(page, '舊方式').click();
   await ready(page);
-  await expect(page.getByTestId('code-info')).toContainText('舊方式：資料');
+  await expect(page.getByTestId('code-info')).toContainText('舊方式：種子與設定');
   await expect(spin(page, '一個圖形最多放幾個位元')).toBeEnabled();
   await page.getByTestId('decode-current').click();
   await decoded(page);
   await expect(decodeOut(page)).toHaveAttribute('data-ok', 'true');
-  await expect(decodeOut(page)).toContainText('新方式讀不出來，改用舊方式');
+  await expect(decodeOut(page)).toContainText('自動：新方式沒讀到，下面是改用舊方式讀的結果。');
   await expect(decodeOut(page)).toContainText('種子：with-settings');
   await page.keyboard.press('Escape');
   await expect(page.getByTestId('decode-dialog')).toHaveCount(0);
+  /* 焦點回到「讀目前的圖」 */
+  await expect(page.getByTestId('decode-current')).toBeFocused();
   expect(errors).toEqual([]);
 });
 
@@ -903,10 +934,64 @@ test('從圖片讀種子的容忍度（照原作）：JPEG、WebP、放大讀得
   await dropImage(page, 'plain.png', 'image/png', plain);
   await decoded(page);
   await expect(decodeOut(page)).toHaveAttribute('data-ok', 'false');
-  await expect(decodeOut(page)).toContainText('讀不出來');
+  await expect(decodeOut(page)).toContainText('沒讀成功');
+  /* 沒有縮過：不說明縮圖 */
+  await expect(page.getByTestId('decode-scaled')).toHaveCount(0);
   /* 點圖上的位置再讀（加上中心）：照常讀完 */
   await page.getByTestId('decode-canvas').click({ position: { x: 20, y: 20 } });
   await expect(decodeOut(page)).toHaveAttribute('data-busy', 'false');
+  await page.keyboard.press('Escape');
+  await expect(page.getByTestId('decode-dialog')).toHaveCount(0);
+  /* 長邊超過 4000 px 又讀不出來：說明會先縮圖（短點跟著縮短） */
+  const big = await reencode(page, plain, 'image/png', 2.6);
+  await dropImage(page, 'big.png', 'image/png', big);
+  await decoded(page);
+  await expect(decodeOut(page)).toHaveAttribute('data-ok', 'false');
+  await expect(page.getByTestId('decode-scaled')).toContainText(
+    '這張圖是 4160 × 4160 px，會先縮到長邊 4000 px 再讀',
+  );
+  await page.keyboard.press('Escape');
+  await expect(page.getByTestId('decode-dialog')).toHaveCount(0);
+  expect(errors).toEqual([]);
+});
+
+test('不是圖片的檔案：拖放區、拖進視窗、貼上都通知讀不了，不開對話框', async ({ page }) => {
+  const errors = await open(page);
+  const message = '讀不了這個檔案，請用 PNG、JPEG 或 WebP 的圖。';
+  /* 拖進視窗 */
+  await dropImage(page, 'notes.txt', 'text/plain', Buffer.from('hello'));
+  await expect(toast(page, message)).toBeVisible();
+  await expect(page.getByTestId('decode-dialog')).toHaveCount(0);
+  await page
+    .getByRole('region', { name: /^通知/ })
+    .getByRole('button', { name: '關閉通知' })
+    .click();
+  await expect(toast(page, message)).toHaveCount(0);
+  /* 放在拖放區 */
+  await page.getByRole('group', { name: '選擇或拖放圖片' }).evaluate((zone) => {
+    const dt = new DataTransfer();
+    dt.items.add(new File(['{}'], 'data.json', { type: 'application/json' }));
+    zone.dispatchEvent(
+      new DragEvent('drop', { dataTransfer: dt, bubbles: true, cancelable: true }),
+    );
+  });
+  await expect(toast(page, message)).toBeVisible();
+  await expect(page.getByTestId('decode-dialog')).toHaveCount(0);
+  await page
+    .getByRole('region', { name: /^通知/ })
+    .getByRole('button', { name: '關閉通知' })
+    .click();
+  await expect(toast(page, message)).toHaveCount(0);
+  /* 貼上 */
+  await page.evaluate(() => {
+    const dt = new DataTransfer();
+    dt.items.add(new File(['x'], 'notes.txt', { type: 'text/plain' }));
+    document.body.dispatchEvent(
+      new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true }),
+    );
+  });
+  await expect(toast(page, message)).toBeVisible();
+  await expect(page.getByTestId('decode-dialog')).toHaveCount(0);
   expect(errors).toEqual([]);
 });
 
@@ -979,6 +1064,13 @@ test('舊的專案檔（資料版本 1）：沒有的設定補舊版的值（沒
   });
   await page.getByRole('alertdialog').getByRole('button', { name: '開啟', exact: true }).click();
   await expect(page.getByTestId('seed')).toHaveValue('legacy-a');
+  /* 畫法改了：通知一次（3.8） */
+  await expect(
+    toast(
+      page,
+      '這份專案檔是改版前存的：這一版的畫法改了，同一個種子畫出來會和以前不同（中央是同心圓的圖差最多）。',
+    ),
+  ).toBeVisible();
   await ready(page);
   expect(await state(page)).toMatchObject({
     rootRings: false,
@@ -996,7 +1088,7 @@ test('舊的專案檔（資料版本 1）：沒有的設定補舊版的值（沒
   expect(errors).toEqual([]);
 });
 
-test('舊的自動儲存（資料版本 1）：重新整理後補舊版的值', async ({ page }) => {
+test('舊的自動儲存（資料版本 1）：重新整理後補舊版的值，通知一次', async ({ page }) => {
   await page.addInitScript(
     ({ key, data }) => {
       if (!sessionStorage.getItem('seeded')) {
@@ -1014,7 +1106,18 @@ test('舊的自動儲存（資料版本 1）：重新整理後補舊版的值', 
     startRing: 'edge',
     morse: false,
   });
-  /* 存回去是資料版本 2 */
+  /* 畫法改了：通知一次（3.8） */
+  await expect(toast(page, '上次的設定是改版前存的')).toBeVisible();
+  await expect(toast(page, '這一版的畫法改了，同一個種子畫出來會和以前不同')).toBeVisible();
+  /* 讀回後就存成資料版本 2：重新整理不再通知 */
+  await expect
+    .poll(() => page.evaluate((k) => JSON.parse(localStorage.getItem(k) ?? 'null')?.version, KEY))
+    .toBe(2);
+  await page.reload();
+  await ready(page);
+  expect(await state(page)).toMatchObject({ seed: 'legacy-a', maxShapes: 44, morse: false });
+  await expect(page.getByTestId('bloom-stats')).toBeVisible();
+  await expect(toast(page, '上次的設定是改版前存的')).toHaveCount(0);
   await commit(spin(page, '線寬'), '3');
   await expect
     .poll(() => page.evaluate((k) => JSON.parse(localStorage.getItem(k) ?? 'null')?.version, KEY))

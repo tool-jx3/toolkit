@@ -163,9 +163,17 @@ export async function sceneFor(settings: Settings): Promise<BloomScene> {
 
 /* ---------- 從圖片讀種子 ---------- */
 
+export interface DecodeLoaded {
+  result: DecodeResult;
+  /** 縮過的圖（長邊最多 4000 px） */
+  image: ImageBitmap;
+  /** 原本的大小 */
+  source: { width: number; height: number };
+}
+
 export interface Decoder {
-  /** 讀一張圖：結果與縮過的圖（長邊最多 4000 px） */
-  load(blob: Blob, mode: DecodeMode): Promise<{ result: DecodeResult; image: ImageBitmap }>;
+  /** 讀一張圖 */
+  load(blob: Blob, mode: DecodeMode): Promise<DecodeLoaded>;
   /** 同一張圖換讀的方式、點的位置再讀 */
   again(mode: DecodeMode, center: [number, number] | null): Promise<DecodeResult | null>;
   dispose(): void;
@@ -179,16 +187,16 @@ export function createDecoder(): Decoder {
     async load(blob, mode) {
       if (handle) {
         try {
-          const { result, bitmap } = await handle.api.decodeLoad(blob, mode);
-          return { result, image: bitmap };
+          const { result, bitmap, source } = await handle.api.decodeLoad(blob, mode);
+          return { result, image: bitmap, source };
         } catch {
           handle.terminate();
           handle = null;
         }
       }
-      const { image, bitmap } = await loadDecodeImage(blob);
+      const { image, bitmap, source } = await loadDecodeImage(blob);
       local = image;
-      return { result: decodeImage(image, mode), image: bitmap };
+      return { result: decodeImage(image, mode), image: bitmap, source };
     },
     async again(mode, center) {
       if (handle) return handle.api.decodeAgain(mode, center);

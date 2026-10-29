@@ -1,7 +1,8 @@
 /**
  * 從圖片讀種子（規格 1.12 的 F87、F88、3.16）：設定欄的「從圖片讀種子」區塊（選檔、拖放、貼上、讀目前的圖）、
  * 拖進視窗的圖片，都打開讀種子的對話框：顯示讀的圖與找到的圖形，點漏掉的圖形的中心再讀，讀出來後「用這個種子重畫」。
- * 讀在自己的 Worker 裡做（大圖要好幾秒，畫面照常）。
+ * 讀在自己的 Worker 裡做（大圖要好幾秒，畫面照常）。不是圖片的檔案：通知「讀不了這個檔案…」。
+ * 對話框關閉時焦點回到打開它的按鈕（讀目前的圖、選擇圖片…）。
  */
 import { ScanSearch } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
@@ -19,7 +20,7 @@ import {
   WindowDrop,
 } from '@/ui';
 import { createDecoder, type Decoder, exportPng } from './client';
-import type { DecodeAttempt, DecodeMode, DecodeResult } from './decode';
+import { DECODE_MAX_SIDE, type DecodeAttempt, type DecodeMode, type DecodeResult } from './decode';
 import { applySettingsDiff } from './settings';
 import { settingsNow, step, TOOL_ID, useSettings } from './store';
 import { S } from './strings';
@@ -29,35 +30,62 @@ interface DecodeState {
   source: Blob | null;
   /** 讀目前的圖：先畫成全尺寸的 PNG */
   current: boolean;
+  /** 關閉後焦點回到這裡（打開對話框的按鈕） */
+  opener: HTMLElement | null;
 }
 
-const useDecodeState = create<DecodeState>(() => ({ source: null, current: false }));
+const useDecodeState = create<DecodeState>(() => ({ source: null, current: false, opener: null }));
 
-/** 讀這張圖（打開對話框） */
-export const openDecode = (source: Blob) => useDecodeState.setState({ source, current: false });
+/** 現在有焦點的元素（body 不算） */
+function focused(): HTMLElement | null {
+  const el = document.activeElement;
+  return el instanceof HTMLElement && el !== document.body ? el : null;
+}
 
-const openCurrent = () => useDecodeState.setState({ source: null, current: true });
+/** 讀這張圖（打開對話框）；opener＝關閉後焦點回去的地方（沒給時用現在有焦點的元素） */
+export const openDecode = (source: Blob, opener?: HTMLElement | null) =>
+  useDecodeState.setState({ source, current: false, opener: focused() ?? opener ?? null });
+
+const openCurrent = (opener: HTMLElement) =>
+  useDecodeState.setState({ source: null, current: true, opener });
+
+/** 不是圖片的檔案 */
+function useRejectNotice() {
+  const toast = useToast();
+  return () => toast({ title: S.decodeRejected, tone: 'danger' });
+}
 
 const DECODE_ACCEPT = 'image/png,image/jpeg,image/webp,image/gif,image/bmp,image/avif';
 
 /** 設定欄的區塊 */
 export function DecodeSection() {
+  const drop = useRef<HTMLDivElement>(null);
+  const reject = useRejectNotice();
   return (
     <Section title={S.sections.decode} persistKey={`${TOOL_ID}:decode`}>
       <p className="m-0 text-xs text-muted">{S.decodeHint}</p>
-      <FileDrop
-        onFiles={(files) => {
-          if (files[0]) openDecode(files[0]);
-        }}
-        accept={DECODE_ACCEPT}
-        label={S.decodeDrop}
-        buttonLabel={S.decodeButton}
-        hint={S.dropHint}
-        icon={<ScanSearch />}
-        compact
-      />
+      <div ref={drop} className="contents">
+        <FileDrop
+          onFiles={(files) => {
+            /* 拖放、貼上時焦點不在任何地方：關閉後回到「選擇圖片…」 */
+            const picker = drop.current?.querySelector<HTMLElement>('input[type="file"]');
+            if (files[0]) openDecode(files[0], picker);
+          }}
+          onReject={reject}
+          accept={DECODE_ACCEPT}
+          label={S.decodeDrop}
+          buttonLabel={S.decodeButton}
+          hint={S.dropHint}
+          icon={<ScanSearch />}
+          compact
+        />
+      </div>
       <Field label={S.decodeCurrent} hint={S.decodeCurrentHint} layout="inline">
-        <Button size="sm" onClick={openCurrent} data-testid="decode-current">
+        <Button
+          size="sm"
+          onClick={(e) => openCurrent(e.currentTarget)}
+          data-testid="decode-current"
+        >
           {S.decodeCurrent}
         </Button>
       </Field>
@@ -67,6 +95,7 @@ export function DecodeSection() {
 
 /** 拖進視窗的圖片也讀種子 */
 export function DecodeWindowDrop() {
+  const reject = useRejectNotice();
   return (
     <WindowDrop
       accept="image/*"
@@ -75,6 +104,7 @@ export function DecodeWindowDrop() {
       onDrop={(files) => {
         if (files[0]) openDecode(files[0]);
       }}
+      onReject={reject}
     />
   );
 }
@@ -209,6 +239,8 @@ function drawOverlay(canvas: HTMLCanvasElement, image: ImageBitmap, result: Deco
 export function DecodeDialog() {
   const { source, current } = useDecodeState();
   const open = !!source || current;
+  /* 原本的大小（縮到長邊 4000 px 讀不出來時說明） */
+  const [size, setSize] = useState<{ width: number; height: number } | null>(null);
   const [mode, setMode] = useState<DecodeMode>('auto');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -233,14 +265,16 @@ export function DecodeDialog() {
     setResult(null);
     setImage(null);
     setCenter(null);
+    setSize(null);
     (async () => {
       const blob = source ?? (await exportPng(settingsNow()));
       return d.load(blob, modeRef.current);
     })()
-      .then(({ result: r, image: img }) => {
+      .then(({ result: r, image: img, source: original }) => {
         if (!alive) return;
         setResult(r);
         setImage(img);
+        setSize(original);
       })
       .catch(() => {
         if (alive) setError(S.decodeFailedLoad);
@@ -279,7 +313,15 @@ export function DecodeDialog() {
     }
   }, [open, image]);
 
-  const close = () => useDecodeState.setState({ source: null, current: false });
+  /* 關閉：焦點回到打開對話框的按鈕（等對話框拿掉、焦點不再關在裡面之後） */
+  const close = () => {
+    const { opener } = useDecodeState.getState();
+    useDecodeState.setState({ source: null, current: false, opener: null });
+    if (opener)
+      setTimeout(() => {
+        if (opener.isConnected) opener.focus();
+      }, 0);
+  };
 
   const apply = () => {
     if (!result?.ok || result.seed === undefined) return;
@@ -295,6 +337,8 @@ export function DecodeDialog() {
   };
 
   const lines = result ? describe(result) : [];
+  const scaled =
+    !busy && result && !result.ok && size && Math.max(size.width, size.height) > DECODE_MAX_SIDE;
   return (
     <Dialog
       open={open}
@@ -359,6 +403,11 @@ export function DecodeDialog() {
         >
           {busy ? S.decoding : lines.join('\n')}
         </div>
+        {scaled ? (
+          <Notice tone="warning">
+            <span data-testid="decode-scaled">{S.decodeScaled(size.width, size.height)}</span>
+          </Notice>
+        ) : null}
       </div>
     </Dialog>
   );

@@ -20,10 +20,23 @@ export const DATA_VERSION = 2;
 /** 預設值＋新的隨機種子（第一次開頁、重設） */
 export const freshSettings = (): Settings => ({ ...DEFAULT_SETTINGS, seed: randomSeedText() });
 
+/** 這次開頁讀回的自動儲存是改版前（資料版本 1）的：App 通知一次（3.8）。讀回後就存成版本 2，下次開頁不再通知 */
+let restoredLegacy = false;
+
 export const useSettings = createToolStore<Settings>(TOOL_ID, freshSettings(), {
   version: DATA_VERSION,
-  migrate: (persisted, fromVersion) => upgradeSettings(persisted, fromVersion),
+  migrate: (persisted, fromVersion) => {
+    if (fromVersion < 2) restoredLegacy = true;
+    return upgradeSettings(persisted, fromVersion);
+  },
 });
+
+/** 讀回的自動儲存是不是改版前的（只回答一次 true） */
+export function takeLegacyRestore(): boolean {
+  const v = restoredLegacy;
+  restoredLegacy = false;
+  return v;
+}
 
 /* 自動儲存讀回來的資料整理一次（手改過、舊版本的資料），不列入復原 */
 {

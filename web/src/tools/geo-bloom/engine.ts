@@ -100,14 +100,20 @@ export function sceneOf(settings: Settings): BloomScene {
   return prepare(settings).scene;
 }
 
+/** 讀種子用的圖：像素、縮過的圖（畫標記用）、原本的大小（縮過時說明用） */
+export interface LoadedDecodeImage {
+  image: DecodeImage;
+  bitmap: ImageBitmap;
+  source: { width: number; height: number };
+}
+
 /**
  * 讀種子用的圖：解碼圖片、縮到長邊最多 4000 px（原作同：drawImage 縮放），取出像素。
- * 回傳像素與縮過的圖（畫標記用）。Worker 用 OffscreenCanvas，主執行緒用 canvas。
+ * Worker 用 OffscreenCanvas，主執行緒用 canvas。
  */
-export async function loadDecodeImage(
-  blob: Blob,
-): Promise<{ image: DecodeImage; bitmap: ImageBitmap }> {
+export async function loadDecodeImage(blob: Blob): Promise<LoadedDecodeImage> {
   const src = await createImageBitmap(blob);
+  const source = { width: src.width, height: src.height };
   const { width, height } = decodeSize(src.width, src.height);
   const canvas =
     typeof OffscreenCanvas !== 'undefined'
@@ -121,5 +127,5 @@ export async function loadDecodeImage(
   const bitmap = await createImageBitmap(canvas);
   canvas.width = 0;
   canvas.height = 0;
-  return { image: { width, height, data: data.data }, bitmap };
+  return { image: { width, height, data: data.data }, bitmap, source };
 }

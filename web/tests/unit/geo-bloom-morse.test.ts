@@ -1,6 +1,6 @@
 /**
  * 幾何花紋產生器：摩斯環（規格 3.11、F62～F66）。
- * 文字 → 摩斯電碼（國際摩斯電碼；中文等沒有電碼的字略過；全形英數當成半形；一個能轉的字都沒有時隨機）、
+ * 文字 → 摩斯電碼（國際摩斯電碼；中文等沒有電碼的字略過；全形英數當成半形〔只有 U+FF01～U+FF5E〕；一個能轉的字都沒有時隨機）、
  * 在弧上排符號的長度與間隔、自訂文字的重複與單字間隔、隨機時每個字母 1～5 個符號。
  */
 import { describe, expect, it } from 'vitest';
@@ -39,8 +39,26 @@ describe('文字 → 摩斯電碼', () => {
     expect(textToMorse('SOS 救命')).toEqual(textToMorse('SOS '));
     expect(textToMorse('E　T')).toEqual(['.', 'w', '-']);
     expect(textToMorse('ＳＯＳ')).toEqual(textToMorse('SOS'));
+    expect(textToMorse('ｓｏｓ！')).toEqual(textToMorse('SOS!'));
     expect(unsupportedChars('SOS 救命！救命')).toEqual(['救', '命']);
     expect(unsupportedChars('ＳＯＳ#')).toEqual(['#']);
+    expect(unsupportedChars('ＳＯＳ＃')).toEqual(['＃']);
+  });
+
+  it('只轉全形的英數與符號（U+FF01～U+FF5E，D14）：其他相容字元照原作略過', () => {
+    /* 「……」「①」「K（克耳文符號）」「²」不轉成句點、數字、K */
+    for (const t of ['……', '①②③', '\u212A', '²']) {
+      expect(morseTokens(t)).toBeNull();
+      expect(unsupportedChars(t).join('')).toBe([...new Set(t)].join(''));
+    }
+    /* 分解式的重音字母：照原作排 E，附加符號略過 */
+    expect(textToMorse('E\u0301')).toEqual(textToMorse('E'));
+    expect(unsupportedChars('E\u0301')).toEqual(['\u0301']);
+    /* 組合好的重音字母沒有電碼 */
+    expect(morseTokens('É')).toBeNull();
+    /* 大寫照原作用 toUpperCase：ß → SS、ﬁ → FI（原作同樣） */
+    expect(textToMorse('ß')).toEqual(textToMorse('SS'));
+    expect(textToMorse('ﬁ')).toEqual(textToMorse('FI'));
   });
 
   it('沒有填、或一個能轉的字都沒有：隨機（null）', () => {

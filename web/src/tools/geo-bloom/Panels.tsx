@@ -187,7 +187,11 @@ function ChancesSection() {
       <NumberSlider k="pBranch" hint={S.hints.pBranch} />
       <NumberSlider k="pDot" hint={S.hints.pDot} />
       <NumberSlider k="pAttach" hint={S.hints.pAttach} />
-      <NumberSlider k="attachDepth" hint={S.hints.attachDepth} disabled={attach === 0} />
+      <NumberSlider
+        k="attachDepth"
+        hint={attach === 0 ? S.hints.attachDepthOff : S.hints.attachDepth}
+        disabled={attach === 0}
+      />
       <NumberSlider k="pDrop" hint={S.hints.pDrop} />
       <NumberSlider k="regularity" hint={S.hints.regularity} />
     </Section>
@@ -421,7 +425,11 @@ function MorseSection() {
   return (
     <Section title={S.sections.morse} persistKey={`${TOOL_ID}:morse`}>
       <OptionToggle k="morse" label={S.morse} hint={S.hints.morse} />
-      <NumberSlider k="solidInner" disabled={follows} />
+      <NumberSlider
+        k="solidInner"
+        hint={follows ? S.hints.solidInnerFollow(s.startRing === 'ring1' ? 1 : 2) : undefined}
+        disabled={follows}
+      />
       <OptionToggle k="solidFollow" label={S.solidFollow} hint={S.hints.solidFollow} />
       <NumberSlider k="pMorse" hint={S.hints.pMorse} />
       <Field label={S.morseText} hint={S.hints.morseText}>

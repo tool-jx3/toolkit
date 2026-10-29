@@ -112,6 +112,8 @@ export const S = {
     pDot: '只畫線（沒有放圖形）的線，末端加一個實心點。',
     pAttach: '每條線以這個機率改成不畫線，子圖形直接貼在父圖形的邊上（正方形貼在邊上）。',
     attachDepth: '0%＝剛好碰到；正的嵌進父圖形（以子圖形的半徑計），負的離開一點。',
+    attachDepthOff: '目前不作用：「不畫線、直接貼著放」是 0%。',
+    solidInnerFollow: (n: number) => `目前不作用：跟著放射線的起點，保留 ${n} 圈。`,
     pDrop: '連到子圖形的線以這個機率不畫，圖形照樣在（看起來像斷開）。',
     regularity: '100%＝同一個圖形的線平均分在一圈；越低角度越亂。',
     shapes:
@@ -150,7 +152,7 @@ export const S = {
       '相鄰的兩圈用徑向的短線連起來：外圈的長點連到內圈的實線圓，或連到內圈和它重疊的長點；每個字母最多一座。',
     code: '把種子（與設定）藏在圖形的樣子裡。匯出 PNG 之後，用「從圖片讀種子」就能讀回來、畫出同一張。',
     codeVersion:
-      '新方式：同心圓的層數、花紋、長出的線都照資料選，看起來和一般的圖一樣。舊方式：外圈換成一段一段的弧（短＝0、長＝1），資料分散刻在好幾個圖形上。',
+      '新方式不加額外的記號：同心圓畫幾層、外圈用什麼花紋、線往哪個方向長，都由資料決定，看不出刻了東西。舊方式把外圈改成長短不一的弧（短弧是 0、長弧是 1），資料切成好幾段，分別刻在不同的圖形上。',
     codeSettings:
       '和預設不同的設定也刻進去；讀回來時連設定一起換。資料比較長，要比較多的圖形才刻得下。',
     codeUnit: '刻資料的弧的一個單位。太短（比刻種子的線寬的 2 倍短）時不容易讀出來。',
@@ -228,26 +230,27 @@ export const S = {
   codeGuard: '線不經過刻了資料的圖形',
   codeFit: '放不下時放大中央的圖形',
   codeInfo: (c: BloomCodeInfo) => {
+    /* 封包＝資料＋5 個位元組（開頭、旗標、長度、CRC-16） */
     const bytes = c.bits / 8 - 5;
-    const head = `${c.version === 'v2' ? '新方式' : '舊方式'}：資料 ${c.bits} 個位元（${bytes} 位元組${c.settings ? '，含設定' : ''}）`;
+    const head = `${c.version === 'v2' ? '新方式' : '舊方式'}：種子${c.settings ? '與設定' : ''} ${bytes} 位元組，連同檢查碼共 ${c.bits} 個位元`;
     const body =
       c.version === 'v2'
-        ? `刻在 ${c.carriers} 個同心圓上，選樣子用了 ${c.used} 個位元（線的方向 ${c.usedLine}、層數與方向 ${c.usedShape}、花紋 ${c.usedRing}）。`
-        : `刻了資料的圖形 ${c.carriers} 個，刻了 ${c.used} 個位元（含重複）。`;
+        ? `用 ${c.carriers} 個同心圓來刻；選線的方向用掉 ${c.usedLine} 個位元、層數與方向 ${c.usedShape} 個、花紋 ${c.usedRing} 個，合計 ${c.used} 個。`
+        : `資料分段刻在 ${c.carriers} 個圖形上，連重複的一共 ${c.used} 個位元。`;
     const result = c.missing
       ? c.version === 'v2'
-        ? `還差 ${c.missing} 個位元沒刻進去：增加圖形的最多數或子圖形的大小。`
-        : `有 ${c.missing} 個位元沒刻到：增加圖形數、半徑，或縮短刻種子的短點。`
+        ? `刻不下，還少 ${c.missing} 個位元：調高「圖形的最多數」，或用「子圖形放大」把子圖形調大。`
+        : `刻不下，還少 ${c.missing} 個位元：讓圖形多一點、大一點，或縮短「刻種子的短點長度」。`
       : c.version === 'v2'
-        ? '全部刻進去了（多的用種子的亂數補）。'
-        : `全部刻進去了，每個位元至少刻了 ${c.minCover} 次。`;
+        ? '整份都刻進去了；用不到資料的地方照種子隨機選，看起來和平常的圖一樣。'
+        : `整份都刻進去了，每個位元最少有 ${c.minCover} 份。`;
     return { head, body, result, ok: !c.missing };
   },
-  codeShortUnit: '刻種子的短點比刻種子的線寬的 2 倍還短，讀的時候可能讀不出來。',
+  codeShortUnit: '「刻種子的短點長度」不到刻種子線寬的 2 倍，短點容易糊在一起，讀的時候可能失敗。',
 
   /* 從圖片讀種子 */
   decodeHint:
-    '選一張用「把種子刻進圖形」匯出的 PNG（也可以拖進視窗或貼上），從整張圖找出刻了資料的圖形讀回種子。原作刻的圖也讀得出來。',
+    '選一張開了「把種子刻進圖形」後匯出的 PNG（拖進視窗或貼上也可以），就能讀回種子再畫一次。用 al1scut/tkmizGeo 刻的圖也讀得出來。',
   decodeDrop: '選擇或拖放圖片',
   decodeButton: '選擇圖片…',
   decodeCurrent: '讀目前的圖',
@@ -259,31 +262,36 @@ export const S = {
     v2: '只用新方式',
     v1: '只用舊方式',
   } satisfies Record<DecodeMode, string>,
-  decodeClickHint: '漏掉的圖形，點它的中心就會加進去再讀一次。',
-  decodeImageLabel: '讀的圖（點一下加上漏掉的圖形的中心）',
+  decodeClickHint: '圖上有刻了資料、卻沒被框出來的圖形時，用滑鼠點它的中心再讀一次。',
+  decodeImageLabel: '讀的圖（點圖形的中心可以補讀）',
   decoding: '讀取中…',
-  decodeFailedLoad: '讀不了這張圖，請用 PNG、JPEG 或 WebP。',
-  decodeFellBack: '（新方式讀不出來，改用舊方式）',
+  decodeFailedLoad: '這張圖打不開（檔案可能壞了），請換一張 PNG、JPEG 或 WebP 的圖。',
+  decodeRejected: '讀不了這個檔案，請用 PNG、JPEG 或 WebP 的圖。',
+  decodeScaled: (w: number, h: number) =>
+    `這張圖是 ${w} × ${h} px，會先縮到長邊 4000 px 再讀；短點跟著縮短就可能讀不出來。可以加大「刻種子的短點長度」，或用較小的畫布。`,
+  decodeFellBack: '自動：新方式沒讀到，下面是改用舊方式讀的結果。',
   decodeV2Found: (found: number, read: number) =>
-    `新方式：找到同心圓 ${found} 個，循線讀到 ${read} 個。`,
+    `新方式：圖裡有 ${found} 個同心圓，沿著線走到了 ${read} 個。`,
   decodeV2Bits: (bits: number, unit: number, ms: number) =>
-    `讀到 ${bits} 個位元，推算的短點 ${unit.toFixed(1)} px（${Math.round(ms)} ms）。`,
-  decodeV2None: '新方式：找不到刻了資料的同心圓。',
-  decodeV2Pattern: '新方式：中央的同心圓的花紋讀不出來。',
-  decodeV2Fail: '新方式讀不出來（從中央的圖形循線讀不下去，或檢查碼不合）。請用沒有裁切的整張圖。',
+    `取出 ${bits} 個位元；量出的短點約 ${unit.toFixed(1)} px，用了 ${Math.round(ms)} ms。`,
+  decodeV2None: '新方式：這張圖裡沒有找到同心圓。',
+  decodeV2Pattern: '新方式：起點那個同心圓的花紋認不出來（長短點太少）。',
+  decodeV2Fail:
+    '新方式沒讀成功：從起點的同心圓沿著線走不下去，或資料的檢查碼不對。圖有裁切或縮得太小時，請改用原本匯出的整張 PNG。',
   decodeV1Found: (cands: number, found: number, chunks: number) =>
-    `舊方式：候選 ${cands} 點 → 像刻了資料的圖形 ${found} 個，讀出的斷片 ${chunks} 個。`,
-  decodeV1Ranges: (ranges: string) => `讀到的範圍（位元）：${ranges || '沒有'}`,
+    `舊方式：檢查了 ${cands} 個可能的圓心，其中 ${found} 個像刻了資料的圖形，讀出 ${chunks} 段資料。`,
+  decodeV1Ranges: (ranges: string) => `讀到的位元位置：${ranges || '還沒有'}`,
   decodeV1Assembled: (bits: number, need: number | null) =>
-    `從頭連續組好的：${bits} 個位元${need ? `／需要 ${need}` : ''}`,
+    `從第 0 個位元起接得上的：${bits} 個${need ? `（整份要 ${need} 個）` : ''}`,
   decodeV1NoHead:
-    '斷片讀得出來，但沒有資料開頭（第 0 個位元起）的圖形：資料分散刻在好幾個圖形上，請用沒有裁切的整張圖。',
-  decodeV1Short: '斷片不夠。請用整張圖，或點漏掉的圖形的中心。',
-  decodeV1Fail: '讀不出來：找不到刻了資料的圖形，或檢查碼不合（讀不出的圖形標成紅色）。',
-  decodeOk: '讀出來了',
+    '讀到了幾段資料，但缺了開頭那一段（從第 0 個位元起），拼不起來。舊方式把資料分段刻在不同的圖形上，請用沒有裁切的整張圖。',
+  decodeV1Short: '讀到的段落還湊不成整份資料。可以換整張圖再讀，或在圖上點沒被框出來的圖形的中心。',
+  decodeV1Fail:
+    '沒讀成功：沒有找到刻了資料的圖形，或讀出的段落檢查碼都不對（紅框是讀不出來的圖形）。',
+  decodeOk: '讀到種子了',
   decodeSeed: (seed: string) => `種子：${seed}`,
   decodeSettings: (n: number) =>
-    n ? `設定：${n} 項（重畫時一起換）` : '設定：沒有（用目前的設定重畫）',
+    n ? `另外刻了 ${n} 項設定，重畫時一起套用。` : '圖裡只刻了種子，重畫時沿用現在的設定。',
   decodeApply: '用這個種子重畫',
   decodeApplied: (seed: string) => `已換成讀出的種子「${seed}」（固定種子）。`,
   close: '關閉',
@@ -310,13 +318,18 @@ export const S = {
   resetLabel: '全部重設',
   resetTitle: '全部重設？',
   resetDescription: '所有設定會回到預設值，並換一個新的種子。之後還可以按「復原」取回。',
+  /* 改版前（資料版本 1）的設定（3.8、D20） */
+  legacyTitle: '上次的設定是改版前存的',
+  legacyChange: '這一版的畫法改了，同一個種子畫出來會和以前不同（中央是同心圓的圖差最多）。',
+  legacyNotice:
+    '這份專案檔是改版前存的：這一版的畫法改了，同一個種子畫出來會和以前不同（中央是同心圓的圖差最多）。',
   usage: [
     '按「產生」（或空白鍵）換一個種子，畫出新的花紋；同一個種子、同樣的設定一定畫出同一張。',
     '改任何設定都會用同一個種子立刻重畫；想保留喜歡的構圖，就打開「固定種子」再慢慢調。',
     '從「範本」挑一組設定開始最快：星座、魔法陣、科幻介面……之後再自己調。',
     '「同心圓」與「摩斯環」決定同心圓的樣子：線從哪一圈出發、外圈的點線（可以填自己的英文字，排成摩斯電碼）、相鄰兩圈之間的摩斯橋。中央的同心圓會依種子換樣子（三角形、中心的大小、長出三條線）。',
     '「重疊」的設定決定圖形會不會擠在一起、線會不會交叉；「收在畫布內」可以讓整個花紋留在畫面裡。',
-    '「把種子刻進圖形」把種子（與設定）藏在圖形的樣子裡；匯出的 PNG 用「從圖片讀種子」（或直接拖進視窗）就能讀回來、畫出同一張，原作刻的圖也讀得出來。',
+    '「把種子刻進圖形」把種子（與設定）藏在圖形的樣子裡；匯出的 PNG 用「從圖片讀種子」（或直接拖進視窗）就能讀回來、畫出同一張；用 al1scut/tkmizGeo 刻的圖也讀得出來。',
     '匯出 PNG（可以透明背景）或 SVG（向量，放大不會糊）。很大的畫布（例如 8000 × 8000）預覽會縮小顯示，匯出時才畫全尺寸，要等幾秒。',
     '設定與種子會自動存在這個瀏覽器；「專案」選單可以存成專案檔，換電腦也能畫出同一張。',
   ],

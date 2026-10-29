@@ -1,7 +1,7 @@
 /**
  * 摩斯環（規格 1.11 的 F65～F72、3.11）：把一圈（或一段弧）排成摩斯電碼的短點與長點。
- * - 自訂文字：照國際摩斯電碼（英文字母、數字與 . , ? / - ! @），大小寫不分；空白（含全形空白）是單字間隔；
- *   表裡沒有的字（中文、日文、其他符號）略過。全形的英數字先換成半形（本站加的，D14）。
+ * - 自訂文字：照國際摩斯電碼（英文字母、數字與 . , ? / - ! @），大小寫不分（照原作用 toUpperCase）；空白（含全形空白）是單字間隔；
+ *   表裡沒有的字（中文、日文、其他符號）略過。全形的英數與符號（U+FF01～U+FF5E）先換成半形（本站加的，D14；其他字不轉）。
  *   一個能轉的字都沒有時當成沒有填（隨機；原作會停住畫不下去，D13）。
  * - 沒有自訂文字時隨機：每個字母 1～5 個符號，各自以「長點的比例」決定長或短，字母後以「單字間隔的機率」接單字間隔、否則接字母間隔。
  * 亂數的取用順序、長度的算法照原作（同一個種子才會畫出同一張）。
@@ -87,10 +87,14 @@ export interface MorseLayout {
 
 const isSpace = (ch: string) => ch === ' ' || ch === '　';
 
+/** 全形的英數與符號（U+FF01～U+FF5E）換成半形（D14）；全形空白照原作當成空白，其他字都不動 */
+const halfWidth = (text: string) =>
+  text.replace(/[\uFF01-\uFF5E]/g, (ch) => String.fromCharCode(ch.charCodeAt(0) - 0xfee0));
+
 /** 文字 → 符號列（字母之後接字母間隔；空白換成單字間隔；最後一個字母間隔拿掉） */
 export function textToMorse(text: string): MorseToken[] {
   const out: MorseToken[] = [];
-  for (const ch of text.normalize('NFKC').toUpperCase()) {
+  for (const ch of halfWidth(text).toUpperCase()) {
     if (isSpace(ch)) {
       if (out.length && out[out.length - 1] !== 'w') {
         if (out[out.length - 1] === 'l') out.pop();
@@ -114,11 +118,14 @@ export function morseTokens(text: string): MorseToken[] | null {
   return tokens.some((t) => t === '.' || t === '-') ? tokens : null;
 }
 
-/** 自訂文字裡沒有摩斯電碼、會略過的字（不重複，依出現順序；空白不算） */
+/** 自訂文字裡沒有摩斯電碼、會略過的字（照打的字列出；不重複，依出現順序；空白不算） */
 export function unsupportedChars(text: string): string[] {
   const seen = new Set<string>();
-  for (const ch of text.normalize('NFKC').toUpperCase())
-    if (!isSpace(ch) && !MORSE_CODE[ch] && !/\s/.test(ch)) seen.add(ch);
+  for (const ch of text) {
+    if (isSpace(ch) || /\s/.test(ch)) continue;
+    /* 大寫可能變成好幾個字（例：ß → SS）：一個都沒有電碼才算略過 */
+    if (![...halfWidth(ch).toUpperCase()].some((c) => MORSE_CODE[c])) seen.add(ch);
+  }
   return [...seen];
 }
 
