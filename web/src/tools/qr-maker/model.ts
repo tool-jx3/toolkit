@@ -1,6 +1,6 @@
 /**
  * QR Code 產生器的資料：內容、大小、QR code 設定、點與角的樣式、背景、中間的圖。
- * 預設值照原作（kozakdenys/qr-code-styling 的 README 與 `src/core/QROptions.ts`），內容的預設由本站決定。
+ * 預設值照原作（kozakdenys/qr-code-styling 的 README 與 `src/core/QROptions.ts`）；內容（本站）與邊距（24 px，原作 0）除外。
  * 存檔與專案檔讀回時一律經過 normalizeDoc（缺欄位補預設、數值夾在範圍裡、看不懂的選項回到預設）。
  */
 import type { AssetImageRef } from '@/core/assets';
@@ -97,7 +97,8 @@ export function initialDoc(): DocState {
     data: DEFAULT_DATA,
     width: 300,
     height: 300,
-    margin: 0,
+    /* 和原作不同（原作 0）：預設內容約 2.4 格的留白，貼在有顏色的底上也掃得到（主控 2026-10-29 裁定，規格 D2） */
+    margin: 24,
     shape: 'square',
     qr: { version: 0, mode: 'auto', ecl: 'Q' },
     dots: {

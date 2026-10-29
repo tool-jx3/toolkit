@@ -217,7 +217,8 @@ test('開頁：預設值照原作、預覽讀得出來、頁尾只有靈感來�
   const errors = await open(page);
   const d = await doc(page);
   expect(d.data).toBe('https://example.com/');
-  expect([d.width, d.height, d.margin, d.shape]).toEqual([300, 300, 0, 'square']);
+  /* 邊距 24 px（和原作的 0 不同，規格 D2） */
+  expect([d.width, d.height, d.margin, d.shape]).toEqual([300, 300, 24, 'square']);
   expect(d.qr).toEqual({ version: 0, mode: 'auto', ecl: 'Q' });
   expect([d.dots.type, d.dots.paint.color, d.dots.roundSize]).toEqual(['square', '#000000', true]);
   expect([d.cornerSquare.type, d.cornerDot.type, d.background.color]).toEqual([
@@ -232,8 +233,10 @@ test('開頁：預設值照原作、預覽讀得出來、頁尾只有靈感來�
   expect(c.wrong).toBe(0);
   await expect(checkBox(page)).toHaveAttribute('data-state', 'success');
   await expect(checkBox(page)).toContainText('讀得出來');
-  /* 四周沒有留白的提醒（資訊） */
-  await expect(checkBox(page)).toContainText('四周留白約 0 格');
+  /* 預設的邊距約 2.4 格：沒有留白的提醒 */
+  expect(c.grid).toEqual({ x: 25, y: 25, cell: 10, count: 25 });
+  expect(c.view?.items).toEqual([]);
+  await expect(checkBox(page)).not.toContainText('四周留白');
   await expect(page.getByTestId('qr-canvas')).toHaveJSProperty('width', 300);
   const footer = page.locator('footer');
   await expect(footer).toHaveText('靈感來源：kozakdenys/qr-code-styling');
@@ -308,6 +311,10 @@ test('大小：寬高、邊距（四周留白的提醒消失）、太小時說�
   await page.getByRole('spinbutton', { name: '寬' }).fill('500');
   await page.getByRole('spinbutton', { name: '寬' }).press('Enter');
   await expect(page.getByTestId('qr-canvas')).toHaveJSProperty('width', 500);
+  /* 邊距 0：四周留白的提醒（資訊） */
+  await page.getByRole('spinbutton', { name: '邊距' }).fill('0');
+  await page.getByRole('spinbutton', { name: '邊距' }).press('Enter');
+  await expect(checkBox(page)).toContainText('四周留白約 0 格');
   await page.getByRole('spinbutton', { name: '邊距' }).fill('40');
   await page.getByRole('spinbutton', { name: '邊距' }).press('Enter');
   await expect.poll(async () => (await doc(page)).margin).toBe(40);

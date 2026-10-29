@@ -24,8 +24,9 @@ import { activeLook, applyLook, LOOK_PRESETS } from '@/tools/qr-maker/presets';
 import { buildQr, exportFileName } from '@/tools/qr-maker/render';
 
 describe('normalizeDoc', () => {
-  it('壞掉的存檔回到預設、數值夾在範圍裡', () => {
+  it('壞掉的存檔回到預設、數值夾在範圍裡；缺邊距時補 24', () => {
     expect(normalizeDoc(null)).toEqual(initialDoc());
+    expect(normalizeDoc({ data: 'x' }).margin).toBe(24);
     const d = normalizeDoc({
       data: 42,
       width: 99999,
@@ -158,11 +159,16 @@ describe('檢查清單', () => {
     ...patch,
   });
 
-  it('都沒問題＝綠；只有資訊（留白）也是綠', () => {
+  it('預設（邊距 24 px）沒有提醒；邊距 0 只有留白的資訊，也是綠', () => {
     const d = initialDoc();
+    expect(d.margin).toBe(24);
     const v = checkView(d, built(d), px({}));
     expect(v.notice?.tone).toBe('success');
-    expect(v.items.map((i) => i.id)).toEqual(['quiet']);
+    expect(v.items).toEqual([]);
+    d.margin = 0;
+    const z = checkView(d, built(d), px({}));
+    expect(z.notice?.tone).toBe('success');
+    expect(z.items.map((i) => i.id)).toEqual(['quiet']);
   });
   it('容錯用掉一半以上＝警告（總結是提醒）；以下＝資訊', () => {
     const d = initialDoc();
@@ -202,6 +208,7 @@ describe('檢查清單', () => {
     d.background.mode = 'transparent';
     d.width = 40;
     d.height = 40;
+    d.margin = 0;
     const ids = styleIssues(d, built(d)).map((i) => `${i.level}:${i.id}`);
     expect(ids).toEqual(['warning:contrast', 'info:transparent', 'warning:small']);
   });
