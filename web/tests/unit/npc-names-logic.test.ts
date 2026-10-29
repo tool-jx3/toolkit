@@ -3,19 +3,23 @@
  * 2026-10：弄墨 Inknomu 的考據語料（8 個地區、年代選項分兩組、中性、階級、國家、涵義、CSV 的新欄位、舊存檔）。
  */
 import { describe, expect, it } from 'vitest';
-import { type GeneratedName, parseNameData } from '@/core/names';
-import type { CorpusData, CorpusName } from '@/core/names/corpus';
+import { type GeneratedName, NAME_REGIONS, type NameData, parseNameData } from '@/core/names';
+import { type CorpusData, type CorpusName, generateCorpusNames } from '@/core/names/corpus';
 import * as jpCorpus from '@/core/names/inknomu/inknomu-jp';
 import * as nordicCorpus from '@/core/names/inknomu/inknomu-nordic';
 import * as ruCorpus from '@/core/names/inknomu/inknomu-ru';
+import * as twCorpus from '@/core/names/inknomu/inknomu-tw';
 import * as ukCorpus from '@/core/names/inknomu/inknomu-uk';
+import * as usCorpus from '@/core/names/inknomu/inknomu-us';
 import * as jpRaw from '@/core/names/jp/names-jp';
 import * as twRaw from '@/core/names/tw/names-tw';
+import * as usRaw from '@/core/names/us/names-us';
 import {
   CSV_HEADER,
   copyAllText,
   copyLine,
   corpusDetails,
+  countMeanings,
   csvRows,
   currentEra,
   effectiveConditions,
@@ -27,6 +31,7 @@ import {
   historyLabel,
   initialState,
   isCorpusName,
+  meaningCreditLabel,
   mergeBatch,
   type NamesState,
   type NpcName,
@@ -912,5 +917,100 @@ describe('紀錄的精簡格式（2026-10 驗證後的裁定）', () => {
       expect(stored, era).toBeLessThan(full * 0.5);
       expect(stored, era).toBeLessThan(140_000);
     }
+  });
+});
+
+/* ---------- 2026-10 修訂：依人數的名單也附涵義（F57） ---------- */
+
+describe('依人數的名單的涵義（F57）', () => {
+  const JP_C = corpus('jp', jpCorpus);
+  const TW_C = corpus('tw', twCorpus);
+  const US_C = corpus('us', usCorpus);
+  const US = parseNameData('us', usRaw);
+  const COUNT: Record<'jp' | 'tw' | 'us', NameData> = { jp: JP, tw: TW, us: US };
+  const corpusOf = (region: string) =>
+    region === 'jp' ? JP_C : region === 'tw' ? TW_C : region === 'us' ? US_C : null;
+
+  const sato: GeneratedName = {
+    region: 'jp',
+    era: 'modern',
+    gender: 'male',
+    family: '佐藤',
+    given: '博',
+    familyReading: 'さとう',
+    givenReading: 'ひろし',
+    text: '佐藤 博',
+  };
+  const harold: GeneratedName = {
+    region: 'us',
+    era: 'adult1920',
+    gender: 'male',
+    family: 'Whitmore',
+    given: 'Harold',
+    middle: 'J.',
+    text: 'Harold J. Whitmore',
+  };
+
+  it('人數名單的名字：語料載入了才有；語料的名字不在這裡查（它們自己有涵義）', () => {
+    expect(countMeanings(sato, null)).toBeNull();
+    const m = countMeanings(sato, JP_C);
+    expect(m?.meanings).toHaveLength(2);
+    expect(m?.meanings[0]).toMatch(/^姓：/);
+    expect(m?.meanings[1]).toMatch(/^名：/);
+    expect(m?.packs).toEqual(['jp-modern', 'jp-showa']);
+    /* 別的地區的語料：沒有 */
+    expect(countMeanings(sato, US_C)).toBeNull();
+    const corpusName = generateCorpusNames(jpCorpus.PACKS[1], { count: 1, seed: 'x' }).names[0];
+    expect(countMeanings(corpusName, JP_C)).toBeNull();
+    /* 美國：名在前；姓（Whitmore）語料沒有就只有名 */
+    expect(countMeanings(harold, US_C)?.meanings).toEqual([expect.stringMatching(/^名：/)]);
+  });
+
+  it('出處：地區＋包的短名稱；兩個包以「、」分開', () => {
+    expect(meaningCreditLabel('jp', ['jp-modern'])).toBe('日本・平成令和時代');
+    expect(meaningCreditLabel('jp', ['jp-modern', 'jp-showa'])).toBe(
+      '日本・平成令和時代、昭和時代',
+    );
+    expect(meaningCreditLabel('tw', ['tw-modern'])).toBe('台灣・現代');
+    expect(meaningCreditLabel('us', ['us-classic', 'us-latino'])).toBe('美國・經典時代、拉美裔');
+  });
+
+  it('CSV：人數名單的列在查得到時填涵義（格式同語料的列），原文／拼音與備註留白；沒給語料時留白', () => {
+    const rows = csvRows([sato, harold], corpusOf);
+    expect(rows[1][10]).toBe('');
+    expect(rows[1][11]).toBe(countMeanings(sato, JP_C)?.meanings.join('；'));
+    expect(rows[1][11]).toMatch(/^姓：[^；]+；名：[^；]+$/);
+    expect(rows[1][12]).toBe('');
+    expect(rows[2][11]).toMatch(/^名：[^；]+$/);
+    expect(rows[2][12]).toBe('');
+    /* 其他欄不變 */
+    expect(rows[1].slice(0, 10)).toEqual(csvRows([sato])[1].slice(0, 10));
+    expect(csvRows([sato])[1].slice(10)).toEqual(['', '', '']);
+  });
+
+  it('同種子同條件產生的一批和改版前相同（工具的 nextBatch；e630c6b 的結果）', async () => {
+    const lines: string[] = [];
+    for (const r of NAME_REGIONS)
+      for (const era of r.eras)
+        for (const gender of ['male', 'female', 'any'] as const)
+          for (const part of ['full', 'given', 'family'] as const) {
+            const s = state({
+              region: r.id,
+              eras: { ...initialState.eras, [r.id]: era.id },
+              gender,
+              part,
+              seed: `tool-${r.id}-${era.id}`,
+              count: 20,
+              middleInitial: true,
+            });
+            lines.push(JSON.stringify(nextBatch(s, COUNT[r.id]).names));
+          }
+    expect(lines).toHaveLength(54);
+    const digest = new Uint8Array(
+      await crypto.subtle.digest('SHA-256', new TextEncoder().encode(lines.join('\n'))),
+    );
+    expect([...digest].map((b) => b.toString(16).padStart(2, '0')).join('')).toBe(
+      'a2009cf2da4848f016ae88b447efc9070549f0eb485af2a3f3ed584a277083f7',
+    );
   });
 });

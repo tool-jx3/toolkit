@@ -1,13 +1,21 @@
 /**
  * 一個名字：大字的全名（點一下複製）、讀音、性別、鎖定；考據語料的名字另有說明（原站的排法，字小一級，
  * 在複製的範圍外面，可以自己選取）：涵義一段一行（「姓：…」「名：…」依姓名順序）、備註一行、暱稱與姓的另一形一行。
+ * 依人數的名單的名字在語料裡查得到涵義時（F57）：涵義一段一行（不附備註），下面一行小字標出處。
  */
 import { Lock, LockOpen } from 'lucide-react';
+import {
+  type CorpusRegion,
+  type CountNameMeanings,
+  corpusRegionInfo,
+  INKNOMU_SOURCE,
+} from '@/core/names/corpus';
 import { cn, IconButton } from '@/ui';
 import {
   corpusDetails,
   genderLabel,
   isCorpusName,
+  meaningCreditLabel,
   type NpcName,
   type ReadingShow,
   shownReadings,
@@ -18,14 +26,46 @@ export interface NameCardProps {
   name: NpcName;
   locked: boolean;
   show: ReadingShow;
+  /** 依人數的名單的名字在語料裡查到的涵義（F57；沒有、或「顯示涵義」關著時 null） */
+  countMeaning?: CountNameMeanings | null;
   onCopy: (text: string) => void;
   onToggleLock: (text: string) => void;
 }
 
-export function NameCard({ name, locked, show, onCopy, onToggleLock }: NameCardProps) {
+/** 依人數的名單的涵義的出處：「涵義：弄墨 Inknomu《角色姓名產生器》（日本・平成令和時代）」，名稱連到原站這個地區的頁面 */
+function MeaningCredit({ region, packs }: { region: CorpusRegion; packs: readonly string[] }) {
+  return (
+    <p data-testid="meaning-credit" className="m-0 break-words text-muted">
+      {S.list.meaningCredit}
+      <a
+        className="text-accent underline"
+        href={corpusRegionInfo(region).url}
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        {INKNOMU_SOURCE.name}
+      </a>
+      （{meaningCreditLabel(region, packs)}）
+    </p>
+  );
+}
+
+export function NameCard({
+  name,
+  locked,
+  show,
+  countMeaning,
+  onCopy,
+  onToggleLock,
+}: NameCardProps) {
   const readings = shownReadings(name, show);
   const corpus = isCorpusName(name) && show.meaning ? name : null;
-  const details = corpus ? corpusDetails(corpus) : [];
+  const counted = !isCorpusName(name) && show.meaning ? (countMeaning ?? null) : null;
+  const details = corpus
+    ? corpusDetails(corpus)
+    : counted
+      ? counted.meanings.map((text) => ({ text, muted: false }))
+      : [];
   return (
     <li
       data-testid="name-card"
@@ -83,6 +123,7 @@ export function NameCard({ name, locked, show, onCopy, onToggleLock }: NameCardP
               {d.text}
             </p>
           ))}
+          {counted ? <MeaningCredit region={name.region} packs={counted.packs} /> : null}
         </div>
       ) : null}
     </li>

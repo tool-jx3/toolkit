@@ -11,15 +11,22 @@
  * - 組名：`name_order` 是 'gs' 時「名 姓」（空白分開），其他「姓＋name_sep＋名」；女性用姓的女性形（俄羅斯）。
  *   沒有姓、規則有父名的包（維京）：父名＝隨機一個男性名的屬格字根（沒有就用原形）＋ son／dóttir，30% 再加一個綽號。
  * - 種子、不重複、排除名單和 core/names 的 `generateNames` 相同（同樣的種子、選項與排除名單 → 同樣的一批）。
+ * - 人數名單的涵義（`countNameMeanings`）：core/names 抽出的姓或名（日本、台灣、美國），語料裡有同一個時附上那一筆的涵義；
+ *   日本要寫法與讀音都相同，依人數名單的年代決定先找哪個包（`COUNT_MEANING_PACKS`）。
  *
- * coc-npc 不用這個模組（它的隨機取名只用 core/names 的人數名單）。規格：docs/refactor/specs/npc-names.md 2.5、3.5。
+ * coc-npc 不用這個模組（它的隨機取名只用 core/names 的人數名單）。規格：docs/refactor/specs/npc-names.md 2.5、3.5、3.7（人數名單的涵義）。
  */
 
 import {
+  eraOf,
+  type GeneratedName,
+  isNameRegion,
   kanaToRomaji,
   NAME_COUNT_MAX,
+  type NameGender,
   type NamePart,
   type NameReadings,
+  type NameRegion,
   type RandomFn,
   seededRandom,
   toKatakana,
@@ -735,6 +742,143 @@ export function generateCorpusNames(
     names.push(name);
   }
   return { names, exhausted: names.length < count };
+}
+
+/* ---------- 人數名單的涵義（npc-names 2026-10 修訂，規格 F57） ---------- */
+
+/**
+ * 人數名單（core/names 的日本、台灣、美國）找涵義時包的順序，依人數名單的年代：同一個姓或名在好幾個包都有時，
+ * 用這個順序裡第一個有的包（故事的年代最接近的在前）。
+ */
+export const COUNT_MEANING_PACKS: Readonly<
+  Record<NameRegion, Readonly<Record<string, readonly string[]>>>
+> = {
+  jp: {
+    modern: ['jp-modern', 'jp-showa', 'jp-taisho', 'jp-edo', 'jp-sengoku', 'jp-rare'],
+    showa: ['jp-showa', 'jp-taisho', 'jp-modern', 'jp-edo', 'jp-sengoku', 'jp-rare'],
+    taisho: ['jp-taisho', 'jp-showa', 'jp-edo', 'jp-modern', 'jp-sengoku', 'jp-rare'],
+  },
+  tw: {
+    now: ['tw-modern', 'tw-y2k', 'tw-japanese', 'tw-qing', 'tw-wuxia'],
+  },
+  us: {
+    adult1920: ['us-classic', 'us-modern', 'us-african-american', 'us-latino'],
+    born1920: ['us-classic', 'us-modern', 'us-african-american', 'us-latino'],
+  },
+};
+
+/** 人數名單的這個地區與年代找涵義時包的順序（年代不屬於這個地區時用第一個年代，同 `eraOf`） */
+export function countMeaningPacks(region: NameRegion, era?: string): readonly string[] {
+  return COUNT_MEANING_PACKS[region][eraOf(region, era)] ?? [];
+}
+
+type MeaningList = 'family' | NameGender;
+
+/** 一個包的比對表：姓、男（男性名＋中性名）、女（女性名＋中性名）各一個「比對鍵 → 涵義」（同一個鍵取第一筆） */
+type MeaningTable = Record<MeaningList, Map<string, string>>;
+
+const meaningTables = new WeakMap<CorpusData, Map<string, MeaningTable>>();
+
+/** 比對鍵：寫法（NFC，不轉大小寫）；日本另加讀音（平假名） */
+const meaningKey = (text: string, reading: string | undefined, withReading: boolean) =>
+  withReading
+    ? `${text.normalize('NFC')}\n${(reading ?? '').normalize('NFC')}`
+    : text.normalize('NFC');
+
+/** 一個地區的語料的比對表（每個包一個；同一份資料只建一次） */
+function meaningTablesOf(data: CorpusData): Map<string, MeaningTable> {
+  const cached = meaningTables.get(data);
+  if (cached) return cached;
+  const withReading = data.region === 'jp';
+  const tables = new Map<string, MeaningTable>();
+  for (const pack of data.packs) {
+    const table: MeaningTable = { family: new Map(), male: new Map(), female: new Map() };
+    const add = (list: MeaningList, text: string, x: InknomuEntry) => {
+      if (!x.meaning) return;
+      /* 日本的讀音有好幾種讀法（「のぞみ／のぞむ」）時，每一種各一個鍵；沒有讀音的對不上 */
+      const readings = withReading ? (x.reading?.split('／') ?? []) : [undefined];
+      for (const r of readings) {
+        const key = meaningKey(text, r, withReading);
+        if (!table[list].has(key)) table[list].set(key, x.meaning);
+      }
+    };
+    for (const s of pack.surnames) add('family', s.s, s);
+    for (const g of [...pack.given.m, ...pack.given.u]) add('male', g.g, g);
+    for (const g of [...pack.given.f, ...pack.given.u]) add('female', g.g, g);
+    tables.set(pack.id, table);
+  }
+  meaningTables.set(data, tables);
+  return tables;
+}
+
+export interface CountMeaningHit {
+  meaning: string;
+  /** 涵義出自哪個包 */
+  pack: string;
+}
+
+/**
+ * 人數名單的一個姓或名在語料裡的涵義：照 `countMeaningPacks(地區, 年代)` 的順序找第一個有的包。
+ * 日本：寫法與讀音（平假名）都相同才算（語料的讀音有好幾種讀法「のぞみ／のぞむ」時任一個）；
+ * 台灣、美國：寫法相同（NFC 後比較，不轉大小寫）。姓對語料的姓；名依性別：男＝男性名＋中性名、女＝女性名＋中性名。
+ * 同一個包裡同一個比對鍵有兩筆以上時取第一筆（姓、男性名、女性名、中性名的資料順序）。
+ */
+export function findCountMeaning(
+  data: CorpusData,
+  era: string | undefined,
+  list: MeaningList,
+  text: string,
+  reading?: string,
+): CountMeaningHit | null {
+  const region = data.region;
+  if (!text || !isNameRegion(region)) return null;
+  const withReading = region === 'jp';
+  if (withReading && !reading) return null;
+  const key = meaningKey(text, reading, withReading);
+  const tables = meaningTablesOf(data);
+  for (const id of countMeaningPacks(region, era)) {
+    const meaning = tables.get(id)?.[list].get(key);
+    if (meaning) return { meaning, pack: id };
+  }
+  return null;
+}
+
+export interface CountNameMeanings {
+  /** 「姓：…」「名：…」，依姓名順序（日本、台灣先姓；美國先名）；查不到的那一段沒有 */
+  meanings: string[];
+  /** 用到的包（依上面的順序，不重複） */
+  packs: string[];
+}
+
+/**
+ * 人數名單的一個名字（core/names 的 `GeneratedName`）的涵義：姓與名各自查（可能出自不同的包）；
+ * 只有名或只有姓時另一段是空字串，只查那一段。兩段都查不到、或語料不是這個地區的時回 null。
+ */
+export function countNameMeanings(
+  data: CorpusData,
+  name: Pick<
+    GeneratedName,
+    'region' | 'era' | 'gender' | 'family' | 'given' | 'familyReading' | 'givenReading'
+  >,
+): CountNameMeanings | null {
+  if (data.region !== name.region) return null;
+  const family = findCountMeaning(data, name.era, 'family', name.family, name.familyReading);
+  const given = findCountMeaning(data, name.era, name.gender, name.given, name.givenReading);
+  const found = [
+    family ? { text: `姓：${family.meaning}`, pack: family.pack } : null,
+    given ? { text: `名：${given.meaning}`, pack: given.pack } : null,
+  ].filter((x): x is { text: string; pack: string } => !!x);
+  if (!found.length) return null;
+  if (name.region === 'us') found.reverse();
+  return {
+    meanings: found.map((x) => x.text),
+    packs: [...new Set(found.map((x) => x.pack))],
+  };
+}
+
+/** 出處用的短名稱：去掉地區與最後的括號（「日本・平成令和時代（1989–今）」→「平成令和時代」） */
+export function corpusPackShortLabel(info: Pick<InknomuPackInfo, 'label'>): string {
+  return corpusPackLabel(info).replace(/（[^（）]*）$/, '');
 }
 
 /* ---------- 規則的說明 ---------- */

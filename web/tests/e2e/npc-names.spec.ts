@@ -303,8 +303,9 @@ test('匯出 TXT 與 CSV：檔名、內容與畫面上的這一批相同', async
   expect(rows).toHaveLength(11);
   expect(rows.slice(1).map((r) => r[0])).toEqual(texts);
   const [full, family, given, middle, gender, region, era, hira, kata, romaji, ...corpus] = rows[1];
-  /* 依人數的名單：原文／拼音、涵義、備註留白 */
-  expect(corpus).toEqual(['', '', '']);
+  /* 依人數的名單：原文／拼音、備註留白；涵義在考據語料查得到時填（F57，格式同語料的列） */
+  expect([corpus[0], corpus[2]]).toEqual(['', '']);
+  expect(corpus[1]).toMatch(/^((姓|名)：[^；]+(；名：[^；]+)?)?$/);
   expect(full).toBe(`${family} ${given}`);
   expect(middle).toBe('');
   expect(['男', '女']).toContain(gender);
@@ -412,6 +413,8 @@ test.describe('390 寬', () => {
     await expect(btn(page, '產生')).toBeInViewport();
     await page.mouse.move(0, 0);
     await page.evaluate(() => window.scrollTo(0, 0));
+    /* 人數名單的涵義（F57）載入完才拍 */
+    await expect(page.getByTestId('meaning-credit').first()).toBeVisible();
     await page.waitForTimeout(300);
     /* 紀錄有時間，遮起來 */
     await expect(page).toHaveScreenshot('npc-names-390.png', {
@@ -443,6 +446,8 @@ test('1280 寬：視覺基準（種子 shot 的一批固定）', async ({ page }
   await expect(page.getByTestId('conditions-summary')).toBeHidden();
   await page.getByLabel('種子', { exact: true }).blur();
   await page.mouse.move(0, 0);
+  /* 人數名單的涵義（F57）載入完才拍 */
+  await expect(page.getByTestId('meaning-credit').first()).toBeVisible();
   await page.waitForTimeout(300);
   await expect(page).toHaveScreenshot('npc-names-1280.png', {
     mask: [page.getByTestId('history-entry')],

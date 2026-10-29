@@ -461,3 +461,57 @@ describe('讀音', () => {
     }
   });
 });
+
+/** 一串文字的 SHA-256（十六進位） */
+async function sha256(text: string): Promise<string> {
+  const digest = new Uint8Array(
+    await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text)),
+  );
+  return [...digest].map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+describe('同種子同條件的結果和改版前相同（2026-10 人數名單附涵義時確認抽法沒動）', () => {
+  it('3 個地區 6 個年代 × 性別 × 姓名 × 中間名縮寫 × 5 個種子，各 50 個：逐字相同（e630c6b 的結果）', async () => {
+    const lines: string[] = [];
+    for (const r of NAME_REGIONS)
+      for (const era of r.eras)
+        for (const gender of ['male', 'female', 'any'] as const)
+          for (const part of ['full', 'given', 'family'] as const)
+            for (const middleInitial of r.middleInitial ? [false, true] : [false])
+              for (let s = 0; s < 5; s++) {
+                const { names } = generateNames(DATA[r.id], {
+                  count: 50,
+                  era: era.id,
+                  gender,
+                  part,
+                  middleInitial,
+                  seed: `parity-${s}`,
+                });
+                lines.push(JSON.stringify(names));
+              }
+    expect(lines).toHaveLength(360);
+    expect(await sha256(lines.join('\n'))).toBe(
+      'ffbff5d800bedb4adc425f9f8eabd6df8972fe742b55d730200fecefe4770d77',
+    );
+    /* 看得懂的幾個 */
+    const texts = (region: NameRegion, era: string, middleInitial = false) =>
+      generateNames(DATA[region], { count: 5, era, seed: 'abc', middleInitial }).names.map(
+        (n) => n.text,
+      );
+    expect(texts('jp', 'modern')).toEqual([
+      '須貝 淳',
+      '松田 隆司',
+      '星野 秀樹',
+      '平野 俊一',
+      '篠原 有里',
+    ]);
+    expect(texts('tw', 'now')).toEqual(['華秀鳳', '張志忠', '楊國雄', '吳金龍', '洪金蓮']);
+    expect(texts('us', 'adult1920', true)).toEqual([
+      'Emma M. McFadden',
+      'Richard W. Ross',
+      'Sarah A. Sullivan',
+      'Tillie O. Oliver',
+      'Gladys A. Moran',
+    ]);
+  });
+});
