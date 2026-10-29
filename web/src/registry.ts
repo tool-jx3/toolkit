@@ -901,7 +901,7 @@ export const TOOLS: readonly ToolEntry[] = [
     summary:
       '把劇本販售頁、handout 的線索、角色卡的連結做成有樣式的 QR code：點與三個角的形狀和顏色（單色或漸層）、背景、中間放 Logo 或頭像、圓形，挑一組外觀預設就好看；產生後自動讀一次確認掃得出來，匯出 PNG、JPEG、WebP、SVG 或直接複製。',
     group: 'G7',
-    status: 'next',
+    status: 'live',
     inspiration: {
       name: 'kozakdenys/qr-code-styling',
       url: 'https://github.com/kozakdenys/qr-code-styling',

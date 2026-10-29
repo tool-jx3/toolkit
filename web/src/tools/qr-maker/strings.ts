@@ -175,7 +175,7 @@ export const S = {
     svg: '向量圖，放大不會糊；中間的圖嵌在檔案裡。',
   } satisfies Record<ExportFormat, string>,
   canvasLimit: (w: number, h: number) =>
-    `輸出 ${w} × ${h} px（約 ${Math.round((w * h) / 10_000).toLocaleString('zh-TW')} 萬像素）超過 Safari 的畫布上限（16,777,216 像素），在 Safari（iPhone、iPad、Mac）上可能匯出失敗；可以降低倍率、縮小寬高或改用 SVG。`,
+    `匯出的圖 ${w} × ${h} px（約 ${Math.round((w * h) / 10_000).toLocaleString('zh-TW')} 萬像素）超過 Safari 的畫布上限（16,777,216 像素），在 Safari（iPhone、iPad、Mac）上可能匯出失敗；可以降低倍率、縮小寬高或改用 SVG。`,
   webpUnsupported: '這個瀏覽器無法匯出 WebP（Safari 不支援），請改用 Chrome、Edge 或 Firefox。',
   fileName: '檔名',
   fileNameHint: '不含副檔名；空白時用「qr」。',
