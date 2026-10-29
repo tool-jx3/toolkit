@@ -61,6 +61,7 @@ import {
   Palette,
   PanelBottom,
   Puzzle,
+  QrCode,
   Route,
   Ruler,
   Scaling,
@@ -159,6 +160,7 @@ const ICONS: Record<string, LucideIcon> = {
   'captcha-card': Grid2x2Check,
   'social-post': MessageSquareHeart,
   'family-tree': TreeDeciduous,
+  'qr-maker': QrCode,
   /* G8 影像與動圖 */
   'video-anim': Film,
   'gif-combiner': Images,
