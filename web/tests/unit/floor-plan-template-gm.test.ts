@@ -62,6 +62,7 @@ const BUILT_IN: Record<string, string[]> = {
   'night-market': ['1F/鐵皮倉庫'],
   theatre: ['B1/奈落深處'],
   karaoke: ['1F/VIP 包廂'],
+  gym: ['1F/舊三溫暖室'],
   station: ['B1/封閉的舊通道'],
   subway: ['B1/工作通道', 'B2/廢棄月台'],
   parking: ['B2/封鎖區'],
@@ -87,7 +88,7 @@ const BUILT_IN: Record<string, string[]> = {
 
 /**
  * 預設 GM 專用的房間（第一批的 8 個範本 15 間＋第三批後半的新範本 56 間；2026-10-22 依 7.18 重新設計的
- * 洋館、神社、古城、太空船照新的格局重選）
+ * 洋館、神社、古城、太空船照新的格局重選；2026-10-29 跟進原作 v1.15 的健身房 2 間）
  */
 const DEFAULTS: Record<string, string[]> = {
   mansion: ['1F/管家室', '2F/女僕房', 'B1/機房'],
@@ -115,6 +116,7 @@ const DEFAULTS: Record<string, string[]> = {
   detective: ['1F/當舖倉庫', '2F/臥室'],
   theatre: ['1F/售票處', '1F/舞台監督室'],
   karaoke: ['1F/員工室', '1F/廚房'],
+  gym: ['1F/員工室', '1F/儲藏室'],
   station: ['1F/售票處'],
   subway: ['B1/站務室'],
   parking: ['B2/機房'],
@@ -234,16 +236,16 @@ describe('範本的預設 GM 專用房間（F225、D37）', () => {
     }
   });
 
-  it('共 71 間、40 個範本（第一批 15 間、8 個範本＋第三批後半 56 間、32 個範本）', () => {
+  it('共 73 間、41 個範本（第一批 15 間、8 個範本＋第三批後半 56 間、32 個範本＋健身房 2 間）', () => {
     const n = Object.values(DEFAULTS).reduce((s, a) => s + a.length, 0);
-    expect(n).toBe(71);
+    expect(n).toBe(73);
     expect(Object.keys(GM_DEFAULT_ROOMS).sort()).toEqual(Object.keys(DEFAULTS).sort());
     expect(
       Object.values(GM_DEFAULT_ROOMS).reduce(
         (s, byFloor) => s + Object.values(byFloor).reduce((t, a) => t + a.length, 0),
         0,
       ),
-    ).toBe(71);
+    ).toBe(73);
     /* 第三批後半：新範本每個都有 GM 專用的房間（寫死的密室或預設的後台） */
     for (const t of TEMPLATES) {
       if (

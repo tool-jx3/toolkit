@@ -1,0 +1,149 @@
+{
+  "app": "indoor-map-maker",
+  "v": 1,
+  "name": "健身房與澡堂（v1.15 新種類）",
+  "theme": "clean",
+  "showSize": "none",
+  "showNames": true,
+  "tokenGrid": 0,
+  "floors": [
+    {
+      "id": "fmvswa5lw11eq",
+      "name": "1F",
+      "rooms": [
+        {
+          "id": "rmvswa63d1220",
+          "x": 1,
+          "y": 1,
+          "w": 16,
+          "h": 12,
+          "name": "訓練室",
+          "cat": "public"
+        },
+        {
+          "id": "rmvswa6h913ul",
+          "x": 17,
+          "y": 1,
+          "w": 12,
+          "h": 12,
+          "name": "洗身區・廁所",
+          "cat": "wet"
+        }
+      ],
+      "walls": [],
+      "openings": [
+        {
+          "id": "omvswaazn1cah",
+          "kind": "slidingc",
+          "o": "v",
+          "x": 17,
+          "y": 6.5,
+          "len": 3,
+          "side": 1,
+          "hinge": 0
+        },
+        {
+          "id": "omvswab7y1duw",
+          "kind": "sliding2",
+          "o": "h",
+          "x": 21.5,
+          "y": 1,
+          "len": 3,
+          "side": 1,
+          "hinge": 0
+        },
+        {
+          "id": "omvswabfs1esc",
+          "kind": "slidingc",
+          "o": "h",
+          "x": 7.5,
+          "y": 13,
+          "len": 3,
+          "side": 1,
+          "hinge": 0
+        }
+      ],
+      "items": [
+        {
+          "id": "imvswa78r14ce",
+          "t": "squat_rack",
+          "x": 2.5,
+          "y": 2.75,
+          "w": 3,
+          "h": 2.4,
+          "rot": 0,
+          "clue": true
+        },
+        {
+          "id": "imvswa7lb155w",
+          "t": "cable_machine",
+          "x": 7.5,
+          "y": 2.75,
+          "w": 3,
+          "h": 2.4,
+          "rot": 0
+        },
+        {
+          "id": "imvswa7xj16ey",
+          "t": "rowing_machine",
+          "x": 13.5,
+          "y": 3.75,
+          "w": 1.2,
+          "h": 4.4,
+          "rot": 0,
+          "label": "朝練用"
+        },
+        {
+          "id": "imvswa89517rl",
+          "t": "yoga_mat",
+          "x": 2.3,
+          "y": 8.45,
+          "w": 3.6,
+          "h": 1.2,
+          "rot": 90
+        },
+        {
+          "id": "imvswa8kq18zl",
+          "t": "wash_station",
+          "x": 19.25,
+          "y": 3,
+          "w": 1.6,
+          "h": 2,
+          "rot": 0,
+          "flip": true
+        },
+        {
+          "id": "imvswa8wq19ig",
+          "t": "urinal",
+          "x": 25.5,
+          "y": 2,
+          "w": 0.9,
+          "h": 0.8,
+          "rot": 0,
+          "gm": true
+        },
+        {
+          "id": "imvswa99b1aqu",
+          "t": "squat_toilet",
+          "x": 25.5,
+          "y": 5.25,
+          "w": 1,
+          "h": 1.6,
+          "rot": 0
+        },
+        {
+          "id": "imvswa9lq1b8z",
+          "t": "trough_sink",
+          "x": 20,
+          "y": 10.5,
+          "w": 4,
+          "h": 1.2,
+          "rot": 0
+        }
+      ],
+      "texts": []
+    }
+  ],
+  "active": 0,
+  "tool": "v1.15"
+}

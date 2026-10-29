@@ -17,7 +17,7 @@ import { tavern, wizardTower } from './fantasy';
 import { applyGmDefaults } from './gmDefaults';
 import { lodge, studio, townhouse } from './homes';
 import { construction, factory, sewer, warehouse } from './industry';
-import { karaoke, theatre } from './leisure';
+import { gym, karaoke, theatre } from './leisure';
 import { apartment, house, japaneseHouse, sanheyuan } from './living';
 import { diner, ryokan, speakeasy } from './lodging';
 import { mansion } from './mansion';
@@ -583,6 +583,21 @@ export const TEMPLATES: readonly FloorTemplate[] = [
       C('1F', '櫃台大廳', 'papers', '包廂的登記表'),
       C('1F', '包廂 3', 'phone', '卡在沙發縫裡的/手機'),
       C('1F', '包廂 6', 'memo', '點歌單上/沒聽過的歌名'),
+    ],
+  },
+  {
+    id: 'gym',
+    group: 'leisure',
+    also: ['commerce'],
+    name: '健身房',
+    description:
+      '面街的連鎖健身房：落地窗邊的有氧區、入口大廳與玻璃隔間的瑜珈教室，中間是器材區（滑輪訓練機、划船機）與自由重量區（深蹲架、臥推架、啞鈴）；東側走廊通往員工室、更衣室與淋浴間、廁所。男淋浴間牆上的暗門後面，封起來的舊三溫暖室是 GM 專用。',
+    build: gym,
+    clues: [
+      C('1F', '瑜珈教室', 'photo', '角落的/學員合照'),
+      C('1F', '器材區', 'diary', '全是數字的/訓練日誌'),
+      C('1F', '男更衣室', 'bag', '沒人認領的/運動背包'),
+      C('1F', '女更衣室', 'pills', '罐底藏的藥片'),
     ],
   },
   {

@@ -190,6 +190,7 @@ export const S = {
     door2: '雙開門',
     sliding: '拉門',
     sliding2: '雙片拉門・紙門',
+    slidingc: '雙開拉門',
     folding: '摺疊門・衣櫃門',
     auto: '自動門',
     shutter: '鐵捲門',
@@ -362,8 +363,9 @@ export const S = {
     rename: '重新命名',
     renameLabel: '樓層名稱',
     duplicate: '複製這一層',
-    left: '往左移',
-    right: '往右移',
+    /* 2026-10-29 跟進原作 v1.15：說明改成「調換樓層順序」，不要讓人以為是平移畫面（F184） */
+    left: '樓層順序往左移（與左邊的樓層對調）',
+    right: '樓層順序往右移（與右邊的樓層對調）',
     remove: '刪除這一層',
     confirmTitle: (name: string) => `刪除「${name}」？`,
     confirmText: '這一層的房間、家具與門窗都會刪掉（可以用「復原」回來）。',
@@ -519,7 +521,7 @@ export const S = {
     withContents: '連裡面的東西一起刪',
   },
 
-  /** 讀原作新版（v1.05～v1.14）的地圖檔：換成相近的種類、略過的東西（規格 F213、D25） */
+  /** 讀原作新版（v1.05～v1.15）的地圖檔：換成相近的種類、略過的東西（規格 F213、D25） */
   compat: {
     /** 通知的說明（只列有的項目） */
     summary: (c: CompatCounts) =>

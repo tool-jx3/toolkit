@@ -6,6 +6,8 @@
  * 2026-10 第三批（原作 v1.05～v1.10 的家具擴充）：143 種 → 381 種、14 類 → 24 類（規格 F232、3.11）。
  * 原作新增的 234 種用同樣的代號（讀原作的檔照讀），另外加了 4 種本站自己的貼牆素材；
  * 「貼牆」的素材（裂痕、崩塌、彈孔…）放在牆上、跟著牆的方向，畫在牆的上面（F233）。
+ *
+ * 2026-10-29 跟進原作 v1.15：381 種 → 389 種（健身房的器材 4 種、澡堂與公共廁所 4 種；規格 F244、3.13）。
  */
 import { matchesQuery, queryWords, type TagId } from './tags';
 
@@ -278,6 +280,23 @@ export const ASSETS: readonly AssetInfo[] = [
   A('unitbath', 'bath', 3, 3.2, '浴缸＋淋浴區', { keys: '浴室' }),
   A('shower', 'bath', 1.8, 1.8, '淋浴間', O),
   A('washer', 'bath', 1.3, 1.3, '洗衣機', O),
+  /* 2026-10-29 跟進原作 v1.15：澡堂與公共廁所（上面是牆，靠牆時背面朝牆） */
+  A('wash_station', 'bath', 1.6, 2, '澡堂洗身區', {
+    orient: true,
+    keys: '洗澡 大浴場 浴場 錢湯',
+    tags: ['public'],
+  }),
+  A('urinal', 'bath', 0.9, 0.8, '小便斗', { orient: true, keys: '廁所 男廁', tags: ['public'] }),
+  A('squat_toilet', 'bath', 1, 1.6, '蹲式馬桶', {
+    orient: true,
+    keys: '廁所 和式 蹲廁',
+    tags: ['public'],
+  }),
+  A('trough_sink', 'bath', 4, 1.2, '長型洗手台', {
+    orient: true,
+    keys: '水槽 洗手 學校 公園',
+    tags: ['public', 'school'],
+  }),
 
   /* ---------- 辦公・商店 ---------- */
   A('office_desk', 'office', 2.4, 1.4, '辦公桌', { orient: true, keys: '桌子' }),
@@ -395,6 +414,14 @@ export const ASSETS: readonly AssetInfo[] = [
   A('exercise_bike', 'leisure', 1.2, 2.6, '飛輪健身車', { keys: '健身' }),
   A('weight_bench', 'leisure', 3, 3.2, '臥推架', { keys: '健身' }),
   A('dumbbell_rack', 'leisure', 3, 1, '啞鈴架', { orient: true, keys: '健身' }),
+  /* 2026-10-29 跟進原作 v1.15：健身房的器材 */
+  A('squat_rack', 'leisure', 3, 2.4, '深蹲架', { orient: true, keys: '健身 重訓 槓鈴' }),
+  A('cable_machine', 'leisure', 3, 2.4, '滑輪訓練機', {
+    orient: true,
+    keys: '健身 重訓 龍門架 滑輪',
+  }),
+  A('rowing_machine', 'leisure', 1.2, 4.4, '划船機', { keys: '健身 有氧' }),
+  A('yoga_mat', 'leisure', 1.2, 3.6, '瑜珈墊', { keys: '健身 伸展 瑜伽' }),
 
   /* ---------- 設備・管線（2026-10 第三批） ---------- */
   A('breaker', 'infra', 1, 0.4, '電箱（總開關）', {

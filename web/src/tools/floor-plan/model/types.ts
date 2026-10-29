@@ -73,7 +73,9 @@ export type OpeningKind =
   | 'sealed'
   /* 2026-10 第二批（原作 v1.10） */
   | 'revolve'
-  | 'platewin';
+  | 'platewin'
+  /* 2026-10-29 跟進原作 v1.15 */
+  | 'slidingc';
 
 /**
  * 牆的種類。自動牆依房間產生 ext、int、rail、rock，或房間設的牆種類（`Room.wall`，2026-10 第二批）；其他是手畫的牆。

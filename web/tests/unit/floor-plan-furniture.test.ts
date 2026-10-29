@@ -1,6 +1,6 @@
 /**
  * 室內平面圖產生器：2026-10 第三批（家具擴充、貼牆素材、標籤搜尋；規格 F232～F236、3.11、D46～D51）。
- * - 目錄：381 種、24 類、尺寸、標籤；
+ * - 目錄：389 種（2026-10-29 跟進原作 v1.15 加 8 種）、24 類、尺寸、標籤；
  * - 畫法：每一種都有、五種樣式都畫得出來（用記錄呼叫的假 canvas：沒有例外、畫得出東西、不超出外框太多、彼此不同）；
  * - 搜尋：名稱、#標籤、組合、全形＃、建議；範本的標籤；
  * - 貼牆素材：吸到牆線、跟著牆的方向、畫在牆的上面。
@@ -22,6 +22,7 @@ import {
   UPSTREAM_ITEMS_V105,
   UPSTREAM_ITEMS_V106,
   UPSTREAM_ITEMS_V110,
+  UPSTREAM_ITEMS_V115,
   UPSTREAM_WALL_ITEMS,
 } from '@/tools/floor-plan/model/compat';
 import { itemGhost, snapToWall } from '@/tools/floor-plan/model/snap';
@@ -40,7 +41,12 @@ import { wallLines } from '@/tools/floor-plan/model/walls';
 import { TEMPLATES } from '@/tools/floor-plan/templates';
 import { TEMPLATE_TAGS, templateTags } from '@/tools/floor-plan/templates/tags';
 
-const UPSTREAM_NEW = [...UPSTREAM_ITEMS_V105, ...UPSTREAM_ITEMS_V106, ...UPSTREAM_ITEMS_V110];
+const UPSTREAM_NEW = [
+  ...UPSTREAM_ITEMS_V105,
+  ...UPSTREAM_ITEMS_V106,
+  ...UPSTREAM_ITEMS_V110,
+  ...UPSTREAM_ITEMS_V115,
+];
 /** 本站自己加的貼牆素材 */
 const OWN = ['wall_graffiti', 'wall_claws', 'wall_blood', 'wall_mold'];
 const NEW_IDS = new Set([...UPSTREAM_NEW, ...OWN]);
@@ -171,11 +177,11 @@ function drawAsset(a: AssetInfo, theme: (typeof THEME_IDS)[number], icon = false
 /* ---------- 目錄 ---------- */
 
 describe('家具目錄（F232、3.11）', () => {
-  it('381 種、24 類；原作新增的 234 種代號相同，另有本站的貼牆素材 4 種', () => {
-    expect(ASSETS.length).toBe(381);
+  it('389 種、24 類；原作新增的 242 種（v1.15 的 8 種含）代號相同，另有本站的貼牆素材 4 種', () => {
+    expect(ASSETS.length).toBe(389);
     expect(ASSET_GROUPS.length).toBe(24);
-    expect(new Set(ASSETS.map((a) => a.id)).size).toBe(381);
-    expect(NEW.length).toBe(238);
+    expect(new Set(ASSETS.map((a) => a.id)).size).toBe(389);
+    expect(NEW.length).toBe(246);
     for (const id of NEW_IDS) expect(ASSET[id], id).toBeDefined();
     /* 每一類都有東西、分類都存在 */
     for (const g of ASSET_GROUPS)
@@ -252,7 +258,7 @@ describe('家具的畫法（F232、D47）', () => {
     expect(Object.keys(FURNITURE_DRAW).length).toBe(ASSETS.length);
   });
 
-  it('新的 238 種 × 五種樣式：沒有例外、畫得出東西、點不超出外框 0.45 格以上（素材面板的圖示也一樣）', () => {
+  it('新的 246 種 × 五種樣式：沒有例外、畫得出東西、點不超出外框 0.45 格以上（素材面板的圖示也一樣）', () => {
     let calls = 0;
     const out: string[] = [];
     for (const a of NEW)
@@ -270,7 +276,7 @@ describe('家具的畫法（F232、D47）', () => {
             );
         }
     expect(out).toEqual([]);
-    expect(calls).toBe(238 * 5 * 2);
+    expect(calls).toBe(246 * 5 * 2);
   });
 
   it('既有的 143 種五種樣式也照樣畫得出來（gap 色加進來之後沒有壞掉）', () => {
@@ -362,7 +368,7 @@ describe('搜尋（F46、F234、F235）', () => {
     expect(find('＃鐵道')).toEqual(rail);
     /* 「#床」不是標籤：沒有結果（名稱有床的不算） */
     expect(find('#床')).toEqual([]);
-    expect(find('#')).toHaveLength(381);
+    expect(find('#')).toHaveLength(389);
     /* 代號也可以：#railway */
     expect(find('#railway')).toEqual(rail);
   });

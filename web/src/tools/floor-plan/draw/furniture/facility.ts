@@ -496,6 +496,104 @@ const dumbbellRack: FurnDraw = (c, S, w, h) => {
   }
 };
 
+/* ---------- 健身房的器材（2026-10-29 跟進原作 v1.15，本站自己畫） ---------- */
+
+/** 深蹲架：木質舉重台上四根立柱、兩側的橫桿，槓鈴橫放在架子上，兩端各套一組槓片 */
+const squatRack: FurnDraw = (c, S, w, h) => {
+  block(c, S, 0, 0, w, h, 0.04, S.wood);
+  const xs = [0.5, w - 0.5];
+  const ys = [0.4, h * 0.64];
+  lw(c, S, 1.5);
+  for (const x of xs) seg(c, x, ys[0], x, ys[1]);
+  seg(c, xs[0], ys[0], xs[1], ys[0]);
+  lw(c, S);
+  for (const x of xs) for (const y of ys) block(c, S, x - 0.15, y - 0.15, 0.3, 0.3, 0.03, S.shade);
+  /* 槓鈴：桿子貼著前排立柱，兩端的槓片側面看是細長的方塊（大片在外、小片在內） */
+  const by = h * 0.5;
+  lw(c, S, 1.8);
+  seg(c, 0.12, by, w - 0.12, by);
+  lw(c, S);
+  for (const x of [0.2, w - 0.2]) {
+    block(c, S, x - 0.09, by - 0.46, 0.18, 0.92, 0.04, S.paper);
+    const inner = x < w / 2 ? x + 0.2 : x - 0.2;
+    block(c, S, inner - 0.06, by - 0.32, 0.12, 0.64, 0.03, S.tint);
+  }
+  /* 腳邊的深蹲踏板線 */
+  lw(c, S, 0.5);
+  seg(c, w * 0.3, h * 0.84, w * 0.7, h * 0.84);
+  lw(c, S);
+};
+
+/** 滑輪訓練機（龍門架）：左右兩座配重塔、中間的橫樑，滑輪的鋼索垂到前面的握把 */
+const cableMachine: FurnDraw = (c, S, w, h) => {
+  const tw = Math.min(0.8, w * 0.26);
+  const th = h * 0.42;
+  for (const x of [0.1, w - 0.1 - tw]) {
+    block(c, S, x, 0.1, tw, th, 0.04, S.shade);
+    lw(c, S, 0.5);
+    hatchRows(c, x, x + tw, 0.1, 0.1 + th, th / 5);
+    lw(c, S);
+  }
+  block(c, S, 0.1 + tw, 0.1 + th * 0.3, w - 0.2 - tw * 2, th * 0.4, 0.03, S.tint);
+  /* 鋼索：從橫樑兩端的滑輪拉到前面的握把 */
+  const px = [0.1 + tw + 0.12, w - 0.1 - tw - 0.12];
+  const py = 0.1 + th * 0.5;
+  lw(c, S, 0.5);
+  seg(c, px[0], py, w * 0.36, h * 0.8);
+  seg(c, px[1], py, w * 0.64, h * 0.8);
+  lw(c, S);
+  for (const x of px) disc(c, S, x, py, 0.1, S.paper);
+  for (const x of [w * 0.36, w * 0.64]) disc(c, S, x, h * 0.8, 0.1, null);
+  /* 站的位置 */
+  lw(c, S, 0.5);
+  c.setLineDash([S.lw * 2.6, S.lw * 2.2]);
+  c.strokeRect(w * 0.2, h * 0.56, w * 0.6, h * 0.4);
+  c.setLineDash([]);
+  lw(c, S);
+};
+
+/** 划船機：上面是飛輪（外罩＋風扇）和手把，中間的軌道上有座椅，兩側是踏板 */
+const rowingMachine: FurnDraw = (c, S, w, h) => {
+  block(c, S, w * 0.4, h * 0.1, w * 0.2, h * 0.86, 0.04, S.tint);
+  const r = Math.min(w * 0.44, 0.58);
+  disc(c, S, w / 2, h * 0.07 + r, r, S.shade);
+  disc(c, S, w / 2, h * 0.07 + r, r * 0.5, S.paper);
+  lw(c, S, 0.6);
+  for (let k = 0; k < 6; k++) {
+    const a = (k / 6) * TAU;
+    seg(
+      c,
+      w / 2 + Math.cos(a) * r * 0.5,
+      h * 0.07 + r + Math.sin(a) * r * 0.5,
+      w / 2 + Math.cos(a) * r * 0.92,
+      h * 0.07 + r + Math.sin(a) * r * 0.92,
+    );
+  }
+  lw(c, S);
+  /* 踏板（左右各一，往外開） */
+  for (const x of [w * 0.1, w * 0.62]) block(c, S, x, h * 0.3, w * 0.28, h * 0.07, 0.03, S.paper);
+  /* 手把與鍊條 */
+  lw(c, S, 1.6);
+  seg(c, w * 0.3, h * 0.47, w * 0.7, h * 0.47);
+  lw(c, S, 0.5);
+  seg(c, w / 2, h * 0.07 + r * 2, w / 2, h * 0.47);
+  lw(c, S);
+  block(c, S, w * 0.28, h * 0.62, w * 0.44, h * 0.1, 0.05, S.paper);
+};
+
+/** 瑜珈墊：鋪開的墊子，中間一條對位線，上端捲起來的一圈 */
+const yogaMat: FurnDraw = (c, S, w, h) => {
+  block(c, S, 0, 0, w, h, 0.1, S.cloth);
+  block(c, S, 0, 0, w, 0.3, 0.12, S.tint);
+  lw(c, S, 0.5);
+  c.setLineDash([S.lw * 2.6, S.lw * 2.2]);
+  seg(c, w / 2, 0.45, w / 2, h - 0.2);
+  c.setLineDash([]);
+  oval(c, S, w / 2, h * 0.4, w * 0.2, 0.12, null);
+  oval(c, S, w / 2, h * 0.72, w * 0.2, 0.12, null);
+  lw(c, S);
+};
+
 export const FACILITY: Record<string, FurnDraw> = {
   office_desk: officeDesk,
   meeting6: meeting(3),
@@ -537,6 +635,10 @@ export const FACILITY: Record<string, FurnDraw> = {
   exercise_bike: exerciseBike,
   weight_bench: weightBench,
   dumbbell_rack: dumbbellRack,
+  squat_rack: squatRack,
+  cable_machine: cableMachine,
+  rowing_machine: rowingMachine,
+  yoga_mat: yogaMat,
 };
 
 export { chairRow, cross };
