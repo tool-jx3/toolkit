@@ -53,8 +53,6 @@ function SettingsColumn() {
   return (
     <div className="flex min-w-0 flex-col gap-3">
       <FxSaveErrorNotice toolId={TOOL_ID} text={S.saveFailed} />
-      {/* 室內平面圖產生器送來的圖（F84） */}
-      <FloorPlanHandoff />
       <Settings
         onFiles={(files) => void loadImageFiles(files).then(notify)}
         onSample={(demo) => void loadSample(demo).then(notify)}
@@ -108,6 +106,8 @@ function PreviewColumn({
   const [WalkPreview, setWalkPreview] = useState(() => lazy(loadWalkPreview));
   return (
     <>
+      {/* 室內平面圖產生器送來的圖（F84）：「正在接收…」放在預覽的上面（窄畫面一開頁就看得到，2026-10-29 驗證後修訂） */}
+      <FloorPlanHandoff />
       {active ? null : <Preview playerRef={playerRef} exportRef={exportRef} onSample={onSample} />}
       {opened || active ? (
         <div hidden={!active} className="min-w-0">

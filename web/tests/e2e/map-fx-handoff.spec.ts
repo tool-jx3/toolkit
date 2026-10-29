@@ -149,10 +149,14 @@ test('#handoff=<id>：先顯示「正在接收」，圖晚到也讀得到；編�
   expect(errors).toEqual([]);
 });
 
-test('#handoff=<id>：沒有平面圖回應，約 10 秒後通知沒有收到、不問', async ({ page }) => {
+test('#handoff=<id>：手機寬一開頁就看得到「正在接收」；沒有平面圖回應，約 10 秒後通知沒有收到、不問', async ({
+  page,
+}) => {
   test.setTimeout(60_000);
+  await page.setViewportSize({ width: 390, height: 844 });
   const errors = await open(page, '#handoff=nobody');
   await expect(page.getByTestId('handoff-waiting')).toBeVisible();
+  await expect(page.getByTestId('handoff-waiting')).toBeInViewport({ ratio: 1 });
   await expect(page.getByText('沒有收到平面圖送來的圖', { exact: true }).first()).toBeVisible({
     timeout: 20_000,
   });

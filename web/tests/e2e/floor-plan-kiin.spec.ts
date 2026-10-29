@@ -639,9 +639,9 @@ const watchSend = (page: Page, blobDelayMs = 0) =>
     const w = window as unknown as { __opened: string[] };
     w.__opened = [];
     const open = window.open.bind(window);
-    window.open = (url?: string | URL, ...rest: string[]) => {
+    window.open = (url?: string | URL, target?: string, features?: string) => {
       w.__opened.push(String(url));
-      return open(url, ...rest);
+      return open(url, target, features);
     };
     if (delay > 0) {
       const toBlob = HTMLCanvasElement.prototype.toBlob;
