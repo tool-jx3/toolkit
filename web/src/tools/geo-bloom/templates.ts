@@ -1,7 +1,9 @@
 /**
  * 範本（規格 F50、5. D6，新版新增）：本站自己調的幾組設定。套用時換掉種子與「固定種子」以外的所有設定（含畫布大小）。
+ * 原作 2026-10 的新設定：「基本」＝新的預設值（摩斯環等）；其他五組用舊版的值（LEGACY_FIELDS，沒有摩斯環、中央是圓或同心圓），
+ * 畫出來接近當初調的樣子（3.8、D21）。
  */
-import { DEFAULT_SETTINGS, type Settings, type ShapeKind } from './settings';
+import { DEFAULT_SETTINGS, LEGACY_FIELDS, type Settings, type ShapeToggle } from './settings';
 
 export type TemplateSettings = Omit<Settings, 'seed' | 'lockSeed'>;
 
@@ -14,23 +16,27 @@ export interface BloomTemplate {
   settings: TemplateSettings;
 }
 
-const shapes = (...on: ShapeKind[]): Settings['shapes'] => ({
+const shapes = (...on: ShapeToggle[]): Settings['shapes'] => ({
   circle: on.includes('circle'),
   rings: on.includes('rings'),
   semi: on.includes('semi'),
   mix: on.includes('mix'),
   square: on.includes('square'),
   doubleSquare: on.includes('doubleSquare'),
+  triCore: on.includes('triCore'),
+  triRing: on.includes('triRing'),
 });
 
 const { seed: _seed, lockSeed: _lock, ...BASE } = DEFAULT_SETTINGS;
+/** 舊版調的範本：新的設定用舊版的值 */
+const LEGACY: TemplateSettings = { ...BASE, ...LEGACY_FIELDS };
 
 export const TEMPLATES: readonly BloomTemplate[] = [
   {
     id: 'default',
     name: '基本',
-    description: '預設的設定：六種圖形、深色底、金色點綴。',
-    sampleSeed: 's1',
+    description: '預設的設定：六種圖形、外圈是摩斯環、深色底、金色點綴。',
+    sampleSeed: 'lotus',
     settings: BASE,
   },
   {
@@ -39,7 +45,7 @@ export const TEMPLATES: readonly BloomTemplate[] = [
     description: '細線連起大小不一的星星，深藍的夜空。',
     sampleSeed: 'orion',
     settings: {
-      ...BASE,
+      ...LEGACY,
       width: 1920,
       height: 1080,
       maxShapes: 90,
@@ -75,7 +81,7 @@ export const TEMPLATES: readonly BloomTemplate[] = [
     description: '大大的同心圓與弧，線平均分在一圈，金色的線。',
     sampleSeed: 'arcana',
     settings: {
-      ...BASE,
+      ...LEGACY,
       maxShapes: 90,
       maxLines: 140,
       branchMin: 6,
@@ -110,7 +116,7 @@ export const TEMPLATES: readonly BloomTemplate[] = [
     description: '正方形與雙正方形、青色的線，像儀表板的背景。',
     sampleSeed: 'hud-07',
     settings: {
-      ...BASE,
+      ...LEGACY,
       width: 1920,
       height: 1080,
       maxShapes: 150,
@@ -147,7 +153,7 @@ export const TEMPLATES: readonly BloomTemplate[] = [
     description: '層層的圓與半圓、塗滿較多，暖色的玻璃花窗。',
     sampleSeed: 'rose',
     settings: {
-      ...BASE,
+      ...LEGACY,
       maxShapes: 200,
       maxLines: 320,
       branchMin: 5,
@@ -181,7 +187,7 @@ export const TEMPLATES: readonly BloomTemplate[] = [
     description: '線與圖形都少，米白底、深灰的線。',
     sampleSeed: 'quiet',
     settings: {
-      ...BASE,
+      ...LEGACY,
       maxShapes: 24,
       maxLines: 40,
       branchMin: 2,
@@ -224,7 +230,7 @@ export function withTemplate(current: Settings, t: BloomTemplate): Settings {
 const sameSettings = (a: TemplateSettings, b: TemplateSettings) =>
   (Object.keys(b) as (keyof TemplateSettings)[]).every((k) =>
     k === 'shapes'
-      ? (Object.keys(b.shapes) as ShapeKind[]).every((s) => a.shapes[s] === b.shapes[s])
+      ? (Object.keys(b.shapes) as ShapeToggle[]).every((s) => a.shapes[s] === b.shapes[s])
       : a[k] === b[k],
   );
 

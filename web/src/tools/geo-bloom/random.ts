@@ -18,6 +18,13 @@ export function seedNumber(text: string): number {
 /** 這個種子的亂數產生器 */
 export const seedRandom = (text: string): Random => createRandom(seedNumber(text));
 
+/**
+ * 同一個種子的另一串亂數（原作 2026-10）：種子（空白時「0」）後面接用途，例如「abc#bridge」。
+ * 摩斯橋、線的丟失、中央圖形的意義各用一串，不會動到主要那一串（開關它們時其他的圖形不變）。
+ */
+export const subRandom = (seed: string, purpose: string): Random =>
+  seedRandom(`${seed || '0'}#${purpose}`);
+
 const SEED_CHARS = '0123456789abcdefghijklmnopqrstuvwxyz';
 
 /** 新的隨機種子：8 個英數字（0～9、a～z） */

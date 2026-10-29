@@ -1,7 +1,8 @@
 /**
  * 幾何花紋產生器（建置產物 tools/geo-bloom/）的端對端測試：
  * - 開頁沒有錯誤；頁尾只有靈感來源；預設值；第一次開頁的隨機種子；
- * - 和原作逐值相同：同樣的種子與設定，Worker 裡產生的資料序列化後的 SHA-256 和原作（Chromium）相同（規格 3.10）；
+ * - 和原作逐值相同：同樣的種子與設定，Worker 裡產生的資料序列化後的 SHA-256 和原作 edb6828（Chromium）相同（規格 3.10）；
+ * - 原作 2026-10 的新設定（三角形、同心圓、摩斯環、摩斯橋、貼著放、線的丟失、線不跨線）的操作；舊的專案檔、自動儲存（資料版本 1）；
  * - 種子、產生、固定種子、Space、統計；每個控制項的主要效果（數值欄夾到範圍、圖形種類、重疊、樣式）；
  * - 匯出：PNG（檔名、尺寸、8-bit RGBA、像素抽查、透明背景）、SVG（結構、數量、畫出來和 PNG 幾乎相同）；
  * - 範本、自動儲存、復原／重做、專案檔、重設、快捷鍵說明；
@@ -19,6 +20,7 @@ import {
   canon,
   GOLDEN,
   HUGE,
+  HUGE_COUNTS,
   HUGE_HASH,
   type Overrides,
   settingsWith,
@@ -158,15 +160,12 @@ test('開頁：沒有錯誤、頁尾只有靈感來源、預設值、隨機種�
   expect(errors).toEqual([]);
 });
 
-test('和原作逐值相同：產生的資料（Worker 裡算）序列化後的雜湊和原作相同（14 組）', async ({
+test(`和原作逐值相同：產生的資料（Worker 裡算）序列化後的雜湊和原作相同（${GOLDEN.length + 1} 組）`, async ({
   page,
 }) => {
   test.setTimeout(120_000);
   const errors = await open(page);
-  const cases = [
-    ...GOLDEN,
-    { name: '8000 × 8000', o: HUGE, counts: [5000, 5021, 7], hash: HUGE_HASH },
-  ];
+  const cases = [...GOLDEN, { name: '8000 × 8000', o: HUGE, counts: HUGE_COUNTS, hash: HUGE_HASH }];
   for (const g of cases) {
     const scene = await page.evaluate(
       (s) => (window as unknown as { __geoBloom: Hook }).__geoBloom.sceneFor(s),
@@ -185,7 +184,7 @@ test('種子：打字即時重畫、空白當成「0」；統計和原作相同'
   const seed = page.getByTestId('seed');
   await seed.fill('abc');
   await ready(page);
-  await expect(stats(page)).toHaveText('圖形 57／線 94／點 18');
+  await expect(stats(page)).toHaveText('圖形 14／線 20／點 1');
   await seed.fill('');
   await ready(page);
   const empty = await stats(page).textContent();
@@ -248,7 +247,8 @@ test('數值設定：每一個都會重畫；夾到範圍、取整數（線寬�
   test.setTimeout(120_000);
   const errors = await open(page);
   await apply(page, { seed: 'abc' });
-  const cases: [string, keyof Settings, string, number][] = [
+  /* 第五項：用的種子（預設 abc；上限要用圖形、線都到上限的 seed1 才看得出變化） */
+  const cases: [string, keyof Settings, string, number, string?][] = [
     ['寬', 'width', '1200', 1200],
     ['高', 'height', '900', 900],
     ['每個圖形的線數：最少', 'branchMin', '0', 0],
@@ -270,13 +270,27 @@ test('數值設定：每一個都會重畫；夾到範圍、取整數（線寬�
     ['強調色的比例', 'pAccent', '80', 80],
     ['線寬', 'lineWidth', '6.25', 6.25],
     ['塗滿的比例', 'pFill', '70', 70],
-    ['圖形的最多數', 'maxShapes', '30', 30],
-    ['線的最多數（全部）', 'maxLines', '60', 60],
+    ['圖形的最多數', 'maxShapes', '30', 30, 'seed1'],
+    ['線的最多數（全部）', 'maxLines', '60', 60, 'seed1'],
+    /* 原作 2026-10 的新設定 */
+    ['不畫線、直接貼著放', 'pAttach', '30', 30],
+    ['線的丟失率', 'pDrop', '60', 60],
+    ['同心圓的最少層數', 'minRings', '5', 5],
+    ['每一圈變成摩斯環的機率', 'pMorse', '50', 50],
+    ['短點的長度', 'morseDot', '10.5', 10.5],
+    ['長點的長度', 'morseDash', '5', 5],
+    ['符號之間的間隔', 'morseGap', '2.25', 2.25],
+    ['字母之間的間隔', 'morseLetterGap', '6', 6],
+    ['單字之間的間隔', 'morseWordGap', '2', 2],
+    ['長點的比例（隨機時）', 'pMorseDash', '90', 90],
+    ['單字間隔的機率（隨機時）', 'pMorseWord', '90', 90],
+    ['摩斯線的粗細', 'morseWidth', '2.5', 2.5],
+    ['短點跟著每代縮小', 'morseShrink', '0', 0],
   ];
   const { seed: _s, lockSeed: _l, ...defaults } = await state(page);
-  for (const [label, key, text, want] of cases) {
-    /* 每一項都從預設＋種子 abc 開始，只改這一項 */
-    await apply(page, { ...defaults, seed: 'abc' });
+  for (const [label, key, text, want, seed = 'abc'] of cases) {
+    /* 每一項都從預設＋種子開始，只改這一項 */
+    await apply(page, { ...defaults, seed });
     const before = await previewSig(page);
     await commit(spin(page, label), text);
     await expect.poll(async () => (await state(page))[key], label).toBe(want);
@@ -292,6 +306,125 @@ test('數值設定：每一個都會重畫；夾到範圍、取整數（線寬�
   await expect.poll(async () => (await state(page)).lineWidth).toBe(2.5);
   await commit(spin(page, '每代的縮小率'), '5');
   await expect.poll(async () => (await state(page)).shrink).toBe(30);
+  await commit(spin(page, '短點的長度'), '6.3');
+  await expect.poll(async () => (await state(page)).morseDot).toBe(6.5);
+  await commit(spin(page, '符號之間的間隔'), '1.1');
+  await expect.poll(async () => (await state(page)).morseGap).toBe(1);
+  expect(errors).toEqual([]);
+});
+
+test('原作 2026-10 的新設定：貼著放、三角形、同心圓、摩斯環、摩斯橋、線的丟失', async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  const errors = await open(page);
+  await apply(page, { seed: 'abc', maxShapes: 120, maxLines: 240, pBranch: 90 });
+  const scene = () =>
+    page.evaluate(() => {
+      const h = (window as unknown as { __geoBloom: Hook }).__geoBloom;
+      return h.sceneFor(h.settingsNow());
+    });
+  let prev = await previewSig(page);
+  const changed = async (label: string) => {
+    await ready(page);
+    const now = await previewSig(page);
+    expect(now, label).not.toBe(prev);
+    prev = now;
+  };
+  /* 同心圓：放射線的起點（下拉選單）、子圖形接在同一圈、中央一定是同心圓 */
+  await page.getByRole('combobox', { name: '放射線的起點' }).click();
+  await page.getByRole('option', { name: '中心' }).click();
+  await changed('中心');
+  await toggle(page, '子圖形也接在同一圈').click();
+  await changed('子圖形也接在同一圈');
+  await toggle(page, '中央一定是同心圓').click();
+  await expect.poll(async () => (await state(page)).rootRings).toBe(false);
+  await ready(page);
+  prev = await previewSig(page);
+  expect(await state(page)).toMatchObject({ startRing: 'center', endAtRing: false });
+  /* 貼著放：機率 0 時「嵌進去」停用 */
+  await expect(spin(page, '貼著放時嵌進去')).toBeDisabled();
+  await commit(spin(page, '不畫線、直接貼著放'), '60');
+  await changed('貼著放');
+  await expect(spin(page, '貼著放時嵌進去')).toBeEnabled();
+  await commit(spin(page, '貼著放時嵌進去'), '40');
+  await changed('嵌進去');
+  expect((await scene()).shapes.some((x) => x.attached)).toBe(true);
+  /* 三角形：沒勾時出現率與內接在哪一圈停用 */
+  await expect(spin(page, '三角形的出現率')).toBeDisabled();
+  await expect(radio(page, '第二圈')).toBeDisabled();
+  await page.getByRole('checkbox', { name: '三角環', exact: true }).click();
+  await changed('三角環');
+  await expect(spin(page, '三角形的出現率')).toBeEnabled();
+  await radio(page, '第二圈').click();
+  await changed('第二圈');
+  await commit(spin(page, '三角形的出現率'), '80');
+  await changed('出現率');
+  const tris = (await scene()).shapes.filter((x) => x.tri?.mode === 'ring');
+  expect(tris.length).toBeGreaterThan(3);
+  expect(await state(page)).toMatchObject({ triRing: 'second', pTri: 80, pAttach: 60 });
+  /* 摩斯環：實線的圈數跟著起點時「保留成實線的內圈數」停用；起點是中心時不跟 */
+  await expect(spin(page, '保留成實線的內圈數')).toBeEnabled();
+  await commit(spin(page, '保留成實線的內圈數'), '0');
+  await changed('保留成實線的內圈數');
+  await page.getByRole('combobox', { name: '放射線的起點' }).click();
+  await page.getByRole('option', { name: '第一圈（最內層）' }).click();
+  await ready(page);
+  await expect(spin(page, '保留成實線的內圈數')).toBeDisabled();
+  await toggle(page, '實線的圈數跟著放射線的起點').click();
+  await expect(spin(page, '保留成實線的內圈數')).toBeEnabled();
+  await ready(page);
+  prev = await previewSig(page);
+  for (const name of ['短點畫成圓點', '點線的兩端是圓的']) {
+    await toggle(page, name).click();
+    await changed(name);
+  }
+  /* 摩斯電碼的文字：排成的電碼與略過的字；一個能轉的字都沒有時和沒填一樣（隨機） */
+  const text = page.getByTestId('morse-text');
+  await text.fill('SOS 救命');
+  await changed('文字');
+  const note = page.getByTestId('morse-note');
+  await expect(note).toContainText('排成：... --- ... /');
+  await expect(note).toContainText('略過（沒有摩斯電碼）：救、命');
+  await expect(spin(page, '長點的比例（隨機時）')).toBeDisabled();
+  await text.fill('');
+  await ready(page);
+  const randomSig = await previewSig(page);
+  await expect(note).toHaveCount(0);
+  await text.fill('救命');
+  await ready(page);
+  await expect(note).toContainText('沒有能轉成摩斯電碼的字，改成隨機排。');
+  expect(await previewSig(page)).toBe(randomSig);
+  await text.fill('ｓｏｓ');
+  await ready(page);
+  await expect(note).toContainText('排成：... --- ...');
+  prev = await previewSig(page);
+  /* 摩斯橋：關閉時機率停用；打開後統計有「橋」 */
+  await expect(spin(page, '每個字母架橋的機率')).toBeDisabled();
+  await toggle(page, '摩斯橋').click();
+  await changed('摩斯橋');
+  await commit(spin(page, '每個字母架橋的機率'), '100');
+  await changed('架橋的機率');
+  await expect(stats(page)).toHaveText(/／橋 \d+$/);
+  /* 線的丟失：統計寫出丟失的數量 */
+  await commit(spin(page, '線的丟失率'), '100');
+  await changed('線的丟失率');
+  await expect(stats(page)).toHaveText(/^圖形 \d+／線 \d+（另丟失 \d+）／點 \d+／橋 \d+$/);
+  /* 摩斯環關閉 */
+  await toggle(page, '摩斯環').click();
+  await changed('摩斯環');
+  expect(await state(page)).toMatchObject({
+    startRing: 'ring1',
+    solidFollow: false,
+    solidInner: 0,
+    morseRound: true,
+    morseCap: false,
+    morseText: 'ｓｏｓ',
+    bridges: true,
+    pBridge: 100,
+    pDrop: 100,
+    morse: false,
+  });
   expect(errors).toEqual([]);
 });
 
@@ -331,6 +464,8 @@ test('圖形的種類：只勾一種、全部取消時都是圓', async ({ page 
     mix: false,
     square: true,
     doubleSquare: false,
+    triCore: false,
+    triRing: false,
   });
   let s = await scene();
   expect(s.shapes.length).toBeGreaterThan(5);
@@ -339,15 +474,28 @@ test('圖形的種類：只勾一種、全部取消時都是圓', async ({ page 
   await ready(page);
   s = await scene();
   expect(s.shapes.slice(1).every((x) => x.kind === 'circle')).toBe(true);
-  await expect(page.getByText('都不勾時全部是圓')).toBeVisible();
+  await expect(page.getByText('一般的種類都不勾時全部是圓', { exact: false })).toBeVisible();
+  /* 只勾三角心：子圖形全部是三角心 */
+  await box('三角心').click();
+  await ready(page);
+  s = await scene();
+  expect(s.shapes.length).toBeGreaterThan(5);
+  expect(s.shapes.slice(1).every((x) => x.kind === 'rings' && x.tri?.mode === 'core')).toBe(true);
   /* 每個種類旁邊有小圖示 */
-  await expect(page.locator('[data-shape-icon]')).toHaveCount(6);
+  await expect(page.locator('[data-shape-icon]')).toHaveCount(8);
   expect(errors).toEqual([]);
 });
 
 test('重疊：關閉時「重疊時」「空隙」停用；三種模式；線不穿過；收在畫布內', async ({ page }) => {
   const errors = await open(page);
-  await apply(page, { seed: 'overlap', maxShapes: 200, maxLines: 400, maxDepth: 6 });
+  await apply(page, {
+    seed: 'overlap',
+    width: 900,
+    height: 700,
+    maxShapes: 200,
+    maxLines: 400,
+    maxDepth: 6,
+  });
   /* 每一步都換了圖 */
   let prev = await previewSig(page);
   const changed = async (label: string) => {
@@ -365,6 +513,8 @@ test('重疊：關閉時「重疊時」「空隙」停用；三種模式；線�
   await changed('換角度重試');
   await toggle(page, '線不穿過既有圖形').click();
   await changed('線不穿過既有圖形');
+  await toggle(page, '線不跨過既有的線').click();
+  await changed('線不跨過既有的線');
   await toggle(page, '收在畫布內').click();
   await changed('收在畫布內');
   await radio(page, '整條取消').click();
@@ -377,12 +527,13 @@ test('重疊：關閉時「重疊時」「空隙」停用；三種模式；線�
     avoidOverlap: false,
     overlapMode: 'skip',
     lineAvoid: true,
+    noCross: true,
     inBounds: false,
   });
   expect(errors).toEqual([]);
 });
 
-test('匯出 PNG：檔名、全尺寸、像素（背景色、強調色的中央圓、透明背景）', async ({ page }) => {
+test('匯出 PNG：檔名、全尺寸、像素（背景色、中央圖形的中心點、透明背景）', async ({ page }) => {
   const errors = await open(page);
   await apply(page, { seed: 'abc' });
   let f = await exportAs(page, 'PNG');
@@ -391,12 +542,12 @@ test('匯出 PNG：檔名、全尺寸、像素（背景色、強調色的中央�
   expect([p.width, p.height]).toEqual([1600, 1600]);
   expect(px(p, 0, 0)).toEqual([14, 15, 18, 255]);
   expect(px(p, 1599, 1599)).toEqual([14, 15, 18, 255]);
-  /* 種子 abc 的中央圓是強調色的「圓」：中心的小實心圓 */
-  expect(px(p, 800, 800)).toEqual([217, 164, 65, 255]);
+  /* 種子 abc 的中央是三角心的同心圓（不是強調色），中心有一般的中心點：線的顏色 */
+  expect(px(p, 800, 800)).toEqual([232, 228, 218, 255]);
   await expect(page.getByTestId('export-result')).toContainText('匯出時間');
-  /* 改顏色（色碼欄）：背景、強調色 */
+  /* 改顏色（色碼欄）：背景、線的顏色 */
   await commit(page.getByRole('textbox', { name: '背景色', exact: true }), '#ff0000');
-  await commit(page.getByRole('textbox', { name: '強調色', exact: true }), '#00ff00');
+  await commit(page.getByRole('textbox', { name: '線的顏色', exact: true }), '#00ff00');
   await ready(page);
   await expect(page.getByTestId('export-result')).toHaveCount(0);
   f = await exportAs(page, 'PNG');
@@ -433,7 +584,10 @@ test('匯出 SVG：結構與數量；瀏覽器畫出來和 PNG 幾乎相同', as
     return h.sceneFor(h.settingsNow());
   });
   expect((text.match(/<g transform=/g) ?? []).length).toBe(st.shapes.length);
-  expect((text.match(/L/g) ?? []).length).toBe(st.lines.length);
+  /* 線：外層的 path（有 stroke 色）裡的每一段；丟失的線不畫 */
+  const linePaths = [...text.matchAll(/<path d="([^"]*)" stroke="#[0-9a-f]{6}"\/>/g)];
+  const segments = linePaths.reduce((n, m) => n + (m[1].match(/L/g) ?? []).length, 0);
+  expect(segments).toBe(st.lines.filter((l) => !l.dropped).length);
   expect((text.match(/<circle cx=/g) ?? []).length).toBe(st.dots.length);
   /* 在頁面裡把 SVG 與 PNG 畫到同樣大的畫布上比較：差很多的像素不到 1% */
   const diff = await page.evaluate(
@@ -538,7 +692,7 @@ test('自動儲存與還原；專案檔存了再開；別的檔案開不了', as
   expect(dl.suggestedFilename()).toMatch(/^幾何花紋_\d{8}\.json$/);
   const bytes = readFileSync((await dl.path()) as string);
   const json = JSON.parse(bytes.toString('utf8'));
-  expect(json).toMatchObject({ format: 'trpg-toolkit-project', tool: 'geo-bloom', version: 1 });
+  expect(json).toMatchObject({ format: 'trpg-toolkit-project', tool: 'geo-bloom', version: 2 });
   expect(json.data).toMatchObject({ seed: 'saved-seed', maxShapes: 33, width: 1600 });
   /* 改掉再開回來 */
   await page.getByTestId('seed').fill('other');
@@ -569,6 +723,118 @@ test('自動儲存與還原；專案檔存了再開；別的檔案開不了', as
   });
   await expect(toast(page, /不是|無法|開不了/).first()).toBeVisible();
   await expect(page.getByTestId('seed')).toHaveValue('saved-seed');
+  expect(errors).toEqual([]);
+});
+
+/** 資料版本 1（原作 3097b39 時）的設定：沒有原作 2026-10 的欄位，圖形種類只有六個 */
+const V1_DATA = {
+  seed: 'legacy-a',
+  lockSeed: false,
+  width: 1600,
+  height: 1600,
+  maxShapes: 60,
+  maxLines: 120,
+  branchMin: 2,
+  branchMax: 7,
+  maxDepth: 4,
+  maxRings: 5,
+  rootMin: 60,
+  rootMax: 180,
+  childMin: 12,
+  childMax: 70,
+  shrink: 75,
+  lineMin: 60,
+  lineMax: 260,
+  pShape: 70,
+  pBranch: 65,
+  pDot: 40,
+  regularity: 50,
+  shapes: { circle: true, rings: true, semi: true, mix: true, square: true, doubleSquare: true },
+  avoidOverlap: true,
+  overlapMode: 'retry',
+  gap: 8,
+  lineAvoid: false,
+  inBounds: true,
+  background: '#0e0f12',
+  transparent: false,
+  lineColor: '#e8e4da',
+  accentColor: '#d9a441',
+  pAccent: 15,
+  lineWidth: 2,
+  pFill: 10,
+  fromEdge: true,
+};
+const LEGACY_GOLDEN = GOLDEN.find((g) => g.name.startsWith('舊版的值')) as (typeof GOLDEN)[number];
+
+const legacyHash = (page: Page) =>
+  page.evaluate(async () => {
+    const h = (window as unknown as { __geoBloom: Hook }).__geoBloom;
+    return h.sceneFor(h.settingsNow());
+  });
+
+test('舊的專案檔（資料版本 1）：沒有的設定補舊版的值（沒有摩斯環、線從最外圈出發），和原作同樣的設定畫出同一張', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  await btn(page, '專案').click();
+  const [chooser] = await Promise.all([
+    page.waitForEvent('filechooser'),
+    page.getByRole('menuitem', { name: '開啟專案檔…' }).click(),
+  ]);
+  const file = {
+    format: 'trpg-toolkit-project',
+    tool: 'geo-bloom',
+    version: 1,
+    savedAt: '2026-10-17T00:00:00.000Z',
+    data: V1_DATA,
+  };
+  await chooser.setFiles({
+    name: 'old.json',
+    mimeType: 'application/json',
+    buffer: Buffer.from(JSON.stringify(file)),
+  });
+  await page.getByRole('alertdialog').getByRole('button', { name: '開啟', exact: true }).click();
+  await expect(page.getByTestId('seed')).toHaveValue('legacy-a');
+  await ready(page);
+  expect(await state(page)).toMatchObject({
+    rootRings: false,
+    minRings: 2,
+    startRing: 'edge',
+    morse: false,
+    bridges: false,
+    shapes: { ...V1_DATA.shapes, triCore: false, triRing: false },
+  });
+  const sc = await legacyHash(page);
+  expect(sha(canon(sc))).toBe(LEGACY_GOLDEN.hash);
+  await expect(stats(page)).toHaveText(
+    `圖形 ${LEGACY_GOLDEN.counts[0]}／線 ${LEGACY_GOLDEN.counts[1]}／點 ${LEGACY_GOLDEN.counts[2]}`,
+  );
+  expect(errors).toEqual([]);
+});
+
+test('舊的自動儲存（資料版本 1）：重新整理後補舊版的值', async ({ page }) => {
+  await page.addInitScript(
+    ({ key, data }) => {
+      if (!sessionStorage.getItem('seeded')) {
+        localStorage.setItem(key, JSON.stringify({ state: { data }, version: 1 }));
+        sessionStorage.setItem('seeded', '1');
+      }
+    },
+    { key: KEY, data: { ...V1_DATA, maxShapes: 44 } },
+  );
+  const errors = await open(page);
+  expect(await state(page)).toMatchObject({
+    seed: 'legacy-a',
+    maxShapes: 44,
+    rootRings: false,
+    startRing: 'edge',
+    morse: false,
+  });
+  /* 存回去是資料版本 2 */
+  await commit(spin(page, '線寬'), '3');
+  await expect
+    .poll(() => page.evaluate((k) => JSON.parse(localStorage.getItem(k) ?? 'null')?.version, KEY))
+    .toBe(2);
   expect(errors).toEqual([]);
 });
 
@@ -626,7 +892,9 @@ test('大畫布 8000 × 8000：預覽縮小、畫的時候頁面照常反應、�
   /* 畫超過 0.3 秒：預覽上顯示「繪製中…」 */
   await expect(page.getByRole('status').filter({ hasText: '繪製中…' })).toBeVisible();
   await ready(page, 60_000);
-  await expect(stats(page)).toHaveText('圖形 5000／線 5021／點 7');
+  await expect(stats(page)).toHaveText(
+    `圖形 ${HUGE_COUNTS[0]}／線 ${HUGE_COUNTS[1]}／點 ${HUGE_COUNTS[2]}`,
+  );
   await expect(page.getByTestId('bloom-scaled')).toHaveText('預覽縮小為 26%，匯出為原尺寸。');
   expect((await previewSig(page)).startsWith('2048x2048:')).toBe(true);
   const t0 = Date.now();
@@ -658,7 +926,9 @@ test('很慢的預覽剛開始就改回來、之後不再改：滿 1 秒時重�
     avoidOverlap: true,
   };
   await apply(page, fast);
-  await expect(stats(page)).toHaveText('圖形 5000／線 5021／點 7');
+  await expect(stats(page)).toHaveText(
+    `圖形 ${HUGE_COUNTS[0]}／線 ${HUGE_COUNTS[1]}／點 ${HUGE_COUNTS[2]}`,
+  );
   /* 這組在 Worker 裡要畫好幾分鐘（子圖形很大、不縮小、線不穿過、不重疊） */
   const slow: Overrides = {
     ...fast,
@@ -680,7 +950,9 @@ test('很慢的預覽剛開始就改回來、之後不再改：滿 1 秒時重�
   const t0 = Date.now();
   await ready(page, 20_000);
   test.info().annotations.push({ type: '改回來到畫好', description: `${Date.now() - t0} ms` });
-  await expect(stats(page)).toHaveText('圖形 5000／線 5021／點 7');
+  await expect(stats(page)).toHaveText(
+    `圖形 ${HUGE_COUNTS[0]}／線 ${HUGE_COUNTS[1]}／點 ${HUGE_COUNTS[2]}`,
+  );
   expect(errors).toEqual([]);
 });
 

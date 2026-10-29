@@ -17,7 +17,7 @@ import {
 import { sceneFor } from './client';
 import { SettingsPanels } from './Panels';
 import { Preview } from './Preview';
-import { looksLikeSettings, type Settings, sanitizeSettings } from './settings';
+import { looksLikeSettings, type Settings, upgradeSettings } from './settings';
 import {
   DATA_VERSION,
   regenerate,
@@ -87,9 +87,10 @@ export function App() {
             toolId={TOOL_ID}
             version={DATA_VERSION}
             getData={() => useSettings.getState().data}
-            onLoad={(d) => {
+            onLoad={(d, file) => {
               if (!looksLikeSettings(d)) return false;
-              useSettings.getState().replace(sanitizeSettings(d));
+              /* 舊的資料版本（1）補舊版的值，畫出來最接近當時的圖（3.8） */
+              useSettings.getState().replace(upgradeSettings(d, file.version));
               clear();
               return true;
             }}

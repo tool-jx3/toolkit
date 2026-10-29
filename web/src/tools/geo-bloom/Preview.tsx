@@ -159,6 +159,8 @@ export function Preview({ exportRef }: { exportRef: RefObject<ExportPanelHandle 
         data-shapes={shown?.stats.shapes}
         data-lines={shown?.stats.lines}
         data-dots={shown?.stats.dots}
+        data-dropped={shown?.stats.dropped}
+        data-bridges={shown?.stats.bridges}
       >
         <Stage width={width} height={height} aria-label={S.previewLabel}>
           <canvas ref={canvas} className="block size-full" data-testid="bloom-canvas" />
@@ -173,9 +175,7 @@ export function Preview({ exportRef }: { exportRef: RefObject<ExportPanelHandle 
         ) : null}
       </div>
       <p className="m-0 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted tabular-nums">
-        <span data-testid="bloom-stats">
-          {shown ? S.stats(shown.stats.shapes, shown.stats.lines, shown.stats.dots) : '　'}
-        </span>
+        <span data-testid="bloom-stats">{shown ? S.stats(shown.stats) : '　'}</span>
         <span data-testid="bloom-size">{S.sizeInfo(width, height)}</span>
         {percent !== null ? <span data-testid="bloom-scaled">{S.scaledNote(percent)}</span> : null}
       </p>
