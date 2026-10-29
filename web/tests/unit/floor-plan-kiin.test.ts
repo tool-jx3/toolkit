@@ -16,6 +16,7 @@ import {
   exportOptions,
   vttCells,
   vttTooLarge,
+  wearSheet,
 } from '@/tools/floor-plan/model/exportPlan';
 import { followRoomResize } from '@/tools/floor-plan/model/follow';
 import { emptyFloor, roomArea, sizeText, visibleFloor } from '@/tools/floor-plan/model/geometry';
@@ -295,6 +296,28 @@ describe('專案檔版本 6 → 7（F268、D79）', () => {
     expect(normalizeProject({ ...projectOf([floorOf({})]), wear: 0.01 }, isAsset)?.wear).toBe(0.1);
   });
 
+  it('污漬：0 以下＝關、數字字串照讀；種子取整數、絕對值、除以 1,000,000 的餘數；缺角的小數四捨五入、字串照讀（3.14.1、3.14.6）', () => {
+    const one = (extra: Record<string, unknown>) =>
+      normalizeProject({ ...projectOf([floorOf({})]), ...extra }, isAsset) as Project;
+    expect(one({ wear: 0 })).not.toHaveProperty('wear');
+    expect(one({ wear: -0.5 })).not.toHaveProperty('wear');
+    expect(one({ wear: '0.55' }).wear).toBe(0.55);
+    expect(one({ wear: 'x' })).not.toHaveProperty('wear');
+    expect(one({ wearSeed: 1_000_005 }).wearSeed).toBe(5);
+    expect(one({ wearSeed: '42' }).wearSeed).toBe(42);
+    const withCut = (cut: unknown) =>
+      (
+        normalizeProject(
+          projectOf([floorOf({ rooms: [{ ...room('r', 0, 0, 6, 4), cut } as Room] })]),
+          isAsset,
+        ) as Project
+      ).floors[0].rooms[0].cut;
+    expect(withCut({ c: 'ne', w: 2.4, h: '1.6' })).toEqual({ c: 'ne', w: 2, h: 2 });
+    expect(withCut({ c: 'ne', w: 5.6, h: 2 })).toBeUndefined();
+    expect(withCut({ c: 'ne', w: 'x', h: 2 })).toBeUndefined();
+    expect(withCut({ c: 'up', w: 2, h: 2 })).toBeUndefined();
+  });
+
   it('新的樣式認得，不認得的換回彩色', () => {
     expect(
       normalizeProject({ ...projectOf([floorOf({})]), theme: 'terminal' }, isAsset)?.theme,
@@ -319,6 +342,25 @@ describe('桌上的小物（F255、F256）', () => {
     expect(restsOn(item('l', 'laptop', 0.5, 0.2, 1.2, 0.9), item('b', 'bed', 0, 0, 4, 6))).toBe(
       false,
     );
+  });
+
+  it('圓桌（橢圓）、全像投影桌（圓）：用桌面的形狀判定，外框的四個角不算（D70）', () => {
+    const round = item('rt', 'table_round', 0, 0, 3, 3);
+    /* 外框的角：外框的規則會算在桌上，橢圓不算 */
+    expect(restsOn(item('c', 'candle', 0.1, 0.1, 0.5, 0.5), round)).toBe(false);
+    expect(restsOn(item('c', 'candle', 1.25, 1.25, 0.5, 0.5), round)).toBe(true);
+    /* 靠邊：中心在橢圓裡、七成以上在橢圓裡 */
+    expect(restsOn(item('c', 'candle', 1.25, 0.05, 0.5, 0.5), round)).toBe(true);
+    /* 中心在橢圓裡但一半以上在外面 */
+    expect(restsOn(item('m', 'memo', 2.3, 1.0, 1.0, 1.0), round)).toBe(false);
+    /* 橫長的圓桌＝內接的橢圓 */
+    const oval = item('ov', 'table_round', 0, 0, 4, 2);
+    expect(restsOn(item('c', 'candle', 3.2, 0.75, 0.5, 0.5), oval)).toBe(true);
+    expect(restsOn(item('c', 'candle', 3.4, 0.1, 0.5, 0.5), oval)).toBe(false);
+    /* 全像投影桌：短邊的內接圓 */
+    const holo = item('h', 'holo_table', 0, 0, 4, 3);
+    expect(restsOn(item('c', 'crystal_ball', 0.1, 1.25, 0.5, 0.5), holo)).toBe(false);
+    expect(restsOn(item('c', 'crystal_ball', 1.75, 1.25, 0.5, 0.5), holo)).toBe(true);
   });
 
   it('好幾件桌面時算最小的那一件；選了桌子時小物一起帶著', () => {
@@ -397,6 +439,43 @@ describe('座標標示（F264）', () => {
       expect(Math.abs(fr.y % 2)).toBe(0);
     }
     expect(withC.coords[0]?.cols).toBe(4);
+  });
+});
+
+describe('紙的污漬與摺痕：編輯畫面的紙＝匯出這一層的整張圖（F263、D75）', () => {
+  const exp: ExportSettings = {
+    range: 'all',
+    view: 'gm',
+    clues: 'show',
+    px: 48,
+    grid: false,
+    transparent: false,
+  };
+  const p = projectOf(
+    [
+      floorOf({ rooms: [room('a', 0, 0, 10, 8)] }),
+      floorOf({ id: 'f2', name: '2F', rooms: [room('b', 20, 4, 6, 6)] }),
+    ],
+    { wear: 0.6, wearSeed: 7, tokenGrid: 3 },
+  );
+
+  it('只看目前這一層；含四周的留白、GM 字帶（匯出設定是 GM 用時）、座標的字', () => {
+    for (const active of [0, 1]) {
+      const q = { ...p, active };
+      const sheet = wearSheet(q, exp, true);
+      const L = exportLayout(
+        [q.floors[active]],
+        exportOptions(q, { ...exp, range: 'current' }, 'clean', 24),
+      );
+      expect(sheet).toEqual({ x: L.frames[0].x, y: L.frames[0].y, w: L.width, h: L.height });
+      expect(L.badgeH).toBeGreaterThan(0);
+    }
+    expect(wearSheet(p, exp, true)?.x).toBe(-3);
+    expect((wearSheet(p, exp, true) as { x: number; w: number }).w).toBeLessThan(20);
+    const withCoords = wearSheet({ ...p, coords: true }, { ...exp, view: 'pl' }, true);
+    const plain = wearSheet(p, { ...exp, view: 'pl' }, true);
+    expect(withCoords && plain && withCoords.w > plain.w).toBe(true);
+    expect(wearSheet(projectOf([floorOf({})]), exp, true)).toBeNull();
   });
 });
 
@@ -485,6 +564,26 @@ describe('連接兩個房間（F250～F252）', () => {
     expect(connectRooms(blocked, 'a', 'b', NAME)).toEqual({ ok: false, reason: 'blocked' });
   });
 
+  it('牆的中間放不下單開門（兩邊的開門範圍都有家具）時，先找整面牆別的位置的單開門，才改拉門', () => {
+    const f = floorOf({
+      rooms: [room('a', 0, 0, 10, 8), room('b', 10, 0, 6, 8)],
+      items: [item('l', 'shelf', 8, 3.2, 0.8, 1.6), item('r', 'shelf', 11.2, 3.2, 0.8, 1.6)],
+    });
+    const r = connectRooms(f, 'a', 'b', NAME);
+    expect(r.ok && r.kind).toBe('door');
+    if (!r.ok) return;
+    expect(r.openings[0].kind).toBe('door');
+    expect(Math.abs(r.openings[0].y - 3.25)).toBeGreaterThan(0.2);
+    expect(floorProblems(floorOf({ ...f, openings: r.openings }), true)).toEqual([]);
+    /* 整面牆都放不下單開門：拉門（只要門前一格空著） */
+    const tight = floorOf({
+      rooms: [room('a', 0, 0, 10, 4), room('b', 10, 0, 6, 4)],
+      items: [item('l', 'shelf', 8, 0, 0.8, 4), item('r', 'shelf', 11.2, 0, 0.8, 4)],
+    });
+    const t = connectRooms(tight, 'a', 'b', NAME);
+    expect(t.ok && t.openings[0].kind).toBe('sliding');
+  });
+
   it('已經有門、沒有牆、共用的牆太短', () => {
     const door: Opening = { id: 'd', kind: 'open', o: 'v', x: 10, y: 1, len: 2, side: 1, hinge: 0 };
     const f = floorOf({
@@ -549,13 +648,15 @@ describe('連接兩個房間（F250～F252）', () => {
   });
 });
 
-describe('整理這間房的家具（F253）', () => {
+describe('自動擺放家具（F253）', () => {
   it('靠牆的貼到牆上、背面朝牆；門前留空；結果通過格局檢查', () => {
     const f = floorOf({
       rooms: [room('r', 0, 0, 12, 10)],
       openings: [{ id: 'd', kind: 'door', o: 'h', x: 5, y: 10, len: 1.5, side: -1, hinge: 0 }],
       items: [
-        item('shelf', 'bookshelf', 4, 4, 3, 0.8),
+        item('shelf', 'bookshelf', 4, 1.5, 3, 0.8),
+        /* 房間中間（離牆超過 1 m）的靠牆家具：照原位 */
+        item('mid', 'bookshelf', 5.5, 5, 2, 0.8),
         item('bed', 'bed', 5, 6.5, 2, 4),
         item('desk', 'desk', 1, 3, 2.4, 1.2),
         item('lap', 'laptop', 1.4, 3.1, 1.2, 0.9),
@@ -576,8 +677,9 @@ describe('整理這間房的家具（F253）', () => {
     const onWall =
       shelf.x === 0 || shelf.y === 0 || shelf.x + shelf.w === 12 || shelf.y + shelf.h === 10;
     expect(onWall).toBe(true);
-    /* 地毯不動 */
+    /* 地毯不動；房間中間的書架不推到牆邊 */
     expect(g.items.find((i) => i.id === 'rug')).toMatchObject({ x: 3, y: 3 });
+    expect(g.items.find((i) => i.id === 'mid')).toMatchObject({ x: 5.5, y: 5, rot: 0 });
     /* 筆電仍在桌上 */
     const desk = g.items.find((i) => i.id === 'desk') as Item;
     const lap = g.items.find((i) => i.id === 'lap') as Item;
@@ -643,7 +745,7 @@ describe('家具跟著房間縮放（F254）', () => {
 });
 
 describe('57 個範本：整理家具、連接房間的結果都通過格局檢查（F253、F250～F252）', () => {
-  it('每一間房「整理這間房的家具」：成功的（沒有留在原處的）都通過 F194、F212、F242', () => {
+  it('每一間房「自動擺放家具」：成功的（沒有留在原處的）都通過 F194、F212、F242', () => {
     const n = { ok: 0, pinned: 0, full: 0, empty: 0 };
     const bad: string[] = [];
     for (const t of TEMPLATES)
@@ -671,7 +773,7 @@ describe('57 個範本：整理家具、連接房間的結果都通過格局檢�
     expect(n.ok).toBeGreaterThan(800);
   }, 120_000);
 
-  it('每一層前 5 間房的每一對「連接這兩間」：加的門、走廊都通過 F194、F212、F242', () => {
+  it('每一層前 5 間房的每一對「打通兩間房」：加的門、走廊都通過 F194、F212、F242', () => {
     const n = { door: 0, corridor: 0, fail: 0 };
     const bad: string[] = [];
     for (const t of TEMPLATES)

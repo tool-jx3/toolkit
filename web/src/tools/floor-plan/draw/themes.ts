@@ -477,7 +477,8 @@ const noir: FloorTheme = {
 
 const terminal: FloorTheme = {
   id: 'terminal',
-  bg: '#06120e',
+  /* 帶螢光感的深綠（2026-10-29 驗證後換掉原本的近黑墨綠：和 KIIN 的底色太像；L* 10、色相偏黃綠） */
+  bg: '#002208',
   grid: 'rgba(110, 255, 190, 0.05)',
   gridMajor: 'rgba(110, 255, 190, 0.11)',
   wall: '#7af0b4',

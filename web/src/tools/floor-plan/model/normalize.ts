@@ -305,7 +305,9 @@ export function normalizeProject(
     if (o !== TOKEN_GRID_OPACITY) out.tokenGridOpacity = o;
   }
   /* 2026-10-29（參考 KIIN）：紙的污漬與摺痕、座標標示、家具不跟著房間（都只在有設定時寫） */
-  if (isNum(p.wear)) out.wear = Math.round(clamp(num(p.wear), WEAR_MIN, 1) * 100) / 100;
+  /* 0 以下＝關（不寫這個欄位）；0～0.1 的夾到 0.1、超過 1 的夾到 1（2026-10-29 驗證後修訂：原本 0 也變成 0.1） */
+  if (isNum(p.wear) && num(p.wear) > 0)
+    out.wear = Math.round(clamp(num(p.wear), WEAR_MIN, 1) * 100) / 100;
   if (isNum(p.wearSeed)) out.wearSeed = Math.abs(Math.round(num(p.wearSeed))) % WEAR_SEEDS;
   if (p.coords === true) out.coords = true;
   if (p.fixedFurniture === true) out.fixedFurniture = true;

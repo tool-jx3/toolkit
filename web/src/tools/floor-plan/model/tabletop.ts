@@ -73,11 +73,56 @@ type Box = Pick<Item, 't' | 'x' | 'y' | 'w' | 'h'>;
 
 const EPS = 1e-6;
 
-/** small 放在 surface 上：中心在桌面上（含邊）、面積 70% 以上在桌面上 */
+/**
+ * 圓形的桌面（畫成橢圓或圓的）：放在桌上的判定用桌面的形狀，不用外框（2026-10-29 驗證後修訂，D70）。
+ * 值＝桌面的半徑（橫、縱）佔外框的一半的比例：圓桌是內接的橢圓；全像投影桌是內接的圓（短邊）。
+ */
+export const ROUND_SURFACES: ReadonlyMap<string, 'ellipse' | 'circle'> = new Map([
+  ['table_round', 'ellipse'],
+  ['holo_table', 'circle'],
+]);
+
+/** 長方形與橢圓重疊的面積（沿 x 分 48 段的中點積分；誤差遠小於 70% 的門檻需要的精度） */
+function rectEllipseOverlap(
+  r: Pick<Box, 'x' | 'y' | 'w' | 'h'>,
+  cx: number,
+  cy: number,
+  rx: number,
+  ry: number,
+): number {
+  const x0 = Math.max(r.x, cx - rx);
+  const x1 = Math.min(r.x + r.w, cx + rx);
+  if (x1 <= x0) return 0;
+  const N = 48;
+  const dx = (x1 - x0) / N;
+  let area = 0;
+  for (let i = 0; i < N; i++) {
+    const x = x0 + (i + 0.5) * dx;
+    const t = (x - cx) / rx;
+    const half = ry * Math.sqrt(Math.max(0, 1 - t * t));
+    const lo = Math.max(r.y, cy - half);
+    const hi = Math.min(r.y + r.h, cy + half);
+    if (hi > lo) area += (hi - lo) * dx;
+  }
+  return area;
+}
+
+/** small 放在 surface 上：中心在桌面上（含邊）、面積 70% 以上在桌面上；圓桌的桌面是橢圓（圓） */
 export function restsOn(small: Box, surface: Box): boolean {
   if (small === surface || !TABLETOP.has(small.t) || !SURFACES.has(surface.t)) return false;
   const cx = small.x + small.w / 2;
   const cy = small.y + small.h / 2;
+  const round = ROUND_SURFACES.get(surface.t);
+  if (round) {
+    const ex = surface.x + surface.w / 2;
+    const ey = surface.y + surface.h / 2;
+    const r = Math.min(surface.w, surface.h) / 2;
+    const rx = round === 'circle' ? r : surface.w / 2;
+    const ry = round === 'circle' ? r : surface.h / 2;
+    if (rx <= 0 || ry <= 0) return false;
+    if (((cx - ex) / rx) ** 2 + ((cy - ey) / ry) ** 2 > 1 + EPS) return false;
+    return rectEllipseOverlap(small, ex, ey, rx, ry) >= small.w * small.h * TABLETOP_SHARE - 1e-3;
+  }
   if (
     cx < surface.x - EPS ||
     cx > surface.x + surface.w + EPS ||

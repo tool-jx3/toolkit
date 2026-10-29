@@ -1,7 +1,12 @@
 /**
  * 匯出的計畫（純函式）：要畫哪幾層、用什麼設定、檔名。匯出對話框、測試共用。
  */
-import { type ExportImageOptions, type ExportLayout, exportLayout } from '../draw/export';
+import {
+  type ExportImageOptions,
+  type ExportLayout,
+  exportLayout,
+  hasExportContent,
+} from '../draw/export';
 import { S } from '../strings';
 import {
   DEFAULT_CELL,
@@ -14,7 +19,7 @@ import {
 import { coordGrid } from './coords';
 import { floorHasClues } from './geometry';
 import { composedFloor } from './interior';
-import type { Floor, Project, ThemeId } from './types';
+import type { Floor, Project, Rect, ThemeId } from './types';
 
 export type ExportRange = 'current' | 'all' | 'each';
 
@@ -146,4 +151,18 @@ export function exportJobs(p: Project, exp: ExportSettings): ExportJob[] {
       ),
     },
   ];
+}
+
+/**
+ * 編輯畫面上紙的污漬與摺痕的「紙」（F263、D75）：用目前的匯出設定匯出「這一層」時整張圖的範圍（世界座標，
+ * 含四周的留白、座標的字、GM 字帶），所以畫面上的污漬和匯出這一層的圖在同一個位置
+ * （2026-10-29 驗證後修訂：原本是所有樓層的範圍）。隱藏線索照畫面上目前的狀態（同匯出對話框打開時）。沒有東西時 null。
+ */
+export function wearSheet(p: Project, exp: ExportSettings, showClues: boolean): Rect | null {
+  const e: ExportSettings = { ...exp, range: 'current', clues: showClues ? 'show' : 'hide' };
+  const floors = exportFloors(p, 'current');
+  if (!hasExportContent(floors, e.view === 'pl', e.clues === 'hide')) return null;
+  const L = exportLayout(floors, exportOptions(p, e, p.theme, 24));
+  const f = L.frames[0];
+  return { x: f.x, y: f.y, w: L.width, h: L.height };
 }

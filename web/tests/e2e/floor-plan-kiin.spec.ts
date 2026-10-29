@@ -1,6 +1,6 @@
 /**
  * 室內平面圖產生器：2026-10-29 參考 KIIN マップ制作スタジオ的四組功能（規格 1.25：F250～F269）——
- * L 形房間（工具 J、缺角的控制點、屬性、旋轉、匯出）、連接兩個房間（K：共用的牆放門、自動走廊）、整理家具、
+ * L 形房間（工具 J、缺角的控制點、屬性、旋轉、匯出）、打通兩間房（K：共用的牆放門、自動走廊）、整理家具、
  * 家具跟著房間縮放、桌上的小物、黑色電影／監視終端、紙的污漬與摺痕、座標標示、VTT 用的匯出與上限、
  * 送到地圖演出產生器（map-fx F84）、專案檔版本 7。
  */
@@ -338,26 +338,28 @@ test.describe('連接兩個房間（F250～F252）', () => {
 });
 
 test.describe('家具（F253～F255）', () => {
-  test('整理這間房的家具：靠牆的貼牆、桌上的小物跟著桌子；一步復原', async ({ page }) => {
+  test('自動擺放家具：靠牆的貼牆、桌上的小物跟著桌子；一步復原', async ({ page }) => {
     const errors = await open(page);
     await setFloor(page, {
       rooms: [room('r', 0, 0, 12, 10, { name: '書房' })],
       openings: [{ id: 'd', kind: 'door', o: 'h', x: 5, y: 10, len: 1.5, side: -1, hinge: 0 }],
       items: [
-        item('shelf', 'bookshelf', 4, 4, 3, 0.8),
+        item('shelf', 'bookshelf', 4, 1.5, 3, 0.8),
+        /* 房間中間（離牆超過 1 m）的靠牆家具：留在原處 */
+        item('mid', 'bookshelf', 6.5, 4.5, 2, 0.8),
         item('desk', 'desk', 4.5, 7.5, 2.4, 1.2),
         item('lamp', 'desk_lamp', 4.7, 7.7, 0.7, 0.7),
       ],
     });
     await click(page, 1, 1);
+    await expect(page.getByTestId('arrange-room')).toHaveText('自動擺放家具');
     await page.getByTestId('arrange-room').click();
-    await expect(page.getByText('已整理「書房」的 3 件家具', { exact: true })).toBeVisible();
+    await expect(page.getByText('已重新擺放「書房」的 4 件家具', { exact: true })).toBeVisible();
     const f = await floor(page);
     const get = (id: string) => f.items.find((i) => i.id === id) as Item;
     const shelf = get('shelf');
-    expect(
-      shelf.x === 0 || shelf.y === 0 || shelf.x + shelf.w === 12 || shelf.y + shelf.h === 10,
-    ).toBe(true);
+    expect(shelf).toMatchObject({ y: 0, rot: 0 });
+    expect(get('mid')).toMatchObject({ x: 6.5, y: 4.5, rot: 0 });
     /* 桌子原本壓在門前：移開了（書桌靠牆、背面朝牆）；檯燈仍在桌上（跟著桌子一起轉、一起移） */
     const desk = get('desk');
     const lamp = get('lamp');
@@ -406,6 +408,57 @@ test.describe('家具（F253～F255）', () => {
     await click(page, 1, 1);
     await drag(page, [10, 4], [14, 4]);
     expect((await floor(page)).items.find((i) => i.id === 'e')?.x).toBeCloseTo(9.2);
+    expect(errors).toEqual([]);
+  });
+
+  test('屬性面板打寬度：打「14」＋Enter 和拖曳到 14 一樣（中間經過 1 不會擠壞）；欄位裡 Ctrl＋Z＝復原按鈕', async ({
+    page,
+  }) => {
+    const errors = await open(page);
+    const items = [
+      item('e', 'bookshelf', 9.2, 2, 0.8, 3, 90),
+      item('t', 'table', 4, 3, 2, 2),
+      item('c', 'chair', 7, 5.5, 1, 1),
+    ];
+    await setFloor(page, { rooms: [room('r', 0, 0, 10, 8)], items });
+    const pos = async () => (await floor(page)).items.map((i) => [i.id, i.x, i.y] as const).sort();
+    const start = await pos();
+    await click(page, 1, 1);
+    await drag(page, [10, 4], [14, 4]);
+    expect((await floor(page)).rooms[0].w).toBe(14);
+    const dragged = await pos();
+    expect(dragged).not.toEqual(start);
+    await page.getByTestId('map-canvas').focus();
+    await page.keyboard.press('Control+z');
+    expect(await pos()).toEqual(start);
+    /* 慢慢打：每個按鍵都套用（先經過寬 1） */
+    const w = page.getByRole('spinbutton', { name: '寬' });
+    await w.click();
+    await page.keyboard.press('Control+a');
+    await page.keyboard.type('1', { delay: 50 });
+    await expect.poll(async () => (await floor(page)).rooms[0].w).toBe(1);
+    await page.keyboard.type('4', { delay: 50 });
+    await page.keyboard.press('Enter');
+    expect((await floor(page)).rooms[0].w).toBe(14);
+    expect(await pos()).toEqual(dragged);
+    /* 焦點還在欄位裡按 Ctrl＋Z：整個這一次輸入退回去（同復原按鈕），不是瀏覽器的文字復原 */
+    await expect(w).toBeFocused();
+    await page.keyboard.press('Control+z');
+    await expect.poll(async () => (await floor(page)).rooms[0].w).toBe(10);
+    expect(await pos()).toEqual(start);
+    await expect(w).toHaveValue('10');
+    /* Ctrl＋Y：重做回到 14 */
+    await page.keyboard.press('Control+y');
+    await expect.poll(async () => (await floor(page)).rooms[0].w).toBe(14);
+    expect(await pos()).toEqual(dragged);
+    /* 打到一半（沒按 Enter）就 Ctrl＋Z：結果和按復原按鈕一樣 */
+    await w.click();
+    await page.keyboard.press('Control+a');
+    await page.keyboard.type('6', { delay: 50 });
+    await expect.poll(async () => (await floor(page)).rooms[0].w).toBe(6);
+    await page.keyboard.press('Control+z');
+    await expect.poll(async () => (await floor(page)).rooms[0].w).toBe(14);
+    expect(await pos()).toEqual(dragged);
     expect(errors).toEqual([]);
   });
 
@@ -507,7 +560,7 @@ test.describe('圖面風格與座標（F261～F264）', () => {
     expect(errors).toEqual([]);
   });
 
-  test('座標標示：匯出的圖變大、左上角仍在方格線上；污漬與摺痕：換一組會改種子、可以復原', async ({
+  test('座標標示：匯出的圖變大、左上角仍在方格線上；污漬與摺痕：重新產生會改種子、可以復原', async ({
     page,
   }) => {
     const errors = await open(page);
@@ -569,6 +622,8 @@ test.describe('VTT 用的匯出（F265、F266）', () => {
     await expect(page.getByTestId('export-vtt-too-large')).toContainText(
       '圖片太大（10200 × 1200 px）',
     );
+    /* 已經只有這一層：不再建議「改成只匯出這一層」 */
+    await expect(page.getByTestId('export-vtt-too-large')).not.toContainText('只匯出這一層');
     await expect(page.getByTestId('export-download')).toBeDisabled();
     await expect(page.getByTestId('export-send-fx')).toBeDisabled();
     await dialog.getByRole('radio', { name: '一般圖片' }).click();

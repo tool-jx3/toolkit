@@ -1,13 +1,15 @@
 /**
- * 整理這間房的家具（2026-10-29，參考 KIIN マップ制作スタジオ；規格 F253、3.14.3、D68）。純函式：算出每件家具的新位置，
+ * 自動擺放家具（2026-10-29，參考 KIIN マップ制作スタジオ；規格 F253、3.14.3、D68）。純函式：算出每件家具的新位置，
  * 呼叫端一次改進去（一步復原）。
  *
  * 規則：
  * - 對象：中心在房間裡、而且那一格是這間房的（不在巢狀的房間裡）的家具；畫在底下的（地毯、血跡…）與貼牆素材不動。
  * - 分組：桌子（有桌面的家具）＋放在上面的小物（F255）＋旁邊 0.5 格以內的椅子；其他各自一組。
  * - 順序：靠牆的家具（`orient`，放在牆邊會背面朝牆的）→ 桌子那一組 → 其他；同一類大的先。
- * - 靠牆的那一組貼到這間房的牆上（背面朝牆：北牆 0°、東牆 90°、南牆 180°、西牆 270°，整組一起轉），找離原本的位置最近的；
- *   其他的照原本的方向找離原本的位置最近的空位（0.25 格一步）。
+ * - 靠牆的那一組只貼到**離它 1 m（2 格）以內的牆**上（背面朝牆：北牆 0°、東牆 90°、南牆 180°、西牆 270°，整組一起轉），
+ *   而且中心最多移動 2 m（4 格），找離原本的位置最近的；貼不上（或附近沒有牆：放在房間中間的收銀櫃台、棧板架）就照「其他」
+ *   處理（2026-10-29 驗證後修訂：原本一律貼到任何一道牆，會被推到幾公尺外的牆邊）。
+ * - 其他的先試原本的位置，不行（擋到門、窗前、和別的疊在一起）才照原本的方向找離原本的位置最近的空位（0.25 格一步）。
  * - 合法：整組都在這間房的格子裡、不穿過手畫的牆、不碰到門的開門範圍與門前一格（F194）、不碰到窗前一格、
  *   不和別的家具疊在一起（畫在底下的不算；同一組裡的不比）。
  * - 排不下的組：先把它們留在原位（當成障礙）再排一次其他的；還是有排不下的就整個不改。
@@ -25,6 +27,10 @@ import { edgeKind, wallLines } from './walls';
 export const CHAIRS: ReadonlySet<string> = new Set(['chair', 'stool', 'zabuton']);
 /** 椅子離桌子幾格以內算一組 */
 export const CHAIR_GAP = 0.5;
+/** 靠牆的家具離牆幾格以內才貼牆（1 m） */
+export const NEAR_WALL = 2;
+/** 貼牆時中心最多移動幾格（2 m） */
+export const SNAP_MAX = 4;
 
 export interface ArrangeResult {
   /** 成功（有移動的件數；pinned 是排不下、留在原位的） */
@@ -127,9 +133,6 @@ export function arrangeRoom(floor: Floor, roomId: string): ArrangeResult {
     used.add(t.id);
     units.push({ anchor: t, members: [t], kind: ASSET[t.t]?.orient ? 0 : 2, area: t.w * t.h });
   }
-  units.sort(
-    (a, b) => a.kind - b.kind || b.area - a.area || a.anchor.id.localeCompare(b.anchor.id),
-  );
 
   /* ---------- 障礙 ---------- */
   const fixed = floor.items.filter((it) => blocking(it) && !targetIds.has(it.id));
@@ -201,6 +204,33 @@ export function arrangeRoom(floor: Floor, roomId: string): ArrangeResult {
   }
   const ROT = { n: 0, e: 90, s: 180, w: 270 } as const;
 
+  /* 靠牆的家具離最近的牆超過 NEAR_WALL 時不貼牆（放在房間中間的櫃台、架子） */
+  const wallGap = (b: Rect, w: WallSeg) => {
+    const horiz = w.dir === 'n' || w.dir === 's';
+    const across =
+      w.dir === 'n'
+        ? b.y - w.c
+        : w.dir === 's'
+          ? w.c - (b.y + b.h)
+          : w.dir === 'w'
+            ? b.x - w.c
+            : w.c - (b.x + b.w);
+    /* 中心在那道牆的另一邊（L 形的內角）：不算；凸出牆線的算貼著（0） */
+    const cx = b.x + b.w / 2;
+    const cy = b.y + b.h / 2;
+    const behind =
+      w.dir === 'n' ? cy < w.c : w.dir === 's' ? cy > w.c : w.dir === 'w' ? cx < w.c : cx > w.c;
+    if (behind) return Number.POSITIVE_INFINITY;
+    const [a0, a1] = horiz ? [b.x, b.x + b.w] : [b.y, b.y + b.h];
+    return Math.hypot(Math.max(0, across), Math.max(0, w.a - a1, a0 - w.b));
+  };
+  for (const u of units)
+    if (u.kind === 0 && !walls.some((w) => wallGap(u.anchor, w) <= NEAR_WALL + EPS))
+      u.kind = SURFACES.has(u.anchor.t) ? 1 : 2;
+  units.sort(
+    (a, b) => a.kind - b.kind || b.area - a.area || a.anchor.id.localeCompare(b.anchor.id),
+  );
+
   /* ---------- 一組的候選位置（離原本的位置近的先） ---------- */
   const bbox = (bs: readonly Rect[]): Rect => {
     const x = Math.min(...bs.map((b) => b.x));
@@ -215,9 +245,10 @@ export function arrangeRoom(floor: Floor, roomId: string): ArrangeResult {
   function* candidates(u: Unit): Generator<Box[]> {
     const ax = u.anchor.x + u.anchor.w / 2;
     const ay = u.anchor.y + u.anchor.h / 2;
-    const list: { d: number; boxes: Box[] }[] = [];
     if (u.kind === 0) {
+      const near: { d: number; boxes: Box[] }[] = [];
       for (const wseg of walls) {
+        if (wallGap(u.anchor, wseg) > NEAR_WALL + EPS) continue;
         const rot = ROT[wseg.dir];
         const turned = rotateUnit(u.members, u.anchor, rot - (u.anchor.rot || 0));
         const a = turned[0];
@@ -228,24 +259,28 @@ export function arrangeRoom(floor: Floor, roomId: string): ArrangeResult {
           const ny = horiz ? (wseg.dir === 'n' ? wseg.c : wseg.c - a.h) : s;
           const dx = nx - a.x;
           const dy = ny - a.y;
-          const boxes = turned.map((m) => ({ ...m, x: m.x + dx, y: m.y + dy }));
-          list.push({ d: Math.hypot(nx + a.w / 2 - ax, ny + a.h / 2 - ay), boxes });
+          const d = Math.hypot(nx + a.w / 2 - ax, ny + a.h / 2 - ay);
+          if (d > SNAP_MAX + EPS) continue;
+          near.push({ d, boxes: turned.map((m) => ({ ...m, x: m.x + dx, y: m.y + dy })) });
         }
       }
-    } else {
-      const b = bbox(u.members);
-      /* 原本的位置（不在 0.25 格上的也算）最先試 */
-      list.push({ d: 0, boxes: u.members.map((m) => ({ ...m })) });
-      for (let x = snap(room.x, 0.25); x + b.w <= room.x + room.w + EPS; x += 0.25)
-        for (let y = snap(room.y, 0.25); y + b.h <= room.y + room.h + EPS; y += 0.25) {
-          const dx = x - b.x;
-          const dy = y - b.y;
-          list.push({
-            d: Math.hypot(dx, dy),
-            boxes: u.members.map((m) => ({ ...m, x: m.x + dx, y: m.y + dy })),
-          });
-        }
+      near.sort((p, q) => p.d - q.d);
+      for (const c of near) yield c.boxes;
     }
+    /* 其他（靠牆的貼不上時也是）：原本的位置，再來是附近的空位 */
+    const list: { d: number; boxes: Box[] }[] = [];
+    const b = bbox(u.members);
+    /* 原本的位置（不在 0.25 格上的也算）最先試 */
+    list.push({ d: 0, boxes: u.members.map((m) => ({ ...m })) });
+    for (let x = snap(room.x, 0.25); x + b.w <= room.x + room.w + EPS; x += 0.25)
+      for (let y = snap(room.y, 0.25); y + b.h <= room.y + room.h + EPS; y += 0.25) {
+        const dx = x - b.x;
+        const dy = y - b.y;
+        list.push({
+          d: Math.hypot(dx, dy),
+          boxes: u.members.map((m) => ({ ...m, x: m.x + dx, y: m.y + dy })),
+        });
+      }
     list.sort((p, q) => p.d - q.d);
     for (const c of list) yield c.boxes;
   }

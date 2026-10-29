@@ -387,7 +387,7 @@ export function ExportDialog() {
           {tooLarge ? (
             <div data-testid="export-vtt-too-large">
               <Notice tone="danger">
-                {S.exp.vttTooLarge(tooLarge.pxWidth, tooLarge.pxHeight)}
+                {S.exp.vttTooLarge(tooLarge.pxWidth, tooLarge.pxHeight, range === 'all' && multi)}
               </Notice>
             </div>
           ) : null}

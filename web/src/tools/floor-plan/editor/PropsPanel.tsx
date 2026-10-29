@@ -3,7 +3,7 @@
  * 文字欄、數字欄從聚焦到離開算一步復原；調色盤按下到放開算一步。
  */
 import { Link2, ListOrdered, Lock, LockOpen, RotateCw, Shuffle, Sparkles } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { type KeyboardEvent, type ReactNode, useRef } from 'react';
 import { historyGesture } from '@/core/storage';
 import {
   Button,
@@ -342,6 +342,7 @@ function KiinFields() {
             size="sm"
             icon={<Shuffle />}
             onClick={act.shuffleWear}
+            title={S.props.wearShuffleHint}
             data-testid="wear-shuffle"
             className="shrink-0"
           >
@@ -476,8 +477,35 @@ function RoomProps({ r }: { r: Room }) {
   const theme = getTheme(useProject((s) => s.data.theme));
   const area = roomArea(r);
   const edit = (fn: (o: Room) => void) => act.editObj<Room>(ref, fn);
-  const num = (label: string, key: 'x' | 'y' | 'w' | 'h', min?: number) => (
-    <Field label={label}>
+  /*
+   * 寬、深的一次輸入（第一個按鍵到 Enter／離開欄位／方向鍵）：從開始時的位置重算家具（F254），記成一步復原；
+   * 打「14」先經過 1 也不會把家具擠在一起（2026-10-29 驗證後修訂）
+   */
+  const sizing = useRef<{ start: act.RoomResizeStart; misfit: number } | null>(null);
+  const finishSize = () => {
+    const s = sizing.current;
+    if (!s) return;
+    sizing.current = null;
+    act.endRoomResize();
+    if (s.misfit) act.notify(S.msg.followMisfit(s.misfit), 'warning');
+  };
+  /* 欄位裡的 Ctrl＋Z／Ctrl＋Y：不用瀏覽器的文字復原（會把打到一半的數字再套一次），改成和「復原」按鈕一樣 */
+  const sizeKeys = (e: KeyboardEvent<HTMLDivElement>) => {
+    if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
+    const redo = e.code === 'KeyY' || (e.code === 'KeyZ' && e.shiftKey);
+    if (e.code !== 'KeyZ' && !redo) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const input = e.target instanceof HTMLElement ? e.target : null;
+    /* 先離開欄位（打到一半的數字照 Enter 確定、記成一步），再復原或重做；之後回到欄位 */
+    input?.blur();
+    if (redo) act.redo();
+    else act.undo();
+    if (input?.isConnected) input.focus();
+  };
+  const num = (label: string, key: 'x' | 'y' | 'w' | 'h', min?: number) => {
+    const size = key === 'w' || key === 'h';
+    const field = (
       <NumberInput
         value={r[key]}
         step={1}
@@ -486,18 +514,41 @@ function RoomProps({ r }: { r: Room }) {
         disabled={r.locked}
         onChange={(v) => {
           const value = Math.max(min ?? -Infinity, Math.round(v));
-          /* 寬、深：家具跟著房間（F254）、L 形的缺角夾到合法的大小 */
-          if (key === 'w' || key === 'h') {
-            const misfit = act.resizeRoom(r.id, { x: r.x, y: r.y, w: r.w, h: r.h, [key]: value });
-            if (misfit) act.notify(S.msg.followMisfit(misfit), 'warning');
-          } else
+          if (!size) {
             edit((o) => {
               o[key] = value;
             });
+            return;
+          }
+          /* 寬、深：家具跟著房間（F254）、L 形的缺角夾到合法的大小 */
+          if (!sizing.current) {
+            const start = act.beginRoomResize(r.id);
+            if (!start) return;
+            sizing.current = { start, misfit: 0 };
+          }
+          const o = sizing.current.start.orig;
+          sizing.current.misfit = act.resizeRoom(
+            r.id,
+            { x: o.x, y: o.y, w: o.w, h: o.h, [key]: value },
+            sizing.current.start,
+          );
         }}
+        onCommit={size ? finishSize : undefined}
       />
-    </Field>
-  );
+    );
+    return (
+      <Field label={label}>
+        {size ? (
+          // biome-ignore lint/a11y/noStaticElementInteractions: 只攔欄位裡的復原快捷鍵與離開欄位
+          <div className="min-w-0" onBlur={finishSize} onKeyDownCapture={sizeKeys}>
+            {field}
+          </div>
+        ) : (
+          field
+        )}
+      </Field>
+    );
+  };
   return (
     <>
       <Head

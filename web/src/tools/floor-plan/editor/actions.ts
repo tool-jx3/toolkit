@@ -15,7 +15,7 @@ import {
 } from '../model/catalog';
 import { compatCounts, hasCompatNotes } from '../model/compat';
 import { connectRooms } from '../model/connect';
-import { followRoomResize } from '../model/follow';
+import { resizeWithFollow } from '../model/follow';
 import {
   clamp,
   clueCount,
@@ -913,7 +913,7 @@ export function connectSelection(): void {
   }
 }
 
-/** 整理這間房的家具（F253）；一步復原 */
+/** 自動擺放家具（F253）；一步復原 */
 export function arrangeRoomFurniture(id: string): void {
   const f = currentFloor();
   const room = getObj(f, 'room', id) as Room | null;
@@ -937,14 +937,38 @@ export function arrangeRoomFurniture(id: string): void {
   else notify(S.msg.arranged(name, r.count), 'success', { action: undoAction() });
 }
 
+/** 改房間大小的一次手勢：開始時的那一層與房間（拖曳控制點、屬性面板的寬深欄位） */
+export interface RoomResizeStart {
+  before: Floor;
+  orig: Room;
+}
+
 /**
- * 房間的外框改成 next（屬性面板的數字欄；控制點在 controller）：缺角跟著夾到合法的範圍，
- * 家具跟著房間（地圖設定開著時，F254）。回傳放不下的家具組數。
+ * 屬性面板的寬深欄位開始改（第一個按鍵）：之後到 `endRoomResize` 的變更記成一步復原，每一步都從這時的位置算
+ * （打「14」先經過 1 也不會把家具擠在一起；2026-10-29 驗證後修訂）。
  */
-export function resizeRoom(id: string, next: Rect): number {
-  const p0 = useProject.getState().data;
-  const before = cur(p0);
+export function beginRoomResize(id: string): RoomResizeStart | null {
+  flushNudge();
+  const before = currentFloor();
   const orig = getObj(before, 'room', id) as Room | null;
+  if (!orig) return null;
+  useProject.beginGesture();
+  return { before, orig };
+}
+
+/** 欄位確定（Enter、離開欄位、方向鍵）：這一次的改變記成一步 */
+export function endRoomResize(): void {
+  queueMicrotask(() => useProject.endGesture());
+}
+
+/**
+ * 改房間的位置與大小（屬性面板的寬深；F254：家具跟著房間）。`start`＝手勢開始時的狀態（沒有＝現在），
+ * 家具、門窗、文字從那時的位置重算。回傳放不下的組數。
+ */
+export function resizeRoom(id: string, next: Rect, start?: RoomResizeStart): number {
+  const p0 = useProject.getState().data;
+  const before = start?.before ?? cur(p0);
+  const orig = start?.orig ?? (getObj(before, 'room', id) as Room | null);
   if (!orig) return 0;
   let misfit = 0;
   update((p) => {
@@ -953,7 +977,7 @@ export function resizeRoom(id: string, next: Rect): number {
     if (!r) return;
     const cut = fitCut(orig.cut, next.w, next.h);
     const geo = { x: next.x, y: next.y, w: next.w, h: next.h, ...(cut ? { cut } : {}) };
-    if (!p0.fixedFurniture) misfit = followRoomResize(before, orig, geo, f);
+    misfit = resizeWithFollow(f, before, orig, geo, !p0.fixedFurniture);
     Object.assign(r, { x: next.x, y: next.y, w: next.w, h: next.h });
     if (cut) r.cut = cut;
     else delete r.cut;
@@ -1026,7 +1050,7 @@ export function setWearStrength(v: number): void {
   });
 }
 
-/** 換一組污漬與摺痕的位置 */
+/** 重新產生污漬與摺痕的位置 */
 export function shuffleWear(): void {
   update((p) => {
     p.wearSeed = newWearSeed(p.wearSeed);

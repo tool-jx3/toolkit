@@ -119,6 +119,8 @@ function placeDoor(
   const lines = wallLines(floor);
   const blockers = floor.items.filter(blocking);
   const sorted = [...segs].sort((p, q) => q.b - q.a - (p.b - p.a) || p.c - q.c || p.a - q.a);
+  /* 放得下門的位置（不壓到門窗、不跨過接上來的牆）：最長的牆段、中點附近的先 */
+  const spots: { seg: Seg; start: number; len: number; pref: 1 | -1 }[] = [];
   for (const seg of sorted) {
     const len0 = seg.b - seg.a;
     if (len0 < DOOR_MIN - EPS) continue;
@@ -135,24 +137,26 @@ function placeDoor(
       /* 門往 into 那一間開：+ 側（橫線的下面、直線的右邊）的格子是不是那一間 */
       const mid = Math.floor(start + len / 2);
       const plus = seg.o === 'h' ? owner.get(key(mid, seg.c)) : owner.get(key(seg.c, mid));
-      const pref: 1 | -1 = plus === into ? 1 : -1;
-      for (const kind of ['door', 'sliding'] as OpeningKind[])
-        for (const side of [pref, -pref as 1 | -1])
-          for (const hinge of kind === 'door' ? ([0, 1] as const) : ([0] as const)) {
-            const o: Opening = {
-              id: uid('o'),
-              kind,
-              o: seg.o,
-              x: seg.o === 'h' ? start : seg.c,
-              y: seg.o === 'h' ? seg.c : start,
-              len,
-              side,
-              hinge,
-            };
-            if (!blockers.some((it) => hitsDoor(o, it))) return o;
-          }
+      spots.push({ seg, start, len, pref: plus === into ? 1 : -1 });
     }
   }
+  /* 整面牆的每個位置都試過單開門放不下，才改試拉門（2026-10-29 驗證後修訂：原本同一個位置先單開門、再拉門） */
+  for (const kind of ['door', 'sliding'] as OpeningKind[])
+    for (const { seg, start, len, pref } of spots)
+      for (const side of [pref, -pref as 1 | -1])
+        for (const hinge of kind === 'door' ? ([0, 1] as const) : ([0] as const)) {
+          const o: Opening = {
+            id: uid('o'),
+            kind,
+            o: seg.o,
+            x: seg.o === 'h' ? start : seg.c,
+            y: seg.o === 'h' ? seg.c : start,
+            len,
+            side,
+            hinge,
+          };
+          if (!blockers.some((it) => hitsDoor(o, it))) return o;
+        }
   return null;
 }
 

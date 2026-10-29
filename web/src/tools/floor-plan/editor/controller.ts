@@ -10,7 +10,8 @@ import { getTheme, roomFill } from '../draw/themes';
 import { ASSET } from '../model/assets';
 import { CELL_M, ROOM_PRESETS } from '../model/catalog';
 import { coordGrid, coordLabels } from '../model/coords';
-import { followRoomResize } from '../model/follow';
+import { type ExportSettings, wearSheet } from '../model/exportPlan';
+import { resizeWithFollow } from '../model/follow';
 import {
   clamp,
   floorBounds,
@@ -26,7 +27,6 @@ import {
   unionRect,
   visibleFloor,
 } from '../model/geometry';
-import { composeFloors } from '../model/interior';
 import { type AnyObj, getObj, movable } from '../model/ops';
 import {
   cutHandlePoint,
@@ -395,6 +395,22 @@ export class EditorController {
   }
 
   /** 東西的範圍（選取框、範圍選取用） */
+  /** 紙的範圍（F263）：專案、匯出設定、線索的顯示沒變時沿用上一次算的 */
+  private wearMemo: {
+    p: Project;
+    exp: ExportSettings;
+    clues: boolean;
+    sheet: Rect | null;
+  } | null = null;
+
+  private wearSheetFor(p: Project, exp: ExportSettings, clues: boolean): Rect | null {
+    const m = this.wearMemo;
+    if (m && m.p === p && m.exp === exp && m.clues === clues) return m.sheet;
+    const sheet = wearSheet(p, exp, clues);
+    this.wearMemo = { p, exp, clues, sheet };
+    return sheet;
+  }
+
   objBounds(type: ObjType, o: AnyObj): Rect {
     if (type === 'room' || type === 'item') {
       const r = o as Room;
@@ -626,22 +642,10 @@ export class EditorController {
         : undefined,
       coords,
     });
-    /* 紙的污漬與摺痕（F263）：所有樓層的範圍（四周 2 格）當一張紙 */
+    /* 紙的污漬與摺痕（F263）：匯出這一層時整張圖的範圍當一張紙（和匯出的圖同一個位置） */
     if (p.wear) {
-      let sheet: Rect | null = null;
-      for (const f of composeFloors(p.floors)) {
-        const b = floorBounds(f);
-        if (b) sheet = unionRect(sheet, b);
-      }
-      if (coords) sheet = unionRect(sheet, coords.rect);
-      if (sheet)
-        drawWear(
-          c,
-          { x: sheet.x - 2, y: sheet.y - 2, w: sheet.w + 4, h: sheet.h + 4 },
-          p.wearSeed ?? 0,
-          p.wear,
-          theme,
-        );
+      const sheet = this.wearSheetFor(p, prefs.exp, prefs.showClues);
+      if (sheet) drawWear(c, sheet, p.wearSeed ?? 0, p.wear, theme);
     }
     /* 樣式的畫面效果（F261、F262）：螢幕的像素座標 */
     if (theme.effect) {
@@ -1557,12 +1561,7 @@ export class EditorController {
           const cut = fitCut(orig.cut, round2(x2 - x1), round2(y2 - y1));
           const geo = { x: x1, y: y1, w: x2 - x1, h: y2 - y1, ...(cut ? { cut } : {}) };
           /* 每次從拖曳前的位置算（家具回到原位再移） */
-          for (const type of ['item', 'opening', 'text'] as const)
-            for (const ob of before[TYPE_KEY[type]] as AnyObj[]) {
-              const cur = getObj(f, type, ob.id);
-              if (cur) Object.assign(cur, structuredClone(ob));
-            }
-          d.misfit = p.fixedFurniture || e.altKey ? 0 : followRoomResize(before, orig, geo, f);
+          d.misfit = resizeWithFollow(f, before, orig, geo, !p.fixedFurniture && !e.altKey);
           if (cut) r.cut = cut;
           else delete r.cut;
         }

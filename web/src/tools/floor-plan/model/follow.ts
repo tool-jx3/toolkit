@@ -67,6 +67,26 @@ function unionBox(rs: readonly Rect[]): Rect {
 }
 
 /**
+ * 一次改大小的手勢（拖曳控制點、屬性面板的寬深欄位從開始打字到確定）：`floor` 裡的家具、門窗、文字先回到手勢開始時
+ * （`before`）的位置，再照 `next` 跟著移動（`follow`＝false 時只回到原位）。每一步都從開始時算，所以拖曳或打字的
+ * 中間經過很小的大小（例：打「14」先經過 1）也不會把家具擠在一起（2026-10-29 驗證後修訂）。回傳放不下的組數。
+ */
+export function resizeWithFollow(
+  floor: Floor,
+  before: Floor,
+  orig: Room,
+  next: Geo,
+  follow: boolean,
+): number {
+  for (const key of ['items', 'openings', 'texts'] as const)
+    for (const ob of before[key] as readonly (Item | Opening | TextLabel)[]) {
+      const cur = (floor[key] as (Item | Opening | TextLabel)[]).find((o) => o.id === ob.id);
+      if (cur) Object.assign(cur, structuredClone(ob));
+    }
+  return follow ? followRoomResize(before, orig, next, floor) : 0;
+}
+
+/**
  * 房間 orig（改之前）改成 next 的外形之後，把 before（改之前的樓層）裡房間的東西移到 floor（要改的樓層，Immer 的 draft 也可以）。
  * 回傳放不下（不在新的外形裡）的家具組數。外形的種類（長方形／L 形）不同時不動、回傳 0。
  */

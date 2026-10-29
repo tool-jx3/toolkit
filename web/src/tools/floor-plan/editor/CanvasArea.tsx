@@ -155,7 +155,7 @@ function MiniBar() {
   const clueTargets = objs.length > 0 && objs.every((o) => o.type === 'item' || o.type === 'text');
   const clue = clueTargets && objs.every((o) => o.obj.clue);
   const locked = rooms.length > 0 && rooms.every((o) => (o.obj as unknown as Room).locked);
-  /* 選了兩間房間：連接這兩間（2026-10-29，F250） */
+  /* 選了兩間房間：打通兩間房（2026-10-29，F250） */
   const twoRooms = rooms.length === 2 && objs.length === 2;
   return (
     <div
