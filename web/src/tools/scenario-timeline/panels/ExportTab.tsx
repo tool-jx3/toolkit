@@ -39,6 +39,7 @@ import {
   useUi,
 } from '../store';
 import { S } from '../strings';
+import { currentWin } from '../view/shared';
 import { pickCsv } from './importer';
 import { TimeField } from './TimeField';
 
@@ -78,7 +79,12 @@ export function ExportTab() {
   const collapsed = usePrefs((s) => s.data.collapsed);
   const win = useUi((s) => s.win);
   const winMode = useUi((s) => s.winMode);
-  const view = win && winMode === doc.mode ? win : null;
+  /* 目前畫面：時間軸的畫面範圍（還沒打開過時間軸時用全覽） */
+  const view = useMemo(
+    () => (win && winMode === doc.mode ? win : currentWin()),
+    /* 資料換了才重算全覽 */
+    [win, winMode, doc],
+  );
   const secrets = useMemo(() => hasSecrets(doc), [doc]);
   const plan = useMemo(
     () => planPicture(doc, ex, view, collapsed, null),
@@ -183,7 +189,7 @@ export function ExportTab() {
           const r = planPicture(
             d,
             p.export,
-            ui.win && ui.winMode === d.mode ? ui.win : null,
+            ui.win && ui.winMode === d.mode ? ui.win : currentWin(),
             p.collapsed,
           );
           if (!r.ok) throw new Error(r.error);

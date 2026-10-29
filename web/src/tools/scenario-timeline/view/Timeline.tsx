@@ -92,6 +92,8 @@ import {
 } from './shared';
 
 const AXIS_ROW = 24;
+/** 已經做過的全覽要求（時間軸卸載、重新掛上時不重複） */
+let handledFit = 0;
 const DRAG_THRESHOLD = 4;
 export const GM_STRIPES =
   'repeating-linear-gradient(135deg, rgb(217 154 30 / 0.22) 0 3px, transparent 3px 9px)';
@@ -213,10 +215,10 @@ export function Timeline() {
   const gesture = useRef(createPointerGesture());
 
   /* 畫面範圍：這種寫法上次的（這次開頁的、或存在這台裝置的），沒有時全覽；要求全覽時重新全覽 */
-  const lastFit = useRef(fitRequest);
   useLayoutEffect(() => {
-    if (lastFit.current !== fitRequest) {
-      lastFit.current = fitRequest;
+    /* 年表檢視時要求的全覽，切回時間軸時才做 */
+    if (handledFit !== fitRequest) {
+      handledFit = fitRequest;
       setWin(fitFor(vdocBase, trackRef.current?.clientWidth || 800));
       return;
     }
