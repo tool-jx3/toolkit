@@ -510,9 +510,9 @@ test('人數上限 50：新增區停用、一次加入只加到上限（F17）',
 
 /* ---------- 四象限 ---------- */
 
-test('四象限：拖曳（保持位置差、夾在畫布、後面的優先）、點空白取消、方向鍵、Delete、Esc（F27、F28、F31～F33）', async ({
-  page,
-}) => {
+test('四象限：拖曳（保持位置差、夾在畫布、後面的優先）、點空白取消、方向鍵、Delete、Esc（F27、F28、F31～F33）', {
+  tag: '@serial',
+}, async ({ page }) => {
   const errors = await open(page);
   await addChar(page, '甲');
   await addChar(page, '乙');

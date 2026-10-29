@@ -686,6 +686,44 @@ test('APNG：播放次數（整體／個別）、延遲 0 保留；檢視器的�
 test('壓縮狀態文字（F89）：單張下載、容量試算、匯出結束後都清空（晚到的進度不會蓋回去）', async ({
   page,
 }) => {
+  /*
+   * 測試的圖很小，Worker 幾毫秒就壓完：「進度」和「結果」常在同一次畫面更新前都到了，狀態文字根本沒畫出來。
+   * 這裡讓 Worker 的訊息一個畫格交一個，每個狀態都會先畫出來（順序不變，只是慢一點）。
+   */
+  await page.addInitScript(() => {
+    const add = Worker.prototype.addEventListener;
+    Worker.prototype.addEventListener = function (
+      this: Worker,
+      type: string,
+      fn: EventListenerOrEventListenerObject,
+      opts?: boolean | AddEventListenerOptions,
+    ) {
+      if (type !== 'message' || typeof fn !== 'function') return add.call(this, type, fn, opts);
+      const queue: Event[] = [];
+      let running = false;
+      const pump = () => {
+        const ev = queue.shift();
+        if (!ev) {
+          running = false;
+          return;
+        }
+        fn.call(this, ev);
+        requestAnimationFrame(pump);
+      };
+      return add.call(
+        this,
+        type,
+        (ev) => {
+          queue.push(ev);
+          if (!running) {
+            running = true;
+            requestAnimationFrame(pump);
+          }
+        },
+        opts,
+      );
+    };
+  });
   const errors = await open(page);
   await load(page, [file('ball.png', await ballApng()), file('loop0.png', await loop0Apng())]);
   const status = page.getByTestId('compress-status');
