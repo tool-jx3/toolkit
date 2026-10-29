@@ -63,9 +63,14 @@
      - 綽號：original（古諾斯語原文）。
      - 沒有值的欄位（null 或空字串，例如空白的 note、name_sep）不寫。
   3. 其他欄位（姓名的寫法、reading、meaning、note、class、countries、f_form、f_reading、pat、diminutive、綽號的 e、meaning、note，
-     包的 id、label、note、corpus_note、rules、name_order、name_sep）照原文，沒有改寫。
+     包的 id、label、note、corpus_note、rules、name_order、name_sep）照原文，沒有改寫；例外見下面第 6 點。
   4. catalog.ts 是從同一份資料算出來的摘要（有沒有中性名、階級與國家的標記、讀音的種類、是不是以父名構成、原檔的 SHA-256）。
   5. sources.ts：8 個地區頁面（https://inknomu.com/namegen/<地區>）底部「資料來源」的清單（2026-10-29 整理），
      分組、每一筆的文字與連結照原文；只留 https 的連結。
+  6. 翻譯：日本三個包的說明（note）原文是日文，本站譯成繁體中文（本站的介面只有繁中）：
+     - jp-taisho：原文「大正改元（1912）にちなむ「正」字が男女名に大流行、女性名は伝統的な仮名二字名からの「〇子」萌芽期。」
+     - jp-showa：原文「昭和改元にちなむ「昭」字ブーム、女性名は「〇子」全盛期（和子が13年連続1位）を経て、戦後は誠・大輔など時代を象徴する名が長期支配。」
+     - jp-modern：原文「元号との連動が薄れ、自然・和風モチーフ（翔・陽・蓮・葵）が主流化。「〇子」は退潮し、個性重視の当て字・読みが多様化。」
+     譯文寫在轉換腳本的 NOTE_TRANSLATIONS；原站改了這三句時腳本會停下來。
 
   本站的改寫依 CC BY 4.0 提供，不另加限制。

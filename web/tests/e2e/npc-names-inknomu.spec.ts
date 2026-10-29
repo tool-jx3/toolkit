@@ -131,10 +131,24 @@ test('8 個地區；年代分兩組；考據語料用到才載入那個地區的
   /* 頁尾沒有靈感來源；說明對話框的來源有 Inknomu */
   await expect(page.getByText(/靈感來源/)).toHaveCount(0);
   await page.getByRole('button', { name: '說明' }).click();
-  await expect(page.getByRole('dialog')).toContainText(
-    '弄墨 Inknomu《角色姓名產生器》（CC BY 4.0）',
-  );
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toContainText('弄墨 Inknomu《角色姓名產生器》（CC BY 4.0）');
+  /* 出處連到原站與授權頁，另開分頁 */
+  for (const [name, href] of [
+    ['弄墨 Inknomu《角色姓名產生器》', 'https://inknomu.com/namegen/'],
+    ['CC BY 4.0', 'https://creativecommons.org/licenses/by/4.0/'],
+  ]) {
+    const a = dialog.getByRole('link', { name, exact: true });
+    await expect(a).toHaveAttribute('href', href);
+    await expect(a).toHaveAttribute('target', '_blank');
+    await expect(a).toHaveAttribute('rel', 'noopener noreferrer');
+  }
   await page.keyboard.press('Escape');
+  /* 「使用方式」裡也有同樣的連結 */
+  await btn(page, '使用方式').click();
+  await expect(
+    page.getByTestId('usage-corpus-note').getByRole('link', { name: 'CC BY 4.0', exact: true }),
+  ).toHaveAttribute('href', 'https://creativecommons.org/licenses/by/4.0/');
 
   /* 英國：名在前，涵義先「名：」再「姓：」 */
   await radio(page, '英國').click();
@@ -203,12 +217,10 @@ test('中性、階級、國家只在有標記的包出現；性別標記「中�
   await expect
     .poll(async () => (await nameTexts(page)).every((t) => /(son|dóttir)( |$)/.test(t)))
     .toBe(true);
-  /* 維京：「名：…」「父名：…之子（維京時代無姓氏，以父名＋後綴構成）」 */
+  /* 維京：「名：…」「父名：…之子」 */
   const vLines = cards(page).first().getByTestId('name-meaning').locator('p');
   await expect(vLines.nth(0)).toHaveText(/^名：/);
-  await expect(vLines.nth(1)).toHaveText(
-    /^父名：\S+ 之(子|女)（維京時代無姓氏，以父名＋後綴構成）$/,
-  );
+  await expect(vLines.nth(1)).toHaveText(/^父名：\S+ 之(子|女)$/);
   await pickEra(page, '現代（1990–今）');
   await expect(field('國家')).toBeVisible();
   await radio(page, '瑞典').click();
@@ -384,10 +396,11 @@ test('2026-10 以前的存檔（只有日本、台灣、美國與舊的年代 id
   expect(errors).toEqual([]);
 });
 
-test('輸出：只有名、只有姓（台灣沒有；維京沒有只有姓）；紀錄寫輸出', async ({ page }) => {
+test('姓名（輸出）：只有名、只有姓（台灣沒有；維京沒有只有姓）；紀錄寫輸出', async ({ page }) => {
   const errors = await open(page);
   await setSeed(page, 'part');
-  const field = conditions(page).getByText('輸出', { exact: true });
+  const field = conditions(page).getByText('姓名', { exact: true });
+  await expect(conditions(page).getByText('輸出', { exact: true })).toHaveCount(0);
   /* 日本（人數名單）：只有姓 */
   let before = await nameTexts(page);
   await radio(page, '只有姓').click();
@@ -452,8 +465,11 @@ test.describe('查名字', () => {
     /* 濁音：たて 找得到 伊達（だて） */
     await search(page, 'たて');
     expect(await hitTexts(page)).toContain('伊達');
-    /* 跨年代：佐藤在好幾個年代，每個年代一筆 */
+    /* 跨年代：佐藤在好幾個年代，每個年代一筆（「共 N 筆」旁邊有提示） */
     await search(page, '佐藤');
+    await expect(page.getByTestId('search-per-era')).toHaveText(
+      '同一個名字在不同年代的語料各列一筆（各自的涵義）。',
+    );
     const metas = await page.getByTestId('search-hit-meta').allInnerTexts();
     expect(new Set(metas).size).toBeGreaterThan(1);
     expect(metas.every((m) => m.startsWith('姓・'))).toBe(true);
@@ -478,6 +494,8 @@ test.describe('查名字', () => {
     await radio(page, '韓國').click();
     await search(page, 'gim');
     expect(await hitTexts(page)).toContain('김');
+    /* 韓國只有一個包：沒有分開列的提示 */
+    await expect(page.getByTestId('search-per-era')).toHaveCount(0);
     await search(page, 'zzzz');
     await expect(total(page)).toHaveText('共 0 筆');
     await expect(page.getByText('查無資料，換個字試試。')).toBeVisible();
@@ -518,6 +536,47 @@ test.describe('查名字', () => {
   });
 });
 
+test.describe('紀錄', () => {
+  test.use({ permissions: ['clipboard-read', 'clipboard-write'] });
+
+  test('語料的紀錄只存名字與讀音（不存涵義）；放回時查回涵義（重新整理後也會先載入資料）', async ({
+    page,
+  }) => {
+    const errors = await open(page);
+    await setSeed(page, 'hist');
+    await radio(page, '俄羅斯').click();
+    await expect.poll(async () => (await nameTexts(page))[0]).toMatch(/^[A-Z]/);
+    const first = await nameTexts(page);
+    const details = await page.getByTestId('name-meaning').allInnerTexts();
+    expect(details.every((d) => /名：/.test(d))).toBe(true);
+    await page.waitForTimeout(1100);
+    await page.getByLabel('種子', { exact: true }).fill('hist2');
+    await btn(page, '產生').click();
+    await expect.poll(() => nameTexts(page)).not.toEqual(first);
+    /* 存的紀錄：沒有涵義、備註 */
+    const stored = await page.evaluate(
+      () => localStorage.getItem('trpg-toolkit:npc-names:preview') ?? '',
+    );
+    expect(stored).toContain(first[0]);
+    expect(stored).not.toContain('meanings');
+    expect(stored).not.toContain('名：');
+    /* 重新整理（資料還沒載入）後放回：名字與說明行都回來 */
+    await page.reload();
+    await expect(cards(page)).toHaveCount(10);
+    const entries = page.getByTestId('history-entry');
+    await entries.nth(1).getByRole('button', { name: /^放回/ }).click();
+    await expect.poll(() => nameTexts(page)).toEqual(first);
+    await expect.poll(() => page.getByTestId('name-meaning').allInnerTexts()).toEqual(details);
+    /* 紀錄的複製附讀音（存了讀音） */
+    await page.getByRole('switch', { name: '複製時附上讀音' }).click();
+    await entries.nth(1).getByRole('button', { name: /^複製/ }).click();
+    const copied = (await page.evaluate(() => navigator.clipboard.readText())).split('\n');
+    expect(copied.map((l) => l.replace(/（.*）$/, ''))).toEqual(first);
+    expect(copied.filter((l) => /（[А-Яа-яЁё ]+）$/.test(l)).length).toBeGreaterThan(5);
+    expect(errors).toEqual([]);
+  });
+});
+
 test('語料讀不到：提示重新整理頁面', async ({ page }) => {
   const errors = await open(page);
   await page.route(/inknomu-uk-[\w-]+\.js$/, (route) => route.abort('failed'));
@@ -528,6 +587,29 @@ test('語料讀不到：提示重新整理頁面', async ({ page }) => {
   expect(
     errors.filter((e) => !/Failed to (load resource|fetch dynamically imported module)/.test(e)),
   ).toEqual([]);
+});
+
+test.describe('窄畫面的年代選單', () => {
+  for (const width of [390, 360, 320]) {
+    test(`${width} 寬：8 個地區的年代選單都不超出畫面`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 800 });
+      const errors = await open(page);
+      for (const r of ['日本', '台灣', '韓國', '英國', '美國', '俄羅斯', '北歐', '奇幻']) {
+        await radio(page, r).click();
+        await eraBox(page).click();
+        const box = await page.getByRole('listbox').boundingBox();
+        expect(box, r).not.toBeNull();
+        if (box) {
+          expect(box.x, r).toBeGreaterThanOrEqual(0);
+          expect(box.x + box.width, r).toBeLessThanOrEqual(width);
+        }
+        await page.keyboard.press('Escape');
+        await expect(page.getByRole('listbox')).toHaveCount(0);
+      }
+      await noHorizontalScroll(page);
+      expect(errors).toEqual([]);
+    });
+  }
 });
 
 test.describe('390 寬', () => {

@@ -361,6 +361,8 @@ export interface CorpusName {
   extras: string[];
   /** 只有名或只有姓（這時另一段是空字串、全名就是那一段） */
   part?: 'given' | 'family';
+  /** 查回說明用的鍵（資料裡的位置；紀錄只存精簡版，放回時用它查回涵義） */
+  ref?: CorpusRef;
 }
 
 export interface CorpusDrawOptions {
@@ -416,47 +418,75 @@ const PATRONYMIC = { son: 'son', daughter: 'dóttir' } as const;
 export const EPITHET_CHANCE = 0.3;
 
 /**
- * 抽一個姓名（不管重複）。亂數依序用在：性別（不限時 < 0.5 是男性）、姓（維京是父親的名字）、名、
- * （維京）要不要綽號（< 0.3）、哪一個綽號。
+ * 查回說明用的鍵（紀錄裡的名字不存涵義、備註，放回時用它從資料查回來）：資料裡的位置——
+ * 姓（`s`）、名（`g`：男 m／女 f／中性 u 加位置，例如 "m12"）、維京的父親（`f`，男性名的位置）、綽號（`e`）。
+ * 查回時比對組出來的全名和存的相同才算數（資料以後改版、位置變了就退回用寫法找，再找不到就只顯示名字）。
  */
-export function drawCorpusName(
+export interface CorpusRef {
+  s?: number;
+  g: string;
+  f?: number;
+  e?: number;
+}
+
+/** 一個姓名用到的資料（抽出來的，或從鍵查回來的） */
+interface CorpusPicks {
+  gender: CorpusGender;
+  surname?: InknomuSurname;
+  father?: InknomuGiven;
+  given: InknomuGiven;
+  epithet?: InknomuEpithet;
+}
+
+const GIVEN_LISTS = ['m', 'f', 'u'] as const;
+
+function refOf(pack: InknomuPack, picks: CorpusPicks): CorpusRef {
+  let g = '';
+  for (const list of GIVEN_LISTS) {
+    const i = pack.given[list].indexOf(picks.given);
+    if (i >= 0) {
+      g = `${list}${i}`;
+      break;
+    }
+  }
+  const ref: CorpusRef = { g };
+  if (picks.surname) ref.s = pack.surnames.indexOf(picks.surname);
+  if (picks.father) ref.f = pack.given.m.indexOf(picks.father);
+  if (picks.epithet && pack.epithets) ref.e = pack.epithets.indexOf(picks.epithet);
+  return ref;
+}
+
+/**
+ * 由用到的資料組出姓名（組名、涵義、備註、暱稱、讀音，3.5）。只有名或只有姓（`part`）時只留那一段。
+ */
+export function composeCorpusName(
   pack: InknomuPack,
-  options: CorpusDrawOptions,
-  random: RandomFn,
+  picks: CorpusPicks,
+  partOption: NamePart = 'full',
   region: CorpusRegion = corpusPackInfo(pack.id)?.region ?? 'jp',
 ): CorpusName {
-  const choice = corpusGenderOf(pack, options.gender);
-  const gender: CorpusGender = choice === 'any' ? (random() < 0.5 ? 'male' : 'female') : choice;
+  const { gender, surname: s, father, given: g, epithet: e } = picks;
   const female = gender === 'female';
-  const rank = options.rank ?? 'all';
-  const country = options.country ?? 'all';
   const extras: string[] = [];
   let family = '';
   let familyReading: string | undefined;
   let familyMeaning = '';
   let familyIsOriginal = false;
-  const patronymic = !pack.surnames.length && pack.rules?.patronymic?.enabled === true;
-  if (pack.surnames.length) {
-    const s = pickOne(filterEntries(pack.surnames, rank, country), random());
+  if (s) {
     family = (female && s.f_form) || s.s;
     familyReading = female && s.f_form ? s.f_reading : s.reading;
     familyMeaning = `姓：${s.meaning}`;
     if (s.f_form) extras.push(female ? `姓氏男性形 ${s.s}` : `姓氏女性形 ${s.f_form}`);
-  } else if (patronymic) {
-    const father = pickOne(pack.given.m, random());
+  } else if (father) {
     family = `${father.pat || father.g}${female ? PATRONYMIC.daughter : PATRONYMIC.son}`;
     familyIsOriginal = true;
-    familyMeaning = `父名：${father.g} ${female ? '之女' : '之子'}（維京時代無姓氏，以父名＋後綴構成）`;
+    /* 本站的寫法；父名制的說明在「關於這份語料」（包的 rules.patronymic.note） */
+    familyMeaning = `父名：${father.g} ${female ? '之女' : '之子'}`;
   }
-  const g = pickOne(filterEntries(givenPool(pack, gender), rank, country), random());
   const notes = g.note ? [g.note] : [];
   if (g.diminutive) extras.unshift(`暱稱 ${g.diminutive}`);
-  let epithet: string | undefined;
-  if (patronymic && pack.epithets?.length && random() < EPITHET_CHANCE) {
-    const e = pickOne(pack.epithets, random());
-    epithet = e.e;
-    notes.push(`綽號 ${e.e}：${e.meaning}${e.note ? `（${e.note}）` : ''}`);
-  }
+  const epithet = e?.e;
+  if (e) notes.push(`綽號 ${e.e}：${e.meaning}${e.note ? `（${e.note}）` : ''}`);
   const givenMeaning = `名：${g.meaning}`;
   const givenFirst = pack.name_order === 'gs' || !pack.surnames.length;
   /* 前綴式的綽號（Peace-、Turf-）接在名的前面：Peace-Bjorn Ragnarsson；其他接在最後：Erik Thorvaldsson the Red */
@@ -467,8 +497,8 @@ export function drawCorpusName(
     : givenFirst
       ? [shownGiven, family, prefix ? '' : epithet].filter(Boolean).join(' ')
       : `${family}${pack.name_sep ?? ''}${g.g}`;
-  const part =
-    options.part === 'family' && !pack.surnames.length ? 'full' : (options.part ?? 'full');
+  const ref = refOf(pack, picks);
+  const part = partOption === 'family' && !s ? 'full' : partOption;
   const diminutive = g.diminutive ? [`暱稱 ${g.diminutive}`] : [];
   if (part === 'given' || part === 'family') {
     /* 只有名：涵義只留名的，名的備註與暱稱照留，父名、綽號、姓的另一形不出現；只有姓：涵義只留姓的，名的備註與暱稱不出現 */
@@ -483,7 +513,8 @@ export function drawCorpusName(
       text: given ? g.g : family,
       meanings: [given ? givenMeaning : familyMeaning],
       notes: given && g.note ? [g.note] : [],
-      extras: given ? diminutive : extras.filter((e) => !diminutive.includes(e)),
+      extras: given ? diminutive : extras.filter((x) => !diminutive.includes(x)),
+      ref,
     };
     const reading = given ? g.reading : familyReading;
     if (region === 'jp') {
@@ -506,6 +537,7 @@ export function drawCorpusName(
     ),
     notes,
     extras,
+    ref,
   };
   if (epithet) name.epithet = epithet;
   if (region === 'jp') {
@@ -520,6 +552,117 @@ export function drawCorpusName(
     if (original) name.original = original;
   }
   return name;
+}
+
+/**
+ * 抽一個姓名（不管重複）。亂數依序用在：性別（不限時 < 0.5 是男性）、姓（維京是父親的名字）、名、
+ * （維京）要不要綽號（< 0.3）、哪一個綽號。
+ */
+export function drawCorpusName(
+  pack: InknomuPack,
+  options: CorpusDrawOptions,
+  random: RandomFn,
+  region: CorpusRegion = corpusPackInfo(pack.id)?.region ?? 'jp',
+): CorpusName {
+  const choice = corpusGenderOf(pack, options.gender);
+  const gender: CorpusGender = choice === 'any' ? (random() < 0.5 ? 'male' : 'female') : choice;
+  const rank = options.rank ?? 'all';
+  const country = options.country ?? 'all';
+  const patronymic = !pack.surnames.length && pack.rules?.patronymic?.enabled === true;
+  const surname = pack.surnames.length
+    ? pickOne(filterEntries(pack.surnames, rank, country), random())
+    : undefined;
+  const father = !surname && patronymic ? pickOne(pack.given.m, random()) : undefined;
+  const given = pickOne(filterEntries(givenPool(pack, gender), rank, country), random());
+  const epithet =
+    patronymic && pack.epithets?.length && random() < EPITHET_CHANCE
+      ? pickOne(pack.epithets, random())
+      : undefined;
+  return composeCorpusName(
+    pack,
+    { gender, surname, father, given, epithet },
+    options.part ?? 'full',
+    region,
+  );
+}
+
+/** 紀錄用的精簡版：不存涵義、備註、暱稱與姓的另一形（放回時用 `rehydrateCorpusName` 從資料查回來） */
+export type SlimCorpusName = Omit<CorpusName, 'meanings' | 'notes' | 'extras'>;
+
+export function slimCorpusName(name: CorpusName): SlimCorpusName {
+  const { meanings: _m, notes: _n, extras: _x, ...rest } = name;
+  return rest;
+}
+
+/** 依鍵（資料裡的位置）找回用到的資料；位置不對就回 null */
+function picksFromRef(
+  pack: InknomuPack,
+  name: Pick<CorpusName, 'gender' | 'ref'>,
+): CorpusPicks | null {
+  const ref = name.ref;
+  const m = ref ? /^([mfu])(\d+)$/.exec(ref.g) : null;
+  if (!ref || !m) return null;
+  const given = pack.given[m[1] as 'm' | 'f' | 'u'][Number(m[2])];
+  if (!given) return null;
+  const at = <T>(list: readonly T[] | undefined, i: number | undefined) =>
+    i === undefined ? undefined : list?.[i];
+  const picks: CorpusPicks = {
+    gender: name.gender,
+    given,
+    surname: at(pack.surnames, ref.s),
+    father: at(pack.given.m, ref.f),
+    epithet: at(pack.epithets, ref.e),
+  };
+  if ((ref.s !== undefined && !picks.surname) || (ref.f !== undefined && !picks.father))
+    return null;
+  if (ref.e !== undefined && !picks.epithet) return null;
+  return picks;
+}
+
+/** 依寫法找回用到的資料（鍵對不上時；同寫法有好幾筆時取第一筆） */
+function picksFromText(pack: InknomuPack, name: SlimCorpusName): CorpusPicks | null {
+  const female = name.gender === 'female';
+  const lists =
+    name.gender === 'neutral'
+      ? (['u'] as const)
+      : female
+        ? (['f', 'u'] as const)
+        : (['m', 'u'] as const);
+  const givenText = name.part === 'family' ? null : name.given;
+  let given: InknomuGiven | undefined;
+  if (givenText) {
+    for (const l of lists) given ??= pack.given[l].find((g) => g.g === givenText);
+  } else given = [...pack.given.m, ...pack.given.f, ...pack.given.u][0];
+  if (!given) return null;
+  const familyText = name.part === 'given' ? null : name.family;
+  let surname: InknomuSurname | undefined;
+  let father: InknomuGiven | undefined;
+  if (familyText && pack.surnames.length) {
+    surname = pack.surnames.find((s) => ((female && s.f_form) || s.s) === familyText);
+    if (!surname) return null;
+  } else if (familyText) {
+    const suffix = female ? PATRONYMIC.daughter : PATRONYMIC.son;
+    father = pack.given.m.find((g) => `${g.pat || g.g}${suffix}` === familyText);
+    if (!father) return null;
+  }
+  const epithet = name.epithet ? pack.epithets?.find((e) => e.e === name.epithet) : undefined;
+  if (name.epithet && !epithet) return null;
+  return { gender: name.gender, given, surname, father, epithet };
+}
+
+/**
+ * 紀錄裡的精簡版 → 完整的姓名（查回涵義、備註、暱稱與姓的另一形）。先用鍵、再用寫法找；
+ * 組出來的全名和存的不同（資料改版了）時回 null（呼叫的地方就只顯示名字）。
+ */
+export function rehydrateCorpusName(pack: InknomuPack, name: SlimCorpusName): CorpusName | null {
+  const region = corpusPackInfo(pack.id)?.region ?? name.region;
+  for (const picks of [picksFromRef(pack, name), picksFromText(pack, name)]) {
+    if (!picks) continue;
+    const full = composeCorpusName(pack, picks, name.part ?? 'full', region);
+    if (full.text === name.text && full.family === name.family && full.given === name.given)
+      return full;
+  }
+  return null;
 }
 
 /**

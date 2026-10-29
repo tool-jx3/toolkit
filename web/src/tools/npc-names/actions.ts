@@ -9,8 +9,10 @@ import {
   type CorpusData,
   type CorpusRegion,
   type CorpusSearchEntry,
+  corpusPack,
   loadCorpus,
   loadedCorpus,
+  rehydrateCorpusName,
 } from '@/core/names/corpus';
 import {
   copyAllText,
@@ -20,12 +22,16 @@ import {
   effectiveConditions,
   eraOption,
   exportFileName,
+  type HistoryEntry,
   type NamesState,
+  type NpcName,
+  needsDetails,
   nextBatch,
   pushHistory,
   sanitizeHistory,
   sanitizeState,
   searchCopyLine,
+  storeHistory,
   toTxt,
 } from './logic';
 import { useHistory, useNames } from './store';
@@ -110,28 +116,49 @@ async function generateBatch(): Promise<void> {
     const at = Date.now();
     const cond = effectiveConditions(state);
     useHistory.getState().patch({
-      history: pushHistory(sanitizeHistory(useHistory.getState().data.history), {
-        id: `${at}-${batch.seed}`,
-        at,
-        region,
-        era,
-        gender: cond.gender,
-        ...(cond.rank !== 'all' ? { rank: cond.rank } : {}),
-        ...(cond.country !== 'all' ? { country: cond.country } : {}),
-        ...(cond.part !== 'full' ? { part: cond.part } : {}),
-        seed: batch.seed,
-        names: batch.names,
-      }),
+      history: storeHistory(
+        pushHistory(sanitizeHistory(useHistory.getState().data.history), {
+          id: `${at}-${batch.seed}`,
+          at,
+          region,
+          era,
+          gender: cond.gender,
+          ...(cond.rank !== 'all' ? { rank: cond.rank } : {}),
+          ...(cond.country !== 'all' ? { country: cond.country } : {}),
+          ...(cond.part !== 'full' ? { part: cond.part } : {}),
+          seed: batch.seed,
+          names: batch.names,
+        }),
+      ),
     });
   }
 }
 
+/**
+ * 紀錄裡的語料名字只存精簡版：從那個地區的資料查回涵義、備註、暱稱與姓的另一形（資料還沒載入時先載入）。
+ * 讀不到資料或查不到（資料改版了）的就只有名字。
+ */
+async function withDetails(entry: HistoryEntry): Promise<NpcName[]> {
+  if (!entry.names.some(needsDetails)) return entry.names;
+  let data = loadedCorpus(entry.region);
+  if (!data) data = await loadCorpus(entry.region).catch(() => null);
+  return entry.names.map((n) => {
+    if (!needsDetails(n) || !data) return n;
+    const pack = corpusPack(data, n.pack);
+    return (pack && rehydrateCorpusName(pack, n)) ?? n;
+  });
+}
+
 /** 把紀錄裡的一批放回來（地區、年代、性別、階級、國家與輸出也換回那一批的；鎖定清掉；可以復原） */
-export function restoreHistory(id: string): void {
+export function restoreHistory(id: string): Promise<void> {
   const entry = sanitizeHistory(useHistory.getState().data.history).find((e) => e.id === id);
-  if (!entry) return;
-  ++ticket;
-  void asStep(() =>
+  if (!entry) return Promise.resolve();
+  const mine = ++ticket;
+  useStatus.setState({ loading: false, failed: false, exhausted: false });
+  return asStep(async () => {
+    const names = await withDetails(entry);
+    /* 查回的期間又產生或改了條件：放棄這次放回 */
+    if (mine !== ticket) return;
     useNames.getState().update((d) => {
       d.region = entry.region;
       if (entry.era) d.eras[entry.region] = entry.era;
@@ -142,12 +169,11 @@ export function restoreHistory(id: string): void {
       if (src.kind === 'corpus' && src.pack.countries) d.country = entry.country ?? 'all';
       /* 輸出：這個地區可以選時換回那一批的（紀錄沒寫＝全名） */
       if (entry.region !== 'tw') d.part = entry.part ?? 'full';
-      d.names = entry.names;
+      d.names = names;
       d.locked = [];
       d.lastSeed = entry.seed;
-    }),
-  );
-  useStatus.setState({ loading: false, failed: false, exhausted: false });
+    });
+  });
 }
 
 export async function copyHistory(id: string): Promise<boolean> {

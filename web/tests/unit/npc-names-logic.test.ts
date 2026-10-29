@@ -32,13 +32,17 @@ import {
   type NpcName,
   nextBatch,
   PART_LABELS,
+  parseRef,
   partOptions,
   pushHistory,
+  refToString,
   sanitizeHistory,
   sanitizeState,
   searchCopyLine,
   searchReadings,
   shownReadings,
+  storeHistory,
+  storeHistoryName,
   toTxt,
 } from '@/tools/npc-names/logic';
 
@@ -799,13 +803,13 @@ describe('考據語料的說明行（原站的排法）', () => {
   it('涵義一段一行、備註一行（「、」）、暱稱與姓的另一形一行（「，」）', () => {
     expect(
       corpusDetails({
-        meanings: ['名：熊', '父名：Ragnar 之子（維京時代無姓氏，以父名＋後綴構成）'],
+        meanings: ['名：熊', '父名：Ragnar 之子'],
         notes: ['薩迦常見人名', '綽號 the Red：紅髮或紅鬍'],
         extras: [],
       }),
     ).toEqual([
       { text: '名：熊', muted: false },
-      { text: '父名：Ragnar 之子（維京時代無姓氏，以父名＋後綴構成）', muted: false },
+      { text: '父名：Ragnar 之子', muted: false },
       { text: '薩迦常見人名、綽號 the Red：紅髮或紅鬍', muted: true },
     ]);
     expect(
@@ -829,5 +833,84 @@ describe('考據語料的說明行（原站的排法）', () => {
     const uk = nextBatch(state({ region: 'uk', seed: 'o', count: 5 }), UK_CORPUS)
       .names as CorpusName[];
     for (const x of uk) expect(x.meanings.map((m) => m.slice(0, 2))).toEqual(['名：', '姓：']);
+  });
+});
+
+describe('紀錄的精簡格式（2026-10 驗證後的裁定）', () => {
+  const entry = (
+    names: NpcName[],
+    region: HistoryEntry['region'] = 'ru',
+    era = 'ru-imperial',
+  ): HistoryEntry => ({
+    id: 'x',
+    at: 1,
+    region,
+    era,
+    gender: 'any',
+    seed: 's',
+    names,
+  });
+
+  it('查回鍵的字串', () => {
+    expect(refToString({ g: 'm12', s: 3, f: 5, e: 7 })).toBe('m12.s3.f5.e7');
+    expect(refToString({ g: 'u0' })).toBe('u0');
+    expect(parseRef('m12.s3.f5.e7')).toEqual({ g: 'm12', s: 3, f: 5, e: 7 });
+    expect(parseRef('f4.e0')).toEqual({ g: 'f4', e: 0 });
+    for (const bad of ['', 'x1', 'm', 'm1.q2', 3, null]) expect(parseRef(bad)).toBeUndefined();
+  });
+
+  it('語料的名字只存名字、讀音與查回鍵；讀回來時沒有涵義（放回時再查回）；人數名單照舊', () => {
+    const ru = nextBatch(state({ region: 'ru', gender: 'female', seed: 'h', count: 5 }), RU_CORPUS)
+      .names as CorpusName[];
+    const stored = storeHistoryName(ru[0]);
+    expect(Object.keys(stored).sort()).toEqual(
+      ['f', 'g', 'k', 'o', 'r', 't', 'x'].filter((k) => k in stored).sort(),
+    );
+    expect(stored).toMatchObject({
+      k: 'ru-imperial',
+      x: 'f',
+      t: ru[0].text,
+      f: ru[0].family,
+      g: ru[0].given,
+    });
+    expect(JSON.stringify(stored)).not.toContain('meanings');
+    const [back] = sanitizeHistory(storeHistory([entry(ru)]));
+    expect(back.names).toEqual(ru.map((n) => ({ ...n, meanings: [], notes: [], extras: [] })));
+    /* 複製用的讀音還在 */
+    expect(copyLine(back.names[0], { show: initialState.show, copyReading: true })).toBe(
+      copyLine(ru[0], { show: initialState.show, copyReading: true }),
+    );
+    const count = n('陳家豪');
+    expect(storeHistory([entry([count], 'tw', 'now')])[0].names[0]).toEqual(count);
+    /* 2026-10 驗證前的完整格式照常讀入 */
+    expect(sanitizeHistory([entry(ru)])[0].names).toEqual(ru);
+  });
+
+  it('大小：20 批 × 50 個，最大的包也比完整格式小一半以上（量測值寫在規格 F30）', () => {
+    const packs = [
+      ['jp', JP_CORPUS, 'jp-sengoku'],
+      ['nordic', NORDIC_CORPUS, 'nordic-viking'],
+    ] as const;
+    for (const [region, data, era] of packs) {
+      const history = Array.from({ length: 20 }, (_, b) =>
+        entry(
+          nextBatch(
+            state({
+              region,
+              eras: { ...initialState.eras, [region]: era },
+              seed: `size-${b}`,
+              count: 50,
+            }),
+            data,
+          ).names,
+          region,
+          era,
+        ),
+      );
+      const full = JSON.stringify(history).length;
+      const stored = JSON.stringify(storeHistory(history)).length;
+      expect(stored, era).toBeLessThan(full * 0.5);
+      expect(stored, era).toBeLessThan(140_000);
+    }
   });
 });

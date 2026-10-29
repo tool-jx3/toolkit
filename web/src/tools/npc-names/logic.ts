@@ -26,6 +26,7 @@ import {
   type CorpusGenderChoice,
   type CorpusName,
   type CorpusRank,
+  type CorpusRef,
   type CorpusRegion,
   type CorpusSearchEntry,
   corpusKanaReadings,
@@ -205,6 +206,23 @@ const optional = (key: string, v: unknown) => (typeof v === 'string' ? { [key]: 
 const partOf = (v: unknown): { part?: 'given' | 'family' } =>
   v === 'given' || v === 'family' ? { part: v } : {};
 
+const isIndex = (v: unknown): v is number => Number.isInteger(v) && (v as number) >= 0;
+
+/** 讀回的查回鍵（看不懂的不留，放回時改用寫法找） */
+function refOf(v: unknown): { ref?: CorpusRef } {
+  if (!v || typeof v !== 'object') return {};
+  const r = v as Record<string, unknown>;
+  if (typeof r.g !== 'string' || !/^[mfu]\d+$/.test(r.g)) return {};
+  const ref: CorpusRef = { g: r.g };
+  for (const k of ['s', 'f', 'e'] as const) {
+    const x = r[k];
+    if (x === undefined) continue;
+    if (!isIndex(x)) return {};
+    ref[k] = x;
+  }
+  return { ref };
+}
+
 /** 讀回的一個名字：欄位不齊的、看不懂的包丟掉 */
 function cleanName(raw: unknown): NpcName | null {
   if (!raw || typeof raw !== 'object') return null;
@@ -230,6 +248,7 @@ function cleanName(raw: unknown): NpcName | null {
       meanings: strings(n.meanings),
       notes: strings(n.notes),
       extras: strings(n.extras),
+      ...refOf(n.ref),
     };
   }
   if (!isNameRegion(n.region)) return null;
@@ -432,6 +451,112 @@ export interface HistoryEntry {
   names: NpcName[];
 }
 
+/**
+ * 紀錄裡的考據語料名字（存在瀏覽器的精簡格式）：只存畫面上的名字與讀音需要的欄位，加上查回說明用的鍵；
+ * 涵義、備註、暱稱與姓的另一形放回時從資料查回來（`rehydrateCorpusName`），讓自動儲存小一點
+ * （同一個網站的工具共用瀏覽器的儲存額度）。2026-10 驗證後的裁定。
+ * k 包、x 性別（m 男／f 女／n 中性）、t 全名、f 姓、g 名、fr／gr 姓與名的平假名、o 原文／拼音、e 綽號、
+ * p 輸出（g 只有名／f 只有姓）、r 查回鍵（"m12.s3.f5.e7"：名、姓、維京的父親、綽號在資料裡的位置）。
+ */
+export interface StoredCorpusName {
+  k: string;
+  x: 'm' | 'f' | 'n';
+  t: string;
+  f?: string;
+  g?: string;
+  fr?: string;
+  gr?: string;
+  o?: string;
+  e?: string;
+  p?: 'g' | 'f';
+  r?: string;
+}
+
+export type StoredHistoryEntry = Omit<HistoryEntry, 'names'> & {
+  names: (GeneratedName | StoredCorpusName)[];
+};
+
+const GENDER_CODE = { male: 'm', female: 'f', neutral: 'n' } as const;
+
+/** 查回鍵 → 字串 "m12.s3.f5.e7" */
+export function refToString(ref: CorpusRef | undefined): string | undefined {
+  if (!ref) return undefined;
+  return [
+    ref.g,
+    ...(['s', 'f', 'e'] as const).map((k) => (ref[k] === undefined ? '' : `${k}${ref[k]}`)),
+  ]
+    .filter(Boolean)
+    .join('.');
+}
+
+/** 字串 → 查回鍵（看不懂的回 undefined，放回時改用寫法找） */
+export function parseRef(v: unknown): CorpusRef | undefined {
+  if (typeof v !== 'string') return undefined;
+  const [g, ...rest] = v.split('.');
+  if (!/^[mfu]\d+$/.test(g ?? '')) return undefined;
+  const ref: CorpusRef = { g };
+  for (const part of rest) {
+    const m = /^([sfe])(\d+)$/.exec(part);
+    if (!m) return undefined;
+    ref[m[1] as 's' | 'f' | 'e'] = Number(m[2]);
+  }
+  return ref;
+}
+
+/** 存進紀錄的名字：考據語料的名字換成精簡格式，人數名單照舊 */
+export function storeHistoryName(n: NpcName): GeneratedName | StoredCorpusName {
+  if (!isCorpusName(n)) return n;
+  const out: StoredCorpusName = { k: n.pack, x: GENDER_CODE[n.gender], t: n.text };
+  if (n.family) out.f = n.family;
+  if (n.given) out.g = n.given;
+  if (n.familyReading) out.fr = n.familyReading;
+  if (n.givenReading) out.gr = n.givenReading;
+  if (n.original) out.o = n.original;
+  if (n.epithet) out.e = n.epithet;
+  if (n.part) out.p = n.part === 'given' ? 'g' : 'f';
+  const r = refToString(n.ref);
+  if (r) out.r = r;
+  return out;
+}
+
+/** 紀錄存進瀏覽器的格式 */
+export function storeHistory(history: readonly HistoryEntry[]): StoredHistoryEntry[] {
+  return history.map((e) => ({ ...e, names: e.names.map(storeHistoryName) }));
+}
+
+/** 讀回紀錄的一個名字：精簡格式、2026-10 驗證前的完整格式、人數名單都認得 */
+function loadHistoryName(raw: unknown): NpcName | null {
+  if (!raw || typeof raw !== 'object' || !('k' in raw)) return cleanName(raw);
+  const c = raw as Record<string, unknown>;
+  const info = corpusPackInfo(c.k);
+  if (!info || typeof c.t !== 'string' || !c.t) return null;
+  const gender = c.x === 'm' ? 'male' : c.x === 'f' ? 'female' : c.x === 'n' ? 'neutral' : null;
+  if (!gender) return null;
+  const str = (v: unknown) => (typeof v === 'string' ? v : '');
+  const ref = parseRef(c.r);
+  return {
+    pack: info.id,
+    region: info.region,
+    gender,
+    family: str(c.f),
+    given: str(c.g),
+    ...optional('epithet', c.e),
+    ...optional('familyReading', c.fr),
+    ...optional('givenReading', c.gr),
+    ...optional('original', c.o),
+    ...(c.p === 'g' ? { part: 'given' as const } : c.p === 'f' ? { part: 'family' as const } : {}),
+    text: c.t,
+    meanings: [],
+    notes: [],
+    extras: [],
+    ...(ref ? { ref } : {}),
+  };
+}
+
+/** 紀錄裡的語料名字是精簡版（沒有涵義）：要查回說明 */
+export const needsDetails = (n: NpcName): n is CorpusName =>
+  isCorpusName(n) && !n.meanings.length && !n.notes.length && !n.extras.length;
+
 /** 加一筆紀錄（新的在前；和上一筆相隔不到 HISTORY_MERGE_MS 時取代它；最多 HISTORY_MAX 筆） */
 export function pushHistory(
   history: readonly HistoryEntry[],
@@ -453,7 +578,7 @@ export function sanitizeHistory(raw: unknown): HistoryEntry[] {
     if (!item || typeof item !== 'object') continue;
     const e = item as Partial<HistoryEntry>;
     if (!isCorpusRegion(e.region) || typeof e.at !== 'number' || !Array.isArray(e.names)) continue;
-    const names = e.names.map(cleanName).filter((n): n is NpcName => !!n);
+    const names = e.names.map(loadHistoryName).filter((n): n is NpcName => !!n);
     if (!names.length) continue;
     out.push({
       id: typeof e.id === 'string' ? e.id : String(e.at),

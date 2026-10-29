@@ -87,6 +87,8 @@ import { SearchPanel } from './Search';
 import { useNames } from './store';
 import { S } from './strings';
 
+const LINK = 'text-accent underline';
+
 function Usage() {
   return (
     <>
@@ -98,7 +100,26 @@ function Usage() {
       </ul>
       <p className="mt-2 font-semibold">{S.usage.notesTitle}</p>
       <ul>
-        {S.usage.notes.map((line) => (
+        {S.usage.notes.slice(0, -1).map((line) => (
+          <li key={line}>{line}</li>
+        ))}
+        <li data-testid="usage-corpus-note">
+          {S.usage.corpusNote.prefix}
+          <a className={LINK} href={INKNOMU_SOURCE.url} target="_blank" rel="noopener noreferrer">
+            {INKNOMU_SOURCE.name}
+          </a>
+          （
+          <a
+            className={LINK}
+            href={INKNOMU_SOURCE.licenseUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            {INKNOMU_SOURCE.license}
+          </a>
+          ）{S.usage.corpusNote.suffix}
+        </li>
+        {S.usage.notes.slice(-1).map((line) => (
           <li key={line}>{line}</li>
         ))}
       </ul>
@@ -164,8 +185,6 @@ function useCorpusPack(region: CorpusRegion, id: string) {
   }, [region]);
   return data ? (corpusPack(data, id) ?? null) : null;
 }
-
-const LINK = 'text-accent underline';
 
 /** 這個地區頁面的資料來源（第一次打開「關於這份語料」時才載入；讀不到就不顯示） */
 function useCorpusSources(region: CorpusRegion) {

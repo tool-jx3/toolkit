@@ -8,7 +8,8 @@
  * - 檔案的 SHA-256 和下面 SOURCES 記的（2026-10-29 取得）不同時停下來：原站更新了資料，要先看過改了什麼，
  *   確認之後把新的 SHA-256 填進 SOURCES、src/core/names/inknomu/LICENSE.txt 與 meta.json 再重跑。
  * - 輸出：src/core/names/inknomu/inknomu-<地區>.ts（每個地區一個檔，用到才載入）與 catalog.ts（包的清單，開頁就要用）。
- *   文字（姓名、讀音、涵義、備註、規則說明）照原文，只做格式轉換、拿掉用不到的欄位（見 DROPPED 與 LICENSE.txt）。
+ *   文字（姓名、讀音、涵義、備註、規則說明）照原文，只做格式轉換、拿掉用不到的欄位（見 DROPPED 與 LICENSE.txt）；
+ *   例外：日本三個包的說明原文是日文，譯成繁中（NOTE_TRANSLATIONS）。
  * - `--sources`：各地區頁面底部的「資料來源」清單（`{地區: [{group, items: [{text, links?: [{text, url}]}]}]}`，
  *   2026-10-29 從 8 個地區頁整理）→ src/core/names/inknomu/sources.ts（「關於這份語料」打開時才載入）。
  *   文字照原文；連結只收 https。沒給時不動 sources.ts。
@@ -77,6 +78,25 @@ const SOURCES = {
   },
 };
 
+/**
+ * 日文的說明（包的 note）譯成繁中（介面只有繁中，CLAUDE.md 規則 4；CC BY 允許改作）。原文和這裡記的不同時停下來
+ * （原站改了說明，要重新翻譯）。其他文字照原文。寫在 LICENSE.txt「本站做的變更」。2026-10 驗證後的裁定。
+ */
+const NOTE_TRANSLATIONS = {
+  'jp-taisho': {
+    ja: '大正改元（1912）にちなむ「正」字が男女名に大流行、女性名は伝統的な仮名二字名からの「〇子」萌芽期。',
+    zh: '因大正改元（1912）而起的「正」字在男女名大為流行；女性名正處在從傳統的假名二字名轉向「〇子」的萌芽期。',
+  },
+  'jp-showa': {
+    ja: '昭和改元にちなむ「昭」字ブーム、女性名は「〇子」全盛期（和子が13年連続1位）を経て、戦後は誠・大輔など時代を象徴する名が長期支配。',
+    zh: '因昭和改元而起的「昭」字熱潮；女性名經過「〇子」的全盛期（和子連續 13 年第一），戰後由誠、大輔等象徵時代的名字長期占據前段。',
+  },
+  'jp-modern': {
+    ja: '元号との連動が薄れ、自然・和風モチーフ（翔・陽・蓮・葵）が主流化。「〇子」は退潮し、個性重視の当て字・読みが多様化。',
+    zh: '名字和年號的連動變淡，自然與和風意象（翔、陽、蓮、葵）成為主流；「〇子」退潮，重視個性的借字與讀法越來越多樣。',
+  },
+};
+
 /* 留下的欄位（依這個順序寫出）；其他已知的欄位拿掉（DROPPED，寫在 LICENSE.txt「本站做的變更」），不認得的欄位停下來 */
 const PACK_KEEP = ['id', 'label', 'note', 'corpus_note', 'rules', 'name_order', 'name_sep'];
 const PACK_DROP = ['region', 'era', 'coverage', 'license', 'license_note', 'tts', 'group'];
@@ -141,6 +161,11 @@ function convertPack(id, raw) {
   }
   const pack = pickFields(raw, PACK_KEEP, [...PACK_DROP, ...PACK_LISTS], id);
   if (typeof pack.name_sep !== 'string') delete pack.name_sep;
+  const tr = NOTE_TRANSLATIONS[id];
+  if (tr) {
+    if (raw.note !== tr.ja) fail(`${id} 的說明（note）和記錄的日文原文不同，要重新翻譯`);
+    pack.note = tr.zh;
+  }
   if (raw.epithets?.length) {
     pack.epithets = raw.epithets.map((e, i) =>
       pickFields(e, EPITHET_KEEP, EPITHET_DROP, `${id} epithets[${i}]`),

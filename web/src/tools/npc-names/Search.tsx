@@ -303,12 +303,15 @@ export function SearchPanel() {
       ) : null}
       {hits ? (
         <div className="flex flex-col gap-2">
-          <p
-            className="m-0 text-sm font-medium text-fg"
-            data-testid="search-total"
-            aria-live="polite"
-          >
-            {S.search.total(shown.length)}
+          <p className="m-0 flex flex-wrap items-baseline gap-x-2 text-sm" aria-live="polite">
+            <span className="font-medium text-fg" data-testid="search-total">
+              {S.search.total(shown.length)}
+            </span>
+            {axes.packs.length > 1 ? (
+              <span className="text-xs text-muted" data-testid="search-per-era">
+                {S.search.perEra}
+              </span>
+            ) : null}
           </p>
           {shown.length ? (
             <ul

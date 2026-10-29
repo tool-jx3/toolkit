@@ -7,13 +7,14 @@
 import { create } from 'zustand';
 import { type CorpusSearchFilters, DEFAULT_SEARCH_FILTERS } from '@/core/names/corpus';
 import { createPreviewStore, createToolStore } from '@/core/storage';
-import { type HistoryEntry, initialState, sanitizeState, TOOL_ID } from './logic';
+import { initialState, type StoredHistoryEntry, sanitizeState, TOOL_ID } from './logic';
 
 export const useNames = createToolStore(TOOL_ID, initialState, {
   migrate: (persisted) => sanitizeState(persisted),
 });
 
-export const useHistory = createPreviewStore<{ history: HistoryEntry[] }>(TOOL_ID, {
+/** 紀錄（存的是精簡格式，讀的地方一律經過 sanitizeHistory） */
+export const useHistory = createPreviewStore<{ history: StoredHistoryEntry[] }>(TOOL_ID, {
   history: [],
 });
 

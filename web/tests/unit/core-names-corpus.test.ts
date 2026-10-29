@@ -12,7 +12,9 @@ import {
   CORPUS_PACKS,
   CORPUS_REGIONS,
   type CorpusData,
+  type CorpusName,
   type CorpusRegion,
+  composeCorpusName,
   corpusGenderOf,
   corpusKanaReadings,
   corpusOriginal,
@@ -33,8 +35,10 @@ import {
   loadCorpusSources,
   matchesSearchFilter,
   normalizeSearch,
+  rehydrateCorpusName,
   searchCorpus,
   searchOptionEmpty,
+  slimCorpusName,
   sourceSegments,
 } from '@/core/names/corpus';
 import * as fantasy from '@/core/names/inknomu/inknomu-fantasy';
@@ -104,6 +108,16 @@ const SOURCE_COUNTS: [string, number, number, number, number, number][] = [
   ['fantasy-orc', 32, 100, 100, 20, 0],
   ['fantasy-halfling', 32, 100, 100, 20, 0],
 ];
+
+/** 譯成繁中的說明（日文原文；轉換腳本的 NOTE_TRANSLATIONS） */
+const TRANSLATED_NOTES: Record<string, string> = {
+  'jp-taisho':
+    '因大正改元（1912）而起的「正」字在男女名大為流行；女性名正處在從傳統的假名二字名轉向「〇子」的萌芽期。',
+  'jp-showa':
+    '因昭和改元而起的「昭」字熱潮；女性名經過「〇子」的全盛期（和子連續 13 年第一），戰後由誠、大輔等象徵時代的名字長期占據前段。',
+  'jp-modern':
+    '名字和年號的連動變淡，自然與和風意象（翔、陽、蓮、葵）成為主流；「〇子」退潮，重視個性的借字與讀法越來越多樣。',
+};
 
 describe('資料：轉換後和原始 JSON 相同', () => {
   it('29 個包、每個包每一類的筆數；合計姓 2,148、名 6,600', () => {
@@ -202,6 +216,12 @@ describe('資料：轉換後和原始 JSON 相同', () => {
     for (const c of CORPUS_PACKS) expect(CORPUS_PACK_HINTS[c.id], c.id).toBeTruthy();
   });
 
+  it('介面只有繁中：包的說明沒有日文（三句譯成繁中）', () => {
+    for (const [id, zh] of Object.entries(TRANSLATED_NOTES)) expect(pack(id).note).toBe(zh);
+    for (const p of ALL) expect(p.note, p.id).not.toMatch(/[ぁ-ゖァ-ヺ]{2}/);
+    expect(license).toContain('本站譯成繁體中文');
+  });
+
   it('授權：meta.json 與 LICENSE.txt（CC BY 4.0、作者、網址、29 個包的 SHA-256、本站的變更）', () => {
     expect(meta.license).toBe('CC-BY-4.0');
     expect(meta.url).toBe('https://inknomu.com/namegen/');
@@ -243,9 +263,14 @@ describe('資料：轉換後和原始 JSON 相同', () => {
       expect(hex, info.id).toBe(info.sha256);
       const raw = JSON.parse(new TextDecoder().decode(buf));
       const p = pack(info.id);
-      expect([p.label, p.note, p.corpus_note, p.name_order]).toEqual([
+      /* 預期的差異：日本三個包的說明原文是日文，本站譯成繁中（LICENSE.txt「本站做的變更」第 6 點） */
+      const translated = TRANSLATED_NOTES[info.id];
+      if (translated) {
+        expect(raw.note, info.id).toMatch(/[ぁ-ゖァ-ヺ]/);
+        expect(p.note, info.id).toBe(translated);
+      } else expect(p.note, info.id).toBe(raw.note);
+      expect([p.label, p.corpus_note, p.name_order]).toEqual([
         raw.label,
-        raw.note,
         raw.corpus_note,
         raw.name_order,
       ]);
@@ -367,14 +392,11 @@ describe('組名', () => {
     const son = drawCorpusName(v, { gender: 'male' }, seq(at(ragnar), at(bjorn), 0.9), 'nordic');
     expect(son.text).toBe('Bjorn Ragnarsson');
     expect(son.family).toBe('Ragnarsson');
-    expect(son.meanings).toEqual([
-      '名：熊',
-      '父名：Ragnar 之子（維京時代無姓氏，以父名＋後綴構成）',
-    ]);
+    expect(son.meanings).toEqual(['名：熊', '父名：Ragnar 之子']);
     expect(son.original).toBe('Bjǫrn Ragnarsson');
     const daughter = drawCorpusName(v, { gender: 'female' }, seq(at(bjorn), 0, 0.9), 'nordic');
     expect(daughter.family).toBe('Bjarnardóttir');
-    expect(daughter.meanings[1]).toBe('父名：Bjorn 之女（維京時代無姓氏，以父名＋後綴構成）');
+    expect(daughter.meanings[1]).toBe('父名：Bjorn 之女');
     /* 綽號：接在最後；說明列在備註 */
     const epithets = v.epithets ?? [];
     const red = epithets.findIndex((e) => e.e === 'the Red');
@@ -871,5 +893,66 @@ describe('資料來源（各地區頁面）', () => {
       { text: '書' },
       { text: ' 外', url: 'https://c' },
     ]);
+  });
+});
+
+describe('精簡版與查回（紀錄用，2026-10 驗證後的裁定）', () => {
+  it('每個包、三種輸出：精簡版查回來和原本完全相同', () => {
+    for (const info of CORPUS_PACKS) {
+      const p = pack(info.id);
+      for (const part of ['full', 'given', 'family'] as const) {
+        const { names } = generateCorpusNames(p, {
+          count: 30,
+          part,
+          seed: `slim-${info.id}-${part}`,
+        });
+        for (const n of names) {
+          expect(n.ref?.g, n.text).toMatch(/^[mfu]\d+$/);
+          const slim = slimCorpusName(n);
+          expect('meanings' in slim).toBe(false);
+          expect(rehydrateCorpusName(p, slim), `${info.id} ${part} ${n.text}`).toEqual(n);
+        }
+      }
+    }
+  });
+
+  it('鍵對不上時用寫法找；韓國同音不同漢字的姓（정）靠鍵分得出來；資料改版、找不到時回 null', () => {
+    const krPack = pack('kr-modern');
+    const jeong = krPack.surnames.map((s, i) => [s, i] as const).filter(([s]) => s.s === '정');
+    expect(jeong.length).toBeGreaterThan(1);
+    const [second, si] = jeong[1];
+    const name = composeCorpusName(krPack, {
+      gender: 'male',
+      surname: second,
+      given: krPack.given.m[0],
+    });
+    expect(name.ref).toEqual({ g: 'm0', s: si });
+    const back = rehydrateCorpusName(krPack, slimCorpusName(name));
+    expect(back?.meanings[0]).toBe(`姓：${second.meaning}`);
+    /* 鍵壞掉：用寫法找（取第一個 정） */
+    const byText = rehydrateCorpusName(krPack, {
+      ...slimCorpusName(name),
+      ref: { g: 'm999', s: 999 },
+    });
+    expect(byText?.text).toBe(name.text);
+    expect(byText?.meanings[0]).toBe(`姓：${jeong[0][0].meaning}`);
+    /* 維京：父親與綽號也找得回來 */
+    const v = pack('nordic-viking');
+    const viking = generateCorpusNames(v, { count: 50, seed: 'ep' }).names.find((x) => x.epithet);
+    expect(viking).toBeTruthy();
+    const slim = slimCorpusName(viking as CorpusName);
+    expect(rehydrateCorpusName(v, { ...slim, ref: undefined })).toEqual({
+      ...viking,
+      ref: expect.anything(),
+    });
+    /* 找不到 */
+    expect(
+      rehydrateCorpusName(krPack, {
+        ...slimCorpusName(name),
+        ref: undefined,
+        given: '없는이름',
+        text: '정없는이름',
+      }),
+    ).toBeNull();
   });
 });
