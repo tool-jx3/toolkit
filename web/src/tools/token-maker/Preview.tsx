@@ -55,6 +55,7 @@ import {
   currentToken,
   editLook,
   effectiveMode,
+  flushBurst,
   gesture,
   setPrefs,
   setTool,
@@ -130,14 +131,32 @@ class LivePaint {
   }
 }
 
-function releaseFocus() {
+/**
+ * 拖曳的一步復原。文字欄（名稱、徽章）有焦點時按下去：它的手勢在失去焦點的 microtask 才結束，會把拖曳的手勢一起結束掉
+ * （之後拖曳的每一格都變成一步）。所以先把文字欄那一步結束（打字自己一步）、開始拖曳的手勢，
+ * 等它的 microtask 結束手勢之後，還在拖曳就再開始一次（那時還沒有變更，不會多出一步）。
+ */
+function beginDrag(blurred: boolean, dragging: () => boolean): void {
+  if (blurred) useDoc.endGesture();
+  useDoc.beginGesture();
+  if (blurred)
+    queueMicrotask(() => {
+      if (dragging()) useDoc.beginGesture();
+    });
+}
+
+/** 欄位有焦點時讓它失去焦點（它的手勢在這時提交）；有的話回傳 true */
+function releaseFocus(): boolean {
   const a = document.activeElement;
   if (
     a instanceof HTMLElement &&
     a !== document.body &&
     a.closest('input,textarea,[role="slider"]')
-  )
+  ) {
     a.blur();
+    return true;
+  }
+  return false;
 }
 
 export function Preview({ onPick }: { onPick: () => void }) {
@@ -193,7 +212,7 @@ export function Preview({ onPick }: { onPick: () => void }) {
 
   const liveMask = live && token && live.tokenId === token.id ? live.mask : null;
   const mask = liveMask ?? data.mask;
-  const pad = lockedPad ?? tokenPad(look, token, mask);
+  const pad = lockedPad ?? tokenPad(look, token, liveMask ?? undefined);
   const hasImage = !!token?.image;
   const ready = data.status === 'ready';
 
@@ -669,8 +688,14 @@ function InteractionLayer({
       const t = info.current.t;
       if (!t) return;
       const radiusTokenPx = (prefs.brush / 100) * info.current.R;
-      const diameter = Math.max(1, ((2 * radiusTokenPx) / t.scale) * (ms.width / img.width));
       const mode: BrushMode = effectiveMode() === 'add' ? 'restore' : 'erase';
+      /*
+       * 擦的時候半徑大 1 px（遮罩的 px）：畫的筆刷邊緣有 1 px 的半透明，同樣大小擦會留下最多 25% 的殘影；
+       * 大 1 px 剛好把畫過的地方整個擦乾淨。
+       */
+      const diameter =
+        Math.max(1, ((2 * radiusTokenPx) / t.scale) * (ms.width / img.width)) +
+        (mode === 'erase' ? 2 : 0);
       const lp = new LivePaint(
         token.id,
         base.width === ms.width ? base : emptyMask(ms.width, ms.height),
@@ -690,7 +715,9 @@ function InteractionLayer({
     if (e.pointerType === 'mouse' && e.button !== 0 && e.button !== 1) return;
     if (!ready) return;
     e.preventDefault();
-    releaseFocus();
+    /* 剛滾過輪（還沒停下來算一步）：先結束那一步，這次拖曳才是新的一步 */
+    flushBurst();
+    const blurred = releaseFocus();
     el.current?.focus({ preventScroll: true });
     try {
       e.currentTarget.setPointerCapture(e.pointerId);
@@ -705,13 +732,14 @@ function InteractionLayer({
       /* 第二指：改成捏合縮放（畫到一半的一筆作廢、拖到一半的名字放下） */
       if (drag.current?.kind === 'paint') cancelPaint();
       if (drag.current?.kind === 'overlay') {
-        gesture.commit();
+        /* 名字拖到哪就是哪一步（馬上結束，捏合是新的一步） */
+        useDoc.endGesture();
         snap.current = null;
         drag.current = null;
         onHover();
       }
       if (!drag.current || drag.current.kind === 'paint') {
-        gesture.begin();
+        beginDrag(blurred, () => !!drag.current);
         useUi.setState({ lockedPad: pad });
       }
       const cur = drag.current?.cur ?? view;
@@ -723,7 +751,7 @@ function InteractionLayer({
     if (prefs.tool === 'move' && !spaceDown && e.button === 0) {
       const which = overlayHit(p.x, p.y);
       if (which) {
-        gesture.begin();
+        beginDrag(blurred, () => !!drag.current);
         const l = useDoc.getState().data.look;
         snap.current = {
           which,
@@ -737,7 +765,7 @@ function InteractionLayer({
     }
     const panning = prefs.tool === 'move' || spaceDown || e.button === 1;
     if (panning) {
-      gesture.begin();
+      beginDrag(blurred, () => !!drag.current);
       useUi.setState({ lockedPad: pad });
       drag.current = { kind: 'pan', tokenId: token.id, start: view, cur: view };
       return;
@@ -853,13 +881,18 @@ function InteractionLayer({
       if (prefs.tool !== 'move' && !useUi.getState().space) return;
       e.preventDefault();
       const dy = e.deltaY || e.deltaX;
-      if (e.shiftKey) {
-        wheelRotate(Math.sign(dy) * (e.altKey ? 1 : 5));
-        return;
-      }
       const p = local(e.clientX, e.clientY);
-      const factor = Math.exp(-dy * (e.altKey ? 0.0006 : Math.abs(dy) < 30 ? 0.01 : 0.0025));
-      wheelZoom(factor, (p.x - N / 2) / info.current.R, (p.y - N / 2) / info.current.R);
+      const apply = () => {
+        if (e.shiftKey) {
+          wheelRotate(Math.sign(dy) * (e.altKey ? 1 : 5));
+          return;
+        }
+        const factor = Math.exp(-dy * (e.altKey ? 0.0006 : Math.abs(dy) < 30 ? 0.01 : 0.0025));
+        wheelZoom(factor, (p.x - N / 2) / info.current.R, (p.y - N / 2) / info.current.R);
+      };
+      /* 文字欄有焦點時：先讓它提交（它的手勢在 microtask 結束），再算這一次滾動，不會併成同一步 */
+      if (releaseFocus()) queueMicrotask(apply);
+      else apply();
     };
     node.addEventListener('wheel', onWheel, { passive: false });
     return () => node.removeEventListener('wheel', onWheel);

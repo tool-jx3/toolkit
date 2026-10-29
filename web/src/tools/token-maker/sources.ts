@@ -19,15 +19,77 @@ type AnyCanvas = HTMLCanvasElement | OffscreenCanvas;
 
 /* ---------- 圖片 ---------- */
 
+/*
+ * 記憶體：一張 2048 px 的圖解碼後約 17 MB。名單最多 60 張，全部留著會到 1.6 GB（行動瀏覽器會被殺掉），所以：
+ * - 解碼的大圖（ImageWork）只留最近用過的 WORK_MAX 張（LRU）；目前的棋子、正在匯出的不會被放掉，放掉時 close()。
+ * - 名單、預設外觀、實際大小的縮圖用小圖（ImageLite：長邊 256 的畫布＋遮罩大小的不透明度），每張約 0.3～1.3 MB。
+ * - 資產庫在加入圖片時解碼確認的那一張，加入後馬上放掉（releaseBitmap）。
+ */
+
 export interface ImageWork {
   bitmap: ImageBitmap;
   /** 遮罩大小的 RGBA */
   work: Rgba;
 }
 
+/** 小圖：縮圖（長邊 ≤ THUMB_SIDE）與遮罩大小的不透明度（完全不透明的圖是 null） */
+export interface ImageLite {
+  thumb: AnyCanvas;
+  alpha: Uint8Array | null;
+}
+
 const works = new Map<string, ImageWork>();
 const workJobs = new Map<string, Promise<ImageWork | null>>();
-const WORK_MAX = 12;
+export const WORK_MAX = 4;
+const THUMB_SIDE = 256;
+const lites = new Map<string, ImageLite>();
+const liteJobs = new Map<string, Promise<ImageLite | null>>();
+
+/** 不能放掉的圖（目前的棋子、自訂外框、參考圖）：由 store 告訴這裡 */
+let keepers: () => Iterable<string> = () => [];
+export function setImageKeepers(fn: () => Iterable<string>): void {
+  keepers = fn;
+}
+/** 匯出中、正在用的圖（計數） */
+const pins = new Map<string, number>();
+
+/** 用到這張圖的期間不會被放掉；回傳放開的函式 */
+export function pinImage(id: string): () => void {
+  pins.set(id, (pins.get(id) ?? 0) + 1);
+  let done = false;
+  return () => {
+    if (done) return;
+    done = true;
+    const n = (pins.get(id) ?? 1) - 1;
+    if (n > 0) pins.set(id, n);
+    else pins.delete(id);
+    trimWorks();
+  };
+}
+
+const kept = (id: string, keep: Set<string>) => keep.has(id) || (pins.get(id) ?? 0) > 0;
+
+function dropWork(id: string): void {
+  const w = works.get(id);
+  if (!w) return;
+  works.delete(id);
+  w.bitmap.close?.();
+}
+
+/** 超過 WORK_MAX 時從最久沒用的開始放掉（留著的不算） */
+function trimWorks(): void {
+  if (works.size <= WORK_MAX) return;
+  const keep = new Set(keepers());
+  for (const id of [...works.keys()]) {
+    if (works.size <= WORK_MAX) break;
+    if (!kept(id, keep)) dropWork(id);
+  }
+}
+
+/** 用完放掉（全部打包時一張畫完就放；目前的棋子、正在用的不放） */
+export function releaseImageWork(id: string): void {
+  if (!kept(id, new Set(keepers()))) dropWork(id);
+}
 
 function makeWork(bitmap: ImageBitmap, ref: { width: number; height: number }): Rgba {
   const ms = maskSizeFor(ref);
@@ -40,24 +102,55 @@ function makeWork(bitmap: ImageBitmap, ref: { width: number; height: number }): 
   return { width: ms.width, height: ms.height, data: d.data };
 }
 
-export const peekImageWork = (id: string): ImageWork | undefined => works.get(id);
+function makeLite(bitmap: ImageBitmap, work: Rgba): ImageLite {
+  const k = Math.min(1, THUMB_SIDE / Math.max(bitmap.width, bitmap.height, 1));
+  const w = Math.max(1, Math.round(bitmap.width * k));
+  const h = Math.max(1, Math.round(bitmap.height * k));
+  const thumb = makeCanvas(w, h);
+  const ctx = thumb.getContext('2d') as CanvasRenderingContext2D;
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(bitmap, 0, 0, w, h);
+  let alpha: Uint8Array | null = null;
+  const d = work.data;
+  for (let i = 3; i < d.length; i += 4)
+    if (d[i] < 255) {
+      alpha = new Uint8Array(work.width * work.height);
+      for (let j = 0; j < alpha.length; j++) alpha[j] = d[j * 4 + 3];
+      break;
+    }
+  return { thumb, alpha };
+}
+
+/** 自己解碼（不經過資產庫的快取，才放得掉） */
+async function decodeImage(id: string): Promise<ImageBitmap | null> {
+  const blob = await assets.get(id);
+  return blob ? loadImage(blob) : null;
+}
+
+/** 解碼好的大圖（看一次就算「最近用過」） */
+export function peekImageWork(id: string): ImageWork | undefined {
+  const w = works.get(id);
+  if (w) {
+    works.delete(id);
+    works.set(id, w);
+  }
+  return w;
+}
 
 export function loadImageWork(ref: ImageRef): Promise<ImageWork | null> {
-  const hit = works.get(ref.id);
+  const hit = peekImageWork(ref.id);
   if (hit) return Promise.resolve(hit);
   const running = workJobs.get(ref.id);
   if (running) return running;
-  const job = assets
-    .bitmap(ref.id)
+  const job = decodeImage(ref.id)
     .then((bitmap) => {
       workJobs.delete(ref.id);
       if (!bitmap) return null;
       const w: ImageWork = { bitmap, work: makeWork(bitmap, ref) };
+      if (!lites.has(ref.id)) lites.set(ref.id, makeLite(bitmap, w.work));
       works.set(ref.id, w);
-      if (works.size > WORK_MAX) {
-        const first = works.keys().next().value;
-        if (first !== undefined) works.delete(first);
-      }
+      trimWorks();
       return w;
     })
     .catch(() => {
@@ -68,9 +161,45 @@ export function loadImageWork(ref: ImageRef): Promise<ImageWork | null> {
   return job;
 }
 
+export const peekImageLite = (id: string): ImageLite | undefined => lites.get(id);
+
+/** 小圖（大圖已經解碼時從它做；否則解碼一次、做完就放掉） */
+export function loadImageLite(ref: ImageRef): Promise<ImageLite | null> {
+  const hit = lites.get(ref.id);
+  if (hit) return Promise.resolve(hit);
+  const running = liteJobs.get(ref.id);
+  if (running) return running;
+  const job = (async () => {
+    const w = works.get(ref.id);
+    if (w) {
+      const lite = makeLite(w.bitmap, w.work);
+      lites.set(ref.id, lite);
+      return lite;
+    }
+    const bmp = await decodeImage(ref.id);
+    if (!bmp) return null;
+    try {
+      const lite = makeLite(bmp, makeWork(bmp, ref));
+      lites.set(ref.id, lite);
+      return lite;
+    } finally {
+      bmp.close?.();
+    }
+  })()
+    .catch(() => null)
+    .finally(() => liteJobs.delete(ref.id));
+  liteJobs.set(ref.id, job);
+  return job;
+}
+
+/** 目前解碼著的大圖張數（測試、量記憶體用） */
+export const imageWorkCount = (): number => works.size;
+
 /** 讀一張圖放進資產庫（長邊超過 2048 時縮小；讀不了時丟 ImageLoadError） */
 export async function storeImage(file: File): Promise<{ ref: ImageRef; persisted: boolean }> {
   const r = await addImageFile(assets, file, { maxSide: IMAGE_MAX_SIDE });
+  /* 資產庫為了確認解得開而解碼的那一張：棋子的圖由這裡自己解碼、自己放，資產庫的那份放掉（自訂外框、參考圖留著） */
+  if (!new Set(keepers()).has(r.ref.id)) assets.releaseBitmap(r.ref.id);
   return { ref: r.ref, persisted: r.persisted };
 }
 
@@ -78,7 +207,7 @@ export async function storeImage(file: File): Promise<{ ref: ImageRef; persisted
 
 const masks = new Map<string, Mask>();
 const maskJobs = new Map<string, Promise<Mask | null>>();
-const MASK_CACHE = 80;
+const MASK_CACHE = 16;
 
 function rememberMask(id: string, m: Mask): void {
   masks.delete(id);
@@ -201,19 +330,98 @@ export function hardMaskCanvas(m: Mask): AnyCanvas {
   return c;
 }
 
-const boundaryCache = new WeakMap<Mask, Float32Array>();
+/** 圖片的不透明度（遮罩大小）：undefined＝還不知道（小圖還沒做） */
+function alphaOf(imageId: string, m: Mask): Uint8Array | null | undefined {
+  const lite = lites.get(imageId);
+  if (!lite) return undefined;
+  return lite.alpha && lite.alpha.length === m.width * m.height ? lite.alpha : null;
+}
 
-export function boundaryOf(
-  m: Mask,
-  work: Rgba | null,
-  image: { width: number; height: number },
-): Float32Array {
-  const hit = boundaryCache.get(m);
-  if (hit) return hit;
-  const usable = work && work.width === m.width && work.height === m.height ? work : null;
-  const b = maskBoundary(m, usable, image);
-  boundaryCache.set(m, b);
+const boundaryByMask = new WeakMap<Mask, { alpha: boolean; b: Float32Array }>();
+const boundaryById = new Map<string, Float32Array>();
+const BOUNDARY_CACHE = 240;
+
+/** 出框的邊界點（這個遮罩物件；畫到一半的遮罩、剛存好的遮罩） */
+export function boundaryOf(m: Mask, image: ImageRef): Float32Array {
+  const alpha = alphaOf(image.id, m);
+  const hit = boundaryByMask.get(m);
+  if (hit && (hit.alpha || alpha === undefined)) return hit.b;
+  const b = maskBoundary(m, alpha ?? null, image);
+  boundaryByMask.set(m, { alpha: alpha !== undefined, b });
   return b;
+}
+
+/** 出框的邊界點（依遮罩與圖片的 id 快取：遮罩本身被放掉之後也算得出邊距）；遮罩還沒讀時 null */
+export function boundaryFor(mask: MaskRef, image: ImageRef): Float32Array | null {
+  const key = `${mask.id}|${image.id}`;
+  const hit = boundaryById.get(key);
+  if (hit) return hit;
+  const m = masks.get(mask.id);
+  if (!m) return null;
+  const b = boundaryOf(m, image);
+  if (alphaOf(image.id, m) !== undefined) {
+    boundaryById.set(key, b);
+    if (boundaryById.size > BOUNDARY_CACHE) {
+      const first = boundaryById.keys().next().value;
+      if (first !== undefined) boundaryById.delete(first);
+    }
+  }
+  return b;
+}
+
+/* ---------- 縮圖用的小遮罩 ---------- */
+
+const thumbMasks = new Map<string, { feather: number; canvas: AnyCanvas }>();
+const thumbMaskJobs = new Map<string, Promise<AnyCanvas | null>>();
+const THUMB_MASK_CACHE = 120;
+
+/** 縮圖用的柔邊遮罩（長邊 ≤ 256）；柔邊改了、新的還沒做好時先給舊的（不閃） */
+export function peekThumbMask(id: string): AnyCanvas | null {
+  return thumbMasks.get(id)?.canvas ?? null;
+}
+
+export const hasThumbMask = (id: string, feather: number): boolean =>
+  thumbMasks.get(id)?.feather === feather;
+
+/** 做縮圖用的小遮罩（順便算好邊界點，之後大的遮罩可以放掉） */
+export function loadThumbMask(
+  ref: MaskRef,
+  image: ImageRef,
+  feather: number,
+): Promise<AnyCanvas | null> {
+  const hit = thumbMasks.get(ref.id);
+  if (hit && hit.feather === feather) return Promise.resolve(hit.canvas);
+  const key = `${ref.id}|${feather}`;
+  const running = thumbMaskJobs.get(key);
+  if (running) return running;
+  const job = (async () => {
+    await loadImageLite(image);
+    const m = await loadMask(ref);
+    if (!m) return null;
+    boundaryFor(ref, image);
+    const data = feather > 0 ? featherMask(m.data, m.width, m.height, feather) : m.data;
+    const full = maskCanvas(data, m.width, m.height);
+    const k = Math.min(1, THUMB_SIDE / Math.max(m.width, m.height));
+    const small = makeCanvas(
+      Math.max(1, Math.round(m.width * k)),
+      Math.max(1, Math.round(m.height * k)),
+    );
+    const ctx = small.getContext('2d') as CanvasRenderingContext2D;
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(full, 0, 0, small.width, small.height);
+    thumbMasks.delete(ref.id);
+    thumbMasks.set(ref.id, { feather, canvas: small });
+    if (thumbMasks.size > THUMB_MASK_CACHE) {
+      const first = thumbMasks.keys().next().value;
+      if (first !== undefined) thumbMasks.delete(first);
+    }
+    return small;
+  })()
+    .catch(() => null)
+    .finally(() => thumbMaskJobs.delete(key));
+  thumbMaskJobs.set(key, job);
+  return job;
 }
 
 /** 一張任意的圖拉伸到 w × h 後的 RGBA（讀入的遮罩圖用） */

@@ -257,7 +257,8 @@ export function drawFrameLayer(
     ctx.drawImage(canvas, 0, 0);
     ctx.globalCompositeOperation = 'source-over';
   }
-  if (texture && look.texture !== 'none' && look.texAmount > 0) {
+  /* 自訂外框是使用者自己的圖：不加質感（光照也不套） */
+  if (texture && !custom && look.texture !== 'none' && look.texAmount > 0) {
     const { ctx: l, canvas: layer } = scratch('tex', N);
     tileTexture(l, texture, g, look);
     keepFrameOnly(l, target, hole, g);
@@ -570,8 +571,8 @@ export function renderToken(ctx: Ctx2D, opts: RenderOptions, src: RenderSources)
       const px = s.ctx.getImageData(0, 0, N, N);
       if (adjust) applyAdjust(px, adjust);
       if (fxOn) {
-        const c = lookColors(look);
-        portraitFx(px, look.fx, c.frame, c.accent, token?.id ?? '');
+        /* 色調的第二色一律用第二色（eidolon-ui 的做法；配色細節關掉、樣式沒畫出第二色時也一樣） */
+        portraitFx(px, look.fx, lookColors(look).frame, look.accent, token?.id ?? '');
       }
       s.ctx.putImageData(px, 0, 0);
     }

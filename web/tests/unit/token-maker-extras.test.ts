@@ -42,6 +42,7 @@ import {
   type Look,
   newToken,
   normalizeLook,
+  ratioText,
   setFileName,
   setJobs,
   setZipName,
@@ -125,6 +126,20 @@ describe('色彩調整與效果', () => {
     applyAdjust(gray, { ...defaultAdjust(), sat: 0 });
     expect(Math.abs(gray.data[0] - gray.data[1])).toBeLessThanOrEqual(1);
     expect(Math.abs(gray.data[1] - gray.data[2])).toBeLessThanOrEqual(1);
+  });
+
+  it('疊加時照 CSS filter 一步一步夾值（亮度 200% 後對比 50%：先夾到 255 再算）', () => {
+    const px = { data: new Uint8ClampedArray([200, 200, 200, 255]), width: 1, height: 1 };
+    applyAdjust(px, { ...defaultAdjust(), bright: 200, contrast: 50 });
+    /* 合成一個矩陣的話是 200 × 2 × 0.5 ＋ 63.75 → 255 */
+    expect(px.data[0]).toBe(191);
+    /* ED 的疊加案例（亮度 120、對比 130、飽和度 140、色相 30）：每一步都在 0～255 裡 */
+    const a = { data: new Uint8ClampedArray([240, 200, 160, 255]), width: 1, height: 1 };
+    applyAdjust(a, { bright: 120, contrast: 130, sat: 140, hue: 30 });
+    for (const v of a.data.slice(0, 3)) {
+      expect(v).toBeGreaterThanOrEqual(0);
+      expect(v).toBeLessThanOrEqual(255);
+    }
   });
 
   it('效果：總開關關掉時什麼都不做；單色色調變灰', () => {
@@ -414,6 +429,15 @@ describe('自動配色', () => {
     const w = 16;
     const data = new Uint8ClampedArray(w * w * 4);
     expect(autoColor({ data, width: w, height: w }, 'frame', '#d9a521', '#d9a521', 0)).toBeNull();
+  });
+});
+
+describe('選取比例的文字', () => {
+  it('10% 以下一位小數、0.1% 以下寫「0.1% 以下」', () => {
+    expect(ratioText(0.0005)).toBe('0.1% 以下');
+    expect(ratioText(0.038)).toBe('3.8%');
+    expect(ratioText(0.5)).toBe('50%');
+    expect(ratioText(1)).toBe('100%');
   });
 });
 

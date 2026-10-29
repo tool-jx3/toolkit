@@ -589,6 +589,10 @@ export function sharpSize(
   );
 }
 
+/** 比例的文字（含 %）：10% 以下寫一位小數，0.1% 以下寫「0.1% 以下」 */
+export const ratioText = (r: number): string =>
+  r < 0.001 ? '0.1% 以下' : r < 0.1 ? `${(r * 100).toFixed(1)}%` : `${Math.round(r * 100)}%`;
+
 /** 檔名的基本名稱：棋子的名稱 → 圖片的檔名（拿掉副檔名）→「棋子」 */
 export function tokenBaseName(t: Pick<TokenItem, 'name' | 'image'>): string {
   const name = t.name.trim();

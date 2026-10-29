@@ -38,7 +38,7 @@ function useRosterThumbs(tokens: readonly TokenItem[]): Map<string, HTMLCanvasEl
     look.frame === 'custom' ? (custom.frame?.id ?? null) : null,
     custom.mask?.id ?? null,
   );
-  const loaded = useLoadedTokens(tokens);
+  const loaded = useLoadedTokens(tokens, look.feather);
   const [texTick, setTexTick] = useState(0);
   const [thumbs, setThumbs] = useState(() => new Map<string, HTMLCanvasElement>());
   useEffect(() => onTextureReady(() => setTexTick((t) => t + 1)), []);
@@ -86,6 +86,16 @@ export function RosterSection({ onAdd }: { onAdd: () => void }) {
     [tokens, thumbs],
   );
   const cur = tokens.find((t) => t.id === current) ?? null;
+  /** 焦點在名單裡時 ←／→ 選上一個、下一個（Shift 也一樣），不交給「移動圖片」的快捷鍵 */
+  const rosterArrows = (e: React.KeyboardEvent) => {
+    if (e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey) return;
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+    e.preventDefault();
+    const i = tokens.findIndex((t) => t.id === current);
+    const to = Math.max(0, Math.min(tokens.length - 1, i + (e.key === 'ArrowLeft' ? -1 : 1)));
+    const next = tokens[to];
+    if (next && next.id !== current) selectToken(next.id);
+  };
   return (
     <Section
       title={S.roster}
@@ -96,32 +106,35 @@ export function RosterSection({ onAdd }: { onAdd: () => void }) {
         </span>
       }
     >
-      <ThumbnailList<RosterItem>
-        aria-label={S.rosterLabel}
-        items={items}
-        selectedId={current}
-        onSelect={selectToken}
-        onReorder={moveToken}
-        onRemove={removeToken}
-        removeLabel={(it) => S.rosterRemove(it.name)}
-        minItemWidth={92}
-        empty={S.rosterEmpty}
-        className="max-h-80 overflow-y-auto"
-        renderFields={(it) => (
-          <button
-            type="button"
-            className="cursor-pointer self-start rounded-sm px-1 text-xs text-accent underline-offset-2 hover:underline focus-visible:ring-2 focus-visible:ring-focus focus-visible:outline-none disabled:cursor-default disabled:text-muted"
-            title={S.rosterAsRefTitle(it.name)}
-            disabled={!it.token.image}
-            onClick={async (e) => {
-              e.stopPropagation();
-              notify(await tokenAsRef(it.token));
-            }}
-          >
-            {S.rosterAsRef}
-          </button>
-        )}
-      />
+      {/* biome-ignore lint/a11y/noStaticElementInteractions: 名單裡的 ←／→ 換棋子（不移動圖片）；名單本身的鍵盤操作在 ThumbnailList */}
+      <div onKeyDown={rosterArrows}>
+        <ThumbnailList<RosterItem>
+          aria-label={S.rosterLabel}
+          items={items}
+          selectedId={current}
+          onSelect={selectToken}
+          onReorder={moveToken}
+          onRemove={removeToken}
+          removeLabel={(it) => S.rosterRemove(it.name)}
+          minItemWidth={92}
+          empty={S.rosterEmpty}
+          className="max-h-80 overflow-y-auto"
+          renderFields={(it) => (
+            <button
+              type="button"
+              className="cursor-pointer self-start rounded-sm px-1 text-xs text-accent underline-offset-2 hover:underline focus-visible:ring-2 focus-visible:ring-focus focus-visible:outline-none disabled:cursor-default disabled:text-muted"
+              title={S.rosterAsRefTitle(it.name)}
+              disabled={!it.token.image}
+              onClick={async (e) => {
+                e.stopPropagation();
+                notify(await tokenAsRef(it.token));
+              }}
+            >
+              {S.rosterAsRef}
+            </button>
+          )}
+        />
+      </div>
       {tokens.length ? <p className="m-0 text-xs text-muted">{S.rosterHint}</p> : null}
       <div className="flex flex-wrap gap-2">
         <Button

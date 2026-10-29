@@ -337,11 +337,11 @@ export function autoSubject(rgba: Rgba): Mask | null {
  */
 export function maskBoundary(
   m: Mask,
-  rgba: Rgba | null,
+  alpha: Uint8Array | null,
   image: { width: number; height: number },
 ): Float32Array {
   const { width: w, height: h, data } = m;
-  const on = (i: number) => data[i] > 0 && (!rgba || rgba.data[i * 4 + 3] > 8);
+  const on = (i: number) => data[i] > 0 && (!alpha || alpha[i] > 8);
   const sx = image.width / w;
   const sy = image.height / h;
   const pts: number[] = [];

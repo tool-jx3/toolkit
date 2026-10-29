@@ -59,7 +59,10 @@ function useThumbDrawer() {
   const token = useDoc((s) => currentToken(s.data));
   const custom = useDoc((s) => s.data.custom);
   const cdata = useCustomData(custom.frame?.id ?? null, custom.mask?.id ?? null);
-  const loaded = useLoadedTokens(useMemo(() => (token ? [token] : []), [token]));
+  const loaded = useLoadedTokens(
+    useMemo(() => (token ? [token] : []), [token]),
+    look.feather,
+  );
   const settled = useSettled(look);
   const extra: ThumbCustom = {
     frame: cdata.frame,

@@ -83,7 +83,7 @@ import { PresetSection } from './Presets';
 import { RosterSection } from './Roster';
 import { type Guides, REF_SHAPES, type RefKind } from './reference';
 import { drawFrameThumb } from './render';
-import { imageGradient, imagePalette, peekMask, useCustomData, useTokenData } from './sources';
+import { imageGradient, imagePalette, useCustomData, useTokenData } from './sources';
 import {
   currentToken,
   docNow,
@@ -104,7 +104,7 @@ import {
 } from './store';
 import { S } from './strings';
 import { requestTexture } from './textures';
-import { drawTokenThumb } from './thumbs';
+import { drawTokenThumb, useLoadedTokens } from './thumbs';
 
 const useLook = () => useDoc((s) => s.data.look);
 const useCurrent = () => useDoc((s) => currentToken(s.data));
@@ -500,10 +500,7 @@ export function PopoutTab() {
                 if (!v && l.autoMargin) {
                   /* 改成手動時從目前的邊距開始（畫面不跳） */
                   const t = currentToken();
-                  l.margin =
-                    Math.round(
-                      tokenPad(l, t, t?.mask ? (peekMask(t.mask.id) ?? null) : null) * 200,
-                    ) / 2;
+                  l.margin = Math.round(tokenPad(l, t) * 200) / 2;
                 }
                 l.autoMargin = v;
               })
@@ -944,6 +941,9 @@ export function FrameTab() {
       </Section>
 
       <Section title={S.lightSection} persistKey="token-maker:light">
+        {look.frame === 'custom' ? (
+          <p className="m-0 text-xs text-muted">{S.customNoLight}</p>
+        ) : null}
         <Field label={S.lightAngle} hint={S.lightAngleHint}>
           <Slider
             value={look.lightAngle}
@@ -965,6 +965,9 @@ export function FrameTab() {
       </Section>
 
       <Section title={S.textureSection} persistKey="token-maker:texture">
+        {look.frame === 'custom' ? (
+          <p className="m-0 text-xs text-muted">{S.customNoLight}</p>
+        ) : null}
         <Field label={S.textureLabel}>
           <Select<TextureId>
             value={look.texture}
@@ -1086,9 +1089,10 @@ export function ExportTab() {
   const toast = useToast();
   const webp = useWebpSupport();
   const [busy, setBusy] = useState(false);
-  const data = useTokenData(token?.image ?? null, token?.mask ?? null);
+  /* 圖片、遮罩讀好時重算邊距與清晰度 */
+  useTokenData(token?.image ?? null, token?.mask ?? null);
   const N = exportSizeOf(prefs);
-  const pad = tokenPad(look, token, data.mask);
+  const pad = tokenPad(look, token);
   const sharp = token?.image ? sharpSize(token.image, token.view.zoom, pad) : 0;
   const format = prefs.format === 'webp' && webp ? 'webp' : 'png';
   const fileName = token ? tokenFileName(token, N, format) : '';
@@ -1279,7 +1283,11 @@ function TableSize({ token }: { token: TokenItem }) {
   const custom = useDoc((s) => s.data.custom);
   const cdata = useCustomData(custom.frame?.id ?? null, custom.mask?.id ?? null);
   const refs = useRef<(HTMLCanvasElement | null)[]>([]);
-  // biome-ignore lint/correctness/useExhaustiveDependencies: data.mask 讀好時重畫（drawTokenThumb 直接拿讀好的遮罩）
+  const loaded = useLoadedTokens(
+    useMemo(() => [token], [token]),
+    look.feather,
+  );
+  // biome-ignore lint/correctness/useExhaustiveDependencies: 小圖、遮罩讀好時（loaded）重畫
   useEffect(() => {
     if (!data.work) return;
     const N = 192;
@@ -1302,7 +1310,7 @@ function TableSize({ token }: { token: TokenItem }) {
       x.imageSmoothingQuality = 'high';
       x.drawImage(big, 0, 0, px, px);
     });
-  }, [data.work, data.mask, look, token, cdata.frame, cdata.mask, custom.frame]);
+  }, [data.work, loaded, look, token, cdata.frame, cdata.mask, custom.frame]);
   return (
     <Section title={S.tableSize} description={S.tableSizeHint} persistKey="token-maker:table">
       <div className="checker flex flex-wrap items-end gap-4 rounded-md p-3">

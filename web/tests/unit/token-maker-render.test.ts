@@ -324,4 +324,56 @@ describe.runIf(!!canvasLib)('棋子的繪製（node-canvas）', () => {
     expect(px(vig, 100, 52)[0]).toBeLessThan(px(off, 100, 52)[0] - 20);
     expect(Math.abs(px(vig, 100, 100)[0] - px(off, 100, 100)[0])).toBeLessThan(15);
   });
+
+  it('自訂外框不套質感（光照也不套）', () => {
+    const frame = canvasOf(100, 100, (x, y) => {
+      const d = Math.hypot(x + 0.5 - 50, y + 0.5 - 50);
+      return d > 40 && d < 50 ? [255, 255, 255, 255] : [0, 0, 0, 0];
+    });
+    const tex = canvasOf(64, 64, (x) => (x % 8 < 4 ? [0, 0, 0, 255] : [255, 255, 255, 255]));
+    const base = look({ frame: 'custom', color: '#d9a521', customInner: 80 });
+    const plain = draw(200, 0.2, base, { customFrame: frame, popOn: false });
+    const textured = draw(
+      200,
+      0.2,
+      { ...base, texture: 'stone', texAmount: 100 },
+      {
+        customFrame: frame,
+        popOn: false,
+        texture: tex,
+      },
+    );
+    for (const [x, y] of [
+      [100, 46],
+      [154, 100],
+      [62, 62],
+    ])
+      expect(px(textured, x, y)).toEqual(px(plain, x, y));
+  });
+
+  it('霓虹色調一律用第二色（配色細節關掉也一樣）', () => {
+    const fx = { ...DEFAULT_FX, on: true, tone: 'neon' as const, toneMix: 100 };
+    const white = () => canvasOf(200, 200, () => [255, 255, 255, 255]);
+    const on = draw(
+      200,
+      0.2,
+      look({ frame: 'ring', accentOn: true, accent: '#ff0000', color: '#0000ff', fx }),
+      {
+        image: white(),
+        popOn: false,
+      },
+    );
+    const off = draw(
+      200,
+      0.2,
+      look({ frame: 'ring', accentOn: false, accent: '#ff0000', color: '#0000ff', fx }),
+      {
+        image: white(),
+        popOn: false,
+      },
+    );
+    /* 白色＝最亮 → 第二色（紅） */
+    expect(px(on, 100, 100)[0]).toBeGreaterThan(200);
+    expect(px(off, 100, 100)).toEqual(px(on, 100, 100));
+  });
 });

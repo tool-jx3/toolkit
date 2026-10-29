@@ -12,7 +12,7 @@
 import { readFileSync } from 'node:fs';
 import { expect, type Page, test } from '@playwright/test';
 import { unzipSync } from 'fflate';
-import { encodePng } from '../../src/core/encode/png';
+import { encodePng, setPngText } from '../../src/core/encode/png';
 import { getTool, outputDir } from '../../src/registry';
 import { decodePixels, parseChunks, readIhdr } from '../helpers/png';
 
@@ -723,6 +723,14 @@ test('把設定嵌進 PNG：讀回來開啟成棋子（圖片、出框、擺放�
   expect(t.mask).not.toBeNull();
   expect((await doc(page)).look.frame).toBe('studs');
   await expect(ratio(page)).toHaveText(/已選取圖片的 3\.\d%/);
+  /* 一次復原回到開啟前（棋子與外觀一起） */
+  await page.locator('body').click({ position: { x: 5, y: 880 } });
+  await page.keyboard.press('Control+z');
+  await expect.poll(async () => (await doc(page)).tokens.length).toBe(0);
+  expect((await doc(page)).look.frame).toBe('hex');
+  await page.keyboard.press('Control+Shift+z');
+  await expect.poll(async () => (await doc(page)).tokens.length).toBe(1);
+  expect((await doc(page)).look.frame).toBe('studs');
 
   /* 當成一般圖片：圖片就是那張 PNG（512 × 512），沒有出框 */
   await dropInput(page).setInputFiles(file('again.png', Buffer.from(bytes)));
@@ -738,6 +746,106 @@ test('把設定嵌進 PNG：讀回來開啟成棋子（圖片、出框、擺放�
   expect(parseChunks(new Uint8Array(readFileSync(plain.path))).some((c) => c.type === 'iTXt')).toBe(
     false,
   );
+  /* 嵌入的資料壞掉（圖片不是圖）：選「開啟成棋子」→ 當成一般圖片讀入並說明 */
+  const text = JSON.stringify({
+    format: 'trpg-toolkit-token',
+    version: 1,
+    look: {},
+    token: { name: '壞掉' },
+    image: {
+      name: 'x.png',
+      type: 'image/png',
+      data: Buffer.from('not an image').toString('base64'),
+    },
+    mask: null,
+  });
+  const broken = setPngText(bytes, 'trpg-toolkit', text, { compress: true });
+  await tab(page, '圖片').click();
+  await dropInput(page).setInputFiles(file('broken.png', Buffer.from(broken)));
+  await page.getByRole('alertdialog').getByRole('button', { name: '開啟成棋子' }).click();
+  await expect(
+    page.getByText('「broken.png」嵌入的設定讀不出來，已當成一般圖片').first(),
+  ).toBeVisible();
+  await expect.poll(async () => (await cur(page)).image?.name).toBe('broken.png');
+  expect((await cur(page)).name).toBe('');
+  expect(errors).toEqual([]);
+});
+
+test('焦點在名稱或徽章文字欄時，在預覽上拖曳一次也只算一步復原', async ({ page }) => {
+  const errors = await open(page);
+  await loadImage(page, await heroPng());
+  await tab(page, '名字').click();
+  const name = page.getByRole('textbox', { name: '名稱' });
+  await name.fill('哥布林');
+  /* 焦點還在名稱欄：直接拖曳圖片 */
+  await expect(name).toBeFocused();
+  const c = await tokenToScreen(page, 512, 512);
+  await page.mouse.move(c.x, c.y);
+  await page.mouse.down();
+  await page.mouse.move(c.x + 80, c.y + 40, { steps: 10 });
+  await page.mouse.up();
+  const moved = (await cur(page)).view;
+  expect(moved.x).toBeGreaterThan(0.1);
+  /* 一次復原：擺放回到原位，名稱留著（打字是前一步） */
+  await page.keyboard.press('Control+z');
+  await expect.poll(async () => (await cur(page)).view.x).toBe(0);
+  expect((await cur(page)).name).toBe('哥布林');
+  await page.keyboard.press('Control+z');
+  await expect.poll(async () => (await cur(page)).name).toBe('');
+  await page.keyboard.press('Control+Shift+z');
+  await page.keyboard.press('Control+Shift+z');
+  await expect.poll(async () => (await cur(page)).view.x).toBeCloseTo(moved.x);
+  /* 徽章：焦點在徽章文字欄時拖曳徽章，一次復原回到原位 */
+  const badge = page.getByRole('textbox', { name: '徽章文字' });
+  await badge.fill('7');
+  await expect(badge).toBeFocused();
+  const from = await unitToScreen(page, 0.74, 0.74);
+  const to = await unitToScreen(page, -0.68, -0.8);
+  await page.mouse.move(from.x, from.y);
+  await page.mouse.down();
+  await page.mouse.move(to.x, to.y, { steps: 10 });
+  await page.mouse.up();
+  let l = (await doc(page)).look;
+  expect([l.badgeX, l.badgeY]).toEqual([-0.74, -0.74]);
+  await page.keyboard.press('Control+z');
+  l = (await doc(page)).look;
+  expect([l.badgeX, l.badgeY]).toEqual([0.74, 0.74]);
+  expect((await cur(page)).badge).toBe('7');
+  /* 滾輪縮放也是自己一步（不和打字併在一起） */
+  await name.fill('哥布林王');
+  await page.mouse.move(c.x, c.y);
+  await page.mouse.wheel(0, -200);
+  await expect.poll(async () => (await cur(page)).view.zoom).toBeGreaterThan(1.05);
+  await page.waitForTimeout(500);
+  await page.keyboard.press('Control+z');
+  await expect.poll(async () => (await cur(page)).view.zoom).toBeCloseTo(1);
+  expect((await cur(page)).name).toBe('哥布林王');
+  expect(errors).toEqual([]);
+});
+
+test('名單有焦點時 ←／→ 換棋子，不移動圖片；筆刷同樣大小擦得乾淨', async ({ page }) => {
+  const errors = await open(page);
+  await dropInput(page).setInputFiles([
+    file('red.png', await solidPng([220, 30, 30])),
+    file('blue.png', await solidPng([30, 30, 220])),
+  ]);
+  await expect(roster(page).getByRole('listitem')).toHaveCount(2);
+  await roster(page).getByRole('listitem').nth(0).click();
+  await expect(roster(page)).toBeFocused();
+  await page.keyboard.press('ArrowRight');
+  await expect.poll(async () => (await cur(page)).image?.name).toBe('blue.png');
+  await page.keyboard.press('Shift+ArrowLeft');
+  await expect.poll(async () => (await cur(page)).image?.name).toBe('red.png');
+  for (const t of (await doc(page)).tokens) expect(t.view.x).toBe(0);
+  /* 筆刷：畫一點，再按住 Alt 用同樣大小擦同一點 → 還沒有選取 */
+  await page.keyboard.press('b');
+  const p = await tokenToScreen(page, 512, 512);
+  await page.mouse.click(p.x, p.y);
+  await expect(ratio(page)).toHaveText(/已選取圖片的 [\d.]+%/);
+  await page.keyboard.down('Alt');
+  await page.mouse.click(p.x, p.y);
+  await page.keyboard.up('Alt');
+  await expect(ratio(page)).toHaveText('還沒有選取');
   expect(errors).toEqual([]);
 });
 

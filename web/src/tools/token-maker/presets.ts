@@ -4,7 +4,7 @@
  *   其他（背景、邊距、名字、徽章、效果）不變——同原作的「套用外觀」。
  * - eidolon-ui 的 5 組範例（MIT）：整組外觀（外框、平塗的顏色、光暈、背景、名字與徽章的樣式、效果）。
  *   原作套用範例時會把目前的圖換成它的吉祥物範例圖（不收，規格 D4），這裡只套外觀。
- * - 我的預設：存目前整組外觀（可以含輸出設定）。
+ * - 我的預設：存目前整組外觀（可以含匯出設定）。
  * 另有「隨機」（token-workshop 的 Shuffle）。
  */
 import { frameDefaults } from './frames';
@@ -73,7 +73,7 @@ export interface LookPreset {
   kind: 'ring' | 'example' | 'mine';
   /** 套用時換掉的欄位 */
   patch: Partial<Look>;
-  /** 我的預設：輸出設定（勾了才有） */
+  /** 我的預設：匯出設定（勾了才有） */
   output?: { sizeChoice: number | 'custom'; customSize: number; format: ExportFormat };
   savedAt?: number;
 }

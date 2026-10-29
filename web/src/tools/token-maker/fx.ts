@@ -1,6 +1,6 @@
 /**
  * 色彩調整與效果（eidolon-ui 的做法，MIT），像素上的純計算（Safari、Node 沒有 ctx.filter，所以自己算）：
- * - 色彩調整：亮度、對比、飽和度、色相，照 CSS filter 的公式合成一個色彩矩陣；
+ * - 色彩調整：亮度、對比、飽和度、色相，照 CSS filter 的公式一步一步套用（每一步之後夾在 0～255）；
  * - 效果：色調（單色、霓虹＝暗 → 外框色 → 第二色、全像＝外框色＋條紋）、故障（水平切片錯開）、RGB 分離、顆粒；
  *   暗角與掃描線畫在開口與出框上（source-atop）。
  * 故障與顆粒用決定性的亂數（棋子 id＋種子），重畫時不會閃。
@@ -30,60 +30,85 @@ const mul = (a: Mat, b: Mat): Mat => {
   return out;
 };
 
-/** 依序套用 brightness → contrast → saturate → hue-rotate（CSS filter）的合成矩陣 */
-export function adjustMatrix(a: Adjust): Mat {
+/** brightness → contrast → saturate → hue-rotate（CSS filter）各自的矩陣；預設值（沒有作用）的那一步略過 */
+export function adjustSteps(a: Adjust): Mat[] {
+  const steps: Mat[] = [];
   const b = a.bright / 100;
   const c = a.contrast / 100;
   const s = a.sat / 100;
   const h = (a.hue * Math.PI) / 180;
-  const bright: Mat = [b, 0, 0, 0, 0, b, 0, 0, 0, 0, b, 0];
-  const off = 255 * (0.5 - 0.5 * c);
-  const contrast: Mat = [c, 0, 0, off, 0, c, 0, off, 0, 0, c, off];
-  const sat: Mat = [
-    0.213 + 0.787 * s,
-    0.715 - 0.715 * s,
-    0.072 - 0.072 * s,
-    0,
-    0.213 - 0.213 * s,
-    0.715 + 0.285 * s,
-    0.072 - 0.072 * s,
-    0,
-    0.213 - 0.213 * s,
-    0.715 - 0.715 * s,
-    0.072 + 0.928 * s,
-    0,
-  ];
-  const co = Math.cos(h);
-  const si = Math.sin(h);
-  const hue: Mat = [
-    0.213 + co * 0.787 - si * 0.213,
-    0.715 - co * 0.715 - si * 0.715,
-    0.072 - co * 0.072 + si * 0.928,
-    0,
-    0.213 - co * 0.213 + si * 0.143,
-    0.715 + co * 0.285 + si * 0.14,
-    0.072 - co * 0.072 - si * 0.283,
-    0,
-    0.213 - co * 0.213 - si * 0.787,
-    0.715 - co * 0.715 + si * 0.715,
-    0.072 + co * 0.928 + si * 0.072,
-    0,
-  ];
-  return mul(hue, mul(sat, mul(contrast, bright)));
+  if (b !== 1) steps.push([b, 0, 0, 0, 0, b, 0, 0, 0, 0, b, 0]);
+  if (c !== 1) {
+    const off = 255 * (0.5 - 0.5 * c);
+    steps.push([c, 0, 0, off, 0, c, 0, off, 0, 0, c, off]);
+  }
+  if (s !== 1)
+    steps.push([
+      0.213 + 0.787 * s,
+      0.715 - 0.715 * s,
+      0.072 - 0.072 * s,
+      0,
+      0.213 - 0.213 * s,
+      0.715 + 0.285 * s,
+      0.072 - 0.072 * s,
+      0,
+      0.213 - 0.213 * s,
+      0.715 - 0.715 * s,
+      0.072 + 0.928 * s,
+      0,
+    ]);
+  if (h) {
+    const co = Math.cos(h);
+    const si = Math.sin(h);
+    steps.push([
+      0.213 + co * 0.787 - si * 0.213,
+      0.715 - co * 0.715 - si * 0.715,
+      0.072 - co * 0.072 + si * 0.928,
+      0,
+      0.213 - co * 0.213 + si * 0.143,
+      0.715 + co * 0.285 + si * 0.14,
+      0.072 - co * 0.072 - si * 0.283,
+      0,
+      0.213 - co * 0.213 - si * 0.787,
+      0.715 - co * 0.715 + si * 0.715,
+      0.072 + co * 0.928 + si * 0.072,
+      0,
+    ]);
+  }
+  return steps;
 }
 
-/** 色彩調整（就地；透明度不變） */
+/** 四步合成一個矩陣（不夾值；只在每一步都不會超出 0～255 時等於逐步套用） */
+export function adjustMatrix(a: Adjust): Mat {
+  return adjustSteps(a).reduce((acc, m) => mul(m, acc), [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0]);
+}
+
+const clamp255 = (v: number) => (v < 0 ? 0 : v > 255 ? 255 : v);
+
+/**
+ * 色彩調整（就地；透明度不變）：照 CSS filter 一步一步套用，**每一步之後都夾在 0～255**
+ * （合成一個矩陣的話，亮度、對比拉高時超出範圍的值會在下一步被拉回來，和瀏覽器的 filter 不同）。
+ */
 export function applyAdjust(px: Pixels, a: Adjust): void {
-  const m = adjustMatrix(a);
+  const steps = adjustSteps(a);
+  if (!steps.length) return;
   const d = px.data;
   for (let i = 0; i < d.length; i += 4) {
     if (!d[i + 3]) continue;
-    const r = d[i];
-    const g = d[i + 1];
-    const b = d[i + 2];
-    d[i] = m[0] * r + m[1] * g + m[2] * b + m[3];
-    d[i + 1] = m[4] * r + m[5] * g + m[6] * b + m[7];
-    d[i + 2] = m[8] * r + m[9] * g + m[10] * b + m[11];
+    let r = d[i];
+    let g = d[i + 1];
+    let b = d[i + 2];
+    for (const m of steps) {
+      const nr = clamp255(m[0] * r + m[1] * g + m[2] * b + m[3]);
+      const ng = clamp255(m[4] * r + m[5] * g + m[6] * b + m[7]);
+      const nb = clamp255(m[8] * r + m[9] * g + m[10] * b + m[11]);
+      r = nr;
+      g = ng;
+      b = nb;
+    }
+    d[i] = r;
+    d[i + 1] = g;
+    d[i + 2] = b;
   }
 }
 

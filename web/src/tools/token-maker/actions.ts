@@ -28,7 +28,14 @@ import {
   selectedRatio,
   wandRegion,
 } from './mask';
-import { type ExportFormat, type Look, type TokenItem, tokenBaseName, type ZipJob } from './model';
+import {
+  type ExportFormat,
+  type Look,
+  ratioText,
+  type TokenItem,
+  tokenBaseName,
+  type ZipJob,
+} from './model';
 
 export {
   allZipName,
@@ -51,7 +58,9 @@ import {
   loadMask,
   peekImageWork,
   peekMask,
+  pinImage,
   putMask,
+  releaseImageWork,
   softMaskCanvas,
   storeImage,
 } from './sources';
@@ -62,6 +71,7 @@ import {
   docNow,
   edit,
   effectiveMode,
+  flushBurst,
   prefsNow,
   replaceImage,
   setCustomFrame,
@@ -69,6 +79,7 @@ import {
   setPrefs,
   setTool,
   tokenPad,
+  useDoc,
   useUi,
 } from './store';
 import { S } from './strings';
@@ -80,8 +91,7 @@ export interface BatchNotice {
   tone: 'success' | 'warning' | 'danger' | 'info';
 }
 
-const pct = (r: number) =>
-  r < 0.001 ? '0.1 以下' : r < 0.1 ? (r * 100).toFixed(1) : String(Math.round(r * 100));
+const pct = ratioText;
 
 async function busy<T>(label: string, fn: () => Promise<T>): Promise<T> {
   useUi.setState({ busy: label });
@@ -110,19 +120,25 @@ async function embeddedOf(file: File): Promise<EmbeddedToken | null> {
 /** 嵌在 PNG 裡的棋子 → 新的棋子（圖片、遮罩存進資產庫）；外觀換成它的 */
 async function restoreEmbedded(
   e: EmbeddedToken,
+  fileName: string,
 ): Promise<{ token: Partial<TokenItem>; persisted: boolean }> {
-  const name = e.image.name || 'token.png';
+  /* token-workshop 的 PNG 裡沒有原本的檔名：用讀入的檔名（去掉副檔名），下載的檔名才不會都一樣 */
+  const name =
+    e.source === 'token-workshop'
+      ? fileName.replace(/\.[^.]+$/, '') || 'token'
+      : e.image.name || 'token.png';
   const stored = await storeImage(
     new File([e.image.bytes as Uint8Array<ArrayBuffer>], name, { type: e.image.type }),
   );
   const ms = maskSizeFor(stored.ref);
   let mask: Mask | null = null;
   if (e.mask?.kind === 'png')
+    /* 遮罩讀不出來：沒有出框，其他照樣開 */
     mask = await decodeMaskPng(
       new Blob([e.mask.bytes as Uint8Array<ArrayBuffer>], { type: 'image/png' }),
       e.mask.width,
       e.mask.height,
-    );
+    ).catch(() => null);
   else if (e.mask?.kind === 'pixels')
     mask = {
       width: e.mask.width,
@@ -170,6 +186,8 @@ export async function loadImageFiles(
     if (choice === null) return null;
   }
   const tokens: Partial<TokenItem>[] = [];
+  /** 每個讀到的棋子是不是從嵌入的設定開的（自動選出主體時略過） */
+  const opened: boolean[] = [];
   const names: string[] = [];
   let notSaved = false;
   let look: Look | null = null;
@@ -177,14 +195,18 @@ export async function loadImageFiles(
     for (const f of images) {
       try {
         const e = choice === 'open' ? embedded.get(f) : undefined;
-        if (e) {
-          const r = await restoreEmbedded(e);
-          tokens.push(r.token);
-          if (!r.persisted) notSaved = true;
+        const restored = e ? await restoreEmbedded(e, f.name).catch(() => null) : null;
+        if (e && restored) {
+          tokens.push(restored.token);
+          opened.push(true);
+          if (!restored.persisted) notSaved = true;
           look = e.look;
         } else {
+          /* 嵌入的設定讀不出來（資料壞掉）：當成一般圖片 */
+          if (e) notes.push(S.embedBroken(f.name));
           const r = await storeImage(f);
           tokens.push({ image: r.ref, name: '' });
+          opened.push(false);
           if (!r.persisted) notSaved = true;
         }
         names.push(f.name);
@@ -196,25 +218,35 @@ export async function loadImageFiles(
   });
   if (!tokens.length)
     return { title: S.noneLoaded, description: notes.join('；') || undefined, tone: 'danger' };
-  const restored = look as Look | null;
-  if (restored) {
-    const custom = docNow().custom.frame;
-    edit((d) => {
-      d.look = restored.frame === 'custom' && !custom ? { ...restored, frame: 'plain' } : restored;
-    });
+  /* 換外觀＋加入棋子＝一步復原 */
+  const restoredLook = look as Look | null;
+  flushBurst();
+  useDoc.beginGesture();
+  let ids: string[] = [];
+  try {
+    if (restoredLook) {
+      const custom = docNow().custom.frame;
+      edit((d) => {
+        d.look =
+          restoredLook.frame === 'custom' && !custom
+            ? { ...restoredLook, frame: 'plain' }
+            : restoredLook;
+      });
+    }
+    ids = addTokens(tokens);
+  } finally {
+    useDoc.endGesture();
   }
-  const ids = addTokens(tokens);
   if (ids.length < tokens.length) notes.push(S.rosterFull(ids.length));
   if (notSaved) notes.push(S.imageNotSaved);
   if (prefsNow().autoDetect)
-    for (const [i, id] of ids.entries())
-      if (!(choice === 'open' && embedded.has(images[i]))) await runAuto(id, { quiet: true });
-  const title =
-    choice === 'open' && embedded.size
-      ? S.embeddedOpened(embedded.size)
-      : ids.length === 1
-        ? S.imageLoaded(names[0])
-        : S.imagesLoaded(ids.length);
+    for (const [i, id] of ids.entries()) if (!opened[i]) await runAuto(id, { quiet: true });
+  const openedCount = opened.filter(Boolean).length;
+  const title = openedCount
+    ? S.embeddedOpened(openedCount)
+    : ids.length === 1
+      ? S.imageLoaded(names[0])
+      : S.imagesLoaded(ids.length);
   return {
     title,
     description: notes.join('；') || undefined,
@@ -465,18 +497,22 @@ export async function renderTokenBlob(
   format: ExportFormat,
   { badge, embed = false }: RenderBlobOptions = {},
 ): Promise<Blob> {
-  const prep = await prepareToken(token, look, badge);
-  if (!prep) throw new Error('no image');
-  const canvas = renderTokenCanvas(
-    { N, pad: prep.pad, look, token, cacheFrame: N <= 1024, badge },
-    prep.src,
-  );
+  /* 畫完之前這張大圖不會被放掉 */
+  const unpin = token.image ? pinImage(token.image.id) : () => undefined;
   try {
+    const prep = await prepareToken(token, look, badge);
+    if (!prep) throw new Error('no image');
+    const canvas = renderTokenCanvas(
+      { N, pad: prep.pad, look, token, cacheFrame: N <= 1024, badge },
+      prep.src,
+    );
+    unpin();
     const blob = await canvasToBlob(canvas, MIME[format], format === 'webp' ? 0.95 : undefined);
     if (!embed || format !== 'png') return blob;
     const bytes = await embedFor(token, look, badge, new Uint8Array(await blob.arrayBuffer()));
     return new Blob([bytes as Uint8Array<ArrayBuffer>], { type: 'image/png' });
   } finally {
+    unpin();
     if (N > 1024) releaseScratch();
   }
 }
@@ -499,6 +535,8 @@ export async function zipTokens(
       name: uniqueFileName(job.name, used),
       data: new Uint8Array(await blob.arrayBuffer()),
     });
+    /* 畫完就放掉這張大圖（目前的棋子留著） */
+    if (job.token.image) releaseImageWork(job.token.image.id);
     await new Promise((r) => setTimeout(r, 0));
   }
   const bytes = await zipFiles(
@@ -585,6 +623,7 @@ export async function loadRefImage(file: File): Promise<BatchNotice> {
 export async function tokenAsRef(token: TokenItem): Promise<BatchNotice> {
   try {
     const blob = await renderTokenBlob(token, docNow().look, 1024, 'png');
+    if (token.image) releaseImageWork(token.image.id);
     const r = await storeImage(new File([blob], 'reference.png', { type: 'image/png' }));
     setPrefs({ refImage: r.ref.id, refKind: 'custom' });
     return { title: S.refFromToken(tokenBaseName(token) || S.untitled), tone: 'success' };

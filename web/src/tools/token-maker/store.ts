@@ -37,7 +37,7 @@ import {
 } from './model';
 import { type LookPreset, PRESET_MAX, PRESET_NAME_MAX } from './presets';
 import type { Guides, RefKind } from './reference';
-import { assets, boundaryOf, peekImageWork, peekMask, putMask, TOOL_ID } from './sources';
+import { assets, boundaryFor, boundaryOf, putMask, setImageKeepers, TOOL_ID } from './sources';
 import type { TabId, ToolId } from './strings';
 
 export { TOOL_ID };
@@ -127,7 +127,7 @@ export interface Prefs {
   embed: boolean;
   /** 編號組的張數 */
   setCount: number;
-  /** 預設外觀：顯示範例、存的時候含輸出設定、我的預設 */
+  /** 預設外觀：顯示範例、存的時候含匯出設定、我的預設 */
   showExamples: boolean;
   presetOutput: boolean;
   myPresets: LookPreset[];
@@ -231,6 +231,14 @@ export const usePrefs = createPreviewStore<Prefs>(TOOL_ID, initialPrefs());
   if (JSON.stringify(fixed) !== JSON.stringify(p)) usePrefs.getState().replace(fixed);
 }
 
+/* 不能放掉的圖：目前的棋子、自訂外框與遮罩、參考圖 */
+setImageKeepers(() => {
+  const d = useDoc.getState().data;
+  const cur = d.tokens.find((t) => t.id === d.current)?.image?.id;
+  const ref = usePrefs.getState().data.refImage;
+  return [cur, d.custom.frame?.id, d.custom.mask?.id, ref].filter((x): x is string => !!x);
+});
+
 export const prefsNow = (): Prefs => usePrefs.getState().data;
 export const setPrefs = (patch: Partial<Prefs>): void => usePrefs.getState().patch(patch);
 
@@ -296,20 +304,19 @@ export function effectiveMode(): SelectMode {
 
 /* ---------- 邊距 ---------- */
 
-/** 一個棋子的邊距（自動時依出框的範圍；手動時用設定） */
+/** 一個棋子的邊距（自動時依出框的範圍；手動時用設定）；maskOverride：畫到一半、還沒存的遮罩 */
 export function tokenPad(look: Look, token: TokenItem | null, maskOverride?: Mask | null): number {
   if (!look.autoMargin) return look.margin / 100;
   if (!token?.image) return autoPad(null, { width: 1, height: 1 }, defaultView(), look);
-  const mask =
-    maskOverride !== undefined
-      ? maskOverride
-      : token.mask
-        ? (peekMask(token.mask.id) ?? null)
-        : null;
-  if (!token.popOn || !mask) return autoPad(null, token.image, token.view, look);
-  const work = peekImageWork(token.image.id)?.work ?? null;
-  const b = boundaryOf(mask, work, token.image);
-  return autoPad(b, token.image, token.view, look, token.image.width / mask.width);
+  if (!token.popOn) return autoPad(null, token.image, token.view, look);
+  if (maskOverride !== undefined) {
+    if (!maskOverride) return autoPad(null, token.image, token.view, look);
+    const b = boundaryOf(maskOverride, token.image);
+    return autoPad(b, token.image, token.view, look, token.image.width / maskOverride.width);
+  }
+  const b = token.mask ? boundaryFor(token.mask, token.image) : null;
+  if (!b || !token.mask) return autoPad(null, token.image, token.view, look);
+  return autoPad(b, token.image, token.view, look, token.image.width / token.mask.width);
 }
 
 /* ---------- 外框 ---------- */
@@ -497,21 +504,21 @@ export function keyRotate(delta: number): void {
 
 /** 換掉一個棋子的遮罩（先存進資產庫，再寫進狀態＝一步復原）；回傳新的遮罩 id */
 export function commitMask(tokenId: string, mask: Mask | null): Promise<string | null> {
-  const job = (async () => {
+  /* 一個接一個存：連續兩筆（畫完馬上擦）時，後面那一筆不會比前面的先寫進狀態 */
+  const job = maskSaved.then(async () => {
     const r = mask ? await putMask(mask) : null;
     editToken(tokenId, (t) => {
       t.mask = r ? r.ref : null;
       if (r) t.popOn = true;
     });
     return r?.ref.id ?? null;
-  })();
+  });
   pendingMasks++;
-  const done = job
+  maskSaved = job
     .catch(() => null)
     .finally(() => {
       pendingMasks--;
     });
-  maskSaved = Promise.all([maskSaved, done]);
   return job;
 }
 
