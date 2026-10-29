@@ -224,6 +224,67 @@ export async function fetchGoogleFontSubset(
   return out;
 }
 
+const fontBase64 = (bytes: Uint8Array) => {
+  let s = '';
+  for (let i = 0; i < bytes.length; i += 0x8000)
+    s += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return btoa(s);
+};
+
+const unicodeRange = (chars: readonly string[]) =>
+  chars.map((c) => `U+${(c.codePointAt(0) ?? 0).toString(16).toUpperCase()}`).join(',');
+
+export interface FontSubsetCssOptions {
+  /** 整體最多等幾毫秒（預設 12000）；逾時回傳 null */
+  timeoutMs?: number;
+  /** 每批幾個字（預設 200） */
+  batch?: number;
+}
+
+/**
+ * 嵌進獨立文件（SVG 等）的字型：每種粗細下載只含用到的字的子集（Google Fonts，`fetchGoogleFontSubset`），
+ * 寫成 `@font-face`（每批字一條，`font-family` 是 family、附 unicode-range、WOFF2 以 data URL 內嵌）。
+ * 沒有字時回傳空字串；下載不到、逾時時回傳 null（文件改用看的人電腦上的字型，由呼叫端說明）。
+ * 劇本時間表引入時新增（家系圖的 SVG 匯出原本自己寫的那一段的共用版；家系圖沒有改）。
+ */
+export async function googleFontSubsetCss(
+  family: string,
+  charsByWeight: ReadonlyMap<number, Iterable<string>>,
+  { timeoutMs = 12000, batch = 200 }: FontSubsetCssOptions = {},
+): Promise<string | null> {
+  const name = family.replace(/["\\]/g, '');
+  const work = (async () => {
+    const rules: string[] = [];
+    for (const [weight, set] of charsByWeight) {
+      const list = [...new Set(set)].filter((c) => c.trim());
+      for (let i = 0; i < list.length; i += Math.max(1, batch)) {
+        const part = list.slice(i, i + Math.max(1, batch));
+        const files = await fetchGoogleFontSubset(family, weight, part.join(''), {
+          maxChars: batch,
+        });
+        for (const f of files)
+          rules.push(
+            `@font-face{font-family:"${name}";font-weight:${weight};src:url(data:font/woff2;base64,${fontBase64(f)}) format("woff2");unicode-range:${unicodeRange(part)};}`,
+          );
+      }
+    }
+    return rules.join('\n');
+  })();
+  /* 逾時之後才失敗的不要變成未處理的錯誤 */
+  work.catch(() => undefined);
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<null>((r) => {
+    timer = setTimeout(() => r(null), timeoutMs);
+  });
+  try {
+    return await Promise.race([work, timeout]);
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 /* ---------- 電腦字型 ---------- */
 
 interface LocalFontData {

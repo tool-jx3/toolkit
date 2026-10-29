@@ -969,6 +969,15 @@ export const TOOLS: readonly ToolEntry[] = [
       url: 'https://github.com/arcana-hanna/token-workshop',
     },
   },
+  {
+    id: 'scenario-timeline',
+    name: '劇本時間表',
+    summary:
+      '把劇本的事件經過、NPC 的行動排在可以縮放的時間軸上：1925 年這類真實日期、「第 N 天 21:00」或架空曆的年份都可以，依角色、NPC、地點分泳道，拖曳改時間；也能轉成年表列印或複製，PL 檢視拿掉 GM 專用的事件給玩家看，匯出 PNG、SVG、文字年表與 CSV。',
+    group: 'G6',
+    status: 'next',
+    inspiration: { name: 'visjs/vis-timeline', url: 'https://github.com/visjs/vis-timeline' },
+  },
 ];
 
 export function getTool(id: string): ToolEntry | undefined {
