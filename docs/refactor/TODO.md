@@ -9,7 +9,10 @@
 
 ## 進行中
 
-（沒有）
+- 新工具「VTT 棋子產生器」（token-maker，參考 arcana-hanna/token-workshop、CyberDelaai/eidolon-ui，MIT）
+- 新工具「NPC 名字產生器」（npc-names：日本名、台灣名、1920 年代英文名；之後 coc-npc 的隨機取名也用它）
+- floor-plan 跟進原作室内図メーカー v1.15
+- geo-bloom 跟進原作 tkmizGeo 到 `edb6828`
 
 ## 一、已收錄工具的原作更新
 
