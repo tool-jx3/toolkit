@@ -1,0 +1,29 @@
+本資料夾的 names-us.ts（美國的名字與姓氏、各自的人數）取自下列美國聯邦政府的資料。美國聯邦政府的著作不受著作權保護
+（17 U.S.C. §105），屬於公有領域；下面的整理與鏡像只是照抄這些數字。本站挑出用得到的部分、改寫成自己的格式。
+
+一、名字：社會安全局的嬰兒名字
+
+  名稱：Beyond the Top 1000 Names（national data，各年出生、申請社會安全號碼的人的名字與人數，5 人以上才列）
+  提供機關：U.S. Social Security Administration（https://www.ssa.gov/oact/babynames/limits.html）
+  取得：jsvine/babynames 的 data/name-counts.csv（https://github.com/jsvine/babynames，
+        commit 34f0fa95669f3806f43e540470a7b628906af950；1880～2012 年，社會安全局資料的直接轉錄）
+  核對：1920、1925、1929 年和另一份鏡像 wesm/pydata-book（datasets/babynames，較早一版的社會安全局資料）比對，
+        每年只有 2～4 個名字不同、總人數差 0.02% 以內、前 200 個名字的人數差 0.2% 以內；
+        1920 年代男女前 10 名的順序和社會安全局公布的年代排行相同
+        （Robert、John、James、William…；Mary、Dorothy、Helen、Betty…）。
+
+二、姓氏：1990 年人口普查
+
+  名稱：Frequently Occurring Surnames from the 1990 Census（dist.all.last：88,799 個姓、每個姓佔人口的百分比）
+  提供機關：U.S. Census Bureau
+  取得：treyhunner/names 的 names/dist.all.last（https://github.com/treyhunner/names，
+        commit c485a4350e84d77836ccd36c628296beb1aec05f；原作說明這幾個檔案是公有領域、取自 1990 年人口普查）
+  核對：前 2,000 個和另一份鏡像（prometheusresearch/htsql 的 test/sql/datagen/dist.all.last）逐行相同。
+
+三、本站做的整理
+
+  1. 名字：1880～1909 年、1920～1929 年出生兩組，各自依性別加總人數、各取前 1,000 個；另一個性別的人數是
+     10 倍以上的（登記錯性別，例如男性的 Mary）不收。
+  2. 姓氏：前 1,000 個；人口普查的寫法全部大寫、沒有標點，改成一般的寫法（首字大寫；Mc 開頭的寫成 McDonald 這樣；
+     O'Brien、O'Connor、O'Neal、O'Neill、O'Neil、O'Donnell、MacDonald、De Leon、De La Cruz、De Jesus、LeBlanc
+     照慣用的寫法）；人數存成每十萬人的人數。

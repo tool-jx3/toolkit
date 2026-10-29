@@ -12,6 +12,7 @@ import {
   CircleUser,
   Clapperboard,
   ClipboardList,
+  Contact,
   Crop,
   Dices,
   Eraser,
@@ -166,6 +167,7 @@ const ICONS: Record<string, LucideIcon> = {
   'coc-npc': UserCog,
   'house-rules': ListChecks,
   'coc-sheet': NotebookTabs,
+  'npc-names': Contact,
   'trpg-lab': FlaskConical,
   /* G10 地圖與網格 */
   battlemap: MapIcon,

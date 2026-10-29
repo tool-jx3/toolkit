@@ -1,0 +1,7 @@
+{
+  "name": "日本的姓名與讀音（shuheilocale/japanese-personal-name-dataset，性別參考 willnet/gimei）",
+  "version": "japanese-personal-name-dataset 0.4.0（054161f）、gimei b5465f3（2026-10-29 取得）",
+  "license": "MIT",
+  "copyright": "Copyright (c) 2022 shuheilocale；Copyright (c) 2012 willnet",
+  "url": "https://github.com/shuheilocale/japanese-personal-name-dataset"
+}

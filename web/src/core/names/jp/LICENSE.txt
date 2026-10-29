@@ -1,0 +1,74 @@
+本資料夾的 names-jp.ts（日本的姓、名、平假名讀音與各年代的人數）取自下列資料，本站只挑出用得到的欄位、
+依下面「三」的方式重新整理成自己的格式。片假名與羅馬拼音是本站的程式從平假名轉的，不在此列。
+
+一、姓名、讀音與各年代的人數
+
+  名稱：japanese-personal-name-dataset（https://github.com/shuheilocale/japanese-personal-name-dataset）
+        版本 0.4.0，commit 054161f8a4f0c667d8f9a85db3f4a03e3d1f0314
+  使用的檔案：japanese_personal_name_dataset/dataset/first_name_man_org.csv、first_name_woman_org.csv
+        （名的讀音與寫法、男女的名單）、last_name_org.csv（姓的寫法與讀音；其中的「推定人數」本站沒有使用）、
+        qa/metadata/birth_decades.csv（各讀音、寫法在每個出生年代的人數）
+  birth_decades.csv 的說明（照原作）：人數是國立國會圖書館典拠（Web NDL Authorities）與 Wikidata 裡有這個名字的
+        人物、依出生年代（10 年一組）數出來的，偏向作者與名人，不是全國的出生統計；未滿 3 人的格子不列。
+  授權：MIT License
+
+  MIT License
+
+  Copyright (c) 2022 shuheilocale
+
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to deal
+  in the Software without restriction, including without limitation the rights
+  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
+
+  The above copyright notice and this permission notice shall be included in all
+  copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+  SOFTWARE.
+
+二、男女都列的寫法用來判斷性別的名單
+
+  名稱：gimei（https://github.com/willnet/gimei），commit b5465f3f29c6f389c485cc130c5a86707795235b
+  使用的檔案：lib/data/names.yml 的 first_name（只用來看某個寫法列在男性、女性或兩邊）
+  授權：MIT License
+
+  Copyright (c) 2012 willnet
+
+  MIT License
+
+  Permission is hereby granted, free of charge, to any person obtaining
+  a copy of this software and associated documentation files (the
+  "Software"), to deal in the Software without restriction, including
+  without limitation the rights to use, copy, modify, merge, publish,
+  distribute, sublicense, and/or sell copies of the Software, and to
+  permit persons to whom the Software is furnished to do so, subject to
+  the following conditions:
+
+  The above copyright notice and this permission notice shall be
+  included in all copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+  EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+  MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+  NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
+  LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+  OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+  WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+三、本站做的整理
+
+  1. 名：讀音與寫法照 first_name_*_org.csv；每個寫法的人數是 birth_decades.csv 裡同一個讀音＋寫法、
+     出生年代在 1870～1910 年代、1920～1950 年代、1960 年代以後的人數加總（三欄）。三欄都是 0 的不收。
+  2. 男女兩份名單都有的寫法（birth_decades.csv 的人數不分性別）：gimei 只列在男性的歸男性；其他的依那個年代
+     「只列在一個性別的寫法」裡女性人數的比例分給女性（1870～1910 年代 11.6%、1920～1950 年代 20.2%、
+     1960 年代以後 27.1%），其餘給男性，取到小數一位。
+  3. 姓：寫法與讀音照 last_name_org.csv，人數是 birth_decades.csv 裡同一個讀音＋寫法所有年代的加總。
+  本站的整理依 MIT License 提供。

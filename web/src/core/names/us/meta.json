@@ -1,0 +1,7 @@
+{
+  "name": "美國的名字與姓氏（社會安全局嬰兒名字 1880～1929、1990 年人口普查姓氏）",
+  "version": "SSA：jsvine/babynames 34f0fa9；人口普查：treyhunner/names c485a43（2026-10-29 取得）",
+  "license": "公有領域（美國聯邦政府著作）",
+  "copyright": "原始資料：U.S. Social Security Administration「Beyond the Top 1000 Names」、U.S. Census Bureau「Frequently Occurring Surnames from the 1990 Census」",
+  "url": "https://www.ssa.gov/oact/babynames/limits.html"
+}
