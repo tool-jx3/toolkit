@@ -1095,11 +1095,22 @@ test.describe('EPUB 電子書（2026-10）', () => {
     const errors = await open(page);
     const workers: string[] = [];
     page.on('worker', (w) => workers.push(w.url()));
-    const { exportTasks, convertTasks } = await bigExport(page, 'Worker');
+    const { exportTasks } = await bigExport(page, 'Worker');
     expect(workers.some((u) => /epub\.worker/.test(u))).toBe(true);
-    /* 量得到長工作（既有的轉換本身在主執行緒），匯出 EPUB 時沒有超過 300 ms 的 */
-    expect(convertTasks.length).toBeGreaterThan(0);
+    /* 匯出 EPUB 時沒有超過 300 ms 的長工作 */
     expect(Math.max(0, ...exportTasks)).toBeLessThan(300);
+    /* 確認量得到長工作：故意讓主執行緒忙 150 ms（轉換本身在快的機器上不一定超過 50 ms，不能拿來確認）。
+       要放在頁面自己的工作（setTimeout）裡；page.evaluate 直接跑的不算長工作 */
+    await watchLongTasks(page);
+    await page.evaluate(() => {
+      setTimeout(() => {
+        const t = performance.now();
+        while (performance.now() - t < 150);
+      });
+    });
+    await expect
+      .poll(async () => Math.max(0, ...(await longTasks(page))))
+      .toBeGreaterThanOrEqual(100);
     expect(errors).toEqual([]);
   });
 
