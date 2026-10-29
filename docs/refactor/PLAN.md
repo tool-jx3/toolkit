@@ -254,7 +254,8 @@ music-frame 的原作搬到 zZnaptime/MVmaker（功能沒變），連結已修�
 | session-calendar | 團期行事曆（2026-10-27 另外加入；合併兩個原作：場次＋準備事項、年曆＋月曆、多日預定與配色、空檔日期、PNG、JSON／iCal；台灣的國定假日〔新增共用模組 core/holidays〕；送到跑團紀錄簿〔session-log F117〕） | くま。／卓準備カレンダー v0.13、utiyoso/taku_calendar | 未授權 | G6 | ✅ | ✅ | ✅ | ✅ |
 | ui-frame | UI 框素材產生器（2026-10-27 另外加入；TRPG・直播與文字冒險兩種用途的透明 UI 框 PNG、世界觀預設與主色配色、TyranoScript 配置程式碼、ZIP） | KIIN／ノベワク STUDIO（BOOTH 販售，只參考免費體驗版的頁面） | 未授權（條款禁止再散布程式） | G4 | ✅ | ✅ | ✅ | ✅ |
 | pdf-compress | PDF 壓縮器（2026-10-28 另外加入；qpdf 的結構整理、影像重新壓縮與依解析度縮小、整頁轉圖，批次、前後比對、ZIP；共用模組 core/pdf） | mrflamingchad67/qcompress＋ECgear/wise-pdf | MIT | G6 | ✅ | ✅ | ✅ | ✅ |
-| npc-names | NPC 名字產生器（2026-10-29 另外加入；本站原創：日本〔現代、昭和中後期、大正～昭和初期，附假名與羅馬拼音〕、台灣、1920 年代美國的名字，依人數加權抽、種子、鎖定、紀錄、TXT／CSV；共用模組 core/names，coc-npc 的隨機取名也用它） | 本站（名字資料：gimei、japanese-personal-name-dataset〔MIT〕、內政部姓名統計、SSA 與人口普查〔公有領域〕） | ✅ |
+| npc-names | NPC 名字產生器（2026-10-29 另外加入；本站原創：日本〔現代、昭和中後期、大正～昭和初期，附假名與羅馬拼音〕、台灣、1920 年代美國的名字，依人數加權抽、種子、鎖定、紀錄、TXT／CSV；共用模組 core/names，coc-npc 的隨機取名也用它） | 本站（名字資料：gimei、japanese-personal-name-dataset〔MIT〕、內政部姓名統計、SSA 與人口普查〔公有領域〕） | —（本站原創） | G9 | ✅ | ✅ | ✅ | ✅ |
+| token-maker | VTT 棋子產生器（2026-10-29 另外加入；圓形外框 28 種〔TW 16＋ED 12〕與自訂外框、出框〔魔術棒、筆刷、自動、讀入遮罩〕、名單 60 個與編號組 ZIP、名字牌與弧形文字、徽章、色彩調整與效果、預設外觀、參考輪廓、嵌進 PNG 的設定；共用 core/encode 加 PNG 文字區塊） | arcana-hanna/token-workshop＋CyberDelaai/eidolon-ui＋Sectr99/TokenForge（開口偵測） | MIT | G3 | ✅ | ✅ | ✅ | ✅ |
 
 上游更新的跟進（已上線的工具加功能，照一般的規格修訂與驗證）：
 

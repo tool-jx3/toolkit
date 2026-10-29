@@ -32,7 +32,10 @@
 [saturn97v](https://github.com/saturn97v) 與
 [mrflamingchad67](https://github.com/mrflamingchad67) 與
 [ECgear](https://github.com/ECgear) 與
-[SkyTNT](https://github.com/SkyTNT) 等人製作的網頁小工具與開源專案為靈感來源的 78 個 TRPG 工具合輯（NPC 名字產生器由本站原創；「文字演出產生器」以くま。的工具為靈感，由本 repo 以無塵室方式獨立撰寫；其中三個工具的作者不明），另外連到 JIZURA 字面的原站。所有工具都由本站以共用的框架改寫，只有繁體中文介面。
+[arcana-hanna](https://github.com/arcana-hanna) 與
+[CyberDelaai](https://github.com/CyberDelaai) 與
+[Sectr99](https://github.com/Sectr99) 與
+[SkyTNT](https://github.com/SkyTNT) 等人製作的網頁小工具與開源專案為靈感來源的 79 個 TRPG 工具合輯（NPC 名字產生器由本站原創；「文字演出產生器」以くま。的工具為靈感，由本 repo 以無塵室方式獨立撰寫；其中三個工具的作者不明），另外連到 JIZURA 字面的原站。所有工具都由本站以共用的框架改寫，只有繁體中文介面。
 
 **https://tool-jx3.github.io/toolkit/**
 
@@ -104,6 +107,7 @@
 | [截圖演出產生器](https://tool-jx3.github.io/toolkit/tools/screenshot-fx/) | 在截圖上畫放大框、螢光筆、塗黑：周圍變暗、框彈出放大、螢光筆畫出來、塗黑揭開或蓋上，背景可以模糊、單色或透明，加上出處，匯出 PNG、APNG 或影片 |
 | [地圖演出產生器](https://tool-jx3.github.io/toolkit/tools/map-fx/) | 在地圖或平面圖上畫區域放大、移動路線與地點、房間遮罩：路線一路畫過去、迷霧散開、房間出現，匯出 PNG、APNG、影片，或給 CCFOLIA 自由探索用的每個房間一張遮罩 PNG；進階 3D 把平面圖變成線框立體空間，鏡頭沿路線走過去並存成影片 |
 | [簡易頭像產生器](https://tool-jx3.github.io/toolkit/tools/icon-maker/) | 從 PNG 立繪做出 1:1 的 TRPG 角色頭像，可加外框、背景、名字（直書或橫書）與 HO 標籤 |
+| [VTT 棋子產生器](https://tool-jx3.github.io/toolkit/tools/token-maker/) | 把立繪、頭像做成 CCFOLIA、Roll20、Foundry 等 VTT 用的圓形棋子：28 種有花紋的外框，頭、角、武器可以出框蓋在外框上，名字牌與徽章，敵人可以做成編號 1～N 的一組，存成透明背景的 PNG（設定嵌在圖裡，之後可以再開來改） |
 | [跑團紀錄簿](https://tool-jx3.github.io/toolkit/tools/session-log/) | 記錄玩過的團，整理感想、團報與已通關劇本清單；可匯入試算表或團報文字，每一團都能直接送到團報產生器 |
 | [團報產生器](https://tool-jx3.github.io/toolkit/tools/session-report/) | 填入劇本、KP／PL／PC 與結果，從 17 種範本產生可直接貼到 X 的團報文，能即時預覽、編輯 |
 | [團期行事曆](https://tool-jx3.github.io/toolkit/tools/session-calendar/) | 把場次、準備事項和其他預定排在同一張月曆：台灣的國定假日與補假、拖曳新增多日預定、配色與 CP 色、輸出空檔日期揪團、整月或整年存成 PNG、JSON／iCal 匯出入（可讀 Google 日曆匯出的檔案），一團可以直接送到跑團紀錄簿 |
@@ -232,6 +236,7 @@ CI（GitHub Actions）在 pull request 與 main 上跑 `npm test`、lint、typec
 | `geo-bloom` | [幾何花紋產生器](https://tool-jx3.github.io/toolkit/tools/geo-bloom/) | [al1scut/tkmizGeo](https://github.com/al1scut/tkmizGeo) |
 | `vhs-frame` | [錄影帶畫面產生器](https://tool-jx3.github.io/toolkit/tools/vhs-frame/) | [dearmysn1p3r/VHS_Maker](https://github.com/dearmysn1p3r/VHS_Maker) |
 | `handout-maker` | [線索道具產生器](https://tool-jx3.github.io/toolkit/tools/handout-maker/) | [KKumuu/trpgforkk](https://github.com/KKumuu/trpgforkk)（`D.html`） |
+| `token-maker` | [VTT 棋子產生器](https://tool-jx3.github.io/toolkit/tools/token-maker/) | [arcana-hanna/token-workshop](https://github.com/arcana-hanna/token-workshop)、[CyberDelaai/eidolon-ui](https://github.com/CyberDelaai/eidolon-ui)、[Sectr99/TokenForge](https://github.com/Sectr99/TokenForge)（自訂外框的開口偵測） |
 
 開發與建置見 [web/README.md](web/README.md)；流程與規格見 [docs/refactor/](docs/refactor/PLAN.md)。
 

@@ -119,6 +119,7 @@
 | `session-calendar` | 團期行事曆 | [くま。／卓準備カレンダー](https://kumachansteps.github.io/trpg-web-tools/tools/session-check-calendar/)（未授權）、[utiyoso/taku_calendar](https://github.com/utiyoso/taku_calendar)（未授權） | —（新收錄，沒有舊版） |
 | `ui-frame` | UI 框素材產生器 | [KIIN／ノベワク STUDIO](https://novewaku-studio.pages.dev)（BOOTH 販售的工具，條款禁止再散布程式，視同未授權） | —（新收錄，沒有舊版） |
 | `pdf-compress` | PDF 壓縮器 | [mrflamingchad67/qcompress](https://github.com/mrflamingchad67/qcompress)（MIT）、[ECgear/wise-pdf](https://github.com/ECgear/wise-pdf)（MIT） | —（新收錄，沒有舊版） |
+| `token-maker` | VTT 棋子產生器 | [arcana-hanna/token-workshop](https://github.com/arcana-hanna/token-workshop)（MIT）、[CyberDelaai/eidolon-ui](https://github.com/CyberDelaai/eidolon-ui)（MIT）、[Sectr99/TokenForge](https://github.com/Sectr99/TokenForge)（MIT，只參考開口偵測） | —（新收錄，沒有舊版） |
 | `anime-rig` | 2.5D 動態立繪 | [852wa/Anime2.5DRig](https://github.com/852wa/Anime2.5DRig)（MIT） | `6957b28` |
 
 `music-frame` 是照 [docs/refactor/PROCESS.md](docs/refactor/PROCESS.md) 第 6 節「新工具引入流程」直接在新框架做的工具，沒有收錄過原作的副本（原作 commit `0c24db2`）。原作未附授權條款，預設封面、預設文字與說明都由本站自做，只照原作的功能、版面與數值。
@@ -190,6 +191,8 @@
 `ui-frame` 照新工具引入流程直接在新框架做：原作是 KIIN 的「ノベワク STUDIO」（和 screenshot-fx、map-fx 同一位作者），條款禁止再散布程式與改作版本，視同未授權。本站只拿得到免費體驗版的 HTML，從中讀出功能、選項與數值範圍（製品版的功能照體驗版頁面的比較表），框的形狀、四角裝飾、質感、按鈕的畫法、範例背景與立繪、預設集（第一版和原作的搭配太像，驗證時發現後整組重新設計）與說明文字都由本站自做，不放 `UPSTREAM_LICENSE`；體驗版的限制不做。產生的 TyranoScript 配置程式碼照 TyranoScript 官方原始碼裡的標籤定義撰寫（本站不收錄、不散布 TyranoScript 本體）。
 
 `pdf-compress` 照新工具引入流程直接在新框架做，參考兩個 MIT 原作的程式改寫：mrflamingchad67/qcompress（commit `d60a155`）的 qpdf 結構整理、影像重新壓縮與候選比較，以及 ECgear/wise-pdf（commit `0fe3907`）的壓縮等級、依解析度縮小與整頁轉圖；兩份授權全文在 `web/src/tools/pdf-compress/UPSTREAM_LICENSE`。引擎用 npm 的 qpdf（Apache-2.0，`@neslinesli93/qpdf-wasm`）、mozjpeg（`@jsquash/jpeg`）、pdf.js（Apache-2.0）與 pdf-lib，都打包在本站、只在這個工具頁載入；WebAssembly 裡靜態連結的 zlib、libjpeg-turbo、Emscripten 執行環境，以及 pdf.js 的 CMap 與標準字型（含 GPL-2.0 with font exception 的 Liberation Sans，原樣單獨散布）的授權條文都整理在 THIRD_PARTY_NOTICES。壓縮效果最好的 Ghostscript、MuPDF 是 AGPL-3.0，和本站的 MIT 不相容，所以沒有使用。
+
+`token-maker` 照新工具引入流程直接在新框架做，參考三個 MIT 原作的程式改寫：arcana-hanna/token-workshop（commit `c27f41e`）的 16 種環形外框與 18 組外觀、金屬與石材的光照、程式產生的質感、魔術棒與自動偵測主體的出框、嵌進 PNG 的設定；CyberDelaai/eidolon-ui（commit `43c44b6`）的 12 種外框、自訂外框與遮罩、名單、名字牌與弧形文字、徽章、編號組 ZIP、色彩調整、效果與參考輪廓的剪影；Sectr99/TokenForge（commit `ff7ad73`）只參考自訂外框的開口半徑偵測，不用它的圖檔。外框、名字牌與剪影的畫法為了和原作逐像素相同，和原作的程式幾乎一對一（MIT 允許，見規格 7.1）；三份授權全文在 `web/src/tools/token-maker/UPSTREAM_LICENSE`、原作清單在 `UPSTREAM_SOURCES.json`。eidolon-ui 的範例圖（吉祥物）與預覽圖不拿；介面文字與說明由本站自己寫繁中。也讀得出 token-workshop 匯出、勾了「Keep editable」的 PNG。
 
 `log-converter` 的 EPUB 匯出（2026-10）參考 sotsotssi/CcfoliaLogConverter 的功能（原作沒有授權條款：只照功能與做法，程式、介面文字與版面都由本站自做）；原作在控制字元、`<wbr>`、`<font>` 與新格式的日誌會產生不合規的電子書或遺失內容，本站的輸出都通過 epubcheck。
 
