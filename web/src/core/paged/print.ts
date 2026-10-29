@@ -19,6 +19,11 @@ export interface PrintOptions {
   lang?: string;
   /** 測試用：不真的呼叫 print() */
   dryRun?: boolean;
+  /**
+   * 紙張的邊界（CSS 長度，例 `'15mm'`；預設 `0`：頁面自己排好版心）。內容跟著換頁的文件（例如劇本時間表的年表）
+   * 用它讓每一頁都留邊（劇本時間表引入時新增，不給時和以前一樣）。
+   */
+  pageMargin?: string;
 }
 
 const MARK = 'data-paged-print';
@@ -28,7 +33,7 @@ const escapeText = (s: string) =>
 
 /** 列印文件的完整 HTML（也可以拿去做別的用途，例如測試） */
 export function printDocumentHtml(o: PrintOptions): string {
-  const pageCss = `@page{size:${o.size.w}mm ${o.size.h}mm;margin:0}
+  const pageCss = `@page{size:${o.size.w}mm ${o.size.h}mm;margin:${o.pageMargin ?? 0}}
 html,body{margin:0;padding:0;background:#fff}
 .paged-print-page{break-after:page;page-break-after:always}
 .paged-print-page:last-child{break-after:auto;page-break-after:auto}

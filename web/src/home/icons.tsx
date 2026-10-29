@@ -7,6 +7,7 @@ import {
   CalendarDays,
   Camera,
   CassetteTape,
+  ChartGantt,
   ChartNoAxesColumnIncreasing,
   ChartScatter,
   CircleUser,
@@ -147,6 +148,7 @@ const ICONS: Record<string, LucideIcon> = {
   'handout-maker': Stamp,
   'session-calendar': CalendarDays,
   'pdf-compress': FileArchive,
+  'scenario-timeline': ChartGantt,
   /* G7 介紹圖與宣傳 */
   'pair-maker': HeartHandshake,
   'character-select': Users,

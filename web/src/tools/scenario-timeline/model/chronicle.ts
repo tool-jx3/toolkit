@@ -1,0 +1,389 @@
+/**
+ * 年表（規格 F50～F54、3.7）：依時間排的清單、分段；純文字、Markdown、列印用的 HTML。純計算。
+ */
+import { escapeHtml } from '@/core/html';
+import { eventSpan } from './layout';
+import {
+  afterUnit,
+  clockText,
+  dateLabel,
+  dateParts,
+  dayNumber,
+  formatLong,
+  type Precision,
+  readTime,
+  type TimeMode,
+  type Tv,
+  yearLabel,
+} from './time';
+import { eventColor } from './types';
+import type { VisibleDoc } from './visible';
+
+export interface ChronRow {
+  kind: 'event' | 'marker';
+  id: string;
+  /** 段裡的時間（「21:00」「整天」「～3月14日」） */
+  time: string;
+  /** 完整的時間（提示、螢幕閱讀器） */
+  fullTime: string;
+  title: string;
+  laneName: string;
+  laneColor: string;
+  categoryName: string;
+  categoryColor: string;
+  place: string;
+  people: string[];
+  description: string;
+  gmNote: string;
+  /** 事件自己是 GM 專用 */
+  gm: boolean;
+  /** PL 版看不到（GM 專用、在 GM 專用的泳道） */
+  secret: boolean;
+  background: boolean;
+  ongoing: boolean;
+  color: string;
+}
+
+export interface ChronSection {
+  key: string;
+  heading: string;
+  rows: ChronRow[];
+}
+
+export interface Chronicle {
+  title: string;
+  /** 「最早～最晚」（沒有東西時空字串） */
+  range: string;
+  sections: ChronSection[];
+  count: number;
+}
+
+const RANK: Record<Precision, number> = { year: 0, month: 1, day: 2, minute: 3 };
+
+function sectionOf(mode: TimeMode, tv: Tv, era: string): { key: string; heading: string } {
+  if (mode === 'year') return { key: `y${tv.v}`, heading: yearLabel(tv.v, era) };
+  if (mode === 'day') {
+    const n = dayNumber(tv.v);
+    return { key: `d${n}`, heading: `第 ${n} 天` };
+  }
+  const d = dateParts(tv.v);
+  if (tv.p === 'year') return { key: `y${d.y}`, heading: `${d.y}年` };
+  if (tv.p === 'month') return { key: `m${d.y}-${d.m}`, heading: `${d.y}年${d.m}月` };
+  return { key: `d${d.days}`, heading: dateLabel(tv.v) };
+}
+
+/** 段裡的開始時間：寫到分＝時刻；只到日＝「整天」（時間點與期間的開始相同：「整天～3月14日」）；只到月、年＝不寫 */
+function startText(mode: TimeMode, tv: Tv): string {
+  if (mode === 'year') return '';
+  if (tv.p === 'minute') return clockText(tv.v);
+  if (tv.p === 'day') return '整天';
+  return '';
+}
+
+/** 期間的結束（相對於開始寫：同一天只寫時刻、同一年不寫年） */
+function endText(mode: TimeMode, start: Tv, end: Tv, era: string): string {
+  if (mode === 'year') return yearLabel(end.v, era);
+  if (mode === 'day') {
+    if (end.p === 'minute')
+      return dayNumber(end.v) === dayNumber(start.v)
+        ? clockText(end.v)
+        : `第 ${dayNumber(end.v)} 天 ${clockText(end.v)}`;
+    return `第 ${dayNumber(end.v)} 天`;
+  }
+  const s = dateParts(start.v);
+  const e = dateParts(end.v);
+  const sameYear = s.y === e.y;
+  if (end.p === 'year') return `${e.y}年`;
+  if (end.p === 'month') return sameYear ? `${e.m}月` : `${e.y}年${e.m}月`;
+  const date = sameYear ? `${e.m}月${e.d}日` : `${e.y}年${e.m}月${e.d}日`;
+  if (end.p === 'day') return date;
+  return s.days === e.days ? clockText(end.v) : `${date} ${clockText(end.v)}`;
+}
+
+interface Sortable {
+  row: ChronRow;
+  v: number;
+  rank: number;
+  endV: number;
+  lane: number;
+  marker: number;
+  idx: number;
+  section: { key: string; heading: string };
+}
+
+export function chronicle(vdoc: VisibleDoc, untitled: string, fallbackTitle: string): Chronicle {
+  const { mode, era } = vdoc;
+  const laneOrder = new Map(vdoc.lanes.map((l, i) => [l.id, i]));
+  const list: Sortable[] = [];
+  let lo = Number.POSITIVE_INFINITY;
+  let hi = Number.NEGATIVE_INFINITY;
+  let loTv: Tv | null = null;
+  let hiTv: Tv | null = null;
+  for (const [idx, e] of vdoc.events.entries()) {
+    const a = readTime(mode, e.start, era);
+    if (!a) continue;
+    const isRange = e.kind !== 'point';
+    const endTv = isRange ? readTime(mode, e.end, era) : null;
+    const span = eventSpan(mode, e, era);
+    let time = startText(mode, a);
+    let fullTime = formatLong(mode, a, era);
+    if (isRange) {
+      const tail = e.ongoing ? '（進行中）' : endTv ? endText(mode, a, endTv, era) : '';
+      time = `${time}～${tail}`;
+      fullTime = `${fullTime}～${e.ongoing ? '（進行中）' : endTv ? formatLong(mode, endTv, era) : ''}`;
+    }
+    const lane = vdoc.lanes.find((l) => l.id === e.laneId);
+    const cat = vdoc.categories.find((c) => c.id === e.categoryId);
+    if (a.v < lo) {
+      lo = a.v;
+      loTv = a;
+    }
+    const last = endTv && !e.ongoing ? endTv : a;
+    const lastEnd = afterUnit(mode, last);
+    if (lastEnd > hi) {
+      hi = lastEnd;
+      hiTv = last;
+    }
+    list.push({
+      row: {
+        kind: 'event',
+        id: e.id,
+        time,
+        fullTime,
+        title: e.title.trim() || untitled,
+        laneName: lane?.name.trim() || (lane ? untitled : ''),
+        laneColor: lane?.color ?? '',
+        categoryName: cat?.name ?? '',
+        categoryColor: cat?.color ?? '',
+        place: e.place,
+        people: e.people,
+        description: e.description,
+        gmNote: e.gmNote,
+        gm: e.gm,
+        secret: e.secret,
+        background: e.kind === 'background',
+        ongoing: !!e.ongoing,
+        color: eventColor(vdoc, e),
+      },
+      v: a.v,
+      rank: RANK[a.p],
+      endV: span?.b ?? a.v,
+      lane: e.laneId ? (laneOrder.get(e.laneId) ?? -1) : -1,
+      marker: 0,
+      idx,
+      section: sectionOf(mode, a, era),
+    });
+  }
+  for (const [idx, m] of vdoc.markers.entries()) {
+    const t = readTime(mode, m.time, era);
+    if (!t) continue;
+    if (t.v < lo) {
+      lo = t.v;
+      loTv = t;
+    }
+    if (afterUnit(mode, t) > hi) {
+      hi = afterUnit(mode, t);
+      hiTv = t;
+    }
+    list.push({
+      row: {
+        kind: 'marker',
+        id: m.id,
+        time: startText(mode, t),
+        fullTime: formatLong(mode, t, era),
+        title: m.label.trim() || untitled,
+        laneName: '',
+        laneColor: '',
+        categoryName: '',
+        categoryColor: '',
+        place: '',
+        people: [],
+        description: '',
+        gmNote: '',
+        gm: m.gm,
+        secret: m.secret,
+        background: false,
+        ongoing: false,
+        color: m.color,
+      },
+      v: t.v,
+      rank: RANK[t.p],
+      endV: t.v,
+      lane: 0,
+      marker: 1,
+      idx,
+      section: sectionOf(mode, t, era),
+    });
+  }
+  list.sort(
+    (p, q) =>
+      p.v - q.v ||
+      p.rank - q.rank ||
+      p.marker - q.marker ||
+      p.endV - q.endV ||
+      p.lane - q.lane ||
+      p.idx - q.idx,
+  );
+  const sections: ChronSection[] = [];
+  for (const it of list) {
+    const last = sections[sections.length - 1];
+    if (last && last.key === it.section.key) last.rows.push(it.row);
+    else sections.push({ ...it.section, rows: [it.row] });
+  }
+  const from = loTv as Tv | null;
+  const to = hiTv as Tv | null;
+  let range = '';
+  if (from && to)
+    range =
+      from.v === to.v && from.p === to.p
+        ? formatLong(mode, from, era)
+        : `${formatLong(mode, from, era)}～${formatLong(mode, to, era)}`;
+  return {
+    title: vdoc.title.trim() || fallbackTitle,
+    range,
+    sections,
+    count: list.length,
+  };
+}
+
+/* ---------- 文字 ---------- */
+
+const IND = '　　';
+
+function detailLines(r: ChronRow): string[] {
+  const parts: string[] = [];
+  if (r.place) parts.push(`地點：${r.place}`);
+  if (r.people.length) parts.push(`相關角色：${r.people.join('、')}`);
+  return parts.length ? [parts.join('／')] : [];
+}
+
+const lines = (t: string) =>
+  t
+    .split(/\r?\n/)
+    .map((x) => x.trimEnd())
+    .filter((x, i, all) => x || (i > 0 && i < all.length - 1));
+
+function rowTags(r: ChronRow, gm: boolean): string {
+  const tags: string[] = [];
+  if (r.laneName) tags.push(r.laneName);
+  if (r.categoryName) tags.push(r.categoryName);
+  if (r.background) tags.push('背景');
+  if (gm && r.gm) tags.push('GM 專用');
+  return tags.map((t) => `〔${t}〕`).join('');
+}
+
+/** 純文字年表（規格 3.7） */
+export function chronicleText(ch: Chronicle, audience: 'gm' | 'pl'): string {
+  const gm = audience === 'gm';
+  const out: string[] = [`${ch.title}${gm ? '〔GM 用〕' : ''}`];
+  if (ch.range) out.push(ch.range);
+  for (const s of ch.sections) {
+    out.push('', `■ ${s.heading}`);
+    for (const r of s.rows) {
+      const time = r.time ? `${r.time}　` : '';
+      if (r.kind === 'marker') {
+        out.push(`◆ ${time}${r.title}（標記）${gm && r.gm ? '〔GM 專用〕' : ''}`);
+        continue;
+      }
+      out.push(`・${time}${r.title}${rowTags(r, gm)}`);
+      for (const l of detailLines(r)) out.push(IND + l);
+      for (const l of lines(r.description)) out.push(IND + l);
+      if (gm && r.gmNote.trim()) {
+        const note = lines(r.gmNote);
+        for (const [i, l] of note.entries()) out.push(IND + (i === 0 ? `〔GM 筆記〕${l}` : l));
+      }
+    }
+  }
+  return `${out.join('\n')}\n`;
+}
+
+/** Markdown 的特殊字元跳脫 */
+export function mdEscape(t: string): string {
+  return t.replace(/([\\`*_[\]<>#|~])/g, '\\$1');
+}
+
+export function chronicleMarkdown(ch: Chronicle, audience: 'gm' | 'pl'): string {
+  const gm = audience === 'gm';
+  const out: string[] = [`# ${mdEscape(ch.title)}${gm ? '（GM 用）' : ''}`];
+  if (ch.range) out.push('', ch.range);
+  for (const s of ch.sections) {
+    out.push('', `## ${mdEscape(s.heading)}`, '');
+    for (const r of s.rows) {
+      const time = r.time ? `**${mdEscape(r.time)}** ` : '';
+      if (r.kind === 'marker') {
+        out.push(`- ◆ ${time}${mdEscape(r.title)}（標記）${gm && r.gm ? '〔GM 專用〕' : ''}`);
+        continue;
+      }
+      const tags: string[] = [];
+      if (r.laneName) tags.push(mdEscape(r.laneName));
+      if (r.categoryName) tags.push(mdEscape(r.categoryName));
+      if (r.background) tags.push('背景');
+      out.push(
+        `- ${time}${mdEscape(r.title)}${tags.length ? `（${tags.join('・')}）` : ''}${gm && r.gm ? '〔GM 專用〕' : ''}`,
+      );
+      for (const l of detailLines(r)) out.push(`  - ${mdEscape(l)}`);
+      const desc = lines(r.description);
+      if (desc.length) {
+        out.push(`  - ${mdEscape(desc[0])}`);
+        for (const l of desc.slice(1)) out.push(`    ${mdEscape(l)}`);
+      }
+      if (gm && r.gmNote.trim()) {
+        const note = lines(r.gmNote);
+        out.push(`  - **GM 筆記**：${mdEscape(note[0] ?? '')}`);
+        for (const l of note.slice(1)) out.push(`    ${mdEscape(l)}`);
+      }
+    }
+  }
+  return `${out.join('\n')}\n`;
+}
+
+/* ---------- 列印 ---------- */
+
+export const PRINT_CSS = `
+body{font-family:"Noto Sans TC","PingFang TC","Microsoft JhengHei","Noto Sans CJK TC",sans-serif;color:#111;font-size:10.5pt;line-height:1.55}
+h1{font-size:17pt;margin:0 0 2pt}
+.range{color:#555;margin:0 0 10pt}
+h2{font-size:12pt;margin:12pt 0 4pt;padding-bottom:2pt;border-bottom:1px solid #999;break-after:avoid}
+ol{list-style:none;margin:0;padding:0}
+li{display:grid;grid-template-columns:8.5em 1fr;gap:0 10pt;padding:3pt 0;border-bottom:1px solid #e5e5e5;break-inside:avoid}
+.time{color:#333;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.title{font-weight:700}
+.tag{display:inline-block;font-size:8.5pt;font-weight:400;border:1px solid #bbb;border-radius:3pt;padding:0 3pt;margin-left:4pt;color:#444}
+.tag.gm{border-color:#c08414;color:#8a5a12}
+.dot{display:inline-block;width:7pt;height:7pt;border-radius:50%;margin-right:4pt;vertical-align:0}
+.meta{color:#444;font-size:9.5pt}
+.desc{white-space:pre-wrap}
+.note{white-space:pre-wrap;border-left:3pt solid #d99a1e;padding-left:5pt;color:#5a3d06;margin-top:2pt}
+li.secret{border-left:3pt solid #d99a1e;padding-left:4pt}
+li.marker .title{font-weight:600}
+`;
+
+/** 列印用的 HTML（一頁；跟著內容換頁） */
+export function chronicleHtml(ch: Chronicle, audience: 'gm' | 'pl'): string {
+  const gm = audience === 'gm';
+  const h = escapeHtml;
+  const rows = (s: ChronSection) =>
+    s.rows
+      .map((r) => {
+        const cls = [r.kind === 'marker' ? 'marker' : '', gm && r.secret ? 'secret' : '']
+          .filter(Boolean)
+          .join(' ');
+        const tags: string[] = [];
+        if (r.laneName)
+          tags.push(
+            `<span class="tag"><span class="dot" style="background:${h(r.laneColor || r.color)}"></span>${h(r.laneName)}</span>`,
+          );
+        if (r.categoryName) tags.push(`<span class="tag">${h(r.categoryName)}</span>`);
+        if (r.background) tags.push('<span class="tag">背景</span>');
+        if (r.kind === 'marker') tags.push('<span class="tag">標記</span>');
+        if (gm && r.gm) tags.push('<span class="tag gm">GM 專用</span>');
+        const meta: string[] = [];
+        if (r.place) meta.push(`地點：${h(r.place)}`);
+        if (r.people.length) meta.push(`相關角色：${h(r.people.join('、'))}`);
+        return `<li${cls ? ` class="${cls}"` : ''}><span class="time">${h(r.time)}</span><div><span class="title">${r.kind === 'marker' ? '◆ ' : ''}${h(r.title)}</span>${tags.join('')}${meta.length ? `<div class="meta">${meta.join('／')}</div>` : ''}${r.description.trim() ? `<div class="desc">${h(r.description.trim())}</div>` : ''}${gm && r.gmNote.trim() ? `<div class="note">GM 筆記：${h(r.gmNote.trim())}</div>` : ''}</div></li>`;
+      })
+      .join('');
+  return `<h1>${h(ch.title)}${gm ? '（GM 用）' : ''}</h1>${ch.range ? `<p class="range">${h(ch.range)}</p>` : ''}${ch.sections
+    .map((s) => `<h2>${h(s.heading)}</h2><ol>${rows(s)}</ol>`)
+    .join('')}`;
+}
