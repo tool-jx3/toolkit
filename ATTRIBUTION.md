@@ -88,6 +88,7 @@
 | `bg-remover` | 立繪去背工具 | [SkyTNT/anime-segmentation](https://github.com/SkyTNT/anime-segmentation)（Apache-2.0） | —（新收錄，沒有舊版） |
 | `coc-dice` | CoC 擲骰工具 | [ihoukentiku/ihoukentiku.github.io](https://github.com/ihoukentiku/ihoukentiku.github.io)（MIT；舊版 trpg-lab 的擲骰頁與 BCDice 傷害加總頁合併） | `6957b28` |
 | `coc-npc` | CoC NPC 產生器 | [ihoukentiku/ihoukentiku.github.io](https://github.com/ihoukentiku/ihoukentiku.github.io)（MIT；舊版 trpg-lab 的 NPC 頁） | `6957b28` |
+| `npc-names` | NPC 名字產生器 | 本站原創，沒有原作（名字資料的出處見下方） | —（新收錄，沒有舊版） |
 | `grid-maker` | 網格產生器 | [ihoukentiku/ihoukentiku.github.io](https://github.com/ihoukentiku/ihoukentiku.github.io)（MIT；舊版 trpg-lab 的方格與六角格產生器合併） | `6957b28` |
 | `range-ruler` | 距離量尺產生器 | [ihoukentiku/ihoukentiku.github.io](https://github.com/ihoukentiku/ihoukentiku.github.io)（MIT；舊版 trpg-lab 的方格與六角格量尺合併） | `6957b28` |
 | `coc-sheet` | CoC 7 版調查員角色卡 | [ihoukentiku/ihoukentiku.github.io](https://github.com/ihoukentiku/ihoukentiku.github.io)（MIT；舊版 trpg-lab 的調查員角色卡） | `6b497bd` |
@@ -134,7 +135,7 @@
 
 `speech-bubble` 照新工具引入流程直接在新框架做：原作（commit `b81c5b7`）只有範本預覽頁、沒有授權條款，製作工具本體在作者的 Postype（付費、不公開）。範本一覽照預覽頁的行為做；編輯與匯出的功能依預覽動畫逐格量到的數值、由本站自己設計；28 組範本的文字、配色與造型都由本站自做，不沿用原作的預覽圖與文字。2026-10 整合 aokmri/dp-cardmaker（commit `b97dd12`，沒有授權條款）的對話卡片功能（整段貼上拆成泡泡、左右兩側的預設樣式、說話者與日期、卡片底、樣式預設、泡泡裡的部分文字格式）：只照功能與做法，程式、介面文字、內建樣式與紋理都由本站自做；頁尾的靈感來源仍只放 TextBubbleMaker-preview。
 
-`floor-plan` 照新工具引入流程直接在新框架做：原作沒有授權條款（網站的利用規約只禁止轉載站內的圖片與圖示），只照原作的功能、牆壁與匯出的算法和數值，程式、介面文字、說明、範本、家具圖形與配色都由本站自做；可以開啟原作存的 `.trpgmap.json`（帖換算成坪）。2026-10 加的分享連結（含拿掉 GM 資訊的 PL 用連結）與房間編號圓標，參考 GMW 的 Maptsukuri（maptsukuri.pages.dev，沒有授權條款）的功能，程式與文字由本站自做。
+`floor-plan` 照新工具引入流程直接在新框架做：原作沒有授權條款（網站的利用規約只禁止轉載站內的圖片與圖示），只照原作的功能、牆壁與匯出的算法和數值，程式、介面文字、說明、範本、家具圖形與配色都由本站自做；可以開啟原作存的 `.trpgmap.json`（帖換算成坪）。2026-10 加的分享連結（含拿掉 GM 資訊的 PL 用連結）與房間編號圓標，參考 GMW 的 Maptsukuri（maptsukuri.pages.dev，沒有授權條款）的功能，程式與文字由本站自做。2026-10-29 跟進原作 v1.15（雙開拉門、8 種家具、健身房範本）：家具的圖形、範本的格局與器材配置都由本站自做。
 
 `rank-chart` 照新工具引入流程直接在新框架做：原作（commit `f323b87`）是 MIT（授權全文在通知檔），盲選排行的玩法、版面數值與預設文字照原作（翻成繁中），圖上不放原作名稱與作者帳號；可以開啟原作存的設定檔（JSON）。
 
@@ -164,7 +165,9 @@
 
 `social-post` 照新工具引入流程直接在新框架做：原作（commit `3297da5`）沒有授權條款，只照原作的功能、版面數值與做法（各畫面的區塊位置、比例、限時動態的分割與貼紙），程式、介面文字、範例帳號與貼文、範例照片（程式畫的）、圖示與配色都由本站自做；原作仿 Instagram 的名稱、標誌與專有圖示不沿用，做成通用的「相片社群 App」樣式。2026-10 跟進原作到 commit `beb5ef1`：首頁動態、朋友的貼文與限時動態、私訊列表與對話、多則限時動態接著看、貼文照片滑動（同樣只照功能與實際量到的版面數值；原作的問題回報表單、把網址照片交給第三方中繼不收）。
 
-`geo-bloom` 照新工具引入流程直接在新框架做：原作（commit `3097b39`，「Geometric Bloom」）沒有授權條款，只照原作的功能、數值與做法（廣度優先長出圖形與線、亂數的順序、各種圖形的畫法，同樣的種子與設定畫出同樣的圖），程式、介面文字（原作是日文）與 6 組範本都由本站自做。
+`geo-bloom` 照新工具引入流程直接在新框架做：原作（commit `3097b39`，「Geometric Bloom」；2026-10-29 跟進到 `edb6828`）沒有授權條款，只照原作的功能、數值與做法（廣度優先長出圖形與線、亂數的順序、各種圖形的畫法、三角形與摩斯環、把種子刻進圖形的編碼，同樣的種子與設定畫出同樣的圖，兩邊刻的種子互相讀得出來），程式、介面文字與說明（原作是日文）與 8 組範本都由本站自做。
+
+`npc-names` 是本站原創的工具，沒有原作。名字資料的出處與授權（全文在 `web/src/core/names/{jp,tw,us}/` 的 `meta.json` 與 `LICENSE.txt`，建置時列進 THIRD_PARTY_NOTICES）：日本是 shuheilocale/japanese-personal-name-dataset（MIT，人數來自國立國會圖書館的人名權威檔與 Wikidata）與 willnet/gimei（MIT）；台灣是內政部戶政司《112 年全國姓名統計分析》（政府資料開放授權條款第 1 版）；美國是社會安全局的嬰兒名字與 1990、2000 年人口普查的姓氏（公有領域）。coc-npc 的隨機取名用同一份資料。
 
 `vhs-frame` 照新工具引入流程直接在新框架做：原作（commit `cd24d0e`）沒有授權條款，只照原作的功能、效果的演算法與數值（同樣的照片、時間點與磨損度畫出和原作逐像素相同的畫面），程式、介面文字（原作是韓文）與範例文字都由本站自做。
 

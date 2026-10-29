@@ -10,17 +10,12 @@
 ## 進行中
 
 - 新工具「VTT 棋子產生器」（token-maker，參考 arcana-hanna/token-workshop、CyberDelaai/eidolon-ui，MIT）
-- 新工具「NPC 名字產生器」（npc-names：日本名、台灣名、1920 年代英文名；之後 coc-npc 的隨機取名也用它）
-- floor-plan 跟進原作室内図メーカー v1.15
-- geo-bloom 跟進原作 tkmizGeo 到 `edb6828`
 
 ## 一、已收錄工具的原作更新
 
 | 本站工具 | 原作 | 授權 | 新的東西 | 建議 | 工作量 |
 |---|---|---|---|---|---|
-| floor-plan | [kumachansteps/trpg-web-tools](https://github.com/kumachansteps/trpg-web-tools)（TRPG室内図メーカー v1.15，`ff87286`，10-27） | 未授權 | 健身房範本、8 件家具（深蹲架、滑輪訓練機、划船機、瑜珈墊、澡堂洗身區、小便斗、蹲式馬桶、長型洗手台）、雙開拉門；本站停在 v1.14 | 值得跟進（現代背景的劇本用得上） | 小 |
 | speech-bubble | [aokmri/dp-cardmaker](https://github.com/aokmri/dp-cardmaker) | 未授權 | 單一泡泡插圖、PDF 匯出 | 可考慮（泡泡插圖比較值得） | 小～中 |
-| geo-bloom | [al1scut/tkmizGeo](https://github.com/al1scut/tkmizGeo) | 未授權 | 三角形、摩斯環、線不跨線、把種子刻進圖形並能從圖片解碼 | 可考慮；原作 10-18（`edb6828`）之後沒再改，可以排 | 小～大 |
 | （共用層） | 同上 | — | 原作提到 iOS 的 IndexedDB 連線被切斷後沒重連、預先存的 Blob 取不回來；本站 `core/storage/idb.ts` 沒有重連 | 有 iPhone 時確認再決定 | 小 |
 
 ## 二、新工具候選
@@ -32,7 +27,6 @@
 | 分級表（Tier 表） | [Tetoriapot/character-attribute-maker](https://github.com/Tetoriapot/character-attribute-maker) 的 `tier-atelier/`（10-27～28） | 未授權 | 分級可以增刪、改名、配色、鎖定、收合；圖片和文字項目拖曳、未分類區、多選一起移動；PNG／JPEG／WebP；JSON 備份與多個專案。rank-chart 規格 D1 寫過「分級表另外當新工具評估」 | 劇本、角色的 tier 表 | 中 |
 | CoC 追逐面板 | [ichieh42/coc-chase-panel](https://github.com/ichieh42/coc-chase-panel)（簡中，10-28） | 未授權 | CoC 7 版的追逐：角色與載具卡庫（MOV 自動算）、速度檢定、地點軌、行動點、險境與障礙、衝突、載具事故、躲藏、中途加入、日誌、JSON 匯入匯出。規則速查要自己寫，不能抄規則書原文 | 追逐規則複雜，KP 常常略過不跑；放 G9 | 中 |
 | VTT 棋子產生器（圓形外框、角色出框） | [arcana-hanna/token-workshop](https://github.com/arcana-hanna/token-workshop)、[CyberDelaai/eidolon-ui](https://github.com/CyberDelaai/eidolon-ui)（參考：[Sectr99/TokenForge](https://github.com/Sectr99/TokenForge) 自動偵測外框開口） | MIT／MIT／MIT（TokenForge 的外框圖檔來源不明，不沿用） | 程式畫的環形外框（齒輪、扇貝、繩、鍊、荊棘、符文、圓、六角、電路…）與預設外觀、材質與光照；用筆刷、魔術棒或自動偵測讓頭、角突出框外；同一張圖做編號 1～N 的敵人組打包 ZIP；Roll20 280、Foundry 400 等尺寸；設定嵌進 PNG 以後再開。eidolon 的範例吉祥物圖不拿 | 戰鬥地圖團（D&D、劍世界）的棋子；放 G3，或當 icon-maker 的一個模式 | 中 |
-| NPC 名字產生器 | [willnet/gimei](https://github.com/willnet/gimei)（日本人名約 1.3 萬，附假名與羅馬拼音）、[faker-js/faker](https://github.com/faker-js/faker)（zh_TW、ja、en 的人名與地址，只取需要的資料檔）、美國社會安全局依年代的嬰兒名（公有領域，可以出 1920 年代的英文名）；引擎可參考 [script-wizards/perhaps](https://github.com/script-wizards/perhaps)（Markdown 隨機表，Apache-2.0） | MIT／MIT／公有領域／Apache-2.0 | 依國別、年代、性別取名；之後可以擴成隨機表（遭遇、事件、NPC 個性） | KP 臨時幫 NPC 取名（日系劇本、1920 年代）；併進 coc-npc 或做 G9 小工具 | 小～中 |
 | 卡牌列印與小冊子拼版 | [mephitrpg/rpg-cards](https://github.com/mephitrpg/rpg-cards)、[lukaszlasek/imposition-imp](https://github.com/lukaszlasek/imposition-imp) | MIT／MIT | rpg-cards：二十多種卡片尺寸、雙面對齊或只印正面、每頁張數、出血、裁切線（內容元素偏 D&D，版型自己做；圖示若用 game-icons.net 是 CC BY 3.0，要標出處）。imposition-imp：騎馬釘或多台拼版、雙面偏移校正、爬移補償，用的是本站已有的 pdf-lib | 實體團的道具卡、線索卡，自印劇本小冊子；放 G6，拼版也可以當 pdf-compress 的模式 | 中 |
 | 直播小道具 | [TK2F/kasaneru](https://github.com/TK2F/kasaneru) | MIT | OBS 疊加層：倒數與正數計時器、時鐘、BGM 清單、輪盤、塗鴉、跑馬燈、擲骰；控制面板（OBS dock）和疊加層用 BroadcastChannel 溝通 | 「休息中」倒數、抽選輪盤、跑馬燈；本站 G4 都是 CSS 產生器，沒有這種互動疊加層 | 中 |
 | 開鎖小遊戲（可考慮） | [pierretusseau/lockpick-minigame](https://github.com/pierretusseau/lockpick-minigame) | MIT | GM 設難度與時限，用連結或 QR 碼發給玩家，玩家輸入擲骰結果後轉環形卡榫開鎖 | 解謎道具（和 crossword、scratch-card 同類），可改成 CoC 鎖匠的成功等級 | 中 |
@@ -69,6 +63,7 @@
 | pair-maker | [dearmysn1p3r/DearMySn1p3r_24](https://github.com/dearmysn1p3r/DearMySn1p3r_24)、[_25](https://github.com/dearmysn1p3r/DearMySn1p3r_25) | 未授權 | PC 設定資料表、自我介紹卡兩個版型 | 小～中 |
 | prose-card | [dearmysn1p3r/DearMySn1p3r_12](https://github.com/dearmysn1p3r/DearMySn1p3r_12)、[_47](https://github.com/dearmysn1p3r/DearMySn1p3r_47) | 未授權 | 尺寸、對話行樣式、筆記本橫線與裝飾、作品組；原作 10-24 加了自訂 HTML／CSS 裝飾層，之後只有 10-25 的小修，可以讀了 | 小～中 |
 | anime-rig | [shinshin86/mesh-avatar-studio](https://github.com/shinshin86/mesh-avatar-studio)（Player：https://shinshin86.github.io/mesh-avatar-studio/play/） | MIT（範例角色 Miko 另有條款，不放進本站） | 光照（拖曳光源、跟著動的陰影、最多 8 組預設與快捷鍵）；讀入 .mavatar 檔播放（可用 npm 的 mesh-avatar 執行環境，MIT）。做 .mavatar 本身要原作的本機 Studio＋程式助手＋Python，網頁上做不到；使用者 2026-10-25 決定先不做（10-24 之後原作加了可開關的配件圖層、Rust 原生版與 macOS 桌面版、`npm run create`，決定不變） | 小～中 |
+| npc-names | 內政部《全國姓名統計分析》PDF 的「各出生年代常見名字」與名字字數統計（ris.gov.tw 在這個環境連不到） | 政府資料開放授權條款第 1 版 | 台灣的名字依年代分、加單名（規格 D1）；另外日本 2000 年後出生的名字（需要授權清楚的資料，D2）、英國 1920 年代的名字（D5） | 小～中 |
 | scenario-editor | [sedn14636361/trpg-scenario-editor](https://github.com/sedn14636361/trpg-scenario-editor) | CC0 | 原作的 `/` 斜線候選清單（規格 D46；跟進 v3.26 時決定先不做） | 小 |
 | music-frame | [dearmysn1p3r/MOMO_MusicCloud](https://github.com/dearmysn1p3r/MOMO_MusicCloud)（取代 _16／_27／_54） | 未授權 | 黑膠、CD、卡帶、串流的樣品圖、播放清單影片；原作 10-17～10-20 大改，10-25 只有一個小修，已經穩定 | 中 |
 | floor-plan | Maptsukuri（maptsukuri.pages.dev，不在 GitHub） | 未授權 | .dd2vtt 匯出、隨機配置 | 中 |
@@ -167,3 +162,4 @@
 
   不在 GitHub 的原作（KIIN 三個、TEXTSCENE、PaiTei4234、gagyedo、Maptsukuri、scenario-tool-jade、Mellow Noise）和所有 *.github.io 還是連不到。
   追蹤的新作者：cp-20、arcana-hanna、QTR-Games、ichieh42、TK2F、Sectr99、pierretusseau、script-wizards、mephitrpg。
+- 2026-10-29：完成並移出清單——floor-plan 跟進原作 v1.15、geo-bloom 跟進原作到 `edb6828`、新工具「NPC 名字產生器」（npc-names，本站原創；coc-npc 加隨機取名）。
