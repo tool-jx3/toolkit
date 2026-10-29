@@ -386,7 +386,8 @@ test.describe('1280 寬', () => {
     await box(page, '帳號或連結').fill('secret-id');
     await page.locator('[data-show=contact]').click();
     const url = await shareLink(page);
-    expect(url).toMatch(/\/next\/pl-profile\/#p=[A-Za-z0-9_-]+$/);
+    expect(url).toContain(`${URL}#p=`);
+    expect(url).toMatch(/#p=[A-Za-z0-9_-]+$/);
 
     const p2 = await context.newPage();
     const errs2 = await open(p2, url);
