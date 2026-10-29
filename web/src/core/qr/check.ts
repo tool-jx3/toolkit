@@ -44,7 +44,10 @@ export function sampleQrModules({ pixels, width, height, grid }: QrSampleOptions
   return out;
 }
 
-/** Otsu 法的門檻（灰階 0～255）：深淺兩群的組間變異最大 */
+/**
+ * Otsu 法的門檻（灰階 0～255）：深淺兩群的組間變異最大。兩群中間沒有任何值時（例如只有 0 與 255），
+ * 很多個門檻的變異一樣大，取那一段的**中間**（不是第一個：第一個會貼著深色，反鋸齒的淺灰邊都被當成淺色）。
+ */
 export function otsuThreshold(values: ArrayLike<number>): number {
   const hist = new Float64Array(256);
   for (let i = 0; i < values.length; i++) hist[Math.max(0, Math.min(255, Math.round(values[i])))]++;
@@ -54,7 +57,8 @@ export function otsuThreshold(values: ArrayLike<number>): number {
   let sumB = 0;
   let wB = 0;
   let best = -1;
-  let threshold = 128;
+  let first = 127;
+  let last = 127;
   for (let t = 0; t < 256; t++) {
     wB += hist[t];
     if (wB === 0) continue;
@@ -64,12 +68,13 @@ export function otsuThreshold(values: ArrayLike<number>): number {
     const mB = sumB / wB;
     const mF = (sumAll - sumB) / wF;
     const between = wB * wF * (mB - mF) ** 2;
-    if (between > best) {
+    if (between > best * (1 + 1e-9)) {
       best = between;
-      threshold = t + 0.5;
-    }
+      first = t;
+      last = t;
+    } else if (between >= best * (1 - 1e-9)) last = t;
   }
-  return threshold;
+  return (first + last) / 2 + 0.5;
 }
 
 export interface QrPixelCheck {
@@ -118,7 +123,7 @@ export function checkQrPixels(
         }
   const polarity = decoded.ok || !invertedDecoded ? 'dark' : 'light';
   const finders = FINDERS.map(([fr, fc]) =>
-    finderFound(o, fr === 0 ? 0 : n - 7, fc === 0 ? 0 : n - 7, t, polarity),
+    finderFound(o, fr === 0 ? 0 : n - 7, fc === 0 ? 0 : n - 7, polarity),
   ) as [boolean, boolean, boolean];
   return { decoded, invertedDecoded, wrong, wrongSkipped, finders };
 }
@@ -157,7 +162,7 @@ function lineGray(
 }
 
 /**
- * 一條線的深淺是不是「淺｜深 1｜淺 1｜深 3｜淺 1｜深 1｜淺」：太短的段（不到 0.3 格，例如圓點相接處反鋸齒的縫）
+ * 一條線的深淺是不是「淺｜深 1｜淺 1｜深 3｜淺 1｜深 1｜淺」：太短的段（不到 0.3 格，例如圓點相接處反鋸齒的縫、兩端壓到的邊）
  * 併進旁邊的段；每段和應有的長度差在半格以內（中間的 3 格差在 1.5 格以內，同 ZXing 的容許）。
  */
 export function finderLineOk(dark: readonly boolean[], cell: number): boolean {
@@ -168,6 +173,9 @@ export function finderLineOk(dark: readonly boolean[], cell: number): boolean {
     else runs.push({ v, n: 1 });
   }
   const min = Math.max(1, cell * 0.3);
+  /* 兩端太短的段（線的起點剛好壓到旁邊的格子一兩個像素）不算 */
+  while (runs.length && runs[0].n < min) runs.shift();
+  while (runs.length && runs[runs.length - 1].n < min) runs.pop();
   for (;;) {
     let k = -1;
     for (let i = 1; i < runs.length - 1; i++)
@@ -187,23 +195,39 @@ export function finderLineOk(dark: readonly boolean[], cell: number): boolean {
   );
 }
 
+/** 定位方框的深淺至少要差這麼多（灰階 0～255）才算看得見（ZXing 的局部二值化最少要 24，這裡保守一點：淺灰 #cccccc 的角在白底上算看不見） */
+export const FINDER_MIN_RANGE = 64;
+
+/**
+ * 一個角找不找得到：穿過中心的橫線與直線，用**這兩條線自己的**深淺中間值分深淺（掃描程式是局部二值化，
+ * 角的顏色比點淡一些也找得到），深淺差不到 FINDER_MIN_RANGE 時當成看不見。
+ */
 function finderFound(
   o: QrSampleOptions,
   r0: number,
   c0: number,
-  threshold: number,
   polarity: 'dark' | 'light',
 ): boolean {
   const { x, y, cell } = o.grid;
-  const len = Math.round(cell * 9);
+  /* 從外側分隔線的中間到另一側分隔線的中間（8 格）：不會壓到分隔線外面的格子 */
+  const len = Math.round(cell * 8);
   const cx = Math.floor(x + (c0 + 3.5) * cell);
   const cy = Math.floor(y + (r0 + 3.5) * cell);
-  const sx = Math.floor(x + (c0 - 1) * cell);
-  const sy = Math.floor(y + (r0 - 1) * cell);
-  const isDark = (g: number) => (polarity === 'dark' ? g < threshold : g > threshold);
-  const h = Array.from(lineGray(o, sx, cy, 1, 0, len), isDark);
-  const v = Array.from(lineGray(o, cx, sy, 0, 1, len), isDark);
-  return finderLineOk(h, cell) && finderLineOk(v, cell);
+  const sx = Math.floor(x + (c0 - 0.5) * cell);
+  const sy = Math.floor(y + (r0 - 0.5) * cell);
+  const h = lineGray(o, sx, cy, 1, 0, len);
+  const v = lineGray(o, cx, sy, 0, 1, len);
+  let lo = 255;
+  let hi = 0;
+  for (const line of [h, v])
+    for (const g of line) {
+      if (g < lo) lo = g;
+      if (g > hi) hi = g;
+    }
+  if (hi - lo < FINDER_MIN_RANGE) return false;
+  const t = (lo + hi) / 2;
+  const isDark = (g: number) => (polarity === 'dark' ? g < t : g > t);
+  return finderLineOk(Array.from(h, isDark), cell) && finderLineOk(Array.from(v, isDark), cell);
 }
 
 /* ---------- 顏色的對比 ---------- */

@@ -380,7 +380,14 @@ function CornerSquareSection() {
       description={S.cornerSquareHint}
       persistKey="qr-maker:corner-square"
     >
-      <Field label={S.cornerSquareType}>
+      <Field
+        label={S.cornerSquareType}
+        hint={
+          doc.cornerSquare.type === 'dot' || doc.cornerSquare.type === 'extra-rounded'
+            ? S.cornerRoundHint
+            : undefined
+        }
+      >
         <ThumbChoice
           value={doc.cornerSquare.type}
           onValueChange={(v) =>
@@ -388,7 +395,11 @@ function CornerSquareSection() {
               d.cornerSquare.type = v;
             })
           }
-          options={choices.map((t) => ({ value: t, label: S.cornerSquareTypes[t] }))}
+          options={choices.map((t) => ({
+            value: t,
+            label: S.cornerSquareTypes[t],
+            description: S.cornerTypeDesc[t],
+          }))}
           draw={draw}
           thumbWidth={96}
           thumbHeight={96}
@@ -594,6 +605,9 @@ export function ImageTab() {
 
 /* ---------- 匯出 ---------- */
 
+/** Safari 的畫布面積上限（像素）：超過時匯出點陣圖可能失敗 */
+export const CANVAS_LIMIT = 16_777_216;
+
 export function ExportTab({ exportRef }: { exportRef: React.Ref<ExportPanelHandle> }) {
   const prefs = usePrefs((p) => p.data);
   const width = useD((d) => d.width);
@@ -638,6 +652,14 @@ export function ExportTab({ exportRef }: { exportRef: React.Ref<ExportPanelHandl
                 onChange={(e) => setPrefs({ fileName: e.target.value })}
               />
             </Field>
+            {prefs.format !== 'svg' && width * prefs.scale * height * prefs.scale > CANVAS_LIMIT ? (
+              <p
+                className="m-0 rounded-md bg-warning-soft px-3 py-1.5 text-sm text-warning"
+                data-testid="canvas-limit"
+              >
+                {S.canvasLimit(width * prefs.scale, height * prefs.scale)}
+              </p>
+            ) : null}
           </div>
         }
       />

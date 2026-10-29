@@ -16,9 +16,11 @@ export interface CheckView {
 
 /** 對比門檻（WCAG 的算法，最差的那一對顏色）：低於 LOW 警告、低於 FAIR 提醒 */
 export const CONTRAST_LOW = 3;
+/** 低於這個對比時當成錯誤（例如漸層淡到 #e0e0e0 白底：兩個獨立的解碼器多半讀不出來） */
+export const CONTRAST_BAD = 1.5;
 export const CONTRAST_FAIR = 4.5;
 /** 一格小於這個 px 時提醒 */
-export const SMALL_CELL = 3;
+export const SMALL_CELL = 4;
 /** 四周留白少於這麼多格時提醒（方形） */
 export const QUIET_CELLS = 2;
 
@@ -29,7 +31,9 @@ export function styleIssues(d: DocState, built: Extract<QrBuild, { ok: true }>):
   const items: IssueItem[] = [];
   const c = qrPaintContrast(foregroundPaints(d), backgroundPaint(d.background));
   if (c.inverted) items.push({ id: 'inverted', level: 'warning', message: S.checkInverted });
-  if (c.ratio < CONTRAST_LOW)
+  if (c.ratio < CONTRAST_BAD)
+    items.push({ id: 'contrast', level: 'error', message: S.checkContrastBad(fmt(c.ratio)) });
+  else if (c.ratio < CONTRAST_LOW)
     items.push({ id: 'contrast', level: 'warning', message: S.checkContrastLow(fmt(c.ratio)) });
   else if (c.ratio < CONTRAST_FAIR)
     items.push({ id: 'contrast', level: 'info', message: S.checkContrastFair(fmt(c.ratio)) });
@@ -105,12 +109,21 @@ export function checkView(
 ): CheckView {
   const px = pixelIssues(d, check);
   const items = mergeIssues(px.items, styleIssues(d, built));
+  const has = (id: string, level: IssueItem['level']) =>
+    items.some((i) => i.id === id && i.level === level);
+  /* 總結：讀不出來／找不到角／對比極低（紅）→ 反色、對比太低（提醒「可能讀不出來」）→ 其他警告 → 綠 */
   const notice: CheckView['notice'] = !px.ok
     ? { tone: 'error', message: S.checkFail }
-    : items.some((i) => i.level === 'error')
+    : has('finder', 'error')
       ? { tone: 'error', message: S.checkRisky }
-      : items.some((i) => i.level === 'warning')
-        ? { tone: 'info', message: S.checkOkWarn(px.version, px.ecl) }
-        : { tone: 'success', message: S.checkOk(px.version, px.ecl) };
+      : items.some((i) => i.level === 'error')
+        ? { tone: 'error', message: S.checkContrastRed }
+        : has('inverted', 'warning')
+          ? { tone: 'info', message: S.checkOkInverted }
+          : has('contrast', 'warning')
+            ? { tone: 'info', message: S.checkOkLowContrast }
+            : items.some((i) => i.level === 'warning')
+              ? { tone: 'info', message: S.checkOkWarn(px.version, px.ecl) }
+              : { tone: 'success', message: S.checkOk(px.version, px.ecl) };
   return { notice, items };
 }

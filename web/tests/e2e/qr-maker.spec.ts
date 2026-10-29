@@ -347,6 +347,9 @@ test('樣式：外觀預設（可以復原）、點與角的樣式、單色與�
   await thumb(page, '點的樣式', '圓點').click();
   await expect.poll(async () => (await doc(page)).dots.type).toBe('dots');
   await thumb(page, '外框的樣式', '圓框').click();
+  await expect(
+    page.getByText(/圓框、圓角框：有些掃描程式（例如部分電腦版的讀取程式）找不到這種角/),
+  ).toBeVisible();
   await thumb(page, '中心的樣式', '圓').click();
   await expect
     .poll(async () => [(await doc(page)).cornerSquare.type, (await doc(page)).cornerDot.type])
@@ -398,12 +401,16 @@ test('掃描檢查的提醒：對比太低、反色、漸層的淡端找不到�
   await dots.press('Enter');
   await expect(checkBox(page)).toContainText('對比太低');
   await expect(checkBox(page)).toHaveAttribute('data-state', 'info');
+  await expect(checkBox(page)).toContainText('很多掃描程式可能讀不出來');
   /* 白點黑底：反過來才讀得出來 */
   await dots.fill('#ffffff');
   await dots.press('Enter');
   await page.getByRole('textbox', { name: '背景色碼' }).fill('#000000');
   await page.getByRole('textbox', { name: '背景色碼' }).press('Enter');
   await expect(checkBox(page)).toContainText('顏色是反過來的');
+  /* 總結不寫「讀得出來」 */
+  await expect(checkBox(page)).toContainText('只有部分掃描程式讀得出來（反色');
+  await expect(checkBox(page)).not.toContainText('讀得出來：');
   await expect.poll(async () => (await check(page)).decoded?.ok).toBe(false);
   await page.getByRole('textbox', { name: '背景色碼' }).fill('#ffffff');
   await page.getByRole('textbox', { name: '背景色碼' }).press('Enter');
@@ -414,6 +421,14 @@ test('掃描檢查的提醒：對比太低、反色、漸層的淡端找不到�
   await page.getByRole('slider', { name: /點的漸層色標 2/ }).focus();
   await page.getByRole('textbox', { name: '色標 2色碼' }).fill('#e0e0e0');
   await page.getByRole('textbox', { name: '色標 2色碼' }).press('Enter');
+  /* 淡端 #e0e0e0 在白底上：對比極低＝紅 */
+  await expect(checkBox(page)).toContainText('對比極低');
+  await expect(checkBox(page)).toContainText('很可能掃不到');
+  await expect(checkBox(page)).toHaveAttribute('data-state', 'error');
+  /* 邊距 0：右上角的定位方框也太淡 */
+  await tab(page, '內容').click();
+  await page.getByRole('spinbutton', { name: '邊距' }).fill('0');
+  await page.getByRole('spinbutton', { name: '邊距' }).press('Enter');
   await expect(checkBox(page)).toContainText('右上的定位方框太淡');
   await expect(checkBox(page)).toHaveAttribute('data-state', 'error');
   expect((await check(page)).finders).toEqual([true, false, true]);
@@ -544,6 +559,39 @@ test('Ctrl＋S 用目前的格式直接下載；複製圖片（PNG）', async ({
     return { types: items[0].types, w: bmp.width, h: bmp.height };
   });
   expect(info).toEqual({ types: ['image/png'], w: 300, h: 300 });
+  /* 複製也用目前的倍率（同 Ctrl＋S） */
+  const panel = page.getByRole('region', { name: '匯出' });
+  await panel.getByRole('combobox').first().click();
+  await page.getByRole('option', { name: /^200%/ }).click();
+  await page.getByRole('button', { name: '複製圖片' }).click();
+  await expect
+    .poll(() =>
+      page.evaluate(async () => {
+        const items = await navigator.clipboard.read();
+        return (await createImageBitmap(await items[0].getType('image/png'))).width;
+      }),
+    )
+    .toBe(600);
+  expect(errors).toEqual([]);
+});
+
+test('大尺寸：點陣圖超過 Safari 的畫布上限時提醒（SVG 不提醒）', async ({ page }) => {
+  const errors = await open(page);
+  await settled(page);
+  await page.getByRole('spinbutton', { name: '寬' }).fill('4096');
+  await page.getByRole('spinbutton', { name: '寬' }).press('Enter');
+  await page.getByRole('spinbutton', { name: '高' }).fill('4096');
+  await page.getByRole('spinbutton', { name: '高' }).press('Enter');
+  await tab(page, '匯出').click();
+  const panel = page.getByRole('region', { name: '匯出' });
+  /* 4096 × 4096＝16,777,216：剛好不超過 */
+  await expect(page.getByTestId('canvas-limit')).toHaveCount(0);
+  await panel.getByRole('combobox').first().click();
+  await page.getByRole('option', { name: /^200%/ }).click();
+  await expect(page.getByTestId('canvas-limit')).toContainText('8192 × 8192 px');
+  await expect(page.getByTestId('canvas-limit')).toContainText('Safari');
+  await panel.getByRole('radio', { name: 'SVG', exact: true }).click();
+  await expect(page.getByTestId('canvas-limit')).toHaveCount(0);
   expect(errors).toEqual([]);
 });
 
@@ -580,11 +628,20 @@ test('自動儲存：重新整理之後內容、樣式、中間的圖都還在',
   expect(errors).toEqual([]);
 });
 
-test('專案檔：有圖時存成 ZIP（設定＋圖）、重設、開啟還原', async ({ page }) => {
+test('專案檔：沒有圖時 JSON；有圖時存成 ZIP（設定＋圖）、重設、開啟還原', async ({ page }) => {
   const errors = await open(page);
   await settled(page);
   await dataBox(page).fill('專案檔測試');
   await dataBox(page).blur();
+  await page.waitForTimeout(450);
+  await page.getByRole('button', { name: '專案' }).click();
+  const [json] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByRole('menuitem', { name: /存成專案檔/ }).click(),
+  ]);
+  expect(json.suggestedFilename()).toMatch(/\.json$/);
+  const plain = JSON.parse(readFileSync((await json.path()) as string, 'utf8'));
+  expect([plain.tool, plain.data.data, plain.data.image]).toEqual(['qr-maker', '專案檔測試', null]);
   await loadLogo(page);
   await expect.poll(async () => (await doc(page)).image?.name).toBe('logo.png');
   await page.waitForTimeout(450);

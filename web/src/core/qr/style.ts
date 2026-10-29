@@ -306,12 +306,12 @@ export function buildQrScene(matrix: QrMatrix, ecl: QrEcl, style: QrStyle): QrSc
     const squareFill = style.cornerSquare.paint
       ? paintFill(style.cornerSquare.paint, x, y, cell * 7, cell * 7, rot)
       : dotsFill;
-    const sq = cornerSquarePath(style.cornerSquare.type ?? style.dots.type, x, y, cell);
+    const sq = cornerSquarePath(style.cornerSquare.type, style.dots.type, x, y, cell);
     layers.push({ id: `corner-square-${k}`, d: sq.d, rule: sq.rule, fill: squareFill });
     const dotFill = style.cornerDot.paint
       ? paintFill(style.cornerDot.paint, x + cell * 2, y + cell * 2, cell * 3, cell * 3, rot)
       : squareFill;
-    const dt = cornerDotPath(style.cornerDot.type ?? style.dots.type, x, y, cell);
+    const dt = cornerDotPath(style.cornerDot.type, style.dots.type, x, y, cell);
     layers.push({ id: `corner-dot-${k}`, d: dt.d, rule: dt.rule, fill: dotFill });
   });
 

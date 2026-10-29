@@ -112,15 +112,14 @@ function ProjectActions() {
   const toast = useToast();
   const savedAt = useSaveStatus(TOOL_ID);
   const saveError = useSaveError(TOOL_ID);
+  /* 沒有圖時存成 JSON（不給 getFiles），有圖時 ZIP */
+  const hasImage = useDoc((s) => !!s.data.image);
   return (
     <ProjectMenu<unknown>
       toolId={TOOL_ID}
       version={DATA_VERSION}
       getData={() => docNow()}
-      getFiles={async () => {
-        const ids = projectAssetIds(docNow());
-        return ids.length ? assets.exportFiles(ids) : [];
-      }}
+      getFiles={hasImage ? () => assets.exportFiles(projectAssetIds(docNow())) : undefined}
       confirmOpen={{
         title: S.openConfirmTitle,
         description: S.openConfirmDesc,

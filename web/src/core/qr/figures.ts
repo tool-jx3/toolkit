@@ -228,13 +228,18 @@ export interface CornerShape {
   rule: 'nonzero' | 'evenodd';
 }
 
-/** 角的外框（x、y＝左上角，d＝一格的大小，整塊 7d） */
+/**
+ * 角的外框（x、y＝左上角，d＝一格的大小，整塊 7d）。type 是 null（跟著點）時一格一格用點的樣式 dotType 畫——
+ * 點的樣式和整塊的類型有同名的（square、extra-rounded），不能把點的樣式當成外框的類型（原作也是分開的）。
+ */
 export function cornerSquarePath(
-  type: QrCornerSquareType,
+  type: QrCornerSquareType | null,
+  dotType: QrDotType,
   x: number,
   y: number,
   d: number,
 ): CornerShape {
+  if (type === null) return { d: maskPath(CORNER_SQUARE_MASK, dotType, x, y, d), rule: 'nonzero' };
   const size = 7 * d;
   if (type === 'square')
     return {
@@ -259,8 +264,15 @@ export function cornerSquarePath(
   return { d: maskPath(CORNER_SQUARE_MASK, type, x, y, d), rule: 'nonzero' };
 }
 
-/** 角的中心（x、y＝整個角〔7 × 7〕的左上角） */
-export function cornerDotPath(type: QrCornerDotType, x: number, y: number, d: number): CornerShape {
+/** 角的中心（x、y＝整個角〔7 × 7〕的左上角）；type 是 null（跟著點）時一格一格用點的樣式畫 */
+export function cornerDotPath(
+  type: QrCornerDotType | null,
+  dotType: QrDotType,
+  x: number,
+  y: number,
+  d: number,
+): CornerShape {
+  if (type === null) return { d: maskPath(CORNER_DOT_MASK, dotType, x, y, d), rule: 'nonzero' };
   if (type === 'square') return { d: square(x + 2 * d, y + 2 * d, 3 * d), rule: 'nonzero' };
   if (type === 'dot') return { d: dot(x + 2 * d, y + 2 * d, 3 * d), rule: 'nonzero' };
   return { d: maskPath(CORNER_DOT_MASK, type, x, y, d), rule: 'nonzero' };

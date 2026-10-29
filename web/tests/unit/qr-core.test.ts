@@ -8,6 +8,7 @@ import { describe, expect, it } from 'vitest';
 import {
   buildQrScene,
   checkQrPixels,
+  cornerDotPath,
   cornerSquarePath,
   decodeQrMatrix,
   dotPath,
@@ -231,14 +232,50 @@ describe('形狀', () => {
     expect(d).toBe('M0 10L10 10L10 0L5 0A5 5 0 0 0 0 5Z');
   });
   it('角的外框：square、dot、extra-rounded 是有洞的整塊（evenodd）；點的樣式用 7 × 7 格', () => {
-    expect(cornerSquarePath('square', 0, 0, 10)).toEqual({
+    expect(cornerSquarePath('square', 'square', 0, 0, 10)).toEqual({
       d: 'M0 0H70V70H0ZM10 10H60V60H10Z',
       rule: 'evenodd',
     });
-    expect(cornerSquarePath('dot', 0, 0, 10).rule).toBe('evenodd');
-    const dots = cornerSquarePath('dots', 0, 0, 10);
+    expect(cornerSquarePath('dot', 'square', 0, 0, 10).rule).toBe('evenodd');
+    const dots = cornerSquarePath('dots', 'square', 0, 0, 10);
     expect(dots.rule).toBe('nonzero');
     expect(dots.d.match(/M/g)?.length).toBe(24);
+  });
+  it('角「跟著點」（null）一格一格用點的樣式畫：點是大圓角時不是整塊的圓角框（驗證後修正）', () => {
+    const follow = cornerSquarePath(null, 'extra-rounded', 0, 0, 10);
+    expect(follow.rule).toBe('nonzero');
+    expect(follow.d.match(/M/g)?.length).toBe(24);
+    expect(follow.d).toBe(
+      Array.from({ length: 49 }, (_, i) => [Math.floor(i / 7), i % 7] as const)
+        .filter(([r, c]) => r === 0 || r === 6 || c === 0 || c === 6)
+        .map(([r, c]) =>
+          dotPath('extra-rounded', c * 10, r * 10, 10, (dx, dy) => {
+            const rr = r + dy;
+            const cc = c + dx;
+            return (
+              rr >= 0 &&
+              cc >= 0 &&
+              rr < 7 &&
+              cc < 7 &&
+              (rr === 0 || rr === 6 || cc === 0 || cc === 6)
+            );
+          }),
+        )
+        .join(''),
+    );
+    expect(cornerSquarePath('extra-rounded', 'extra-rounded', 0, 0, 10).rule).toBe('evenodd');
+    const center = cornerDotPath(null, 'square', 0, 0, 10);
+    expect(center.d.match(/M/g)?.length).toBe(9);
+    expect(cornerDotPath('square', 'square', 0, 0, 10).d).toBe('M20 20H50V50H20Z');
+  });
+  it('場景：外框跟著點、點是大圓角時外框是 24 個點（同原作）', () => {
+    const r = encodeQr('https://example.com/', { ecl: 'Q' });
+    if (!r.ok) throw new Error('encode');
+    const s = buildQrScene(r.code, 'Q', { ...BASE, dots: { ...BASE.dots, type: 'extra-rounded' } });
+    if (!s.ok) throw new Error('scene');
+    const sq = s.scene.layers.find((l) => l.id === 'corner-square-0');
+    expect(sq?.rule).toBe('nonzero');
+    expect(sq?.d.match(/M/g)?.length).toBe(24);
   });
 });
 
@@ -440,10 +477,12 @@ describe('對比', () => {
     expect(qrPaintContrast([grad], solid('#ffffff')).ratio).toBeLessThan(1.7);
     expect(qrPaintContrast([solid('#000000')], null).ratio).toBe(21);
   });
-  it('Otsu：兩群的中間', () => {
+  it('Otsu：兩群的中間；中間沒有值時取那一段的正中間（驗證後修正：原本貼著深色）', () => {
     const t = otsuThreshold([10, 12, 11, 200, 210, 205]);
     expect(t).toBeGreaterThan(12);
     expect(t).toBeLessThan(200);
+    expect(otsuThreshold([0, 0, 0, 255, 255])).toBe(127.5);
+    expect(otsuThreshold([0, 0, 255, 255])).toBe(127.5);
   });
 });
 

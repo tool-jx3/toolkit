@@ -118,6 +118,12 @@ export const S = {
     'classy-rounded': '圓葉形',
   } satisfies Record<'none' | QrCornerSquareType, string>,
   cornerSquareHint: '三個角的大方框（掃描時用來定位）。「跟著點」用點的樣式一格一格畫。',
+  cornerRoundHint:
+    '圓框、圓角框：有些掃描程式（例如部分電腦版的讀取程式）找不到這種角；要給很多人掃時建議用方框或跟著點。',
+  cornerTypeDesc: {
+    dot: '有些掃描程式（例如部分電腦版的讀取程式）找不到這種角。',
+    'extra-rounded': '有些掃描程式（例如部分電腦版的讀取程式）找不到這種角。',
+  } as Partial<Record<'none' | QrCornerSquareType, string>>,
   sectionCornerDot: '角的中心',
   cornerDotType: '中心的樣式',
   cornerDotTypes: {
@@ -148,7 +154,8 @@ export const S = {
   imageFailed: (name: string) => `讀不了這張圖：${name}`,
   imageNotSaved: '這張圖存不進瀏覽器（空間不足或被封鎖），重新整理之後就不見了。',
   imageSize: '大小',
-  imageSizeHint: '拿掉的格子最多是錯誤更正能修復的比例 × 這個係數（同原作）；超過 50% 不建議。',
+  imageSizeHint:
+    '圖越大、蓋掉的格子越多：最多蓋掉「錯誤更正能修復的比例 × 這個係數」；超過 50% 不建議。',
   imageMargin: '圖的邊距',
   imageMarginHint: '圖四周留白（px）。',
   hideDots: '拿掉圖後面的點',
@@ -167,6 +174,8 @@ export const S = {
     webp: '點陣圖，可以有透明背景；檔案通常比 PNG 小。',
     svg: '向量圖，放大不會糊；中間的圖嵌在檔案裡。',
   } satisfies Record<ExportFormat, string>,
+  canvasLimit: (w: number, h: number) =>
+    `輸出 ${w} × ${h} px（約 ${Math.round((w * h) / 10_000).toLocaleString('zh-TW')} 萬像素）超過 Safari 的畫布上限（16,777,216 像素），在 Safari（iPhone、iPad、Mac）上可能匯出失敗；可以降低倍率、縮小寬高或改用 SVG。`,
   webpUnsupported: '這個瀏覽器無法匯出 WebP（Safari 不支援），請改用 Chrome、Edge 或 Firefox。',
   fileName: '檔名',
   fileNameHint: '不含副檔名；空白時用「qr」。',
@@ -186,6 +195,10 @@ export const S = {
     `讀得出來：讀回來的內容和輸入的相同（第 ${version} 版・等級 ${ecl}）。`,
   checkFail: '讀不出來：照每一格的顏色讀不回原來的內容。',
   checkRisky: '每一格讀得回來，但掃描程式可能找不到這個 QR code（見下面）。',
+  checkContrastRed: '每一格讀得回來，但點和背景幾乎分不出來，很可能掃不到（見下面）。',
+  checkOkInverted:
+    '只有部分掃描程式讀得出來（反色：淺色的點、深色的底）；很多手機的相機與掃描程式讀不出來。',
+  checkOkLowContrast: '每一格讀得回來，但點和背景的對比太低，很多掃描程式可能讀不出來（見下面）。',
   checkOkWarn: (version: number, ecl: QrEcl) =>
     `讀得出來（第 ${version} 版・等級 ${ecl}），但有要注意的地方（見下面）。`,
   cornerNames: ['左上', '右上', '左下'],
@@ -206,6 +219,8 @@ export const S = {
     '印出來有髒污、反光或折痕時可能就讀不出來了；可以把錯誤更正等級調高或把圖縮小。',
   checkInverted:
     '顏色是反過來的（淺色的點、深色的底）：反過來讀得出來，但很多手機和掃描程式不支援。',
+  checkContrastBad: (r: string) =>
+    `點和背景的對比極低（最差約 ${r}:1）：很可能掃不到；請把點換深一點或背景換淺一點（漸層時看最淡的那一端）。`,
   checkContrastLow: (r: string) =>
     `點和背景的對比太低（最差約 ${r}:1）：很多掃描程式會讀不出來，請把點換深一點或背景換淺一點。`,
   checkContrastFair: (r: string) =>

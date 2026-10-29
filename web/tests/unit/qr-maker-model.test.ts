@@ -200,7 +200,24 @@ describe('檢查清單', () => {
       px({ decoded: { ok: false, reason: 'format' }, invertedDecoded: ok }),
     );
     expect(v.notice?.tone).toBe('info');
+    expect(v.notice?.message).toContain('只有部分掃描程式讀得出來（反色');
     expect(v.items.some((i) => i.id === 'inverted')).toBe(true);
+  });
+  it('對比：< 3 的總結說明可能讀不出來（提醒）；< 1.5 是紅；每格 < 4 px 警告', () => {
+    const d = initialDoc();
+    d.dots.paint.color = '#999999';
+    const low = checkView(d, built(d), px({}));
+    expect(low.notice).toMatchObject({ tone: 'info' });
+    expect(low.notice?.message).toContain('很多掃描程式可能讀不出來');
+    d.dots.paint.color = '#e0e0e0';
+    const bad = checkView(d, built(d), px({}));
+    expect(bad.notice?.tone).toBe('error');
+    expect(bad.items).toMatchObject([{ id: 'contrast', level: 'error' }]);
+    const e = initialDoc();
+    e.width = 110;
+    e.height = 110;
+    e.margin = 12;
+    expect(styleIssues(e, built(e)).map((i) => `${i.level}:${i.id}`)).toEqual(['warning:small']);
   });
   it('設定的提醒：對比、透明、格子太小', () => {
     const d = initialDoc();

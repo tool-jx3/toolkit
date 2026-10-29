@@ -31,6 +31,9 @@ const SAMPLE = [
 
 type Ctx = CanvasRenderingContext2D;
 
+/** 「跟著點」＝null（core/qr 用點的樣式一格一格畫） */
+const none = <T extends string>(t: 'none' | T): T | null => (t === 'none' ? null : t);
+
 function paintBackground(ctx: Ctx, d: DocState, w: number, h: number) {
   const bg = backgroundPaint(d.background);
   if (!bg) return;
@@ -74,14 +77,9 @@ export function drawCornerSquareThumb(
   const ox = Math.floor((w - cell * 7) / 2);
   const oy = Math.floor((h - cell * 7) / 2);
   const [, square, dot] = foregroundPaints(d);
-  const sq = cornerSquarePath(type === 'none' ? d.dots.type : type, ox, oy, cell);
+  const sq = cornerSquarePath(none(type), d.dots.type, ox, oy, cell);
   fill(ctx, square, sq.d, sq.rule, w, h);
-  const center = cornerDotPath(
-    d.cornerDot.type === 'none' ? d.dots.type : d.cornerDot.type,
-    ox,
-    oy,
-    cell,
-  );
+  const center = cornerDotPath(none(d.cornerDot.type), d.dots.type, ox, oy, cell);
   fill(ctx, dot, center.d, center.rule, w, h);
 }
 
@@ -94,11 +92,10 @@ export function drawCornerDotThumb(ctx: Ctx, d: DocState, type: 'none' | QrCorne
   const [, square, dot] = foregroundPaints(d);
   /* 外框畫淡一點，看得出中心的形狀 */
   ctx.globalAlpha = 0.35;
-  const sqType = d.cornerSquare.type === 'none' ? d.dots.type : d.cornerSquare.type;
-  const sq = cornerSquarePath(sqType, ox, oy, cell);
+  const sq = cornerSquarePath(none(d.cornerSquare.type), d.dots.type, ox, oy, cell);
   fill(ctx, square, sq.d, sq.rule, w, h);
   ctx.globalAlpha = 1;
-  const center = cornerDotPath(type === 'none' ? d.dots.type : type, ox, oy, cell);
+  const center = cornerDotPath(none(type), d.dots.type, ox, oy, cell);
   fill(ctx, dot, center.d, center.rule, w, h);
 }
 
