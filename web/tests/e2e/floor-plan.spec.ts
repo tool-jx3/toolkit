@@ -3817,7 +3817,8 @@ test.describe('2026-10-29 跟進原作 v1.15（健身房範本、家具 8 種、
     const pl = await shownOf(page);
     expect(pl.rooms.filter((r) => !r.name)).toHaveLength(3);
     expect(pl.rooms.map((r) => r.name)).toContain('瑜珈教室');
-    expect(pl.items.some((i) => i.t === 'monitor_wall')).toBe(false);
+    /* 監視器螢幕牆 2 個：員工室的藏起來，瑜珈教室的投影螢幕還在 */
+    expect(pl.items.filter((i) => i.t === 'monitor_wall')).toHaveLength(1);
     expect(pl.items.some((i) => i.t === 'bench' || i.t === 'yoga_mat')).toBe(true);
     await page.keyboard.press('p');
 

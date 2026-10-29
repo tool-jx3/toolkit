@@ -266,7 +266,7 @@ describe('雙開拉門（F243、3.13.1）', () => {
         mode,
       ).toEqual(['slidingc']);
     }
-    /* 匯出的外接範圍：往牆外多算 0.5 格（開門的範圍，同其他拉門） */
+    /* 匯出的外接範圍：開門的範圍往牆的兩側各算 0.5 格（同其他拉門） */
     const up: Floor = { ...f, openings: [{ ...f.openings[0], side: -1 }] };
     expect(floorBounds(up)).toEqual({ x: 0, y: -0.5, w: 10, h: 8.5 });
   });

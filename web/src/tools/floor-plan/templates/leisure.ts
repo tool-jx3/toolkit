@@ -180,7 +180,7 @@ export function gym(): TplFloor[] {
     .room('人行道', 'porch', 6, 0, 4, 30, { hideLabel: true })
     .room('有氧區', 'public', 10, 0, 12, 11, { lx: -1, ly: 4.6 })
     .room('入口大廳', 'public', 10, 11, 12, 8, { ly: 1.6 })
-    .room('瑜珈教室', 'engawa', 10, 19, 12, 11, { wall: 'glass', ly: -4.4 })
+    .room('瑜珈教室', 'engawa', 10, 19, 12, 11, { wall: 'glass', ly: -3.8 })
     .room('器材區', 'public', 22, 0, 16, 14, { ly: 5.2 })
     .room('自由重量區', 'industrial', 22, 14, 16, 16, { ly: -1.2 })
     .room('走廊', 'hall', 38, 0, 4, 30, { hideLabel: true })
@@ -239,7 +239,7 @@ export function gym(): TplFloor[] {
   /* 有氧區：兩列面向落地窗（面向西）的跑步機與健身車 */
   for (const y of [0.6, 2.7, 4.8, 6.9]) b.item('treadmill', 10.6, y, 270);
   for (const y of [0.6, 2.4, 4.2, 6.0, 7.8]) b.item('exercise_bike', 16.2, y, 270);
-  b.item('plant', 20.4, 9.2).item('extinguisher', 21.2, 0.2, 0);
+  b.item('speaker', 11, 9.8).item('plant', 20.4, 9.2).item('extinguisher', 21.2, 0.2, 0);
 
   /* 入口大廳：櫃檯、鞋櫃、長椅 */
   b.item('reception', 13, 12.4)
@@ -249,39 +249,47 @@ export function gym(): TplFloor[] {
     .item('plant', 20.4, 11.4)
     .item('vending', 18, 11.2, 0);
 
-  /* 瑜珈教室：四行墊子、前面的音響 */
+  /* 瑜珈教室：四行墊子、前面的音響與投影螢幕 */
   for (const x of [12.4, 14.4, 16.4, 18.4]) b.item('yoga_mat', x, 21.4).item('yoga_mat', x, 25.4);
-  b.item('speaker', 11, 19.4).item('speaker', 19.8, 19.4).item('plant', 11, 28.6);
+  b.item('speaker', 11, 19.4)
+    .item('speaker', 19.8, 19.4)
+    .item('monitor_wall', 13.2, 19.2, 0, { size: [3, 0.6] })
+    .item('plant', 11, 28.6);
 
   /* 器材區：靠北牆的滑輪訓練機、中間的划船機 */
-  for (const x of [24, 28, 32]) b.item('cable_machine', x, 0.2);
-  for (const x of [25, 28, 31]) b.item('rowing_machine', x, 6);
-  b.item('dumbbell_rack', 36.9, 9.5, 90).item('vending', 36.6, 1, 90);
+  for (const x of [22.6, 26.4, 30.2, 34]) b.item('cable_machine', x, 0.2);
+  for (const x of [24.2, 27.4, 30.6, 33.8]) b.item('rowing_machine', x, 6);
+  b.item('dumbbell_rack', 36.9, 9.5, 90).item('vending', 36.6, 3.2, 90);
 
-  /* 自由重量區：南牆邊的深蹲架、四張臥推架、東牆邊的啞鈴 */
-  b.item('squat_rack', 24, 27.4, 180).item('squat_rack', 28.4, 27.4, 180);
+  /* 自由重量區：南牆邊的三座深蹲架、五張臥推架、東牆邊的啞鈴 */
+  for (const x of [23.6, 27.6, 31.6]) b.item('squat_rack', x, 27.4, 180);
   for (const [x, y] of [
     [24, 17],
     [28.4, 17],
-    [24, 21.6],
+    [32.8, 17],
     [28.4, 21.6],
+    [32.8, 21.6],
   ])
     b.item('weight_bench', x, y);
-  b.item('dumbbell_rack', 36.9, 22.2, 90).item('dumbbell_rack', 36.9, 25.4, 90);
+  for (const y of [14.5, 22.2, 25.4]) b.item('dumbbell_rack', 36.9, y, 90);
 
-  /* 走廊 */
-  b.item('vending', 40.6, 11.5, 90).item('locker', 38.2, 24.5, 270).item('plant', 40.6, 27.2);
+  /* 走廊：自動販賣機、洗手檯、置物櫃 */
+  b.item('vending', 40.6, 11.5, 90)
+    .item('trough_sink', 40.8, 14.2, 90, { size: [2.4, 1.2] })
+    .item('locker', 38.2, 24.5, 270)
+    .item('plant', 40.6, 27.2);
 
   /* 員工室、儲藏室 */
-  b.item('monitor_wall', 42.4, 0.1, 0, { size: [4, 0.5], label: '監視器畫面' })
-    .item('office_desk', 44.2, 2.4)
-    .item('chair', 45, 3.9, 180)
-    .item('filing', 42.2, 4.6)
+  b.item('office_desk', 43.4, 0.2)
+    .item('chair', 44.1, 1.7)
+    .item('monitor_wall', 43.2, 5.3, 180, { size: [2.8, 0.6], label: '監視器畫面' })
+    .item('filing', 46.7, 4.8, 90)
     .item('cabinet', 48.4, 0.1)
-    .item('crate', 51.2, 3.4)
-    .item('cardboard', 49, 4.6);
+    .item('crate', 48.6, 3.9)
+    .item('crate', 52.2, 4.2)
+    .item('cardboard', 50.6, 4.6);
 
-  /* 男女更衣室：置物櫃、長椅；淋浴間：個別的淋浴與洗身區 */
+  /* 男女更衣室：置物櫃、長椅；淋浴間：個別的淋浴與一排洗身區 */
   for (const y0 of [6, 14]) {
     b.item('locker', 42.1, y0 + 0.1)
       .item('locker', 45.1, y0 + 0.1)
@@ -289,17 +297,17 @@ export function gym(): TplFloor[] {
       .item('locker', 46, y0 + 6.9, 180)
       .item('bench', 43.5, y0 + 3.5)
       .item('shower', 49.2, y0 + 0.2)
-      .item('shower', 51.2, y0 + 0.2)
-      .item('wash_station', 50, y0 + 5.8, 180, { size: [3.2, 2] });
+      .item('shower', 51.2, y0 + 0.2);
+    for (const x of [49.2, 50.8, 52.4]) b.item('wash_station', x, y0 + 5.8, 180);
   }
 
-  /* 廁所 */
+  /* 廁所：男廁（小便斗、蹲式與坐式各一間）、女廁（三間：一間坐式、兩間蹲式） */
   b.item('washbasin', 44.8, 24.1).item('washbasin', 46.4, 24.1);
   for (const y of [25.3, 26.5]) b.item('urinal', 42.1, y, 270);
   b.item('squat_toilet', 44.8, 28.4, 180).item('toilet', 46.6, 28.4, 180);
   b.item('washbasin', 50.7, 24.1).item('washbasin', 52.3, 24.1);
   b.item('toilet', 48.5, 28.4, 180)
-    .item('toilet', 50.5, 28.4, 180)
+    .item('squat_toilet', 50.5, 28.4, 180)
     .item('squat_toilet', 52.5, 28.4, 180);
   b.item('trough_sink', 42.2, 28.2, 0, { size: [1.6, 1.2] });
 
@@ -311,8 +319,10 @@ export function gym(): TplFloor[] {
 
   /* 街道 */
   b.item('streetlight', 8.4, 3)
-    .item('streetlight', 8.4, 22)
-    .item('road_arrow', 2, 6)
-    .item('road_arrow', 3.6, 20, 180);
+    .item('streetlight', 8.4, 9)
+    .item('streetlight', 8.4, 25)
+    .item('road_arrow', 2, 3)
+    .item('road_arrow', 3.6, 12, 180)
+    .item('road_arrow', 2, 21);
   return [b.f];
 }
