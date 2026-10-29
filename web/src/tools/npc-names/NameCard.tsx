@@ -1,15 +1,11 @@
 /**
  * 一個名字：大字的全名（點一下複製）、讀音、性別、鎖定；考據語料的名字另有說明（原站的排法，字小一級，
  * 在複製的範圍外面，可以自己選取）：涵義一段一行（「姓：…」「名：…」依姓名順序）、備註一行、暱稱與姓的另一形一行。
- * 依人數的名單的名字在語料裡查得到涵義時（F57）：涵義一段一行（不附備註），下面一行小字標出處。
+ * 依人數的名單的名字在語料裡查得到涵義時（F57）：涵義一段一行（不附備註），下面一行小字標出處（純文字，不做連結：
+ * 每張卡不多一個 Tab 停點；連到原站與授權的連結在使用方式與說明對話框）。
  */
 import { Lock, LockOpen } from 'lucide-react';
-import {
-  type CorpusRegion,
-  type CountNameMeanings,
-  corpusRegionInfo,
-  INKNOMU_SOURCE,
-} from '@/core/names/corpus';
+import { type CorpusRegion, type CountNameMeanings, INKNOMU_SOURCE } from '@/core/names/corpus';
 import { cn, IconButton } from '@/ui';
 import {
   corpusDetails,
@@ -32,20 +28,12 @@ export interface NameCardProps {
   onToggleLock: (text: string) => void;
 }
 
-/** 依人數的名單的涵義的出處：「涵義：弄墨 Inknomu《角色姓名產生器》（日本・平成令和時代）」，名稱連到原站這個地區的頁面 */
+/** 依人數的名單的涵義的出處（純文字）：「涵義：弄墨 Inknomu《角色姓名產生器》（日本・平成令和時代）」 */
 function MeaningCredit({ region, packs }: { region: CorpusRegion; packs: readonly string[] }) {
   return (
     <p data-testid="meaning-credit" className="m-0 break-words text-muted">
       {S.list.meaningCredit}
-      <a
-        className="text-accent underline"
-        href={corpusRegionInfo(region).url}
-        target="_blank"
-        rel="noopener noreferrer"
-      >
-        {INKNOMU_SOURCE.name}
-      </a>
-      （{meaningCreditLabel(region, packs)}）
+      {INKNOMU_SOURCE.name}（{meaningCreditLabel(region, packs)}）
     </p>
   );
 }

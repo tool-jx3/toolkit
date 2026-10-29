@@ -1,6 +1,6 @@
 /**
  * NPC 名字產生器：依真實人數的名單也附涵義（F57，2026-10 修訂）的端對端測試。
- * - 日本、台灣、美國的人數名單抽出的姓或名，考據語料裡有同一個時附上涵義（姓名順序），下面一行標出處（連到原站）；
+ * - 日本、台灣、美國的人數名單抽出的姓或名，考據語料裡有同一個時附上涵義（姓名順序），下面一行標出處（純文字）；
  * - 只有姓／只有名只留那一段；「顯示涵義」開關一起控制，關著時不載入語料；語料讀不到時名字照常、不另外提示；
  * - CSV 的「涵義」欄（匯出前先載入）、備註留白；存檔與紀錄不存涵義。
  */
@@ -155,10 +155,19 @@ test('日本：人數名單的名字附涵義與出處（兩個包、一個包�
     '姓：佐（輔佐）、藤（藤原氏後裔用字），日本第一大姓，多源自藤原氏支流。',
     '名：博學、廣博。',
   ]);
-  const link = hiroshi.getByRole('link', { name: SOURCE });
-  await expect(link).toHaveAttribute('href', 'https://inknomu.com/namegen/jp');
-  await expect(link).toHaveAttribute('target', '_blank');
-  await expect(link).toHaveAttribute('rel', 'noopener noreferrer');
+  /* 出處是純文字（不做連結，每張卡不多一個 Tab 停點；連結在使用方式與說明對話框） */
+  await expect(hiroshi.getByRole('link')).toHaveCount(0);
+  await page.getByRole('button', { name: '說明' }).click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog).toContainText(
+    '依真實人數的名單抽到的姓或名，若考據語料裡有同一個，也會附上那一筆的涵義（標出處）。',
+  );
+  await expect(dialog.getByRole('link', { name: SOURCE, exact: true })).toHaveAttribute(
+    'href',
+    'https://inknomu.com/namegen/',
+  );
+  await page.keyboard.press('Escape');
+  await expect(dialog).toHaveCount(0);
   /* 涵義在點一下複製的範圍外面 */
   await expect(hiroshi.getByRole('button', { name: '複製「佐藤 博」' })).not.toContainText('姓：');
 
@@ -232,10 +241,7 @@ test('台灣先姓後名、美國先名後姓；出處標地區與包', async ({
     await expect(c.getByTestId('meaning-credit')).toHaveText(
       new RegExp(`^涵義：${SOURCE}（美國・[^）]+）$`),
     );
-    await expect(c.getByRole('link', { name: SOURCE })).toHaveAttribute(
-      'href',
-      'https://inknomu.com/namegen/us',
-    );
+    await expect(c.getByRole('link')).toHaveCount(0);
   }
   expect(both).toBeGreaterThan(0);
   expect(errors).toEqual([]);
