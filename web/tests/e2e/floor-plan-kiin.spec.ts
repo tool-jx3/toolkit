@@ -1,5 +1,5 @@
 /**
- * 室內平面圖產生器：2026-10-29 參考 KIIN マップ制作スタジオ的四組功能（規格 1.25：F250～F268）——
+ * 室內平面圖產生器：2026-10-29 參考 KIIN マップ制作スタジオ的四組功能（規格 1.25：F250～F269）——
  * L 形房間（工具 J、缺角的控制點、屬性、旋轉、匯出）、連接兩個房間（K：共用的牆放門、自動走廊）、整理家具、
  * 家具跟著房間縮放、桌上的小物、黑色電影／監視終端、紙的污漬與摺痕、座標標示、VTT 用的匯出與上限、
  * 送到地圖演出產生器（map-fx F84）、專案檔版本 7。
@@ -452,7 +452,9 @@ test.describe('家具（F253～F255）', () => {
 });
 
 test.describe('圖面風格與座標（F261～F264）', () => {
-  test('黑色電影、監視終端：畫面與匯出都畫得出來（掃描線一列一列明暗交替）', async ({ page }) => {
+  test('黑色電影、監視終端：畫面與匯出都畫得出來（掃描線一列一列明暗交替）；匯出可以關掉顆粒與雜訊', async ({
+    page,
+  }) => {
     const errors = await open(page);
     await setFloor(page, { rooms: [room('a', 0, 0, 10, 8), room('b', 10, 0, 6, 8, { gm: true })] });
     await page.keyboard.press('Escape');
@@ -468,13 +470,36 @@ test.describe('圖面風格與座標（F261～F264）', () => {
     ]);
     const img = pngPixels(readFileSync((await dl.path()) as string));
     /* 每格 48 px＝掃描線每 6 px 一條：同一欄的上下兩列亮度不同 */
-    const lum = (x: number, y: number) => {
-      const i = (y * img.width + x) * 4;
-      return img.data[i] + img.data[i + 1] + img.data[i + 2];
+    const scanLines = (im: typeof img) => {
+      const l = (x: number, y: number) => {
+        const i = (y * im.width + x) * 4;
+        return im.data[i] + im.data[i + 1] + im.data[i + 2];
+      };
+      let n = 0;
+      for (let y = 200; y < 260; y++) if (l(300, y) < l(300, y + 1) - 6) n++;
+      return n;
     };
-    let darker = 0;
-    for (let y = 200; y < 260; y++) if (lum(300, y) < lum(300, y + 1) - 6) darker++;
-    expect(darker).toBeGreaterThanOrEqual(6);
+    expect(scanLines(img)).toBeGreaterThanOrEqual(6);
+    /* 顆粒與雜訊（只有黑色電影、監視終端有）：關掉時檔案小很多、掃描線照畫 */
+    const noise = page.getByRole('switch', { name: '顆粒與雜訊' });
+    await expect(noise).toBeChecked();
+    await noise.click();
+    const [dl2] = await Promise.all([
+      page.waitForEvent('download'),
+      page.getByTestId('export-download').click(),
+    ]);
+    const bytes2 = readFileSync((await dl2.path()) as string);
+    const bytes1 = readFileSync((await dl.path()) as string);
+    expect(bytes2.length).toBeLessThan(bytes1.length * 0.5);
+    expect(scanLines(pngPixels(bytes2))).toBeGreaterThanOrEqual(6);
+    const exportStyle = page.getByTestId('export-dialog').getByRole('combobox', { name: '樣式' });
+    await exportStyle.click();
+    await page.getByRole('option', { name: '彩色' }).click();
+    await expect(noise).toHaveCount(0);
+    await exportStyle.click();
+    await page.getByRole('option', { name: '黑色電影' }).click();
+    await expect(noise).not.toBeChecked();
+    await noise.click();
     await page.keyboard.press('Escape');
     await style.click();
     await page.getByRole('option', { name: '黑色電影' }).click();
@@ -553,50 +578,125 @@ test.describe('VTT 用的匯出（F265、F266）', () => {
   });
 });
 
-test('送到地圖演出產生器（F267、map-fx F84）：新分頁讀入、1 格幾 px 跟著；讀過一次就沒有了', async ({
-  page,
-  context,
-}) => {
-  const errors = await open(page);
-  await setFloor(
-    page,
-    { rooms: [room('a', 0, 0, 10, 8), room('b', 10, 0, 6, 8)] },
-    { tokenGrid: 2 },
-  );
-  await page.keyboard.press('Control+e');
-  const dialog = page.getByTestId('export-dialog');
-  await dialog.getByRole('radio', { name: 'VTT 用' }).click();
-  await dialog.getByRole('radio', { name: '70px' }).click();
-  const [fx] = await Promise.all([
-    context.waitForEvent('page'),
-    page.getByTestId('export-send-fx').click(),
-  ]);
-  await expect(page.getByText('已送到地圖演出產生器（新分頁）', { exact: true })).toBeVisible();
-  const fxErrors: string[] = [];
-  fx.on('pageerror', (e) => fxErrors.push(e.message));
-  await fx.route(/fonts\.(googleapis|gstatic)\.com/, (r) =>
+/** 送出的頁面：記下 window.open 的網址；`blobDelayMs` 讓畫好的圖晚一點才交出來（模擬很大的圖） */
+const watchSend = (page: Page, blobDelayMs = 0) =>
+  page.evaluate((delay) => {
+    const w = window as unknown as { __opened: string[] };
+    w.__opened = [];
+    const open = window.open.bind(window);
+    window.open = (url?: string | URL, ...rest: string[]) => {
+      w.__opened.push(String(url));
+      return open(url, ...rest);
+    };
+    if (delay > 0) {
+      const toBlob = HTMLCanvasElement.prototype.toBlob;
+      HTMLCanvasElement.prototype.toBlob = function (cb, ...a) {
+        toBlob.call(this, (b) => setTimeout(() => cb(b), delay), ...a);
+      };
+    }
+  }, blobDelayMs);
+
+const routeFonts = (p: Page) =>
+  p.route(/fonts\.(googleapis|gstatic)\.com/, (r) =>
     r.fulfill({ status: 200, contentType: 'text/css', body: '' }),
   );
-  await fx.waitForURL(`**${FX_URL}`);
-  const ask = fx.getByRole('alertdialog');
-  await expect(ask).toContainText(/平面圖產生器送來的圖/);
-  await expect(ask).toContainText('測試_PL_10x6');
-  await ask.getByRole('button', { name: /讀入|取代/ }).click();
-  await expect(
-    fx.getByText('已讀入平面圖產生器送來的「測試_PL_10x6」', { exact: true }),
-  ).toBeVisible();
-  await fx.waitForFunction(() => !!(window as unknown as { __mapFx?: unknown }).__mapFx);
-  const state = await fx.evaluate(() => {
-    const h = (window as unknown as { __mapFx: Record<string, () => Record<string, unknown>> })
-      .__mapFx;
-    return { image: h.doc().image, grid: h.prefs().grid };
+
+test.describe('送到地圖演出產生器（F267、map-fx F84）', () => {
+  test('點了馬上開新分頁（網址帶交接編號）；圖晚到也讀得到、1 格幾 px 跟著；讀過一次就沒有了', async ({
+    page,
+    context,
+  }) => {
+    const errors = await open(page);
+    await setFloor(
+      page,
+      { rooms: [room('a', 0, 0, 10, 8), room('b', 10, 0, 6, 8)] },
+      { tokenGrid: 2 },
+    );
+    await page.keyboard.press('Control+e');
+    const dialog = page.getByTestId('export-dialog');
+    await dialog.getByRole('radio', { name: 'VTT 用' }).click();
+    await dialog.getByRole('radio', { name: '70px' }).click();
+    /* 圖要 4 秒才畫好：新分頁不等它，開好之後顯示「正在接收」 */
+    await watchSend(page, 4000);
+    const [fx] = await Promise.all([
+      context.waitForEvent('page'),
+      page.getByTestId('export-send-fx').click(),
+    ]);
+    const fxErrors: string[] = [];
+    fx.on('pageerror', (e) => fxErrors.push(e.message));
+    await routeFonts(fx);
+    expect(
+      await page.evaluate(() => (window as unknown as { __opened: string[] }).__opened),
+    ).toEqual([expect.stringMatching(new RegExp(`${FX_URL}#handoff=[\\w-]+$`))]);
+    await expect(page.getByText('已送到地圖演出產生器（新分頁）', { exact: true })).toHaveCount(0);
+    await expect(fx.getByTestId('handoff-waiting')).toContainText('正在接收平面圖產生器送來的圖');
+    const ask = fx.getByRole('alertdialog');
+    await expect(ask).toContainText(/平面圖產生器送來的圖/, { timeout: 15_000 });
+    await expect(ask).toContainText('測試_PL_10x6');
+    await expect(fx.getByTestId('handoff-waiting')).toHaveCount(0);
+    await expect(page.getByText('已送到地圖演出產生器（新分頁）', { exact: true })).toBeVisible();
+    /* 交接編號讀到就從網址拿掉 */
+    expect(await fx.evaluate(() => location.hash)).toBe('');
+    await ask.getByRole('button', { name: /讀入|取代/ }).click();
+    await expect(
+      fx.getByText('已讀入平面圖產生器送來的「測試_PL_10x6」', { exact: true }),
+    ).toBeVisible();
+    await fx.waitForFunction(() => !!(window as unknown as { __mapFx?: unknown }).__mapFx);
+    const state = await fx.evaluate(() => {
+      const h = (window as unknown as { __mapFx: Record<string, () => Record<string, unknown>> })
+        .__mapFx;
+      return { image: h.doc().image, grid: h.prefs().grid };
+    });
+    expect(state.image).toMatchObject({ name: '測試_PL_10x6', width: 700, height: 420 });
+    expect(state.grid).toBe(70);
+    /* 重新整理：不會再問一次、也不會再等 */
+    await fx.reload();
+    await expect(fx.getByRole('heading', { level: 1 })).toBeVisible();
+    await fx.waitForFunction(() => !!(window as unknown as { __mapFx?: unknown }).__mapFx);
+    await expect(fx.getByRole('alertdialog')).toHaveCount(0);
+    await expect(fx.getByTestId('handoff-waiting')).toHaveCount(0);
+    expect(errors).toEqual([]);
+    expect(fxErrors).toEqual([]);
   });
-  expect(state.image).toMatchObject({ name: '測試_PL_10x6', width: 700, height: 420 });
-  expect(state.grid).toBe(70);
-  /* 重新整理：不會再問一次 */
-  await fx.reload();
-  await expect(fx.getByRole('heading', { level: 1 })).toBeVisible();
-  await expect(fx.getByRole('alertdialog')).toHaveCount(0);
-  expect(errors).toEqual([]);
-  expect(fxErrors).toEqual([]);
+
+  test('寫入失敗：已經開的分頁馬上知道（不乾等到逾時）、不問；平面圖這邊也說明', async ({
+    page,
+    context,
+  }) => {
+    const errors = await open(page);
+    await setFloor(page, { rooms: [room('a', 0, 0, 10, 8)] });
+    /* 交接的資料庫寫不進去（失敗的紀錄也寫不進去：只能靠分頁之間的通知） */
+    await page.evaluate(() => {
+      const put = IDBObjectStore.prototype.put;
+      IDBObjectStore.prototype.put = function (...a: Parameters<IDBObjectStore['put']>) {
+        if (this.transaction.db.name === 'trpg-toolkit:handoff')
+          throw new DOMException('測試：空間不足', 'QuotaExceededError');
+        return put.apply(this, a);
+      };
+    });
+    await watchSend(page);
+    await page.keyboard.press('Control+e');
+    const [fx] = await Promise.all([
+      context.waitForEvent('page'),
+      page.getByTestId('export-send-fx').click(),
+    ]);
+    const fxErrors: string[] = [];
+    fx.on('pageerror', (e) => fxErrors.push(e.message));
+    await routeFonts(fx);
+    await expect(
+      page.getByText('瀏覽器不能暫存這張圖，請改用「下載 PNG」，再到地圖演出產生器讀入。', {
+        exact: true,
+      }),
+    ).toBeVisible();
+    const t0 = Date.now();
+    await expect(fx.getByText('平面圖產生器沒能把圖送過來', { exact: true }).first()).toBeVisible({
+      timeout: 8_000,
+    });
+    /* 平面圖已經說失敗了：不必等到 10 秒的逾時 */
+    expect(Date.now() - t0).toBeLessThan(8_000);
+    await expect(fx.getByTestId('handoff-waiting')).toHaveCount(0);
+    await expect(fx.getByRole('alertdialog')).toHaveCount(0);
+    expect(errors).toEqual([]);
+    expect(fxErrors).toEqual([]);
+  });
 });

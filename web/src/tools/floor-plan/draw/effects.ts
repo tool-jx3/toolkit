@@ -53,9 +53,14 @@ function noiseTile(kind: 'grain' | 'scan'): HTMLCanvasElement | null {
   return tile;
 }
 
+/** 不畫雜訊時的暗角分幾層 */
+const VIGNETTE_STEPS = 32;
+
 /**
  * 樣式的畫面效果。呼叫時的座標系是像素（左上 0, 0）；範圍 w × h px。
  * `unit`：1 個 CSS px 是幾個像素（編輯畫面＝devicePixelRatio；匯出依每格 px 換算，見 export.ts）。
+ * `noise`：畫顆粒與雜訊（2026-10-29 主控追加：匯出時可以關掉，因為雜訊讓 PNG 壓不下來）。關掉時掃描線、取景框照畫
+ * （規則的線，幾乎不影響壓縮），暗角改用一圈一圈的畫法（漸層的抖動也壓不下來），D74。
  */
 export function drawThemeEffect(
   c: Ctx,
@@ -63,11 +68,12 @@ export function drawThemeEffect(
   w: number,
   h: number,
   unit = 1,
+  noise = true,
 ): void {
   const fx = theme.effect;
   if (!fx || w <= 0 || h <= 0) return;
   c.save();
-  const tile = noiseTile(fx);
+  const tile = noise ? noiseTile(fx) : null;
   if (tile) {
     const pat = c.createPattern(tile, 'repeat');
     if (pat) {
@@ -76,13 +82,29 @@ export function drawThemeEffect(
     }
   }
   if (fx === 'grain') {
-    /* 暗角：中心不變，四周往外漸漸壓暗 */
+    /* 暗角：中心不變，四周往外漸漸壓暗（從半對角線的 45% 到角落，最暗 50%） */
     const r = Math.hypot(w, h) / 2;
-    const g = c.createRadialGradient(w / 2, h / 2, r * 0.45, w / 2, h / 2, r);
-    g.addColorStop(0, 'rgba(0, 0, 0, 0)');
-    g.addColorStop(1, 'rgba(0, 0, 0, 0.5)');
-    c.fillStyle = g;
-    c.fillRect(0, 0, w, h);
+    const r0 = r * 0.45;
+    if (noise) {
+      const g = c.createRadialGradient(w / 2, h / 2, r0, w / 2, h / 2, r);
+      g.addColorStop(0, 'rgba(0, 0, 0, 0)');
+      g.addColorStop(1, 'rgba(0, 0, 0, 0.5)');
+      c.fillStyle = g;
+      c.fillRect(0, 0, w, h);
+    } else {
+      /*
+       * 不畫雜訊時暗角也改成一圈一圈（32 層，每層一樣淡，疊起來到角落是 50%）：瀏覽器畫漸層會加細小的抖動，
+       * PNG 壓不下來（洋館 1F、每格 32 px：漸層的暗角約 +1.3 MB，一圈一圈約 +0.1 MB，D74）。
+       */
+      const steps = VIGNETTE_STEPS;
+      c.fillStyle = `rgba(0, 0, 0, ${1 - 0.5 ** (1 / steps)})`;
+      for (let i = 0; i < steps; i++) {
+        c.beginPath();
+        c.rect(0, 0, w, h);
+        c.arc(w / 2, h / 2, r0 + ((r - r0) * (i + 0.5)) / steps, 0, Math.PI * 2);
+        c.fill('evenodd');
+      }
+    }
   } else {
     /* 掃描線：每 3 個 CSS px 一條 1 px 的暗線 */
     const step = Math.max(2, Math.round(3 * unit));

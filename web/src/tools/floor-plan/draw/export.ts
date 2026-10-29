@@ -53,6 +53,8 @@ export interface ExportImageOptions {
   coordGrid?: CoordGrid | null;
   /** 紙的污漬與摺痕（2026-10-29，F263；沒有＝不畫） */
   wear?: { strength: number; seed: number } | null;
+  /** 不畫樣式的顆粒與雜訊（黑色電影、監視終端；匯出的檔案小很多，F261～F262、D74） */
+  noNoise?: boolean;
 }
 
 export interface ExportLayout {
@@ -264,7 +266,7 @@ export function renderImage(floors: readonly Floor[], opts: ExportImageOptions):
         opts.wear.strength,
         theme,
       );
-    drawThemeEffect(c, theme, canvas.width, canvas.height, Math.max(1, s / 24));
+    drawThemeEffect(c, theme, canvas.width, canvas.height, Math.max(1, s / 24), !opts.noNoise);
     c.restore();
   }
   return canvas;

@@ -149,6 +149,7 @@ export const usePrefs = createPreviewStore<Prefs>(TOOL_ID, {
     transparent: false,
     mode: 'image',
     vttPx: 100,
+    noise: true,
   },
   share: 'pl',
 });

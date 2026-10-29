@@ -7,11 +7,12 @@
 import { Copy, Film } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { copyImage, copyText, downloadBlob, downloadSequentially } from '@/core/files';
-import { sendHandoff } from '@/core/handoff';
+import { beginHandoff, failHandoff, handoffHref, sendHandoff } from '@/core/handoff';
 import { canvasToBlob } from '@/core/image';
 import { getTool, hrefToTool } from '@/registry';
 import { Button, Dialog, Field, IconButton, Notice, Segmented, Select, Toggle } from '@/ui';
 import { exportLayout, hasExportContent, renderImage } from '../draw/export';
+import { getTheme } from '../draw/themes';
 import {
   CELL_M,
   DEFAULT_CELL,
@@ -139,13 +140,27 @@ export function ExportDialog() {
     }
   };
 
-  /** 送到地圖演出產生器（F267）：這一張（每層各一張時是這一層）＋名稱＋「1 格幾 px」 */
-  const sendToFx = async () => {
+  /**
+   * 送到地圖演出產生器（F267）：這一張（每層各一張時是這一層）＋名稱＋「1 格幾 px」。
+   * 新分頁在點擊的當下（任何 await 之前）開，網址帶交接編號；圖畫好、寫進 IndexedDB 之後 map-fx 才讀得到
+   * （map-fx 那邊顯示「正在接收」等它；畫不出來或寫不進去時 map-fx 馬上知道，2026-10-29 主控追加）。
+   */
+  const sendToFx = () => {
+    const id = beginHandoff('map-fx');
+    const tab = window.open(handoffHref(MAP_FX_HREF, id), '_blank');
+    if (tab) tab.opener = null;
+    void deliverToFx(id, !tab);
+  };
+
+  const deliverToFx = async (id: string, blockedTab: boolean) => {
     setBusy(true);
     try {
       const jobs = exportJobs(project, e2);
       const job = range === 'each' && multi ? jobs[project.active] : jobs[0];
-      if (!job) return;
+      if (!job) {
+        await failHandoff('map-fx', id);
+        return;
+      }
       const opts = exportOptions(project, e2, theme, exp.px);
       const L = exportLayout(job.floors, opts);
       const blob = await canvasToBlob(renderImage(job.floors, opts), 'image/png');
@@ -162,14 +177,18 @@ export function ExportDialog() {
         name: job.name.replace(/\.png$/i, ''),
         blob,
         meta,
+        id,
       });
       if (!ok) {
         notify(S.exp.sendFxFailed, 'warning');
         return;
       }
-      window.open(MAP_FX_HREF, '_blank', 'noopener');
-      notify(S.exp.sendFxDone, 'success');
+      notify(
+        blockedTab ? S.exp.sendFxBlocked : S.exp.sendFxDone,
+        blockedTab ? 'warning' : 'success',
+      );
     } catch {
+      await failHandoff('map-fx', id);
       notify(S.exp.failed, 'danger');
     } finally {
       setBusy(false);
@@ -212,7 +231,7 @@ export function ExportDialog() {
           <Button
             icon={<Film />}
             disabled={blocked || busy}
-            onClick={() => void sendToFx()}
+            onClick={sendToFx}
             title={S.exp.sendFxHint}
             data-testid="export-send-fx"
           >
@@ -299,6 +318,11 @@ export function ExportDialog() {
               options={THEME_IDS.map((id) => ({ value: id, label: S.themes[id] }))}
             />
           </Field>
+          {getTheme(theme).effect ? (
+            <Field label={S.exp.noise} hint={S.exp.noiseHint} layout="inline">
+              <Toggle checked={exp.noise !== false} onCheckedChange={(v) => setExp({ noise: v })} />
+            </Field>
+          ) : null}
           {vtt ? (
             <>
               <Field label={S.exp.vttCell} hint={S.exp.vttCellHint}>

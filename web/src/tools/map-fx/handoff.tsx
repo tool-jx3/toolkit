@@ -1,12 +1,18 @@
 /**
- * 室內平面圖產生器送來的圖（2026-10-29，map-fx F84；floor-plan F267）：開頁時讀共用的交接資料（core/handoff，IndexedDB），
+ * 室內平面圖產生器送來的圖（2026-10-29，map-fx F84；floor-plan F267）：讀共用的交接資料（core/handoff，IndexedDB），
  * 有的話問要不要換上（useConfirm）——取消就丟掉；讀過一次就刪掉，過期的（超過一天）開頁時清掉。
  * 送來的「1 格幾 px」在範圍裡時一起改房間遮罩 ZIP 的格子大小（不列入復原的偏好）。
+ *
+ * 兩種開法：
+ * - 平面圖產生器在點擊的當下開的分頁：網址的 # 帶 `handoff=<id>`，圖晚一點才寫好——顯示「正在接收」等那一筆
+ *   （`waitHandoff`：平面圖還在畫就繼續等；平面圖說失敗了馬上通知；平面圖沒有回應超過約 10 秒就通知等不到）。
+ *   # 讀到就從網址拿掉（重新整理不會再等一次；那時圖已經到了的話照下面的方式問）。
+ * - 直接開（或重新整理）：有一天內的交接資料就問（`takeHandoff`）。
  */
-import { useEffect } from 'react';
-import { takeHandoff } from '@/core/handoff';
+import { useEffect, useState } from 'react';
+import { type Handoff, readHandoffId, takeHandoff, waitHandoff } from '@/core/handoff';
 import { storeImage } from '@/core/imagefx';
-import { useConfirm, useToast } from '@/ui';
+import { Notice, useConfirm, useToast } from '@/ui';
 import { snapRange } from './model';
 import { assets, docNow, setImage, setPrefs } from './store';
 import { S } from './strings';
@@ -18,15 +24,23 @@ export const HANDOFF_TO = 'map-fx';
 /** StrictMode 的開發模式會把 effect 跑兩次：一個分頁只讀一次 */
 let started = false;
 
+/** 網址的 #handoff=… 拿掉（不重新載入、不留歷史紀錄） */
+function clearHash() {
+  try {
+    history.replaceState(history.state, '', `${location.pathname}${location.search}`);
+  } catch {
+    /* 拿不掉也沒關係：重新整理時照「直接開」處理 */
+  }
+}
+
 export function FloorPlanHandoff() {
   const confirm = useConfirm();
   const toast = useToast();
+  const [waiting, setWaiting] = useState(false);
   useEffect(() => {
     if (started) return;
     started = true;
-    void (async () => {
-      const h = await takeHandoff(HANDOFF_TO);
-      if (!h || h.from !== HANDOFF_FROM) return;
+    const apply = async (h: Handoff) => {
       const hasImage = !!docNow().image;
       const ok = await confirm({
         title: hasImage ? S.handoff.replaceTitle : S.handoff.loadTitle,
@@ -54,7 +68,33 @@ export function FloorPlanHandoff() {
         description: notes.join('') || undefined,
         tone: r.persisted ? 'success' : 'warning',
       });
+    };
+    void (async () => {
+      const id = readHandoffId(location.hash);
+      if (!id) {
+        const h = await takeHandoff(HANDOFF_TO);
+        if (h && h.from === HANDOFF_FROM) await apply(h);
+        return;
+      }
+      clearHash();
+      setWaiting(true);
+      const r = await waitHandoff(HANDOFF_TO, id);
+      setWaiting(false);
+      if (r.status === 'ok') {
+        if (r.handoff.from === HANDOFF_FROM) await apply(r.handoff);
+        return;
+      }
+      toast({
+        title: r.status === 'failed' ? S.handoff.failedTitle : S.handoff.timeoutTitle,
+        description: S.handoff.retry,
+        tone: 'warning',
+        duration: 10_000,
+      });
     })();
   }, [confirm, toast]);
-  return null;
+  return waiting ? (
+    <div data-testid="handoff-waiting">
+      <Notice tone="progress">{S.handoff.waiting}</Notice>
+    </div>
+  ) : null;
 }

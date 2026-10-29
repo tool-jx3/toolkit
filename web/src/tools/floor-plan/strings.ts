@@ -458,6 +458,10 @@ export const S = {
     vttCell: 'VTT 的一格（棋子方格）',
     vttCellHint: '和地圖設定的棋子方格是同一個設定。圖的邊對齊整數格，不會自動縮小。',
     vttCellOff: '1 m（不畫方格線）',
+    /* 黑色電影、監視終端的顆粒與雜訊（2026-10-29，D74） */
+    noise: '顆粒與雜訊',
+    noiseHint:
+      '開著時 PNG 檔案大很多（雜訊幾乎壓不下來，約是關掉時的 4～9 倍）。關掉時暗角、掃描線與取景框照畫；只影響匯出，編輯畫面不變。',
     vttPx: '每格 px',
     vttInfo: (cx: number, cy: number, w: number, h: number) =>
       `橫 ${cx} 格 × 縱 ${cy} 格・${w} × ${h} px`,
@@ -471,6 +475,8 @@ export const S = {
     sendFxHint: '用目前的設定畫一張圖，在新分頁的地圖演出產生器讀入（每層各一張時是這一層）。',
     sendFxFailed: '瀏覽器不能暫存這張圖，請改用「下載 PNG」，再到地圖演出產生器讀入。',
     sendFxDone: '已送到地圖演出產生器（新分頁）',
+    sendFxBlocked:
+      '圖已經送出，但瀏覽器擋住了新分頁：請自己打開地圖演出產生器，一天內打開都會問要不要讀入。',
     saved: (n: number) => (n > 1 ? `已下載 ${n} 張 PNG` : '已下載 PNG'),
     empty: '這一層沒有東西可以匯出。',
     failed: '無法產生圖片（記憶體不足？請把每格大小調小）。',

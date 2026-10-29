@@ -30,6 +30,8 @@ export interface ExportSettings {
   mode?: 'image' | 'vtt';
   /** VTT 的一格幾 px（沒有＝100） */
   vttPx?: VttPx;
+  /** 黑色電影、監視終端的顆粒與雜訊（2026-10-29；沒有＝畫，D74） */
+  noise?: boolean;
 }
 
 /** VTT 用的匯出（2026-10-29，F265） */
@@ -73,6 +75,7 @@ export function exportOptions(
     ...(vtt ? { alignCell: cell, fixedScale: !preview } : {}),
     coordGrid: p.coords ? coordGrid(p.floors, p.tokenGrid) : null,
     wear: p.wear ? { strength: p.wear, seed: p.wearSeed ?? 0 } : null,
+    noNoise: exp.noise === false,
     showSize: p.showSize,
     hideNames: p.showNames === false,
     playerView: exp.view === 'pl',
