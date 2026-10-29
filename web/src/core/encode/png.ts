@@ -5,7 +5,7 @@
  * 壓縮預設用瀏覽器內建的 CompressionStream('deflate')（輸出正好是 IDAT 要的 zlib 格式）；
  * 沒有時改用 fflate。兩者輸出都是決定性的：同樣的輸入每次得到同樣的位元組。
  */
-import { zlibSync } from 'fflate';
+import { unzlibSync, zlibSync } from 'fflate';
 import { EncodeLimitError } from './frames';
 
 export type Bytes = Uint8Array<ArrayBuffer>;
@@ -499,4 +499,150 @@ export function readPngDpi(png: Uint8Array): { x: number; y: number } | null {
     at += 12 + len;
   }
   return null;
+}
+
+/* ---------- 文字（tEXt／zTXt／iTXt）：把設定嵌進 PNG（token-maker 引入時新增） ---------- */
+
+/** 關鍵字：1～79 個 Latin-1 可列印字元、頭尾不是空白、沒有連續空白（PNG 規範） */
+export function isPngTextKeyword(keyword: string): boolean {
+  if (keyword.length < 1 || keyword.length > 79) return false;
+  if (keyword.startsWith(' ') || keyword.endsWith(' ') || keyword.includes('  ')) return false;
+  for (const ch of keyword) {
+    const c = ch.charCodeAt(0);
+    if (!((c >= 32 && c <= 126) || (c >= 161 && c <= 255))) return false;
+  }
+  return true;
+}
+
+const latin1 = (s: string): Uint8Array => Uint8Array.from(s, (ch) => ch.charCodeAt(0) & 0xff);
+const fromLatin1 = (b: Uint8Array): string => {
+  let s = '';
+  for (let i = 0; i < b.length; i++) s += String.fromCharCode(b[i]);
+  return s;
+};
+
+export interface PngTextOptions {
+  /** 以 zlib 壓縮文字（iTXt 的壓縮旗標；長的 JSON 小很多） */
+  compress?: boolean;
+}
+
+/** 一段文字 chunk 的內容 */
+export interface PngTextEntry {
+  keyword: string;
+  text: string;
+  /** chunk 的類型 */
+  type: 'tEXt' | 'zTXt' | 'iTXt';
+}
+
+/** 把每個 chunk 交給 fn（遇到 IEND 或檔尾就停）；at＝chunk 的開頭（長度欄） */
+function eachChunk(png: Uint8Array, fn: (type: string, at: number, len: number) => void): void {
+  let at = 8;
+  while (at + 12 <= png.length) {
+    const len = new DataView(png.buffer, png.byteOffset + at, 4).getUint32(0);
+    if (at + 12 + len > png.length) return;
+    const type = typeAt(png, at);
+    fn(type, at, len);
+    if (type === 'IEND') return;
+    at += 12 + len;
+  }
+}
+
+function decodeTextChunk(type: string, data: Uint8Array): PngTextEntry | null {
+  const z = data.indexOf(0);
+  if (z < 1) return null;
+  const keyword = fromLatin1(data.subarray(0, z));
+  try {
+    if (type === 'tEXt') return { type, keyword, text: fromLatin1(data.subarray(z + 1)) };
+    if (type === 'zTXt') {
+      if (data[z + 1] !== 0) return null;
+      return { type, keyword, text: fromLatin1(unzlibSync(data.subarray(z + 2))) };
+    }
+    if (type === 'iTXt') {
+      const flag = data[z + 1];
+      const method = data[z + 2];
+      let p = z + 3;
+      const lang = data.indexOf(0, p);
+      if (lang < 0) return null;
+      p = lang + 1;
+      const tk = data.indexOf(0, p);
+      if (tk < 0) return null;
+      p = tk + 1;
+      const body = data.subarray(p);
+      if (flag && method !== 0) return null;
+      const bytes = flag ? unzlibSync(body) : body;
+      return { type, keyword, text: new TextDecoder('utf-8', { fatal: true }).decode(bytes) };
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+/**
+ * 讀出 PNG 裡所有的文字 chunk（tEXt、zTXt、iTXt；依出現的順序）。壞掉的（解不開、不是 UTF-8）略過；不是 PNG 時是空陣列。
+ */
+export function readPngTexts(png: Uint8Array): PngTextEntry[] {
+  if (!isPng(png)) return [];
+  const out: PngTextEntry[] = [];
+  eachChunk(png, (type, at, len) => {
+    if (type !== 'tEXt' && type !== 'zTXt' && type !== 'iTXt') return;
+    const e = decodeTextChunk(type, png.subarray(at + 8, at + 8 + len));
+    if (e) out.push(e);
+  });
+  return out;
+}
+
+/** 讀出某個關鍵字的文字（同一個關鍵字有好幾個時取第一個）；沒有時 null */
+export function readPngText(png: Uint8Array, keyword: string): string | null {
+  return readPngTexts(png).find((e) => e.keyword === keyword)?.text ?? null;
+}
+
+/**
+ * 寫入一段文字（iTXt，UTF-8；放在 IEND 前面）：同一個關鍵字原本的 tEXt／zTXt／iTXt 都拿掉，其他 chunk 與影像資料原樣保留。
+ * 關鍵字不合規範時丟錯；不是 PNG 時原樣回傳（複本）。text 為 null 時只拿掉那個關鍵字。
+ */
+export function setPngText(
+  png: Uint8Array,
+  keyword: string,
+  text: string | null,
+  { compress = false }: PngTextOptions = {},
+): Bytes {
+  if (!isPngTextKeyword(keyword)) throw new Error(`PNG 文字的關鍵字不合規範：${keyword}`);
+  if (!isPng(png)) return png.slice() as Bytes;
+  const parts: Uint8Array[] = [png.subarray(0, 8)];
+  let ended = false;
+  eachChunk(png, (type, at, len) => {
+    const whole = png.subarray(at, at + 12 + len);
+    if (type === 'tEXt' || type === 'zTXt' || type === 'iTXt') {
+      const e = decodeTextChunk(type, png.subarray(at + 8, at + 8 + len));
+      const z = png.subarray(at + 8, at + 8 + len).indexOf(0);
+      const key = e?.keyword ?? (z > 0 ? fromLatin1(png.subarray(at + 8, at + 8 + z)) : '');
+      if (key === keyword) return;
+    }
+    if (type === 'IEND') {
+      if (text !== null) parts.push(itxtChunk(keyword, text, compress));
+      ended = true;
+    }
+    parts.push(whole);
+  });
+  if (!ended) {
+    if (text !== null) parts.push(itxtChunk(keyword, text, compress));
+    parts.push(chunk('IEND', new Uint8Array(0)));
+  }
+  return concat(parts);
+}
+
+function itxtChunk(keyword: string, text: string, compress: boolean): Bytes {
+  const body = new TextEncoder().encode(text);
+  const payload = compress ? zlibSync(body, { level: 9 }) : body;
+  const key = latin1(keyword);
+  /* 關鍵字＋0、壓縮旗標、壓縮方法 0、語言（空）＋0、翻譯的關鍵字（空）＋0、文字 */
+  const data = new Uint8Array(key.length + 5 + payload.length);
+  data.set(key, 0);
+  let p = key.length + 1;
+  data[p++] = compress ? 1 : 0;
+  data[p++] = 0;
+  p += 2;
+  data.set(payload, p);
+  return chunk('iTXt', data);
 }

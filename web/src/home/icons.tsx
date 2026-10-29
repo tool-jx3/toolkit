@@ -12,6 +12,7 @@ import {
   CircleUser,
   Clapperboard,
   ClipboardList,
+  Coins,
   Crop,
   Dices,
   Eraser,
@@ -113,6 +114,7 @@ const ICONS: Record<string, LucideIcon> = {
   'color-palette': Palette,
   'emotion-maker': Smile,
   'anime-rig': ScanFace,
+  'token-maker': Coins,
   /* G4 OBS 疊加 */
   'status-bar': Gauge,
   'chat-window': MessagesSquare,
