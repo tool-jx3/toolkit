@@ -19,11 +19,20 @@ import {
 import { CsvHeaderError, parseEventsTable } from '../model/csv';
 import { emptyReport, LIMITS, normalizeDoc, type TimelineDoc } from '../model/types';
 import { notify } from '../notify';
-import { applyImport, docNow, guard, replaceDoc, TOOL_ID, useUi } from '../store';
+import { applyImport, DATA_VERSION, docNow, guard, replaceDoc, TOOL_ID, useUi } from '../store';
 import { S } from '../strings';
+import { tryVisValues } from './visImport';
 
 let chooseImpl: (<V extends string>(o: ChoiceOptions<V>) => Promise<V | null>) | null = null;
 let confirmImpl: ((o: ConfirmOptions) => Promise<boolean>) | null = null;
+
+/** 問一個選擇（對話框還沒接上時回傳 fallback） */
+export function askChoice<V extends string>(
+  o: ChoiceOptions<V>,
+  fallback: V | null,
+): Promise<V | null> {
+  return chooseImpl ? chooseImpl(o) : Promise.resolve(fallback);
+}
 
 export function ImportBridge(): null {
   const choose = useChoice();
@@ -42,13 +51,19 @@ export function ImportBridge(): null {
 /**
  * 專案檔的 data → 資料與提醒（略過或整理掉的東西；規格 3.2）。
  * 看不懂、內容是空的（沒有任何劇本時間表的欄位）時丟錯（訊息可以直接顯示）。
+ * version 比這個版本新、時間寫法看不懂時也提醒（7.1 第 11 點）。
  */
-export function readProjectData(data: unknown): { doc: TimelineDoc; warnings: string[] } {
+export function readProjectData(
+  data: unknown,
+  version = DATA_VERSION,
+): { doc: TimelineDoc; warnings: string[] } {
   const r = emptyReport();
   const doc = normalizeDoc(data, r);
   if (!doc) throw new Error(S.badProject);
   if (r.empty) throw new Error(S.emptyProject);
   const warnings = [
+    version > DATA_VERSION ? S.projectNewer(version, DATA_VERSION) : '',
+    r.unknownMode !== null ? S.projectUnknownMode(r.unknownMode) : '',
     r.eventsUnreadable ? S.projectEventsUnreadable : '',
     r.skippedEvents ? S.projectSkippedEvents(r.skippedEvents) : '',
     r.overEvents ? S.projectOver('事件', LIMITS.events, r.overEvents) : '',
@@ -58,6 +73,8 @@ export function readProjectData(data: unknown): { doc: TimelineDoc; warnings: st
     r.overLanes ? S.projectOver('泳道', LIMITS.lanes, r.overLanes) : '',
     r.overCategories ? S.projectOver('分類', LIMITS.categories, r.overCategories) : '',
     r.lanesFlattened ? S.projectLanesFlattened(r.lanesFlattened) : '',
+    r.skippedLinks ? S.projectSkippedLinks(r.skippedLinks) : '',
+    r.overLinks ? S.projectOver('關聯線', LIMITS.links, r.overLinks) : '',
   ].filter(Boolean);
   return { doc, warnings };
 }
@@ -166,9 +183,21 @@ export async function importFiles(files: readonly File[]): Promise<void> {
   }
   const name = file.name.toLowerCase();
   if (name.endsWith('.json') || name.endsWith('.zip')) {
+    let project: ReturnType<typeof parseProjectBytes>;
     try {
-      const project = parseProjectBytes(bytes, TOOL_ID);
-      const { doc, warnings } = readProjectData(project.data);
+      project = parseProjectBytes(bytes, TOOL_ID);
+    } catch (e) {
+      /* 不是本工具的專案檔：也許是 vis-timeline 的資料（一起拖進來的 JSON 都算：items、groups 分開的檔案） */
+      if (name.endsWith('.json') && (await tryVisFiles(files))) return;
+      notify({
+        title: S.unknownFile,
+        description: e instanceof Error ? e.message : file.name,
+        tone: 'danger',
+      });
+      return;
+    }
+    try {
+      const { doc, warnings } = readProjectData(project.data, project.version);
       if (!guard()) return;
       const ok = confirmImpl
         ? await confirmImpl({
@@ -200,6 +229,22 @@ export async function importFiles(files: readonly File[]): Promise<void> {
     return;
   }
   notify({ title: S.unknownFile, description: file.name, tone: 'danger' });
+}
+
+/** 拖進來的 JSON 檔讀成 vis-timeline 的資料；認不出來時回傳 false */
+export async function tryVisFiles(files: readonly File[]): Promise<boolean> {
+  const values: unknown[] = [];
+  for (const f of files) {
+    if (!f.name.toLowerCase().endsWith('.json')) continue;
+    const bytes = await readAsBytes(f).catch(() => null);
+    if (!bytes) continue;
+    try {
+      values.push(JSON.parse(decodeText(bytes).text));
+    } catch {
+      /* 壞掉的 JSON：略過 */
+    }
+  }
+  return tryVisValues(values);
 }
 
 /** 貼上表格的對話框 */

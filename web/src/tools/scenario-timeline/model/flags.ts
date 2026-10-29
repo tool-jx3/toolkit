@@ -43,7 +43,7 @@ export function collectFlags(
 ): Flag[] {
   const out: Flag[] = [];
   for (const m of vdoc.markers) {
-    const t = readTime(vdoc.mode, m.time, vdoc.era);
+    const t = readTime(vdoc.mode, m.time, vdoc);
     if (!t) continue;
     out.push({
       id: m.id,

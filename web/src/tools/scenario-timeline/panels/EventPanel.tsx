@@ -1,5 +1,5 @@
 /**
- * 「事件」分頁（規格 1.2、F83）：範例的提示、選取的事件的欄位、沒有選取時的說明。
+ * 「事件」分頁（規格 1.2、F83、F90、F93）：範例的提示、選取的事件的欄位與關聯線、多選時一起改的欄位、沒有選取時的說明。
  * PL 檢視時欄位停用（上方一行「切回 GM 檢視才能編輯」），不顯示 GM 筆記；泳道、分類的選項與地點、角色的建議詞
  * 只用 PL 看得到的資料。
  */
@@ -21,7 +21,7 @@ import {
   Toggle,
   useConfirm,
 } from '@/ui';
-import { afterUnit, canonical, readTime } from '../model/time';
+import { afterUnit, canonical, type EraArg, readTime } from '../model/time';
 import {
   type EventKind,
   eventColor,
@@ -47,6 +47,8 @@ import {
 import { S } from '../strings';
 import { addEventNow } from '../view/actions';
 import { useVisibleDoc } from '../view/shared';
+import { LinksSection } from './LinksSection';
+import { MultiEditor } from './MultiEditor';
 import { TimeField } from './TimeField';
 
 const MAIN = '__main';
@@ -113,18 +115,29 @@ export function EventPanel() {
   const vdoc = useVisibleDoc();
   const pl = vdoc.audience === 'pl';
   const selectedId = useUi((s) => s.selectedId);
+  const selectedIds = useUi((s) => s.selectedIds);
   const doc = useDoc((s) => s.data);
   const ev = selectedId ? doc.events.find((e) => e.id === selectedId) : undefined;
   const visible = ev && vdoc.events.some((e) => e.id === ev.id);
+  /* 多選：PL 檢視只算 PL 看得到的 */
+  const many = useMemo(() => {
+    if (selectedIds.length < 2) return null;
+    const shown = new Set((pl ? vdoc.events : doc.events).map((e) => e.id));
+    const ids = selectedIds.filter((id) => shown.has(id));
+    return ids.length > 1 ? ids : null;
+  }, [selectedIds, pl, vdoc.events, doc.events]);
   return (
     <div className="flex flex-col gap-3" data-testid="event-panel">
       <SampleNote />
       {pl ? <PlLock /> : null}
-      {ev && visible ? (
+      {many ? (
+        <MultiEditor ids={many} vdoc={vdoc} pl={pl} />
+      ) : ev && visible ? (
         <EventEditor key={ev.id} ev={ev} pl={pl} vdoc={vdoc} />
       ) : (
         <div className="flex flex-col gap-3">
           <p className="m-0 text-sm text-muted">{S.noSelection}</p>
+          <p className="m-0 text-xs text-muted">{S.multiHelp}</p>
           <p className="m-0 text-xs text-muted" data-testid="event-count">
             {pl ? S.eventCountPl(vdoc.events.length) : S.eventCount(doc.events.length)}
           </p>
@@ -144,7 +157,7 @@ function defaultEnd(
   mode: TimelineEvent['kind'],
   ev: TimelineEvent,
   docMode: Parameters<typeof readTime>[0],
-  era: string,
+  era: EraArg,
 ): string {
   if (mode === 'point') return '';
   if (ev.end) return ev.end;
@@ -152,7 +165,7 @@ function defaultEnd(
   if (!a) return '';
   if (docMode !== 'year' && a.p === 'minute')
     return canonical(docMode, { v: a.v + 60, p: 'minute' });
-  return canonical(docMode, a);
+  return canonical(docMode, a, era);
 }
 
 function EventEditor({ ev, pl, vdoc }: { ev: TimelineEvent; pl: boolean; vdoc: VisibleDoc }) {
@@ -211,17 +224,17 @@ function EventEditor({ ev, pl, vdoc }: { ev: TimelineEvent; pl: boolean; vdoc: V
   const placesId = useId();
 
   const validateEnd = (text: string) => {
-    const a = readTime(doc.mode, ev.start, doc.era);
-    const b = readTime(doc.mode, text, doc.era);
+    const a = readTime(doc.mode, ev.start, doc);
+    const b = readTime(doc.mode, text, doc);
     if (!a || !b) return null;
-    return afterUnit(doc.mode, b) > a.v ? null : S.endAfter;
+    return afterUnit(doc.mode, b, doc) > a.v ? null : S.endAfter;
   };
   const validateStart = (text: string) => {
     if (ev.kind === 'point' || !ev.end) return null;
-    const a = readTime(doc.mode, text, doc.era);
-    const b = readTime(doc.mode, ev.end, doc.era);
+    const a = readTime(doc.mode, text, doc);
+    const b = readTime(doc.mode, ev.end, doc);
     if (!a || !b) return null;
-    return afterUnit(doc.mode, b) > a.v ? null : S.endAfter;
+    return afterUnit(doc.mode, b, doc) > a.v ? null : S.endAfter;
   };
 
   return (
@@ -249,7 +262,7 @@ function EventEditor({ ev, pl, vdoc }: { ev: TimelineEvent; pl: boolean; vdoc: V
           disabled={pl}
           onValueChange={(k) =>
             step((x) => {
-              x.end = defaultEnd(k, x, doc.mode, doc.era);
+              x.end = defaultEnd(k, x, doc.mode, doc);
               x.kind = k;
             })
           }
@@ -264,7 +277,7 @@ function EventEditor({ ev, pl, vdoc }: { ev: TimelineEvent; pl: boolean; vdoc: V
         label={S.fStart}
         value={ev.start}
         mode={doc.mode}
-        era={doc.era}
+        era={doc}
         disabled={pl}
         data-field="start"
         validate={validateStart}
@@ -279,7 +292,7 @@ function EventEditor({ ev, pl, vdoc }: { ev: TimelineEvent; pl: boolean; vdoc: V
           label={S.fEnd}
           value={ev.end}
           mode={doc.mode}
-          era={doc.era}
+          era={doc}
           disabled={pl}
           data-field="end"
           emptyError={S.endRequired}
@@ -427,6 +440,7 @@ function EventEditor({ ev, pl, vdoc }: { ev: TimelineEvent; pl: boolean; vdoc: V
           {S.deselect}
         </Button>
       </div>
+      <LinksSection id={id} vdoc={vdoc} pl={pl} />
     </div>
   );
 }

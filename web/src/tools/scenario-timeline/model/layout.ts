@@ -3,7 +3,8 @@
  * 互動的時間軸與匯出的圖共用。堆疊參考 vis-timeline 的做法（依開始排、往下放到不重疊的地方），
  * 這裡每層一樣高，所以是「放進第一個放得下的層」。純計算。
  */
-import { afterUnit, readTime, type TimeMode } from './time';
+import type { CalInfo } from './calendar';
+import { afterUnit, ctxParts, type EraArg, readTime, type TimeMode } from './time';
 import type { VisibleDoc, VisibleEvent, VisibleLane } from './visible';
 
 export const ITEM_H = 22;
@@ -24,23 +25,35 @@ export interface Span {
 }
 
 /** 解讀過的範圍（同一個事件物件、同樣的寫法只解讀一次：縮放時重新排版不用再解讀時間） */
-const spanCache = new WeakMap<object, { mode: TimeMode; era: string; span: Span | null }>();
+const spanCache = new WeakMap<
+  object,
+  { mode: TimeMode; era: string; info: CalInfo | null; span: Span | null }
+>();
 
 /** 事件在時間軸上的範圍（時間點 b＝a；期間的結束含整個單位；PL 版只到目前進度時剪掉） */
-export function eventSpan(mode: TimeMode, e: VisibleEvent, era: string): Span | null {
+export function eventSpan(
+  mode: TimeMode,
+  e: Pick<VisibleEvent, 'kind' | 'start' | 'end' | 'clipEnd'>,
+  era: EraArg,
+): Span | null {
+  const c = ctxParts(era);
   const hit = spanCache.get(e);
-  if (hit && hit.mode === mode && hit.era === era) return hit.span;
+  if (hit && hit.mode === mode && hit.era === c.era && hit.info === c.info) return hit.span;
   const span = computeSpan(mode, e, era);
-  spanCache.set(e, { mode, era, span });
+  spanCache.set(e, { mode, era: c.era, info: c.info, span });
   return span;
 }
 
-function computeSpan(mode: TimeMode, e: VisibleEvent, era: string): Span | null {
+function computeSpan(
+  mode: TimeMode,
+  e: Pick<VisibleEvent, 'kind' | 'start' | 'end' | 'clipEnd'>,
+  era: EraArg,
+): Span | null {
   const a = readTime(mode, e.start, era);
   if (!a) return null;
   if (e.kind === 'point') return { a: a.v, b: a.v };
   const end = readTime(mode, e.end, era);
-  let b = end ? afterUnit(mode, end) : a.v;
+  let b = end ? afterUnit(mode, end, era) : a.v;
   if (e.clipEnd !== undefined) b = Math.min(b, e.clipEnd);
   return { a: a.v, b: Math.max(a.v, b) };
 }
@@ -84,7 +97,17 @@ export interface BackgroundLayout {
   row: number | null;
   a: number;
   b: number;
+  /**
+   * 左上角的標題放在哪一列的哪一層（和同一列的事件一起堆疊，不會被同位置的事件蓋住；
+   * 主線的背景放在最上面那一列）。labelY＝那一層的頂端。
+   */
+  labelRow: number;
+  labelLevel: number;
+  labelY: number;
 }
+
+/** 背景的標題的寬（堆疊用；GM 小標另加） */
+export const BG_LABEL_PAD = 12;
 
 export interface TimelineLayout {
   rows: RowLayout[];
@@ -206,29 +229,33 @@ export function layoutTimeline(vdoc: VisibleDoc, o: LayoutOptions): TimelineLayo
   const spans = new Map<string, Span>();
   let origin = Number.POSITIVE_INFINITY;
   for (const e of vdoc.events) {
-    const s = eventSpan(vdoc.mode, e, vdoc.era);
+    const s = eventSpan(vdoc.mode, e, vdoc);
     if (!s) continue;
     spans.set(e.id, s);
     if (s.a < origin) origin = s.a;
   }
   if (!Number.isFinite(origin)) origin = 0;
+  const gmView = vdoc.audience === 'gm';
 
-  const perRow: { e: VisibleEvent; s: Span; label: string; labelW: number }[][] = base.map(
-    () => [],
-  );
-  const backgrounds: BackgroundLayout[] = [];
+  interface Entry {
+    e: VisibleEvent;
+    s: Span;
+    label: string;
+    labelW: number;
+    /** 背景的標題（佔一個位置，不是事件本身） */
+    bg?: { row: number | null };
+  }
+  const perRow: Entry[][] = base.map(() => []);
   for (const e of vdoc.events) {
     const s = spans.get(e.id);
     if (!s) continue;
     const key = displayRowKey(vdoc, e.laneId, rowKeys);
     if (e.kind === 'background') {
-      backgrounds.push({
-        id: e.id,
-        event: e,
-        row: key === '' ? null : (rowIndex.get(key) ?? null),
-        a: s.a,
-        b: s.b,
-      });
+      const row = key === '' ? null : (rowIndex.get(key) ?? null);
+      const r = row ?? 0;
+      if (!perRow[r]) continue;
+      const label = e.title.trim() || o.untitled;
+      perRow[r].push({ e, s, label, labelW: Math.ceil(o.measure(label)), bg: { row } });
       continue;
     }
     const r = rowIndex.get(key) ?? 0;
@@ -238,6 +265,7 @@ export function layoutTimeline(vdoc: VisibleDoc, o: LayoutOptions): TimelineLayo
   }
 
   const items: ItemLayout[] = [];
+  const backgrounds: BackgroundLayout[] = [];
   const rows: RowLayout[] = [];
   let y = 0;
   base.forEach((row, r) => {
@@ -245,12 +273,33 @@ export function layoutTimeline(vdoc: VisibleDoc, o: LayoutOptions): TimelineLayo
     const geo = list.map((it, index) => {
       const x1 = (it.s.a - origin) * o.k;
       const x2 = (it.s.b - origin) * o.k;
+      if (it.bg) {
+        /* 背景的標題：從區段的開頭起，最多到區段的結尾 */
+        const w =
+          Math.min(it.labelW + (gmView && it.e.gm ? 26 : 0), Math.max(0, x2 - x1 - 8)) +
+          BG_LABEL_PAD;
+        return { index, x1, x2, left: x1, right: x1 + w, inside: false };
+      }
       return { index, x1, x2, ...itemExtent(it.e.kind, x1, x2, it.labelW) };
     });
     const { levels, count } = stackLevels(geo);
     const height = rowHeight(count);
     rows.push({ ...row, y, height, levels: count });
     list.forEach((it, i) => {
+      const top = y + ROW_PAD + levels[i] * (ITEM_H + LEVEL_GAP);
+      if (it.bg) {
+        backgrounds.push({
+          id: it.e.id,
+          event: it.e,
+          row: it.bg.row,
+          a: it.s.a,
+          b: it.s.b,
+          labelRow: r,
+          labelLevel: levels[i],
+          labelY: top,
+        });
+        return;
+      }
       items.push({
         id: it.e.id,
         event: it.e,
@@ -263,7 +312,7 @@ export function layoutTimeline(vdoc: VisibleDoc, o: LayoutOptions): TimelineLayo
         label: it.label,
         labelW: it.labelW,
         inside: geo[i].inside,
-        y: y + ROW_PAD + levels[i] * (ITEM_H + LEVEL_GAP),
+        y: top,
       });
     });
     y += height;
@@ -276,13 +325,13 @@ export function contentRange(vdoc: VisibleDoc, extra: readonly number[] = []): S
   let a = Number.POSITIVE_INFINITY;
   let b = Number.NEGATIVE_INFINITY;
   for (const e of vdoc.events) {
-    const s = eventSpan(vdoc.mode, e, vdoc.era);
+    const s = eventSpan(vdoc.mode, e, vdoc);
     if (!s) continue;
     a = Math.min(a, s.a);
     b = Math.max(b, s.b);
   }
   for (const m of vdoc.markers) {
-    const t = readTime(vdoc.mode, m.time, vdoc.era);
+    const t = readTime(vdoc.mode, m.time, vdoc);
     if (!t) continue;
     a = Math.min(a, t.v);
     b = Math.max(b, t.v);
@@ -297,11 +346,11 @@ export function contentRange(vdoc: VisibleDoc, extra: readonly number[] = []): S
 /** 範圍 [a, b] 裡有沒有看得到的東西：和範圍重疊的事件、範圍裡的標記與 extra（目前進度） */
 export function hasContentIn(vdoc: VisibleDoc, span: Span, extra: readonly number[] = []): boolean {
   for (const e of vdoc.events) {
-    const s = eventSpan(vdoc.mode, e, vdoc.era);
+    const s = eventSpan(vdoc.mode, e, vdoc);
     if (s && s.a <= span.b && s.b >= span.a) return true;
   }
   for (const m of vdoc.markers) {
-    const t = readTime(vdoc.mode, m.time, vdoc.era);
+    const t = readTime(vdoc.mode, m.time, vdoc);
     if (t && t.v >= span.a && t.v <= span.b) return true;
   }
   return extra.some((v) => v >= span.a && v <= span.b);

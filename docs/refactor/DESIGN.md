@@ -701,6 +701,11 @@ loading-maker 預設（透明）、不透明背景＋預設的結尾動作（最
   顯示與換算（`model/time.ts`）、時間軸刻度的階梯與吸附單位（`model/axis.ts`，參考 vis-timeline 的 TimeStep）、泳道的列與堆疊（`model/layout.ts`：一層巢狀、收合、
   第一個放得下的層）、畫面範圍的縮放與全覽（`model/window.ts`）、標記列的旗子（`model/flags.ts`）、GM／PL 版（`model/visible.ts`）、年表的文字與列印（`model/chronicle.ts`）——
   別的工具要時間軸（例如跑團紀錄的年表、角色的生平）時可以把 time／axis／layout／window 搬進 `core/`。
+  第二批（2026-10-29）沒有改共用層，新的都在工具目錄：架空曆的月份與日（`model/calendar.ts`：每年相同的月份、位置＝年＋年裡的第幾天÷一年的天數；
+  改月份時換算存檔的時間在 `calendarEdit.ts`）、搜尋與篩選（`filter.ts`）、事件之間的關聯線（`links.ts`：資料整理與三次貝茲曲線的幾何，互動的時間軸與匯出共用）、
+  多選的框選／範圍／一起移動（`selection.ts`）、讀入 vis-timeline 的 items／groups（`vis.ts`：HTML 轉純文字 `htmlToText`、時間 `visTime`）。
+  時間的函式多收一個「曆名與架空曆」（`EraArg`：字串＝只有曆名，物件 `{ era, calendar }`＝曆名＋月份；專案資料本身就符合），沒給月份時和第一批完全相同。
+  別的工具要「從 HTML 取純文字」時可以把 `htmlToText` 搬進 `core/`（不經過 DOM，script／style 整段拿掉、實體字元換回來）。
 
 - G10 floor-plan（室內平面圖產生器，2026-10-29 參考 KIIN マップ制作スタジオ）：交接用的 `@/core/handoff` 已補進共用層（見 4.2）。沒有共用的：L 形房間的幾何（外框＋缺角、格子、包含、多邊形；`web/src/tools/floor-plan/model/shape.ts`）、連接兩個房間（共用的牆放門、直的或 L 形的走廊；`connect.ts`）、整理家具（`arrange.ts`）、家具跟著房間縮放（`follow.ts`）、桌上的小物（`tabletop.ts`）、格局的規則（門的開門範圍與門前、窗前；`layoutRules.ts`，範本的測試輔助也用它）、座標標示（`coords.ts`：欄名 A～Z、AA… 的 `columnName`）、樣式的畫面效果與紙的污漬與摺痕（`draw/effects.ts`：雜訊圖、掃描線、暗角、水漬、摺痕）——別的地圖類工具（battlemap、map-fx）要座標標示、紙的質感時可以把 `columnName`、`drawWear`、`drawThemeEffect` 搬進 `core/`。
 

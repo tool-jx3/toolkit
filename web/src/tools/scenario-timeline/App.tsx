@@ -1,12 +1,14 @@
 /**
- * 劇本時間表：把劇本的事件、NPC 的行動排在可以縮放的時間軸上（日期時間、第 N 天、架空年），
- * 依角色、地點分泳道；年表檢視可以列印、複製成文字；PL 檢視拿掉 GM 專用的東西；匯出 PNG、SVG、文字、CSV。
+ * 劇本時間表：把劇本的事件、NPC 的行動排在可以縮放的時間軸上（日期時間、第 N 天、架空年〔可以加架空曆的月日〕），
+ * 依角色、地點分泳道；多選、搜尋與篩選、事件之間的關聯線；年表檢視可以列印、複製成文字；PL 檢視拿掉 GM 專用的東西；
+ * 匯出 PNG、SVG、文字、CSV；讀入 CSV、vis-timeline 的資料。
  * 規格：docs/refactor/specs/scenario-timeline.md。
  *
  * 版面：共用外框；設定欄四個分頁（事件、泳道、專案、匯出）；預覽欄是工具列＋時間軸或年表。
  */
 import { Redo2, Undo2 } from 'lucide-react';
 import { useEffect } from 'react';
+import { decodeText } from '@/core/files';
 import { useSaveError, useSaveStatus, useUndoRedo } from '@/core/storage';
 import {
   IconButton,
@@ -28,9 +30,10 @@ import { ExportTab } from './panels/ExportTab';
 import { ImportBridge, importFiles, PasteDialog, readProjectData } from './panels/importer';
 import { LanesPanel } from './panels/LanesPanel';
 import { ProjectPanel } from './panels/ProjectPanel';
+import { tryVisValues, VisDialog } from './panels/visImport';
 import {
   DATA_VERSION,
-  deleteEvent,
+  deleteEvents,
   docNow,
   loadExample,
   prefsNow,
@@ -39,16 +42,19 @@ import {
   resetBlank,
   type SettingsTab,
   select,
+  selectMany,
   setPrefs,
   TOOL_ID,
+  type UiState,
   undo,
   useDoc,
   usePrefs,
   useUi,
 } from './store';
 import { S } from './strings';
-import { addEventNow } from './view/actions';
+import { addEventNow, visibleSelectableIds } from './view/actions';
 import { Chronicle } from './view/Chronicle';
+import { FilterBar } from './view/FilterBar';
 import { Timeline, timelineApi } from './view/Timeline';
 import { Toolbar, useEffectiveView } from './view/Toolbar';
 
@@ -60,6 +66,7 @@ declare global {
     __scenarioTimeline?: {
       doc: () => TimelineDoc;
       win: () => { start: number; end: number } | null;
+      ui: () => UiState;
     };
   }
 }
@@ -67,6 +74,7 @@ declare global {
 window.__scenarioTimeline = {
   doc: () => docNow(),
   win: () => useUi.getState().win,
+  ui: () => useUi.getState(),
 };
 
 function Usage() {
@@ -101,6 +109,7 @@ function Preview() {
   return (
     <div className="flex min-w-0 flex-col gap-2">
       <Toolbar />
+      <FilterBar />
       {view === 'timeline' ? <Timeline /> : <Chronicle />}
     </div>
   );
@@ -125,10 +134,20 @@ function Project() {
         confirmLabel: S.openConfirmLabel,
       }}
       openedMessage={S.opened}
-      onLoad={(data) => {
-        const { doc, warnings } = readProjectData(data);
+      onLoad={(data, project) => {
+        const { doc, warnings } = readProjectData(data, project.version);
         replaceDoc({ ...doc, sample: false });
         return { warnings };
+      }}
+      onForeignFile={async (_file, bytes) => {
+        /* 不是本工具的專案檔：vis-timeline 的資料（F94）時讀入，其他的照常顯示錯誤 */
+        let value: unknown;
+        try {
+          value = JSON.parse(decodeText(bytes).text);
+        } catch {
+          return false;
+        }
+        return tryVisValues([value]);
       }}
       onReset={() => resetBlank()}
       resetText={{ title: S.resetTitle, description: S.resetDesc }}
@@ -166,17 +185,21 @@ function Glue() {
   useEffect(() => {
     if (saveError) notify({ title: S.saveFailed, tone: 'warning', duration: 8000 });
   }, [saveError]);
-  /* 復原之後選取的事件不見了：取消選取 */
+  /* 復原之後選取的事件不見了：從選取拿掉 */
   const events = useDoc((s) => s.data.events);
-  const selectedId = useUi((s) => s.selectedId);
+  const selectedIds = useUi((s) => s.selectedIds);
   useEffect(() => {
-    if (selectedId && !events.some((e) => e.id === selectedId)) select(null);
-  }, [events, selectedId]);
+    if (!selectedIds.length) return;
+    const ids = new Set(events.map((e) => e.id));
+    const rest = selectedIds.filter((id) => ids.has(id));
+    if (rest.length !== selectedIds.length) selectMany(rest, useUi.getState().selectedId);
+  }, [events, selectedIds]);
   return (
     <>
       <NotifyBridge />
       <ImportBridge />
       <PasteDialog />
+      <VisDialog />
       <WindowDrop
         accept=".json,.zip,.csv,.tsv,.txt,application/json,application/zip,text/csv,text/plain,text/tab-separated-values"
         label={S.dropLabel}
@@ -201,11 +224,17 @@ const SHORTCUTS: Shortcut[] = [
     label: S.keyDelete,
     group: S.groupEdit,
     handler: () => {
-      const id = useUi.getState().selectedId;
-      if (id) deleteEvent(id);
+      const ids = useUi.getState().selectedIds;
+      if (ids.length) deleteEvents(ids);
     },
   },
   { keys: 'escape', label: S.keyEscape, group: S.groupEdit, handler: () => select(null) },
+  {
+    keys: 'mod+a',
+    label: S.keySelectAll,
+    group: S.groupEdit,
+    handler: () => selectMany(visibleSelectableIds()),
+  },
   { keys: 'mod+z', label: S.undo, group: S.groupEdit, handler: undo },
   { keys: ['shift+mod+z', 'mod+y'], label: S.redo, group: S.groupEdit, handler: redo },
   {
@@ -243,6 +272,8 @@ const SHORTCUTS: Shortcut[] = [
   { keys: ['arrowup', 'arrowdown'], label: S.keyLane, group: S.groupItem },
   { keys: 'enter', label: S.keyEnter, group: S.groupItem },
   { keys: 'alt', label: S.keyAlt, group: S.groupItem },
+  { keys: 'mod', label: S.keyCtrlClick, group: S.groupSelect },
+  { keys: 'shift', label: S.keyShiftClick, group: S.groupSelect },
 ];
 
 export function App() {

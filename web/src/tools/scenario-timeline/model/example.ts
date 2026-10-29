@@ -2,6 +2,7 @@
  * 範例專案（規格 F83）：本站自己寫的 CoC 風格短劇本（1925 年、新英格蘭的虛構小鎮「黑水灣」），
  * 人名、地名、事件全部原創。示範三種事件、巢狀泳道、GM 專用的泳道與事件、背景、標記、目前進度。
  */
+import { emptyCalendar } from './calendar';
 import { newEvent, type TimelineDoc, type TimelineEvent } from './types';
 
 export function exampleDoc(): TimelineDoc {
@@ -157,5 +158,7 @@ export function exampleDoc(): TimelineDoc {
       { id: 'mk-tide', label: '退潮', time: '1925-03-14 03:00', color: '#2b9fc2', gm: false },
     ],
     progress: { on: true, time: '1925-03-12 20:00', plOnly: false },
+    calendar: emptyCalendar(),
+    links: [],
   };
 }

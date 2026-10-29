@@ -1,11 +1,29 @@
 /**
- * 時間的寫法（規格 F01～F04、3.1）：三種寫法的解讀、標準寫法、顯示與換算。純計算，不依賴 DOM。
+ * 時間的寫法（規格 F01～F04、F92、3.1）：三種寫法的解讀、標準寫法、顯示與換算。純計算，不依賴 DOM。
  *
  * - 日期時間（date）：西元 1～9999 年，可以只寫到年、月、日或分；時間軸上以「分鐘」為單位
  *   （1970-01-01 00:00 為 0，不分時區；星期與加減一律用公曆的日序，不經過 Date）。
  * - 第 N 天（day）：第 N 天 HH:MM ＝ (N − 1) × 1440 ＋ 時 × 60 ＋ 分（分鐘）。
- * - 架空年（year）：整數的年；時間軸上以「年」為單位。
+ * - 架空年（year）：整數的年；時間軸上以「年」為單位。有自訂的月份（架空曆，F92）時可以再寫到月、日：
+ *   位置＝年＋（年裡的第幾天）÷ 一年的天數（calendar.ts）。
+ *
+ * 架空年的函式多收一個「曆名與架空曆」（EraArg）：字串＝只有曆名（第一批的寫法，沒有月份）；
+ * 物件 { era, calendar }（直接給專案資料也可以）＝曆名＋月份。
  */
+import {
+  type Calendar,
+  type CalInfo,
+  calInfo,
+  calParts,
+  calValue,
+  dayOfValue,
+  matchMonthName,
+  monthName,
+  monthStartValue,
+  normName,
+  valueOfDay,
+  weekdayOfDay,
+} from './calendar';
 
 export type TimeMode = 'date' | 'day' | 'year';
 export type Precision = 'year' | 'month' | 'day' | 'minute';
@@ -26,6 +44,22 @@ export const YEAR_MAX = 999999;
 export const ERA_MAX = 20;
 
 const WEEKDAYS = ['日', '一', '二', '三', '四', '五', '六'];
+
+/* ---------- 曆名與架空曆 ---------- */
+
+/** 時間的脈絡：曆名（架空年）與架空曆的月份；專案資料本身就符合 */
+export interface TimeCtx {
+  era: string;
+  calendar?: Calendar | null;
+}
+/** 字串＝只有曆名 */
+export type EraArg = string | TimeCtx;
+
+/** 曆名與月份的推算資料（沒有月份時 info 是 null） */
+export function ctxParts(a: EraArg | undefined): { era: string; info: CalInfo | null } {
+  if (a === undefined || typeof a === 'string') return { era: a ?? '', info: null };
+  return { era: a.era ?? '', info: calInfo(a.calendar) };
+}
 
 /* ---------- 公曆的日序（Howard Hinnant 的 days_from_civil／civil_from_days；0 ＝ 1970-01-01） ---------- */
 
@@ -198,10 +232,11 @@ function parseDay(raw: string): ParseResult {
   return { ok: true, tv: { v: base + clock.hh * 60 + clock.mm, p: 'minute' } };
 }
 
-function parseYear(raw: string, era: string): ParseResult {
+function parseYear(raw: string, era: string, info: CalInfo | null): ParseResult {
   let s = raw;
   const e = normalizeInput(era);
   if (e && s.startsWith(e)) s = s.slice(e.length);
+  if (info) return parseCalendar(raw, s, info);
   s = s.replace(/年$/, '').replace(/\s+/g, '').trim();
   if (!s) return fail('請輸入年份');
   if (!/^-?\d{1,7}$/.test(s)) return fail(`看不懂這個年份：「${raw}」（例：302）`);
@@ -210,16 +245,85 @@ function parseYear(raw: string, era: string): ParseResult {
   return { ok: true, tv: { v: y === 0 ? 0 : y, p: 'year' } };
 }
 
+/**
+ * 架空曆（有月份）：302、302年、302-3、302年3月、302年霜月、302-3-5、302年霜月5日、302 霜月 5；
+ * 後面的星期「（月曜）」忽略（和日期不合時照日期，通知已更正）。
+ */
+function parseCalendar(raw: string, text: string, info: CalInfo): ParseResult {
+  let s = text;
+  /* 星期：括號裡的字 */
+  let wd: string | null = null;
+  s = s.replace(/[(（]\s*([^()（）]+?)\s*[)）]/g, (_m, w: string) => {
+    wd = w;
+    return ' ';
+  });
+  s = s.replace(/\s+/g, ' ').trim();
+  if (!s) return fail('請輸入年份');
+  const bad = () => fail(`看不懂這個時間：「${raw}」（例：302 年 ${monthName(info, 0)} 5 日）`);
+  const ym = /^(-?\d{1,7})\s*(?:年|[-/.])?\s*/.exec(s);
+  if (!ym) return bad();
+  const y = Number(ym[1]);
+  if (y < YEAR_MIN || y > YEAR_MAX) return fail(`年份要在 ${YEAR_MIN}～${YEAR_MAX} 之間`);
+  const yy = y === 0 ? 0 : y;
+  const rest = s.slice(ym[0].length);
+  if (!rest) {
+    if (/[-/.]$/.test(ym[0].trim())) return bad();
+    return { ok: true, tv: { v: yy, p: 'year' } };
+  }
+  /* 月：名稱或數字（名稱可能以數字開頭，例如「1 月」：兩種都試，第一個能讀完的） */
+  const tries: { mi: number; tail: string }[] = [];
+  const named = matchMonthName(info, rest);
+  if (named) tries.push({ mi: named.index, tail: named.rest.replace(/^\s*[-/.]?\s*/, '') });
+  const num = /^(\d{1,3})\s*(?:月|[-/.])?\s*/.exec(rest);
+  if (num) {
+    const m = Number(num[1]);
+    if (m < 1 || m > info.M) {
+      if (!tries.length) return fail(`月份要在 1～${info.M} 之間`);
+    } else tries.push({ mi: m - 1, tail: rest.slice(num[0].length) });
+  }
+  let firstError: ParseResult | null = null;
+  for (const t of tries) {
+    const r = finishCalendar(info, yy, t.mi, t.tail.trim(), wd);
+    if (r.ok) return r;
+    firstError ??= r;
+  }
+  return firstError ?? bad();
+}
+
+/** 架空曆：月份已經認出來，剩下的是日（沒有＝只到月） */
+function finishCalendar(
+  info: CalInfo,
+  y: number,
+  mi: number,
+  tail: string,
+  wd: string | null,
+): ParseResult {
+  if (!tail) return { ok: true, tv: { v: calValue(info, y, mi + 1), p: 'month' } };
+  const dm = /^(\d{1,3})\s*[日號]?$/.exec(tail);
+  if (!dm) return fail(`看不懂這個日子：「${tail}」`);
+  const d = Number(dm[1]);
+  const dim = info.months[mi].days;
+  if (d < 1 || d > dim) return fail(`${monthName(info, mi)}只有 ${dim} 天`);
+  const v = calValue(info, y, mi + 1, d);
+  const r: ParseResult = { ok: true, tv: { v, p: 'day' } };
+  if (wd && info.cal.weekdays.length >= 2) {
+    const real = weekdayOfDay(info, dayOfValue(info, v));
+    if (normName(real) !== normName(wd)) return { ...r, weekdayFixed: true };
+  }
+  return r;
+}
+
 /** 解讀使用者輸入的時間（寬鬆；規格 3.1） */
-export function parseTime(mode: TimeMode, text: string, era = ''): ParseResult {
+export function parseTime(mode: TimeMode, text: string, era: EraArg = ''): ParseResult {
   const s = normalizeInput(text).replace(/：/g, ':');
   if (mode === 'date') return parseDate(s);
   if (mode === 'day') return parseDay(s);
-  return parseYear(s, era);
+  const c = ctxParts(era);
+  return parseYear(s, c.era, c.info);
 }
 
 /** 存檔的字串 → Tv（看不懂時 null） */
-export function readTime(mode: TimeMode, stored: string, era = ''): Tv | null {
+export function readTime(mode: TimeMode, stored: string, era: EraArg = ''): Tv | null {
   if (!stored) return null;
   const r = parseTime(mode, stored, era);
   return r.ok ? r.tv : null;
@@ -239,9 +343,14 @@ export const clockText = (minutes: number) => {
 /** 第 N 天的 N */
 export const dayNumber = (v: number) => Math.floor(v / MINUTES_PER_DAY) + 1;
 
-/** 標準寫法（存檔、輸入欄、CSV） */
-export function canonical(mode: TimeMode, tv: Tv): string {
-  if (mode === 'year') return String(Math.round(tv.v));
+/** 標準寫法（存檔、輸入欄、CSV）；架空曆的月、日寫成 302-03、302-03-05 */
+export function canonical(mode: TimeMode, tv: Tv, era?: EraArg): string {
+  if (mode === 'year') {
+    const info = ctxParts(era).info;
+    if (!info || (tv.p !== 'month' && tv.p !== 'day')) return String(Math.round(tv.v));
+    const c = calParts(info, tv.v);
+    return tv.p === 'month' ? `${c.y}-${p2(c.m)}` : `${c.y}-${p2(c.m)}-${p2(c.d)}`;
+  }
   if (mode === 'day') {
     const n = dayNumber(tv.v);
     return tv.p === 'minute' ? `第 ${n} 天 ${clockText(tv.v)}` : `第 ${n} 天`;
@@ -265,9 +374,22 @@ export function dateLabel(v: number): string {
   return `${d.y}年${d.m}月${d.d}日（${weekdayName(d.days)}）`;
 }
 
+/** 架空曆的日期：王國曆 302 年 霜月 5 日（月曜）；只到月：王國曆 302 年 霜月 */
+export function calLabel(info: CalInfo, tv: Tv, era: string): string {
+  const c = calParts(info, tv.v);
+  const head = `${yearLabel(c.y, era)} ${monthName(info, c.m - 1)}`;
+  if (tv.p === 'month') return head;
+  const wd = weekdayOfDay(info, c.T);
+  return `${head} ${c.d} 日${wd ? `（${wd}）` : ''}`;
+}
+
 /** 顯示用的完整寫法（年表、提示） */
-export function formatLong(mode: TimeMode, tv: Tv, era = ''): string {
-  if (mode === 'year') return yearLabel(tv.v, era);
+export function formatLong(mode: TimeMode, tv: Tv, era: EraArg = ''): string {
+  if (mode === 'year') {
+    const c = ctxParts(era);
+    if (c.info && (tv.p === 'month' || tv.p === 'day')) return calLabel(c.info, tv, c.era);
+    return yearLabel(tv.v, c.era);
+  }
   if (mode === 'day') {
     const n = dayNumber(tv.v);
     return tv.p === 'minute' ? `第 ${n} 天 ${clockText(tv.v)}` : `第 ${n} 天`;
@@ -282,8 +404,16 @@ export function formatLong(mode: TimeMode, tv: Tv, era = ''): string {
 /* ---------- 期間 ---------- */
 
 /** 寫法的單位長度之後（結束包含整個單位：只到日的結束是隔天 0:00） */
-export function afterUnit(mode: TimeMode, tv: Tv): number {
-  if (mode === 'year') return tv.v + 1;
+export function afterUnit(mode: TimeMode, tv: Tv, era?: EraArg): number {
+  if (mode === 'year') {
+    const info = ctxParts(era).info;
+    if (info && tv.p === 'day') return valueOfDay(info, dayOfValue(info, tv.v) + 1);
+    if (info && tv.p === 'month') {
+      const c = calParts(info, tv.v);
+      return monthStartValue(info, c.y, c.m);
+    }
+    return tv.v + 1;
+  }
   if (tv.p === 'minute') return tv.v;
   if (tv.p === 'day') return tv.v + MINUTES_PER_DAY;
   if (tv.p === 'month') return addMonths(tv.v, 1);
@@ -292,8 +422,21 @@ export function afterUnit(mode: TimeMode, tv: Tv): number {
 }
 
 /** 期間的「不含」結束 → 存檔的結束（只到日：減一天；只到月：前一個月；只到年：前一年） */
-export function endFromExclusive(mode: TimeMode, exclusive: number, p: Precision): Tv {
-  if (mode === 'year') return { v: exclusive - 1, p: 'year' };
+export function endFromExclusive(
+  mode: TimeMode,
+  exclusive: number,
+  p: Precision,
+  era?: EraArg,
+): Tv {
+  if (mode === 'year') {
+    const info = ctxParts(era).info;
+    if (info && p === 'day') return { v: valueOfDay(info, dayOfValue(info, exclusive) - 1), p };
+    if (info && p === 'month') {
+      const c = calParts(info, exclusive);
+      return { v: monthStartValue(info, c.y, c.m - 2), p };
+    }
+    return { v: exclusive - 1, p: 'year' };
+  }
   if (p === 'minute') return { v: exclusive, p };
   if (p === 'day') return { v: exclusive - MINUTES_PER_DAY, p };
   if (p === 'month') return { v: addMonths(exclusive, -1), p };
@@ -302,25 +445,37 @@ export function endFromExclusive(mode: TimeMode, exclusive: number, p: Precision
 
 /* ---------- 吸附（規格 3.5） ---------- */
 
+/** 吸附單位；day 是架空曆的日（日期時間的日寫成 1440 分） */
 export type SnapUnit =
   | { kind: 'min'; n: number }
+  | { kind: 'day'; n: number }
   | { kind: 'month'; n: number }
   | { kind: 'year'; n: number };
 
-/** 單位的大約長度（比較用；架空年以年計） */
-export function unitSize(mode: TimeMode, u: SnapUnit): number {
+/** 單位的大約長度（比較用；架空年以年計，架空曆的月、日照月份數與一年的天數） */
+export function unitSize(mode: TimeMode, u: SnapUnit, era?: EraArg): number {
+  if (mode === 'year') {
+    if (u.kind === 'year' || u.kind === 'min') return u.n;
+    const info = ctxParts(era).info;
+    return u.kind === 'month' ? u.n / (info?.M ?? 12) : u.n / (info?.D ?? 365);
+  }
   if (u.kind === 'min') return u.n;
+  if (u.kind === 'day') return u.n * MINUTES_PER_DAY;
   if (u.kind === 'month') return u.n * 43830;
-  return mode === 'year' ? u.n : u.n * 525960;
+  return u.n * 525960;
 }
 
-export function coarser(mode: TimeMode, a: SnapUnit, b: SnapUnit): SnapUnit {
-  return unitSize(mode, a) >= unitSize(mode, b) ? a : b;
+export function coarser(mode: TimeMode, a: SnapUnit, b: SnapUnit, era?: EraArg): SnapUnit {
+  return unitSize(mode, a, era) >= unitSize(mode, b, era) ? a : b;
 }
 
 /** 寫法本身的單位（只到日的事件一次 1 日…） */
 export function precisionUnit(mode: TimeMode, p: Precision): SnapUnit {
-  if (mode === 'year') return { kind: 'year', n: 1 };
+  if (mode === 'year') {
+    if (p === 'day') return { kind: 'day', n: 1 };
+    if (p === 'month') return { kind: 'month', n: 1 };
+    return { kind: 'year', n: 1 };
+  }
   if (p === 'minute') return { kind: 'min', n: 1 };
   if (p === 'day') return { kind: 'min', n: MINUTES_PER_DAY };
   if (p === 'month') return { kind: 'month', n: 1 };
@@ -328,7 +483,21 @@ export function precisionUnit(mode: TimeMode, p: Precision): SnapUnit {
 }
 
 /** 對齊到最近的單位 */
-export function snapValue(mode: TimeMode, v: number, u: SnapUnit): number {
+export function snapValue(mode: TimeMode, v: number, u: SnapUnit, era?: EraArg): number {
+  if (mode === 'year' && (u.kind === 'day' || u.kind === 'month')) {
+    const info = ctxParts(era).info;
+    if (info && u.kind === 'day') {
+      const n = Math.max(1, u.n);
+      return valueOfDay(info, Math.round((v * info.D) / n) * n);
+    }
+    if (info) {
+      const c = calParts(info, v);
+      const a = monthStartValue(info, c.y, c.m - 1);
+      const b = monthStartValue(info, c.y, c.m);
+      return v - a < b - v ? a : b;
+    }
+    return Math.round(v);
+  }
   if (u.kind === 'min' || mode === 'year') {
     const n = Math.max(1, u.n);
     return Math.round(v / n) * n;
@@ -345,9 +514,9 @@ export function snapValue(mode: TimeMode, v: number, u: SnapUnit): number {
 }
 
 /** 吸附一個時間（照事件的寫法：寫法比單位粗時用寫法的單位，寫法不變） */
-export function snapTv(mode: TimeMode, v: number, p: Precision, unit: SnapUnit): Tv {
-  const u = coarser(mode, unit, precisionUnit(mode, p));
-  return { v: snapValue(mode, v, u), p };
+export function snapTv(mode: TimeMode, v: number, p: Precision, unit: SnapUnit, era?: EraArg): Tv {
+  const u = coarser(mode, unit, precisionUnit(mode, p), era);
+  return { v: snapValue(mode, v, u, era), p };
 }
 
 /** 夾在寫法允許的範圍內 */
@@ -362,7 +531,8 @@ export function clampValue(mode: TimeMode, v: number): number {
 export function toDateTv(from: TimeMode, tv: Tv, dayOne: number): Tv | null {
   if (from === 'date') return tv;
   if (from === 'day') return { v: tv.v + dayOne, p: tv.p };
-  const y = Math.round(tv.v);
+  /* 架空年（含架空曆的月日）只取年：架空曆的月日和公曆沒有對應（規格 F92、D27） */
+  const y = Math.floor(tv.v + 1e-9);
   if (y < DATE_YEAR_MIN || y > DATE_YEAR_MAX) return null;
   return { v: dateValue(y), p: 'year' };
 }
@@ -392,11 +562,11 @@ export function convertTime(
   from: TimeMode,
   to: TimeMode,
   stored: string,
-  { era, dayOne, role = 'start' }: { era: string; dayOne: number; role?: TimeRole },
+  { era, dayOne, role = 'start' }: { era: EraArg; dayOne: number; role?: TimeRole },
 ): string | null {
   const tv = readTime(from, stored, era);
   if (!tv) return null;
-  if (from === to) return canonical(to, tv);
+  if (from === to) return canonical(to, tv, era);
   let mid = toDateTv(from, tv, dayOne);
   if (!mid) return null;
   if (role === 'end' && to === 'day' && (mid.p === 'month' || mid.p === 'year'))
@@ -409,12 +579,19 @@ export function convertTime(
  * 換寫法會不會失去精度：日期→架空年（月、日、時刻變成年）、日期的月／年→第 N 天（變成某一天）、
  * 第 N 天→架空年、架空年→第 N 天。日期↔第 N 天的日、時刻與架空年→日期（年）不會。
  */
-export function convertLoses(from: TimeMode, to: TimeMode, stored: string, era = ''): boolean {
+export function convertLoses(
+  from: TimeMode,
+  to: TimeMode,
+  stored: string,
+  era: EraArg = '',
+): boolean {
   if (from === to) return false;
   const tv = readTime(from, stored, era);
   if (!tv) return false;
   if (from === 'date') return to === 'year' ? tv.p !== 'year' : tv.p === 'month' || tv.p === 'year';
   if (from === 'day') return to === 'year';
+  /* 架空曆的月、日換成別的寫法只留年 */
+  if (tv.p === 'month' || tv.p === 'day') return true;
   return to === 'day';
 }
 

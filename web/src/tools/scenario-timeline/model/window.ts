@@ -1,9 +1,10 @@
 /**
  * 畫面範圍（規格 F30～F32、3.3）：縮放、平移、全覽。純計算。
  * 範圍 { start, end }：時間軸左右兩邊的時間（分鐘或年）。
+ * ctx（曆名與架空曆）：架空年有月份時可以放大到看得到日（最短 3 日）。
  */
 import { contentRange, eventSpan, LABEL_GAP, POINT_R, type Span } from './layout';
-import { MINUTES_PER_DAY, type TimeMode, valueBounds } from './time';
+import { ctxParts, type EraArg, MINUTES_PER_DAY, type TimeMode, valueBounds } from './time';
 import { progressValue, type VisibleDoc } from './visible';
 
 export interface Win {
@@ -14,10 +15,11 @@ export interface Win {
 const YEAR_MIN = 525960;
 
 /** 畫面範圍長度的上下限 */
-export function spanLimits(mode: TimeMode): { min: number; max: number } {
+export function spanLimits(mode: TimeMode, ctx?: EraArg): { min: number; max: number } {
   if (mode === 'date') return { min: 60, max: 10000 * YEAR_MIN };
   if (mode === 'day') return { min: 60, max: 20000 * MINUTES_PER_DAY };
-  return { min: 5, max: 1000000 };
+  const info = ctxParts(ctx).info;
+  return { min: info ? 3 / info.D : 5, max: 1000000 };
 }
 
 /** 畫面可以到的範圍（架空年 ±1000000） */
@@ -33,8 +35,8 @@ export function maxSpan(mode: TimeMode): number {
 }
 
 /** 夾在上下限與允許的範圍內 */
-export function clampWindow(mode: TimeMode, w: Win): Win {
-  const lim = spanLimits(mode);
+export function clampWindow(mode: TimeMode, w: Win, ctx?: EraArg): Win {
+  const lim = spanLimits(mode, ctx);
   const { lo, hi } = viewBounds(mode);
   let span = w.end - w.start;
   if (!Number.isFinite(span) || span <= 0) span = lim.min;
@@ -47,24 +49,28 @@ export function clampWindow(mode: TimeMode, w: Win): Win {
 }
 
 /** 以 anchor 為中心縮放（f > 1 放大：範圍變短）；anchor 下的時間不動 */
-export function zoomWindow(mode: TimeMode, w: Win, f: number, anchor?: number): Win {
-  const lim = spanLimits(mode);
+export function zoomWindow(mode: TimeMode, w: Win, f: number, anchor?: number, ctx?: EraArg): Win {
+  const lim = spanLimits(mode, ctx);
   const span = w.end - w.start;
   const next = Math.min(maxSpan(mode), Math.max(lim.min, span / f));
   const at = anchor ?? (w.start + w.end) / 2;
   const ratio = span > 0 ? (at - w.start) / span : 0.5;
   const start = at - ratio * next;
-  const out = clampWindow(mode, { start, end: start + next });
+  const out = clampWindow(mode, { start, end: start + next }, ctx);
   return out;
 }
 
-export function panWindow(mode: TimeMode, w: Win, dv: number): Win {
-  return clampWindow(mode, { start: w.start + dv, end: w.end + dv });
+export function panWindow(mode: TimeMode, w: Win, dv: number, ctx?: EraArg): Win {
+  return clampWindow(mode, { start: w.start + dv, end: w.end + dv }, ctx);
 }
 
 /** 縮放到頭了嗎（縮小的上限是長度上限與寫法允許的範圍較短的那個） */
-export function zoomState(mode: TimeMode, w: Win): { canIn: boolean; canOut: boolean } {
-  const lim = spanLimits(mode);
+export function zoomState(
+  mode: TimeMode,
+  w: Win,
+  ctx?: EraArg,
+): { canIn: boolean; canOut: boolean } {
+  const lim = spanLimits(mode, ctx);
   const span = w.end - w.start;
   return { canIn: span > lim.min * 1.0001, canOut: span < maxSpan(mode) * 0.9999 };
 }
@@ -80,16 +86,23 @@ export function emptyWindow(mode: TimeMode, today: number, center?: number | nul
   return { start: 0, end: 100 };
 }
 
-/** 全覽：範圍前後各留 pad（比例）；只有一個時間點時前後各 1 天（架空年 5 年） */
-export function fitWindow(mode: TimeMode, range: Span | null, today: number, pad = 0.04): Win {
-  if (!range) return clampWindow(mode, emptyWindow(mode, today));
+/** 全覽：範圍前後各留 pad（比例）；只有一個時間點時前後各 1 天（架空年 5 年；有月份時 15 日） */
+export function fitWindow(
+  mode: TimeMode,
+  range: Span | null,
+  today: number,
+  pad = 0.04,
+  ctx?: EraArg,
+): Win {
+  if (!range) return clampWindow(mode, emptyWindow(mode, today), ctx);
+  const info = mode === 'year' ? ctxParts(ctx).info : null;
   const span = range.b - range.a;
   if (span <= 0) {
-    const half = mode === 'year' ? 5 : MINUTES_PER_DAY;
-    return clampWindow(mode, { start: range.a - half, end: range.a + half });
+    const half = info ? 15 / info.D : mode === 'year' ? 5 : MINUTES_PER_DAY;
+    return clampWindow(mode, { start: range.a - half, end: range.a + half }, ctx);
   }
-  const margin = Math.max(span * pad, mode === 'year' ? 0.5 : 30);
-  return clampWindow(mode, { start: range.a - margin, end: range.b + margin });
+  const margin = Math.max(span * pad, info ? 0.5 / info.D : mode === 'year' ? 0.5 : 30);
+  return clampWindow(mode, { start: range.a - margin, end: range.b + margin }, ctx);
 }
 
 /**
@@ -105,10 +118,10 @@ export function fitWithLabels(
   pad = 0.04,
 ): Win {
   const p = progressValue(vdoc);
-  let w = fitWindow(vdoc.mode, contentRange(vdoc, p === null ? [] : [p]), today, pad);
+  let w = fitWindow(vdoc.mode, contentRange(vdoc, p === null ? [] : [p]), today, pad, vdoc);
   const spans = vdoc.events
     .filter((e) => e.kind !== 'background')
-    .map((e) => ({ s: eventSpan(vdoc.mode, e, vdoc.era), px: measure(e.title.trim() || '　') }));
+    .map((e) => ({ s: eventSpan(vdoc.mode, e, vdoc), px: measure(e.title.trim() || '　') }));
   const W = Math.max(1, width);
   for (let i = 0; i < 12; i++) {
     const k = W / Math.max(1e-9, w.end - w.start);
@@ -122,7 +135,7 @@ export function fitWithLabels(
       right = Math.max(right, (s.b * W - room * w.start) / (W - room));
     }
     if (right <= w.end + (w.end - w.start) * 1e-9) break;
-    const next = clampWindow(vdoc.mode, { start: w.start, end: right });
+    const next = clampWindow(vdoc.mode, { start: w.start, end: right }, vdoc);
     if (next.end - next.start <= w.end - w.start + 1e-9) break;
     w = next;
   }
@@ -130,12 +143,19 @@ export function fitWithLabels(
 }
 
 /** 讓 [a, b] 出現在畫面裡（最少的移動；比畫面大時露出開頭） */
-export function revealWindow(mode: TimeMode, w: Win, a: number, b: number, margin = 0.05): Win {
+export function revealWindow(
+  mode: TimeMode,
+  w: Win,
+  a: number,
+  b: number,
+  margin = 0.05,
+  ctx?: EraArg,
+): Win {
   const span = w.end - w.start;
   const m = span * margin;
   if (a >= w.start + m && b <= w.end - m) return w;
-  if (b - a > span - 2 * m || a < w.start + m) return panWindow(mode, w, a - m - w.start);
-  return panWindow(mode, w, b + m - w.end);
+  if (b - a > span - 2 * m || a < w.start + m) return panWindow(mode, w, a - m - w.start, ctx);
+  return panWindow(mode, w, b + m - w.end, ctx);
 }
 
 /** 滑鼠滾輪一格的倍率、觸控板捏合（每 px） */

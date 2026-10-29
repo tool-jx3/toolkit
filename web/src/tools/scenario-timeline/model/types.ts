@@ -2,7 +2,17 @@
  * 資料（規格 3.2）：自動儲存與專案檔共用。時間一律存標準寫法的字串（time.ts 的 canonical）。
  * normalizeDoc 把讀回、開啟、讀入的資料整理成可以用的樣子（認不得的拿掉、超過上限截掉、id 重複換新）。
  */
-import { afterUnit, canonical, dateValue, ERA_MAX, readTime, type TimeMode } from './time';
+import { type Calendar, emptyCalendar, normalizeCalendar } from './calendar';
+import { LINK_LIMITS, type Link, normalizeLinks } from './links';
+import {
+  afterUnit,
+  canonical,
+  dateValue,
+  ERA_MAX,
+  type EraArg,
+  readTime,
+  type TimeMode,
+} from './time';
 
 export type LaneKind = 'character' | 'npc' | 'place' | 'faction' | 'other';
 export type EventKind = 'point' | 'range' | 'background';
@@ -73,6 +83,10 @@ export interface TimelineDoc {
   showNow: boolean;
   /** 範例（「這是範例」的提示） */
   sample: boolean;
+  /** 架空曆的月份與星期（架空年才用；沒有月份＝只用年，F92） */
+  calendar: Calendar;
+  /** 事件之間的關聯線（F93） */
+  links: Link[];
 }
 
 export const LIMITS = {
@@ -88,6 +102,7 @@ export const LIMITS = {
   person: 60,
   text: 4000,
   label: 60,
+  links: LINK_LIMITS.links,
 } as const;
 
 /** 預設色（規格 3.6） */
@@ -128,6 +143,8 @@ export function blankDoc(): TimelineDoc {
     progress: { on: false, time: '', plOnly: false },
     showNow: false,
     sample: false,
+    calendar: emptyCalendar(),
+    links: [],
   };
 }
 
@@ -177,18 +194,18 @@ export function splitPeople(v: unknown): string[] {
 }
 
 /** 讀回的時間：看得懂時改成標準寫法，看不懂時 null */
-export function cleanTime(mode: TimeMode, v: unknown, era: string): string | null {
+export function cleanTime(mode: TimeMode, v: unknown, era: EraArg): string | null {
   if (typeof v !== 'string' && typeof v !== 'number') return null;
   const tv = readTime(mode, String(v), era);
-  return tv ? canonical(mode, tv) : null;
+  return tv ? canonical(mode, tv, era) : null;
 }
 
 /** 結束有沒有比開始晚（期間、背景） */
-export function validRange(mode: TimeMode, start: string, end: string, era: string): boolean {
+export function validRange(mode: TimeMode, start: string, end: string, era: EraArg): boolean {
   const a = readTime(mode, start, era);
   const b = readTime(mode, end, era);
   if (!a || !b) return false;
-  return afterUnit(mode, b) > a.v;
+  return afterUnit(mode, b, era) > a.v;
 }
 
 /** 整理時略過或改掉的東西（開專案檔時通知） */
@@ -211,6 +228,11 @@ export interface NormalizeReport {
   overCategories: number;
   /** 上層不存在或超過一層、改成最上層的泳道 */
   lanesFlattened: number;
+  /** 看不懂的時間寫法（當成日期時間；null＝沒有問題） */
+  unknownMode: string | null;
+  /** 兩端不存在、重複而略過的關聯線；超過上限的 */
+  skippedLinks: number;
+  overLinks: number;
 }
 
 export const emptyReport = (): NormalizeReport => ({
@@ -224,9 +246,23 @@ export const emptyReport = (): NormalizeReport => ({
   overLanes: 0,
   overCategories: 0,
   lanesFlattened: 0,
+  unknownMode: null,
+  skippedLinks: 0,
+  overLinks: 0,
 });
 
-const DOC_KEYS = ['title', 'mode', 'era', 'lanes', 'categories', 'events', 'markers', 'progress'];
+const DOC_KEYS = [
+  'title',
+  'mode',
+  'era',
+  'lanes',
+  'categories',
+  'events',
+  'markers',
+  'progress',
+  'calendar',
+  'links',
+];
 
 /** 整理成可以用的資料；完全不像時回傳 null。report 有給時填入略過或改掉的東西 */
 export function normalizeDoc(raw: unknown, report?: NormalizeReport): TimelineDoc | null {
@@ -236,7 +272,11 @@ export function normalizeDoc(raw: unknown, report?: NormalizeReport): TimelineDo
   rep.empty = !DOC_KEYS.some((k) => k in r);
   const base = blankDoc();
   const mode = oneOf<TimeMode>(r.mode, ['date', 'day', 'year'], 'date');
-  const era = str(r.era, ERA_MAX);
+  if (r.mode !== undefined && r.mode !== mode) rep.unknownMode = String(r.mode).slice(0, 20);
+  const eraName = str(r.era, ERA_MAX);
+  const calendar = normalizeCalendar(r.calendar);
+  /* 時間的脈絡：曆名＋架空曆（只有架空年用得到月份） */
+  const era: EraArg = { era: eraName, calendar };
   const used = new Set<string>();
   const uid = (v: unknown, prefix: string) => {
     let id = typeof v === 'string' && v && v.length <= 64 ? v : newId(prefix);
@@ -359,11 +399,14 @@ export function normalizeDoc(raw: unknown, report?: NormalizeReport): TimelineDo
   >;
   const progressTime = cleanTime(mode, pr.time, era) ?? '';
   const dayOne = cleanTime('date', r.dayOne, '');
+  const linked = normalizeLinks(r.links, new Set(events.map((e) => e.id)));
+  rep.skippedLinks = linked.skipped;
+  rep.overLinks = linked.over;
   return {
     ...base,
     title: str(r.title, LIMITS.title),
     mode,
-    era,
+    era: eraName,
     dayOne: dayOne && /^\d{4}-\d{2}-\d{2}$/.test(dayOne) ? dayOne : '',
     lanes,
     categories,
@@ -372,6 +415,8 @@ export function normalizeDoc(raw: unknown, report?: NormalizeReport): TimelineDo
     progress: { on: bool(pr.on) && !!progressTime, time: progressTime, plOnly: bool(pr.plOnly) },
     showNow: bool(r.showNow),
     sample: bool(r.sample),
+    calendar,
+    links: linked.links,
   };
 }
 

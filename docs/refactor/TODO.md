@@ -69,7 +69,7 @@
 | ui-frame | [knightleft/trpg-overlay](https://github.com/knightleft/trpg-overlay)（原本列為新工具候選「直播版面產生器」） | 未授權 | OBS 直播版面（作者寫繁中）：和 ui-frame 的 TRPG・直播模式重疊，可以補整面版面配置 | 中 |
 | floor-plan | 本站（2026-10-29 參考 KIIN マップ制作スタジオ時沒做，規格 D73、D78） | — | 挑一兩個範本改成 L 形房間（要重驗格局與線索位置）；「在地圖演出產生器開啟」時把房間範圍也帶過去（map-fx 的房間遮罩） | 小～中 |
 | ambience-mixer | 本站（2026-10-29，規格 D1、D3、D17） | — | 再合成「房間底噪」「雨打在帳篷／傘上」；OGG／MP3 匯出（候選：wasm-media-encoders〔MIT＋LAME LGPL＋libvorbis BSD，約 3 MB〕、@breezystack/lamejs〔LGPL-3.0〕、WebCodecs 的 Opus＋自己寫 Ogg 封裝〔部分瀏覽器〕）；另找逐檔標明 CC0 的真實錄音內建 | 小～中 |
-| scenario-timeline | 本站（第二批，規格 F90～F94） | — | 多選、搜尋與篩選、架空曆的月日、事件之間的關聯線、讀入 vis-timeline 的資料 | 中 |
+| scenario-timeline | 本站（2026-10-29 第二批沒做的，規格 D28、D29、D32） | — | 年表與文字年表列出關聯線；架空曆寫到時刻（時:分）；範例加上關聯線與架空曆的示範 | 小 |
 
 ## 內部改善
 
@@ -180,3 +180,4 @@
 - 2026-10-29：完成並移出清單——npc-names 的人數名單也附涵義（F57；對等驗證見規格 6.3、裁定 7.3）。
 - 2026-10-29：使用者要求做待做清單的三個新工具（環境音混音、劇本時間表／年表、PL 自我介紹卡／地雷表）與 QR Code 產生器（參考 kozakdenys/qr-code-styling）；另外上傳 KIIN 的「マップ制作スタジオ v1.0」，選擇併進室內平面圖產生器（自動化、L 形房間、圖面風格與座標、VTT 匯出與串接）。
 - 2026-10-29：完成並移出清單——新工具 QR Code 產生器（qr-maker）、PL 自介卡與地雷表（pl-profile）、劇本時間表（scenario-timeline，第一批）、環境音混音器（ambience-mixer）；floor-plan 參考 KIIN マップ制作スタジオ的功能（規格 6.8、7.22）。沒做的記在第三節與內部改善。
+- 2026-10-29：劇本時間表（scenario-timeline）第二批實作完成、待對等驗證（規格 F90～F109：多選、搜尋與篩選、架空曆的月日、事件之間的關聯線、讀入 vis-timeline 的資料；第一批驗證留下的三件小事一併修正）；沒做的記在第三節。
