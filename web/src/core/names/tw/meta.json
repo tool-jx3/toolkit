@@ -1,0 +1,7 @@
+{
+  "name": "台灣的姓氏與名字（內政部戶政司「112 年全國姓名統計分析」）",
+  "version": "統計基準日 112 年 6 月 30 日（表五十一、表五十七；2026-10-29 取得）",
+  "license": "政府資料開放授權條款－第 1 版（與 CC BY 4.0 相容）",
+  "copyright": "原始資料：內政部戶政司「112 年全國姓名統計分析」（https://www.ris.gov.tw/documents/data/5/2/112namestat.pdf）；表格轉成 CSV：timtan/MicroGPT-zh",
+  "url": "https://www.ris.gov.tw/app/portal/346"
+}

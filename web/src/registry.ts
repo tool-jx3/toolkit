@@ -949,6 +949,14 @@ export const TOOLS: readonly ToolEntry[] = [
       url: 'https://github.com/mrflamingchad67/qcompress',
     },
   },
+  {
+    id: 'npc-names',
+    name: 'NPC 名字產生器',
+    summary:
+      'KP 臨時要幫 NPC 取名時，一鍵產生一批像樣的名字：日本（現代、昭和、大正～昭和初期，附平假名、片假名與羅馬拼音）、台灣、1920 年代的美國，依實際的人數抽、同一批不重複，點一下就複製，喜歡的可以鎖定留著。',
+    group: 'G9',
+    status: 'live',
+  },
 ];
 
 export function getTool(id: string): ToolEntry | undefined {

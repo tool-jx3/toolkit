@@ -1,0 +1,7 @@
+{
+  "name": "美國的名字與姓氏（社會安全局嬰兒名字 1880～1929、1990 年人口普查姓氏，族裔比例取自 2000 年人口普查）",
+  "version": "SSA：jsvine/babynames 34f0fa9；1990 年普查：treyhunner/names c485a43；2000 年普查：data.world uscensusbureau 鏡像（pmaxit/allen_projects 229323d）（2026-10-29 取得）",
+  "license": "公有領域（美國聯邦政府著作）",
+  "copyright": "原始資料：U.S. Social Security Administration「Beyond the Top 1000 Names」、U.S. Census Bureau「Frequently Occurring Surnames from the 1990 Census」與「Frequently Occurring Surnames from the Census 2000」。姓的權重＝1990 年的人數 ×（1 − 西語裔比例 − 亞太裔比例）＋ 1990 年的人數 ×（西語裔比例＋亞太裔比例）× 0.1（比例取自 2000 年普查；1920 年代的美國這些姓還很少）",
+  "url": "https://www.ssa.gov/oact/babynames/limits.html"
+}
