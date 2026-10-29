@@ -726,6 +726,190 @@ test('自動儲存與還原；專案檔存了再開；別的檔案開不了', as
   expect(errors).toEqual([]);
 });
 
+/* ---------- 把種子刻進圖形、從圖片讀種子 ---------- */
+
+const decodeOut = (page: Page) => page.getByTestId('decode-output');
+/** 等讀種子的對話框讀完 */
+async function decoded(page: Page) {
+  await expect(page.getByTestId('decode-dialog')).toBeVisible();
+  await expect(decodeOut(page)).toHaveAttribute('data-busy', 'false', { timeout: 60_000 });
+  await expect(decodeOut(page)).not.toHaveText('');
+}
+
+/** 拖放圖片到視窗（WindowDrop） */
+async function dropImage(page: Page, name: string, type: string, bytes: Buffer) {
+  await page.evaluate(
+    ({ name, type, b64 }) => {
+      const bin = atob(b64);
+      const arr = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+      const dt = new DataTransfer();
+      dt.items.add(new File([arr], name, { type }));
+      window.dispatchEvent(new DragEvent('dragenter', { dataTransfer: dt, bubbles: true }));
+      window.dispatchEvent(
+        new DragEvent('drop', { dataTransfer: dt, bubbles: true, cancelable: true }),
+      );
+    },
+    { name, type, b64: bytes.toString('base64') },
+  );
+}
+
+/** 在頁面裡把 PNG 轉成別的格式或縮放（瀏覽器的編碼器） */
+const reencode = (page: Page, png: Buffer, type: string, scale: number, quality?: number) =>
+  page
+    .evaluate(
+      async ({ b64, type, scale, quality }) => {
+        const img = new Image();
+        img.src = `data:image/png;base64,${b64}`;
+        await img.decode();
+        const c = document.createElement('canvas');
+        c.width = Math.round(img.width * scale);
+        c.height = Math.round(img.height * scale);
+        (c.getContext('2d') as CanvasRenderingContext2D).drawImage(img, 0, 0, c.width, c.height);
+        const blob = (await new Promise<Blob | null>((r) => c.toBlob(r, type, quality))) as Blob;
+        const bytes = new Uint8Array(await blob.arrayBuffer());
+        let bin = '';
+        for (const b of bytes) bin += String.fromCharCode(b);
+        return btoa(bin);
+      },
+      { b64: png.toString('base64'), type, scale, quality },
+    )
+    .then((b64) => Buffer.from(b64, 'base64'));
+
+test('把種子刻進圖形：容量提示；匯出 PNG 再選檔讀回；用這個種子重畫（固定種子、同一張）', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  await apply(page, { seed: 'e2e-code' });
+  await toggle(page, '把種子刻進圖形').click();
+  await ready(page);
+  const info = page.getByTestId('code-info');
+  await expect(info).toContainText('新方式：資料 104 個位元（8 位元組）');
+  await expect(info).toContainText('✔ 全部刻進去了');
+  await expect(info).toHaveAttribute('data-ok', 'true');
+  /* 舊方式的設定在新方式時停用 */
+  await expect(spin(page, '一個圖形最多放幾個位元')).toBeDisabled();
+  const sig = await previewSig(page);
+  const png = await exportAs(page, 'PNG');
+  /* 換掉種子後讀回 */
+  await page.getByTestId('seed').fill('other');
+  await ready(page);
+  const [chooser] = await Promise.all([
+    page.waitForEvent('filechooser'),
+    page.getByText('選擇圖片…', { exact: true }).click(),
+  ]);
+  await chooser.setFiles({ name: 'coded.png', mimeType: 'image/png', buffer: png.bytes });
+  await decoded(page);
+  await expect(decodeOut(page)).toHaveAttribute('data-ok', 'true');
+  await expect(decodeOut(page)).toContainText('新方式：找到同心圓');
+  await expect(decodeOut(page)).toContainText('種子：e2e-code');
+  await expect(decodeOut(page)).toContainText('設定：沒有（用目前的設定重畫）');
+  await expect(page.getByTestId('decode-canvas')).toBeVisible();
+  /* 換讀的方式：只用舊方式讀不出來，換回自動又讀得出來 */
+  await page.getByRole('radio', { name: '只用舊方式' }).click();
+  await expect(decodeOut(page)).toHaveAttribute('data-ok', 'false');
+  await expect(decodeOut(page)).toContainText('舊方式：候選');
+  await page.getByRole('radio', { name: '自動（先新後舊）' }).click();
+  await expect(decodeOut(page)).toHaveAttribute('data-ok', 'true');
+  await page.getByTestId('decode-apply').click();
+  await expect(page.getByTestId('decode-dialog')).toHaveCount(0);
+  await expect.poll(async () => (await state(page)).seed).toBe('e2e-code');
+  expect((await state(page)).lockSeed).toBe(true);
+  await ready(page);
+  expect(await previewSig(page)).toBe(sig);
+  /* 一步復原回到讀之前 */
+  await page.keyboard.press('Control+z');
+  await expect.poll(async () => (await state(page)).seed).toBe('other');
+  expect(errors).toEqual([]);
+});
+
+test('設定也一起刻：改掉設定後拖進視窗讀回，種子與設定一起換回來；舊方式讀目前的圖', async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  const errors = await open(page);
+  const original: Overrides = {
+    seed: 'with-settings',
+    code: true,
+    codeSettings: true,
+    maxShapes: 300,
+    maxLines: 600,
+    lineWidth: 2.5,
+    background: '#203040',
+  };
+  await apply(page, original);
+  await expect(page.getByTestId('code-info')).toContainText('含設定');
+  await expect(page.getByTestId('code-info')).toHaveAttribute('data-ok', 'true');
+  const sig = await previewSig(page);
+  const png = await exportAs(page, 'PNG');
+  await apply(page, {
+    seed: 'x',
+    lineWidth: 4,
+    background: '#000000',
+    maxShapes: 60,
+  });
+  await dropImage(page, 'coded.png', 'image/png', png.bytes);
+  await decoded(page);
+  await expect(decodeOut(page)).toContainText('種子：with-settings');
+  await expect(decodeOut(page)).toContainText(/設定：\d+ 項（重畫時一起換）/);
+  await page.getByTestId('decode-apply').click();
+  await expect.poll(async () => (await state(page)).seed).toBe('with-settings');
+  expect(await state(page)).toMatchObject({ ...original, lockSeed: true });
+  await ready(page);
+  expect(await previewSig(page)).toBe(sig);
+  /* 舊方式：讀目前的圖（畫成全尺寸再讀） */
+  await radio(page, '舊方式').click();
+  await ready(page);
+  await expect(page.getByTestId('code-info')).toContainText('舊方式：資料');
+  await expect(spin(page, '一個圖形最多放幾個位元')).toBeEnabled();
+  await page.getByTestId('decode-current').click();
+  await decoded(page);
+  await expect(decodeOut(page)).toHaveAttribute('data-ok', 'true');
+  await expect(decodeOut(page)).toContainText('新方式讀不出來，改用舊方式');
+  await expect(decodeOut(page)).toContainText('種子：with-settings');
+  await page.keyboard.press('Escape');
+  await expect(page.getByTestId('decode-dialog')).toHaveCount(0);
+  expect(errors).toEqual([]);
+});
+
+test('從圖片讀種子的容忍度（照原作）：JPEG、WebP、放大讀得出來；縮到一半、沒刻種子的圖讀不出來', async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  const errors = await open(page);
+  /* 讀得出來的範圍依圖而定（原作同；規格 3.16 的實測）：這張是種子 abc 的預設 */
+  await apply(page, { seed: 'abc', code: true });
+  const png = (await exportAs(page, 'PNG')).bytes;
+  const cases: [string, string, number, number | undefined, boolean][] = [
+    ['JPEG 品質 50%', 'image/jpeg', 1, 0.5, true],
+    ['WebP 品質 75%', 'image/webp', 1, 0.75, true],
+    ['放大 1.5 倍', 'image/png', 1.5, undefined, true],
+    ['縮小到 75%', 'image/png', 0.75, undefined, true],
+    ['縮小到 50%', 'image/png', 0.5, undefined, false],
+  ];
+  for (const [label, type, scale, q, ok] of cases) {
+    const bytes = await reencode(page, png, type, scale, q);
+    await dropImage(page, 'x', type, bytes);
+    await decoded(page);
+    await expect(decodeOut(page), label).toHaveAttribute('data-ok', ok ? 'true' : 'false');
+    if (ok) await expect(decodeOut(page), label).toContainText('種子：abc');
+    else await expect(page.getByTestId('decode-apply'), label).toBeDisabled();
+    await page.keyboard.press('Escape');
+    await expect(page.getByTestId('decode-dialog')).toHaveCount(0);
+  }
+  /* 沒刻種子的圖 */
+  await apply(page, { code: false });
+  const plain = (await exportAs(page, 'PNG')).bytes;
+  await dropImage(page, 'plain.png', 'image/png', plain);
+  await decoded(page);
+  await expect(decodeOut(page)).toHaveAttribute('data-ok', 'false');
+  await expect(decodeOut(page)).toContainText('讀不出來');
+  /* 點圖上的位置再讀（加上中心）：照常讀完 */
+  await page.getByTestId('decode-canvas').click({ position: { x: 20, y: 20 } });
+  await expect(decodeOut(page)).toHaveAttribute('data-busy', 'false');
+  expect(errors).toEqual([]);
+});
+
 /** 資料版本 1（原作 3097b39 時）的設定：沒有原作 2026-10 的欄位，圖形種類只有六個 */
 const V1_DATA = {
   seed: 'legacy-a',

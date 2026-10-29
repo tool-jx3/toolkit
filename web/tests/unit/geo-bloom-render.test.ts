@@ -259,6 +259,31 @@ describe('canvas 的指令（3.3、3.4）', () => {
     ]);
   });
 
+  it('刻種子的圈：刻種子的線寬、平的線頭，每段弧描一次（3.15）', () => {
+    const s = shape({
+      kind: 'rings',
+      rings: [
+        ring(20, {
+          code: true,
+          segs: [{ a0: 0, a1: 0.35, dot: false, dash: false, letter: -1, sync: true }],
+        }),
+        ring(10),
+      ],
+    });
+    expect(body(s, { ...cfg, codeWidth: 1.5 }).slice(0, 7)).toEqual([
+      ['=', 'lineWidth', 4.5],
+      ['=', 'lineCap', 'butt'],
+      ['beginPath'],
+      ['arc', 0, 0, 20, 0, 0.35],
+      ['stroke'],
+      ['=', 'lineWidth', 3],
+      ['=', 'lineCap', 'round'],
+    ]);
+    expect(bloomSvg({ ...cfg, codeWidth: 1.5 }, shapesOnly(s))).toMatch(
+      /<path d="M20 0A20 20 0 0 1 [^"]+" stroke-width="4\.5" stroke-linecap="butt"\/>/,
+    );
+  });
+
   it('三角形：頂點是畫布的角度（扣掉圖形的旋轉）、外接圓半徑 R；三角心藏起的層不畫', () => {
     const tri = { mode: 'core' as const, rot: 0.2, R: 8, fill: true };
     const s = shape({

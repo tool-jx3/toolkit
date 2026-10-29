@@ -44,9 +44,16 @@ export function canon(scene: BloomScene): string {
             r.a0,
             r.span,
             r.hidden ? 1 : 0,
-            0,
+            r.code ? 1 : 0,
             r.segs
-              ? r.segs.map((g) => [g.a0, g.a1, g.dot ? 1 : 0, g.dash ? 1 : 0, g.letter, 0])
+              ? r.segs.map((g) => [
+                  g.a0,
+                  g.a1,
+                  g.dot ? 1 : 0,
+                  g.dash ? 1 : 0,
+                  g.letter,
+                  g.sync ? 1 : 0,
+                ])
               : null,
           ])
         : null,
@@ -311,6 +318,47 @@ export const GOLDEN: {
     },
     counts: [1519, 4000, 1169],
     hash: '79a2e39309b345fc08d5ea16b472c5fc3028fe1d36cd7e3a4ac22f9fedf2bdde',
+  },
+  {
+    name: '刻種子（新方式）',
+    o: { seed: 'abc', code: true },
+    counts: [18, 28, 5],
+    hash: 'd229504b1845d316b6c49d612db280ce7c224532482cda9b0c1a2cdf75cfad45',
+  },
+  {
+    name: '刻種子（新方式、設定也一起刻）',
+    o: {
+      seed: 'tkmiz-seed',
+      code: true,
+      codeSettings: true,
+      lineWidth: 2.25,
+      maxShapes: 200,
+      maxLines: 400,
+    },
+    counts: [40, 97, 20],
+    hash: '701f1d3177c5369f3b20ac34353420819f45f02576fbdecd2360d0548c379aa5',
+  },
+  {
+    name: '刻種子（舊方式、放大中央）',
+    o: { seed: 'abc', code: true, codeVersion: 'v1' },
+    counts: [14, 24, 4],
+    hash: '29f437eb67105d7210e386a0dfd5205d3185e9a11e7ea9b9f91f0d0aa6e6ed40',
+  },
+  {
+    name: '刻種子（舊方式、設定也一起刻、選項都關）',
+    o: {
+      seed: 'long-seed-日本語',
+      code: true,
+      codeVersion: 'v1',
+      codeSettings: true,
+      maxShapes: 120,
+      codeConvert: false,
+      codeOrient: false,
+      codeGuard: false,
+      codeMax: 24,
+    },
+    counts: [50, 95, 12],
+    hash: '9990ded7e25bd4421d2337fcd01b92e87c619f8b7ee9bf06316944a2da2bf07f',
   },
 ];
 

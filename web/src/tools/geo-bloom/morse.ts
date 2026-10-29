@@ -65,6 +65,8 @@ export interface MorseSeg {
   dot: boolean;
   dash: boolean;
   letter: number;
+  /** 刻種子（舊方式）的同步弧（code.ts；刻資料的弧 dot、dash 都是 false、letter 是 −1） */
+  sync?: boolean;
 }
 
 /** 排列用的設定（長度都以短點為單位） */

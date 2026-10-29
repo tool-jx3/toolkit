@@ -15,6 +15,7 @@ import {
   withShortcut,
 } from '@/ui';
 import { sceneFor } from './client';
+import { DecodeDialog, DecodeWindowDrop } from './Decode';
 import { SettingsPanels } from './Panels';
 import { Preview } from './Preview';
 import { looksLikeSettings, type Settings, upgradeSettings } from './settings';
@@ -111,7 +112,13 @@ export function App() {
           <UsageSection persistKey={TOOL_ID}>{usage}</UsageSection>
         </>
       }
-      preview={<Preview exportRef={exportRef} />}
+      preview={
+        <>
+          <Preview exportRef={exportRef} />
+          <DecodeDialog />
+          <DecodeWindowDrop />
+        </>
+      }
     />
   );
 }

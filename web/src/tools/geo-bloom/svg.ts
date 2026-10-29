@@ -24,6 +24,12 @@ const fillAttr = (color: string, opacity90: boolean) =>
 
 /** 一層：完整的圓、弧，或摩斯環的點線（線寬、線頭另外設；圓點是實心圓） */
 function ringBody(g: BloomRing, color: string, cfg: BloomConfig): string {
+  if (g.code) {
+    const d = (g.segs ?? []).map((sg) => arcPath(g.r, sg.a0, sg.a1)).join('');
+    return d
+      ? `<path d="${d}" stroke-width="${n2(cfg.lineWidth * cfg.codeWidth)}" stroke-linecap="butt"/>`
+      : '';
+  }
   if (!g.segs) {
     return g.span >= TAU - 1e-6 && g.a0 === 0
       ? `<circle r="${n2(g.r)}"/>`

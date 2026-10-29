@@ -7,7 +7,15 @@
 import { canvasToBlob } from '@/core/image';
 import { canUseWorker, type WorkerHandle, wrapWorker } from '@/core/worker';
 import type { BloomWorkerApi } from './bloom.worker';
-import { drawFull, drawPreview, type PreviewOutput, sceneOf, svgText } from './engine';
+import { type DecodeImage, type DecodeMode, type DecodeResult, decodeImage } from './decode';
+import {
+  drawFull,
+  drawPreview,
+  loadDecodeImage,
+  type PreviewOutput,
+  sceneOf,
+  svgText,
+} from './engine';
 import type { BloomScene } from './generate';
 import { createLatestRunner, type LatestRunner } from './schedule';
 import type { Settings } from './settings';
@@ -151,4 +159,45 @@ export async function exportSvg(settings: Settings, signal?: AbortSignal): Promi
 export async function sceneFor(settings: Settings): Promise<BloomScene> {
   const r = await inWorker((api) => api.scene(settings) as Promise<BloomScene>);
   return r ? r.value : sceneOf(settings);
+}
+
+/* ---------- 從圖片讀種子 ---------- */
+
+export interface Decoder {
+  /** 讀一張圖：結果與縮過的圖（長邊最多 4000 px） */
+  load(blob: Blob, mode: DecodeMode): Promise<{ result: DecodeResult; image: ImageBitmap }>;
+  /** 同一張圖換讀的方式、點的位置再讀 */
+  again(mode: DecodeMode, center: [number, number] | null): Promise<DecodeResult | null>;
+  dispose(): void;
+}
+
+/** 讀種子的執行者：在自己的 Worker 裡讀（大圖要好幾秒，畫面照常）；Worker 不能用時在主執行緒讀 */
+export function createDecoder(): Decoder {
+  let handle: WorkerHandle<BloomWorkerApi> | null = workersBroken ? null : spawn();
+  let local: DecodeImage | null = null;
+  return {
+    async load(blob, mode) {
+      if (handle) {
+        try {
+          const { result, bitmap } = await handle.api.decodeLoad(blob, mode);
+          return { result, image: bitmap };
+        } catch {
+          handle.terminate();
+          handle = null;
+        }
+      }
+      const { image, bitmap } = await loadDecodeImage(blob);
+      local = image;
+      return { result: decodeImage(image, mode), image: bitmap };
+    },
+    async again(mode, center) {
+      if (handle) return handle.api.decodeAgain(mode, center);
+      return local ? decodeImage(local, mode, center) : null;
+    },
+    dispose() {
+      handle?.terminate();
+      handle = null;
+      local = null;
+    },
+  };
 }

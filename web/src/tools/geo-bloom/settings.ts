@@ -30,6 +30,10 @@ export type StartRing = (typeof START_RINGS)[number];
 export const TRI_RINGS = ['first', 'second', 'random'] as const;
 export type TriRing = (typeof TRI_RINGS)[number];
 
+/** 把種子刻進圖形的方式：新（自然符號）、舊（環上的二進位） */
+export const CODE_VERSIONS = ['v2', 'v1'] as const;
+export type CodeVersion = (typeof CODE_VERSIONS)[number];
+
 export interface Settings {
   /** 種子（空白時當成「0」） */
   seed: string;
@@ -146,6 +150,33 @@ export interface Settings {
   bridges: boolean;
   /** 每個字母架橋的機率（%） */
   pBridge: number;
+  /** 把種子刻進圖形 */
+  code: boolean;
+  codeVersion: CodeVersion;
+  /** 設定也一起刻（和預設不同的設定） */
+  codeSettings: boolean;
+  /** 刻種子的短點長度（px，0.5 一格） */
+  codeUnit: number;
+  /** 舊方式：一個圖形最少放幾個位元（放不下這麼多的不刻） */
+  codeMin: number;
+  /** 舊方式：一個圖形最多放幾個位元（越小分得越散） */
+  codeMax: number;
+  /** 子圖形放大幾倍（方便刻；0.1 一格） */
+  codeScale: number;
+  /** 舊方式：圓、圓＋半圓也換成刻資料的同心圓 */
+  codeConvert: boolean;
+  /** 舊方式：放得下全部的圖形刻全部 */
+  codeWhole: boolean;
+  /** 舊方式：圖形的方向也放 3 個位元 */
+  codeOrient: boolean;
+  /** 舊方式：線不經過刻了資料的圖形 */
+  codeGuard: boolean;
+  /** 刻種子的線寬（× 線寬，0.25 一格） */
+  codeWidth: number;
+  /** 舊方式：放不下時放大中央的圖形 */
+  codeFit: boolean;
+  /** 舊方式：中央的最小半徑（px） */
+  codeRootR: number;
 }
 
 export type NumericKey = {
@@ -194,6 +225,12 @@ export const RANGE: Record<NumericKey, readonly [number, number]> = {
   morseWidth: [0.25, 5],
   morseShrink: [0, 100],
   pBridge: [0, 100],
+  codeUnit: [3, 30],
+  codeMin: [4, 64],
+  codeMax: [8, 127],
+  codeScale: [1, 4],
+  codeWidth: [0.5, 4],
+  codeRootR: [0, 800],
 };
 
 /** 不是整數的數值的一格（其他都是整數） */
@@ -205,6 +242,9 @@ export const STEP: Partial<Record<NumericKey, number>> = {
   morseLetterGap: 0.5,
   morseWordGap: 0.5,
   morseWidth: 0.25,
+  codeUnit: 0.5,
+  codeScale: 0.1,
+  codeWidth: 0.25,
 };
 
 /** 線寬的一格 */
@@ -286,6 +326,20 @@ export const DEFAULT_SETTINGS: Settings = {
   morseText: '',
   bridges: false,
   pBridge: 50,
+  code: false,
+  codeVersion: 'v2',
+  codeSettings: false,
+  codeUnit: 5,
+  codeMin: 8,
+  codeMax: 48,
+  codeScale: 1.8,
+  codeConvert: true,
+  codeWhole: true,
+  codeOrient: true,
+  codeGuard: true,
+  codeWidth: 1,
+  codeFit: true,
+  codeRootR: 0,
 };
 
 /**
@@ -369,6 +423,14 @@ const SETTINGS_SCHEMA = sh.object({
   morseCap: sh.boolean(d.morseCap),
   morseText: sh.string({ default: d.morseText, maxLength: MORSE_TEXT_MAX_LENGTH }),
   bridges: sh.boolean(d.bridges),
+  code: sh.boolean(d.code),
+  codeVersion: sh.oneOf(CODE_VERSIONS, d.codeVersion),
+  codeSettings: sh.boolean(d.codeSettings),
+  codeConvert: sh.boolean(d.codeConvert),
+  codeWhole: sh.boolean(d.codeWhole),
+  codeOrient: sh.boolean(d.codeOrient),
+  codeGuard: sh.boolean(d.codeGuard),
+  codeFit: sh.boolean(d.codeFit),
 });
 
 /** 不可信的資料（localStorage、專案檔）→ 完整的設定 */
@@ -479,6 +541,21 @@ export interface BloomConfig {
   morseText: string;
   bridges: boolean;
   pBridge: number;
+  code: boolean;
+  codeVersion: CodeVersion;
+  /** 一起刻的設定（差異文字，3.15）；不刻設定時空字串 */
+  codeSettingsText: string;
+  codeUnit: number;
+  codeMin: number;
+  codeMax: number;
+  codeScale: number;
+  codeConvert: boolean;
+  codeWhole: boolean;
+  codeOrient: boolean;
+  codeGuard: boolean;
+  codeWidth: number;
+  codeFit: boolean;
+  codeRootR: number;
 }
 
 const ordered = (a: number, b: number): [number, number] => (a > b ? [b, a] : [a, b]);
@@ -554,7 +631,198 @@ export function resolveConfig(s: Settings): BloomConfig {
     morseText: s.morseText,
     bridges: s.bridges,
     pBridge: s.pBridge / 100,
+    code: s.code,
+    codeVersion: s.codeVersion,
+    codeSettingsText: s.code && s.codeSettings ? settingsDiff(s) : '',
+    codeUnit: s.codeUnit,
+    codeMin: s.codeMin,
+    codeMax: s.codeMax,
+    codeScale: s.codeScale,
+    codeConvert: s.codeConvert,
+    codeWhole: s.codeWhole,
+    codeOrient: s.codeOrient,
+    codeGuard: s.codeGuard,
+    codeWidth: s.codeWidth,
+    codeFit: s.codeFit,
+    codeRootR: s.codeRootR,
   };
+}
+
+/* ---------- 刻進圖形的設定（和原作相同的差異文字，3.15） ---------- */
+
+const bool = (v: boolean) => (v ? '1' : '0');
+const TRI_RING_CODE: Record<TriRing, string> = { first: '1', second: '2', random: 'r' };
+const START_RING_CODE: Record<StartRing, string> = {
+  ring1: '1',
+  ring2: '2',
+  ring12: '12',
+  edge: 'edge',
+  center: 'center',
+  any: 'all',
+};
+const reverse = <K extends string>(m: Record<K, string>) =>
+  Object.fromEntries(Object.entries(m).map(([k, v]) => [v, k])) as Record<string, K>;
+
+type Control = readonly [
+  /** 讀：設定 → 原作欄位的值 */
+  (s: Settings) => string,
+  /** 寫：原作欄位的值 → 設定（不可信的資料，之後再整理） */
+  (s: Record<string, unknown>, v: string) => void,
+];
+const num = (k: NumericKey): Control => [
+  (s) => String(s[k]),
+  (s, v) => {
+    s[k] = Number(v);
+  },
+];
+const flag = (k: keyof Settings): Control => [
+  (s) => bool(s[k] as boolean),
+  (s, v) => {
+    s[k] = v === '1';
+  },
+];
+const shape = (k: ShapeToggle): Control => [
+  (s) => bool(s.shapes[k]),
+  (s, v) => {
+    (s.shapes as Record<string, boolean>)[k] = v === '1';
+  },
+];
+const text = (
+  k: 'background' | 'lineColor' | 'accentColor' | 'morseText' | 'overlapMode',
+): Control => [
+  (s) => s[k],
+  (s, v) => {
+    s[k] = v;
+  },
+];
+const mapped = <K extends 'triRing' | 'startRing'>(
+  k: K,
+  m: Record<Settings[K], string>,
+): Control => [
+  (s) => m[s[k]],
+  (s, v) => {
+    s[k] = reverse(m)[v] ?? v;
+  },
+];
+
+/**
+ * 原作的設定欄位（畫面上的順序；種子、固定種子、即時繪製、讀圖的方式不算）。刻設定時寫「第幾個欄位（36 進位）＝值」，
+ * 只寫和預設不同的，用「;」接起來——順序與值的寫法照原作，兩邊刻的設定互相讀得懂。
+ */
+const UPSTREAM_CONTROLS: readonly Control[] = [
+  num('width'),
+  num('height'),
+  num('maxShapes'),
+  num('maxLines'),
+  num('branchMax'),
+  num('branchMin'),
+  num('maxDepth'),
+  num('maxRings'),
+  num('rootMin'),
+  num('rootMax'),
+  num('childMin'),
+  num('childMax'),
+  num('shrink'),
+  num('lineMin'),
+  num('lineMax'),
+  num('pShape'),
+  num('pBranch'),
+  num('pDot'),
+  num('pAttach'),
+  num('attachDepth'),
+  num('pDrop'),
+  num('regularity'),
+  shape('circle'),
+  shape('rings'),
+  shape('semi'),
+  shape('mix'),
+  shape('square'),
+  shape('doubleSquare'),
+  shape('triCore'),
+  shape('triRing'),
+  num('pTri'),
+  mapped('triRing', TRI_RING_CODE),
+  flag('avoidOverlap'),
+  text('overlapMode'),
+  num('gap'),
+  flag('lineAvoid'),
+  flag('noCross'),
+  flag('inBounds'),
+  text('background'),
+  flag('transparent'),
+  text('lineColor'),
+  text('accentColor'),
+  num('pAccent'),
+  num('lineWidth'),
+  num('pFill'),
+  flag('fromEdge'),
+  mapped('startRing', START_RING_CODE),
+  flag('endAtRing'),
+  flag('rootRings'),
+  num('minRings'),
+  flag('morse'),
+  num('solidInner'),
+  flag('solidFollow'),
+  num('pMorse'),
+  num('morseDot'),
+  num('morseDash'),
+  num('morseGap'),
+  num('morseLetterGap'),
+  num('morseWordGap'),
+  num('pMorseDash'),
+  num('pMorseWord'),
+  num('morseWidth'),
+  num('morseShrink'),
+  flag('morseRound'),
+  flag('morseCap'),
+  text('morseText'),
+  flag('code'),
+  [
+    (s) => s.codeVersion,
+    (s, v) => {
+      s.codeVersion = v;
+    },
+  ],
+  num('codeUnit'),
+  num('codeMin'),
+  num('codeMax'),
+  num('codeScale'),
+  flag('codeConvert'),
+  flag('codeWhole'),
+  flag('codeOrient'),
+  flag('codeGuard'),
+  num('codeWidth'),
+  flag('codeFit'),
+  num('codeRootR'),
+  flag('bridges'),
+  num('pBridge'),
+];
+
+/** 和預設不同的設定 → 差異文字（「0=1200;17=3」這樣） */
+export function settingsDiff(s: Settings): string {
+  return UPSTREAM_CONTROLS.map(([get], i) => [get(s), get(DEFAULT_SETTINGS), i] as const)
+    .filter(([v, def]) => v !== def)
+    .map(([v, , i]) => `${i.toString(36)}=${v}`)
+    .join(';');
+}
+
+/**
+ * 差異文字 → 設定（預設值＋差異；看不懂的欄位略過；種子另外給）。
+ * 有差異文字就表示刻的時候「設定也一起刻」是開的（這個開關不在差異裡）：讀回來也打開，重畫出來才是同一張（D24）。
+ */
+export function applySettingsDiff(text: string, seed: string): Settings {
+  const raw: Record<string, unknown> = {
+    ...structuredClone(DEFAULT_SETTINGS),
+    seed,
+    codeSettings: true,
+  };
+  for (const kv of text.split(';')) {
+    if (!kv) continue;
+    const i = kv.indexOf('=');
+    const c = UPSTREAM_CONTROLS[Number.parseInt(kv.slice(0, i), 36)];
+    if (c) c[1](raw, kv.slice(i + 1));
+  }
+  return sanitizeSettings(raw);
 }
 
 /** 匯出的檔名：geometric_<種子>.<副檔名>（不能用的字元換成「_」） */

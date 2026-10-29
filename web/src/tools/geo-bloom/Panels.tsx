@@ -17,10 +17,12 @@ import {
   TextInput,
   Toggle,
 } from '@/ui';
+import { DecodeSection } from './Decode';
 import { generateBloom } from './generate';
 import { morseNotation, morseTokens, textToMorse, unsupportedChars } from './morse';
 import { drawBloom } from './render';
 import {
+  CODE_VERSIONS,
   clampValue,
   MORSE_TEXT_MAX_LENGTH,
   type NumericKey,
@@ -69,6 +71,10 @@ const UNIT: Partial<Record<NumericKey, string>> = {
   morseLetterGap: S.times,
   morseWordGap: S.times,
   morseWidth: S.times,
+  codeUnit: 'px',
+  codeScale: S.times,
+  codeWidth: S.times,
+  codeRootR: 'px',
 };
 
 function NumberSlider({ k, hint, disabled }: { k: NumericKey; hint?: string; disabled?: boolean }) {
@@ -452,6 +458,49 @@ function MorseSection() {
   );
 }
 
+const CODE_VERSION_OPTIONS = CODE_VERSIONS.map((value) => ({
+  value,
+  label: S.codeVersions[value],
+}));
+
+function CodeSection() {
+  const on = useSettings((st) => st.data.code);
+  const version = useSettings((st) => st.data.codeVersion);
+  const v1Off = !on || version !== 'v1';
+  return (
+    <Section title={S.sections.code} persistKey={`${TOOL_ID}:code`}>
+      <OptionToggle k="code" label={S.code} hint={S.hints.code} />
+      <Field label={S.codeVersion} hint={S.hints.codeVersion}>
+        <Segmented
+          fullWidth
+          value={version}
+          onValueChange={(v) => setOption('codeVersion', v)}
+          options={CODE_VERSION_OPTIONS}
+          disabled={!on}
+        />
+      </Field>
+      <OptionToggle
+        k="codeSettings"
+        label={S.codeSettings}
+        hint={S.hints.codeSettings}
+        disabled={!on}
+      />
+      <NumberSlider k="codeUnit" hint={S.hints.codeUnit} disabled={!on} />
+      <NumberSlider k="codeScale" hint={S.hints.codeScale} disabled={!on} />
+      <NumberSlider k="codeWidth" hint={S.hints.codeWidth} disabled={!on} />
+      <p className="m-0 text-xs text-muted">{S.hints.v1Only}</p>
+      <NumberSlider k="codeMin" disabled={v1Off} />
+      <NumberSlider k="codeMax" hint={S.hints.codeMax} disabled={v1Off} />
+      <OptionToggle k="codeConvert" label={S.codeConvert} disabled={v1Off} />
+      <OptionToggle k="codeWhole" label={S.codeWhole} disabled={v1Off} />
+      <OptionToggle k="codeOrient" label={S.codeOrient} disabled={v1Off} />
+      <OptionToggle k="codeGuard" label={S.codeGuard} disabled={v1Off} />
+      <OptionToggle k="codeFit" label={S.codeFit} disabled={v1Off} />
+      <NumberSlider k="codeRootR" hint={S.hints.codeRootR} disabled={v1Off} />
+    </Section>
+  );
+}
+
 /** 範本的縮圖：用範本的設定與示範種子畫一張小圖（主執行緒；範本的圖形不多） */
 function TemplateThumb({ t }: { t: BloomTemplate }) {
   const ref = useRef<HTMLCanvasElement>(null);
@@ -509,6 +558,8 @@ export function SettingsPanels() {
       <StyleSection />
       <RingsSection />
       <MorseSection />
+      <CodeSection />
+      <DecodeSection />
     </div>
   );
 }

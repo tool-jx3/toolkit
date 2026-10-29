@@ -17,13 +17,15 @@ import {
   Toggle,
 } from '@/ui';
 import { createPreviewer, exportPng, exportSvg, type PreviewResult } from './client';
-import type { BloomStats } from './generate';
+import type { BloomCodeInfo, BloomStats } from './generate';
 import { exportFileName, SEED_MAX_LENGTH, type Settings } from './settings';
 import { regenerate, setOption, setSetting, settingsNow, useSettings } from './store';
 import { S } from './strings';
 
 interface Shown {
   stats: BloomStats;
+  /** 刻種子時：容量夠不夠 */
+  code?: BloomCodeInfo;
   scale: number;
   /** 這張預覽是哪一組設定畫的 */
   settings: Settings;
@@ -48,7 +50,7 @@ function usePreview(canvas: RefObject<HTMLCanvasElement | null>) {
           ctx.drawImage(r.image, 0, 0);
         }
         if ('close' in r.image && typeof r.image.close === 'function') r.image.close();
-        setShown({ stats: r.stats, scale: r.scale, settings: s });
+        setShown({ stats: r.stats, scale: r.scale, settings: s, code: r.code });
         setError(null);
       },
       (e) => setError(e instanceof Error ? e.message : String(e)),
@@ -77,6 +79,25 @@ function usePreview(canvas: RefObject<HTMLCanvasElement | null>) {
   }, [ready]);
 
   return { settings, shown, ready, slow, error };
+}
+
+/** 刻種子：容量夠不夠（3.15） */
+function CodeInfo({ code }: { code: BloomCodeInfo }) {
+  const t = S.codeInfo(code);
+  return (
+    <Notice tone={t.ok && !code.shortUnit ? 'info' : 'warning'}>
+      <span
+        className="flex flex-col gap-0.5"
+        data-testid="code-info"
+        data-ok={t.ok ? 'true' : 'false'}
+      >
+        <span>{t.head}</span>
+        <span>{t.body}</span>
+        <span>{`${t.ok ? '✔' : '✘'} ${t.result}`}</span>
+        {code.shortUnit ? <span>{`※ ${S.codeShortUnit}`}</span> : null}
+      </span>
+    </Notice>
+  );
 }
 
 function SeedRow() {
@@ -179,6 +200,7 @@ export function Preview({ exportRef }: { exportRef: RefObject<ExportPanelHandle 
         <span data-testid="bloom-size">{S.sizeInfo(width, height)}</span>
         {percent !== null ? <span data-testid="bloom-scaled">{S.scaledNote(percent)}</span> : null}
       </p>
+      {shown?.code && settings.code ? <CodeInfo code={shown.code} /> : null}
       {error ? <Notice tone="danger">{S.previewFailed(error)}</Notice> : null}
       <SeedRow />
       {tooBig ? (

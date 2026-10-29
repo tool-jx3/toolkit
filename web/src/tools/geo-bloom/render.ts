@@ -45,6 +45,19 @@ function drawRings(ctx: Ctx, s: BloomShape, cfg: BloomConfig) {
   }
   for (const g of rings) {
     if (g.hidden) continue;
+    /* 刻種子的圈：刻種子的線寬、平的線頭 */
+    if (g.code) {
+      ctx.lineWidth = lw * cfg.codeWidth;
+      ctx.lineCap = 'butt';
+      for (const sg of g.segs ?? []) {
+        ctx.beginPath();
+        ctx.arc(0, 0, g.r, sg.a0, sg.a1);
+        ctx.stroke();
+      }
+      ctx.lineWidth = lw;
+      ctx.lineCap = 'round';
+      continue;
+    }
     if (g.segs) {
       ctx.lineWidth = lw * cfg.morseWidth;
       ctx.lineCap = cfg.morseCap ? 'round' : 'butt';

@@ -58,7 +58,7 @@ describe('數量和原作相同（3.1～3.3）', () => {
 });
 
 describe('空間格子加速不改變結果', () => {
-  it('隨機的設定與種子（含三角形、摩斯環、摩斯橋、貼著放、線不跨線）：加速與逐一比對的結果逐值相同', () => {
+  it('隨機的設定與種子（含三角形、摩斯環、摩斯橋、貼著放、線不跨線、刻種子）：加速與逐一比對的結果逐值相同', () => {
     const rng = createRandom('geo-bloom-index');
     for (let i = 0; i < 60; i++) {
       const o: Overrides = {
@@ -102,6 +102,9 @@ describe('空間格子加速不改變結果', () => {
         pBridge: rng.int(0, 100),
         triRing: rng.pick(TRI_RINGS),
         pTri: rng.int(0, 100),
+        code: rng.next() < 0.3,
+        codeVersion: rng.pick(['v1', 'v2'] as const),
+        codeSettings: rng.next() < 0.5,
         shapes: {
           triCore: rng.next() < 0.4,
           triRing: rng.next() < 0.4,

@@ -1,10 +1,20 @@
 /**
- * 產生花紋（規格 3.2、3.3、3.11～3.14）：從中央圓開始，依加入的順序（廣度優先）一個一個圖形往外長線，
+ * 產生花紋（規格 3.2、3.3、3.11～3.15）：從中央圓開始，依加入的順序（廣度優先）一個一個圖形往外長線，
  * 線的末端放子圖形、加點，或不畫線直接貼著放子圖形。
  * 亂數的取用順序與浮點數的算法都照原作（al1scut/tkmizGeo edb6828）：差一點點就會讓某個比較翻轉，後面整張圖都不同。
  * 純計算，不依賴 DOM（Worker 與主執行緒共用）。
  */
 import type { Random } from '@/core/timeline/random';
+import {
+  bitReader,
+  type CodeV1State,
+  codeV1State,
+  makeCarrierV1,
+  makeCarrierV2,
+  makePacket,
+  V2_DIRECTIONS,
+  v2Params,
+} from './code';
 import {
   layoutMorse,
   type MorseLayout,
@@ -21,6 +31,7 @@ import {
   linearSegments,
   lineIndex,
   type SegmentIndex,
+  segmentTouches,
 } from './spatial';
 
 /** 同心圓、圓＋半圓的一層 */
@@ -33,6 +44,8 @@ export interface BloomRing {
   segs: MorseSeg[] | null;
   /** 不畫（三角心換掉的最內層） */
   hidden?: boolean;
+  /** 刻種子的圈（segs 是刻資料的弧，用「刻種子的線寬」、平的線頭畫） */
+  code?: boolean;
 }
 
 /** 三角形（原作 2026-10）：core＝三角心（換掉最內層）、ring＝三角環（內接在某一層） */
@@ -79,6 +92,12 @@ export interface BloomShape {
   core?: CoreStyle;
   /** 不畫線、直接貼著父圖形放的 */
   attached?: boolean;
+  /** 刻了種子（舊方式）：這個圖形刻的是封包的第 off 個位元起的 len 個 */
+  code?: { off: number; len: number };
+  /** 刻了種子（新方式）：層數 */
+  v2?: { k: number };
+  /** 新方式：連回父圖形的方向（0～11；中央是 −1），這個方向不再長線 */
+  pslot?: number;
 }
 
 export interface BloomLine {
@@ -91,6 +110,8 @@ export interface BloomLine {
   child?: boolean;
   /** 丟失了：不畫，但照樣算在產生的資料裡（後面的線還是會避開它） */
   dropped?: boolean;
+  /** 刻種子（新方式）的線：不會丟失 */
+  keep?: boolean;
 }
 
 export interface BloomDot {
@@ -106,6 +127,8 @@ export interface BloomScene {
   dots: BloomDot[];
   /** 畫的順序（原作 2026-10 一邊產生一邊畫）：s＝下一個圖形、l＝下一條線、d＝下一個點 */
   order: string;
+  /** 刻種子時：容量夠不夠（3.15） */
+  code?: BloomCodeInfo;
 }
 
 export interface BloomStats {
@@ -457,12 +480,55 @@ export interface GenerateOptions {
   index?: boolean;
 }
 
-/** 依設定與種子產生整張花紋 */
+/** 刻種子的結果（設定欄顯示容量夠不夠，3.15） */
+export interface BloomCodeInfo {
+  version: 'v1' | 'v2';
+  /** 封包的位元數 */
+  bits: number;
+  /** 有一起刻設定 */
+  settings: boolean;
+  /** 刻了資料的圖形數 */
+  carriers: number;
+  /** 新方式：選樣子用了幾個位元（線的方向、層數與起點方向、花紋）；舊方式：刻了幾個位元（含重複） */
+  used: number;
+  usedLine: number;
+  usedShape: number;
+  usedRing: number;
+  /** 沒刻到的位元數（0＝全部都刻到了） */
+  missing: number;
+  /** 舊方式：每個位元最少刻了幾次 */
+  minCover: number;
+  /** 短點比刻種子的線寬的 2 倍還短（讀不太出來） */
+  shortUnit: boolean;
+}
+
+/** 依設定與種子產生整張花紋。舊方式刻種子而且「放不下時放大中央」時，中央每次放大 0.2 倍重試到全部刻得下（最多 4.8 倍） */
 export function generateBloom(
   cfg: BloomConfig,
   seed: string,
-  { index = true }: GenerateOptions = {},
+  opts: GenerateOptions = {},
 ): BloomScene {
+  if (cfg.code && cfg.codeVersion === 'v1' && cfg.codeFit) {
+    let boost = 0;
+    for (let k = 0; k <= 24; k++) {
+      boost = k * 0.2;
+      const trial = generateOnce(cfg, seed, opts, boost);
+      if (trial.v1?.cover.every((v) => v > 0)) {
+        if (k === 0) boost = 0;
+        break;
+      }
+    }
+    return generateOnce(cfg, seed, opts, boost).scene;
+  }
+  return generateOnce(cfg, seed, opts, 0).scene;
+}
+
+function generateOnce(
+  cfg: BloomConfig,
+  seed: string,
+  { index = true }: GenerateOptions,
+  boost: number,
+): { scene: BloomScene; v1: CodeV1State | null } {
   const rng = seedRandom(seed);
   const gen: Gen = {
     cfg,
@@ -479,17 +545,15 @@ export function generateBloom(
       pWord: cfg.pMorseWord,
     },
   };
+  const lw = cfg.lineWidth;
   const shapes: BloomShape[] = [];
   const lines: BloomLine[] = [];
   const dots: BloomDot[] = [];
   let order = '';
   const near: CircleIndex<BloomShape> = index ? gridIndex() : linearIndex();
-  /* 線的格子只有「線不跨過既有的線」用到 */
-  const crossing: SegmentIndex<BloomLine> | null = cfg.noCross
-    ? index
-      ? lineIndex()
-      : linearSegments()
-    : null;
+  /* 線的格子：線不跨過既有的線、刻種子時「圖形不放在線上」用到 */
+  const crossing: SegmentIndex<BloomLine> | null =
+    cfg.noCross || cfg.code ? (index ? lineIndex() : linearSegments()) : null;
   const addShape = (s: BloomShape) => {
     shapes.push(s);
     near.add(s);
@@ -500,25 +564,155 @@ export function generateBloom(
     crossing?.add(l);
     order += 'l';
   };
+  const circleOnLines = (x: number, y: number, r: number) =>
+    crossing?.circleHits(x, y, r, null) ?? false;
 
   const rootR = rng.range(cfg.rootMin, cfg.rootMax);
   const root = makeShape(cfg.width / 2, cfg.height / 2, rootR, 0, gen, true);
   const meaning = rootMeaning(seed);
-  applyMeaning(root, meaning, gen);
+
+  /* 刻種子（3.15）：新方式在中央就開始照資料選樣子；舊方式把中央換成刻資料的同心圓（放大） */
+  const isV2 = cfg.code && cfg.codeVersion === 'v2';
+  const packet = cfg.code ? makePacket(seed || '0', cfg.codeSettingsText) : [];
+  const v1 = cfg.code && !isV2 ? codeV1State(packet, root, !!cfg.codeSettingsText) : null;
+  const v2 = isV2
+    ? { list: [] as BloomShape[], reader: bitReader(packet, seed), p: v2Params(cfg) }
+    : null;
+  if (v2) {
+    root.kind = 'rings';
+    if (root.r < v2.p.rmin) root.r = v2.p.rmin;
+    makeCarrierV2(root, v2.reader, v2.p);
+    root.pslot = -1;
+    v2.list.push(root);
+  }
+  if (v1) makeCarrierV1(root, cfg, v1, boost);
+  else if (!v2) applyMeaning(root, meaning, gen);
+  /** 刻了資料的圖形（線不經過它們；新方式時新的圖形也不靠近它們） */
+  const guards = (): BloomShape[] => (v2 ? v2.list : v1 ? v1.list : []);
+  const guardMargin = v2 ? v2.p.M + lw * 2 : cfg.codeUnit + lw * 2;
+  const nearCarrier = (x: number, y: number, r: number) => {
+    if (!v2) return false;
+    for (const c of v2.list)
+      if (Math.hypot(c.x - x, c.y - y) < c.r + v2.p.M + r + cfg.gap) return true;
+    return false;
+  };
+
   addShape(root);
   const queue: BloomShape[] = [root];
   const overlapTries = cfg.avoidOverlap && cfg.overlapMode === 'retry' ? RETRY_LIMIT : 0;
 
+  /** 新方式的同心圓：12 個方向各用一個位元決定長不長線（連回父圖形的方向除外） */
+  const growV2 = (parent: BloomShape) => {
+    if (!v2) return;
+    const { reader, p } = v2;
+    const present: number[] = [];
+    for (let q = 0; q < V2_DIRECTIONS; q++)
+      present[q] = q === parent.pslot ? 0 : reader.bit('line');
+    // biome-ignore lint/style/useExponentiationOperator: 照原作的算法
+    const scale = Math.pow(cfg.shrink, parent.depth);
+    for (let q = 0; q < V2_DIRECTIONS; q++) {
+      if (!present[q]) continue;
+      const a = (q * TAU) / V2_DIRECTIONS;
+      const ca = Math.cos(a);
+      const sa = Math.sin(a);
+      const len = Math.max(rng.range(cfg.lineMin, cfg.lineMax) * scale, p.M * 1.6 + lw * 4);
+      const sr = parent.r + p.start;
+      const sx = parent.x + ca * sr;
+      const sy = parent.y + sa * sr;
+      const wantShape = shapes.length < cfg.maxShapes && rng.next() < cfg.pShape;
+      const cr = Math.max(rng.range(cfg.childMin, cfg.childMax) * scale * cfg.codeScale, p.rmin);
+      const accent = rng.next() < cfg.pAccent;
+      const clear = (x1: number, y1: number, x2: number, y2: number) => {
+        for (const c of v2.list) {
+          if (c === parent) continue;
+          if (segmentTouches({ x: c.x, y: c.y, r: c.r + p.M + lw * 2 }, x1, y1, x2, y2))
+            return false;
+        }
+        return true;
+      };
+      let done = false;
+      if (wantShape) {
+        const dist = parent.r + len + cr;
+        const ex = parent.x + ca * dist;
+        const ey = parent.y + sa * dist;
+        const ok =
+          !(cfg.inBounds && (ex < cr || ey < cr || ex > cfg.width - cr || ey > cfg.height - cr)) &&
+          !near.overlaps(ex, ey, cr + p.M, cfg.gap, null) &&
+          !nearCarrier(ex, ey, cr) &&
+          clear(sx, sy, ex - ca * cr, ey - sa * cr) &&
+          !circleOnLines(ex, ey, cr + p.M + lw * 2);
+        if (ok) {
+          const child = makeShape(ex, ey, cr, parent.depth + 1, gen, false);
+          if (child.kind === 'rings' || child.kind === 'mix' || child.tri) {
+            child.tri = null;
+            makeCarrierV2(child, reader, p);
+            child.pslot = (q + V2_DIRECTIONS / 2) % V2_DIRECTIONS;
+            v2.list.push(child);
+          }
+          const er = child.v2
+            ? child.r + p.start
+            : cfg.fromEdge
+              ? edgeDistance(child, a + Math.PI)
+              : 0;
+          addLine({
+            x1: sx,
+            y1: sy,
+            x2: child.x - ca * er,
+            y2: child.y - sa * er,
+            accent,
+            child: true,
+            keep: true,
+          });
+          addShape(child);
+          queue.push(child);
+          done = true;
+        }
+      }
+      if (!done) {
+        /* 只畫線：線長從原本的長度逐步縮短到碰不到別的東西為止 */
+        const shortest = p.M * 1.2 + lw * 4;
+        let L: number | null = null;
+        for (const f of [1, 0.7, 0.45, 0.25, 0]) {
+          const l = Math.max(len * f, shortest);
+          const lx = parent.x + ca * (sr + l);
+          const ly = parent.y + sa * (sr + l);
+          if (cfg.inBounds && (lx < 4 || ly < 4 || lx > cfg.width - 4 || ly > cfg.height - 4))
+            continue;
+          if (near.overlaps(lx, ly, 2, 0, parent)) continue;
+          if (!clear(sx, sy, lx, ly)) continue;
+          L = l;
+          break;
+        }
+        if (L === null) L = shortest;
+        const lx = parent.x + ca * (sr + L);
+        const ly = parent.y + sa * (sr + L);
+        addLine({ x1: sx, y1: sy, x2: lx, y2: ly, accent, keep: true });
+        if (rng.next() < cfg.pDot) {
+          dots.push({ x: lx, y: ly, r: Math.max(2, lw * rng.range(1.5, 3)), accent });
+          order += 'd';
+        }
+      }
+    }
+  };
+
   for (let qi = 0; qi < queue.length; qi++) {
     const parent = queue[qi];
-    if (shapes.length >= cfg.maxShapes || lines.length >= cfg.maxLines) break;
+    if (parent.v2) {
+      growV2(parent);
+      continue;
+    }
+    if (shapes.length >= cfg.maxShapes || lines.length >= cfg.maxLines) {
+      /* 新方式：後面還有刻資料的同心圓要讀它的線，不能停 */
+      if (v2) continue;
+      break;
+    }
     if (parent.depth >= cfg.maxDepth) continue;
     if (parent !== root && rng.next() > cfg.pBranch) continue;
     let count = rng.int(cfg.branchMin, cfg.branchMax);
     const base = rng.range(0, TAU);
-    /* 中央圖形「前進中／伸長中」：從第一／第二圈長出三條平均分開的線（中央是圓時沒有；原作會停住，D13） */
+    /* 中央圖形「前進中／伸長中」：從第一／第二圈長出三條平均分開的線（中央是圓時沒有；原作會停住，D13。刻種子時沒有） */
     const motion =
-      parent === root && parent.rings && meaning.motion
+      parent === root && parent.rings && meaning.motion && !cfg.code
         ? meaning.motion === 'forward'
           ? 1
           : 2
@@ -553,7 +747,9 @@ export function generateBloom(
         const len = rng.range(cfg.lineMin, cfg.lineMax) * scale;
 
         let startR: number;
-        if (motion) startR = innerRing(parent, motion).r;
+        /* 刻了資料（舊方式）的圖形：線從外圈再往外一點出發，不碰到刻的弧 */
+        if (parent.code && cfg.codeGuard) startR = parent.r + lw * 2;
+        else if (motion) startR = innerRing(parent, motion).r;
         else if (parent.tri) startR = parent.tri.R / 2;
         else if (cfg.startRing === 'any' && parent.rings) {
           const cands = solidRingsAt(parent, angle, cfg);
@@ -568,7 +764,8 @@ export function generateBloom(
         let wantShape =
           shapes.length < cfg.maxShapes &&
           (rng.next() < cfg.pShape || (motion > 0 && cfg.pShape > 0));
-        const childR = rng.range(cfg.childMin, cfg.childMax) * scale;
+        const childR =
+          rng.range(cfg.childMin, cfg.childMax) * scale * (cfg.code ? cfg.codeScale : 1);
 
         /* 不畫線、直接貼著父圖形放（3.13） */
         if (cfg.pAttach > 0 && shapes.length < cfg.maxShapes && rng.next() < cfg.pAttach) {
@@ -581,8 +778,12 @@ export function generateBloom(
           )
             continue;
           if (cfg.avoidOverlap && near.overlaps(ax, ay, childR, cfg.gap, parent)) continue;
+          if (v1 && cfg.codeGuard && circleOnLines(ax, ay, childR + cfg.codeUnit + lw * 2))
+            continue;
+          if (nearCarrier(ax, ay, childR)) continue;
           if (edge >= 0) freeEdges.splice(freeEdges.indexOf(edge), 1);
           const child = makeShape(ax, ay, childR, parent.depth + 1, gen, false);
+          if (v1) makeCarrierV1(child, cfg, v1, boost);
           const d1 =
             edgeDistance(parent, angle, true) +
             edgeDistance(child, angle + Math.PI, true) * (1 - cfg.attachDepth);
@@ -608,16 +809,28 @@ export function generateBloom(
         )
           continue;
         if (cfg.lineAvoid && near.segmentHits(sx, sy, lx, ly, parent)) continue;
-        /* 線不跨過既有的線：量到子圖形的外接圓（只畫線時到末端） */
+        /* 量到子圖形的外接圓（只畫線時到末端）的線段：刻種子時不經過刻了資料的圖形、線不跨線 */
+        const tx = wantShape ? ex - cos * childR : lx;
+        const ty = wantShape ? ey - sin * childR : ly;
+        if ((v1 && cfg.codeGuard) || v2) {
+          const hit = guards().some(
+            (c) =>
+              c !== parent &&
+              segmentTouches({ x: c.x, y: c.y, r: c.r + guardMargin }, sx, sy, tx, ty),
+          );
+          if (hit) continue;
+        }
+        if (wantShape && nearCarrier(ex, ey, childR)) continue;
+        if (cfg.noCross && crossing?.crosses(sx, sy, tx, ty)) continue;
+        /* 刻種子：新的圖形不放在既有的線上 */
         if (
-          crossing?.crosses(
-            sx,
-            sy,
-            wantShape ? ex - cos * childR : lx,
-            wantShape ? ey - sin * childR : ly,
-          )
+          v1 &&
+          cfg.codeGuard &&
+          wantShape &&
+          circleOnLines(ex, ey, childR + cfg.codeUnit + lw * 2)
         )
           continue;
+        if (v2 && wantShape && circleOnLines(ex, ey, childR + lw * 2)) continue;
         if (wantShape && cfg.avoidOverlap && near.overlaps(ex, ey, childR, cfg.gap, null)) {
           if (cfg.overlapMode === 'retry') continue;
           if (cfg.overlapMode === 'skip') break;
@@ -633,14 +846,16 @@ export function generateBloom(
         if (edge >= 0) freeEdges.splice(freeEdges.indexOf(edge), 1);
         if (wantShape) {
           const child = makeShape(ex, ey, childR, parent.depth + 1, gen, false);
-          const er = endRadius(child, cfg, rng, angle);
+          if (v1) makeCarrierV1(child, cfg, v1, boost);
+          const er =
+            child.code && cfg.codeGuard ? child.r + lw * 2 : endRadius(child, cfg, rng, angle);
           addLine({ x1: sx, y1: sy, x2: ex - cos * er, y2: ey - sin * er, accent, child: true });
           addShape(child);
           queue.push(child);
         } else {
           addLine({ x1: sx, y1: sy, x2: lx, y2: ly, accent });
           if (rng.next() < cfg.pDot) {
-            dots.push({ x: lx, y: ly, r: Math.max(2, cfg.lineWidth * rng.range(1.5, 3)), accent });
+            dots.push({ x: lx, y: ly, r: Math.max(2, lw * rng.range(1.5, 3)), accent });
             order += 'd';
           }
         }
@@ -649,10 +864,49 @@ export function generateBloom(
     }
   }
 
-  /* 線的丟失（3.13）：依畫的順序，連到子圖形的線各自以丟失率決定（自己的一串亂數） */
+  /* 線的丟失（3.13）：依畫的順序，連到子圖形的線各自以丟失率決定（自己的一串亂數）；刻種子（新方式）的線不丟 */
   if (cfg.pDrop > 0) {
     const dr = subRandom(seed, 'drop');
-    for (const l of lines) if (l.child && dr.next() < cfg.pDrop) l.dropped = true;
+    for (const l of lines) if (l.child && !l.keep && dr.next() < cfg.pDrop) l.dropped = true;
   }
-  return { shapes, lines, dots, order };
+
+  let code: BloomCodeInfo | undefined;
+  const shortUnit = cfg.codeUnit < lw * cfg.codeWidth * 2;
+  if (v2) {
+    const { reader } = v2;
+    code = {
+      version: 'v2',
+      bits: packet.length,
+      settings: !!cfg.codeSettingsText,
+      carriers: v2.list.length,
+      used: reader.i,
+      usedLine: reader.used.line,
+      usedShape: reader.used.shape,
+      usedRing: reader.used.ring,
+      missing: Math.max(0, packet.length - reader.i),
+      minCover: 0,
+      shortUnit,
+    };
+  } else if (v1) {
+    let missing = 0;
+    let minCover = Number.POSITIVE_INFINITY;
+    for (const v of v1.cover) {
+      if (!v) missing++;
+      minCover = Math.min(minCover, v);
+    }
+    code = {
+      version: 'v1',
+      bits: v1.total,
+      settings: v1.settings,
+      carriers: v1.list.length,
+      used: v1.list.reduce((a, s) => a + (s.code?.len ?? 0), 0),
+      usedLine: 0,
+      usedShape: 0,
+      usedRing: 0,
+      missing,
+      minCover,
+      shortUnit,
+    };
+  }
+  return { scene: { shapes, lines, dots, order, ...(code ? { code } : {}) }, v1 };
 }

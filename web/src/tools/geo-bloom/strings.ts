@@ -1,6 +1,14 @@
 /** 幾何花紋產生器的介面文字（用詞照 DESIGN.md 第 5 節） */
-import type { BloomStats } from './generate';
-import type { NumericKey, OverlapMode, ShapeToggle, StartRing, TriRing } from './settings';
+import type { DecodeMode } from './decode';
+import type { BloomCodeInfo, BloomStats } from './generate';
+import type {
+  CodeVersion,
+  NumericKey,
+  OverlapMode,
+  ShapeToggle,
+  StartRing,
+  TriRing,
+} from './settings';
 
 export const S = {
   title: '幾何花紋產生器',
@@ -33,6 +41,8 @@ export const S = {
     style: '樣式',
     rings: '同心圓',
     morse: '摩斯環',
+    code: '把種子刻進圖形',
+    decode: '從圖片讀種子',
   },
   templatesHint: '套用一組調好的設定（種子不變），之後可以再自己調。',
   templatesLabel: '花紋範本',
@@ -79,6 +89,12 @@ export const S = {
     morseWidth: '摩斯線的粗細',
     morseShrink: '短點跟著每代縮小',
     pBridge: '每個字母架橋的機率',
+    codeUnit: '刻種子的短點長度',
+    codeMin: '一個圖形最少放幾個位元',
+    codeMax: '一個圖形最多放幾個位元',
+    codeScale: '子圖形放大',
+    codeWidth: '刻種子的線寬',
+    codeRootR: '中央的最小半徑',
   } satisfies Record<NumericKey, string>,
   hints: {
     canvas: '64～8000 px。大畫布的預覽會縮小顯示，匯出時才畫全尺寸。',
@@ -132,6 +148,17 @@ export const S = {
       '空白時隨機排。只有英文字母、數字與 . , ? / - ! @ 有摩斯電碼（大小寫、全形半形都可以）；中文、日文等其他字會略過，空白是單字間隔。',
     bridges:
       '相鄰的兩圈用徑向的短線連起來：外圈的長點連到內圈的實線圓，或連到內圈和它重疊的長點；每個字母最多一座。',
+    code: '把種子（與設定）藏在圖形的樣子裡。匯出 PNG 之後，用「從圖片讀種子」就能讀回來、畫出同一張。',
+    codeVersion:
+      '新方式：同心圓的層數、花紋、長出的線都照資料選，看起來和一般的圖一樣。舊方式：外圈換成一段一段的弧（短＝0、長＝1），資料分散刻在好幾個圖形上。',
+    codeSettings:
+      '和預設不同的設定也刻進去；讀回來時連設定一起換。資料比較長，要比較多的圖形才刻得下。',
+    codeUnit: '刻資料的弧的一個單位。太短（比刻種子的線寬的 2 倍短）時不容易讀出來。',
+    codeScale: '子圖形的半徑乘上這個倍數，比較容易刻得下。',
+    codeWidth: '刻資料的弧的線寬（線寬的倍數）。',
+    v1Only: '以下是舊方式的設定。',
+    codeMax: '越小資料分得越散（每個圖形刻一小段）；放得下全部時另看「放得下時刻全部」。',
+    codeRootR: '中央的圖形至少這麼大（多刻一點）。',
   },
   avoidOverlap: '不和既有圖形重疊',
   overlapMode: '重疊時',
@@ -187,6 +214,82 @@ export const S = {
   bridges: '摩斯橋',
   times: '倍',
 
+  /* 把種子刻進圖形 */
+  code: '把種子刻進圖形',
+  codeVersion: '刻的方式',
+  codeVersions: {
+    v2: '新方式',
+    v1: '舊方式',
+  } satisfies Record<CodeVersion, string>,
+  codeSettings: '設定也一起刻',
+  codeConvert: '圓、圓＋半圓也換成刻資料的同心圓',
+  codeWhole: '放得下時刻全部（只看那一個就讀得出來）',
+  codeOrient: '圖形的方向也放 3 個位元',
+  codeGuard: '線不經過刻了資料的圖形',
+  codeFit: '放不下時放大中央的圖形',
+  codeInfo: (c: BloomCodeInfo) => {
+    const bytes = c.bits / 8 - 5;
+    const head = `${c.version === 'v2' ? '新方式' : '舊方式'}：資料 ${c.bits} 個位元（${bytes} 位元組${c.settings ? '，含設定' : ''}）`;
+    const body =
+      c.version === 'v2'
+        ? `刻在 ${c.carriers} 個同心圓上，選樣子用了 ${c.used} 個位元（線的方向 ${c.usedLine}、層數與方向 ${c.usedShape}、花紋 ${c.usedRing}）。`
+        : `刻了資料的圖形 ${c.carriers} 個，刻了 ${c.used} 個位元（含重複）。`;
+    const result = c.missing
+      ? c.version === 'v2'
+        ? `還差 ${c.missing} 個位元沒刻進去：增加圖形的最多數或子圖形的大小。`
+        : `有 ${c.missing} 個位元沒刻到：增加圖形數、半徑，或縮短刻種子的短點。`
+      : c.version === 'v2'
+        ? '全部刻進去了（多的用種子的亂數補）。'
+        : `全部刻進去了，每個位元至少刻了 ${c.minCover} 次。`;
+    return { head, body, result, ok: !c.missing };
+  },
+  codeShortUnit: '刻種子的短點比刻種子的線寬的 2 倍還短，讀的時候可能讀不出來。',
+
+  /* 從圖片讀種子 */
+  decodeHint:
+    '選一張用「把種子刻進圖形」匯出的 PNG（也可以拖進視窗或貼上），從整張圖找出刻了資料的圖形讀回種子。原作刻的圖也讀得出來。',
+  decodeDrop: '選擇或拖放圖片',
+  decodeButton: '選擇圖片…',
+  decodeCurrent: '讀目前的圖',
+  decodeCurrentHint: '把目前的設定畫成全尺寸的圖再讀（確認刻得進去、讀得出來）。',
+  decodeTitle: '從圖片讀種子',
+  decodeMode: '讀的方式',
+  decodeModes: {
+    auto: '自動（先新後舊）',
+    v2: '只用新方式',
+    v1: '只用舊方式',
+  } satisfies Record<DecodeMode, string>,
+  decodeClickHint: '漏掉的圖形，點它的中心就會加進去再讀一次。',
+  decodeImageLabel: '讀的圖（點一下加上漏掉的圖形的中心）',
+  decoding: '讀取中…',
+  decodeFailedLoad: '讀不了這張圖，請用 PNG、JPEG 或 WebP。',
+  decodeFellBack: '（新方式讀不出來，改用舊方式）',
+  decodeV2Found: (found: number, read: number) =>
+    `新方式：找到同心圓 ${found} 個，循線讀到 ${read} 個。`,
+  decodeV2Bits: (bits: number, unit: number, ms: number) =>
+    `讀到 ${bits} 個位元，推算的短點 ${unit.toFixed(1)} px（${Math.round(ms)} ms）。`,
+  decodeV2None: '新方式：找不到刻了資料的同心圓。',
+  decodeV2Pattern: '新方式：中央的同心圓的花紋讀不出來。',
+  decodeV2Fail: '新方式讀不出來（從中央的圖形循線讀不下去，或檢查碼不合）。請用沒有裁切的整張圖。',
+  decodeV1Found: (cands: number, found: number, chunks: number) =>
+    `舊方式：候選 ${cands} 點 → 像刻了資料的圖形 ${found} 個，讀出的斷片 ${chunks} 個。`,
+  decodeV1Ranges: (ranges: string) => `讀到的範圍（位元）：${ranges || '沒有'}`,
+  decodeV1Assembled: (bits: number, need: number | null) =>
+    `從頭連續組好的：${bits} 個位元${need ? `／需要 ${need}` : ''}`,
+  decodeV1NoHead:
+    '斷片讀得出來，但沒有資料開頭（第 0 個位元起）的圖形：資料分散刻在好幾個圖形上，請用沒有裁切的整張圖。',
+  decodeV1Short: '斷片不夠。請用整張圖，或點漏掉的圖形的中心。',
+  decodeV1Fail: '讀不出來：找不到刻了資料的圖形，或檢查碼不合（讀不出的圖形標成紅色）。',
+  decodeOk: '讀出來了',
+  decodeSeed: (seed: string) => `種子：${seed}`,
+  decodeSettings: (n: number) =>
+    n ? `設定：${n} 項（重畫時一起換）` : '設定：沒有（用目前的設定重畫）',
+  decodeApply: '用這個種子重畫',
+  decodeApplied: (seed: string) => `已換成讀出的種子「${seed}」（固定種子）。`,
+  close: '關閉',
+  dropLabel: '放開即可讀種子',
+  dropHint: 'PNG、JPEG、WebP',
+
   /* 匯出 */
   formatPng: 'PNG',
   formatPngDesc: '寬 × 高的圖片（全尺寸），可以透明背景。',
@@ -213,6 +316,7 @@ export const S = {
     '從「範本」挑一組設定開始最快：星座、魔法陣、科幻介面……之後再自己調。',
     '「同心圓」與「摩斯環」決定同心圓的樣子：線從哪一圈出發、外圈的點線（可以填自己的英文字，排成摩斯電碼）、相鄰兩圈之間的摩斯橋。中央的同心圓會依種子換樣子（三角形、中心的大小、長出三條線）。',
     '「重疊」的設定決定圖形會不會擠在一起、線會不會交叉；「收在畫布內」可以讓整個花紋留在畫面裡。',
+    '「把種子刻進圖形」把種子（與設定）藏在圖形的樣子裡；匯出的 PNG 用「從圖片讀種子」（或直接拖進視窗）就能讀回來、畫出同一張，原作刻的圖也讀得出來。',
     '匯出 PNG（可以透明背景）或 SVG（向量，放大不會糊）。很大的畫布（例如 8000 × 8000）預覽會縮小顯示，匯出時才畫全尺寸，要等幾秒。',
     '設定與種子會自動存在這個瀏覽器；「專案」選單可以存成專案檔，換電腦也能畫出同一張。',
   ],
