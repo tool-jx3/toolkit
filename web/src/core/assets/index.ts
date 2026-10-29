@@ -43,6 +43,11 @@ export interface AssetStore {
   bitmap(id: string): Promise<ImageBitmap | undefined>;
   /** 已經解碼過的圖（同步；還沒讀就是 undefined） */
   peekBitmap(id: string): ImageBitmap | undefined;
+  /**
+   * 放掉這張圖解碼後的快取（close；原檔、IndexedDB 不動，之後 `bitmap(id)` 重新解碼）。
+   * 很多張大圖、只需要同時解碼其中幾張的工具用（token-maker 的名單）；呼叫的工具要確定自己沒有還在用那張 ImageBitmap。
+   */
+  releaseBitmap(id: string): void;
   /** 物件網址（給 <img>、縮圖用；刪除或 gc 時自動釋放） */
   url(id: string): Promise<string | undefined>;
   /** 記憶體裡有沒有這張 */
@@ -267,6 +272,13 @@ export function createAssetStore(toolId: string, { name = 'assets' } = {}): Asse
       return p;
     },
     peekBitmap: (id) => decoded.get(id),
+    releaseBitmap(id) {
+      const bmp = decoded.get(id);
+      if (!bmp) return;
+      decoded.delete(id);
+      bitmaps.delete(id);
+      bmp.close?.();
+    },
     async url(id) {
       const hit = urls.get(id);
       if (hit) return hit;

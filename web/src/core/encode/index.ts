@@ -56,9 +56,15 @@ export {
   type DeflateMode,
   dpiToPixelsPerMeter,
   encodePng,
+  isPngTextKeyword,
   PNG_SIGNATURE,
+  type PngTextEntry,
+  type PngTextOptions,
   readPngDpi,
+  readPngText,
+  readPngTexts,
   setPngDpi,
+  setPngText,
   zlib,
 } from './png';
 export { PngSequenceEncoder, type PngSequenceOptions } from './sequence';
