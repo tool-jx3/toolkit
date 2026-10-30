@@ -682,6 +682,10 @@ loading-maker 預設（透明）、不透明背景＋預設的結尾動作（最
   QR code 的 `qr.ts` 在 qr-maker 引入時搬進 `@/core/qr`（`qrMatrix`，輸出不變）。
   沒有共用的：Code 128 條碼（`web/src/tools/id-ticket/code128.ts`：B／C 字集自動切換、檢查碼，約 80 行）、畫證件與票券的小工具（`kit.ts`：字距、自動縮小與「…」、欄位的點選範圍、照片格、印章），
   別的工具要條碼時可以把 `code128.ts` 搬進 `core/`。
+  2026-10-30 加 SF 證件（參考 CyberDelaai/sinforge-ui，MIT）時也都放在工具目錄、沒有動共用層：照片效果（`photofx.ts`：門檻單色化、網點、Floyd–Steinberg 抖色，
+  墨色＋透明）、掛繩孔與掛繩的幾何與畫法（`lanyard.ts`）、SF 證件的外形、版面、機讀區（ICAO 9303 TD2＋檢查碼）、DNA 條、照片框、執照圖示、
+  浮水印與裝飾圖（`sf/`）。裝飾圖的拖曳用共用的 `LayoutEditor`、裁切用 `CropDialog`、縮圖清單用 `ThumbnailList`。
+  別的工具要照片效果或機讀區時可以把 `photofx.ts`、`sf/mrz.ts` 搬進 `core/`。
 - G7 qr-maker（QR Code 產生器，2026-10）：編碼、有樣式的畫法、SVG、解碼與讀得出來的檢查在 `@/core/qr`（見 4.2），元件展示頁「模組」分頁有示範（`QrDemo.tsx`）。
   沒有共用的：外觀預設（`web/src/tools/qr-maker/presets.ts`）、樣式選項的縮圖（`thumbs.ts`）、檢查結果的文字與門檻（`check.ts`：對比 1.5／3／4.5、留白 2 格、每格 4 px、容錯 50%）。
 - G7 family-tree（家系圖產生器）：畫布是 DOM 卡片＋SVG 連線、整張以 transform 平移縮放（卡片要能聚焦、雙擊就地編輯，所以不用畫在 canvas 上的 `PanZoomViewport`；

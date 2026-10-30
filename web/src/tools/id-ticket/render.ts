@@ -28,6 +28,7 @@ import {
   UNITS_PER_MM,
 } from './model';
 import { polyPath } from './sf/geom';
+import { sfFontUses } from './sf/render';
 import {
   ID_TEMPLATES,
   type IdTemplate,
@@ -336,6 +337,8 @@ export interface QrDensity {
 
 /** 目前這一款的 QR code 有多密；沒有 QR code 的範本 null */
 export function qrDensity(s: IdTicketState): QrDensity | null {
+  /* SF 證件的 QR code 照原作畫在條碼的位置（大小跟著範本與裝飾開關），不另外提醒 */
+  if (s.kind === 'sf') return null;
   const id = s.kind === 'id';
   const tpl = id ? idTemplate(s.idTemplate) : ticketTemplate(s.ticketTemplate);
   if (!tpl.qr) return null;
@@ -454,7 +457,7 @@ export function thumbFontUses(s: IdTicketState, kind: IdTicketState['kind']): Fo
 
 /** 目前類別用到的字型 */
 export const fontUsesOf = (s: IdTicketState): FontUse[] =>
-  s.kind === 'id' ? idFontUses(s) : ticketFontUses(s);
+  s.kind === 'id' ? idFontUses(s) : s.kind === 'sf' ? sfFontUses(s.sf) : ticketFontUses(s);
 
 /* ======================================================================
  * GIF：票微微浮起、一道光掃過（規格 3.5）

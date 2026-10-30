@@ -221,7 +221,8 @@ function LicenseGlyph({ shapesKey, on }: { shapesKey: string; on: boolean }) {
 
 export function LicensesSection() {
   const sf = useDoc((s) => s.data.sf);
-  if (sf.blank !== 'license') return null;
+  const kind = useDoc((s) => s.data.kind);
+  if (kind !== 'sf' || sf.blank !== 'license') return null;
   return (
     <Section
       title={`${S.sectionLicenses}（${sf.licenses.length}／${LICENSES.length}）`}
@@ -350,9 +351,10 @@ function LicenseDialog() {
 
 export function SfCaptionsSection() {
   const sf = useDoc((s) => s.data.sf);
+  const kind = useDoc((s) => s.data.kind);
   const [on, setOn] = useAdvancedMode(TOOL_ID);
   const keys = sfBlank(sf.blank).captions;
-  if (!keys.length) return null;
+  if (kind !== 'sf' || !keys.length) return null;
   return (
     <Section
       title={S.sectionSfCaptions}

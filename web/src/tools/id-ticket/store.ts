@@ -156,11 +156,15 @@ export const usePrefs = createPreviewStore<Prefs>(TOOL_ID, initialPrefs());
   const fixed: Prefs = {
     tab: p.tab === 'style' ? 'style' : 'content',
     side: p.side === 'back' ? 'back' : 'front',
-    lanyard: (LANYARD_MODES as readonly string[]).includes(p.lanyard)
-      ? p.lanyard
-      : p.strap === false
-        ? 'none'
-        : d.lanyard,
+    /* 以前的格式只有 strap（讀出來時 lanyard 是補上的預設值）：開＝只在預覽、關＝不要 */
+    lanyard:
+      typeof p.strap === 'boolean'
+        ? p.strap
+          ? 'preview'
+          : 'none'
+        : (LANYARD_MODES as readonly string[]).includes(p.lanyard)
+          ? p.lanyard
+          : d.lanyard,
     sfScale: (SF_SCALES as readonly number[]).includes(p.sfScale) ? p.sfScale : d.sfScale,
     idMode: ID_EXPORT_MODES.includes(p.idMode) ? p.idMode : d.idMode,
     idFaces: ID_FACES.includes(p.idFaces) ? p.idFaces : d.idFaces,
