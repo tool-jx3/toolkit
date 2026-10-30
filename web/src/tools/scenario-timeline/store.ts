@@ -1,14 +1,18 @@
 /**
  * 狀態與操作：
- * - useDoc：專案的資料（事件、泳道、分類、標記…；自動儲存、可以復原；讀回時經過 normalizeDoc）。
- * - usePrefs：這台裝置的畫面設定（檢視、GM／PL、畫面範圍、收合、分頁、匯出設定；不列入復原）。
- * - useUi：畫面狀態（選取、畫面範圍、拖曳中的預覽；不保存）。
+ * - useDoc：專案的資料（事件、泳道、分類、標記、架空曆、關聯線…；自動儲存、可以復原；讀回時經過 normalizeDoc）。
+ * - usePrefs：這台裝置的畫面設定（檢視、GM／PL、畫面範圍、收合、分頁、匯出設定、篩選；不列入復原）。
+ * - useUi：畫面狀態（選取〔可以多選〕、畫面範圍、拖曳中的預覽；不保存）。
  * 改資料的操作在 PL 檢視時不作用（通知「切回 GM 檢視才能編輯」）。
  */
 import { create } from 'zustand';
 import type { StateStorage } from 'zustand/middleware';
 import { createPreviewStore, createToolStore } from '@/core/storage';
+import type { Calendar } from './model/calendar';
+import { planCalendar } from './model/calendarEdit';
 import { exampleDoc } from './model/example';
+import { emptyFilter, type FilterState, normalizeFilter } from './model/filter';
+import { LINK_LIMITS, type Link, type LinkKind, linkId } from './model/links';
 import {
   afterUnit,
   canonical,
@@ -16,6 +20,7 @@ import {
   convertTime,
   dateValue,
   dayOneValue,
+  type EraArg,
   formatLong,
   MINUTES_PER_DAY,
   readTime,
@@ -42,7 +47,8 @@ import { notify } from './notify';
 import { S } from './strings';
 
 export const TOOL_ID = 'scenario-timeline';
-export const DATA_VERSION = 1;
+/** 資料的版本：2＝第二批（架空曆的月份、關聯線）；1 的專案檔、自動存檔照讀 */
+export const DATA_VERSION = 2;
 
 function local(): Storage | null {
   try {
@@ -90,6 +96,8 @@ function docStorage(): StateStorage {
 export const useDoc = createToolStore<TimelineDoc>(TOOL_ID, exampleDoc(), {
   version: DATA_VERSION,
   storage: docStorage(),
+  /* 第 1 版（第一批）：沒有 calendar、links；normalizeDoc 補上預設 */
+  migrate: (data) => normalizeDoc(data) ?? exampleDoc(),
 });
 export const docNow = (): TimelineDoc => useDoc.getState().data;
 
@@ -110,6 +118,8 @@ export interface ExportPrefs {
   audience: Audience;
   format: 'png' | 'svg';
   scale: number;
+  /** 只匯出篩選的結果（F91；預設全部） */
+  filtered?: boolean;
 }
 
 export interface Prefs {
@@ -121,7 +131,13 @@ export interface Prefs {
   windows: Partial<Record<TimeMode, Win>>;
   collapsed: Record<string, boolean>;
   export: ExportPrefs;
-  text: { format: 'text' | 'md'; audience: Audience };
+  text: { format: 'text' | 'md'; audience: Audience; filtered?: boolean };
+  /** 篩選（F91）：GM 檢視與 PL 檢視各一份（PL 檢視的不會含 GM 專用的值） */
+  filter: { gm: FilterState; pl: FilterState };
+  /** 篩選的面板開著 */
+  filterOpen: boolean;
+  /** 沒符合的事件：false＝淡化（時間軸）、true＝藏起來 */
+  filterHide: boolean;
 }
 
 export const usePrefs = createPreviewStore<Prefs>(TOOL_ID, {
@@ -143,8 +159,25 @@ export const usePrefs = createPreviewStore<Prefs>(TOOL_ID, {
     scale: 1,
   },
   text: { format: 'text', audience: 'pl' },
+  filter: { gm: emptyFilter(), pl: emptyFilter() },
+  filterOpen: false,
+  filterHide: false,
 });
 export const prefsNow = (): Prefs => usePrefs.getState().data;
+
+/** 目前檢視的篩選（存在這台裝置的值經過整理） */
+export function filterOf(p: Prefs, audience: Audience = p.viewMode): FilterState {
+  return normalizeFilter(p.filter?.[audience]);
+}
+export function setFilter(patch: Partial<FilterState>): void {
+  const p = prefsNow();
+  const who = p.viewMode;
+  const next = { ...filterOf(p, who), ...patch };
+  usePrefs.getState().patch({
+    filter: { gm: filterOf(p, 'gm'), pl: filterOf(p, 'pl'), [who]: next },
+  });
+}
+export const clearFilter = (): void => setFilter(emptyFilter());
 export const setPrefs = (patch: Partial<Prefs>): void => usePrefs.getState().patch(patch);
 export const setExportPrefs = (patch: Partial<ExportPrefs>): void =>
   usePrefs.getState().update((d) => {
@@ -162,25 +195,33 @@ export interface DragPreview {
 }
 
 export interface UiState {
+  /** 選取中的事件（多選時是最後點的那個：Shift＋點選的起點、「事件」分頁的主角） */
   selectedId: string | null;
+  /** 選取中的全部事件（依選取的順序；單選時就是 [selectedId]） */
+  selectedIds: string[];
   /** 時間軸的畫面範圍（null＝還沒算，開頁時全覽或用上次的） */
   win: Win | null;
   /** win 是哪一種寫法的範圍 */
   winMode: TimeMode | null;
   /** 要求把焦點放到「事件」分頁的標題欄（n 每次加 1；id＝哪個事件） */
   focusTitle: { n: number; id: string | null };
-  /** 拖曳中的事件（畫在新的位置；放開才寫進資料） */
-  drag: DragPreview | null;
+  /** 拖曳中的事件（畫在新的位置；放開才寫進資料；多選時好幾個一起） */
+  drag: DragPreview[] | null;
   /** 拖曳中的標記、目前進度 */
   flagDrag: { id: string; time: string } | null;
   /** 要求全覽（換寫法、開專案檔、讀入之後） */
   fitRequest: number;
   pasteOpen: boolean;
   convertTo: TimeMode | null;
+  /** 讀入 vis-timeline 的資料的對話框 */
+  visOpen: boolean;
+  /** 要求「事件」分頁醒目某一條關聯線（點了時間軸上的線） */
+  focusLink: { n: number; id: string | null };
 }
 
 export const useUi = create<UiState>(() => ({
   selectedId: null,
+  selectedIds: [],
   win: null,
   winMode: null,
   focusTitle: { n: 0, id: null },
@@ -189,9 +230,33 @@ export const useUi = create<UiState>(() => ({
   fitRequest: 0,
   pasteOpen: false,
   convertTo: null,
+  visOpen: false,
+  focusLink: { n: 0, id: null },
 }));
 
-export const select = (id: string | null): void => useUi.setState({ selectedId: id });
+/* ---------- 選取（F90：可以多選） ---------- */
+
+/** 只選這一個（null＝取消選取） */
+export const select = (id: string | null): void =>
+  useUi.setState({ selectedId: id, selectedIds: id ? [id] : [] });
+
+/** 選這些（primary＝多選時的主角；不給時最後一個） */
+export function selectMany(ids: readonly string[], primary?: string | null): void {
+  const list = [...new Set(ids)];
+  const p = primary && list.includes(primary) ? primary : (list[list.length - 1] ?? null);
+  useUi.setState({ selectedId: p, selectedIds: list });
+}
+
+/** Ctrl／⌘＋點選：加入或拿掉一個 */
+export function toggleSelected(id: string): void {
+  const { selectedIds } = useUi.getState();
+  if (selectedIds.includes(id)) {
+    const rest = selectedIds.filter((x) => x !== id);
+    useUi.setState({ selectedIds: rest, selectedId: rest[rest.length - 1] ?? null });
+  } else useUi.setState({ selectedIds: [...selectedIds, id], selectedId: id });
+}
+
+export const selectedNow = (): string[] => useUi.getState().selectedIds;
 export const requestFit = (): void => useUi.setState((s) => ({ fitRequest: s.fitRequest + 1 }));
 
 let saveTimer = 0;
@@ -209,7 +274,11 @@ export function setWin(win: Win): void {
 }
 
 export function editEvent(id: string): void {
-  useUi.setState((s) => ({ selectedId: id, focusTitle: { n: s.focusTitle.n + 1, id } }));
+  useUi.setState((s) => ({
+    selectedId: id,
+    selectedIds: [id],
+    focusTitle: { n: s.focusTitle.n + 1, id },
+  }));
   setPrefs({ tab: 'event' });
 }
 
@@ -266,19 +335,40 @@ export function updateEvent(id: string, recipe: (e: TimelineEvent) => void, step
 }
 
 export function deleteEvent(id: string): TimelineEvent | null {
-  if (!guard()) return null;
-  const e = findEvent(id);
-  if (!e) return null;
+  return deleteEvents([id])[0] ?? null;
+}
+
+/** 刪除好幾個事件（連同它們的關聯線；一步復原；通知裡有「復原」） */
+export function deleteEvents(ids: readonly string[]): TimelineEvent[] {
+  if (!guard()) return [];
+  const set = new Set(ids);
+  const gone = docNow().events.filter((e) => set.has(e.id));
+  if (!gone.length) return [];
   commit((d) => {
-    d.events = d.events.filter((x) => x.id !== id);
+    d.events = d.events.filter((x) => !set.has(x.id));
+    d.links = d.links.filter((k) => !set.has(k.from) && !set.has(k.to));
   });
-  if (useUi.getState().selectedId === id) select(null);
+  const ui = useUi.getState();
+  const rest = ui.selectedIds.filter((x) => !set.has(x));
+  if (rest.length !== ui.selectedIds.length) selectMany(rest);
   notify({
-    title: S.deleted(e.title.trim() || S.untitled),
+    title:
+      gone.length === 1
+        ? S.deleted(gone[0].title.trim() || S.untitled)
+        : S.deletedMany(gone.length),
     tone: 'success',
     action: { label: S.undoAction, onClick: () => undo() },
   });
-  return e;
+  return gone;
+}
+
+/** 好幾個事件一起改（多選的設定欄；一步復原） */
+export function updateEvents(ids: readonly string[], recipe: (e: TimelineEvent) => void): void {
+  if (!guard()) return;
+  const set = new Set(ids);
+  commit((d) => {
+    for (const e of d.events) if (set.has(e.id)) recipe(e);
+  });
 }
 
 export function duplicateEvent(id: string): void {
@@ -290,6 +380,23 @@ export function duplicateEvent(id: string): void {
     title: `${e.title}${S.duplicateSuffix}`.slice(0, LIMITS.eventTitle),
     people: [...e.people],
   });
+}
+
+/** 好幾個事件一起移動（多選的拖曳、鍵盤；一步復原） */
+export function placeEvents(list: readonly DragPreview[], step = true): void {
+  if (!guard() || !list.length) return;
+  const by = new Map(list.map((x) => [x.id, x]));
+  const fn = (d: TimelineDoc) => {
+    for (const e of d.events) {
+      const n = by.get(e.id);
+      if (!n) continue;
+      e.start = n.start;
+      e.end = n.end;
+      e.laneId = n.laneId;
+    }
+  };
+  if (step) commit(fn);
+  else useDoc.getState().update(fn);
 }
 
 /** 拖曳、鍵盤移動後寫進資料 */
@@ -453,9 +560,85 @@ export function deleteLane(id: string, withEvents: boolean): void {
   commit((d) => {
     d.lanes = d.lanes.filter((l) => l.id !== id);
     for (const l of d.lanes) if (l.parentId === id) l.parentId = '';
-    if (withEvents) d.events = d.events.filter((e) => e.laneId !== id);
-    else for (const e of d.events) if (e.laneId === id) e.laneId = '';
+    if (withEvents) {
+      d.events = d.events.filter((e) => e.laneId !== id);
+      const ids = new Set(d.events.map((e) => e.id));
+      d.links = d.links.filter((k) => ids.has(k.from) && ids.has(k.to));
+    } else for (const e of d.events) if (e.laneId === id) e.laneId = '';
   });
+}
+
+/* ---------- 關聯線（F93） ---------- */
+
+/** 加上一條關聯線（兩端相同、已經有同樣的、超過上限時通知並回傳 null） */
+export function addLink(from: string, to: string, kind: LinkKind = 'cause'): string | null {
+  if (!guard()) return null;
+  const doc = docNow();
+  if (from === to) return null;
+  const a = doc.events.find((e) => e.id === from);
+  const b = doc.events.find((e) => e.id === to);
+  if (!a || !b) return null;
+  if (doc.links.some((k) => k.from === from && k.to === to && k.kind === kind)) {
+    notify({ title: S.linkExists, tone: 'info' });
+    return null;
+  }
+  if (doc.links.length >= LINK_LIMITS.links) {
+    notify({ title: S.linksFull(LINK_LIMITS.links), tone: 'warning' });
+    return null;
+  }
+  const link: Link = { id: linkId(), from, to, kind, note: '', gm: false };
+  commit((d) => {
+    d.links.push(link);
+  });
+  notify({
+    title: S.linkAdded(a.title.trim() || S.untitled, b.title.trim() || S.untitled),
+    tone: 'success',
+    action: { label: S.undoAction, onClick: () => undo() },
+  });
+  return link.id;
+}
+
+export function updateLink(id: string, recipe: (k: Link) => void, step = true): void {
+  if (!guard()) return;
+  const fn = (d: TimelineDoc) => {
+    const k = d.links.find((x) => x.id === id);
+    if (k) recipe(k);
+  };
+  if (step) commit(fn);
+  else useDoc.getState().update(fn);
+}
+
+export function deleteLink(id: string): void {
+  if (!guard()) return;
+  commit((d) => {
+    d.links = d.links.filter((k) => k.id !== id);
+  });
+}
+
+/** 時間軸上點了線：選取線的起點、「事件」分頁醒目這條線 */
+export function focusLinkOf(id: string): void {
+  const k = docNow().links.find((x) => x.id === id);
+  if (!k) return;
+  select(k.from);
+  useUi.setState((s) => ({ focusLink: { n: s.focusLink.n + 1, id } }));
+  setPrefs({ tab: 'event' });
+}
+
+/* ---------- 架空曆（F92） ---------- */
+
+/**
+ * 換成新的架空曆（月份、星期）；存檔的時間跟著換算（一步復原）。回傳換算的結果（調整、失去精度的數目與例子）。
+ */
+export function applyCalendar(next: Calendar) {
+  if (!guard()) return null;
+  const plan = planCalendar(docNow(), next, S.untitled);
+  commit((d) => {
+    d.calendar = next;
+    d.events = plan.events;
+    d.markers = plan.markers;
+    d.progress.time = plan.progressTime;
+  });
+  return plan;
 }
 
 /* ---------- 分類 ---------- */
@@ -554,13 +737,13 @@ export function planConvert(to: TimeMode, dayOneText: string): ConvertPlan | nul
   const dayOne = dayOneValue(dayOneText);
   const needsDay = doc.mode === 'day' || to === 'day';
   if (needsDay && dayOne === null) return null;
-  const opts = { era: doc.era, dayOne: dayOne ?? 0 };
+  const opts = { era: doc, dayOne: dayOne ?? 0 };
   let bad = 0;
   let lossy = 0;
   const examples: ConvertExample[] = [];
   const label = (mode: TimeMode, s: string) => {
-    const tv = readTime(mode, s, doc.era);
-    return tv ? formatLong(mode, tv, doc.era) : s;
+    const tv = readTime(mode, s, doc);
+    return tv ? formatLong(mode, tv, doc) : s;
   };
   /** 換一個項目的開始（與結束）；回傳 null 表示換不過去 */
   const conv = (name: string, start: string, end = '') => {
@@ -572,16 +755,15 @@ export function planConvert(to: TimeMode, dayOneText: string): ConvertPlan | nul
       return { start: s ?? '', end: e ?? '' };
     }
     if (e) {
-      const st = readTime(to, s, doc.era);
-      const et = readTime(to, e, doc.era);
-      if (!st || !et || afterUnit(to, et) <= st.v) {
+      const st = readTime(to, s, doc);
+      const et = readTime(to, e, doc);
+      if (!st || !et || afterUnit(to, et, doc) <= st.v) {
         bad++;
         return { start: s, end: e };
       }
     }
     const loses =
-      convertLoses(doc.mode, to, start, doc.era) ||
-      (!!end && convertLoses(doc.mode, to, end, doc.era));
+      convertLoses(doc.mode, to, start, doc) || (!!end && convertLoses(doc.mode, to, end, doc));
     if (loses) {
       lossy++;
       if (examples.length < 3)
@@ -655,6 +837,7 @@ export function applyImport(
     d.lanes.push(...lanes.slice(0, LIMITS.lanes - d.lanes.length));
     d.categories.push(...categories.slice(0, LIMITS.categories - d.categories.length));
     d.events = replace ? add : [...d.events, ...add];
+    if (replace) d.links = [];
   });
   select(null);
   requestFit();
@@ -666,7 +849,7 @@ export function replaceDoc(next: TimelineDoc): void {
   commit((d) => {
     Object.assign(d, next);
   });
-  useUi.setState({ selectedId: null, drag: null, flagDrag: null });
+  useUi.setState({ selectedId: null, selectedIds: [], drag: null, flagDrag: null });
   requestFit();
 }
 
@@ -694,6 +877,7 @@ export function snapText(
   v: number,
   p: Parameters<typeof snapTv>[2],
   unit: SnapUnit,
+  ctx?: EraArg,
 ) {
-  return canonical(mode, snapTv(mode, v, p, unit));
+  return canonical(mode, snapTv(mode, v, p, unit, ctx), ctx);
 }

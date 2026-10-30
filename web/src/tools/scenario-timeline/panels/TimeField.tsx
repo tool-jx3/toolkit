@@ -6,7 +6,8 @@
  */
 import { useEffect, useRef, useState } from 'react';
 import { Field, TextInput } from '@/ui';
-import { canonical, formatLong, parseTime, type TimeMode } from '../model/time';
+import { calInfo, monthName } from '../model/calendar';
+import { canonical, type EraArg, formatLong, parseTime, type TimeMode } from '../model/time';
 import { notify } from '../notify';
 import { S } from '../strings';
 
@@ -14,7 +15,8 @@ export interface TimeFieldProps {
   label: string;
   value: string;
   mode: TimeMode;
-  era: string;
+  /** 曆名與架空曆（專案資料本身就可以） */
+  era: EraArg;
   onCommit: (text: string) => void;
   /** 額外的檢查（標準寫法 → 錯誤訊息或 null） */
   validate?: (text: string) => string | null;
@@ -64,7 +66,7 @@ function check(
     };
   const parsed = parseTime(mode, draft, era);
   if (!parsed.ok) return { empty, text: '', error: parsed.error, status: null, fixed: null };
-  const text = canonical(mode, parsed.tv);
+  const text = canonical(mode, parsed.tv, era);
   const error = validate ? validate(text) : null;
   const long = formatLong(mode, parsed.tv, era);
   return {
@@ -74,6 +76,12 @@ function check(
     status: parsed.weekdayFixed ? S.weekdayFixedHint(long) : S.parsed(long),
     fixed: parsed.weekdayFixed ? long : null,
   };
+}
+
+/** 例子：架空曆有月份時「302 年 1 月 5 日」 */
+function placeholderFor(mode: TimeMode, era: EraArg): string {
+  const info = mode === 'year' && typeof era !== 'string' ? calInfo(era.calendar) : null;
+  return info ? `302 年 ${monthName(info, 0)} 5 日` : PLACEHOLDER[mode];
 }
 
 export function TimeField(props: TimeFieldProps) {
@@ -138,7 +146,7 @@ export function TimeField(props: TimeFieldProps) {
       <TextInput
         value={draft}
         disabled={disabled}
-        placeholder={placeholder ?? PLACEHOLDER[mode]}
+        placeholder={placeholder ?? placeholderFor(mode, props.era)}
         data-field={props['data-field']}
         onFocus={() => {
           commitRef.current = onCommit;

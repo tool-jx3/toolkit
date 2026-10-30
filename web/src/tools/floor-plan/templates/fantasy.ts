@@ -107,17 +107,17 @@ const towerStairs = (b: FloorBuilder) => b.item('spiral', 15.5, 0.5);
 export function wizardTower(): TplFloor[] {
   const s = { wall: 'stone' } as const;
   const g = new FloorBuilder('1F');
-  g.room('書庫', 'public', 0, 0, 15, 8, s)
-    .room('樓梯間', 'stone', 15, 0, 5, 8, { ...s, hideLabel: true })
-    .room('門廳', 'stone', 0, 8, 20, 12, s);
+  /*
+   * 門廳連著北邊的樓梯口：一間有名字的 L 形房間（缺左上角＝書庫；2026-10-29，規格 F272、D81）。
+   * 原本是「門廳」與不顯示名字的「樓梯間」兩間，中間一段開口。名字在最大的那一塊（南邊的整列，和原本的門廳一樣）。
+   */
+  g.room('書庫', 'public', 0, 0, 15, 8, s).room('門廳', 'stone', 0, 0, 20, 20, {
+    ...s,
+    cut: { c: 'nw', w: 15, h: 8 },
+  });
   fillYard(g, -6, -4, 26, 26, '塔外的草地');
   towerStairs(g);
-  g.dh(8.5, 20, 3, -1, 0, 'door2')
-    .dh(16, 8, 3, -1, 0, 'open')
-    .dh(6, 8, 1.5, -1, 0)
-    .wv(0, 12, 2)
-    .wv(20, 12, 2)
-    .wh(4, 0, 2);
+  g.dh(8.5, 20, 3, -1, 0, 'door2').dh(6, 8, 1.5, -1, 0).wv(0, 12, 2).wv(20, 12, 2).wh(4, 0, 2);
   g.row('bookshelf', 0.2, 0.1, 3, 3.2, 0)
     .item('bookshelf', 0.1, 3.6, 270, { size: [3, 0.8] })
     .item('desk', 11.4, 4.4, 180)

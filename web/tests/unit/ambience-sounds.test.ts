@@ -1,5 +1,5 @@
 /**
- * core/audio/ambience 的 24 種環境音：目錄、參數的整理、每個聲音的合成結果（首尾相接、同一個種子一樣、音量範圍、
+ * core/audio/ambience 的 26 種環境音：目錄、參數的整理、每個聲音的合成結果（首尾相接、同一個種子一樣、音量範圍、
  * 不破音），以及各聲音的頻譜特徵（白／粉紅／棕色的斜率、雨的距離、蟲鳴的頻率、心跳與日光燈的低頻、時鐘與心跳的節拍…）。
  * 合成是純函式：用 16 kHz、20 秒算，速度快。
  */
@@ -17,7 +17,7 @@ import {
   sanitizeParams,
   soundsInCategory,
 } from '@/core/audio/ambience';
-import { peak, rms, toDb } from '@/core/audio/ambience/dsp';
+import { biquad, filterPeriodic, peak, rms, toDb } from '@/core/audio/ambience/dsp';
 
 const SR = 16000;
 const SECS = 20;
@@ -120,8 +120,8 @@ function seamOk(ch: Float32Array): boolean {
 }
 
 describe('目錄', () => {
-  it('24 種聲音、7 個分類，每個分類都有聲音，id 不重複', () => {
-    expect(AMBIENCE_SOUNDS).toHaveLength(24);
+  it('26 種聲音、7 個分類，每個分類都有聲音，id 不重複', () => {
+    expect(AMBIENCE_SOUNDS).toHaveLength(26);
     expect(AMBIENCE_CATEGORIES.map((c) => c.id)).toEqual([
       'weather',
       'water',
@@ -131,7 +131,24 @@ describe('目錄', () => {
       'mood',
       'noise',
     ]);
-    expect(new Set(AMBIENCE_SOUNDS.map((s) => s.id)).size).toBe(24);
+    expect(new Set(AMBIENCE_SOUNDS.map((s) => s.id)).size).toBe(26);
+    /* 2026-10-29 加的兩種：雨打在帳篷／傘上（雨與天氣，接在雨打在窗上後面）、房間底噪（室內，接在空調與日光燈後面） */
+    expect(soundsInCategory('weather').map((s) => s.id)).toEqual([
+      'rain-light',
+      'rain-heavy',
+      'rain-window',
+      'rain-tent',
+      'thunder',
+      'wind',
+    ]);
+    expect(soundsInCategory('indoor').map((s) => s.id)).toEqual([
+      'clock',
+      'heartbeat',
+      'office-hum',
+      'room-tone',
+      'vinyl',
+      'creak',
+    ]);
     for (const c of AMBIENCE_CATEGORIES) expect(soundsInCategory(c.id).length).toBeGreaterThan(0);
     for (const s of AMBIENCE_SOUNDS) {
       expect(s.label).toMatch(/\p{sc=Han}/u);
@@ -203,7 +220,7 @@ describe('每個聲音的合成', () => {
   }
 
   it('同一個種子結果一樣、不同的種子不一樣（兩次都在 Node 裡算）', () => {
-    for (const id of ['rain-light', 'thunder', 'crowd', 'clock']) {
+    for (const id of ['rain-light', 'thunder', 'crowd', 'clock', 'rain-tent', 'room-tone']) {
       const a = render(id, {}, 7, 10);
       const b = render(id, {}, 7, 10);
       const c = render(id, {}, 8, 10);
@@ -322,6 +339,58 @@ describe('頻譜特徵', () => {
     const far = render('crowd', { distance: 100, clink: 0 }).channels[0];
     expect(bandShare(near, 150, 3000)).toBeGreaterThan(0.7);
     expect(bandShare(far, 1500, 8000)).toBeLessThan(bandShare(near, 1500, 8000) * 0.5);
+  });
+
+  it('雨打在帳篷／傘上：布面的低沉「噗」（80～400 Hz 比小雨、雨打在窗上多）；傘比帳篷亮；雨勢越大越大聲、雨滴越多', () => {
+    const tent = render('rain-tent').channels[0];
+    expect(bandShare(tent, 80, 400)).toBeGreaterThan(0.6);
+    expect(bandShare(tent, 80, 400)).toBeGreaterThan(
+      bandShare(render('rain-light').channels[0], 80, 400) * 10,
+    );
+    expect(bandShare(tent, 80, 400)).toBeGreaterThan(
+      bandShare(render('rain-window').channels[0], 80, 400) * 1.4,
+    );
+    const umbrella = render('rain-tent', { canopy: 1 }).channels[0];
+    expect(centroid(umbrella)).toBeGreaterThan(centroid(tent) * 1.3);
+    const soft = render('rain-tent', { intensity: 0, drips: 0 });
+    const hard = render('rain-tent', { intensity: 100, drips: 0 });
+    expect(rms(hard.channels)).toBeGreaterThan(rms(soft.channels) * 2.5);
+    /* 一滴一滴（10 ms 的峰值超過門檻、相隔 30 ms 以上） */
+    const drops = (x: Float32Array) => onsets(x, peak([x]) * 0.25, 0.03).length;
+    expect(drops(hard.channels[0])).toBeGreaterThan(drops(soft.channels[0]) * 2);
+  });
+
+  it('雨打在帳篷上的滴落：雨小時，滴落越多，邊緣滴下來的「滴」越多（900～2000 Hz 的短音）', () => {
+    const none = render('rain-tent', { intensity: 0, drips: 0 }).channels[0];
+    const many = render('rain-tent', { intensity: 0, drips: 100 }).channels[0];
+    expect(bandShare(many, 900, 2000)).toBeGreaterThan(bandShare(none, 900, 2000) * 1.5);
+    expect(rms([many])).toBeGreaterThan(rms([none]) * 1.2);
+  });
+
+  it('房間底噪：很暗（大部分在 500 Hz 以下）；冰箱的嗡嗡聲是 120 Hz；車流是一台一台開過去（音量慢慢起伏）', () => {
+    const x = render('room-tone').channels[0];
+    expect(bandShare(x, 20, 500)).toBeGreaterThan(0.75);
+    const hum = render('room-tone', { hum: 100, traffic: 0 }).channels[0];
+    expect(toneLevel(hum, 120)).toBeGreaterThan(toneLevel(hum, 105) * 8);
+    expect(toneLevel(hum, 120)).toBeGreaterThan(
+      toneLevel(render('room-tone', { hum: 0, traffic: 0 }).channels[0], 120) * 10,
+    );
+    /* 車流：150～800 Hz 每 1 秒的音量起伏比沒有車流時大 */
+    const swing = (y: Float32Array) => {
+      const b = Float32Array.from(y);
+      filterPeriodic(b, [biquad('highpass', 150, 0.7, SR), biquad('lowpass', 800, 0.7, SR)], 8000);
+      const lv: number[] = [];
+      for (let s = 0; s + SR <= b.length; s += SR) lv.push(rms([b.subarray(s, s + SR)]));
+      return Math.max(...lv) / Math.min(...lv);
+    };
+    const quiet = render('room-tone', { hum: 0, traffic: 0 }, 1, 60).channels[0];
+    const busy = render('room-tone', { hum: 0, traffic: 100 }, 1, 60).channels[0];
+    expect(swing(busy)).toBeGreaterThan(swing(quiet) * 1.5);
+    expect(rms([busy])).toBeGreaterThan(rms([quiet]) * 1.5);
+    /* 三個都調到最小也還有房間的空氣聲（不會完全沒有聲音） */
+    expect(
+      toDb(rms([render('room-tone', { hum: 0, traffic: 0, room: 0 }).channels[0]])),
+    ).toBeGreaterThan(-40);
   });
 
   it('營火：劈啪聲越多，短促的高頻爆裂越多', () => {

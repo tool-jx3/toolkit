@@ -1,7 +1,8 @@
 /**
- * 雨與天氣：小雨、大雨、雨打在窗上、雷、風。
+ * 雨與天氣：小雨、大雨、雨打在窗上、雨打在帳篷／傘上、雷、風。
  * 雨＝一層濾過的雜訊（雨幕）＋大量很短的雨滴（雜訊爆發經帶通濾波），風＝中心頻率隨陣風移動的帶通雜訊＋窄頻的呼嘯，
- * 雷＝低頻的隆隆聲（棕色雜訊依好幾段滾動的包絡起伏）＋近的時候的霹靂聲。
+ * 雷＝低頻的隆隆聲（棕色雜訊依好幾段滾動的包絡起伏）＋近的時候的霹靂聲；
+ * 帳篷／傘＝雨滴打在布上的「噗」（很短的敲擊經布面的低頻共振）＋布面細細的沙沙聲＋從邊緣滴到地上的水滴。
  */
 import { addLayer, lerp, logLerp, noise, unit, warmSamples } from '../build';
 import {
@@ -23,6 +24,7 @@ import {
   periodicCurve,
   poissonTimes,
   resonate,
+  reverbPeriodic,
   spreadTimes,
 } from '../dsp';
 import type { AmbienceSoundDef, RenderContext } from '../types';
@@ -119,6 +121,156 @@ function muffle(ctx: RenderContext, fc: number, q = 0.6): void {
   const f: Biquad[] = [biquad('lowpass', fc, q, ctx.sampleRate)];
   filterPeriodic(ctx.left, f, warmSamples(ctx));
   if (ctx.right) filterPeriodic(ctx.right, f, warmSamples(ctx));
+}
+
+/* ---------- 雨打在帳篷／傘上 ---------- */
+
+interface Canopy {
+  /** 布面的共振（Hz）：每一滴在這個範圍裡隨機 */
+  res: readonly [number, number];
+  /** 共振的衰減（秒） */
+  tau: readonly [number, number];
+  /** 雨滴打到布的那一下「啪」（高頻）的比例 */
+  click: number;
+  /** 整個布面那一層的低通（布越大越悶） */
+  lp: number;
+  /** 雨滴左右的範圍（帳篷四面八方、傘集中在頭上） */
+  spread: number;
+  /** 雨滴數的倍數（布的面積） */
+  area: number;
+  /** 周圍的雨（打在地上）的低通：帳篷裡隔著布、比較悶 */
+  bedLp: number;
+  /** 布面沙沙聲的中心頻率 */
+  hiss: number;
+  /** 滴水的地方有幾個 */
+  spots: readonly [number, number];
+  /** 帳篷裡的小空間的回聲 */
+  room: number;
+  /** 雨滴的音量（傘就在頭上，比較大聲） */
+  level: number;
+}
+
+const CANOPIES: readonly Canopy[] = [
+  /* 帳篷：大片的布，低沉、悶，四面八方都有雨滴；水從兩側的邊緣滴下來 */
+  {
+    res: [110, 320],
+    tau: [0.008, 0.02],
+    click: 0.2,
+    lp: 2800,
+    spread: 0.9,
+    area: 1.3,
+    bedLp: 1700,
+    hiss: 340,
+    spots: [2, 4],
+    room: 0.06,
+    level: 1,
+  },
+  /* 傘：小而繃緊的布，比較高、清脆，雨滴集中在頭上；水從傘緣一圈滴下來 */
+  {
+    res: [260, 700],
+    tau: [0.005, 0.012],
+    click: 0.4,
+    lp: 5200,
+    spread: 0.45,
+    area: 1,
+    bedLp: 6500,
+    hiss: 650,
+    spots: [4, 7],
+    room: 0,
+    level: 1.5,
+  },
+];
+
+/** 一滴打在布上：很短的雜訊敲擊經布面的兩個共振＋一點高頻的「啪」（峰值正規化到 1） */
+function canopyDrop(ctx: RenderContext, c: Canopy): Float32Array {
+  const sr = ctx.sampleRate;
+  const { rng } = ctx;
+  const len = Math.round(0.06 * sr);
+  const exc = noiseBurst(logRange(rng, 0.0003, 0.0012), sr, rng);
+  const f = logRange(rng, c.res[0], c.res[1]);
+  const tau = logRange(rng, c.tau[0], c.tau[1]);
+  const out = resonate(exc, f, tau, sr, len);
+  const second = resonate(exc, f * logRange(rng, 1.5, 1.8), tau * 0.6, sr, len);
+  const click = Float32Array.from(exc);
+  filterOnce(click, biquad('bandpass', logRange(rng, 1800, 3600), 1, sr));
+  for (let i = 0; i < len; i++)
+    out[i] += second[i] * 0.45 + (i < click.length ? click[i] * c.click * 6 : 0);
+  let pk = 0;
+  for (let i = 0; i < len; i++) pk = Math.max(pk, Math.abs(out[i]));
+  if (pk > 0) for (let i = 0; i < len; i++) out[i] /= pk;
+  return out;
+}
+
+/** 從布的邊緣滴到地上（水窪）的一滴：往上滑的衰減正弦＋低沉的「咚」 */
+function groundDrip(ctx: RenderContext, f0: number): Float32Array {
+  const sr = ctx.sampleRate;
+  const { rng } = ctx;
+  const s = decayingSine(f0 * logRange(rng, 0.92, 1.08), logRange(rng, 0.012, 0.028), sr, {
+    chirp: logRange(rng, 6, 18),
+    attack: 0.0008,
+  });
+  const thud = noiseBurst(0.003, sr, rng, 0.0005);
+  filterOnce(thud, biquad('lowpass', 900, 0.7, sr));
+  for (let i = 0; i < thud.length && i < s.length; i++) s[i] += thud[i] * 0.5;
+  return s;
+}
+
+function canopyRender(ctx: RenderContext, c: Canopy, u: number, dr: number): void {
+  const sr = ctx.sampleRate;
+  const { rng, n } = ctx;
+  /* 周圍的雨（打在地上）與布面細細的沙沙聲（數不清的小雨滴） */
+  rainBed(ctx, { hp: 300, lp: c.bedLp, gain: 0.03 + 0.06 * u, surgeEvery: 6, surgeLo: 0.7 });
+  addLayer(
+    ctx,
+    () => {
+      const b = noise(ctx, 'pink', [biquad('bandpass', c.hiss, 0.9, sr)]);
+      return applyCurveGain(b, periodicCurve(n, 256, ctx.seconds / 4, rng), 0.75, 1);
+    },
+    0.015 + 0.045 * u,
+  );
+  /* 打在布上的雨滴：48 種預先做好的「噗」隨機用，大小、位置各自隨機 */
+  const bank = Array.from({ length: 48 }, () => canopyDrop(ctx, c));
+  const fl = new Float32Array(n);
+  const fr = ctx.right ? new Float32Array(n) : null;
+  const rate = (12 + 260 * u ** 1.3) * c.area;
+  /* 雨很大時雨滴重疊得多：每一滴小聲一點（不然整段都被柔和限幅壓著） */
+  const dropGain = (0.38 * c.level) / (1 + 0.7 * u);
+  for (const t of poissonTimes(rate, ctx.seconds, rng)) {
+    const d = bank[Math.floor(rng.next() * bank.length)];
+    addPanned(
+      fl,
+      fr,
+      d,
+      t * sr,
+      (rng.next() * 2 - 1) * c.spread,
+      dropGain * logRange(rng, 0.08, 1),
+    );
+  }
+  const lp = biquad('lowpass', c.lp, 0.7, sr);
+  filterPeriodic(fl, lp, warmSamples(ctx));
+  for (let i = 0; i < n; i++) ctx.left[i] += fl[i];
+  if (fr && ctx.right) {
+    filterPeriodic(fr, lp, warmSamples(ctx));
+    for (let i = 0; i < n; i++) ctx.right[i] += fr[i];
+  }
+  /* 從邊緣滴下來的水：幾個固定的地方，各自的音高與大約固定的間隔（雨越大滴得越快） */
+  if (dr > 0) {
+    const spots = c.spots[0] + Math.floor(rng.next() * (c.spots[1] - c.spots[0] + 1));
+    for (let k = 0; k < spots; k++) {
+      const pan =
+        c === CANOPIES[0]
+          ? (k % 2 ? 1 : -1) * (0.5 + 0.4 * rng.next())
+          : ((k + rng.next() * 0.6) / spots) * 1.8 - 0.9;
+      const interval = (lerp(3.2, 0.45, dr) * logRange(rng, 0.7, 1.4)) / (0.6 + 0.8 * u);
+      const count = Math.max(1, Math.round(ctx.seconds / interval));
+      const f0 = logRange(rng, 450, 1300);
+      const g = logRange(rng, 0.35, 0.8) * (0.4 + 0.6 * dr);
+      for (const t of spreadTimes(count, ctx.seconds, rng, 0.3))
+        addPanned(ctx.left, ctx.right, groundDrip(ctx, f0), t * sr, pan, g * logRange(rng, 0.6, 1));
+    }
+  }
+  if (c.room > 0)
+    reverbPeriodic(ctx.left, ctx.right, sr, { size: 0.15, damp: 0.5, wet: c.room, dry: 1 });
 }
 
 /* ---------- 雷 ---------- */
@@ -386,6 +538,38 @@ export const WEATHER_SOUNDS: AmbienceSoundDef[] = [
           logRange(rng, 0.04, 0.35),
         );
       }
+    },
+  },
+  {
+    id: 'rain-tent',
+    category: 'weather',
+    label: '雨打在帳篷／傘上',
+    description: '躲在帳篷裡或撐著傘：雨滴打在布上悶悶的「噗噗」聲，邊緣不停滴水。',
+    stereo: true,
+    params: [
+      {
+        kind: 'choice',
+        id: 'canopy',
+        label: '在哪裡',
+        options: ['帳篷裡', '傘下'],
+        default: 0,
+      },
+      intensity(50, '雨勢'),
+      {
+        kind: 'range',
+        id: 'drips',
+        label: '滴落',
+        min: 0,
+        max: 100,
+        step: 1,
+        default: 40,
+        ends: ['沒有', '很多'],
+      },
+    ],
+    gain: 1.9,
+    render(ctx, p) {
+      const c = CANOPIES[Math.max(0, Math.min(CANOPIES.length - 1, Math.round(p.canopy ?? 0)))];
+      canopyRender(ctx, c, unit(p.intensity), unit(p.drips));
     },
   },
   {

@@ -3,15 +3,19 @@
  * 上下兩排），階梯與標籤是本站的。純計算。
  *
  * 位置 v：日期時間與第 N 天是分鐘、架空年是年；k＝每單位幾 px。
+ * 架空年有月份（架空曆，F92）時多了日、月的階梯；ctx 是曆名與架空曆（專案資料本身就可以）。
  */
+import { type CalInfo, calParts, calValue, monthName, monthStartValue } from './calendar';
 import {
   addMonths,
   clockText,
+  ctxParts,
   dateLabel,
   dateParts,
   dateValue,
   dayNumber,
   daysInMonth,
+  type EraArg,
   MINUTES_PER_DAY,
   mod,
   type SnapUnit,
@@ -63,13 +67,30 @@ const YEAR_STEPS: Step[] = (() => {
   return out;
 })();
 
-export function stepLadder(mode: TimeMode): Step[] {
+/** 架空曆：1、2、5、10 日；1、2、3、6 個月；年同架空年 */
+const CAL_STEPS: Step[] = [
+  ...[1, 2, 5, 10].map((n): Step => ({ unit: 'day', n })),
+  ...[1, 2, 3, 6].map((n): Step => ({ unit: 'month', n })),
+  ...YEAR_STEPS,
+];
+
+/** 架空年的架空曆（有月份時） */
+const calOf = (mode: TimeMode, ctx?: EraArg): CalInfo | null =>
+  mode === 'year' ? ctxParts(ctx).info : null;
+
+export function stepLadder(mode: TimeMode, ctx?: EraArg): Step[] {
+  if (calOf(mode, ctx)) return CAL_STEPS;
   return mode === 'date' ? DATE_STEPS : mode === 'day' ? DAY_STEPS : YEAR_STEPS;
 }
 
 /** 一個間隔的大約長度（日期時間的月、年用平均長度；架空年以年計） */
-export function stepSize(mode: TimeMode, s: Step): number {
-  if (mode === 'year') return s.n;
+export function stepSize(mode: TimeMode, s: Step, ctx?: EraArg): number {
+  if (mode === 'year') {
+    const info = calOf(mode, ctx);
+    if (info && s.unit === 'day') return s.n / info.D;
+    if (info && s.unit === 'month') return s.n / info.M;
+    return s.n;
+  }
   switch (s.unit) {
     case 'minute':
       return s.n;
@@ -87,7 +108,14 @@ export function stepSize(mode: TimeMode, s: Step): number {
 export type Measure = (text: string) => number;
 
 /** 量標籤寬度用的樣本（最寬的寫法） */
-function sampleLabel(mode: TimeMode, s: Step, from: number, to: number): string {
+function sampleLabel(mode: TimeMode, s: Step, from: number, to: number, ctx?: EraArg): string {
+  const info = calOf(mode, ctx);
+  if (info && s.unit === 'day')
+    return '8'.repeat(String(Math.max(...info.months.map((m) => m.days))).length);
+  if (info && s.unit === 'month')
+    return info.months
+      .map((_, i) => monthName(info, i))
+      .reduce((a, b) => (b.length > a.length ? b : a), '');
   if (s.unit === 'minute' || s.unit === 'hour') return '00:00';
   if (mode === 'year') {
     const big = Math.max(Math.abs(Math.round(from)), Math.abs(Math.round(to)));
@@ -111,17 +139,18 @@ export function pickStep(
   from: number,
   to: number,
   measure: Measure,
+  ctx?: EraArg,
 ): Step {
-  const ladder = stepLadder(mode);
+  const ladder = stepLadder(mode, ctx);
   const widths = new Map<string, number>();
   for (const s of ladder) {
-    const sample = sampleLabel(mode, s, from, to);
+    const sample = sampleLabel(mode, s, from, to, ctx);
     let w = widths.get(sample);
     if (w === undefined) {
       w = measure(sample);
       widths.set(sample, w);
     }
-    if (stepSize(mode, s) * k >= w + LABEL_PAD) return s;
+    if (stepSize(mode, s, ctx) * k >= w + LABEL_PAD) return s;
   }
   return ladder[ladder.length - 1];
 }
@@ -130,7 +159,12 @@ export function pickStep(
 
 const MAX_TICKS = 4000;
 
-function minorLabel(mode: TimeMode, s: Step, v: number): string {
+function minorLabel(mode: TimeMode, s: Step, v: number, ctx?: EraArg): string {
+  const info = calOf(mode, ctx);
+  if (info && (s.unit === 'day' || s.unit === 'month')) {
+    const c = calParts(info, v);
+    return s.unit === 'day' ? String(c.d) : monthName(info, c.m - 1);
+  }
   if (s.unit === 'minute' || s.unit === 'hour') return clockText(v);
   if (mode === 'year') return String(Math.round(v));
   if (mode === 'day') return `第 ${dayNumber(v)} 天`;
@@ -140,12 +174,63 @@ function minorLabel(mode: TimeMode, s: Step, v: number): string {
   return String(d.y);
 }
 
+/** 架空曆的下排：日（每個月從 1 日數）、月（每年從第 1 個月數） */
+function calMinorValues(info: CalInfo, s: Step, from: number, to: number): number[] {
+  const out: number[] = [];
+  const first = calParts(info, from);
+  if (s.unit === 'day') {
+    /* 從左邊被切到的那個月的前一個月開始 */
+    let y = first.y;
+    let mi = first.m - 2;
+    if (mi < 0) {
+      mi += info.M;
+      y--;
+    }
+    while (out.length < MAX_TICKS) {
+      const start = calValue(info, y, mi + 1);
+      if (start > to) break;
+      const dim = info.months[mi].days;
+      for (let d = 1; d <= dim; d += s.n) {
+        if (s.n > 1 && d + s.n / 2 >= dim + 1) break;
+        const v = calValue(info, y, mi + 1, d);
+        if (v > to) break;
+        if (v + s.n / info.D >= from && out.length < MAX_TICKS) out.push(v);
+      }
+      mi++;
+      if (mi >= info.M) {
+        mi = 0;
+        y++;
+      }
+    }
+    return out;
+  }
+  /* 月：第幾個月是 n 的倍數（每年重新數） */
+  for (let y = first.y - 1; out.length < MAX_TICKS; y++) {
+    if (y > to) break;
+    for (let mi = 0; mi < info.M; mi += s.n) {
+      const v = calValue(info, y, mi + 1);
+      if (v > to) break;
+      const next = mi + s.n < info.M ? calValue(info, y, mi + s.n + 1) : y + 1;
+      if (next >= from && out.length < MAX_TICKS) out.push(v);
+    }
+  }
+  return out;
+}
+
 /** 下排的刻度位置（[from, to] 之內，再加左邊被切到的那一格） */
-export function minorValues(mode: TimeMode, s: Step, from: number, to: number): number[] {
+export function minorValues(
+  mode: TimeMode,
+  s: Step,
+  from: number,
+  to: number,
+  ctx?: EraArg,
+): number[] {
   const out: number[] = [];
   const push = (v: number) => {
     if (out.length < MAX_TICKS) out.push(v);
   };
+  const info = calOf(mode, ctx);
+  if (info && (s.unit === 'day' || s.unit === 'month')) return calMinorValues(info, s, from, to);
   if (mode === 'year') {
     const n = s.n;
     for (let y = Math.floor(from / n) * n; y <= to && out.length < MAX_TICKS; y += n) push(y);
@@ -202,9 +287,33 @@ export function minorValues(mode: TimeMode, s: Step, from: number, to: number): 
 /* ---------- 上排 ---------- */
 
 /** 上排的刻度（左邊被切到的那一格也算，標籤由畫的人貼在左邊） */
-export function majorTicks(mode: TimeMode, s: Step, from: number, to: number): Tick[] {
-  if (mode === 'year') return [];
+export function majorTicks(
+  mode: TimeMode,
+  s: Step,
+  from: number,
+  to: number,
+  ctx?: EraArg,
+): Tick[] {
   const out: Tick[] = [];
+  const info = calOf(mode, ctx);
+  if (info && s.unit === 'day') {
+    /* 日：每個月一格「302 年 霜月」 */
+    const c = calParts(info, from);
+    for (let i = 0; out.length < MAX_TICKS; i++) {
+      const v = monthStartValue(info, c.y, c.m - 1 + i);
+      if (v > to) break;
+      const p = calParts(info, v);
+      const name = monthName(info, p.m - 1);
+      out.push({ v, label: `${p.y} 年 ${name}`, short: [name] });
+    }
+    return out;
+  }
+  if (info && s.unit === 'month') {
+    for (let y = Math.floor(from); y <= to && out.length < MAX_TICKS; y++)
+      out.push({ v: y, label: `${y} 年` });
+    return out;
+  }
+  if (mode === 'year') return [];
   if (s.unit === 'minute' || s.unit === 'hour') {
     for (
       let d = Math.floor(from / MINUTES_PER_DAY);
@@ -273,7 +382,12 @@ export function placeMajor(
 
 const MIN_SNAPS = [1, 5, 10, 15, 30, 60, 120, 180, 360, 720, 1440];
 
-export function snapUnitFor(mode: TimeMode, s: Step): SnapUnit {
+export function snapUnitFor(mode: TimeMode, s: Step, ctx?: EraArg): SnapUnit {
+  if (calOf(mode, ctx)) {
+    /* 架空曆：日、月的間隔吸附到日；1、2 年的間隔吸附到月；再大照架空年 */
+    if (s.unit === 'day' || s.unit === 'month') return { kind: 'day', n: 1 };
+    if (s.n <= 2) return { kind: 'month', n: 1 };
+  }
   if (mode === 'year') {
     let best = 1;
     for (const st of YEAR_STEPS) if (st.n <= s.n / 5) best = st.n;
@@ -297,12 +411,16 @@ export function axisTicks(
   to: number,
   k: number,
   measure: Measure,
+  ctx?: EraArg,
 ): AxisTicks {
-  const step = pickStep(mode, k, from, to, measure);
+  const step = pickStep(mode, k, from, to, measure, ctx);
   return {
     step,
-    minor: minorValues(mode, step, from, to).map((v) => ({ v, label: minorLabel(mode, step, v) })),
-    major: majorTicks(mode, step, from, to),
-    snap: snapUnitFor(mode, step),
+    minor: minorValues(mode, step, from, to, ctx).map((v) => ({
+      v,
+      label: minorLabel(mode, step, v, ctx),
+    })),
+    major: majorTicks(mode, step, from, to, ctx),
+    snap: snapUnitFor(mode, step, ctx),
   };
 }

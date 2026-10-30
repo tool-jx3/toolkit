@@ -7,6 +7,7 @@
  */
 import { ASSET, assetDims } from '../model/assets';
 import { emptyFloor, uid } from '../model/geometry';
+import { roomCells } from '../model/shape';
 import type {
   Floor,
   Item,
@@ -30,8 +31,12 @@ export interface TplFloor {
   texts: NoId<TextLabel>[];
 }
 
+/** 房間的其他設定；`cut`＝L 形房間的缺角（2026-10-29，範本的轉角走廊；規格 D81） */
 export type RoomExtra = Partial<
-  Pick<Room, 'plName' | 'note' | 'gm' | 'hideLabel' | 'noWall' | 'lx' | 'ly' | 'color' | 'wall'>
+  Pick<
+    Room,
+    'plName' | 'note' | 'gm' | 'hideLabel' | 'noWall' | 'lx' | 'ly' | 'color' | 'wall' | 'cut'
+  >
 >;
 export type ItemExtra = Partial<Pick<Item, 'label' | 'gm' | 'clue' | 'flip' | 'color'>> & {
   size?: [number, number];
@@ -168,7 +173,8 @@ export function fillYard(
   const mark = (x: number, y: number, w: number, h: number) => {
     for (let i = x; i < x + w; i++) for (let j = y; j < y + h; j++) taken.add(`${i},${j}`);
   };
-  for (const r of b.f.rooms) mark(r.x, r.y, r.w, r.h);
+  /* L 形房間（2026-10-29）只佔它自己的格子，缺角是空的 */
+  for (const r of b.f.rooms) for (const [x, y] of roomCells(r)) taken.add(`${x},${y}`);
   const open = (x: number, y: number) => !taken.has(`${x},${y}`);
   for (let y = y0; y < y1; y++)
     for (let x = x0; x < x1; x++) {
@@ -383,6 +389,12 @@ export class Frame {
     const e = { ...extra };
     if (e.lx && this.flipX) e.lx = -e.lx;
     if (e.ly && this.flipY) e.ly = -e.ly;
+    /* L 形的缺角跟著翻（2026-10-29） */
+    if (e.cut && (this.flipX || this.flipY)) {
+      const west = (e.cut.c === 'nw' || e.cut.c === 'sw') !== this.flipX;
+      const north = (e.cut.c === 'nw' || e.cut.c === 'ne') !== this.flipY;
+      e.cut = { ...e.cut, c: north ? (west ? 'nw' : 'ne') : west ? 'sw' : 'se' };
+    }
     this.b.room(name, cat, this.x(lx, w), this.y(ly, h), w, h, e);
     return this;
   }

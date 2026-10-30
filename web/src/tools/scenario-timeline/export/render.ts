@@ -4,10 +4,12 @@
 import { safeFileName } from '@/core/files';
 import { ensureFont, googleFontSubsetCss } from '@/core/fonts';
 import { canvasToBlob } from '@/core/image';
+import { calInfo } from '../model/calendar';
 import { chronicle } from '../model/chronicle';
+import { type FilterState, filteredDoc, matchingIds } from '../model/filter';
 import { contentRange, hasContentIn, type Span } from '../model/layout';
 import { createMeasure } from '../model/measure';
-import { formatLong, type Precision, parseTime } from '../model/time';
+import { formatLong, type Precision, parseTime, type Tv } from '../model/time';
 import { nowValue, type TimelineDoc, todayValue } from '../model/types';
 import { type Audience, progressValue, visibleDoc } from '../model/visible';
 import { fitWithLabels, type Win } from '../model/window';
@@ -52,7 +54,18 @@ export function textFileName(doc: TimelineDoc, audience: Audience, ext: 'txt' | 
   return `${fileBase(doc)}_${S.fileName.text}${audience === 'gm' ? `_${S.fileName.gm}` : ''}.${ext}`;
 }
 
-const precisionOf = (mode: TimelineDoc['mode']): Precision => (mode === 'year' ? 'year' : 'minute');
+/** 範圍的文字寫到哪裡：日期時間、第 N 天寫到分；架空年寫到年（有月份時寫到日） */
+function rangeTv(doc: TimelineDoc, v: number): Tv {
+  if (doc.mode !== 'year') return { v: Math.round(v), p: 'minute' as Precision };
+  if (calInfo(doc.calendar)) return { v, p: 'day' };
+  return { v: Math.round(v), p: 'year' };
+}
+
+/** 給某個對象的資料；filter 給了時只留符合篩選的事件（「只匯出篩選的結果」，F91） */
+export function exportDoc(doc: TimelineDoc, audience: Audience, filter: FilterState | null) {
+  const vdoc = visibleDoc(doc, audience);
+  return filter ? filteredDoc(vdoc, matchingIds(vdoc, filter)) : vdoc;
+}
 
 /** 圖片的範圍（規格 F70）與畫面描述 */
 export function planPicture(
@@ -61,8 +74,9 @@ export function planPicture(
   view: Win | null,
   collapsed: Readonly<Record<string, boolean>>,
   nowV: number | null = nowValue(),
+  filter: FilterState | null = null,
 ): PlanResult {
-  const vdoc = visibleDoc(doc, ex.audience);
+  const vdoc = exportDoc(doc, ex.audience, filter);
   let range: Span | null = null;
   let rangeText = '';
   if (ex.range === 'all') {
@@ -83,8 +97,8 @@ export function planPicture(
     if (!view) return { ok: false, error: S.exEmpty };
     range = { a: view.start, b: view.end };
   } else {
-    const a = parseTime(doc.mode, ex.from, doc.era);
-    const b = parseTime(doc.mode, ex.to, doc.era);
+    const a = parseTime(doc.mode, ex.from, doc);
+    const b = parseTime(doc.mode, ex.to, doc);
     if (!a.ok) return { ok: false, error: `${S.exFrom}：${a.error}` };
     if (!b.ok) return { ok: false, error: `${S.exTo}：${b.error}` };
     if (b.tv.v <= a.tv.v) return { ok: false, error: S.exRangeBad };
@@ -95,10 +109,8 @@ export function planPicture(
     const p = progressValue(vdoc);
     if (!hasContentIn(vdoc, range, p === null ? [] : [p])) return { ok: false, error: S.exEmpty };
   }
-  if (!rangeText) {
-    const p = precisionOf(doc.mode);
-    rangeText = `${formatLong(doc.mode, { v: Math.round(range.a), p }, doc.era)}～${formatLong(doc.mode, { v: Math.round(range.b), p }, doc.era)}`;
-  }
+  if (!rangeText)
+    rangeText = `${formatLong(doc.mode, rangeTv(doc, range.a), doc)}～${formatLong(doc.mode, rangeTv(doc, range.b), doc)}`;
   const pic = buildPicture({
     vdoc,
     range,

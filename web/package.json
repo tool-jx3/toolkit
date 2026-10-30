@@ -24,6 +24,7 @@
     "node": ">=22.12"
   },
   "dependencies": {
+    "@breezystack/lamejs": "1.2.7",
     "@jsquash/jpeg": "^1.6.0",
     "@mediapipe/tasks-vision": "1.1.0",
     "@neslinesli93/qpdf-wasm": "0.3.0",

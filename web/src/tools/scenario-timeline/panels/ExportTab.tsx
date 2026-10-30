@@ -16,6 +16,7 @@ import {
   Toggle,
 } from '@/ui';
 import {
+  exportDoc,
   fileBase,
   imageFileName,
   planPicture,
@@ -25,11 +26,14 @@ import {
 } from '../export/render';
 import { chronicle, chronicleMarkdown, chronicleText } from '../model/chronicle';
 import { eventsToCsv } from '../model/csv';
+import { effectiveFilter, type FilterState, isFiltering, matchingIds } from '../model/filter';
 import { type Audience, hasSecrets, visibleDoc } from '../model/visible';
 import { notify } from '../notify';
 import {
   docNow,
   type ExportPrefs,
+  filterOf,
+  type Prefs,
   prefsNow,
   type RangeKind,
   setExportPrefs,
@@ -42,6 +46,7 @@ import { S } from '../strings';
 import { currentWin } from '../view/shared';
 import { pickCsv } from './importer';
 import { TimeField } from './TimeField';
+import { pickVis } from './visImport';
 
 const FORMATS: ExportFormatOption[] = [
   { id: 'png', label: S.pngLabel, description: S.pngDesc },
@@ -53,6 +58,44 @@ const SCALES = [1, 2] as const;
 function useAudience(chosen: Audience): Audience {
   const pl = usePrefs((s) => s.data.viewMode) === 'pl';
   return pl ? 'pl' : chosen;
+}
+
+/** 「只匯出篩選的結果」要用的篩選：開著而且目前的檢視有篩選時（沒有時 null＝全部） */
+function exportFilter(p: Prefs, on: boolean | undefined): FilterState | null {
+  if (!on) return null;
+  const f = filterOf(p);
+  return isFiltering(effectiveFilter(visibleDoc(docNow(), p.viewMode), f)) ? f : null;
+}
+
+/** 目前的檢視有沒有篩選、符合幾個（匯出的說明用） */
+function useFilterInfo(): { active: boolean; count: number } {
+  const doc = useDoc((s) => s.data);
+  const viewMode = usePrefs((s) => s.data.viewMode);
+  const filter = usePrefs((s) => s.data.filter);
+  return useMemo(() => {
+    const vdoc = visibleDoc(doc, viewMode);
+    const ids = matchingIds(vdoc, filterOf({ filter } as Prefs, viewMode));
+    return { active: !!ids, count: ids?.size ?? vdoc.events.length };
+  }, [doc, viewMode, filter]);
+}
+
+function FilteredField({
+  value,
+  onChange,
+}: {
+  value: boolean | undefined;
+  onChange: (v: boolean) => void;
+}) {
+  const info = useFilterInfo();
+  return (
+    <Field
+      label={S.exFiltered}
+      layout="inline"
+      hint={info.active ? S.exFilteredHint(info.count) : S.exFilteredNone}
+    >
+      <Toggle checked={!!value && info.active} disabled={!info.active} onCheckedChange={onChange} />
+    </Field>
+  );
 }
 
 function AudienceField({
@@ -99,11 +142,23 @@ export function ExportTab() {
     [win, winMode, doc],
   );
   const secrets = useMemo(() => hasSecrets(doc), [doc]);
+  const filterPrefs = usePrefs((s) => s.data.filter);
   const plan = useMemo(
-    () => planPicture(doc, ex, view, collapsed, null),
-    [doc, ex, view, collapsed],
+    () =>
+      planPicture(
+        doc,
+        ex,
+        view,
+        collapsed,
+        null,
+        exportFilter({ ...prefsNow(), filter: filterPrefs }, ex.filtered),
+      ),
+    [doc, ex, view, collapsed, filterPrefs],
   );
-  const resetKey = useMemo(() => ({ doc, ex, view, collapsed }), [doc, ex, view, collapsed]);
+  const resetKey = useMemo(
+    () => ({ doc, ex, view, collapsed, filterPrefs }),
+    [doc, ex, view, collapsed, filterPrefs],
+  );
   const formats = FORMATS.map((f) => ({
     ...f,
     disabled: !plan.ok,
@@ -131,7 +186,7 @@ export function ExportTab() {
               label={S.exFrom}
               value={ex.from}
               mode={doc.mode}
-              era={doc.era}
+              era={doc}
               allowEmpty
               data-field="export-from"
               onCommit={(t) => setExportPrefs({ from: t })}
@@ -140,7 +195,7 @@ export function ExportTab() {
               label={S.exTo}
               value={ex.to}
               mode={doc.mode}
-              era={doc.era}
+              era={doc}
               allowEmpty
               data-field="export-to"
               onCommit={(t) => setExportPrefs({ to: t })}
@@ -152,6 +207,7 @@ export function ExportTab() {
           secrets={secrets}
           onChange={(v) => setExportPrefs({ audience: v })}
         />
+        <FilteredField value={ex.filtered} onChange={(v) => setExportPrefs({ filtered: v })} />
         <Field label={S.exWidth} hint={S.exWidthHint}>
           <NumberInput
             value={ex.width}
@@ -208,6 +264,8 @@ export function ExportTab() {
             exNow,
             ui.win && ui.winMode === d.mode ? ui.win : currentWin(),
             p.collapsed,
+            undefined,
+            exportFilter(p, p.export.filtered),
           );
           if (!r.ok) throw new Error(r.error);
           if (settings.format === 'svg') {
@@ -240,6 +298,7 @@ export function ExportTab() {
       />
       <TextSection />
       <CsvSection />
+      <VisSection />
     </div>
   );
 }
@@ -250,10 +309,15 @@ function TextSection() {
   const audience = useAudience(tPrefs.audience);
   const t = useMemo(() => ({ ...tPrefs, audience }), [tPrefs, audience]);
   const secrets = useMemo(() => hasSecrets(doc), [doc]);
+  const filterPrefs = usePrefs((s) => s.data.filter);
   const text = useMemo(() => {
-    const ch = chronicle(visibleDoc(doc, t.audience), S.untitled, S.toolName);
+    const ch = chronicle(
+      exportDoc(doc, t.audience, exportFilter({ ...prefsNow(), filter: filterPrefs }, t.filtered)),
+      S.untitled,
+      S.toolName,
+    );
     return t.format === 'md' ? chronicleMarkdown(ch, t.audience) : chronicleText(ch, t.audience);
-  }, [doc, t]);
+  }, [doc, t, filterPrefs]);
   const setText = (patch: Partial<typeof t>) =>
     setPrefs({ text: { ...prefsNow().text, ...patch } });
   return (
@@ -274,6 +338,7 @@ function TextSection() {
         secrets={secrets}
         onChange={(v) => setText({ audience: v })}
       />
+      <FilteredField value={t.filtered} onChange={(v) => setText({ filtered: v })} />
       <TextOutputPanel
         title={S.textOutput}
         text={text}
@@ -336,6 +401,35 @@ function CsvSection() {
           onClick={() => useUi.setState({ pasteOpen: true })}
         >
           {S.csvPaste}
+        </Button>
+      </div>
+    </Section>
+  );
+}
+
+/** 讀入 vis-timeline 的資料（F94） */
+function VisSection() {
+  const pl = usePrefs((s) => s.data.viewMode) === 'pl';
+  return (
+    <Section title={S.visTitle} persistKey="scenario-timeline:export-vis" description={S.visHint}>
+      <div className="flex flex-wrap gap-2">
+        <Button
+          size="sm"
+          icon={<FileUp />}
+          disabled={pl}
+          data-testid="vis-import"
+          onClick={() => void pickVis()}
+        >
+          {S.visPick}
+        </Button>
+        <Button
+          size="sm"
+          icon={<ClipboardPaste />}
+          disabled={pl}
+          data-testid="vis-paste"
+          onClick={() => useUi.setState({ visOpen: true })}
+        >
+          {S.visPaste}
         </Button>
       </div>
     </Section>

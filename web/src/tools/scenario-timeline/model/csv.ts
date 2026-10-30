@@ -101,7 +101,7 @@ export function eventsToCsv(doc: TimelineDoc): string {
   const laneName = new Map(doc.lanes.map((l) => [l.id, l.name]));
   const catName = new Map(doc.categories.map((c) => [c.id, c.name]));
   const order = doc.events
-    .map((e, i) => ({ e, i, v: readTime(doc.mode, e.start, doc.era)?.v ?? 0 }))
+    .map((e, i) => ({ e, i, v: readTime(doc.mode, e.start, doc)?.v ?? 0 }))
     .sort((p, q) => p.v - q.v || p.i - q.i);
   const rows: string[][] = [[...CSV_HEADERS]];
   for (const { e } of order)
@@ -144,7 +144,8 @@ export interface CsvImport {
  */
 export function parseEventsTable(
   text: string,
-  doc: Pick<TimelineDoc, 'mode' | 'era' | 'lanes' | 'categories'>,
+  doc: Pick<TimelineDoc, 'mode' | 'era' | 'lanes' | 'categories'> &
+    Partial<Pick<TimelineDoc, 'calendar'>>,
   maxEvents: number = LIMITS.events,
 ): CsvImport {
   const table = parseDelimited(text, { quotes: true });
@@ -212,7 +213,7 @@ export function parseEventsTable(
     total++;
     if (events.length >= maxEvents) return;
     const startText = col(row, 'start');
-    const start = parseTime(doc.mode, startText, doc.era);
+    const start = parseTime(doc.mode, startText, doc);
     if (!start.ok) {
       errors.push({ row: rowNo, message: startText ? start.error : '沒有開始時間' });
       return;
@@ -228,16 +229,16 @@ export function parseEventsTable(
     if (kind !== 'point') {
       if (!endText) kind = 'point';
       else {
-        const e = parseTime(doc.mode, endText, doc.era);
+        const e = parseTime(doc.mode, endText, doc);
         if (!e.ok) {
           errors.push({ row: rowNo, message: `結束：${e.error}` });
           return;
         }
-        if (afterUnit(doc.mode, e.tv) <= start.tv.v) {
+        if (afterUnit(doc.mode, e.tv, doc) <= start.tv.v) {
           errors.push({ row: rowNo, message: '結束要比開始晚' });
           return;
         }
-        end = canonical(doc.mode, e.tv);
+        end = canonical(doc.mode, e.tv, doc);
       }
     }
     const hex = col(row, 'color') ? normalizeHex(col(row, 'color'), '', false) : '';
@@ -245,7 +246,7 @@ export function parseEventsTable(
       newEvent({
         title: col(row, 'title').slice(0, LIMITS.eventTitle),
         kind,
-        start: canonical(doc.mode, start.tv),
+        start: canonical(doc.mode, start.tv, doc),
         end,
         laneId: laneFor(col(row, 'lane')),
         place: col(row, 'place').slice(0, LIMITS.place),

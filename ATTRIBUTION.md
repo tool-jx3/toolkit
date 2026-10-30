@@ -204,7 +204,7 @@
 
 `scenario-timeline` 照新工具引入流程直接在新框架做，參考 visjs/vis-timeline（Apache-2.0 或 MIT 二選一，本站選 MIT；commit `eb7ab7c`，授權全文在 `web/src/tools/scenario-timeline/UPSTREAM_LICENSE`）的互動：縮放與平移、時間點／期間／背景三種事件、泳道與巢狀、拖曳改時間與長短、自動堆疊、依標籤寬度挑刻度的間隔。不用 vis-timeline 套件本身，時間的計算、刻度、畫法（DOM＋SVG／canvas）、年表、PL 檢視、CSV 都是本站的；範例（1925 年的黑水灣）是本站原創。
 
-`ambience-mixer` 照新工具引入流程直接在新框架做，參考 remvze/moodist（MIT，commit `11c0be2`，授權全文在 `web/src/tools/ambience-mixer/UPSTREAM_LICENSE`）的功能與數值：聲音卡片、各自的音量、起伏（10 秒、40%～100%）、0.25 秒的淡入淡出、隨機組合、定時停止、分享連結。moodist 的音效混用 Pixabay Content License 與 CC0、沒有逐檔標示，所以**一個音效檔都沒有收**：本站的 24 種環境音全部由程式合成（`web/src/core/audio/ambience/`），預設組合是本站設計的跑團場景；使用者自己的音檔只存在自己的瀏覽器。
+`ambience-mixer` 照新工具引入流程直接在新框架做，參考 remvze/moodist（MIT，commit `11c0be2`，授權全文在 `web/src/tools/ambience-mixer/UPSTREAM_LICENSE`）的功能與數值：聲音卡片、各自的音量、起伏（10 秒、40%～100%）、0.25 秒的淡入淡出、隨機組合、定時停止、分享連結。moodist 的音效混用 Pixabay Content License 與 CC0、沒有逐檔標示，所以**一個音效檔都沒有收**：本站的環境音全部由程式合成（`web/src/core/audio/ambience/`），預設組合是本站設計的跑團場景；使用者自己的音檔只存在自己的瀏覽器。2026-10 加的 MP3 匯出用 npm 的 [@breezystack/lamejs](https://www.npmjs.com/package/@breezystack/lamejs)（LGPL-3.0；[zhuker/lamejs](https://github.com/zhuker/lamejs) 把 [LAME](https://lame.sourceforge.io/) 3.98.4 移植成 JavaScript，這個套件是 [shijinyu/lamejs](https://github.com/shijinyu/lamejs) 的分支），原樣打包成獨立的檔案、只有按「匯出 MP3」時才載入；LGPL-3.0 與 GPL-3.0 的全文、原始碼的出處列在 THIRD_PARTY_NOTICES。兩種新聲音（雨打在帳篷／傘上、房間底噪）同樣是程式合成，共 26 種。
 
 `log-converter` 的 EPUB 匯出（2026-10）參考 sotsotssi/CcfoliaLogConverter 的功能（原作沒有授權條款：只照功能與做法，程式、介面文字與版面都由本站自做）；原作在控制字元、`<wbr>`、`<font>` 與新格式的日誌會產生不合規的電子書或遺失內容，本站的輸出都通過 epubcheck。
 

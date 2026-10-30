@@ -2,13 +2,16 @@
  * 年表（規格 F50～F54、3.7）：依時間排的清單、分段；純文字、Markdown、列印用的 HTML。純計算。
  */
 import { escapeHtml } from '@/core/html';
+import { type CalInfo, calParts, monthName } from './calendar';
 import { eventSpan } from './layout';
 import {
   afterUnit,
   clockText,
+  ctxParts,
   dateLabel,
   dateParts,
   dayNumber,
+  type EraArg,
   formatLong,
   type Precision,
   readTime,
@@ -60,8 +63,18 @@ export interface Chronicle {
 
 const RANK: Record<Precision, number> = { year: 0, month: 1, day: 2, minute: 3 };
 
-function sectionOf(mode: TimeMode, tv: Tv, era: string): { key: string; heading: string } {
-  if (mode === 'year') return { key: `y${tv.v}`, heading: yearLabel(tv.v, era) };
+function sectionOf(mode: TimeMode, tv: Tv, ctx: EraArg): { key: string; heading: string } {
+  const { era, info } = ctxParts(ctx);
+  if (mode === 'year') {
+    /* 架空曆：只到年的在那一年的段、只到月的在那一月的段、到日的每天一段 */
+    if (info && (tv.p === 'month' || tv.p === 'day')) {
+      const c = calParts(info, tv.v);
+      return tv.p === 'month'
+        ? { key: `m${c.y}-${c.m}`, heading: formatLong(mode, tv, ctx) }
+        : { key: `d${c.T}`, heading: formatLong(mode, tv, ctx) };
+    }
+    return { key: `y${tv.v}`, heading: yearLabel(tv.v, era) };
+  }
   if (mode === 'day') {
     const n = dayNumber(tv.v);
     return { key: `d${n}`, heading: `第 ${n} 天` };
@@ -80,9 +93,19 @@ function startText(mode: TimeMode, tv: Tv): string {
   return '';
 }
 
+/** 架空曆的期間的結束（同一年不寫年） */
+function calEndText(info: CalInfo, start: Tv, end: Tv, era: string): string {
+  const s = calParts(info, start.v);
+  const e = calParts(info, end.v);
+  if (end.p !== 'month' && end.p !== 'day') return yearLabel(e.y, era);
+  const md = `${monthName(info, e.m - 1)}${end.p === 'day' ? ` ${e.d} 日` : ''}`;
+  return s.y === e.y ? md : `${yearLabel(e.y, era)} ${md}`;
+}
+
 /** 期間的結束（相對於開始寫：同一天只寫時刻、同一年不寫年） */
-function endText(mode: TimeMode, start: Tv, end: Tv, era: string): string {
-  if (mode === 'year') return yearLabel(end.v, era);
+function endText(mode: TimeMode, start: Tv, end: Tv, ctx: EraArg): string {
+  const { era, info } = ctxParts(ctx);
+  if (mode === 'year') return info ? calEndText(info, start, end, era) : yearLabel(end.v, era);
   if (mode === 'day') {
     if (end.p === 'minute')
       return dayNumber(end.v) === dayNumber(start.v)
@@ -112,7 +135,9 @@ interface Sortable {
 }
 
 export function chronicle(vdoc: VisibleDoc, untitled: string, fallbackTitle: string): Chronicle {
-  const { mode, era } = vdoc;
+  const { mode } = vdoc;
+  /* 曆名與架空曆 */
+  const era: EraArg = vdoc;
   const laneOrder = new Map(vdoc.lanes.map((l, i) => [l.id, i]));
   const list: Sortable[] = [];
   let lo = Number.POSITIVE_INFINITY;
@@ -139,7 +164,7 @@ export function chronicle(vdoc: VisibleDoc, untitled: string, fallbackTitle: str
       loTv = a;
     }
     const last = endTv && !e.ongoing ? endTv : a;
-    const lastEnd = afterUnit(mode, last);
+    const lastEnd = afterUnit(mode, last, era);
     if (lastEnd > hi) {
       hi = lastEnd;
       hiTv = last;
@@ -181,8 +206,8 @@ export function chronicle(vdoc: VisibleDoc, untitled: string, fallbackTitle: str
       lo = t.v;
       loTv = t;
     }
-    if (afterUnit(mode, t) > hi) {
-      hi = afterUnit(mode, t);
+    if (afterUnit(mode, t, era) > hi) {
+      hi = afterUnit(mode, t, era);
       hiTv = t;
     }
     list.push({

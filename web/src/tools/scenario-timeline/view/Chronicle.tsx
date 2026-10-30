@@ -1,6 +1,6 @@
 /**
- * 年表（規格 1.6）：依時間排的清單、依日子分段；點一筆選取、雙擊或 Enter 編輯；列印、複製成文字。
- * 照目前的 GM／PL 檢視。
+ * 年表（規格 1.6、F90、F91）：依時間排的清單、依日子分段；點一筆選取（Ctrl／⌘＋點選加減、Shift＋點選連續的一段）、
+ * 雙擊或 Enter 編輯；列印、複製成文字。照目前的 GM／PL 檢視；篩選中只列符合的（列印、複製也是）。
  */
 import { Copy, Printer } from 'lucide-react';
 import { memo, useMemo } from 'react';
@@ -14,14 +14,55 @@ import {
   chronicleText,
   PRINT_CSS,
 } from '../model/chronicle';
+import { filteredDoc, matchingIds } from '../model/filter';
 import { GM_COLOR } from '../model/types';
 import { notify } from '../notify';
-import { editEvent, prefsNow, select, usePrefs, useUi } from '../store';
+import {
+  editEvent,
+  filterOf,
+  prefsNow,
+  select,
+  selectMany,
+  toggleSelected,
+  usePrefs,
+  useUi,
+} from '../store';
 import { S } from '../strings';
-import { useVisibleDoc, visibleNow } from './shared';
+import { useFilterState } from './FilterBar';
+import { visibleNow } from './shared';
 import { GM_STRIPES, GmBadge } from './Timeline';
 
-const chronicleNow = () => chronicle(visibleNow(), S.untitled, S.toolName);
+/** 目前看到的年表（篩選中只有符合的） */
+const chronicleNow = () => {
+  const vdoc = visibleNow();
+  return chronicle(
+    filteredDoc(vdoc, matchingIds(vdoc, filterOf(prefsNow()))),
+    S.untitled,
+    S.toolName,
+  );
+};
+
+/** 點一筆：Ctrl／⌘＝加減、Shift＝從上次點的那筆到這筆（年表的順序，只算事件）、其他＝只選它 */
+function clickRow(
+  id: string,
+  e: { ctrlKey: boolean; metaKey: boolean; shiftKey: boolean },
+  order: string[],
+) {
+  if (e.ctrlKey || e.metaKey) {
+    toggleSelected(id);
+    return;
+  }
+  const anchor = useUi.getState().selectedId;
+  if (e.shiftKey && anchor && anchor !== id) {
+    const a = order.indexOf(anchor);
+    const b = order.indexOf(id);
+    if (a >= 0 && b >= 0) {
+      selectMany(order.slice(Math.min(a, b), Math.max(a, b) + 1), anchor);
+      return;
+    }
+  }
+  select(id);
+}
 
 export async function copyChronicle(): Promise<void> {
   const text = chronicleText(chronicleNow(), prefsNow().viewMode);
@@ -42,10 +83,16 @@ export function printChronicle(): Promise<HTMLIFrameElement> {
 }
 
 export function Chronicle() {
-  const vdoc = useVisibleDoc();
+  const { vdoc, ids } = useFilterState();
   const pl = usePrefs((s) => s.data.viewMode) === 'pl';
-  const ch = useMemo(() => chronicle(vdoc, S.untitled, S.toolName), [vdoc]);
-  const selectedId = useUi((s) => s.selectedId);
+  const ch = useMemo(() => chronicle(filteredDoc(vdoc, ids), S.untitled, S.toolName), [vdoc, ids]);
+  const selectedIds = useUi((s) => s.selectedIds);
+  const selected = useMemo(() => new Set(selectedIds), [selectedIds]);
+  /* Shift＋點選用的順序（年表上由上而下的事件） */
+  const order = useMemo(
+    () => ch.sections.flatMap((s) => s.rows.filter((r) => r.kind === 'event').map((r) => r.id)),
+    [ch],
+  );
   return (
     <section
       aria-label={S.chronicle}
@@ -80,7 +127,7 @@ export function Chronicle() {
       </header>
       {ch.sections.length === 0 ? (
         <p className="m-0 py-8 text-center text-sm text-muted">
-          {pl ? S.emptyPl : S.chronicleEmpty}
+          {ids && vdoc.events.length ? S.filterNone : pl ? S.emptyPl : S.chronicleEmpty}
         </p>
       ) : (
         ch.sections.map((s) => (
@@ -90,7 +137,13 @@ export function Chronicle() {
             </h3>
             <ol className="m-0 flex list-none flex-col p-0">
               {s.rows.map((r) => (
-                <Row key={`${r.kind}${r.id}`} r={r} gm={!pl} selected={selectedId === r.id} />
+                <Row
+                  key={`${r.kind}${r.id}`}
+                  r={r}
+                  gm={!pl}
+                  selected={selected.has(r.id)}
+                  order={order}
+                />
               ))}
             </ol>
           </div>
@@ -104,10 +157,12 @@ const Row = memo(function Row({
   r,
   gm,
   selected,
+  order,
 }: {
   r: ChronRow;
   gm: boolean;
   selected: boolean;
+  order: string[];
 }) {
   const isEvent = r.kind === 'event';
   const cls = cn(
@@ -212,7 +267,7 @@ const Row = memo(function Row({
           aria-pressed={selected}
           className={cls}
           style={style}
-          onClick={() => select(r.id)}
+          onClick={(e) => clickRow(r.id, e, order)}
           onDoubleClick={() => editEvent(r.id)}
           onKeyDown={(e) => {
             if (e.key === 'Enter') {

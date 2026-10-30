@@ -1,7 +1,7 @@
 /**
  * core/audio/ambience：程式合成的環境音（ambience-mixer 引入時新增）。
  *
- * - 目錄（`catalog.ts`）：分類、24 種聲音的定義與參數（雨、雷、風、海浪、溪流、水滴、營火、時鐘、心跳、蟲鳴、人聲、雜訊…），
+ * - 目錄（`catalog.ts`）：分類、26 種聲音的定義與參數（雨、雷、風、海浪、溪流、水滴、營火、時鐘、心跳、房間底噪、蟲鳴、人聲、雜訊…），
  *   參數的預設值與整理。
  * - 合成（`render.ts`，純函式）：`renderAmbience(id, params, { duration, sampleRate, seed })` → 首尾相接的 PcmAudio
  *   （同樣的輸入每次一樣；Node 也能跑）。零件在 `dsp.ts`（雜訊、濾波器、共振器、隨機曲線、殘響，都以環狀處理）。
