@@ -25,7 +25,7 @@
 |---|---|---|---|---|---|
 | CoC 日誌分析 | [Liesegang/coc-ccfolia-tools](https://github.com/Liesegang/coc-ccfolia-tools)、[756y/SkillRoll_Analytics](https://github.com/756y/SkillRoll_Analytics)、[tukasa0001/DiceStats](https://github.com/tukasa0001/DiceStats)、[cp-20/dice-spec-v2](https://github.com/cp-20/dice-spec-v2) | 未授權／未授權／MIT／MIT | 從 CCFOLIA 日誌統計成長檢定、骰運。dice-spec-v2 的 `src/features/log-analysis/ccfolia/` 有 CoC 6／7 版、新舊 HTML、JSON 的解析器，附樣本與測試，可以當範本；成長擲骰可以和 coc-sheet 的「幕間成長」（見第三節）共用規則 | CoC 7 版團後整理 | 中 |
 | 分級表（Tier 表） | [Tetoriapot/character-attribute-maker](https://github.com/Tetoriapot/character-attribute-maker) 的 `tier-atelier/`（10-27～29，`0baa52d`；線上版 tetoriapot.github.io/character-attribute-maker/tier-atelier/） | 未授權（README 寫「現時點ではライセンスを設定していません」） | 分級可以增刪、複製、改名、配色、鎖定、收合、排序；文字與圖片項目（名稱、說明、標籤），拖曳／選目的地／前後鈕三種擺法，未分類區，多選與範圍選取一起移動，搜尋與標籤篩選，100 步復原；背景、文字、卡片設計與範本；PNG／JPEG／WebP、列印；圖片含在內的 JSON 備份與多個專案。10-28～29 加了分級標籤寬度（自動／手動）、整批隱藏圖片名稱、未分類 100 筆以上的虛擬捲動、標題可以不填、多選拖到刪除區一次刪除。rank-chart 規格 D1 寫過「分級表另外當新工具評估」 | 劇本、角色的 tier 表 | 中 |
-| CoC 追逐面板 | [ichieh42/coc-chase-panel](https://github.com/ichieh42/coc-chase-panel)（簡中，10-28） | 未授權 | CoC 7 版的追逐：角色與載具卡庫（MOV 自動算）、速度檢定、地點軌、行動點、險境與障礙、衝突、載具事故、躲藏、中途加入、日誌、JSON 匯入匯出。規則速查要自己寫，不能抄規則書原文 | 追逐規則複雜，KP 常常略過不跑；放 G9 | 中 |
+| CoC 追逐面板 | [ichieh42/coc-chase-panel](https://github.com/ichieh42/coc-chase-panel)（簡中，10-28） | 未授權 | CoC 7 版的追逐：角色與載具卡庫（MOV 自動算）、速度檢定、地點軌、行動點、險境與障礙、衝突、載具事故、躲藏、中途加入、日誌、JSON 匯入匯出。規則速查要自己寫，不能抄規則書原文；Dancraft3746/COC7e-Investigator（第四節）也有追逐引擎與速度行動的計算，可以一起參考 | 追逐規則複雜，KP 常常略過不跑；放 G9 | 中 |
 | Live2D 模型加動作 | [shinshin86/live2d-add-motion-sample-web-ui](https://github.com/shinshin86/live2d-add-motion-sample-web-ui)（`d89d5ee`，2026-10-22） | MIT（Live2D Cubism Core 是 Live2D 的專有授權；範例模型桃瀨日和不可再散布） | 不用 Cubism Editor、只改 `.motion3.json` 就替模型加動作：快樂、眨單眼、點頭、思考、驚訝、害羞、搖頭 7 種配方（照模型現有的參數，產生器＋驗證器），網頁上播放、單發／循環、對嘴（模擬、音檔、麥克風）、表情、臉部與上半身追蹤、錄製、OBS 串流頁。原作要 Python＋程式助手產生動作、本機伺服器播放，沒有線上版。本站要做就改寫成瀏覽器工具（讀模型 ZIP → 選動作 → 預覽 → 匯出 ZIP）；**前提是決定 Cubism Core 怎麼處理**：原作從 Live2D 的 CDN 載入（本站規則 6 不從 CDN 載 JS），放進 repo 要像 relation-chart 開授權例外，事業規模大時要 Live2D 的出版授權 | 用 Live2D 立繪跑團、直播的 PL／KP；和 anime-rig（PSD 的 2.5D 動態立繪）互補 | 大 |
 | 卡牌列印與小冊子拼版 | [mephitrpg/rpg-cards](https://github.com/mephitrpg/rpg-cards)、[lukaszlasek/imposition-imp](https://github.com/lukaszlasek/imposition-imp) | MIT／MIT | rpg-cards：二十多種卡片尺寸、雙面對齊或只印正面、每頁張數、出血、裁切線（內容元素偏 D&D，版型自己做；圖示若用 game-icons.net 是 CC BY 3.0，要標出處）。imposition-imp：騎馬釘或多台拼版、雙面偏移校正、爬移補償，用的是本站已有的 pdf-lib | 實體團的道具卡、線索卡，自印劇本小冊子；放 G6，拼版也可以當 pdf-compress 的模式 | 中 |
 | 直播小道具 | [TK2F/kasaneru](https://github.com/TK2F/kasaneru) | MIT | OBS 疊加層：倒數與正數計時器、時鐘、BGM 清單、輪盤、塗鴉、跑馬燈、擲骰；控制面板（OBS dock）和疊加層用 BroadcastChannel 溝通 | 「休息中」倒數、抽選輪盤、跑馬燈；本站 G4 都是 CSS 產生器，沒有這種互動疊加層 | 中 |
@@ -33,6 +33,8 @@
 | 匿名論壇貼文 | [dearmysn1p3r/DearMySn1p3r_05](https://github.com/dearmysn1p3r/DearMySn1p3r_05)、[_09](https://github.com/dearmysn1p3r/DearMySn1p3r_09) | 未授權 | 匿名討論串截圖（作者與留言者自動編號、回覆、反應數） | 現代背景的都市傳說 handout | 中 |
 | 電影字幕／片尾名單 | [dearmysn1p3r/DearMySn1p3r_15](https://github.com/dearmysn1p3r/DearMySn1p3r_15)（可併 [_40](https://github.com/dearmysn1p3r/DearMySn1p3r_40)、[_18](https://github.com/dearmysn1p3r/DearMySn1p3r_18) 封面） | 未授權 | 字幕截圖、片尾名單捲動、海報、評分卡、預告 | 團報宣傳、戰役結束的片尾名單 | 中～大 |
 | 角色貼圖組 | [dearmysn1p3r/DearMySn1p3r_39](https://github.com/dearmysn1p3r/DearMySn1p3r_39)、[_57](https://github.com/dearmysn1p3r/DearMySn1p3r_57) | 未授權 | 去背、文字、14 種動作、ZIP 匯出 | Discord／CCFOLIA 表情圖 | 中 |
+| 隨機表按鈕（CCFOLIA 的 `/roll-table`） | [Tetoriapot/scenebutton-maker](https://github.com/Tetoriapot/scenebutton-maker)（`e23bb3b`，v0.2.0，2026-10-30 建 repo） | 未授權（repo 只有建置後的 `site/`，沒有原始碼與 LICENSE；只參考功能） | CCFOLIA 的螢幕面板可以設「點了送出聊天文字」，放 `/roll-table` 指令就變成點一下抽表的按鈕。原作：隨機表編輯（表名、1D6／2D6 等骰式、出目可寫範圍 `1-3`、缺漏與重複的檢查）、試擲與機率分布、貼上指令或 TXT 讀入；按鈕圖（字型、邊框、背景、圖示、底圖、圓角）→ PNG 或 ZIP；多個面板的盤面配置（格線吸附、對齊、等間隔）；輸出只有面板的房間 ZIP，或把面板加進既有的房間 ZIP。本站已有零件：scenario-editor 的 roll-table 輸出、room-zip 的螢幕面板與房間 ZIP 讀寫（要先確認新建面板能不能寫點擊動作）；CCFOLIA 的官方說明在這個環境連不到 | 遭遇表、傳聞表、瘋狂表、探索點的「調查」按鈕：KP 在房間放一排點了就抽的按鈕 | 中 |
+| 大圖分割（CCFOLIA 的圖片上限） | [chirorutyoco/split-compress-tool](https://github.com/chirorutyoco/split-compress-tool)（`90e322d`，10-29；原本在第四節） | 未授權（repo 只有 README，程式是 Releases 的 exe；只參考功能） | 把大圖切成 CCFOLIA 上傳得了的塊（README：每塊 1280×720 以內、未滿 1 MB），原解析度、拼回去無縫；PNG／JPG／WebP 與 APNG、動態 WebP；超過 1 MB 自動多切；切之前可以縮放；顯示每塊在盤面上要放的位置。本站沒有（ccfolia-cropper 是頭像裁切，map-fx、battlemap 只輸出整張）；上限要對照 CCFOLIA 官方（這個環境連不到） | 大地圖、全景背景放進 CCFOLIA | 小～中 |
 
 ## 三、可以併進現有工具
 
@@ -72,6 +74,9 @@
 | floor-plan | 本站（2026-10-29 改 L 形範本時沒改的，規格 D81） | — | 辦公大樓 8F、劇場 B1 的轉角走廊照同樣的做法改成 L 形（要重驗格局與線索位置、更新匯出 PNG 的基準） | 小 |
 | ambience-mixer | 本站（2026-10-29，規格 D1、D23） | — | 另找逐檔標明 CC0 的真實錄音內建（使用者 2026-10-29 選了「收逐檔標 CC0 的錄音」，這個環境連不到 Freesound 等來源，等開網路）；在 CCFOLIA 試聽一次 MP3 的循環接縫（預設是 MP3，聽得出接縫就改回 WAV，D23） | 小～中 |
 | scenario-timeline | 本站（2026-10-29 第二批沒做的，規格 D28、D29） | — | 年表與文字年表列出關聯線；架空曆寫到時刻（時:分） | 小 |
+| coc-sheet（建卡精靈） | [noechou/coc-investigator-generator](https://github.com/noechou/coc-investigator-generator)（`b72a4ed`，2026-10-30；簡中） | MIT（規則程式可以沿用，附 UPSTREAM_LICENSE） | 7 版建卡流程：8 項屬性擲骰 → 年齡修正（`src/domain/rules.ts` 的 `AGE_RULES`：各年齡段的屬性扣減、教育增強檢定次數、外貌扣減、15～19 歲幸運擲兩次取高）→ 職業點數的公式（EDU×4、EDU×2＋APP／DEX／STR／POW 取高等 7 種）與興趣點 → 技能分配與檢查清單；規則有約 770 行測試可以對照。本站 coc-sheet 只有職業 EDU×4／興趣 INT×2 的總數。不收：AI 人設（要 API 金鑰）、職業與技能清單（`catalogs.ts`，含規則書內容，要自己整理）、開團面板（和 CCFOLIA 重複） | 中 |
+| family-tree | [Sectr99/Lineage](https://github.com/Sectr99/Lineage)（`47ffdbb`，2026-10-30 新建） | MIT（只取點子：它用 React Flow＋ELK，和本站不同） | 遺傳特質：替人物加特質（是否遺傳；受影響／帶因／未受影響／不明），父母受影響或帶因時子女自動標「帶因」（只標有沒有風險、不算機率，手填的不覆蓋）。其他功能本站已有（relation-chart、多個圖板）；優先度低 | 小 |
+| session-calendar | [knightleft/tw-calendar](https://github.com/knightleft/tw-calendar)（`ee16ee6`，v0.63，2026-10-29；繁中、台灣假日；底本同樣是 utiyoso/taku_calendar） | 未授權（只參考功能） | 「直播曆」的週曆：三種樣式（7 欄格子、一天一列、一天一張直卡）、4:3／16:9／9:16、休息日、強調日（光暈＋徽章）、每天的貼圖、社群連結貼紙、圓形頭像、配色（輪替、從圖取色、命名儲存）、標題描邊。本站只有月曆與年曆。不收：v0.63 的 Google 帳號同步 | 中 |
 
 ## 內部改善
 
@@ -103,7 +108,9 @@
 - くま。的「TRPG背景サジェスト v0.10」（同一個 repo 的分支 `claude/project-thread-d2do1c`，10-26）：替自己電腦裡的背景圖資料夾加標籤（檔名、顏色、可選的 CLIP 模型），再依劇本文字逐場推薦背景；進 main 再評估（標籤詞庫是日文）。（10-30 看：`41dbe3f` 沒動）
 - [Roman-Serius/GM-Terminal-Kit](https://github.com/Roman-Serius/GM-Terminal-Kit)：GM 用的復古終端機畫面；條款禁止再散布與改作，只能參考功能。
 - [Liesegang/machitsumugi](https://github.com/Liesegang/machitsumugi)：架空日本地圖產生器，MIT，2026-10-22 建立。同類的架空世界地圖：[mewo2/terrain](https://github.com/mewo2/terrain)（MIT，演算法很短；對 CoC 用處低）。
-- [chirorutyoco/split-compress-tool](https://github.com/chirorutyoco/split-compress-tool)：大圖分割壓縮（只看過 README）。
+- [Dancraft3746/COC7e-Investigator](https://github.com/Dancraft3746/COC7e-Investigator)（`6f3ab34`，10-30 一天 20 個 commit，繁中）：CoC 7 版的調查員終端（HP／SAN 的狀態、法術、典籍研讀、遭遇神話生物的 SAN 檢定、追逐引擎、Discord 骰指令、團後成長）。README 有 MIT 徽章但 repo 沒有 LICENSE（算未授權）；規則書內容寫在資料檔裡，不能抄。變動很快，穩定後再看（追逐的部分可以和第二節的追逐面板一起參考）。
+- [magineco/charashare-general](https://github.com/magineco/charashare-general)（`bf4d1f4`，10-29，MIT）：任意系統的角色卡範本編輯器（文字／數值／計算欄、跨欄參照、表格、圖片、可收合的分類），填卡、JSON 讀寫，**輸出成 CCFOLIA 棋子**（狀態、參數、備忘、聊天面板）。Google 登入與分享要作者的 OAuth 代理，另外嵌了 Analytics 與 AdSense（都要拿掉）。本站以 CoC 為主，有人要別的系統的角色卡時再評估。
+- [Azgaar/Armoria](https://github.com/Azgaar/Armoria)（老專案，10-25 有 commit）：紋章產生器（純前端，程式 MIT，部分圖案是 CC BY-NC）。使用者想要時比照 Fantasy Map Generator，只在首頁的「其他網站」放連結（`azgaar.github.io/Armoria/`），不重寫。
 - Maptsukuri（floor-plan 參考了分享連結與房間編號）的作者標示：本站寫「GMW」；電ファミニコゲーマー的報導寫 pictSQUARE 在 10-19 免費公開「マップツクリ」、做好的地圖用在配布的劇本不必標出處（只看到搜尋摘要；maptsukuri.pages.dev 在這個環境連不到）。有網路時確認是不是同一個、作者名稱與利用條款，再改 ATTRIBUTION、README 與 floor-plan 規格。
 
 ## 不收的（免得重查）
@@ -125,6 +132,12 @@
     chirorutyoco/Pasting-tokens（瀏覽器擴充）、ECgear/FitImage（命令列）。
   - 和本站重複：Tetoriapot 的 koyomi、style-atlas 等；dearmysn1p3r 的 ARCH 系列（_04、_37、_55）。
   - 系統專用：LANCER、HârnMaster、D&D 5e 地城追蹤、UH TRPG。
+- 2026-10-30 掃描排除的：
+  - 要後端、帳號或 AI：4855502irodori-rgb/takuawase（Supabase）、yukituguakane/trpg-character-app、origami0217/TRPG-Charactar-maker 與 Tetoriapot/character-order-room（AI 繪圖提示詞）、guinyd/coc-modules-archive、756y/Character_Collection_Room、s2ndrome 的 promm 等、dan0030/IF、AI GM／AI 劇本（autokeeper、tavern-trpg-assistant、llm-trpg-engine、trpg-ai-scenario-generator 等）。
+  - 瀏覽器擴充、桌面程式：okamichi/trpg-voice-bridge、chirorutyoco/Pasting-characters、migawari558/TRPG_Canvas（Electron）、yaaayaaa/lipsync-studio、sevenc-nanashi/tachimi、KasparOrange/battlemap（Flutter）。
+  - Foundry 模組、別的 VTT、系統專用：magisterphamtom 的 coc7-* 與 ImproperSubset、JshGao 的 Foundry 模組；Xelltis/udonarium_axe；D&D 5e 的 Sectr99/DungeonTracker、QTR-Games/Dragon-Codex；片道勇者、ダブルクロス、最終物語、Cyberpunk 2020、《奇點之後》（保留所有權利）的專用工具。
+  - GPL 或只是內容：MrShark/coc-generator（GPL-3.0）、LukaszDygon/call-of-cthulhu-solo（遊戲書）、tanis90/kwiat-paproci-zh（劇本翻譯）。
+  - 和本站重複或用處低：lb9203/tabletop-token-maker（token-maker）、756y/CCFOLIA_Chat_Styler（log-converter）、sedn14636361/idea-board（通用白板）、mephitrpg 的桌遊棋盤；Maple127667/trpg-replay（日誌 → 視覺小說的回放，目前只有 Python 解析器，播放器做出來再看）。
 - [uemegu/AnimeVRM.Motions](https://github.com/uemegu/AnimeVRM.Motions)（https://uemegu.github.io/AnimeVRM.Motions/，2026-10-28 建立）：VRM 用的 80 個姿勢動作（Mixamo 格式的 FBX）配布站，用作者的 AnimeVRM engine 與角色「アオイ」預覽、在瀏覽器裡調呼吸的強度再下載。repo 與 engine 都沒有授權條款，動作檔也沒寫使用條件；`aoi.vrm` 的 VRM 授權是不可再散布、只限個人非營利。核心是動作素材，本站不能放，也不重做（2026-10-29 使用者決定只記下來）。之後若要做「讀自己的 VRM、擺姿勢、匯出透明 PNG 立繪」的工具，姿勢要另找授權清楚的來源或自己做。
 - 需要後端或登入的（Supabase／Firebase）、瀏覽器擴充、bot、AI GM、D&D 專用 DM 工具；其餘排除清單見檢查紀錄裡的報告。
 
@@ -186,3 +199,6 @@
 - 2026-10-29：完成並移出清單——新工具 QR Code 產生器（qr-maker）、PL 自介卡與地雷表（pl-profile）、劇本時間表（scenario-timeline，第一批）、環境音混音器（ambience-mixer）；floor-plan 參考 KIIN マップ制作スタジオ的功能（規格 6.8、7.22）。沒做的記在第三節與內部改善。
 - 2026-10-30：完成並移出清單——劇本時間表（scenario-timeline）第二批（規格 F90～F109：多選、搜尋與篩選、架空曆的月日、事件之間的關聯線、讀入 vis-timeline 的資料；驗證紀錄 6.2、裁定 7.2）；floor-plan 的 L 形範本與「在地圖演出產生器開啟」帶房間的範圍（floor-plan 6.9、7.23；map-fx F85、F86）；環境音混音器的 MP3 匯出（lamejs）與兩種新聲音（ambience-mixer 6.2、7.2）。沒做的記在第三節；逐檔標 CC0 的真實錄音等網路開放。
 - 2026-10-30：評估 sayaka-aiart/StandRig（Apache-2.0）：主要功能要本機 Node 服務＋MCP 的 AI 助手，不當新工具；「讀入 .srig 播放」記進第三節的 anime-rig 候選，使用者決定先不做。
+
+- 2026-10-30：上游檢查（GitHub 來源 139 個，全部還在，沒有改名、改寫歷史或改授權；10-28 之後 15 個有新 commit）：shiki365/chat-window-maker v1.12 列入第一節，TIER ATELIER 的新功能更新第二節，其餘是 CI、文件、相依套件、外部服務或韓國部落格用的輸出 CSS，不列。「先觀察」的條件都還沒成立；HTML-in-Canvas 的 API 在 Chrome 155 改名（搜尋摘要）；Maptsukuri 的作者標示待確認（第四節）。不在 GitHub 的原作與 docs.ccfolia.com 這次 WebFetch 都連不到。
+- 2026-10-30：新 repo 搜尋（已收錄與追蹤的作者約 75 個、GitHub 網頁搜尋約 35 個查詢、clone 讀過約 40 個；GitHub 的 API 在這個環境不能用，改用 git clone 與 WebFetch，搜尋頁連續查會 429）。新增：第二節的隨機表按鈕（Tetoriapot/scenebutton-maker）、大圖分割（split-compress-tool 從第四節移上來）；第三節的 coc-sheet 建卡精靈（noechou，MIT）、family-tree 的遺傳特質（Sectr99/Lineage，MIT）、session-calendar 的週曆（knightleft/tw-calendar）；第四節的 COC7e-Investigator、charashare-general、Armoria。追蹤的新作者：noechou、magineco、Dancraft3746。
