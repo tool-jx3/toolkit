@@ -17,13 +17,14 @@
 |---|---|---|---|---|---|
 | speech-bubble | [aokmri/dp-cardmaker](https://github.com/aokmri/dp-cardmaker) | 未授權 | 單一泡泡插圖、PDF 匯出 | 可考慮（泡泡插圖比較值得） | 小～中 |
 | （共用層） | 同上 | — | 原作提到 iOS 的 IndexedDB 連線被切斷後沒重連、預先存的 Blob 取不回來；本站 `core/storage/idb.ts` 沒有重連 | 有 iPhone 時確認再決定 | 小 |
+| chat-window | [shiki365/chat-window-maker](https://github.com/shiki365/chat-window-maker)（v1.12，`964cffc`，2026-10-30；本站看到 v1.11 `61dd431`） | MIT | 新選項「訊息消失後視窗也消失」（要先開「過一段時間後消失」）：視窗的背景、外框、標題跟著最新一則訊息一起淡出，有新訊息再出現；純 CSS（`:has()` 看最新一則的奇偶、換 keyframe 名稱重播），OBS 31 以上才有效、舊版維持原樣；OBS 互動中（滑鼠在上面）時視窗維持顯示。原作的兩個秘匿範本預設開 | 值得跟進（秘匿分頁「送出才顯示」的直播用；本站的 `secret` 範本可以跟著預設開） | 小 |
 
 ## 二、新工具候選
 
 | 候選 | 來源 | 授權 | 內容 | 跑團用途 | 工作量 |
 |---|---|---|---|---|---|
 | CoC 日誌分析 | [Liesegang/coc-ccfolia-tools](https://github.com/Liesegang/coc-ccfolia-tools)、[756y/SkillRoll_Analytics](https://github.com/756y/SkillRoll_Analytics)、[tukasa0001/DiceStats](https://github.com/tukasa0001/DiceStats)、[cp-20/dice-spec-v2](https://github.com/cp-20/dice-spec-v2) | 未授權／未授權／MIT／MIT | 從 CCFOLIA 日誌統計成長檢定、骰運。dice-spec-v2 的 `src/features/log-analysis/ccfolia/` 有 CoC 6／7 版、新舊 HTML、JSON 的解析器，附樣本與測試，可以當範本；成長擲骰可以和 coc-sheet 的「幕間成長」（見第三節）共用規則 | CoC 7 版團後整理 | 中 |
-| 分級表（Tier 表） | [Tetoriapot/character-attribute-maker](https://github.com/Tetoriapot/character-attribute-maker) 的 `tier-atelier/`（10-27～28） | 未授權 | 分級可以增刪、改名、配色、鎖定、收合；圖片和文字項目拖曳、未分類區、多選一起移動；PNG／JPEG／WebP；JSON 備份與多個專案。rank-chart 規格 D1 寫過「分級表另外當新工具評估」 | 劇本、角色的 tier 表 | 中 |
+| 分級表（Tier 表） | [Tetoriapot/character-attribute-maker](https://github.com/Tetoriapot/character-attribute-maker) 的 `tier-atelier/`（10-27～29，`0baa52d`；線上版 tetoriapot.github.io/character-attribute-maker/tier-atelier/） | 未授權（README 寫「現時點ではライセンスを設定していません」） | 分級可以增刪、複製、改名、配色、鎖定、收合、排序；文字與圖片項目（名稱、說明、標籤），拖曳／選目的地／前後鈕三種擺法，未分類區，多選與範圍選取一起移動，搜尋與標籤篩選，100 步復原；背景、文字、卡片設計與範本；PNG／JPEG／WebP、列印；圖片含在內的 JSON 備份與多個專案。10-28～29 加了分級標籤寬度（自動／手動）、整批隱藏圖片名稱、未分類 100 筆以上的虛擬捲動、標題可以不填、多選拖到刪除區一次刪除。rank-chart 規格 D1 寫過「分級表另外當新工具評估」 | 劇本、角色的 tier 表 | 中 |
 | CoC 追逐面板 | [ichieh42/coc-chase-panel](https://github.com/ichieh42/coc-chase-panel)（簡中，10-28） | 未授權 | CoC 7 版的追逐：角色與載具卡庫（MOV 自動算）、速度檢定、地點軌、行動點、險境與障礙、衝突、載具事故、躲藏、中途加入、日誌、JSON 匯入匯出。規則速查要自己寫，不能抄規則書原文 | 追逐規則複雜，KP 常常略過不跑；放 G9 | 中 |
 | Live2D 模型加動作 | [shinshin86/live2d-add-motion-sample-web-ui](https://github.com/shinshin86/live2d-add-motion-sample-web-ui)（`d89d5ee`，2026-10-22） | MIT（Live2D Cubism Core 是 Live2D 的專有授權；範例模型桃瀨日和不可再散布） | 不用 Cubism Editor、只改 `.motion3.json` 就替模型加動作：快樂、眨單眼、點頭、思考、驚訝、害羞、搖頭 7 種配方（照模型現有的參數，產生器＋驗證器），網頁上播放、單發／循環、對嘴（模擬、音檔、麥克風）、表情、臉部與上半身追蹤、錄製、OBS 串流頁。原作要 Python＋程式助手產生動作、本機伺服器播放，沒有線上版。本站要做就改寫成瀏覽器工具（讀模型 ZIP → 選動作 → 預覽 → 匯出 ZIP）；**前提是決定 Cubism Core 怎麼處理**：原作從 Live2D 的 CDN 載入（本站規則 6 不從 CDN 載 JS），放進 repo 要像 relation-chart 開授權例外，事業規模大時要 Live2D 的出版授權 | 用 Live2D 立繪跑團、直播的 PL／KP；和 anime-rig（PSD 的 2.5D 動態立繪）互補 | 大 |
 | 卡牌列印與小冊子拼版 | [mephitrpg/rpg-cards](https://github.com/mephitrpg/rpg-cards)、[lukaszlasek/imposition-imp](https://github.com/lukaszlasek/imposition-imp) | MIT／MIT | rpg-cards：二十多種卡片尺寸、雙面對齊或只印正面、每頁張數、出血、裁切線（內容元素偏 D&D，版型自己做；圖示若用 game-icons.net 是 CC BY 3.0，要標出處）。imposition-imp：騎馬釘或多台拼版、雙面偏移校正、爬移補償，用的是本站已有的 pdf-lib | 實體團的道具卡、線索卡，自印劇本小冊子；放 G6，拼版也可以當 pdf-compress 的模式 | 中 |
@@ -45,7 +46,7 @@
 | coc-dice | [3d-dice/dice-box-threejs](https://github.com/3d-dice/dice-box-threejs) | MIT | 3D 擲骰（three.js＋cannon-es，本站都已打包）；可以指定結果（`1d100@1`），能匯出「01 大成功」「100 大失敗」的透明 WebM／APNG 演出素材。最後 commit 是 2022-10，要自己維護 | 中 |
 | coc-sheet | [QTR-Games/Eldritch-Ledger](https://github.com/QTR-Games/Eldritch-Ledger) | CC0（`src/vendor/gronksoft-core` 保留所有權利，不能用） | 幕間成長精靈：替勾選的技能一次擲骰、加上成長值（本站只有成長勾選框）；可以和「CoC 日誌分析」共用規則 | 小 |
 | id-ticket | [CyberDelaai/sinforge-ui](https://github.com/CyberDelaai/sinforge-ui) | MIT | SF／賽博朋克證件：活動證、公民 ID（含機讀區）、12 格執照卡、操作員 ID、掛繩通行證（掛繩孔透明）；照片網點或抖色單色化、浮水印；自組底版。作者標示「早期開發中」；隨機姓名會連外部服務，不收 | 中（自組底版：大） |
-| char-chart | [utiyoso/cross-chart-maker](https://github.com/utiyoso/cross-chart-maker)（10-27） | 未授權 | 四象限的外觀：依氣氛產生漸層背景加顆粒、標題與軸名的字型和描邊、自動配對比色、臉部圖示、對話框；功能和本站重疊，優先度低 | 小～中 |
+| char-chart | [utiyoso/cross-chart-maker](https://github.com/utiyoso/cross-chart-maker)（10-27～29，`e8b4d64`） | 未授權 | 四象限的外觀：依氣氛產生漸層背景加顆粒、標題與軸名的字型和描邊、自動配對比色、臉部圖示、對話框；10-29 把文字預設改成白框黑字／黑框白字，沒有別的新功能；功能和本站重疊，優先度低 | 小～中 |
 | anime-rig | [shinshin86/still2rig-psd](https://github.com/shinshin86/still2rig-psd) | MIT | 用 see-through 組成「相容 Anime2.5DRig」的 PSD，多了表情圖層（`eyes_angry`、`eyes_sad`、`eyes_half`、`eye_smile`、`mouth_laugh`、`mouth_frown`、`tears`、`sweat` 等）；本站只認 `mouth_open`／`mouth_close`／`eye_close`，可以補表情切換。要先拿一份樣本 PSD 試讀 | 小～中 |
 | battlemap | [ondras/rot.js](https://github.com/ondras/rot.js) | BSD-3-Clause | 洞窟、迷宮等生成法與地圖尺寸選項（本站固定 22×16 格、只有地城） | 小～中 |
 | handout-maker、lock-screen | 共用的 `core/qr`（qr-maker 的造型 QR 與讀得出來的檢查） | 本站 | 真的掃得出來的造型 QR 碼（點的形狀、中間放圖示），直接用 qr-maker 的設定 | 小 |
@@ -61,7 +62,7 @@
 | （簡轉繁） | [756y/TXT-](https://github.com/756y/TXT-) | 未授權 | 簡體轉繁體（scenario-text 或 log-converter） | 小 |
 | pair-maker | [dearmysn1p3r/DearMySn1p3r_24](https://github.com/dearmysn1p3r/DearMySn1p3r_24)、[_25](https://github.com/dearmysn1p3r/DearMySn1p3r_25) | 未授權 | PC 設定資料表、自我介紹卡兩個版型 | 小～中 |
 | prose-card | [dearmysn1p3r/DearMySn1p3r_12](https://github.com/dearmysn1p3r/DearMySn1p3r_12)、[_47](https://github.com/dearmysn1p3r/DearMySn1p3r_47) | 未授權 | 尺寸、對話行樣式、筆記本橫線與裝飾、作品組；原作 10-24 加了自訂 HTML／CSS 裝飾層，之後只有 10-25 的小修，可以讀了 | 小～中 |
-| anime-rig | [shinshin86/mesh-avatar-studio](https://github.com/shinshin86/mesh-avatar-studio)（Player：https://shinshin86.github.io/mesh-avatar-studio/play/） | MIT（範例角色 Miko 另有條款，不放進本站） | 光照（拖曳光源、跟著動的陰影、最多 8 組預設與快捷鍵）；讀入 .mavatar 檔播放（可用 npm 的 mesh-avatar 執行環境，MIT）。做 .mavatar 本身要原作的本機 Studio＋程式助手＋Python，網頁上做不到；使用者 2026-10-25 決定先不做（10-24 之後原作加了可開關的配件圖層、Rust 原生版與 macOS 桌面版、`npm run create`，決定不變） | 小～中 |
+| anime-rig | [shinshin86/mesh-avatar-studio](https://github.com/shinshin86/mesh-avatar-studio)（Player：https://shinshin86.github.io/mesh-avatar-studio/play/） | MIT（範例角色 Miko 另有條款，不放進本站） | 光照（拖曳光源、跟著動的陰影、最多 8 組預設與快捷鍵）；讀入 .mavatar 檔播放（可用 npm 的 mesh-avatar 執行環境，MIT）。做 .mavatar 本身要原作的本機 Studio＋程式助手＋Python，網頁上做不到；使用者 2026-10-25 決定先不做（10-24 之後原作加了可開關的配件圖層、Rust 原生版與 macOS 桌面版、`npm run create`，決定不變；10-29～30 另有還沒進 main 的 `feat/cloth-prototype` 分支：擺錘式的布料物理、可選的攝影機身體追蹤〔MediaPipe Pose lite〕） | 小～中 |
 | anime-rig | [sayaka-aiart/StandRig](https://github.com/sayaka-aiart/StandRig)（`ec9d452`，0.2.0，2026-10-29） | Apache-2.0（另有 NOTICE；依賴 ag-psd、pako 等 MIT） | 讀入 StandRig 的 `.srig`（內含圖片的模型 JSON）播放：變形器（warp、shared warp、glue）、混合形狀、物理、表情與「あいうえお・無音」的口形、`.exp3.json` 表情、動作 JSON；接本站的攝影機追蹤、麥克風嘴型、透明匯出（等於 Windows 版 StandRig Connect 的網頁版）。不當新工具：做模型要在本機跑 Node 服務、由支援 MCP 的 AI 助手編網格與變形器，只讀 PSD 不會動，靜態網頁做不到。使用者 2026-10-30 決定先不做：`.srig` 只有用過 StandRig＋AI 的人才有，格式還在 0.x（0.3.0 才定 `runtimeCompatibility`）；原作的播放與求值約 4,000～6,000 行 | 中～大 |
 | npc-names | 內政部《全國姓名統計分析》PDF 的「各出生年代常見名字」與名字字數統計（ris.gov.tw 在這個環境連不到） | 政府資料開放授權條款第 1 版 | 台灣的名字依年代分、加單名（規格 D1）；另外日本 2000 年後出生的名字（需要授權清楚的資料，D2）、英國 1920 年代的名字（D5） | 小～中 |
 | scenario-editor | [sedn14636361/trpg-scenario-editor](https://github.com/sedn14636361/trpg-scenario-editor) | CC0 | 原作的 `/` 斜線候選清單（規格 D46；跟進 v3.26 時決定先不做） | 小 |
@@ -92,16 +93,18 @@
 
 ## 四、先觀察
 
-- HTML-in-Canvas（`<canvas layoutsubtree>`＋`drawElementImage`，Chrome 的 origin trial，試用期到 2027-03）：可以把真的 HTML／CSS 畫進 canvas，
+- HTML-in-Canvas（`<canvas layoutsubtree>`＋`drawElementImage`，Chrome 的 origin trial）：可以把真的 HTML／CSS 畫進 canvas，
   之後若正式上線，handout-maker、prose-card、social-post 這類「用 canvas 自己排版」的匯出可以改用它（直書、ruby、CSS 效果），也能對 HTML 介面套 WebGL 效果。
   使用者 2026-10-27 提供的示範 [matchachoco010/demo-html-in-canvas-bot-dashboard](https://github.com/matchachoco010/demo-html-in-canvas-bot-dashboard)
   只是 Discord 語音 bot 的儀表板示範（只有建置後的檔案、沒有授權），本身不收。
-- [KumachanSteps/trpg-web-tools](https://github.com/KumachanSteps/trpg-web-tools) 的 `text-apng-maker-ex` 分支：擲骰結果演出（星空、夢、吸血鬼、萬聖節）、戰鬥演出；合進主線後再評估併進 text-fx（10-28 看：停在 10-20 的 `0b1e82f`，還沒進 main）。
-- くま。的 OBS TRPGサポーター v0.1（同一個 repo）：還在開發中；要做的話只做透明覆蓋層。
-- くま。的「TRPG背景サジェスト v0.10」（同一個 repo 的分支 `claude/project-thread-d2do1c`，10-26）：替自己電腦裡的背景圖資料夾加標籤（檔名、顏色、可選的 CLIP 模型），再依劇本文字逐場推薦背景；進 main 再評估（標籤詞庫是日文）。
+  2026-10-30：據 Chrome 的更新文章（搜尋摘要，developer.chrome.com 在這個環境連不到，沒讀到原文）Chrome 155 起 `layoutsubtree` 改成 `content="drawable"`、子元素各自加 `drawable`，`drawElementImage` 不再回傳變換矩陣，WebGL／WebGPU 的方法改名，試用期延長（新的期限沒查到）；API 還在變，維持觀察。
+- [KumachanSteps/trpg-web-tools](https://github.com/KumachanSteps/trpg-web-tools) 的 `text-apng-maker-ex` 分支：擲骰結果演出（星空、夢、吸血鬼、萬聖節）、戰鬥演出；合進主線後再評估併進 text-fx（10-30 看：仍停在 10-20 的 `0b1e82f`，領先 main 59 個 commit、沒合併）。
+- くま。的 OBS TRPGサポーター v0.1（同一個 repo）：還在開發中；要做的話只做透明覆蓋層。（10-30 看：分支仍是 10-21 的 `c129788`，沒動）
+- くま。的「TRPG背景サジェスト v0.10」（同一個 repo 的分支 `claude/project-thread-d2do1c`，10-26）：替自己電腦裡的背景圖資料夾加標籤（檔名、顏色、可選的 CLIP 模型），再依劇本文字逐場推薦背景；進 main 再評估（標籤詞庫是日文）。（10-30 看：`41dbe3f` 沒動）
 - [Roman-Serius/GM-Terminal-Kit](https://github.com/Roman-Serius/GM-Terminal-Kit)：GM 用的復古終端機畫面；條款禁止再散布與改作，只能參考功能。
 - [Liesegang/machitsumugi](https://github.com/Liesegang/machitsumugi)：架空日本地圖產生器，MIT，2026-10-22 建立。同類的架空世界地圖：[mewo2/terrain](https://github.com/mewo2/terrain)（MIT，演算法很短；對 CoC 用處低）。
 - [chirorutyoco/split-compress-tool](https://github.com/chirorutyoco/split-compress-tool)：大圖分割壓縮（只看過 README）。
+- Maptsukuri（floor-plan 參考了分享連結與房間編號）的作者標示：本站寫「GMW」；電ファミニコゲーマー的報導寫 pictSQUARE 在 10-19 免費公開「マップツクリ」、做好的地圖用在配布的劇本不必標出處（只看到搜尋摘要；maptsukuri.pages.dev 在這個環境連不到）。有網路時確認是不是同一個、作者名稱與利用條款，再改 ATTRIBUTION、README 與 floor-plan 規格。
 
 ## 不收的（免得重查）
 
