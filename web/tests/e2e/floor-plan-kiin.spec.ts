@@ -270,6 +270,37 @@ test('L 形的匯出：缺角裡是背景；GM 專用的 L 形房間在 PL 用�
   expect(errors).toEqual([]);
 });
 
+test('範本的 L 形走廊（F270）：山中小屋 2F 的走廊與樓梯口是同一間 L 形房間；屬性面板寫缺角', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  await page.getByRole('button', { name: '範本' }).click();
+  const tpl = page.getByTestId('template-dialog');
+  await tpl.getByRole('radio', { name: '住宅' }).click();
+  await tpl.getByRole('button', { name: /^山中小屋/ }).click();
+  await expect(page.getByTestId('template-dialog')).toHaveCount(0);
+  await page.getByTestId('map-canvas').focus();
+  await page.keyboard.press(']');
+  await expect.poll(async () => (await floor(page)).name).toBe('2F');
+  const hall = (await floor(page)).rooms.find((r) => r.name === '走廊');
+  expect(hall).toMatchObject({ x: 0, y: 0, w: 22, h: 11, cut: { c: 'nw', w: 18, h: 8 } });
+  expect((await floor(page)).rooms.some((r) => r.name === '樓梯')).toBe(false);
+  await page.evaluate(() =>
+    (window as unknown as { __floorPlan: Hook }).__floorPlan.editor.fitView(),
+  );
+  /* 走廊（橫的那一段）與樓梯口（直的那一段）點到的是同一間 */
+  await click(page, 4, 9.5);
+  const a = await sel(page);
+  expect(a).toEqual([{ type: 'room', id: hall?.id }]);
+  await page.keyboard.press('Escape');
+  await click(page, 21.5, 7);
+  expect(await sel(page)).toEqual([{ type: 'room', id: hall?.id }]);
+  await expect(page.getByTestId('props-panel').getByTestId('props-readout')).toContainText(
+    '缺角 9×4m',
+  );
+  expect(errors).toEqual([]);
+});
+
 test.describe('連接兩個房間（F250～F252）', () => {
   test('共用的牆：K 放一扇門（一步復原）；再按一次說已經相通；迷你工具列也有按鈕', async ({
     page,
@@ -692,7 +723,9 @@ test.describe('送到地圖演出產生器（F267、map-fx F84）', () => {
     await expect(page.getByText('已送到地圖演出產生器（新分頁）', { exact: true })).toBeVisible();
     /* 交接編號讀到就從網址拿掉 */
     expect(await fx.evaluate(() => location.hash)).toBe('');
-    await ask.getByRole('button', { name: /讀入|取代/ }).click();
+    /* 房間的範圍一起帶過來（F271、map-fx F85）：讀入並建立房間遮罩 */
+    await expect(ask).toContainText('平面圖帶來 2 間房間的範圍與名字');
+    await ask.getByRole('button', { name: '讀入並建立 2 個房間遮罩' }).click();
     await expect(
       fx.getByText('已讀入平面圖產生器送來的「測試_PL_10x6」', { exact: true }),
     ).toBeVisible();
@@ -700,16 +733,78 @@ test.describe('送到地圖演出產生器（F267、map-fx F84）', () => {
     const state = await fx.evaluate(() => {
       const h = (window as unknown as { __mapFx: Record<string, () => Record<string, unknown>> })
         .__mapFx;
-      return { image: h.doc().image, grid: h.prefs().grid };
+      return { image: h.doc().image, grid: h.prefs().grid, frames: h.doc().frames };
     });
     expect(state.image).toMatchObject({ name: '測試_PL_10x6', width: 700, height: 420 });
     expect(state.grid).toBe(70);
+    /* 每格 35 px（VTT 的一格 1 m＝2 格 70 px）：a 10 × 8 格、b 6 × 8 格，b 接在 a 的右邊 */
+    const masks = state.frames as unknown as {
+      label: string;
+      x: number;
+      y: number;
+      w: number;
+      h: number;
+    }[];
+    expect(masks.map((m) => [m.label, m.w, m.h])).toEqual([
+      ['a', 350, 280],
+      ['b', 210, 280],
+    ]);
+    expect(masks[1].x).toBe(masks[0].x + 350);
+    expect(masks[1].y).toBe(masks[0].y);
     /* 重新整理：不會再問一次、也不會再等 */
     await fx.reload();
     await expect(fx.getByRole('heading', { level: 1 })).toBeVisible();
     await fx.waitForFunction(() => !!(window as unknown as { __mapFx?: unknown }).__mapFx);
     await expect(fx.getByRole('alertdialog')).toHaveCount(0);
     await expect(fx.getByTestId('handoff-waiting')).toHaveCount(0);
+    expect(errors).toEqual([]);
+    expect(fxErrors).toEqual([]);
+  });
+
+  test('GM 用的圖：L 形的房間帶缺角、GM 專用的房間一直蓋著不寫房名；「不顯示名字」的走廊不帶（F271、map-fx F85、F86）', async ({
+    page,
+    context,
+  }) => {
+    const errors = await open(page);
+    await setFloor(page, {
+      rooms: [
+        room('客廳', 0, 0, 12, 10, { cut: { c: 'ne', w: 5, h: 4 } }),
+        room('書房', 7, 0, 5, 4),
+        room('密室', 12, 0, 6, 10, { gm: true }),
+        room('走道', 0, 10, 18, 2, { hideLabel: true }),
+      ],
+    });
+    await page.keyboard.press('Control+e');
+    const dialog = page.getByTestId('export-dialog');
+    await dialog.getByRole('radio', { name: 'GM 用（全部顯示）' }).click();
+    await watchSend(page);
+    const [fx] = await Promise.all([
+      context.waitForEvent('page'),
+      page.getByTestId('export-send-fx').click(),
+    ]);
+    const fxErrors: string[] = [];
+    fx.on('pageerror', (e) => fxErrors.push(e.message));
+    await routeFonts(fx);
+    const ask = fx.getByRole('alertdialog');
+    await expect(ask).toContainText('平面圖帶來 3 間房間的範圍與名字', { timeout: 15_000 });
+    await ask.getByRole('button', { name: '讀入並建立 3 個房間遮罩' }).click();
+    await expect(fx.getByText(/^已讀入平面圖產生器送來的/)).toBeVisible();
+    await fx.waitForFunction(() => !!(window as unknown as { __mapFx?: unknown }).__mapFx);
+    const frames = (await fx.evaluate(
+      () =>
+        (window as unknown as { __mapFx: { doc: () => { frames: unknown[] } } }).__mapFx.doc()
+          .frames,
+    )) as { label: string; w: number; h: number; mode: string; cut?: unknown }[];
+    /* 每格幾 px 照匯出對話框（預設 48） */
+    const s = frames[0].w / 12;
+    expect(s).toBe(48);
+    expect(frames.map((f) => [f.label, f.mode, f.cut ?? null])).toEqual([
+      /* 缺角換成外框的比例（5 / 12 格、4 / 10 格） */
+      ['客廳', 'reveal', { c: 'ne', w: 5 / 12, h: 4 / 10 }],
+      ['書房', 'reveal', null],
+      ['', 'static', null],
+    ]);
+    expect(frames[0]).toMatchObject({ w: 12 * s, h: 10 * s });
     expect(errors).toEqual([]);
     expect(fxErrors).toEqual([]);
   });

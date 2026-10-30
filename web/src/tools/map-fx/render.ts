@@ -27,7 +27,11 @@ import { clamp, clamp01, EASE, hashSigned, hashUnit, seedOf } from '@/core/timel
 import {
   type Frame,
   isActionFrame,
+  lPolygon,
   type MapState,
+  maskCutRect,
+  maskMainRect,
+  maskPolygon,
   type Point,
   pathLength,
   pathUntil,
@@ -582,15 +586,41 @@ function namePlate(
   g.restore();
 }
 
-/** 黑暗：深色的房間＋大大的「？」與房名 */
-function paintDark(g: Ctx, f: RedactFrame, r: Rect, env: RedactEnv) {
+/** 把多邊形加進路徑（新的路徑） */
+function tracePolygon(g: Ctx, pts: readonly [number, number][]) {
+  g.beginPath();
+  g.moveTo(pts[0][0], pts[0][1]);
+  for (const p of pts.slice(1)) g.lineTo(p[0], p[1]);
+  g.closePath();
+}
+
+/**
+ * 黑暗：深色的房間＋大大的「？」與房名。
+ * L 形（2026-10-29）：內緣的線照 L 形往內縮（外框縮一圈、缺角的大小不變），「？」與房名放在最大的那一塊（m）。
+ */
+function paintDark(g: Ctx, f: RedactFrame, box: Rect, r: Rect, env: RedactEnv) {
   const d = f.density / 100;
   g.fillStyle = `rgba(8, 10, 16, ${d.toFixed(3)})`;
-  g.fillRect(r.x, r.y, r.w, r.h);
+  g.fillRect(box.x, box.y, box.w, box.h);
   const lw = Math.max(1, 1.5 * env.u * env.m.k);
   g.strokeStyle = 'rgba(150, 162, 186, 0.28)';
   g.lineWidth = lw;
-  g.strokeRect(r.x + lw * 1.5, r.y + lw * 1.5, r.w - lw * 3, r.h - lw * 3);
+  const k = maskCutRect(f, box);
+  if (k && f.cut) {
+    const i = lw * 1.5;
+    tracePolygon(
+      g,
+      lPolygon(
+        { x: box.x + i, y: box.y + i, w: box.w - i * 2, h: box.h - i * 2 },
+        {
+          c: f.cut.c,
+          w: k.w,
+          h: k.h,
+        },
+      ),
+    );
+    g.stroke();
+  } else g.strokeRect(box.x + lw * 1.5, box.y + lw * 1.5, box.w - lw * 3, box.h - lw * 3);
   const name = f.label.trim();
   const qs = clamp(Math.min(r.h * (name ? 0.36 : 0.5), r.w * 0.42), 8, 150 * env.u * env.m.k);
   const cx = r.x + r.w / 2;
@@ -609,19 +639,19 @@ function paintDark(g: Ctx, f: RedactFrame, r: Rect, env: RedactEnv) {
   g.restore();
 }
 
-/** 禁止進入：深色底＋琥珀色的斜線帶，房名放在中間的牌子上 */
-function paintKeepout(g: Ctx, f: RedactFrame, r: Rect, env: RedactEnv) {
+/** 禁止進入：深色底＋琥珀色的斜線帶，房名放在中間的牌子上（L 形：最大的那一塊的中間） */
+function paintKeepout(g: Ctx, f: RedactFrame, box: Rect, r: Rect, env: RedactEnv) {
   const d = f.density / 100;
   g.fillStyle = `rgba(20, 18, 14, ${(0.85 * d).toFixed(3)})`;
-  g.fillRect(r.x, r.y, r.w, r.h);
+  g.fillRect(box.x, box.y, box.w, box.h);
   const sw = Math.max(6, 12 * env.u) * env.m.k;
   g.fillStyle = rgba(MAP_COLORS.amber, d);
-  for (let t = -r.h; t < r.w; t += sw * 2) {
+  for (let t = -box.h; t < box.w; t += sw * 2) {
     g.beginPath();
-    g.moveTo(r.x + t, r.y + r.h);
-    g.lineTo(r.x + t + r.h, r.y);
-    g.lineTo(r.x + t + r.h + sw, r.y);
-    g.lineTo(r.x + t + sw, r.y + r.h);
+    g.moveTo(box.x + t, box.y + box.h);
+    g.lineTo(box.x + t + box.h, box.y);
+    g.lineTo(box.x + t + box.h + sw, box.y);
+    g.lineTo(box.x + t + sw, box.y + box.h);
     g.closePath();
     g.fill();
   }
@@ -632,36 +662,47 @@ function paintKeepout(g: Ctx, f: RedactFrame, r: Rect, env: RedactEnv) {
   });
 }
 
-/** 戰爭迷霧：毛玻璃＋冷灰的霧與幾團柔軟的白霧（依框固定） */
-function paintFog(g: Ctx, f: RedactFrame, r: Rect, env: RedactEnv) {
+/** 戰爭迷霧：毛玻璃＋冷灰的霧與幾團柔軟的白霧（依框固定）；房名的牌子在 r（L 形：最大的那一塊） */
+function paintFog(g: Ctx, f: RedactFrame, box: Rect, r: Rect, env: RedactEnv) {
   const d = f.density / 100;
-  paintCrop(g, f, r, env, 'frost');
+  paintCrop(g, f, box, env, 'frost');
   g.fillStyle = `rgba(176, 188, 202, ${(0.18 + 0.3 * d).toFixed(3)})`;
-  g.fillRect(r.x, r.y, r.w, r.h);
+  g.fillRect(box.x, box.y, box.w, box.h);
   const seed = seedOf(f.id);
-  const base = Math.min(r.w, r.h);
+  const base = Math.min(box.w, box.h);
   for (let i = 0; i < 7; i++) {
-    const bx = r.x + r.w * hashUnit(seed, i, 1);
-    const by = r.y + r.h * hashUnit(seed, i, 2);
+    const bx = box.x + box.w * hashUnit(seed, i, 1);
+    const by = box.y + box.h * hashUnit(seed, i, 2);
     const br = base * (0.3 + 0.45 * hashUnit(seed, i, 3)) + Math.abs(hashSigned(seed, i)) * 2;
     const grad = g.createRadialGradient(bx, by, 0, bx, by, br);
     grad.addColorStop(0, `rgba(255, 255, 255, ${(0.16 + 0.22 * d).toFixed(3)})`);
     grad.addColorStop(1, 'rgba(255, 255, 255, 0)');
     g.fillStyle = grad;
-    g.fillRect(r.x, r.y, r.w, r.h);
+    g.fillRect(box.x, box.y, box.w, box.h);
   }
   namePlate(g, f.label, r, env, { bg: 'rgba(240, 244, 248, 0.55)', fg: 'rgba(30, 38, 52, 0.85)' });
 }
 
-/** 四種房間遮罩（引擎先剪到蓋住的那一段、乘上淡出的透明度） */
+/**
+ * 四種房間遮罩（引擎先剪到蓋住的那一段〔L 形時再剪到 L 形，KIT.redactShape〕、乘上淡出的透明度）。
+ * 底色、斜線、霧、馬賽克畫滿外框 r；「？」、房名、房名的牌子放在 L 形裡最大的那一塊（長方形的框就是 r）。
+ */
 export function paintRoomMask(g: Ctx, f: RedactFrame, r: Rect, env: RedactEnv): void {
-  if (f.style === 'dark') paintDark(g, f, r, env);
-  else if (f.style === 'keepout') paintKeepout(g, f, r, env);
-  else if (f.style === 'fog') paintFog(g, f, r, env);
+  const m = maskMainRect(f, r);
+  if (f.style === 'dark') paintDark(g, f, r, m, env);
+  else if (f.style === 'keepout') paintKeepout(g, f, r, m, env);
+  else if (f.style === 'fog') paintFog(g, f, r, m, env);
   else {
     paintCrop(g, f, r, env, 'mosaic');
-    namePlate(g, f.label, r, env, { bg: 'rgba(12, 14, 20, 0.78)', fg: '#ffffff' });
+    namePlate(g, f.label, m, env, { bg: 'rgba(12, 14, 20, 0.78)', fg: '#ffffff' });
   }
+}
+
+/** L 形的房間遮罩：外形加進路徑（引擎剪到這個形狀畫遮罩與邊界演出）；長方形的框不動、回傳 false */
+export function roomMaskShape(g: Ctx, f: RedactFrame, r: Rect): boolean {
+  if (!f.cut) return false;
+  tracePolygon(g, maskPolygon(f, r));
+  return true;
 }
 
 /* ---------- 區域放大的框 ---------- */
@@ -882,6 +923,7 @@ export const KIT: RenderKit<Frame> = {
     paintRoomMask(g, f as RedactFrame, r, env);
     return true;
   },
+  redactShape: (g, f: RedactFrameBase, r) => roomMaskShape(g, f as RedactFrame, r),
   fontText: frameText,
 };
 

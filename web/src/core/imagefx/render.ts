@@ -494,7 +494,17 @@ export function paintBuiltinRedact(g: Ctx, f: RedactFrameBase, r: Rect, env: Red
   else if (f.style === 'mosaic' || f.style === 'frost') paintCrop(g, f, r, env, f.style);
 }
 
-/** 蓋住的那一段（cover）：先剪到那一段、乘上淡出的透明度，再畫樣式 */
+/** 框不是長方形時（工具的 `redactShape` 回傳 true）再剪到那個形狀；長方形的框什麼都不做（路徑也不動） */
+function clipShape(g: Ctx, f: RedactFrameBase, r: Rect, shape?: RenderKit['redactShape']): boolean {
+  if (!shape?.(g, f, r)) return false;
+  g.clip();
+  return true;
+}
+
+/**
+ * 蓋住的那一段（cover）：先剪到那一段、乘上淡出的透明度，再畫樣式。
+ * shape：工具的 `redactShape`（框不是長方形時再剪到那個形狀；2026-10-29 map-fx 的 L 形房間遮罩加的，不給時與以前相同）。
+ */
 export function drawRedact(
   g: Ctx,
   f: RedactFrameBase,
@@ -502,6 +512,7 @@ export function drawRedact(
   cover: Cover,
   env: RedactEnv,
   paint?: RenderKit['paintRedact'],
+  shape?: RenderKit['redactShape'],
 ): void {
   const [a, b] = cover.span;
   if (b <= a || r.w <= 0 || r.h <= 0 || cover.alpha <= 0) return;
@@ -510,6 +521,7 @@ export function drawRedact(
   g.beginPath();
   g.rect(part.x, part.y, part.w, part.h);
   g.clip();
+  clipShape(g, f, r, shape);
   if (cover.alpha < 1) g.globalAlpha *= cover.alpha;
   if (!paint?.(g, f, r, env)) paintBuiltinRedact(g, f, r, env);
   g.restore();
@@ -532,10 +544,21 @@ export function drawEdge(
   q: number,
   u: number,
   k: number,
+  shape?: RenderKit['redactShape'],
 ): void {
   if (f.mode === 'static' || f.edge === 'none' || f.dir === 'fade') return;
   const A = edgeEnvelope(q) * (f.glow / 100);
   if (A <= 0) return;
+  /* 框不是長方形時（L 形）光與掃描線只畫在框的形狀裡（長方形的框、不給 shape 時與以前相同：光暈可以超出框） */
+  if (shape) {
+    g.save();
+    if (clipShape(g, f, r, shape)) {
+      drawEdge(g, f, r, q, u, k);
+      g.restore();
+      return;
+    }
+    g.restore();
+  }
   const horiz = f.dir === 'h';
   const len = horiz ? r.w : r.h;
   const cross = horiz ? r.h : r.w;
@@ -656,6 +679,11 @@ export interface RenderKit<F extends FrameBase = FrameBase> extends TimelineKit<
   paintCard(g: Ctx, z: ZoomFrameBase, env: CardEnv): void;
   /** 工具自己的塗黑樣式：畫滿 r（已剪到蓋住的那一段）；回傳 false＝交給引擎（black、mosaic、frost） */
   paintRedact?(g: Ctx, f: RedactFrameBase, r: Rect, env: RedactEnv): boolean;
+  /**
+   * 塗黑的框不是長方形時：`beginPath()` 之後把框在畫面上的形狀（r＝外框）加進路徑、回傳 true，引擎再剪到這個形狀畫塗黑與邊界演出；
+   * 長方形的框什麼都不畫、回傳 false（2026-10-29 map-fx 的 L 形房間遮罩加的；不給＝都是長方形，與以前相同）。
+   */
+  redactShape?(g: Ctx, f: RedactFrameBase, r: Rect): boolean;
   /** 框上要畫的文字（標籤、房名…）：預覽與匯出先等介面字型（粗體）載好這些字 */
   fontText?(frames: readonly F[]): string;
 }
@@ -701,8 +729,9 @@ function drawAnnotations<F extends FrameBase>(
         redactCover(rf.mode, rf.dir, q),
         { img, cache, baseScale, u, m, canvas },
         kit.paintRedact,
+        kit.redactShape,
       );
-      drawEdge(g, rf, r, q, u, m.k);
+      drawEdge(g, rf, r, q, u, m.k, kit.redactShape);
     } else kit.drawMark(g, f, r, q, { img, cache, baseScale, u, m, canvas, p, multiply });
   }
 }

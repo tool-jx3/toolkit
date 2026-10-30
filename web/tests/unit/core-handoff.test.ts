@@ -3,6 +3,7 @@
  * 過期與壞掉的資料、沒有 IndexedDB。IndexedDB 換成記憶體裡的 Map（@/core/storage 的 idb 小工具）。
  * 先開分頁、後送資料（主控追加）：交接編號、等那一筆（晚到、寄件的分頁說還在準備、失敗、等不到）；
  * 分頁之間的通知用 Node 內建的 BroadcastChannel（同一個程序裡的兩個頻道物件互相收得到）。
+ * `meta.rooms`（2026-10-29，floor-plan F271 → map-fx F85）：房間的範圍的讀法（看不懂的略過）。
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -36,6 +37,7 @@ const {
   hasHandoff,
   purgeHandoffs,
   readHandoffId,
+  readHandoffRooms,
   sendHandoff,
   takeHandoff,
   waitHandoff,
@@ -176,5 +178,46 @@ describe('core/handoff', () => {
     expect(db.has('failed:mark-only')).toBe(false);
     available = false;
     expect((await waitHandoff('map-fx', 'x')).status).toBe('failed');
+  });
+});
+
+describe('meta.rooms：圖上的房間範圍（2026-10-29，floor-plan F271、map-fx F85）', () => {
+  it('讀得回來；看不懂的那一間略過、看不懂的缺角當長方形、名字截到 200 字；整個看不懂時 null', () => {
+    const rooms = {
+      width: 600,
+      height: 400,
+      list: [
+        { name: '客廳', x: 48, y: 48, w: 288, h: 240, cut: { c: 'ne', w: 120, h: 96 } },
+        { name: '密室', x: 336, y: 48, w: 144, h: 240, gm: true },
+        { name: '壞的缺角', x: 0, y: 0, w: 10, h: 10, cut: { c: 'up', w: 2, h: 2 } },
+        { name: '缺角太大', x: 0, y: 0, w: 10, h: 10, cut: { c: 'nw', w: 10, h: 2 } },
+        { name: '寬是 0', x: 0, y: 0, w: 0, h: 10 },
+        { name: '不是數字', x: '1', y: 0, w: 4, h: 4 },
+        null,
+        { x: 1, y: 2, w: 3, h: 4, gm: 'yes' },
+        { name: '長'.repeat(300), x: 0, y: 0, w: 4, h: 4 },
+      ],
+    };
+    const r = readHandoffRooms({ gridPx: 48, rooms });
+    expect(r?.width).toBe(600);
+    expect(r?.list.map((x) => x.name)).toEqual([
+      '客廳',
+      '密室',
+      '壞的缺角',
+      '缺角太大',
+      '',
+      '長'.repeat(200),
+    ]);
+    expect(r?.list[0].cut).toEqual({ c: 'ne', w: 120, h: 96 });
+    expect(r?.list[1].gm).toBe(true);
+    expect(r?.list[2].cut).toBeUndefined();
+    expect(r?.list[3].cut).toBeUndefined();
+    expect(r?.list[4]).toEqual({ name: '', x: 1, y: 2, w: 3, h: 4 });
+    /* 沒有、圖的大小看不懂、清單不是陣列：null（收件的工具照舊） */
+    expect(readHandoffRooms(undefined)).toBeNull();
+    expect(readHandoffRooms({ gridPx: 48 })).toBeNull();
+    expect(readHandoffRooms({ rooms: { width: 0, height: 10, list: [] } })).toBeNull();
+    expect(readHandoffRooms({ rooms: { width: 10, height: 10, list: 'x' } })).toBeNull();
+    expect(readHandoffRooms({ rooms: [] })).toBeNull();
   });
 });

@@ -19,6 +19,7 @@ import {
   ImageFxZoomControls,
 } from '@/ui/imagefx';
 import {
+  defaultCut,
   EDGE_FXS,
   type EdgeFx,
   type Frame,
@@ -26,6 +27,8 @@ import {
   type FrameKind,
   isPathStyle,
   MAP_LIMITS,
+  MASK_CORNERS,
+  type MaskCorner,
   PATH_STYLES,
   RANGES,
   type RangeKey,
@@ -296,6 +299,67 @@ function RedactControls({
   );
 }
 
+/**
+ * 房間遮罩的形狀（2026-10-29，F86）：長方形／L 形（缺哪個角）、缺角的寬與深（外框的 %）。
+ * 只在框的設定裡（新畫的框一律是長方形）；平面圖產生器送來的 L 形房間是 L 形。
+ */
+type MaskShape = 'rect' | MaskCorner;
+function MaskShapeControls({ frame, commit }: { frame: RedactFrame; commit: () => void }) {
+  const cut = frame.cut;
+  const setShape = (v: MaskShape) =>
+    updateFrame(frame.id, (f) => {
+      if (f.kind !== 'redact') return;
+      if (v === 'rect') delete f.cut;
+      else f.cut = f.cut ? { ...f.cut, c: v } : defaultCut(v);
+    });
+  /* 缺角的比例 → 滑桿的 %（5～95） */
+  const pct = (ratio: number) =>
+    Math.min(RANGES.cut.max, Math.max(RANGES.cut.min, Math.round(ratio * 100)));
+  const setSize = (key: 'w' | 'h', v: number) =>
+    gesture.live(() =>
+      updateFrame(frame.id, (f) => {
+        if (f.kind !== 'redact' || !f.cut) return;
+        f.cut = { ...f.cut, [key]: pct(v / 100) / 100 };
+      }),
+    )();
+  return (
+    <>
+      <Field label={S.maskShape} hint={S.maskShapeHint}>
+        <Select<MaskShape>
+          value={cut ? cut.c : 'rect'}
+          onValueChange={setShape}
+          options={[
+            { value: 'rect', label: S.maskShapes.rect },
+            ...MASK_CORNERS.map((c) => ({ value: c, label: S.maskShapes[c] })),
+          ]}
+        />
+      </Field>
+      {cut ? (
+        <>
+          <Field label={S.maskCutW}>
+            <FxRangeSlider
+              range={RANGES.cut}
+              value={pct(cut.w)}
+              onChange={(v) => setSize('w', v)}
+              onCommit={commit}
+              unit="%"
+            />
+          </Field>
+          <Field label={S.maskCutH}>
+            <FxRangeSlider
+              range={RANGES.cut}
+              value={pct(cut.h)}
+              onChange={(v) => setSize('h', v)}
+              onCommit={commit}
+              unit="%"
+            />
+          </Field>
+        </>
+      ) : null}
+    </>
+  );
+}
+
 /* ---------- 演出框 ---------- */
 
 function DefaultsSection() {
@@ -376,7 +440,10 @@ function FrameEditor({ frame }: { frame: Frame }) {
           }
         />
       ) : (
-        <RedactControls v={frame} set={set} begin={gesture.begin} commit={gesture.commit} />
+        <>
+          <RedactControls v={frame} set={set} begin={gesture.begin} commit={gesture.commit} />
+          <MaskShapeControls frame={frame} commit={gesture.commit} />
+        </>
       )}
     </div>
   );
@@ -398,6 +465,7 @@ function frameSummary(f: Frame): string {
   const r = f as RedactFrame;
   const parts: string[] = [S.redactStyles[r.style], S.redactModes[r.mode]];
   if (r.mode !== 'static') parts.push(S.revealFxs[r.dir]);
+  if (r.cut) parts.push(S.maskL);
   if (r.label.trim()) parts.push(r.label.trim());
   return parts.join('・');
 }

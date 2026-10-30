@@ -11,7 +11,15 @@ import type {
   PhaseId,
   RedactMode,
 } from '@/core/imagefx';
-import type { FrameKind, RedactStyle, RevealFx, RouteShape, RouteStyle, ZoomStyle } from './model';
+import type {
+  FrameKind,
+  MaskCorner,
+  RedactStyle,
+  RevealFx,
+  RouteShape,
+  RouteStyle,
+  ZoomStyle,
+} from './model';
 
 const KINDS = { zoom: '區域放大', route: '路線・地點', redact: '房間遮罩' } satisfies Record<
   FrameKind,
@@ -240,6 +248,20 @@ export const S = {
   roomName: '房名',
   roomNamePlaceholder: '例：地下儲藏室、上鎖中',
   roomNameHint: '黑暗寫在「？」下面，其他樣式寫在中間的小牌子上；房間遮罩 ZIP 的檔名也會用它。',
+  /* L 形的房間遮罩（2026-10-29，F86） */
+  maskShape: '形狀',
+  maskShapes: {
+    rect: '長方形',
+    nw: 'L 形（缺左上角）',
+    ne: 'L 形（缺右上角）',
+    se: 'L 形（缺右下角）',
+    sw: 'L 形（缺左下角）',
+  } satisfies Record<'rect' | MaskCorner, string>,
+  maskShapeHint:
+    'L 形＝外框缺一個角（平面圖產生器送來的 L 形房間就是這樣）；拖外框的控點改大小時缺角照比例跟著。「？」與房名放在最大的那一塊。',
+  maskCutW: '缺角的寬',
+  maskCutH: '缺角的深',
+  maskL: 'L 形',
   density: '濃度',
   densityHint: '遮罩的深淺、迷霧的濃淡。',
   grain: '粒大小',
@@ -333,6 +355,26 @@ export const S = {
     replace: '取代',
     load: '讀入',
     loaded: (name: string) => `已讀入平面圖產生器送來的「${name}」`,
+    /* 平面圖帶來房間的範圍時（2026-10-29，F85） */
+    descRooms: (
+      name: string,
+      hasImage: boolean,
+      rooms: number,
+      made: number,
+      limit: number,
+      hasGm: boolean,
+    ) =>
+      `${
+        hasImage
+          ? `「${name}」會換掉目前的地圖，演出框與出處會清空（可以用「復原」拿回來）。`
+          : `「${name}」會放進地圖。`
+      }平面圖帶來 ${rooms} 間房間的範圍與名字，可以一起做成房間遮罩（用「新畫的框的預設」${
+        hasGm ? '；GM 專用的房間設成一直蓋著、不寫房名' : ''
+      }）${made < rooms ? `；演出框最多 ${limit} 個，只做前 ${made} 間` : ''}。取消的話送來的圖就丟掉。`,
+    withRooms: (hasImage: boolean, n: number) =>
+      hasImage ? `取代並建立 ${n} 個房間遮罩` : `讀入並建立 ${n} 個房間遮罩`,
+    imageOnly: (hasImage: boolean) => (hasImage ? '只取代地圖' : '只讀入圖'),
+    madeMasks: (n: number) => `照平面圖的房間範圍與名字建立了 ${n} 個房間遮罩。`,
     grid: (px: number) => `房間遮罩 ZIP 的「1 格幾 px」改成 ${px} px（和平面圖的格子對齊）。`,
     /* 平面圖產生器先開這個分頁、圖晚一點才送到（2026-10-29 主控追加） */
     waiting: '正在接收平面圖產生器送來的圖…',

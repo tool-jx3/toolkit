@@ -117,7 +117,7 @@ export async function exportXVideo(
 export const roomsOf = (s: MapState): RedactFrame[] =>
   s.frames.filter((f): f is RedactFrame => f.kind === 'redact');
 
-/** 一個房間遮罩畫在和地圖同尺寸的透明畫布上（蓋滿的樣子；外觀與預覽相同，只是以地圖原本的解析度畫） */
+/** 一個房間遮罩畫在和地圖同尺寸的透明畫布上（蓋滿的樣子；外觀與預覽相同，只是以地圖原本的解析度畫；L 形的缺角是透明的） */
 export function drawRoomMask(
   g: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,
   s: MapState,
@@ -141,6 +141,7 @@ export function drawRoomMask(
       canvas: { width: image.width, height: image.height },
     },
     KIT.paintRedact,
+    KIT.redactShape,
   );
 }
 
