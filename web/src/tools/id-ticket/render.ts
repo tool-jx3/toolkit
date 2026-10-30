@@ -172,12 +172,28 @@ export function renderIdFace(
   const width = size?.width ?? Math.round((w + bleed * 2) * scale);
   const height = size?.height ?? Math.round((h + bleed * 2) * scale);
   const canvas = into ? reuseCanvas(into, width, height) : makeCanvas(width, height);
-  const ctx = ctx2d(canvas);
+  const regions = paintIdFace(ctx2d(canvas), s, side, scale, mode, o, { width, height });
+  return { canvas, regions };
+}
+
+/** renderIdFace 的畫法：畫在已經準備好大小的畫布上（測試用記錄指令的 context 比對） */
+export function paintIdFace(
+  ctx: Ctx,
+  s: IdTicketState,
+  side: Side,
+  scale: number,
+  mode: IdExportMode,
+  o: FaceDrawOptions,
+  size: { width: number; height: number },
+): Region[] {
+  const tpl = idTemplate(s.idTemplate);
+  const { w, h } = cardUnits(tpl.orientation);
+  const bleed = mode === 'print' ? BLEED_U : 0;
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = 'high';
   if (mode === 'print') {
     ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, width, height);
+    ctx.fillRect(0, 0, size.width, size.height);
   }
   ctx.scale(scale, scale);
   ctx.translate(bleed, bleed);
@@ -186,8 +202,7 @@ export function renderIdFace(
     rrect(ctx, 0, 0, w, h, CARD_RADIUS_U);
     ctx.clip();
   }
-  const regions = drawIdFace(ctx, s, side, o);
-  return { canvas, regions };
+  return drawIdFace(ctx, s, side, o);
 }
 
 /** 畫一次（不顯示）收集用到的字型與字：預覽與匯出前先載好 */
