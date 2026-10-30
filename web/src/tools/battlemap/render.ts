@@ -6,16 +6,16 @@
  *
  * 前六層由 renderBase() 畫成「底圖」，只看格局、地形與種子；火光與格線由 applyOverlays() 疊在底圖的複本上。
  * 所以切換格線或火光時，底圖的亂數與像素完全不受影響（規格 5.）。
+ *
+ * 2026-10-30：每格 px 可以是 50／70／100（規格 F39）。所有以 px 為單位的量（磚縫、紋理斑點、裂縫、碎石、苔蘚、
+ * 火光半徑）都乘上「每格 px ÷ 70」；70 px 時乘數剛好是 1，算式與改版前逐位元相同（規格 F40）。
  */
 import { createRandom, type Random } from '@/core/timeline';
-import { CELL, COLS, FLOOR, type Layout, MAP_HEIGHT, MAP_WIDTH, ROWS, WALL } from './layout';
+import { CELL, FLOOR, type Layout, WALL } from './layout';
+import { DEFAULT_SETTINGS, type GeneratorId, isDefaultSize, type LayoutSettings } from './settings';
 
 /* 熱迴圈裡用模組內的常數（測試環境把 import 轉成屬性存取，逐像素讀取會變慢） */
-const W = MAP_WIDTH;
-const H = MAP_HEIGHT;
-const CELL_PX = CELL;
-const NCOLS = COLS;
-const NROWS = ROWS;
+const BASE_CELL = CELL;
 const K_FLOOR = FLOOR;
 const K_WALL = WALL;
 
@@ -40,7 +40,7 @@ export const TERRAIN_STYLES: Record<TerrainId, TerrainStyle> = {
 
 export const TERRAIN_IDS: readonly TerrainId[] = ['dungeon', 'cave', 'crypt'];
 
-/** 磚縫：橫縫每 35 px、直縫每 70 px，奇數排錯開 35 px */
+/** 磚縫（每格 70 px 時）：橫縫每 35 px、直縫每 70 px，奇數排錯開 35 px；其他每格 px 時等比例（半格、一格） */
 export const BRICK_HEIGHT = 35;
 export const BRICK_WIDTH = 70;
 const SEAM_ALPHA = 0.3;
@@ -60,10 +60,10 @@ const CRACK_ALPHA = 0.5;
 const RUBBLE_COLOR: Rgb = [12, 10, 9];
 const RUBBLE_ALPHA = 0.25;
 
-/** 火光：暖橘色，中心混合 32%，半徑 140 px 處降到 0 */
+/** 火光：暖橘色，中心混合 32%，半徑 2 格（每格 70 px 時 140 px）處降到 0 */
 export const LIGHT_COLOR: Rgb = [255, 176, 96];
 export const LIGHT_ALPHA = 0.32;
-export const LIGHT_RADIUS = 2 * CELL_PX;
+export const LIGHT_RADIUS = 2 * BASE_CELL;
 
 /** 格線：黑色、不透明度 24%、1 px */
 export const GRID_ALPHA = 0.24;
@@ -78,22 +78,26 @@ export interface OverlayOptions {
 const stream = (seed: number, salt: number): Random =>
   createRandom((Math.imul(seed ^ 0x5bd1e995, 0x9e3779b1) + salt * 0x632be5ab) | 0);
 
-/* ---------- 紋理：兩層平滑的數值雜訊（斑點約 5～15 px），整張圖連續 ---------- */
+/* ---------- 紋理：兩層平滑的數值雜訊（斑點約 5～15 px，依每格 px 等比例），整張圖連續 ---------- */
 
 interface Octave {
   spacing: number;
   weight: number;
 }
 
+/** 每格 70 px 時的兩層雜訊 */
 const OCTAVES: readonly Octave[] = [
   { spacing: 13, weight: 0.65 },
   { spacing: 6, weight: 0.35 },
 ];
 
 interface NoiseField {
+  octaves: readonly Octave[];
   /** 每層的格點值 */
   lattice: Float32Array[];
   stride: number[];
+  xTables: AxisTable[];
+  yTables: AxisTable[];
 }
 
 const smooth = (t: number) => t * t * (3 - 2 * t);
@@ -116,13 +120,24 @@ function axisTable(length: number, spacing: number): AxisTable {
   return { index, frac };
 }
 
-const X_TABLES = OCTAVES.map((o) => axisTable(W, o.spacing));
-const Y_TABLES = OCTAVES.map((o) => axisTable(H, o.spacing));
+/** 同樣的長度與間距只算一次表（表只看尺寸，不看種子） */
+const axisCache = new Map<string, AxisTable>();
+function cachedAxis(length: number, spacing: number): AxisTable {
+  const key = `${length}:${spacing}`;
+  let t = axisCache.get(key);
+  if (!t) {
+    t = axisTable(length, spacing);
+    if (axisCache.size > 32) axisCache.clear();
+    axisCache.set(key, t);
+  }
+  return t;
+}
 
-function noiseField(rng: Random): NoiseField {
+function noiseField(rng: Random, W: number, H: number, scale: number): NoiseField {
+  const octaves = OCTAVES.map((o) => ({ spacing: o.spacing * scale, weight: o.weight }));
   const lattice: Float32Array[] = [];
   const stride: number[] = [];
-  for (const o of OCTAVES) {
+  for (const o of octaves) {
     const nx = Math.ceil(W / o.spacing) + 2;
     const ny = Math.ceil(H / o.spacing) + 2;
     const v = new Float32Array(nx * ny);
@@ -130,18 +145,25 @@ function noiseField(rng: Random): NoiseField {
     lattice.push(v);
     stride.push(nx);
   }
-  return { lattice, stride };
+  return {
+    octaves,
+    lattice,
+    stride,
+    xTables: octaves.map((o) => cachedAxis(W, o.spacing)),
+    yTables: octaves.map((o) => cachedAxis(H, o.spacing)),
+  };
 }
 
 /** 算出第 y 列每個像素的雜訊值（約 −1～1）。逐列計算：先在格點上做直向內插，再逐像素做橫向內插。 */
 function noiseRow(f: NoiseField, y: number, out: Float32Array, tmp: Float32Array): void {
   out.fill(0);
-  for (let k = 0; k < OCTAVES.length; k++) {
+  const W = out.length;
+  for (let k = 0; k < f.octaves.length; k++) {
     const s = f.stride[k];
     const L = f.lattice[k];
-    const yt = Y_TABLES[k];
-    const xt = X_TABLES[k];
-    const w = OCTAVES[k].weight;
+    const yt = f.yTables[k];
+    const xt = f.xTables[k];
+    const w = f.octaves[k].weight;
     const o = yt.index[y] * s;
     const fy = yt.frac[y];
     for (let i = 0; i < s; i++) tmp[i] = L[o + i] + (L[o + s + i] - L[o + i]) * fy;
@@ -156,15 +178,28 @@ function noiseRow(f: NoiseField, y: number, out: Float32Array, tmp: Float32Array
 
 /* ---------- 像素工具 ---------- */
 
-const COL_OF = (() => {
+/** 一張圖的尺寸資訊（裝飾的繪圖函式共用） */
+interface Canvas {
+  px: Uint8ClampedArray;
+  cells: Uint8Array;
+  W: number;
+  H: number;
+  cell: number;
+  cols: number;
+  /** 每個像素欄所在的格子欄 */
+  colOf: Uint8Array;
+}
+
+/** 每個像素欄所在的格子欄 */
+function columnTable(W: number, cell: number): Uint8Array {
   const t = new Uint8Array(W);
-  for (let x = 0; x < W; x++) t[x] = Math.floor(x / CELL_PX);
+  for (let x = 0; x < W; x++) t[x] = Math.floor(x / cell);
   return t;
-})();
+}
 
 /** 像素所在格子的種類 */
-const kindAt = (layout: Layout, x: number, y: number): number =>
-  layout.cells[Math.floor(y / CELL_PX) * NCOLS + COL_OF[x]];
+const kindAt = (c: Canvas, x: number, y: number): number =>
+  c.cells[Math.floor(y / c.cell) * c.cols + c.colOf[x]];
 
 function blend(px: Uint8ClampedArray, i: number, c: Rgb, a: number): void {
   px[i] += (c[0] - px[i]) * a;
@@ -173,31 +208,14 @@ function blend(px: Uint8ClampedArray, i: number, c: Rgb, a: number): void {
 }
 
 /** 只在指定種類的格子裡上色 */
-function blendIn(
-  px: Uint8ClampedArray,
-  layout: Layout,
-  kind: number,
-  x: number,
-  y: number,
-  c: Rgb,
-  a: number,
-): void {
-  if (x < 0 || y < 0 || x >= W || y >= H) return;
-  if (kindAt(layout, x, y) !== kind) return;
-  blend(px, (y * W + x) * 4, c, a);
+function blendIn(cv: Canvas, kind: number, x: number, y: number, c: Rgb, a: number): void {
+  if (x < 0 || y < 0 || x >= cv.W || y >= cv.H) return;
+  if (kindAt(cv, x, y) !== kind) return;
+  blend(cv.px, (y * cv.W + x) * 4, c, a);
 }
 
 /** 柔邊實心圓 */
-function dot(
-  px: Uint8ClampedArray,
-  layout: Layout,
-  kind: number,
-  cx: number,
-  cy: number,
-  r: number,
-  c: Rgb,
-  a: number,
-): void {
+function dot(cv: Canvas, kind: number, cx: number, cy: number, r: number, c: Rgb, a: number): void {
   const x0 = Math.floor(cx - r - 1);
   const x1 = Math.ceil(cx + r + 1);
   const y0 = Math.floor(cy - r - 1);
@@ -208,7 +226,7 @@ function dot(
       const ddy = y + 0.5 - cy;
       const d = Math.sqrt(ddx * ddx + ddy * ddy);
       const cover = Math.min(1, Math.max(0, r + 0.5 - d));
-      if (cover > 0) blendIn(px, layout, kind, x, y, c, a * cover);
+      if (cover > 0) blendIn(cv, kind, x, y, c, a * cover);
     }
   }
 }
@@ -221,8 +239,7 @@ function unitVector(x: number, y: number): [number, number] {
 
 /** 1 px 折線：每個像素只上色一次（轉折處不會變深） */
 function polyline(
-  px: Uint8ClampedArray,
-  layout: Layout,
+  cv: Canvas,
   kind: number,
   points: readonly { x: number; y: number }[],
   c: Rgb,
@@ -236,29 +253,56 @@ function polyline(
     for (let s = 0; s <= steps; s++) {
       const x = Math.floor(p.x + ((q.x - p.x) * s) / steps);
       const y = Math.floor(p.y + ((q.y - p.y) * s) / steps);
-      if (x < 0 || y < 0 || x >= W || y >= H) continue;
-      const key = y * W + x;
+      if (x < 0 || y < 0 || x >= cv.W || y >= cv.H) continue;
+      const key = y * cv.W + x;
       if (seen.has(key)) continue;
       seen.add(key);
-      blendIn(px, layout, kind, x, y, c, a);
+      blendIn(cv, kind, x, y, c, a);
     }
   }
 }
 
 /* ---------- 底圖 ---------- */
 
-/** 畫出底圖（圖層 1～6）。同樣的格局、地形、種子永遠得到同樣的像素。 */
-export function renderBase(layout: Layout, terrain: TerrainId): Uint8ClampedArray<ArrayBuffer> {
+/** 整張圖的像素尺寸 */
+export const mapPixelSize = (
+  layout: Pick<Layout, 'cols' | 'rows'>,
+  cellPx: number = BASE_CELL,
+): { width: number; height: number } => ({
+  width: layout.cols * cellPx,
+  height: layout.rows * cellPx,
+});
+
+/**
+ * 畫出底圖（圖層 1～6）。同樣的格局、地形、種子、每格 px 永遠得到同樣的像素。
+ * cellPx：每格幾 px（不給＝70）。
+ */
+export function renderBase(
+  layout: Layout,
+  terrain: TerrainId,
+  cellPx: number = BASE_CELL,
+): Uint8ClampedArray<ArrayBuffer> {
   const style = TERRAIN_STYLES[terrain];
   const seed = layout.seed;
-  const floorNoise = noiseField(stream(seed, 1));
-  const wallNoise = noiseField(stream(seed, 2));
+  const CELL_PX = cellPx;
+  /** px 量的乘數（70 px 時剛好是 1） */
+  const k = cellPx / BASE_CELL;
+  const NCOLS = layout.cols;
+  const NROWS = layout.rows;
+  const W = NCOLS * CELL_PX;
+  const H = NROWS * CELL_PX;
+  const brickHeight = CELL_PX / 2;
+  const brickWidth = CELL_PX;
+  const floorNoise = noiseField(stream(seed, 1), W, H, k);
+  const wallNoise = noiseField(stream(seed, 2), W, H, k);
   const seam: Rgb = [
     style.void[0] + SEAM_LIFT,
     style.void[1] + SEAM_LIFT,
     style.void[2] + SEAM_LIFT,
   ];
   const px = new Uint8ClampedArray(W * H * 4);
+  const COL_OF = columnTable(W, CELL_PX);
+  const cells = layout.cells;
 
   const floorRow = new Float32Array(W);
   const wallRow = new Float32Array(W);
@@ -269,14 +313,14 @@ export function renderBase(layout: Layout, terrain: TerrainId): Uint8ClampedArra
   const [sr, sg, sb] = seam;
   for (let y = 0; y < H; y++) {
     const rowBase = Math.floor(y / CELL_PX) * NCOLS;
-    const brickRow = Math.floor(y / BRICK_HEIGHT);
-    const horizontalSeam = y % BRICK_HEIGHT === 0;
-    const seamOffset = brickRow % 2 === 1 ? BRICK_WIDTH / 2 : 0;
+    const brickRow = Math.floor(y / brickHeight);
+    const horizontalSeam = y % brickHeight === 0;
+    const seamOffset = brickRow % 2 === 1 ? brickWidth / 2 : 0;
     noiseRow(floorNoise, y, floorRow, tmp);
     noiseRow(wallNoise, y, wallRow, tmp);
     let i = y * W * 4;
     for (let x = 0; x < W; x++, i += 4) {
-      const kind = layout.cells[rowBase + COL_OF[x]];
+      const kind = cells[rowBase + COL_OF[x]];
       let r: number;
       let g: number;
       let b: number;
@@ -295,7 +339,7 @@ export function renderBase(layout: Layout, terrain: TerrainId): Uint8ClampedArra
         g = vg;
         b = vb;
       }
-      if (horizontalSeam || x % BRICK_WIDTH === seamOffset) {
+      if (horizontalSeam || x % brickWidth === seamOffset) {
         r += (sr - r) * SEAM_ALPHA;
         g += (sg - g) * SEAM_ALPHA;
         b += (sb - b) * SEAM_ALPHA;
@@ -308,16 +352,17 @@ export function renderBase(layout: Layout, terrain: TerrainId): Uint8ClampedArra
   }
 
   /* 裂縫與碎石（只在地板格），苔蘚（只在牆格） */
+  const cv: Canvas = { px, cells, W, H, cell: CELL_PX, cols: NCOLS, colOf: COL_OF };
   const deco = stream(seed, 3);
   for (let cy = 0; cy < NROWS; cy++) {
     for (let cx = 0; cx < NCOLS; cx++) {
-      const kind = layout.cells[cy * NCOLS + cx];
+      const kind = cells[cy * NCOLS + cx];
       const ox = cx * CELL_PX;
       const oy = cy * CELL_PX;
       if (kind === K_FLOOR) {
         if (deco.next() < CRACK_CHANCE) {
-          let x = ox + CELL_PX / 2 + deco.range(-12, 12);
-          let y = oy + CELL_PX / 2 + deco.range(-12, 12);
+          let x = ox + CELL_PX / 2 + deco.range(-12 * k, 12 * k);
+          let y = oy + CELL_PX / 2 + deco.range(-12 * k, 12 * k);
           /* 方向用單位向量（只用加減乘除與開根號，每個瀏覽器算出來都一樣；三角函數的末位可能不同） */
           let [dx, dy] = unitVector(deco.signed(), deco.signed());
           const points = [{ x, y }];
@@ -325,28 +370,27 @@ export function renderBase(layout: Layout, terrain: TerrainId): Uint8ClampedArra
           for (let s = 0; s < segments; s++) {
             if (s > 0) {
               /* 轉一個不大的角度：沿垂直方向偏 tanθ（|θ| ≲ 0.55 rad） */
-              const k = deco.range(-0.6, 0.6);
-              [dx, dy] = unitVector(dx - dy * k, dy + dx * k);
+              const t = deco.range(-0.6, 0.6);
+              [dx, dy] = unitVector(dx - dy * t, dy + dx * t);
             }
-            const len = deco.range(5, 13);
+            const len = deco.range(5 * k, 13 * k);
             x += dx * len;
             y += dy * len;
             points.push({ x, y });
           }
-          polyline(px, layout, K_FLOOR, points, CRACK_COLOR, CRACK_ALPHA);
+          polyline(cv, K_FLOOR, points, CRACK_COLOR, CRACK_ALPHA);
         }
         if (deco.next() < RUBBLE_CHANCE) {
-          const x = ox + deco.range(16, CELL_PX - 16);
-          const y = oy + deco.range(16, CELL_PX - 16);
+          const x = ox + deco.range(16 * k, CELL_PX - 16 * k);
+          const y = oy + deco.range(16 * k, CELL_PX - 16 * k);
           const n = deco.int(3, 6);
-          for (let k = 0; k < n; k++) {
-            const r = deco.range(2, 4);
+          for (let m = 0; m < n; m++) {
+            const r = deco.range(2 * k, 4 * k);
             dot(
-              px,
-              layout,
+              cv,
               K_FLOOR,
-              x + deco.range(-8, 8),
-              y + deco.range(-8, 8),
+              x + deco.range(-8 * k, 8 * k),
+              y + deco.range(-8 * k, 8 * k),
               r,
               RUBBLE_COLOR,
               RUBBLE_ALPHA,
@@ -355,17 +399,16 @@ export function renderBase(layout: Layout, terrain: TerrainId): Uint8ClampedArra
         }
       } else if (kind === K_WALL && style.moss) {
         if (deco.next() < MOSS_CHANCE) {
-          const x = ox + deco.range(12, CELL_PX - 12);
-          const y = oy + deco.range(12, CELL_PX - 12);
+          const x = ox + deco.range(12 * k, CELL_PX - 12 * k);
+          const y = oy + deco.range(12 * k, CELL_PX - 12 * k);
           const n = deco.int(4, 8);
-          for (let k = 0; k < n; k++) {
-            const r = deco.range(2, 5);
+          for (let m = 0; m < n; m++) {
+            const r = deco.range(2 * k, 5 * k);
             dot(
-              px,
-              layout,
+              cv,
               K_WALL,
-              x + deco.range(-6, 6),
-              y + deco.range(-6, 6),
+              x + deco.range(-6 * k, 6 * k),
+              y + deco.range(-6 * k, 6 * k),
               r,
               style.moss,
               deco.range(0.15, 0.4),
@@ -380,15 +423,21 @@ export function renderBase(layout: Layout, terrain: TerrainId): Uint8ClampedArra
 
 /* ---------- 火光與格線 ---------- */
 
-/** 火光中心：房間左上角往內一格的格線交點（px） */
-export function lightCenters(layout: Layout): { x: number; y: number }[] {
-  return layout.rooms.map((r) => ({ x: (r.x + 1) * CELL_PX, y: (r.y + 1) * CELL_PX }));
+/** 火光中心（px）：格線交點；有房間的生成法是房間左上角往內一格 */
+export function lightCenters(
+  layout: Layout,
+  cellPx: number = BASE_CELL,
+): { x: number; y: number }[] {
+  return layout.lights.map((p) => ({ x: p.x * cellPx, y: p.y * cellPx }));
 }
 
-/** 格線所在的像素欄（列）：0、70、140…，最後一條外框落在最後一個像素 */
-export function gridLines(length: number): number[] {
+/** 火光的半徑（px）：2 格 */
+export const lightRadius = (cellPx: number = BASE_CELL): number => 2 * cellPx;
+
+/** 格線所在的像素欄（列）：0、每格 px、…，最後一條外框落在最後一個像素 */
+export function gridLines(length: number, cellPx: number = BASE_CELL): number[] {
   const out: number[] = [];
-  for (let p = 0; p < length; p += CELL_PX) out.push(p);
+  for (let p = 0; p < length; p += cellPx) out.push(p);
   out.push(length - 1);
   return out;
 }
@@ -398,11 +447,13 @@ export function applyOverlays(
   base: Uint8ClampedArray,
   layout: Layout,
   { grid, light }: OverlayOptions,
+  cellPx: number = BASE_CELL,
 ): Uint8ClampedArray<ArrayBuffer> {
+  const { width: W, height: H } = mapPixelSize(layout, cellPx);
   const px = new Uint8ClampedArray(base);
   if (light) {
-    const R = LIGHT_RADIUS;
-    for (const c of lightCenters(layout)) {
+    const R = lightRadius(cellPx);
+    for (const c of lightCenters(layout, cellPx)) {
       for (let y = Math.max(0, c.y - R); y <= Math.min(H - 1, c.y + R); y++) {
         for (let x = Math.max(0, c.x - R); x <= Math.min(W - 1, c.x + R); x++) {
           const ddx = x - c.x;
@@ -415,15 +466,16 @@ export function applyOverlays(
     }
   }
   if (grid) {
+    /* 格線上的每個像素只變暗一次（橫豎交叉處也一次）；只走線上的像素 */
     const k = 1 - GRID_ALPHA;
-    const onCol = new Uint8Array(W);
-    for (const x of gridLines(W)) onCol[x] = 1;
-    const rows = new Set(gridLines(H));
+    const cols = gridLines(W, cellPx);
+    const rows = new Set(gridLines(H, cellPx));
     for (let y = 0; y < H; y++) {
-      const fullRow = rows.has(y);
-      for (let x = 0; x < W; x++) {
-        if (!fullRow && !onCol[x]) continue;
-        const i = (y * W + x) * 4;
+      const row = y * W * 4;
+      const full = rows.has(y);
+      const n = full ? W : cols.length;
+      for (let j = 0; j < n; j++) {
+        const i = row + (full ? j : cols[j]) * 4;
         px[i] *= k;
         px[i + 1] *= k;
         px[i + 2] *= k;
@@ -433,15 +485,38 @@ export function applyOverlays(
   return px;
 }
 
-/** 匯出檔名：battlemap_<地形代號>_<種子>.png（規格 3.1） */
-export const mapFileName = (terrain: TerrainId, seed: number): string =>
-  `battlemap_${terrain}_${seed}.png`;
+/** 生成法在檔名裡的代號 */
+export const GENERATOR_CODES: Record<GeneratorId, string> = {
+  rooms: 'rooms',
+  digger: 'digger',
+  uniform: 'uniform',
+  rogue: 'rogue',
+  cave: 'cavern',
+  maze: 'maze',
+};
+
+/**
+ * 匯出檔名（規格 3.1）：battlemap_<地形代號>_<種子>.png；
+ * 生成法不是「房間＋走道」時接 _<生成法代號>，尺寸不是 22 × 16、70 px 時接 _<欄>x<列>_<每格 px>px。
+ */
+export function mapFileName(
+  terrain: TerrainId,
+  seed: number,
+  settings?: Pick<LayoutSettings, 'generator' | 'cols' | 'rows' | 'cellPx'>,
+): string {
+  const s = settings ?? DEFAULT_SETTINGS;
+  const parts = ['battlemap', terrain, String(seed)];
+  if (s.generator !== DEFAULT_SETTINGS.generator) parts.push(GENERATOR_CODES[s.generator]);
+  if (!isDefaultSize(s)) parts.push(`${s.cols}x${s.rows}`, `${s.cellPx}px`);
+  return `${parts.join('_')}.png`;
+}
 
 /** 底圖＋火光＋格線 */
 export function renderMap(
   layout: Layout,
   terrain: TerrainId,
   options: OverlayOptions,
+  cellPx: number = BASE_CELL,
 ): Uint8ClampedArray<ArrayBuffer> {
-  return applyOverlays(renderBase(layout, terrain), layout, options);
+  return applyOverlays(renderBase(layout, terrain, cellPx), layout, options, cellPx);
 }

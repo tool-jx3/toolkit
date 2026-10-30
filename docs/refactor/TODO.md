@@ -50,7 +50,6 @@
 | id-ticket | [CyberDelaai/sinforge-ui](https://github.com/CyberDelaai/sinforge-ui) | MIT | SF／賽博朋克證件：活動證、公民 ID（含機讀區）、12 格執照卡、操作員 ID、掛繩通行證（掛繩孔透明）；照片網點或抖色單色化、浮水印；自組底版。作者標示「早期開發中」；隨機姓名會連外部服務，不收 | 中（自組底版：大） |
 | char-chart | [utiyoso/cross-chart-maker](https://github.com/utiyoso/cross-chart-maker)（10-27～29，`e8b4d64`） | 未授權 | 四象限的外觀：依氣氛產生漸層背景加顆粒、標題與軸名的字型和描邊、自動配對比色、臉部圖示、對話框；10-29 把文字預設改成白框黑字／黑框白字，沒有別的新功能；功能和本站重疊，優先度低 | 小～中 |
 | anime-rig | [shinshin86/still2rig-psd](https://github.com/shinshin86/still2rig-psd) | MIT | 用 see-through 組成「相容 Anime2.5DRig」的 PSD，多了表情圖層（`eyes_angry`、`eyes_sad`、`eyes_half`、`eye_smile`、`mouth_laugh`、`mouth_frown`、`tears`、`sweat` 等）；本站只認 `mouth_open`／`mouth_close`／`eye_close`，可以補表情切換。要先拿一份樣本 PSD 試讀 | 小～中 |
-| battlemap | [ondras/rot.js](https://github.com/ondras/rot.js) | BSD-3-Clause | 洞窟、迷宮等生成法與地圖尺寸選項（本站固定 22×16 格、只有地城） | 小～中 |
 | handout-maker、lock-screen | 共用的 `core/qr`（qr-maker 的造型 QR 與讀得出來的檢查） | 本站 | 真的掃得出來的造型 QR 碼（點的形狀、中間放圖示），直接用 qr-maker 的設定 | 小 |
 | review-grid | [futakad/trpg-fullcourse](https://github.com/futakad/trpg-fullcourse) | 作者條款（只取點子） | 「TRPG 人生全餐」版型：把跑過的 8 個劇本排成一份菜單（1200×1600） | 小 |
 | session-calendar | [CyberDelaai/chronos-ui](https://github.com/CyberDelaai/chronos-ui) | MIT | 點日期輪流蓋上 5 種顏色的標記並畫進 PNG（其他功能本站大多已有；優先度低） | 小 |
@@ -198,6 +197,7 @@
 - 2026-10-29：使用者要求做待做清單的三個新工具（環境音混音、劇本時間表／年表、PL 自我介紹卡／地雷表）與 QR Code 產生器（參考 kozakdenys/qr-code-styling）；另外上傳 KIIN 的「マップ制作スタジオ v1.0」，選擇併進室內平面圖產生器（自動化、L 形房間、圖面風格與座標、VTT 匯出與串接）。
 - 2026-10-29：完成並移出清單——新工具 QR Code 產生器（qr-maker）、PL 自介卡與地雷表（pl-profile）、劇本時間表（scenario-timeline，第一批）、環境音混音器（ambience-mixer）；floor-plan 參考 KIIN マップ制作スタジオ的功能（規格 6.8、7.22）。沒做的記在第三節與內部改善。
 - 2026-10-30：完成並移出清單——劇本時間表（scenario-timeline）第二批（規格 F90～F109：多選、搜尋與篩選、架空曆的月日、事件之間的關聯線、讀入 vis-timeline 的資料；驗證紀錄 6.2、裁定 7.2）；floor-plan 的 L 形範本與「在地圖演出產生器開啟」帶房間的範圍（floor-plan 6.9、7.23；map-fx F85、F86）；環境音混音器的 MP3 匯出（lamejs）與兩種新聲音（ambience-mixer 6.2、7.2）。沒做的記在第三節；逐檔標 CC0 的真實錄音等網路開放。
+- 2026-10-30：完成並移出清單——戰鬥地圖產生器（battlemap）加 ondras/rot.js（BSD-3-Clause）的生成法（挖掘式、均勻房間、格狀房間、洞窟、迷宮三種）與地圖尺寸（10～60 格、每格 50／70／100 px）；預設設定與改版前逐位元組相同（規格 1.1、F29～F43、D1～D11）。
 - 2026-10-30：評估 sayaka-aiart/StandRig（Apache-2.0）：主要功能要本機 Node 服務＋MCP 的 AI 助手，不當新工具；「讀入 .srig 播放」記進第三節的 anime-rig 候選，使用者決定先不做。
 
 - 2026-10-30：上游檢查（GitHub 來源 139 個，全部還在，沒有改名、改寫歷史或改授權；10-28 之後 15 個有新 commit）：shiki365/chat-window-maker v1.12 列入第一節，TIER ATELIER 的新功能更新第二節，其餘是 CI、文件、相依套件、外部服務或韓國部落格用的輸出 CSS，不列。「先觀察」的條件都還沒成立；HTML-in-Canvas 的 API 在 Chrome 155 改名（搜尋摘要）；Maptsukuri 的作者標示待確認（第四節）。不在 GitHub 的原作與 docs.ccfolia.com 這次 WebFetch 都連不到。

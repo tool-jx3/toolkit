@@ -708,6 +708,11 @@ loading-maker 預設（透明）、不透明背景＋預設的結尾動作（最
   時間的函式多收一個「曆名與架空曆」（`EraArg`：字串＝只有曆名，物件 `{ era, calendar }`＝曆名＋月份；專案資料本身就符合），沒給月份時和第一批完全相同。
   別的工具要「從 HTML 取純文字」時可以把 `htmlToText` 搬進 `core/`（不經過 DOM，script／style 整段拿掉、實體字元換回來）。
 
+- G10 battlemap（戰鬥地圖產生器，2026-10-30 加 ondras/rot.js 的生成法與地圖尺寸）：沒有改共用層（大地圖的 Worker 用 `@/core/worker`，種子亂數用 `@/core/timeline` 的 `createRandom`）。
+  沒有共用的：格局的生成法（`web/src/tools/battlemap/gen/`：房間＋走道、挖掘式〔rot.js Digger〕、均勻房間〔Uniform〕、格狀房間〔Rogue〕、洞窟〔Cellular〕、迷宮〔分割法、Eller、蜿蜒〕、
+  把分開的地板接起來的隧道 `connect.ts`、散布火光的交點 `lights.ts`）、分階段快取的繪圖器（`mapRenderer.ts`，主執行緒與 `render.worker.ts` 共用）。
+  別的工具（map-editor 的隨機地城、grid-maker 的底圖）要程序生成的格局時可以把 `gen/` 搬進 `core/`——rot.js 是 BSD-3-Clause，搬的時候著作權聲明要跟著（目前在工具的 `UPSTREAM_LICENSE`）。
+
 - G10 floor-plan（室內平面圖產生器，2026-10-29 參考 KIIN マップ制作スタジオ）：交接用的 `@/core/handoff` 已補進共用層（見 4.2）。沒有共用的：L 形房間的幾何（外框＋缺角、格子、包含、多邊形；`web/src/tools/floor-plan/model/shape.ts`）、連接兩個房間（共用的牆放門、直的或 L 形的走廊；`connect.ts`）、整理家具（`arrange.ts`）、家具跟著房間縮放（`follow.ts`）、桌上的小物（`tabletop.ts`）、格局的規則（門的開門範圍與門前、窗前；`layoutRules.ts`，範本的測試輔助也用它）、座標標示（`coords.ts`：欄名 A～Z、AA… 的 `columnName`）、樣式的畫面效果與紙的污漬與摺痕（`draw/effects.ts`：雜訊圖、掃描線、暗角、水漬、摺痕）——別的地圖類工具（battlemap、map-fx）要座標標示、紙的質感時可以把 `columnName`、`drawWear`、`drawThemeEffect` 搬進 `core/`。
   2026-10-29（之後）：範本的組裝工具（`templates/builder.ts` 的 `RoomExtra.cut`、`fillYard`、`Frame` 翻轉）、找線索的空位、弄舊的處理認得 L 形；送給 map-fx 的房間範圍是 `handoffRoomsOf`（`model/exportPlan.ts`，第 i 層在圖上的位置 `floorOffset` 和畫圖共用），資料格式是共用的 `HandoffRooms`（4.2 `@/core/handoff`）。map-fx 的 L 形房間遮罩（缺角存外框的比例、`maskPolygon`／`maskMainRect`／`maskPieces`）在 `web/src/tools/map-fx/model.ts`，引擎的剪裁用 `RenderKit.redactShape`。
 
