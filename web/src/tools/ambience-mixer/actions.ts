@@ -29,6 +29,7 @@ import {
   TooLongError,
 } from './engine';
 import {
+  type ExportSettings,
   exportFileName,
   FILE_MIN_SECONDS,
   type FileTrack,
@@ -531,6 +532,7 @@ export async function exportMix(): Promise<void> {
       result: {
         blob,
         name: exportFileName(s, new Set(skipped.map((x) => x.key))),
+        settings: { ...s.export },
         format,
         kbps,
         bytes: blob.size,
@@ -542,6 +544,8 @@ export async function exportMix(): Promise<void> {
         skipped,
       },
     });
+    /* 匯出的途中改了設定：結果不是目前的設定，不留 */
+    dropStaleResult();
   } catch (e) {
     if (!(e instanceof DOMException && e.name === 'AbortError')) {
       console.warn('環境音混音器：匯出失敗', e);
@@ -556,8 +560,30 @@ export async function exportMix(): Promise<void> {
   }
 }
 
-/** 匯出設定改了：上一次的結果就不是目前的設定，清掉 */
-export function clearExportResult(): void {
-  if (useRuntime.getState().result || useRuntime.getState().exportError)
-    useRuntime.setState({ result: null, exportError: '' });
+const sameExport = (a: ExportSettings, b: ExportSettings): boolean =>
+  a.seconds === b.seconds &&
+  a.sampleRate === b.sampleRate &&
+  a.channels === b.channels &&
+  a.format === b.format &&
+  a.kbps === b.kbps;
+
+/** 結果的匯出設定和目前的不同時清掉結果（結果卡寫的長度、格式就不是目前的設定了） */
+function dropStaleResult(): void {
+  const r = useRuntime.getState().result;
+  if (r && !sameExport(r.settings, mixNow().export)) useRuntime.setState({ result: null });
+}
+
+/**
+ * 盯著匯出設定（App 開頁時呼叫，回傳取消）：改設定、復原、重做都一樣——設定和結果的不同就清掉結果，
+ * 設定改了也清掉上一次的錯誤訊息（驗證後修正：原本只有在匯出區塊改設定時才清，用 Ctrl＋Z 復原時舊的結果卡還留著）。
+ */
+export function watchExportSettings(): () => void {
+  let last: ExportSettings = { ...mixNow().export };
+  return useMix.subscribe((st) => {
+    const e = st.data.export;
+    if (sameExport(e, last)) return;
+    last = { ...e };
+    if (useRuntime.getState().exportError) useRuntime.setState({ exportError: '' });
+    dropStaleResult();
+  });
 }

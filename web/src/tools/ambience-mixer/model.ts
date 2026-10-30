@@ -576,9 +576,9 @@ export const PRESETS: readonly MixPreset[] = [
     name: '深夜的圖書館',
     description: '閉館的圖書館，一片寂靜，落地鐘滴答，地板偶爾嘎吱。',
     tracks: [
-      { sound: 'room-tone', volume: 70, params: { hum: 20, traffic: 20, room: 75 } },
-      { sound: 'clock', volume: 35, params: { type: 1, room: 60 } },
-      { sound: 'creak', volume: 30, params: { rate: 15, pitch: 35 } },
+      { sound: 'room-tone', volume: 75, params: { hum: 20, traffic: 20, room: 75 } },
+      { sound: 'clock', volume: 38, params: { type: 1, room: 60 } },
+      { sound: 'creak', volume: 32, params: { rate: 15, pitch: 35 } },
     ],
   },
 ];

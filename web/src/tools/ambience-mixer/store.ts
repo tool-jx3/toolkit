@@ -6,7 +6,14 @@
  */
 import { create } from 'zustand';
 import { createPreviewStore, createToolStore } from '@/core/storage';
-import { initialState, type MixState, type SynthTrack, sanitizeState, TOOL_ID } from './model';
+import {
+  type ExportSettings,
+  initialState,
+  type MixState,
+  type SynthTrack,
+  sanitizeState,
+  TOOL_ID,
+} from './model';
 
 /**
  * 存檔的版本：2（2026-10-29：匯出設定加了格式與 MP3 的位元率）。1 版的存檔照讀（沒有的欄位用預設值，見 sanitizeExport）。
@@ -55,6 +62,8 @@ export const isFileProblem = (s: TrackStatus | undefined): s is FileProblem =>
 export interface ExportResult {
   blob: Blob;
   name: string;
+  /** 匯出時的設定（和目前的不同時結果就清掉） */
+  settings: ExportSettings;
   format: 'mp3' | 'wav';
   /** MP3 的位元率（WAV 時 0） */
   kbps: number;

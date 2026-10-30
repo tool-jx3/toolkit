@@ -4,9 +4,9 @@
  * MP3 解碼出來的聲音會比送進編碼器的晚 1105 個取樣（LAME 的編碼器延遲 576 ＋ 解碼器的延遲 529），
  * 結尾也會補到整個影格。直接把一段循環編成 MP3，循環播放時接縫會有 30～50 ms 的靜音。所以：
  * 1. **先多編一段再裁**：送進編碼器的是「循環的最後一段（預捲）＋整段循環＋循環的開頭（接續）」，
- *    再把開頭的影格丟掉、結尾只留到需要的影格（MP3 的位元儲備關掉了，每個影格都能單獨解碼）；
+ *    再把開頭的兩個影格丟掉、結尾只留到需要的影格（MP3 的位元儲備關掉了，每個影格都能單獨解碼）；
  * 2. **LAME 的 Info 標頭**寫上裁掉的長度（編碼器延遲＝開頭要裁的、填充＝結尾要裁的）：看得懂的解碼器
- *    （Chromium、Firefox 的 decodeAudioData 等 FFmpeg 系）裁掉之後剛好是一整段循環，首尾相接；
+ *    （FFmpeg 系；實測 Chromium 的 decodeAudioData 與 `<audio>`）裁掉之後剛好是一整段循環，首尾相接；
  * 3. **看不懂標頭的播放器**：開頭是解碼器剛起步的一小段（約 1100 個取樣，聲音從小慢慢變大），
  *    結尾是接續的那一段再淡出——接縫是一個很短的音量凹陷（不會「喀」一聲，但聽得出來）。
  */
@@ -53,7 +53,11 @@ export interface Mp3LoopPlan {
 }
 
 export interface Mp3LoopPlanOptions {
-  /** 開頭丟掉幾個影格（預設 1：看不懂標頭的播放器聽到的是「慢慢變大」而不是一整段靜音） */
+  /**
+   * 開頭丟掉幾個影格（預設 2）。丟影格：看不懂標頭的播放器聽到的是「慢慢變大」而不是一整段靜音。
+   * 只丟 1 個時，留下的第一個影格離送進去的開頭（LAME 的靜音之後突然開始）太近，循環最前面 256 個取樣的誤差
+   * 比中間大（22.05 kHz 最明顯，最差 −13 dB）；丟 2 個就和中間一樣（驗證後修正，2026-10-29）。
+   */
   drop?: number;
   /** 淡出（與不丟影格時的淡入）的秒數（預設 0.004） */
   fade?: number;
@@ -67,7 +71,7 @@ export interface Mp3LoopPlanOptions {
 export function mp3LoopPlan(
   n: number,
   sampleRate: number,
-  { drop = 1, fade = 0.004, margin = 576 }: Mp3LoopPlanOptions = {},
+  { drop = 2, fade = 0.004, margin = 576 }: Mp3LoopPlanOptions = {},
 ): Mp3LoopPlan {
   const spf = mp3FrameSamples(sampleRate);
   const f = Math.max(1, Math.round(fade * sampleRate));

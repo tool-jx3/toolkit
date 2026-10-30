@@ -32,7 +32,7 @@ interface Hook {
     }[];
     master: number;
     mixName: string;
-    export: { seconds: number; sampleRate: number; channels: number };
+    export: { seconds: number; sampleRate: number; channels: number; format: string; kbps: number };
   };
   status: () => Record<string, string>;
   playing: () => boolean;
@@ -721,16 +721,20 @@ test('匯出 MP3（預設）：lamejs 按下匯出才載入；Chromium 解碼後
     'aria-checked',
     'true',
   );
-  await expect(page.getByRole('combobox', { name: '位元率' })).toHaveText('128 kbps（建議）');
+  await expect(page.getByRole('combobox', { name: '位元率' })).toHaveText('128 kbps');
   await expect(page.getByTestId('export-size')).toHaveText(
     /^約 96\d KB・和預覽是同一段聲音（MP3 有壓縮）。$/,
   );
   await expect(page.getByTestId('export-format-hint')).toContainText('要最無縫時選 WAV');
+  await expect(page.getByTestId('export-format-hint')).toContainText(
+    '位元率 128 kbps 是建議的音質、192 kbps 是高音質。',
+  );
   /* 22.05 kHz 時高音質是 160 kbps（MPEG-2 的上限） */
   await pick(page, '取樣率', '22.05 kHz（檔案小）');
   await page.getByRole('combobox', { name: '位元率' }).click();
-  await expect(page.getByRole('option', { name: '160 kbps（高音質）' })).toBeVisible();
+  await expect(page.getByRole('option', { name: '160 kbps', exact: true })).toBeVisible();
   await page.keyboard.press('Escape');
+  await expect(page.getByTestId('export-format-hint')).toContainText('160 kbps 是高音質');
   await pick(page, '取樣率', '32 kHz（建議）');
   await pick(page, '長度', '10 秒');
   /* 還沒匯出：編碼器沒有下載 */
@@ -764,7 +768,7 @@ test('匯出 MP3（預設）：lamejs 按下匯出才載入；Chromium 解碼後
     expect(seam).toBeGreaterThan(Math.min(middle, whole) - 4);
   }
   /* 位元率改 192、重新整理後格式與位元率都還在 */
-  await pick(page, '位元率', '192 kbps（高音質）');
+  await pick(page, '位元率', '192 kbps');
   await expect(page.getByTestId('export-result')).toHaveCount(0);
   await page.reload();
   await expect(page.getByRole('radio', { name: 'MP3', exact: true })).toHaveAttribute(
@@ -826,6 +830,119 @@ test('新的兩種聲音：雨打在帳篷／傘上、房間底噪；預設組�
       if (Math.abs(want) < 0.6) maxErr = Math.max(maxErr, Math.abs(pcm.channels[c][i] - want));
     }
   expect(maxErr).toBeLessThan(3 / 32768);
+  expect(errors).toEqual([]);
+});
+
+test('MP3 的 Worker 開不起來（new Worker 丟 SecurityError）：在主執行緒編，照樣匯出', async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    const Native = window.Worker;
+    window.Worker = class extends Native {
+      constructor(url: string | URL, options?: WorkerOptions) {
+        if (String(url).includes('mp3.worker')) throw new DOMException('blocked', 'SecurityError');
+        super(url, options);
+      }
+    };
+  });
+  const loaded: string[] = [];
+  page.on('request', (r) => {
+    if (/\/(lamejs|mp3\.worker)-[^/]*\.js/.test(r.url())) loaded.push(r.url());
+  });
+  const errors = await open(page);
+  await card(page, 'pink-noise').click();
+  await waitReady(page, 1);
+  await btn(page, '暫停').click();
+  await pick(page, '長度', '10 秒');
+  const { data, name } = await exportFile(page, 'MP3');
+  expect(name).toBe('環境音-粉紅噪音-10秒.mp3');
+  expect(readMp3InfoTag(new Uint8Array(data))).toMatchObject({
+    bytes: data.length,
+    tagCrcOk: true,
+  });
+  await expect(page.getByText(/^匯出失敗/)).toHaveCount(0);
+  /* 編碼器在主執行緒載入（Worker 的檔案沒有下載） */
+  expect(loaded.some((u) => /\/lamejs-/.test(u))).toBe(true);
+  expect(loaded.some((u) => /\/mp3\.worker-/.test(u))).toBe(false);
+  const y = await decodeInBrowser(page, data, 32000);
+  expect(y[0]).toHaveLength(320000);
+  expect(errors).toEqual([]);
+});
+
+test('匯出後復原（Ctrl＋Z）、重做匯出設定：設定和結果不同就清掉結果', async ({ page }) => {
+  /* 0.4 秒內的變更算同一步復原：每一步之後把時鐘往前撥，步驟才分得開 */
+  await page.clock.install();
+  const errors = await open(page);
+  const nextStep = () => page.clock.fastForward(500);
+  await card(page, 'brown-noise').click();
+  await waitReady(page, 1);
+  await btn(page, '暫停').click();
+  await nextStep();
+  await pick(page, '長度', '10 秒');
+  await nextStep();
+  await page.getByRole('radio', { name: 'WAV', exact: true }).click();
+  await nextStep();
+  await exportFile(page, 'WAV');
+  const result = page.getByTestId('export-result');
+  await expect(result).toBeVisible();
+  const keys = async (k: string) => {
+    await page.locator('body').click({ position: { x: 5, y: 600 } });
+    await page.keyboard.press(k);
+  };
+  /* 復原「WAV」：格式回到 MP3，結果（WAV）清掉 */
+  await keys('Control+z');
+  await expect.poll(async () => (await state(page)).export.format).toBe('mp3');
+  expect((await state(page)).export.seconds).toBe(10);
+  await expect(result).toHaveCount(0);
+  /* 重做：回到 WAV（結果已經清掉，不會回來）；再匯出一次 */
+  await keys('Control+Shift+z');
+  await expect.poll(async () => (await state(page)).export.format).toBe('wav');
+  await expect(result).toHaveCount(0);
+  await exportFile(page, 'WAV');
+  await expect(result).toBeVisible();
+  /* 復原兩步：格式、長度都回去，結果清掉 */
+  await keys('Control+z');
+  await keys('Control+z');
+  await expect.poll(async () => (await state(page)).export.seconds).toBe(60);
+  expect((await state(page)).tracks).toHaveLength(1);
+  await expect(result).toHaveCount(0);
+  /* 改了別的（音量）不影響結果 */
+  await nextStep();
+  await page.getByRole('radio', { name: 'WAV', exact: true }).click();
+  await nextStep();
+  await exportFile(page, 'WAV');
+  await track(page, 's:brown-noise').getByRole('slider', { name: '棕色噪音的音量' }).focus();
+  await page.keyboard.press('ArrowLeft');
+  await expect.poll(async () => (await state(page)).tracks[0].volume).toBe(69);
+  await expect(result).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
+test('320 寬：匯出的選單（長度、取樣率、位元率）文字沒有被截掉；窄的時候長度與取樣率上下排', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 320, height: 800 });
+  const errors = await open(page);
+  await card(page, 'room-tone').click();
+  await waitReady(page, 1);
+  await btn(page, '暫停').click();
+  await noHorizontalScroll(page);
+  const truncated = () =>
+    page.evaluate(() =>
+      [...document.querySelectorAll('[role="combobox"]')]
+        .map((c) => c.querySelector('span.truncate'))
+        .filter((s): s is HTMLElement => !!s && s.scrollWidth > s.clientWidth)
+        .map((s) => s.textContent),
+    );
+  for (const rate of ['44.1 kHz（CD 音質）', '22.05 kHz（檔案小）', '32 kHz（建議）']) {
+    await pick(page, '取樣率', rate);
+    await pick(page, '長度', '1 分 30 秒');
+    expect(await truncated()).toEqual([]);
+  }
+  const len = await page.getByRole('combobox', { name: '長度', exact: true }).boundingBox();
+  const rate = await page.getByRole('combobox', { name: '取樣率', exact: true }).boundingBox();
+  expect(len && rate && rate.y > len.y + len.height).toBe(true);
+  await noHorizontalScroll(page);
   expect(errors).toEqual([]);
 });
 

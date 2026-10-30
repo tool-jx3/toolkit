@@ -153,11 +153,10 @@ export const S = {
       '匯出可以無縫循環的 MP3 或 WAV（頭尾接得起來），放進 CCFOLIA 當 BGM、開「重複播放」。',
     format: '格式',
     formats: { mp3: 'MP3', wav: 'WAV' } as Record<'mp3' | 'wav', string>,
-    mp3Hint:
-      'MP3 的檔案小很多（1 分鐘約 1 MB）。Chrome、Edge 等看得懂 MP3 循環資訊（LAME 標頭）的播放器一樣首尾相接；看不懂的播放器在接縫會有約 0.01～0.03 秒很短的停頓。要最無縫時選 WAV。',
+    mp3Hint: (high: number) =>
+      `位元率 128 kbps 是建議的音質、${high} kbps 是高音質。MP3 的檔案小很多（1 分鐘約 1 MB）。Chrome、Edge 等看得懂 MP3 循環資訊（LAME 標頭）的播放器一樣首尾相接；看不懂的播放器在接縫會有約 0.01～0.03 秒很短的停頓。要最無縫時選 WAV。`,
     wavHint: 'WAV 不壓縮、最無縫（頭尾的取樣直接接起來，任何播放器都一樣），但檔案大。',
     kbps: '位元率',
-    kbpsLabel: (kbps: number, high: boolean) => `${kbps} kbps（${high ? '高音質' : '建議'}）`,
     kbpsValue: (kbps: number) => `${kbps} kbps`,
     length: '長度',
     rate: '取樣率',

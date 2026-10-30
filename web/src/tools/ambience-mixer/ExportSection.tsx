@@ -15,7 +15,7 @@ import {
   Segmented,
   Select,
 } from '@/ui';
-import { cancelExport, clearExportResult, exportMix } from './actions';
+import { cancelExport, exportMix } from './actions';
 import {
   EXPORT_LENGTHS,
   EXPORT_RATES,
@@ -36,11 +36,11 @@ import { S } from './strings';
 
 const rateText = (r: number) => `${(r / 1000).toFixed(r % 1000 ? 2 : 0).replace(/0$/, '')} kHz`;
 
+/** 改匯出設定（上一次的結果與錯誤由 actions 的 watchExportSettings 清掉，復原、重做也一樣） */
 function setExport(fn: (e: ExportSettings) => void) {
   useMix.getState().update((d) => {
     fn(d.export);
   });
-  clearExportResult();
 }
 
 function ResultCard() {
@@ -99,7 +99,7 @@ export function ExportSection() {
       description={S.exportPanel.description}
       persistKey={`${TOOL_ID}:export`}
     >
-      <div className="flex flex-col gap-3">
+      <div className="@container flex flex-col gap-3">
         <FieldRow columns={2}>
           <Field label={S.exportPanel.format}>
             <Segmented
@@ -126,15 +126,16 @@ export function ExportSection() {
               }
               options={MP3_KBPS.map((k) => ({
                 value: String(k),
-                label: S.exportPanel.kbpsLabel(mp3Kbps(k, e.sampleRate), k !== 128),
+                label: S.exportPanel.kbpsValue(mp3Kbps(k, e.sampleRate)),
               }))}
             />
           </Field>
         </FieldRow>
         <p className="m-0 text-xs text-muted" data-testid="export-format-hint">
-          {mp3 ? S.exportPanel.mp3Hint : S.exportPanel.wavHint}
+          {mp3 ? S.exportPanel.mp3Hint(mp3Kbps(MP3_KBPS[1], e.sampleRate)) : S.exportPanel.wavHint}
         </p>
-        <FieldRow columns={2}>
+        {/* 窄的時候（例如 320 px 的手機）上下排，選單的文字才不會被截掉 */}
+        <div className="grid grid-cols-1 items-start gap-3 @sm:grid-cols-2">
           <Field label={S.exportPanel.length}>
             <Select
               value={String(e.seconds)}
@@ -160,7 +161,7 @@ export function ExportSection() {
               }))}
             />
           </Field>
-        </FieldRow>
+        </div>
         <Field label={S.exportPanel.channels}>
           <Segmented
             value={String(e.channels)}

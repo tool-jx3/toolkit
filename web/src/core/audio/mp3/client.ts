@@ -40,8 +40,27 @@ async function encodeHere(pcm: PcmAudio, o: Mp3EncodeOptions, run: Mp3EncodeRun)
 }
 
 /**
+ * 開 MP3 的 Worker；開不起來（`new Worker` 同步丟例外：file://、某些 CSP 的 SecurityError、不支援 module Worker…）時 null，
+ * 改在主執行緒編（同 `core/audio/ambience/client.ts` 的 spawn）。
+ */
+function spawn(): WorkerHandle<Mp3WorkerApi> | null {
+  if (!canUseWorker()) return null;
+  try {
+    return wrapWorker<Mp3WorkerApi>(
+      new Worker(new URL('./mp3.worker.ts', import.meta.url), {
+        type: 'module',
+        name: 'MP3 編碼',
+      }),
+    );
+  } catch {
+    return null;
+  }
+}
+
+/**
  * 一段首尾相接的循環 → 可以無縫循環的 MP3（`encode.ts` 的 encodeMp3Loop）。
  * 取消（signal）時 Worker 直接結束，丟 AbortError。pcm 不會被改（送給 Worker 的是複本）。
+ * Worker 開不起來、載不到或執行時壞掉（WorkerFailedError）時在主執行緒重新編；編碼本身的錯誤（Mp3EncodeError）照樣丟出。
  */
 export async function encodeMp3(
   pcm: PcmAudio,
@@ -50,32 +69,25 @@ export async function encodeMp3(
 ): Promise<Uint8Array> {
   const { signal } = run;
   if (signal?.aborted) throw abortError();
-  if (canUseWorker()) {
-    let handle: WorkerHandle<Mp3WorkerApi> | null = null;
+  const handle = spawn();
+  if (handle) {
     try {
-      handle = wrapWorker<Mp3WorkerApi>(
-        new Worker(new URL('./mp3.worker.ts', import.meta.url), {
-          type: 'module',
-          name: 'MP3 編碼',
-        }),
-      );
-      const h = handle;
       return await new Promise<Uint8Array>((resolve, reject) => {
         const onAbort = () => {
-          h.terminate();
+          handle.terminate();
           reject(abortError());
         };
         signal?.addEventListener('abort', onAbort, { once: true });
-        h.api
+        handle.api
           .encode(pcm, o, run.onProgress ? proxy((f: number) => run.onProgress?.(f)) : undefined)
           .then((b) => resolve(b as Uint8Array), reject)
           .finally(() => signal?.removeEventListener('abort', onAbort));
       });
     } catch (e) {
-      /* Worker 載不到、執行時出錯：改在主執行緒做；取消與其他錯誤照樣丟出 */
+      /* Worker 載不到、執行時出錯：改在主執行緒做；取消與編碼的錯誤照樣丟出 */
       if (!(e instanceof WorkerFailedError)) throw e;
     } finally {
-      handle?.terminate();
+      handle.terminate();
     }
   }
   if (signal?.aborted) throw abortError();

@@ -3,10 +3,11 @@
  * 檢查檔案的結構（Info 標頭＋留下的影格、每個影格都能單獨解碼、標頭裡的長度剛好是一整段循環）。
  * 解碼與接縫的量測在瀏覽器裡做（e2e：ambience-mixer 的「匯出 MP3」，Chromium 的 decodeAudioData）。
  */
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { PcmAudio } from '@/core/audio';
 import {
   crc16,
+  encodeMp3,
   LAME_ENCODER_DELAY,
   listMp3Frames,
   MP3_DECODER_DELAY,
@@ -177,7 +178,7 @@ describe('循環的編法', () => {
     for (const rate of [44100, 32000, 22050]) {
       for (const seconds of [1, 10, 60, 180, 600]) {
         const n = seconds * rate;
-        for (const drop of [0, 1]) {
+        for (const drop of [0, 1, 2, 3]) {
           const p = mp3LoopPlan(n, rate, { drop });
           expect(p.frames * p.spf).toBe(p.delay + n + p.padding);
           expect(p.delay).toBeGreaterThanOrEqual(0);
@@ -195,8 +196,9 @@ describe('循環的編法', () => {
       }
     }
     expect(LAME_ENCODER_DELAY + MP3_DECODER_DELAY).toBe(1105);
-    /* 預設丟一個影格 */
-    expect(mp3LoopPlan(32000, 32000)).toMatchObject({ drop: 1, delay: 576, preroll: 1152 });
+    /* 預設丟兩個影格（預捲兩個影格長；Info 的延遲仍是 576） */
+    expect(mp3LoopPlan(32000, 32000)).toMatchObject({ drop: 2, delay: 576, preroll: 2304 });
+    expect(mp3LoopPlan(22050, 22050)).toMatchObject({ drop: 2, delay: 576, preroll: 1152 });
   });
 });
 
@@ -268,6 +270,72 @@ describe('用 lamejs 實際編碼（Node）', () => {
     ).rejects.toBeInstanceOf(Mp3EncodeError);
     await expect(
       encodeMp3Loop(loopPcm(4, 32000, 2), { kbps: 128 }, { pause: () => false }),
+    ).rejects.toMatchObject({ name: 'AbortError' });
+  });
+});
+
+describe('encodeMp3：Worker 開不起來時在主執行緒編（驗證後修正）', () => {
+  const g = globalThis as Record<string, unknown>;
+  let saved: { window: PropertyDescriptor | undefined; Worker: PropertyDescriptor | undefined };
+  beforeEach(() => {
+    saved = {
+      window: Object.getOwnPropertyDescriptor(g, 'window'),
+      Worker: Object.getOwnPropertyDescriptor(g, 'Worker'),
+    };
+    g.window = globalThis;
+  });
+  afterEach(() => {
+    for (const k of ['window', 'Worker'] as const) {
+      const d = saved[k];
+      if (d) Object.defineProperty(g, k, d);
+      else delete g[k];
+    }
+  });
+
+  it('new Worker 同步丟例外（SecurityError：file://、CSP）：主執行緒編，結果和直接編一樣、有進度', async () => {
+    let tried = 0;
+    g.Worker = class {
+      constructor() {
+        tried++;
+        throw new DOMException('blocked', 'SecurityError');
+      }
+    };
+    const pcm = loopPcm(1, 32000, 2);
+    const progress: number[] = [];
+    const bytes = await encodeMp3(pcm, { kbps: 128 }, { onProgress: (f) => progress.push(f) });
+    expect(tried).toBe(1);
+    expect(bytes).toEqual(await encodeMp3Loop(pcm, { kbps: 128 }));
+    expect(progress.at(-1)).toBe(1);
+  });
+
+  it('Worker 載不到（error 事件 → WorkerFailedError）：主執行緒編', async () => {
+    g.Worker = class extends EventTarget {
+      postMessage() {
+        queueMicrotask(() => this.dispatchEvent(new Event('error')));
+      }
+      terminate() {}
+    };
+    const pcm = loopPcm(1, 22050, 1);
+    expect(await encodeMp3(pcm, { kbps: 128 })).toEqual(await encodeMp3Loop(pcm, { kbps: 128 }));
+  });
+
+  it('取消：丟 AbortError（主執行緒編的時候也停下來）', async () => {
+    g.Worker = class {
+      constructor() {
+        throw new DOMException('blocked', 'SecurityError');
+      }
+    };
+    const ctrl = new AbortController();
+    await expect(
+      encodeMp3(
+        loopPcm(4, 32000, 2),
+        { kbps: 128 },
+        { signal: ctrl.signal, onProgress: () => ctrl.abort() },
+      ),
+    ).rejects.toMatchObject({ name: 'AbortError' });
+    ctrl.abort();
+    await expect(
+      encodeMp3(loopPcm(1, 32000, 2), { kbps: 128 }, { signal: ctrl.signal }),
     ).rejects.toMatchObject({ name: 'AbortError' });
   });
 });

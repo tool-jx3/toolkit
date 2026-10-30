@@ -15,7 +15,14 @@ import {
   useToast,
   withShortcut,
 } from '@/ui';
-import { cleanupAssets, rejectFiles, setConfirmer, setNotifier, togglePlay } from './actions';
+import {
+  cleanupAssets,
+  rejectFiles,
+  setConfirmer,
+  setNotifier,
+  togglePlay,
+  watchExportSettings,
+} from './actions';
 import { decodeStats, mixer, renderCount, startEngine } from './engine';
 import { FilesSection, PresetsSection, SavedSection, SoundLibrary } from './Library';
 import { MixPanel } from './MixPanel';
@@ -87,6 +94,7 @@ export function App() {
     startEngine();
     void cleanupAssets();
   }, []);
+  useEffect(() => watchExportSettings(), []);
 
   const shortcuts = useMemo<Shortcut[]>(
     () => [
