@@ -72,7 +72,6 @@ import {
   ELEMENT_SIZE_RANGE,
   SF_ELEMENT_MAX,
   type SfCodeType,
-  sfCaption,
   type WatermarkMode,
   type WatermarkTone,
   WM_RANGES,
@@ -398,9 +397,6 @@ export function SfCaptionsSection() {
           })}
         </div>
       ) : null}
-      <p className="sr-only" aria-live="polite">
-        {keys.map((k) => sfCaption(sf, k)).join('、')}
-      </p>
     </Section>
   );
 }

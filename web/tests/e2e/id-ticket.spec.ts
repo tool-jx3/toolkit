@@ -464,8 +464,7 @@ test('樣式：深色、色票、自訂色；會員卡的背景漸層；掛繩�
   await expect(page.getByTestId('strap')).toHaveCount(1);
   await page.getByTestId('lanyard').click();
   await page.getByRole('option', { name: '不要', exact: true }).click();
-  await settle(page);
-  expect((await prefs(page)).lanyard).toBe('none');
+  await expect.poll(async () => (await prefs(page))?.lanyard).toBe('none');
   await expect(page.getByTestId('strap')).toHaveCount(0);
   /* 「只在預覽」的掛繩不會匯出：匯出的卡片上緣（掛繩的位置）是圓角外的透明 */
   await page.getByTestId('lanyard').click();
