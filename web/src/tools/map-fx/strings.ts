@@ -356,14 +356,21 @@ export const S = {
     load: '讀入',
     loaded: (name: string) => `已讀入平面圖產生器送來的「${name}」`,
     /* 平面圖帶來房間的範圍時（2026-10-29，F85） */
-    descRooms: (name: string, hasImage: boolean, rooms: number, made: number) =>
+    descRooms: (
+      name: string,
+      hasImage: boolean,
+      rooms: number,
+      made: number,
+      limit: number,
+      hasGm: boolean,
+    ) =>
       `${
         hasImage
           ? `「${name}」會換掉目前的地圖，演出框與出處會清空（可以用「復原」拿回來）。`
           : `「${name}」會放進地圖。`
-      }平面圖帶來 ${rooms} 間房間的範圍與名字，可以一起做成房間遮罩（用「新畫的框的預設」；GM 專用的房間設成一直蓋著、不寫房名）${
-        made < rooms ? `；演出框最多 60 個，只做前 ${made} 間` : ''
-      }。取消的話送來的圖就丟掉。`,
+      }平面圖帶來 ${rooms} 間房間的範圍與名字，可以一起做成房間遮罩（用「新畫的框的預設」${
+        hasGm ? '；GM 專用的房間設成一直蓋著、不寫房名' : ''
+      }）${made < rooms ? `；演出框最多 ${limit} 個，只做前 ${made} 間` : ''}。取消的話送來的圖就丟掉。`,
     withRooms: (hasImage: boolean, n: number) =>
       hasImage ? `取代並建立 ${n} 個房間遮罩` : `讀入並建立 ${n} 個房間遮罩`,
     imageOnly: (hasImage: boolean) => (hasImage ? '只取代地圖' : '只讀入圖'),

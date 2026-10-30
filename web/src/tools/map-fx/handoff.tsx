@@ -60,7 +60,14 @@ export function FloorPlanHandoff() {
       if (rooms && n > 0) {
         const how = await choose({
           title,
-          description: S.handoff.descRooms(h.name, hasImage, n, made),
+          description: S.handoff.descRooms(
+            h.name,
+            hasImage,
+            n,
+            made,
+            LIMITS.frames,
+            rooms.list.some((r) => r.gm),
+          ),
           choices: [
             {
               value: 'image',
