@@ -1,9 +1,10 @@
 /**
- * 互動的時間軸（規格 1.4、1.5）：上方的刻度與標記列（捲動時固定在上面）、左邊的泳道名稱、右邊的事件。
- * DOM 畫（事件是可以聚焦的按鈕）；列、堆疊、刻度、旗子和匯出共用 model 的排版。
+ * 互動的時間軸（規格 1.4、1.5、F90、F91、F93）：上方的刻度與標記列（捲動時固定在上面）、左邊的泳道名稱、右邊的事件。
+ * DOM 畫（事件是可以聚焦的按鈕）；列、堆疊、刻度、旗子、關聯線和匯出共用 model 的排版。
  *
- * 操作：空白處拖曳平移（左右＝時間、上下＝捲動泳道）、滾輪／兩指縮放（以游標為中心）、點選、雙擊新增或編輯、
- * 拖曳事件改時間與換泳道、拖兩端改長短、旗子拖曳改時間；事件有焦點時方向鍵移動。
+ * 操作：空白處拖曳平移（左右＝時間、上下＝捲動泳道）、Shift＋拖曳空白處框選、滾輪／兩指縮放（以游標為中心）、
+ * 點選（Ctrl／⌘＋點選加減、Shift＋點選範圍）、雙擊新增或編輯、拖曳事件改時間與換泳道（多選時一起拖）、拖兩端改長短、
+ * 從選取的事件右邊的圓點拖到另一個事件加上關聯線、旗子拖曳改時間；事件有焦點時方向鍵移動。
  * 指標的追蹤用 window 的監聽（不捕捉指標），所以事件上的雙擊照常收得到。
  */
 import { ChevronDown, ChevronRight } from 'lucide-react';
@@ -23,6 +24,7 @@ import {
 import { cn, createPointerGesture, useMediaQuery } from '@/ui';
 import { barTextColor } from '../export/picture';
 import { axisTicks, placeMajor, type Tick } from '../model/axis';
+import { filteredDoc, matchingIds, normalizeFilter } from '../model/filter';
 import {
   collectFlags,
   FLAG_GAP,
@@ -35,6 +37,7 @@ import {
   placeFlags,
 } from '../model/flags';
 import {
+  type BackgroundLayout,
   eventSpan,
   INSIDE_PAD,
   ITEM_H,
@@ -44,13 +47,30 @@ import {
   MIN_BAR,
   POINT_R,
   type RowLayout,
+  type TimelineLayout,
 } from '../model/layout';
+import {
+  LINK_STYLES,
+  type LinkBox,
+  type LinkGeometry,
+  linkExtent,
+  linkGeometry,
+} from '../model/links';
 import { ellipsize } from '../model/measure';
+import {
+  boxHits,
+  type GroupItem,
+  itemBox,
+  moveGroup,
+  type Rect,
+  rangeHits,
+} from '../model/selection';
 import {
   afterUnit,
   canonical,
   clampValue,
   coarser,
+  type EraArg,
   endFromExclusive,
   formatLong,
   precisionUnit,
@@ -61,21 +81,26 @@ import {
   type TimeMode,
 } from '../model/time';
 import { eventColor, GM_COLOR, nowValue } from '../model/types';
-import type { VisibleDoc, VisibleEvent } from '../model/visible';
+import type { VisibleDoc, VisibleEvent, VisibleLink } from '../model/visible';
 import { panWindow, revealWindow, type Win, wheelZoomFactor, zoomWindow } from '../model/window';
 import {
   addEvent,
-  deleteEvent,
+  addLink,
+  type DragPreview,
+  deleteEvents,
   docNow,
   editEvent,
+  focusLinkOf,
   guard,
   isPl,
   patchDoc,
-  placeEvent,
+  placeEvents,
   prefsNow,
   select,
+  selectMany,
   setPrefs,
   setWin,
+  toggleSelected,
   updateMarker,
   usePrefs,
   useUi,
@@ -84,6 +109,7 @@ import { S } from '../strings';
 import {
   axisMajorMeasure,
   axisMeasure,
+  calOfDoc,
   fitFor,
   flagMeasure,
   itemMeasure,
@@ -98,6 +124,8 @@ const LANE_ONLY_PX = 6;
 /** 已經做過的全覽要求（時間軸卸載、重新掛上時不重複） */
 let handledFit = 0;
 const DRAG_THRESHOLD = 4;
+/** 觸控長按事件這麼久（沒移動）＝加減選取（vis-timeline 的 holding items） */
+const HOLD_MS = 500;
 export const GM_STRIPES =
   'repeating-linear-gradient(135deg, rgb(217 154 30 / 0.22) 0 3px, transparent 3px 9px)';
 
@@ -107,24 +135,27 @@ export const timelineApi: {
     zoom: (f: number) => void;
     fit: () => void;
     addAtCenter: () => void;
+    /** Ctrl＋A：畫面上看得到（符合篩選）的事件 */
+    visibleIds: () => string[];
   } | null;
 } = { current: null };
 
-interface DragState {
-  id: string;
-  start: string;
-  end: string;
-  laneId: string;
-}
+/**
+ * 指標按在事件上時，事件按鈕的 focus 不要把多選改成單選（點選由指標的處理決定）。
+ * 拖曳、點選結束時清掉。
+ */
+let pointerSelecting = false;
 
 /** 拖曳中的事件換成預覽的時間與泳道 */
-function withPreview(vdoc: VisibleDoc, drag: DragState | null): VisibleDoc {
-  if (!drag) return vdoc;
+function withPreview(vdoc: VisibleDoc, drag: readonly DragPreview[] | null): VisibleDoc {
+  if (!drag?.length) return vdoc;
+  const by = new Map(drag.map((d) => [d.id, d]));
   return {
     ...vdoc,
-    events: vdoc.events.map((e) =>
-      e.id === drag.id ? { ...e, start: drag.start, end: drag.end, laneId: drag.laneId } : e,
-    ),
+    events: vdoc.events.map((e) => {
+      const d = by.get(e.id);
+      return d ? { ...e, start: d.start, end: d.end, laneId: d.laneId } : e;
+    }),
   };
 }
 
@@ -142,13 +173,15 @@ type Interaction =
       kind: 'pan';
       /** 超過門檻、真的開始拖了 */
       active: boolean;
-      /** 從事件上開始（PL 檢視）：沒拖就放開時不取消選取 */
-      fromItem: boolean;
       pointerId: number;
       x0: number;
       y0: number;
       win0: Win;
       scroll0: number;
+      /** 沒拖就放開時做的事（取消選取、PL 檢視點事件、點關聯線…）；null＝什麼都不做 */
+      click: (() => void) | null;
+      /** 觸控長按過了（已經加減選取；之後不拖、不點） */
+      held?: boolean;
     }
   | {
       kind: 'item';
@@ -162,6 +195,14 @@ type Interaction =
       laneId: string;
       start: string;
       end: string;
+      /** 沒拖就放開時：Ctrl＋點選加減、Shift＋點選範圍、點多選中的一個＝只選它 */
+      click: (() => void) | null;
+      /** Ctrl 按著（開始拖時沒選的先加進選取） */
+      ctrl: boolean;
+      /** 一起拖的其他選取中的事件（開始拖時決定） */
+      group: GroupItem[] | null;
+      /** 觸控長按過了（已經加減選取；之後不拖、不點） */
+      held?: boolean;
     }
   | {
       kind: 'flag';
@@ -172,9 +213,34 @@ type Interaction =
       id: string;
       time: string;
     }
+  | {
+      kind: 'box';
+      active: boolean;
+      pointerId: number;
+      x0: number;
+      y0: number;
+      /** 起點（時間軸的座標） */
+      tx: number;
+      ty: number;
+      /** 開始框選前的選取（Ctrl 按著時加在它後面；Esc 還原） */
+      base: string[];
+      add: boolean;
+      /** 沒拖就放開時（Shift＋點選事件＝選一段） */
+      click: (() => void) | null;
+    }
+  | {
+      kind: 'link';
+      active: boolean;
+      pointerId: number;
+      x0: number;
+      y0: number;
+      from: string;
+      sx: number;
+      sy: number;
+    }
   | { kind: 'pinch'; win0: Win; k0: number };
 
-function rangeText(mode: TimeMode, era: string, start: string, end: string): string {
+function rangeText(mode: TimeMode, era: EraArg, start: string, end: string): string {
   const a = readTime(mode, start, era);
   const b = end ? readTime(mode, end, era) : null;
   return a ? `${formatLong(mode, a, era)}${b ? `～${formatLong(mode, b, era)}` : ''}` : '';
@@ -183,8 +249,8 @@ function rangeText(mode: TimeMode, era: string, start: string, end: string): str
 /** 滑鼠停留的提示：標題、時間、泳道、地點、相關角色、說明的開頭 */
 function eventTitleText(vdoc: VisibleDoc, e: VisibleEvent, laneName: string): string {
   const time = e.ongoing
-    ? `${rangeText(vdoc.mode, vdoc.era, e.start, '')}～${S.ongoing}`
-    : rangeText(vdoc.mode, vdoc.era, e.start, e.kind === 'point' ? '' : e.end);
+    ? `${rangeText(vdoc.mode, vdoc, e.start, '')}～${S.ongoing}`
+    : rangeText(vdoc.mode, vdoc, e.start, e.kind === 'point' ? '' : e.end);
   const parts = [e.title.trim() || S.untitled, time, `${S.fLane}：${laneName}`];
   if (e.place) parts.push(`${S.place}：${e.place}`);
   if (e.people.length) parts.push(`${S.people}：${e.people.join('、')}`);
@@ -193,19 +259,78 @@ function eventTitleText(vdoc: VisibleDoc, e: VisibleEvent, laneName: string): st
   return parts.join('\n');
 }
 
+/** 事件畫在第幾列（背景：它的列；主線的背景：主線那一列或第一列） */
+function rowOfEventIn(lay: TimelineLayout, id: string): number {
+  const it = lay.items.find((x) => x.id === id);
+  if (it) return it.row;
+  const bg = lay.backgrounds.find((x) => x.id === id);
+  if (bg)
+    return (
+      bg.row ??
+      Math.max(
+        0,
+        lay.rows.findIndex((r) => r.key === ''),
+      )
+    );
+  return 0;
+}
+
+/** 每個事件畫出來的位置（關聯線的兩端用；時間軸的座標） */
+export function linkBoxes(
+  layout: TimelineLayout,
+  xOf: (v: number) => number,
+): Map<string, LinkBox> {
+  const out = new Map<string, LinkBox>();
+  for (const it of layout.items) {
+    const x1 = xOf(it.a);
+    out.set(it.id, {
+      kind: it.event.kind === 'point' ? 'point' : 'range',
+      x1,
+      x2: it.event.kind === 'point' ? x1 : x1 + Math.max(MIN_BAR, xOf(it.b) - x1),
+      cy: it.y + ITEM_H / 2,
+    });
+  }
+  for (const bg of layout.backgrounds)
+    out.set(bg.id, {
+      kind: 'background',
+      x1: xOf(bg.a),
+      x2: xOf(bg.a),
+      cy: bg.labelY + ITEM_H / 2,
+    });
+  return out;
+}
+
+/** 一條關聯線的說明（提示）：「A」導致「B」：說明（names：事件 id → 標題） */
+export function linkTitle(names: ReadonlyMap<string, string>, k: VisibleLink): string {
+  const name = (id: string) => names.get(id) ?? S.untitled;
+  return `${S.linkSentence(name(k.from), k.kind, name(k.to))}${k.note.trim() ? `：${k.note.trim()}` : ''}`;
+}
+
 export function Timeline() {
-  const vdocBase = useVisibleDoc();
+  const vdocAll = useVisibleDoc();
   const collapsed = usePrefs((s) => s.data.collapsed);
   const pl = usePrefs((s) => s.data.viewMode) === 'pl';
+  const filterPrefs = usePrefs((s) => s.data.filter);
+  const filterHide = usePrefs((s) => s.data.filterHide);
   const storedWin = useUi((s) => s.win);
   const winMode = useUi((s) => s.winMode);
-  const selectedId = useUi((s) => s.selectedId);
+  const selectedIds = useUi((s) => s.selectedIds);
   const drag = useUi((s) => s.drag);
   const flagDrag = useUi((s) => s.flagDrag);
   const fitRequest = useUi((s) => s.fitRequest);
-  const mode = vdocBase.mode;
+  const mode = vdocAll.mode;
   const wide = useMediaQuery('(min-width: 640px)', true);
   const labelW = wide ? 144 : 96;
+
+  /* 篩選（F91）：沒符合的淡化，或藏起來（藏起來時排版、全覽也只算符合的） */
+  const matches = useMemo(
+    () => matchingIds(vdocAll, normalizeFilter(filterPrefs?.[vdocAll.audience])),
+    [vdocAll, filterPrefs],
+  );
+  const vdocBase = useMemo(
+    () => (filterHide ? filteredDoc(vdocAll, matches) : vdocAll),
+    [vdocAll, matches, filterHide],
+  );
 
   const rootRef = useRef<HTMLElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -213,8 +338,16 @@ export function Timeline() {
   const [trackW, setTrackW] = useState(0);
   const [viewH, setViewH] = useState(0);
   const [tip, setTip] = useState<{ x: number; y: number; text: string } | null>(null);
+  const [box, setBox] = useState<Rect | null>(null);
+  const [linkDraft, setLinkDraft] = useState<{
+    x1: number;
+    y1: number;
+    x2: number;
+    y2: number;
+  } | null>(null);
   const [now, setNow] = useState(() => nowValue());
   const inter = useRef<Interaction | null>(null);
+  const holdTimer = useRef(0);
   const gesture = useRef(createPointerGesture());
 
   /* 畫面範圍：這種寫法上次的（這次開頁的、或存在這台裝置的），沒有時全覽；要求全覽時重新全覽 */
@@ -234,7 +367,7 @@ export function Timeline() {
       saved.end > saved.start;
     setWin(
       ok && saved
-        ? zoomWindow(mode, saved, 1)
+        ? zoomWindow(mode, saved, 1, undefined, vdocBase)
         : fitFor(vdocBase, trackRef.current?.clientWidth || 800),
     );
   }, [mode, fitRequest, vdocBase, storedWin, winMode]);
@@ -281,8 +414,8 @@ export function Timeline() {
     [vdoc, k, collapsed],
   );
   const ticks = useMemo(
-    () => axisTicks(mode, w.start, w.end, k, axisMeasure),
-    [mode, w.start, w.end, k],
+    () => axisTicks(mode, w.start, w.end, k, axisMeasure, vdocBase),
+    [mode, w.start, w.end, k, vdocBase],
   );
   const flags = useMemo(
     () =>
@@ -304,18 +437,27 @@ export function Timeline() {
       });
     return out;
   }, [vdocBase]);
+  const selected = useMemo(() => new Set(selectedIds), [selectedIds]);
+  const dragging = useMemo(() => new Set((drag ?? []).map((d) => d.id)), [drag]);
+  /** 淡化的事件（篩選中、沒符合，淡化模式） */
+  const dimOf = useCallback(
+    (id: string) => !filterHide && !!matches && !matches.has(id),
+    [filterHide, matches],
+  );
   const flagH = flagRowHeight(flags.levels);
   const headerH = AXIS_ROW * 2 + flagH;
   const bodyH = Math.max(layout.height, viewH - headerH - 2);
 
   /* 給拖曳、鍵盤用的最新值 */
-  const live = useRef({ w, k, layout, ticks, vdoc: vdocBase });
-  live.current = { w, k, layout, ticks, vdoc: vdocBase };
+  const live = useRef({ w, k, layout, ticks, vdoc: vdocBase, dimOf, xOf });
+  live.current = { w, k, layout, ticks, vdoc: vdocBase, dimOf, xOf };
 
   const snapUnit = (alt: boolean): SnapUnit =>
     alt
       ? mode === 'year'
-        ? { kind: 'year', n: 1 }
+        ? calOfDoc(live.current.vdoc)
+          ? { kind: 'day', n: 1 }
+          : { kind: 'year', n: 1 }
         : { kind: 'min', n: 1 }
       : live.current.ticks.snap;
 
@@ -330,7 +472,7 @@ export function Timeline() {
         const x = Math.min(r.width, Math.max(0, clientX - r.left));
         anchor = cur.w.start + x / cur.k;
       }
-      setWin(zoomWindow(mode, cur.w, f, anchor));
+      setWin(zoomWindow(mode, cur.w, f, anchor, cur.vdoc));
     },
     [mode],
   );
@@ -344,7 +486,25 @@ export function Timeline() {
         const mid = (cur.w.start + cur.w.end) / 2;
         const sel = useUi.getState().selectedId;
         const ev = sel ? docNow().events.find((x) => x.id === sel) : undefined;
-        addEvent({ start: newEventStart(mode, mid, cur.ticks.snap), laneId: ev?.laneId ?? '' });
+        addEvent({
+          start: newEventStart(mode, mid, cur.ticks.snap, cur.vdoc),
+          laneId: ev?.laneId ?? '',
+        });
+      },
+      visibleIds: () => {
+        const cur = live.current;
+        const W = trackRef.current?.clientWidth || 800;
+        const ids: string[] = [];
+        for (const it of cur.layout.items) {
+          if (cur.dimOf(it.id)) continue;
+          const b = itemBox(it, cur.xOf);
+          if (b.right >= 0 && b.left <= W) ids.push(it.id);
+        }
+        for (const bg of cur.layout.backgrounds) {
+          if (cur.dimOf(bg.id)) continue;
+          if (cur.xOf(bg.b) >= 0 && cur.xOf(bg.a) <= W) ids.push(bg.id);
+        }
+        return ids;
       },
     };
     timelineApi.current = api;
@@ -368,7 +528,7 @@ export function Timeline() {
       if (dx && (e.shiftKey || Math.abs(dx) > Math.abs(e.deltaY))) {
         e.preventDefault();
         const cur = live.current;
-        setWin(panWindow(mode, cur.w, dx / cur.k));
+        setWin(panWindow(mode, cur.w, dx / cur.k, cur.vdoc));
       }
     };
     el.addEventListener('wheel', onWheel, { passive: false });
@@ -385,6 +545,28 @@ export function Timeline() {
     let i = rows.findIndex((row) => y >= row.y && y < row.y + row.height);
     if (i < 0) i = y < 0 ? 0 : rows.length - 1;
     return i;
+  };
+
+  /** 事件畫在第幾列（背景：它的列；主線的背景：主線那一列或第一列） */
+  const rowOfEvent = (id: string): number => {
+    const lay = live.current.layout;
+    const it = lay.items.find((x) => x.id === id);
+    if (it) return it.row;
+    const bg = lay.backgrounds.find((x) => x.id === id);
+    if (bg)
+      return (
+        bg.row ??
+        Math.max(
+          0,
+          lay.rows.findIndex((r) => r.key === ''),
+        )
+      );
+    return 0;
+  };
+
+  const trackPoint = (clientX: number, clientY: number) => {
+    const r = trackRef.current?.getBoundingClientRect();
+    return r ? { x: clientX - r.left, y: clientY - r.top } : { x: 0, y: 0 };
   };
 
   const impl = useRef({
@@ -407,9 +589,13 @@ export function Timeline() {
     window.removeEventListener('keydown', l.key, true);
   };
   const finish = () => {
+    window.clearTimeout(holdTimer.current);
     inter.current = null;
+    pointerSelecting = false;
     gesture.current.reset();
     setTip(null);
+    setBox(null);
+    setLinkDraft(null);
     rootRef.current?.removeAttribute('data-dragging');
     detach();
   };
@@ -420,7 +606,31 @@ export function Timeline() {
     const it = inter.current;
     if (it?.kind === 'item') useUi.setState({ drag: null });
     if (it?.kind === 'flag') useUi.setState({ flagDrag: null });
+    if (it?.kind === 'box' && it.active) selectMany(it.base, useUi.getState().selectedId);
     finish();
+  };
+
+  /** 開始拖事件：沒選的先選（Ctrl 按著時加進選取），選取中的其他事件一起拖 */
+  const startItemDrag = (cur: Extract<Interaction, { kind: 'item' }>) => {
+    const ui = useUi.getState();
+    if (!ui.selectedIds.includes(cur.id)) {
+      if (cur.ctrl) toggleSelected(cur.id);
+      else select(cur.id);
+    }
+    if (cur.part !== 'move') return;
+    const ids = useUi.getState().selectedIds.filter((x) => x !== cur.id);
+    if (!ids.length) return;
+    const by = new Map(docNow().events.map((e) => [e.id, e]));
+    cur.group = ids
+      .map((id) => by.get(id))
+      .filter((e): e is NonNullable<typeof e> => !!e)
+      .map((e) => ({
+        id: e.id,
+        start: e.start,
+        end: e.end,
+        laneId: e.laneId,
+        row: rowOfEvent(e.id),
+      }));
   };
 
   const onMove = (e: PointerEvent) => {
@@ -436,75 +646,120 @@ export function Timeline() {
       const span = (it.win0.end - it.win0.start) / Math.max(0.01, sample.scale);
       const kk = r.width / span;
       const start = anchor - (ox + sample.dx) / kk;
-      setWin(zoomWindow(mode, { start, end: start + span }, 1));
+      setWin(zoomWindow(mode, { start, end: start + span }, 1, undefined, live.current.vdoc));
       return;
     }
     if (it.pointerId !== e.pointerId) return;
+    if ((it.kind === 'item' || it.kind === 'pan') && it.held) return;
     const dx = e.clientX - it.x0;
     const dy = e.clientY - it.y0;
     if (!it.active) {
       if (Math.hypot(dx, dy) < DRAG_THRESHOLD) return;
       it.active = true;
       rootRef.current?.setAttribute('data-dragging', '');
+      if (it.kind === 'item') startItemDrag(it);
     }
     const cur = inter.current;
     if (!cur || cur.kind === 'pinch') return;
     const { k: kk, vdoc: vd, layout: lay } = live.current;
     if (cur.kind === 'pan') {
-      setWin(panWindow(mode, cur.win0, -dx / kk));
+      setWin(panWindow(mode, cur.win0, -dx / kk, vd));
       if (scrollRef.current) scrollRef.current.scrollTop = cur.scroll0 - dy;
       return;
     }
+    if (cur.kind === 'box') {
+      const p = trackPoint(e.clientX, e.clientY);
+      const rect: Rect = {
+        left: Math.min(cur.tx, p.x),
+        right: Math.max(cur.tx, p.x),
+        top: Math.min(cur.ty, p.y),
+        bottom: Math.max(cur.ty, p.y),
+      };
+      setBox(rect);
+      const hits = boxHits(lay, rect, live.current.xOf, (id) => !live.current.dimOf(id));
+      selectMany(cur.add ? [...cur.base, ...hits] : hits, hits[hits.length - 1] ?? null);
+      return;
+    }
+    if (cur.kind === 'link') {
+      const p = trackPoint(e.clientX, e.clientY);
+      setLinkDraft({ x1: cur.sx, y1: cur.sy, x2: p.x, y2: p.y });
+      return;
+    }
     if (cur.kind === 'flag') {
-      const orig = readTime(mode, cur.time, vd.era);
+      const orig = readTime(mode, cur.time, vd);
       if (!orig) return;
-      const tv = snapTv(mode, clampValue(mode, orig.v + dx / kk), orig.p, snapUnit(e.altKey));
-      useUi.setState({ flagDrag: { id: cur.id, time: canonical(mode, tv) } });
+      const tv = snapTv(mode, clampValue(mode, orig.v + dx / kk), orig.p, snapUnit(e.altKey), vd);
+      useUi.setState({ flagDrag: { id: cur.id, time: canonical(mode, tv, vd) } });
       const label =
         cur.id === PROGRESS_ID
           ? S.progress
           : (vd.markers.find((m) => m.id === cur.id)?.label ?? '');
-      setTip({ x: e.clientX, y: e.clientY, text: `${label}・${formatLong(mode, tv, vd.era)}` });
+      setTip({ x: e.clientX, y: e.clientY, text: `${label}・${formatLong(mode, tv, vd)}` });
       return;
     }
     if (cur.kind !== 'item') return;
-    const a = readTime(mode, cur.start, vd.era);
+    const a = readTime(mode, cur.start, vd);
     if (!a) return;
-    const b = cur.end ? readTime(mode, cur.end, vd.era) : null;
+    const b = cur.end ? readTime(mode, cur.end, vd) : null;
     const unit = snapUnit(e.altKey);
     const dv = dx / kk;
-    const prev = useUi.getState().drag;
+    const prev = useUi.getState().drag?.find((d) => d.id === cur.id);
     let start = cur.start;
     let end = cur.end;
+    /** 被拖的那個吸附後的位移（一起拖的照這個移動） */
+    let moved = 0;
     if (cur.part === 'move' || !b) {
       /* 按住 Alt 上下拖（左右不到 LANE_ONLY_PX）：只換泳道，時間不變（不吸附也不跟著手抖） */
       if (!(e.altKey && Math.abs(dx) < LANE_ONLY_PX)) {
-        const ns = snapTv(mode, clampValue(mode, a.v + dv), a.p, unit);
-        start = canonical(mode, ns);
-        if (b) end = canonical(mode, snapTv(mode, clampValue(mode, b.v + (ns.v - a.v)), b.p, unit));
+        const ns = snapTv(mode, clampValue(mode, a.v + dv), a.p, unit, vd);
+        start = canonical(mode, ns, vd);
+        moved = ns.v - a.v;
+        if (b)
+          end = canonical(
+            mode,
+            snapTv(mode, clampValue(mode, b.v + (ns.v - a.v)), b.p, unit, vd),
+            vd,
+          );
       }
     } else if (cur.part === 'start') {
-      const ns = snapTv(mode, clampValue(mode, a.v + dv), a.p, unit);
-      start = ns.v < afterUnit(mode, b) ? canonical(mode, ns) : (prev?.start ?? cur.start);
+      const ns = snapTv(mode, clampValue(mode, a.v + dv), a.p, unit, vd);
+      start = ns.v < afterUnit(mode, b, vd) ? canonical(mode, ns, vd) : (prev?.start ?? cur.start);
     } else {
-      const u = coarser(mode, unit, precisionUnit(mode, b.p));
-      const t = snapValue(mode, clampValue(mode, afterUnit(mode, b) + dv), u);
-      const ne = endFromExclusive(mode, t, b.p);
-      end = afterUnit(mode, ne) > a.v ? canonical(mode, ne) : (prev?.end ?? cur.end);
+      const u = coarser(mode, unit, precisionUnit(mode, b.p), vd);
+      const t = snapValue(mode, clampValue(mode, afterUnit(mode, b, vd) + dv), u, vd);
+      const ne = endFromExclusive(mode, t, b.p, vd);
+      end = afterUnit(mode, ne, vd) > a.v ? canonical(mode, ne, vd) : (prev?.end ?? cur.end);
     }
     let laneId = cur.laneId;
+    let dRow = 0;
     if (cur.part === 'move') {
       const r = rowAtClientY(e.clientY);
-      if (r !== cur.row0) laneId = lay.rows[r]?.key ?? '';
+      if (r !== cur.row0) {
+        laneId = lay.rows[r]?.key ?? '';
+        dRow = r - cur.row0;
+      }
     }
-    useUi.setState({ drag: { id: cur.id, start, end, laneId } });
+    const previews: DragPreview[] = [{ id: cur.id, start, end, laneId }];
+    if (cur.group)
+      previews.push(
+        ...moveGroup(
+          mode,
+          vd,
+          cur.group,
+          moved,
+          dRow,
+          lay.rows.map((r) => r.key),
+        ),
+      );
+    useUi.setState({ drag: previews });
     const laneName = laneId
       ? vd.lanes.find((l) => l.id === laneId)?.name.trim() || S.untitled
       : S.main;
+    const text = S.dragTip(rangeText(mode, vd, start, end), laneName);
     setTip({
       x: e.clientX,
       y: e.clientY,
-      text: S.dragTip(rangeText(mode, vd.era, start, end), laneName),
+      text: cur.group ? `${text}${S.dragMany(cur.group.length + 1)}` : text,
     });
   };
 
@@ -518,10 +773,17 @@ export function Timeline() {
     }
     if (it.pointerId !== e.pointerId) return;
     if (it.kind === 'item') {
-      const d = useUi.getState().drag;
+      const list = useUi.getState().drag;
       useUi.setState({ drag: null });
-      if (d && (d.start !== it.start || d.end !== it.end || d.laneId !== it.laneId))
-        placeEvent(d.id, { start: d.start, end: d.end, laneId: d.laneId });
+      if (!it.active) it.click?.();
+      else if (list?.length) {
+        const by = new Map(docNow().events.map((x) => [x.id, x]));
+        const changed = list.filter((d) => {
+          const o = by.get(d.id);
+          return o && (o.start !== d.start || o.end !== d.end || o.laneId !== d.laneId);
+        });
+        if (changed.length) placeEvents(changed);
+      }
     } else if (it.kind === 'flag') {
       const fd = useUi.getState().flagDrag;
       useUi.setState({ flagDrag: null });
@@ -532,9 +794,16 @@ export function Timeline() {
             m.time = fd.time;
           });
       }
-    } else if (it.kind === 'pan' && !it.active && !it.fromItem) {
-      /* 點一下空白處：取消選取 */
-      select(null);
+    } else if (it.kind === 'link') {
+      if (it.active) {
+        const target = document
+          .elementFromPoint(e.clientX, e.clientY)
+          ?.closest<HTMLElement>('[data-event-id]');
+        const to = target?.dataset.eventId;
+        if (to && to !== it.from) addLink(it.from, to);
+      }
+    } else if ((it.kind === 'pan' || it.kind === 'box') && !it.active) {
+      it.click?.();
     }
     finish();
   };
@@ -557,6 +826,8 @@ export function Timeline() {
         /* 第二指：改成捏合（拖到一半的事件、旗子放回去） */
         useUi.setState({ drag: null, flagDrag: null });
         setTip(null);
+        setBox(null);
+        setLinkDraft(null);
         inter.current = { kind: 'pinch', win0: live.current.w, k0: live.current.k };
       }
       return;
@@ -569,36 +840,116 @@ export function Timeline() {
     window.addEventListener('keydown', l.key, true);
   };
 
-  const panStart = (e: ReactPointerEvent, fromItem = false): Interaction => ({
+  const panStart = (e: ReactPointerEvent, click: (() => void) | null): Interaction => ({
     kind: 'pan',
     active: false,
-    fromItem,
     pointerId: e.pointerId,
     x0: e.clientX,
     y0: e.clientY,
     win0: live.current.w,
     scroll0: scrollRef.current?.scrollTop ?? 0,
+    click,
   });
+
+  /** 觸控長按事件（沒移動）：加減選取，之後這次的按住不拖也不算點一下 */
+  const startHold = (id: string) => {
+    window.clearTimeout(holdTimer.current);
+    const it = inter.current;
+    holdTimer.current = window.setTimeout(() => {
+      if (!it || inter.current !== it || (it.kind !== 'item' && it.kind !== 'pan') || it.active)
+        return;
+      toggleSelected(id);
+      it.held = true;
+      it.click = null;
+    }, HOLD_MS);
+  };
+
+  /** 點事件（沒有拖）時的選取：Ctrl／⌘＝加減、Shift＝範圍、多選中點其中一個＝只選它 */
+  const clickSelect = (id: string, ctrl: boolean, shift: boolean): (() => void) | null => {
+    const ui = useUi.getState();
+    if (ctrl) return () => toggleSelected(id);
+    if (shift) {
+      const anchor = ui.selectedId;
+      if (!anchor || anchor === id) return () => select(id);
+      return () =>
+        selectMany(
+          rangeHits(live.current.layout, anchor, id, (x) => !live.current.dimOf(x)),
+          anchor,
+        );
+    }
+    if (ui.selectedIds.includes(id) && ui.selectedIds.length > 1) return () => select(id);
+    return null;
+  };
 
   const onTrackPointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
     if (e.button !== 0 && e.button !== 1) return;
     const target = e.target as HTMLElement;
+    const ctrl = e.ctrlKey || e.metaKey;
+    /* 關聯線的把手：拖到另一個事件 */
+    const handle = e.button === 0 ? target.closest<HTMLElement>('[data-link-handle]') : null;
+    if (handle && !isPl()) {
+      e.preventDefault();
+      e.stopPropagation();
+      const from = handle.dataset.linkHandle as string;
+      const p = trackPoint(e.clientX, e.clientY);
+      begin(e, {
+        kind: 'link',
+        active: false,
+        pointerId: e.pointerId,
+        x0: e.clientX,
+        y0: e.clientY,
+        from,
+        sx: p.x,
+        sy: p.y,
+      });
+      return;
+    }
     const itemEl = e.button === 0 ? target.closest<HTMLElement>('[data-event-id]') : null;
+    /*
+     * Shift＋拖曳：框選（從事件上開始也是，事件多、找不到空白處時也能框；Ctrl 也按著時加進原本的選取）；
+     * Shift＋點事件（沒拖）＝選一段
+     */
+    if (e.button === 0 && e.shiftKey) {
+      const id = itemEl?.dataset.eventId;
+      e.preventDefault();
+      if (id) pointerSelecting = true;
+      else rootRef.current?.focus({ preventScroll: true });
+      const p = trackPoint(e.clientX, e.clientY);
+      begin(e, {
+        kind: 'box',
+        active: false,
+        pointerId: e.pointerId,
+        x0: e.clientX,
+        y0: e.clientY,
+        tx: p.x,
+        ty: p.y,
+        base: [...useUi.getState().selectedIds],
+        add: ctrl,
+        click: id ? clickSelect(id, ctrl, true) : null,
+      });
+      return;
+    }
     if (itemEl) {
       const id = itemEl.dataset.eventId as string;
-      select(id);
+      pointerSelecting = true;
+      const touch = e.pointerType === 'touch';
+      let click = clickSelect(id, ctrl, e.shiftKey);
+      /* 沒有修飾鍵、還沒選的：按下就選（和以前一樣；觸控時放開才選，長按＝加進選取） */
+      if (!click && !useUi.getState().selectedIds.includes(id)) {
+        if (touch) click = () => select(id);
+        else select(id);
+      }
       const ev = docNow().events.find((x) => x.id === id);
       if (!ev || isPl()) {
         /* PL 檢視：只能選取，按住拖曳＝平移 */
-        begin(e, panStart(e, true));
+        begin(e, panStart(e, click));
+        if (touch) startHold(id);
         return;
       }
       const part = (target.closest<HTMLElement>('[data-handle]')?.dataset.handle ?? 'move') as
         | 'move'
         | 'start'
         | 'end';
-      const lay = live.current.layout;
-      const row0 = lay.items.find((x) => x.id === id)?.row ?? rowAtClientY(e.clientY);
       begin(e, {
         kind: 'item',
         active: false,
@@ -607,16 +958,23 @@ export function Timeline() {
         y0: e.clientY,
         id,
         part,
-        row0,
+        row0: rowOfEvent(id),
         laneId: ev.laneId,
         start: ev.start,
         end: ev.end,
+        click,
+        ctrl,
+        group: null,
       });
+      if (touch) startHold(id);
       return;
     }
     e.preventDefault();
     rootRef.current?.focus({ preventScroll: true });
-    begin(e, panStart(e));
+    /* 點一下空白處：取消選取（點在關聯線上：選取線的起點）；Ctrl 按著時不取消 */
+    const linkEl = target.closest<SVGElement>('[data-link-id]');
+    const linkId = linkEl?.getAttribute('data-link-id');
+    begin(e, panStart(e, linkId ? () => focusLinkOf(linkId) : ctrl ? null : () => select(null)));
   };
 
   const onFlagPointerDown = (e: ReactPointerEvent<HTMLElement>, f: Flag) => {
@@ -640,7 +998,10 @@ export function Timeline() {
   };
 
   const onTrackDoubleClick = (e: ReactMouseEvent<HTMLDivElement>) => {
-    const itemEl = (e.target as HTMLElement).closest<HTMLElement>('[data-event-id]');
+    if (e.shiftKey || e.ctrlKey || e.metaKey) return;
+    const target = e.target as HTMLElement;
+    if (target.closest('[data-link-handle]')) return;
+    const itemEl = target.closest<HTMLElement>('[data-event-id]');
     if (itemEl) {
       editEvent(itemEl.dataset.eventId as string);
       return;
@@ -648,10 +1009,10 @@ export function Timeline() {
     if (isPl()) return;
     const r = trackRef.current?.getBoundingClientRect();
     if (!r) return;
-    const { w: cw, k: ck, layout: lay, ticks: tk } = live.current;
+    const { w: cw, k: ck, layout: lay, ticks: tk, vdoc: vd } = live.current;
     const v = cw.start + (e.clientX - r.left) / ck;
     const row = lay.rows[rowAtClientY(e.clientY)];
-    addEvent({ start: newEventStart(mode, v, tk.snap), laneId: row?.key ?? '' });
+    addEvent({ start: newEventStart(mode, v, tk.snap, vd), laneId: row?.key ?? '' });
   };
 
   /* ---------- 鍵盤 ---------- */
@@ -664,13 +1025,16 @@ export function Timeline() {
     const cur = live.current;
     const span = cur.w.end - cur.w.start;
     const f = e.shiftKey ? 0.5 : 0.1;
-    setWin(panWindow(mode, cur.w, (e.key === 'ArrowLeft' ? -1 : 1) * span * f));
+    setWin(panWindow(mode, cur.w, (e.key === 'ArrowLeft' ? -1 : 1) * span * f, cur.vdoc));
   };
 
   const onItemKeyDown = useCallback(
     (e: ReactKeyboardEvent<HTMLElement>, id: string) => {
       if (e.target !== e.currentTarget) return;
       const key = e.key;
+      /* 多選中、焦點在其中一個：方向鍵、Delete 對全部的選取 */
+      const sel = useUi.getState().selectedIds;
+      const many = sel.length > 1 && sel.includes(id) ? sel : null;
       if (key === 'Enter') {
         e.preventDefault();
         editEvent(id);
@@ -686,7 +1050,8 @@ export function Timeline() {
       if (key === 'Delete' || key === 'Backspace') {
         e.preventDefault();
         e.stopPropagation();
-        if (deleteEvent(id)) rootRef.current?.focus();
+        /* 刪除選取的（焦點在沒選的事件上、又有選取時：還是刪除選取的那些） */
+        if (deleteEvents(sel.length ? sel : [id]).length) rootRef.current?.focus();
         return;
       }
       if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(key)) return;
@@ -697,34 +1062,64 @@ export function Timeline() {
       const ev = docNow().events.find((x) => x.id === id);
       const cur = live.current;
       if (!ev) return;
-      const a = readTime(mode, ev.start, cur.vdoc.era);
+      const ctx = cur.vdoc;
+      const a = readTime(mode, ev.start, ctx);
       if (!a) return;
-      const b = ev.kind !== 'point' ? readTime(mode, ev.end, cur.vdoc.era) : null;
+      const b = ev.kind !== 'point' ? readTime(mode, ev.end, ctx) : null;
       let next = { start: ev.start, end: ev.end, laneId: ev.laneId };
+      let dv = 0;
+      let dRow = 0;
+      const rows = cur.layout.rows;
       if (key === 'ArrowUp' || key === 'ArrowDown') {
-        const rows = cur.layout.rows;
-        const r = cur.layout.items.find((x) => x.id === id)?.row ?? 0;
+        const r = rowOfEventIn(cur.layout, id);
         const to = r + (key === 'ArrowUp' ? -1 : 1);
         if (to < 0 || to >= rows.length) return;
         next = { ...next, laneId: rows[to].key };
+        dRow = to - r;
       } else {
         const dir = key === 'ArrowLeft' ? -1 : 1;
         if (e.shiftKey) {
           if (!b) return;
-          const nb = stepTv(mode, b, cur.ticks.snap, dir);
-          if (afterUnit(mode, nb) <= a.v) return;
-          next = { ...next, end: canonical(mode, nb) };
+          const nb = stepTv(mode, b, cur.ticks.snap, dir, ctx);
+          if (afterUnit(mode, nb, ctx) <= a.v) return;
+          next = { ...next, end: canonical(mode, nb, ctx) };
         } else {
-          const na = stepTv(mode, a, cur.ticks.snap, dir);
-          next = { ...next, start: canonical(mode, na) };
-          if (b) next.end = canonical(mode, { v: b.v + (na.v - a.v), p: b.p });
+          const na = stepTv(mode, a, cur.ticks.snap, dir, ctx);
+          next = { ...next, start: canonical(mode, na, ctx) };
+          if (b) next.end = canonical(mode, { v: b.v + (na.v - a.v), p: b.p }, ctx);
+          dv = na.v - a.v;
         }
       }
-      placeEvent(id, next, false);
+      const list: DragPreview[] = [{ id, ...next }];
+      if (many && !e.shiftKey) {
+        const by = new Map(docNow().events.map((x) => [x.id, x]));
+        const group: GroupItem[] = many
+          .filter((x) => x !== id)
+          .map((x) => by.get(x))
+          .filter((x): x is NonNullable<typeof x> => !!x)
+          .map((x) => ({
+            id: x.id,
+            start: x.start,
+            end: x.end,
+            laneId: x.laneId,
+            row: rowOfEventIn(cur.layout, x.id),
+          }));
+        list.push(
+          ...moveGroup(
+            mode,
+            ctx,
+            group,
+            dv,
+            dRow,
+            rows.map((r) => r.key),
+          ),
+        );
+      }
+      placeEvents(list, false);
       const moved = docNow().events.find((x) => x.id === id);
       if (moved) {
-        const s = eventSpan(mode, { ...moved, secret: false }, cur.vdoc.era);
-        if (s) setWin(revealWindow(mode, cur.w, s.a, s.b));
+        const s = eventSpan(mode, { ...moved }, ctx);
+        if (s) setWin(revealWindow(mode, cur.w, s.a, s.b, 0.05, ctx));
       }
       /* 換了列或畫面捲動後，焦點留在同一個事件上 */
       requestAnimationFrame(() => {
@@ -750,10 +1145,10 @@ export function Timeline() {
     const doc = docNow();
     const time =
       f.kind === 'progress' ? doc.progress.time : doc.markers.find((m) => m.id === f.id)?.time;
-    const tv = time ? readTime(mode, time, doc.era) : null;
+    const tv = time ? readTime(mode, time, doc) : null;
     if (!tv) return;
     const dir = e.key === 'ArrowLeft' ? -1 : 1;
-    const next = canonical(mode, stepTv(mode, tv, live.current.ticks.snap, dir));
+    const next = canonical(mode, stepTv(mode, tv, live.current.ticks.snap, dir, doc), doc);
     if (f.kind === 'progress') patchDoc({ progress: { ...doc.progress, time: next } }, false);
     else
       updateMarker(
@@ -785,6 +1180,52 @@ export function Timeline() {
     return right >= -20 && x1 - POINT_R <= width + 20;
   });
   visItems.sort((p, q) => p.row - q.row || p.a - q.a || p.level - q.level);
+
+  /* 關聯線（F93）：兩端都畫得出來、和畫面有交集的 */
+  /*
+   * 關聯線（F93）：兩端都畫得出來的。座標以排版的 origin 為 0（平移時不用重算，整層用 translate 移動）。
+   */
+  const links = useMemo(() => {
+    if (!vdoc.links.length) return [];
+    const boxes = linkBoxes(layout, (v) => (v - layout.origin) * k);
+    const out: { k: VisibleLink; g: LinkGeometry }[] = [];
+    for (const kk of vdoc.links) {
+      const a = boxes.get(kk.from);
+      const b = boxes.get(kk.to);
+      if (!a || !b) continue;
+      out.push({ k: kk, g: linkGeometry(a, b, LINK_STYLES[kk.kind].arrow) });
+    }
+    return out;
+  }, [vdoc.links, layout, k]);
+  const linkShift = (layout.origin - w.start) * k;
+  /* 只畫和畫面有交集的線（平移時跟著換；線多時少畫一些） */
+  const shownLinks = useMemo(() => {
+    const lo = -linkShift - 40;
+    const hi = width - linkShift + 40;
+    return links.filter(({ g }) => {
+      const ext = linkExtent(g);
+      return ext.right >= lo && ext.left <= hi;
+    });
+  }, [links, linkShift, width]);
+
+  /* 只選了一個（GM 檢視）：右邊畫「拖到另一個事件加上關聯線」的圓點 */
+  const single = selectedIds.length === 1 && !pl && !drag ? selectedIds[0] : null;
+  const handleAt = useMemo(() => {
+    if (!single) return null;
+    const it = layout.items.find((x) => x.id === single);
+    if (it) {
+      const b = itemBox(it, xOf);
+      const extra = it.event.gmNote.trim() ? 12 : 0;
+      return { x: b.right + 7 + extra, y: it.y + ITEM_H / 2 };
+    }
+    const bg = layout.backgrounds.find((x) => x.id === single);
+    if (bg)
+      return {
+        x: Math.max(0, xOf(bg.a)) + 8 + itemMeasure(bg.event.title.trim() || S.untitled) + 16,
+        y: bg.labelY + ITEM_H / 2,
+      };
+    return null;
+  }, [single, layout, xOf]);
 
   return (
     <section
@@ -855,12 +1296,16 @@ export function Timeline() {
             ))}
           </div>
           {/* 時間軸（鍵盤：時間軸有焦點時 ←／→ 平移，事件有焦點時方向鍵移動；說明在 aria-describedby） */}
-          {/* biome-ignore lint/a11y/noStaticElementInteractions: 拖曳平移、雙擊新增是指標的操作，鍵盤另有對應 */}
+          {/* biome-ignore lint/a11y/noStaticElementInteractions: 拖曳平移、框選、雙擊新增是指標的操作，鍵盤另有對應 */}
           <div
             ref={trackRef}
             className="relative min-w-0 flex-1 cursor-grab touch-none overflow-hidden"
             data-testid="track"
             onPointerDown={onTrackPointerDown}
+            onContextMenu={(e) => {
+              /* 觸控長按（加減選取）時不跳出長按選單 */
+              if (inter.current) e.preventDefault();
+            }}
             onDoubleClick={onTrackDoubleClick}
           >
             {ticks.minor.map((t) => (
@@ -892,22 +1337,25 @@ export function Timeline() {
               const x1 = xOf(bg.a);
               const x2 = xOf(bg.b);
               if (x2 < -10 || x1 > width + 10) return null;
+              const top = row ? row.y : 0;
               return (
                 <BackgroundBand
                   key={bg.id}
-                  e={bg.event}
+                  bg={bg}
                   color={looks.get(bg.id)?.color ?? ''}
                   left={Math.max(-4, x1)}
                   right={Math.min(width + 4, x2)}
                   cutLeft={x1 < -4}
                   cutRight={x2 > width + 4}
-                  top={row ? row.y : 0}
+                  top={top}
                   height={row ? row.height - 1 : bodyH}
-                  selected={selectedId === bg.id}
+                  labelTop={bg.labelY - top + 3}
+                  selected={selected.has(bg.id)}
                   gm={!pl}
                   editable={!pl}
+                  dim={dimOf(bg.id)}
                   title={looks.get(bg.id)?.title ?? ''}
-                  dragging={drag?.id === bg.id}
+                  dragging={dragging.has(bg.id)}
                   onKeyDown={onItemKeyDown}
                 />
               );
@@ -927,6 +1375,19 @@ export function Timeline() {
                 }}
               />
             ))}
+            {shownLinks.length || linkDraft ? (
+              <LinkLayer
+                links={shownLinks}
+                shift={linkShift}
+                width={width}
+                height={bodyH}
+                gm={!pl}
+                selected={selected}
+                dimOf={dimOf}
+                vdoc={vdoc}
+                draft={linkDraft}
+              />
+            ) : null}
             {visItems.map((it) => (
               <Item
                 key={it.id}
@@ -935,24 +1396,55 @@ export function Timeline() {
                 x2={xOf(it.b)}
                 width={width}
                 color={looks.get(it.id)?.color ?? ''}
-                selected={selectedId === it.id}
-                dragging={drag?.id === it.id}
+                selected={selected.has(it.id)}
+                dragging={dragging.has(it.id)}
                 gm={!pl}
                 editable={!pl}
+                dim={dimOf(it.id)}
                 title={looks.get(it.id)?.title ?? ''}
                 onKeyDown={onItemKeyDown}
               />
             ))}
+            {handleAt ? (
+              <span
+                aria-hidden
+                data-link-handle={single ?? ''}
+                data-testid="link-handle"
+                title={S.linkHandle}
+                className="absolute z-[6] flex size-3.5 -translate-x-1/2 -translate-y-1/2 cursor-crosshair items-center justify-center rounded-full border-2 border-accent bg-bg shadow-1 hover:bg-accent"
+                style={{ left: handleAt.x, top: handleAt.y }}
+              />
+            ) : null}
+            {box ? (
+              <div
+                aria-hidden
+                data-testid="select-box"
+                className="pointer-events-none absolute z-[7] rounded-sm border border-accent bg-accent-soft/40"
+                style={{
+                  left: box.left,
+                  top: box.top,
+                  width: box.right - box.left,
+                  height: box.bottom - box.top,
+                }}
+              />
+            ) : null}
           </div>
         </div>
       </div>
 
-      {vdoc.events.length === 0 ? (
+      {vdocAll.events.length === 0 ? (
         <p
           className="pointer-events-none absolute inset-x-0 top-1/2 m-0 -translate-y-1/2 px-6 text-center text-sm text-muted"
           data-testid="timeline-empty"
         >
           {pl ? S.emptyPl : S.emptyGm}
+        </p>
+      ) : matches && matches.size === 0 ? (
+        <p
+          className="pointer-events-none absolute inset-x-0 top-1/2 m-0 -translate-y-1/2 px-6 text-center text-sm text-muted"
+          data-testid="timeline-nomatch"
+        >
+          {S.filterNone}
         </p>
       ) : null}
       {pl ? (
@@ -969,7 +1461,11 @@ export function Timeline() {
 }
 
 const selectOnFocus = (id: string) => {
-  if (useUi.getState().selectedId !== id) select(id);
+  if (pointerSelecting) return;
+  const ui = useUi.getState();
+  /* 多選中的一個拿到焦點（Tab）：選取不變 */
+  if (ui.selectedIds.includes(id)) return;
+  select(id);
 };
 
 /* ---------- 刻度 ---------- */
@@ -1005,8 +1501,8 @@ const AxisLabels = memo(function AxisLabels({
       })}
       {minor.map((t) => {
         const x = xOf(t.v);
-        /* 左邊被切到的格子不寫標籤（只剩半個字） */
-        if (x > width || x < -1) return null;
+        /* 左邊被切到的格子不寫標籤（只剩半個字）；右邊放不下整個標籤的也不寫 */
+        if (x < -1 || x + 4 + axisMeasure(t.label) > width) return null;
         return (
           <span
             key={`n${t.v}`}
@@ -1161,6 +1657,124 @@ export function GmBadge({ className, title }: { className?: string; title?: stri
   );
 }
 
+/* ---------- 關聯線 ---------- */
+
+const LinkLayer = memo(function LinkLayer({
+  links,
+  shift,
+  width,
+  height,
+  gm,
+  selected,
+  dimOf,
+  vdoc,
+  draft,
+}: {
+  links: { k: VisibleLink; g: LinkGeometry }[];
+  /** 排版的座標 → 時間軸的座標（平移時只改這個） */
+  shift: number;
+  width: number;
+  height: number;
+  gm: boolean;
+  selected: ReadonlySet<string>;
+  dimOf: (id: string) => boolean;
+  vdoc: VisibleDoc;
+  draft: { x1: number; y1: number; x2: number; y2: number } | null;
+}) {
+  return (
+    <svg
+      aria-hidden
+      className="pointer-events-none absolute top-0 left-0 z-[2] overflow-visible"
+      width={width}
+      height={height}
+      data-testid="link-layer"
+    >
+      <g transform={`translate(${Math.round(shift * 100) / 100} 0)`}>
+        <LinkPaths links={links} gm={gm} selected={selected} dimOf={dimOf} vdoc={vdoc} />
+      </g>
+      {draft ? (
+        <line
+          x1={draft.x1}
+          y1={draft.y1}
+          x2={draft.x2}
+          y2={draft.y2}
+          stroke="var(--accent)"
+          strokeWidth={2}
+          strokeDasharray="4 3"
+          data-testid="link-draft"
+        />
+      ) : null}
+    </svg>
+  );
+});
+
+/** 線本身（平移時不重畫） */
+const LinkPaths = memo(function LinkPaths({
+  links,
+  gm,
+  selected,
+  dimOf,
+  vdoc,
+}: {
+  links: { k: VisibleLink; g: LinkGeometry }[];
+  gm: boolean;
+  selected: ReadonlySet<string>;
+  dimOf: (id: string) => boolean;
+  vdoc: VisibleDoc;
+}) {
+  const titles = useMemo(() => {
+    const names = new Map(vdoc.events.map((e) => [e.id, e.title.trim() || S.untitled]));
+    return (k: VisibleLink) => linkTitle(names, k);
+  }, [vdoc.events]);
+  return (
+    <>
+      {links.map(({ k, g }) => {
+        const st = LINK_STYLES[k.kind];
+        const color = gm && k.secret ? GM_COLOR : st.color;
+        const hot = selected.has(k.from) || selected.has(k.to);
+        const dim = dimOf(k.from) || dimOf(k.to);
+        return (
+          <g
+            key={k.id}
+            data-link-id={k.id}
+            data-link-kind={k.kind}
+            data-secret={(gm && k.secret) || undefined}
+            opacity={dim ? 0.25 : 1}
+          >
+            <title>{titles(k)}</title>
+            <path
+              d={g.d}
+              fill="none"
+              stroke="transparent"
+              strokeWidth={10}
+              style={{ pointerEvents: 'stroke', cursor: 'pointer' }}
+            />
+            <path
+              d={g.d}
+              fill="none"
+              stroke={color}
+              strokeWidth={st.width + (hot ? 0.9 : 0)}
+              strokeDasharray={st.dash?.join(' ')}
+              strokeLinecap="round"
+            />
+            {g.head ? (
+              <polygon points={g.head.map(([x, y]) => `${x},${y}`).join(' ')} fill={color} />
+            ) : null}
+            {st.cross ? (
+              <path
+                d={`M${g.mid[0] - 4} ${g.mid[1] - 4}L${g.mid[0] + 4} ${g.mid[1] + 4}M${g.mid[0] + 4} ${g.mid[1] - 4}L${g.mid[0] - 4} ${g.mid[1] + 4}`}
+                stroke={color}
+                strokeWidth={2}
+                strokeLinecap="round"
+              />
+            ) : null}
+          </g>
+        );
+      })}
+    </>
+  );
+});
+
 /* ---------- 事件 ---------- */
 
 interface ItemProps {
@@ -1173,6 +1787,7 @@ interface ItemProps {
   dragging: boolean;
   gm: boolean;
   editable: boolean;
+  dim: boolean;
   title: string;
   onKeyDown: (e: ReactKeyboardEvent<HTMLElement>, id: string) => void;
 }
@@ -1187,6 +1802,7 @@ const Item = memo(function Item({
   dragging,
   gm,
   editable,
+  dim,
   title,
   onKeyDown,
 }: ItemProps) {
@@ -1204,11 +1820,13 @@ const Item = memo(function Item({
     'data-row': it.row,
     'data-selected': selected || undefined,
     'data-secret': (gm && e.secret) || undefined,
+    'data-dim': dim || undefined,
     onKeyDown: (ev: ReactKeyboardEvent<HTMLElement>) => onKeyDown(ev, it.id),
     /* 鍵盤（Tab）移到事件上＝選取 */
     onFocus: () => selectOnFocus(it.id),
   };
   const ring = selected ? 'ring-2 ring-focus' : 'focus-visible:ring-2 focus-visible:ring-focus';
+  const fade = dim && !selected ? 'opacity-25' : undefined;
   if (e.kind === 'point') {
     return (
       <button
@@ -1216,6 +1834,7 @@ const Item = memo(function Item({
         className={cn(
           'absolute z-[3] flex cursor-pointer items-center rounded-[4px] pr-1 outline-none',
           ring,
+          fade,
           dragging && 'z-[5] opacity-90 shadow-2',
         )}
         style={{ left: x1 - POINT_R - 2, top: it.y, height: ITEM_H, ...stripes }}
@@ -1257,6 +1876,7 @@ const Item = memo(function Item({
       className={cn(
         'absolute z-[3] cursor-pointer rounded-[4px] outline-none',
         ring,
+        fade,
         dragging && 'z-[5] opacity-90 shadow-2',
       )}
       style={{ left, top: it.y, width: w, height: ITEM_H, background: color, ...stripes }}
@@ -1311,7 +1931,7 @@ function NoteMark() {
 }
 
 function BackgroundBand({
-  e,
+  bg,
   color,
   left,
   right,
@@ -1319,14 +1939,16 @@ function BackgroundBand({
   cutRight,
   top,
   height,
+  labelTop,
   selected,
   gm,
   editable,
+  dim,
   title,
   dragging,
   onKeyDown,
 }: {
-  e: VisibleEvent;
+  bg: BackgroundLayout;
   color: string;
   left: number;
   right: number;
@@ -1334,13 +1956,17 @@ function BackgroundBand({
   cutRight: boolean;
   top: number;
   height: number;
+  /** 左上角的標題離區段頂端多遠（和同一列的事件一起堆疊的位置） */
+  labelTop: number;
   selected: boolean;
   gm: boolean;
   editable: boolean;
+  dim: boolean;
   title: string;
   dragging: boolean;
   onKeyDown: (e: ReactKeyboardEvent<HTMLElement>, id: string) => void;
 }) {
+  const e = bg.event;
   const w = Math.max(2, right - left);
   /* 區段本身不擋點選（和 vis-timeline 一樣，點、雙擊空白處照常）；左上角的標題是按鈕（選取、拖曳移動），兩端拖曳改長短 */
   return (
@@ -1349,10 +1975,12 @@ function BackgroundBand({
       data-kind="background"
       data-selected={selected || undefined}
       data-secret={(gm && e.secret) || undefined}
+      data-dim={dim || undefined}
       className={cn(
         'pointer-events-none absolute z-[1]',
         selected && 'ring-2 ring-focus ring-inset',
         dragging && 'opacity-80',
+        dim && !selected && 'opacity-25',
       )}
       style={{ left, top, width: w, height }}
     >
@@ -1368,7 +1996,8 @@ function BackgroundBand({
         data-band-label
         onKeyDown={(ev) => onKeyDown(ev, e.id)}
         onFocus={() => selectOnFocus(e.id)}
-        className="pointer-events-auto absolute top-0.5 left-1 flex max-w-[calc(100%-0.5rem)] cursor-pointer items-center gap-1 rounded-sm px-0.5 text-[11px] font-semibold text-muted outline-none hover:text-fg focus-visible:ring-2 focus-visible:ring-focus"
+        className="pointer-events-auto absolute left-1 flex max-w-[calc(100%-0.5rem)] cursor-pointer items-center gap-1 rounded-sm px-0.5 text-[11px] font-semibold text-muted outline-none hover:text-fg focus-visible:ring-2 focus-visible:ring-focus"
+        style={{ top: labelTop }}
       >
         <span className="truncate" data-item-label>
           {e.title.trim() || S.untitled}

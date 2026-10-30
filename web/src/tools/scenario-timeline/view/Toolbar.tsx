@@ -1,13 +1,15 @@
 /**
- * 預覽欄的工具列（規格 F15、F30、F32、F50、F61）：時間軸／年表、GM／PL、縮小、放大、全覽、＋事件。
+ * 預覽欄的工具列（規格 F15、F30、F32、F50、F61、F91）：時間軸／年表、GM／PL、縮小、放大、全覽、篩選、＋事件。
  */
-import { Maximize2, Plus, ZoomIn, ZoomOut } from 'lucide-react';
+import { Funnel, Maximize2, Plus, ZoomIn, ZoomOut } from 'lucide-react';
 import { Button, IconButton, Segmented, useMediaQuery, withShortcut } from '@/ui';
+import { effectiveFilter, filterCount } from '../model/filter';
 import type { Audience } from '../model/visible';
 import { BUTTON_STEP, zoomState } from '../model/window';
 import { setPrefs, useDoc, usePrefs, useUi, type ViewKind } from '../store';
 import { S } from '../strings';
 import { addEventNow } from './actions';
+import { useFilterState } from './FilterBar';
 import { timelineApi } from './Timeline';
 
 /** 目前的檢視：還沒選過時，窄畫面（< 640 px）是年表 */
@@ -21,9 +23,14 @@ export function Toolbar() {
   const view = useEffectiveView();
   const viewMode = usePrefs((s) => s.data.viewMode);
   const mode = useDoc((s) => s.data.mode);
+  const calendar = useDoc((s) => s.data.calendar);
+  const era = useDoc((s) => s.data.era);
   const win = useUi((s) => s.win);
+  const filterOpen = usePrefs((s) => s.data.filterOpen);
+  const fs = useFilterState();
+  const nFilter = filterCount(effectiveFilter(fs.vdoc, fs.filter));
   const pl = viewMode === 'pl';
-  const zs = win ? zoomState(mode, win) : { canIn: true, canOut: true };
+  const zs = win ? zoomState(mode, win, { era, calendar }) : { canIn: true, canOut: true };
   return (
     <div
       role="toolbar"
@@ -81,6 +88,23 @@ export function Toolbar() {
           />
         </div>
       ) : null}
+      <Button
+        size="sm"
+        variant="secondary"
+        icon={<Funnel />}
+        aria-expanded={filterOpen}
+        aria-label={nFilter ? S.filterButtonN(nFilter) : S.filterButton}
+        data-testid="filter-toggle"
+        className={nFilter ? 'border-accent' : undefined}
+        onClick={() => setPrefs({ filterOpen: !filterOpen })}
+      >
+        {S.filterShort}
+        {nFilter ? (
+          <span className="ml-0.5 rounded-full bg-accent px-1.5 text-[11px] leading-4 font-semibold text-accent-contrast tabular-nums">
+            {nFilter}
+          </span>
+        ) : null}
+      </Button>
       <Button
         size="sm"
         icon={<Plus />}

@@ -3,14 +3,17 @@
  */
 import { useMemo } from 'react';
 import { pickStep, snapUnitFor } from '../model/axis';
+import { calInfo, calParts, dayOfValue, monthStartValue, valueOfDay } from '../model/calendar';
 import { layoutRows } from '../model/layout';
 import { createMeasure } from '../model/measure';
 import {
   addMonths,
   canonical,
   coarser,
+  ctxParts,
   dateParts,
   dateValue,
+  type EraArg,
   MINUTES_PER_DAY,
   type Precision,
   precisionUnit,
@@ -19,7 +22,7 @@ import {
   type TimeMode,
   type Tv,
 } from '../model/time';
-import { todayValue } from '../model/types';
+import { type TimelineDoc, todayValue } from '../model/types';
 import { type Audience, type VisibleDoc, visibleDoc } from '../model/visible';
 import { fitWithLabels, type Win } from '../model/window';
 import { docNow, prefsNow, useDoc, usePrefs, useUi } from '../store';
@@ -54,36 +57,54 @@ export function currentWin(): Win {
 }
 
 /** 某個寬度下的吸附單位 */
-export function snapForWidth(mode: TimeMode, win: Win, width: number): SnapUnit {
+export function snapForWidth(mode: TimeMode, win: Win, width: number, ctx?: EraArg): SnapUnit {
   const k = width / Math.max(1e-9, win.end - win.start);
-  return snapUnitFor(mode, pickStep(mode, k, win.start, win.end, axisMeasure));
+  return snapUnitFor(mode, pickStep(mode, k, win.start, win.end, axisMeasure, ctx), ctx);
 }
 
-/** 新事件的寫法：吸附到 1 日以上時只寫到日，其他寫到分（架空年只有年） */
+/**
+ * 新事件的寫法：吸附到 1 日以上時只寫到日，其他寫到分（架空年只有年；
+ * 架空曆有月份時，吸附到日、月的寫到日，吸附到年的只到年）
+ */
 export function precisionForSnap(mode: TimeMode, u: SnapUnit): Precision {
-  if (mode === 'year') return 'year';
+  if (mode === 'year') return u.kind === 'day' || u.kind === 'month' ? 'day' : 'year';
   if (u.kind === 'min' && u.n < MINUTES_PER_DAY) return 'minute';
   return 'day';
 }
 
 /** 新事件的開始（標準寫法） */
-export function newEventStart(mode: TimeMode, v: number, u: SnapUnit): string {
-  const p = precisionForSnap(mode, u);
-  const unit = coarser(mode, u, precisionUnit(mode, p));
-  let s = snapValue(mode, v, unit);
+export function newEventStart(mode: TimeMode, v: number, u: SnapUnit, ctx?: EraArg): string {
+  const info = mode === 'year' ? ctxParts(ctx).info : null;
+  const p = mode === 'year' && !info ? 'year' : precisionForSnap(mode, u);
+  const unit = coarser(mode, u, precisionUnit(mode, p), ctx);
+  let s = snapValue(mode, v, unit, ctx);
   if (mode !== 'year' && p === 'day') s = Math.floor(s / MINUTES_PER_DAY) * MINUTES_PER_DAY;
-  return canonical(mode, { v: s, p });
+  if (info && p === 'day') s = valueOfDay(info, dayOfValue(info, s));
+  return canonical(mode, { v: s, p }, ctx);
 }
 
 /** 往前、往後一步（照事件的寫法；結果對齊到單位） */
-export function stepTv(mode: TimeMode, tv: Tv, unit: SnapUnit, dir: 1 | -1): Tv {
-  const u = coarser(mode, unit, precisionUnit(mode, tv.p));
+export function stepTv(mode: TimeMode, tv: Tv, unit: SnapUnit, dir: 1 | -1, ctx?: EraArg): Tv {
+  const u = coarser(mode, unit, precisionUnit(mode, tv.p), ctx);
+  const info = mode === 'year' ? ctxParts(ctx).info : null;
   let v: number;
-  if (u.kind === 'min' || mode === 'year') v = tv.v + dir * u.n;
+  if (info && u.kind === 'day') v = valueOfDay(info, dayOfValue(info, tv.v) + dir * u.n);
+  else if (info && u.kind === 'month') {
+    const c = calParts(info, tv.v);
+    /* 同一天（超過那個月的天數時是那個月的最後一天） */
+    const start = monthStartValue(info, c.y, c.m - 1 + dir * u.n);
+    const m = calParts(info, start);
+    const day = Math.min(c.d, info.months[m.m - 1].days) - 1;
+    v = valueOfDay(info, m.T + (tv.p === 'day' ? day : 0));
+  } else if (u.kind === 'min' || mode === 'year') v = tv.v + dir * u.n;
   else if (u.kind === 'month') v = addMonths(tv.v, dir * u.n);
   else v = dateValue(dateParts(tv.v).y + dir * u.n);
-  return { v: snapValue(mode, v, u), p: tv.p };
+  return { v: snapValue(mode, v, u, ctx), p: tv.p };
 }
+
+/** 專案的架空曆（有月份時；只有架空年用得到） */
+export const calOfDoc = (doc: { mode: TimeMode; calendar?: TimelineDoc['calendar'] }) =>
+  doc.mode === 'year' ? calInfo(doc.calendar) : null;
 
 /** 事件現在畫在哪一列（泳道 id；收合的上層） */
 export function rowKeyOf(vdoc: VisibleDoc, laneId: string): string {

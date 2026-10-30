@@ -35,6 +35,7 @@ import {
 } from '../store';
 import { S } from '../strings';
 import { currentWin, newEventStart, snapForWidth, useVisibleDoc } from '../view/shared';
+import { CalendarSection } from './CalendarSection';
 import { PlLock } from './EventPanel';
 import { TimeField } from './TimeField';
 
@@ -44,7 +45,12 @@ const g = historyGesture(useDoc);
 function centerTime(): string {
   const doc = docNow();
   const win = currentWin();
-  return newEventStart(doc.mode, (win.start + win.end) / 2, snapForWidth(doc.mode, win, 800));
+  return newEventStart(
+    doc.mode,
+    (win.start + win.end) / 2,
+    snapForWidth(doc.mode, win, 800, doc),
+    doc,
+  );
 }
 
 export function ProjectPanel() {
@@ -109,6 +115,8 @@ export function ProjectPanel() {
         ) : null}
       </Section>
 
+      {doc.mode === 'year' ? <CalendarSection pl={pl} /> : null}
+
       <Section title={S.progressTitle} fixed description={S.progressHint}>
         <Field label={S.progressOn} layout="inline">
           <Toggle
@@ -131,7 +139,7 @@ export function ProjectPanel() {
               label={S.progressTime}
               value={doc.progress.time}
               mode={doc.mode}
-              era={doc.era}
+              era={doc}
               disabled={pl}
               data-field="progress-time"
               onCommit={(t) => patchDoc({ progress: { ...docNow().progress, time: t } })}
@@ -261,7 +269,7 @@ function MarkerRow({ m, pl }: { m: Marker; pl: boolean }) {
         label={S.markerTime}
         value={m.time}
         mode={doc.mode}
-        era={doc.era}
+        era={doc}
         disabled={pl}
         data-field="marker-time"
         onCommit={(t) =>

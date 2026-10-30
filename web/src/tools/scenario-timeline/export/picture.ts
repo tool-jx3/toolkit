@@ -22,6 +22,7 @@ import {
   POINT_R,
   type Span,
 } from '../model/layout';
+import { LINK_STYLES, linkGeometry } from '../model/links';
 import { ellipsize, type TextMeasure } from '../model/measure';
 import { eventColor, GM_COLOR } from '../model/types';
 import { usedCategories, type VisibleDoc } from '../model/visible';
@@ -53,6 +54,15 @@ export type Prim =
     }
   | { t: 'circle'; cx: number; cy: number; r: number; fill: string; stroke?: string; sw?: number }
   | { t: 'poly'; points: [number, number][]; fill: string }
+  /** SVG 的路徑（關聯線的曲線；canvas 用 Path2D 畫） */
+  | {
+      t: 'path';
+      d: string;
+      stroke: string;
+      sw: number;
+      dash?: number[];
+      opacity?: number;
+    }
   | {
       t: 'text';
       x: number;
@@ -220,7 +230,7 @@ export function buildPicture(input: PictureInput): Picture {
   const vdoc: VisibleDoc = {
     ...input.vdoc,
     events: input.vdoc.events.filter((e) => {
-      const s = eventSpan(input.vdoc.mode, e, input.vdoc.era);
+      const s = eventSpan(input.vdoc.mode, e, input.vdoc);
       return !!s && s.b >= range.a && s.a <= range.b;
     }),
   };
@@ -242,7 +252,7 @@ export function buildPicture(input: PictureInput): Picture {
     collapsed: input.collapsed,
     untitled: S.untitled,
   });
-  const ticks = axisTicks(vdoc.mode, range.a, range.b, k, M.small);
+  const ticks = axisTicks(vdoc.mode, range.a, range.b, k, M.small, vdoc);
   const flags = placeFlags(
     collectFlags(vdoc, { progress: S.progress, now: S.now }, input.nowV),
     xOf,
@@ -338,8 +348,8 @@ export function buildPicture(input: PictureInput): Picture {
       stroke: pal.grid,
       sw: 1,
     });
-    /* 左邊被切到的格子不寫標籤 */
-    if (x < LW - 1) continue;
+    /* 左邊被切到的格子不寫標籤；右邊放不下整個標籤的也不寫（不畫被切掉的半個字） */
+    if (x < LW - 1 || x + 4 + M.small(t.label) > LW + trackW) continue;
     grid.push({
       t: 'text',
       x: x + 4,
@@ -438,11 +448,12 @@ export function buildPicture(input: PictureInput): Picture {
     track.push({ t: 'rect', x: x1, y, w: Math.max(2, x2 - x1), h, fill: color, opacity: 0.18 });
     if (gm && bg.event.secret) track.push(stripes(x1, y, Math.max(2, x2 - x1), h));
     const label = ellipsize(bg.event.title.trim() || S.untitled, Math.max(0, x2 - x1 - 8), M.small);
+    /* 標題和同一列的事件一起堆疊（不會被同位置的事件蓋住） */
     if (label)
       track.push({
         t: 'text',
         x: x1 + 4,
-        y: y + 13,
+        y: lanesTop + bg.labelY + 15,
         text: label,
         size: 11,
         weight: 600,
@@ -462,6 +473,54 @@ export function buildPicture(input: PictureInput): Picture {
       sw: f.kind === 'marker' ? 1.5 : 2,
       dash: f.kind === 'marker' ? [5, 4] : undefined,
     });
+  }
+  /* 關聯線（F93）：在事件的下面；GM 用時 GM 專用的線是琥珀色 */
+  if (vdoc.links.length) {
+    const boxes = new Map<
+      string,
+      { kind: 'point' | 'range' | 'background'; x1: number; x2: number; cy: number }
+    >();
+    for (const it of layout.items) {
+      const x1 = xOf(it.a);
+      boxes.set(it.id, {
+        kind: it.event.kind === 'point' ? 'point' : 'range',
+        x1,
+        x2: it.event.kind === 'point' ? x1 : x1 + Math.max(MIN_BAR, (it.b - it.a) * k),
+        cy: lanesTop + it.y + ITEM_H / 2,
+      });
+    }
+    for (const bg of layout.backgrounds)
+      boxes.set(bg.id, {
+        kind: 'background',
+        x1: xOf(bg.a),
+        x2: xOf(bg.a),
+        cy: lanesTop + bg.labelY + ITEM_H / 2,
+      });
+    for (const kk of vdoc.links) {
+      const a = boxes.get(kk.from);
+      const b = boxes.get(kk.to);
+      if (!a || !b) continue;
+      const st = LINK_STYLES[kk.kind];
+      const g = linkGeometry(a, b, st.arrow);
+      const color = gm && kk.secret ? GM_COLOR : st.color;
+      track.push({
+        t: 'path',
+        d: g.d,
+        stroke: color,
+        sw: st.width,
+        ...(st.dash ? { dash: st.dash } : {}),
+      });
+      if (g.head) track.push({ t: 'poly', points: g.head, fill: color });
+      if (st.cross) {
+        const [mx, my] = g.mid;
+        track.push({
+          t: 'path',
+          d: `M${mx - 4} ${my - 4}L${mx + 4} ${my + 4}M${mx + 4} ${my - 4}L${mx - 4} ${my + 4}`,
+          stroke: color,
+          sw: 2,
+        });
+      }
+    }
   }
   for (const it of layout.items) {
     const e = it.event;
@@ -624,6 +683,8 @@ export function pictureToSvg(pic: Picture, fontCss = ''): string {
             return `<circle cx="${n(p.cx)}" cy="${n(p.cy)}" r="${n(p.r)}" fill="${p.fill}"${p.stroke ? ` stroke="${p.stroke}" stroke-width="${n(p.sw ?? 1)}"` : ''}/>`;
           case 'poly':
             return `<polygon points="${p.points.map(([x, y]) => `${n(x)},${n(y)}`).join(' ')}" fill="${p.fill}"/>`;
+          case 'path':
+            return `<path d="${p.d}" fill="none" stroke="${p.stroke}" stroke-width="${n(p.sw)}" stroke-linecap="round"${p.dash ? ` stroke-dasharray="${p.dash.join(' ')}"` : ''}${p.opacity !== undefined ? ` opacity="${n(p.opacity)}"` : ''}/>`;
           case 'text':
             return `<text x="${n(p.x)}" y="${n(p.y)}" font-size="${p.size}" font-weight="${p.weight}" fill="${p.fill}"${p.anchor && p.anchor !== 'start' ? ` text-anchor="${p.anchor}"` : ''}>${esc(p.text)}</text>`;
           case 'clip': {
@@ -692,6 +753,16 @@ export function drawPicture(ctx: Ctx, pic: Picture, family = SVG_FAMILY): void {
             ctx.setLineDash([]);
             ctx.stroke();
           }
+          break;
+        case 'path':
+          ctx.save();
+          if (p.opacity !== undefined) ctx.globalAlpha = p.opacity;
+          ctx.strokeStyle = p.stroke;
+          ctx.lineWidth = p.sw;
+          ctx.lineCap = 'round';
+          ctx.setLineDash(p.dash ?? []);
+          ctx.stroke(new Path2D(p.d));
+          ctx.restore();
           break;
         case 'poly':
           ctx.beginPath();
