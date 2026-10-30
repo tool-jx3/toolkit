@@ -1,5 +1,5 @@
 /**
- * 動作：加入／拿掉聲音、播放／暫停、套用組合（預設、隨機、我的組合、分享連結）、自己的音檔、定時停止、匯出 WAV。
+ * 動作：加入／拿掉聲音、播放／暫停、套用組合（預設、隨機、我的組合、分享連結）、自己的音檔、定時停止、匯出 MP3／WAV。
  * 通知（toast）由 App 用 setNotifier 接上共用的 useToast。
  */
 
@@ -14,6 +14,7 @@ import {
   renderLoopMix,
   volumeGain,
 } from '@/core/audio/ambience';
+import { encodeMp3 } from '@/core/audio/mp3';
 import type { ConfirmOptions, ToastOptions } from '@/ui';
 import {
   assets,
@@ -28,6 +29,7 @@ import {
   TooLongError,
 } from './engine';
 import {
+  type ExportSettings,
   exportFileName,
   FILE_MIN_SECONDS,
   type FileTrack,
@@ -42,6 +44,7 @@ import {
   type MixPreset,
   type MixState,
   masterGain,
+  mp3Kbps,
   newFileTrack,
   newSynthTrack,
   presetTracks,
@@ -434,7 +437,8 @@ function previewProblem(t: FileTrack | SynthTrack): FileProblem | null {
   return isFileProblem(st) ? st : null;
 }
 
-export async function exportWav(): Promise<void> {
+/** 匯出（照匯出設定的格式：MP3 或 WAV） */
+export async function exportMix(): Promise<void> {
   if (useRuntime.getState().exporting) return;
   const s = mixNow();
   const audible = s.tracks.filter((t) => t.volume > 0);
@@ -468,8 +472,11 @@ export async function exportWav(): Promise<void> {
     exportError: '',
     result: null,
   });
+  const { format } = s.export;
+  const kbps = format === 'mp3' ? mp3Kbps(s.export.kbps, s.export.sampleRate) : 0;
   try {
-    const total = tracks.length + 1;
+    /* 進度：每一軌一格、混音一格，MP3 再加編碼兩格（編碼比混音久） */
+    const total = tracks.length + 1 + (format === 'mp3' ? 2 : 0);
     let done = 0;
     const parts = await Promise.all(
       tracks.map(async (t) => {
@@ -502,21 +509,43 @@ export async function exportWav(): Promise<void> {
       master: masterGain(s.master),
     });
     aborted(ctrl.signal);
-    const blob = wavBlob(mix);
+    const peak = peakDb(mix);
+    let blob: Blob;
+    if (format === 'mp3') {
+      const base = (tracks.length + 1) / total;
+      useRuntime.setState({ stage: S.exportPanel.encoding, progress: base });
+      const bytes = await encodeMp3(
+        mix,
+        { kbps },
+        {
+          signal: ctrl.signal,
+          onProgress: (f) => useRuntime.setState({ progress: base + (1 - base) * f }),
+        },
+      );
+      aborted(ctrl.signal);
+      blob = new Blob([bytes as Uint8Array<ArrayBuffer>], { type: 'audio/mpeg' });
+    } else {
+      blob = wavBlob(mix);
+    }
     useRuntime.setState({
       progress: 1,
       result: {
         blob,
         name: exportFileName(s, new Set(skipped.map((x) => x.key))),
+        settings: { ...s.export },
+        format,
+        kbps,
         bytes: blob.size,
         seconds: s.export.seconds,
         sampleRate: s.export.sampleRate,
         channels: s.export.channels,
-        peakDb: peakDb(mix),
+        peakDb: peak,
         ms: performance.now() - t0,
         skipped,
       },
     });
+    /* 匯出的途中改了設定：結果不是目前的設定，不留 */
+    dropStaleResult();
   } catch (e) {
     if (!(e instanceof DOMException && e.name === 'AbortError')) {
       console.warn('環境音混音器：匯出失敗', e);
@@ -531,8 +560,30 @@ export async function exportWav(): Promise<void> {
   }
 }
 
-/** 匯出設定改了：上一次的結果就不是目前的設定，清掉 */
-export function clearExportResult(): void {
-  if (useRuntime.getState().result || useRuntime.getState().exportError)
-    useRuntime.setState({ result: null, exportError: '' });
+const sameExport = (a: ExportSettings, b: ExportSettings): boolean =>
+  a.seconds === b.seconds &&
+  a.sampleRate === b.sampleRate &&
+  a.channels === b.channels &&
+  a.format === b.format &&
+  a.kbps === b.kbps;
+
+/** 結果的匯出設定和目前的不同時清掉結果（結果卡寫的長度、格式就不是目前的設定了） */
+function dropStaleResult(): void {
+  const r = useRuntime.getState().result;
+  if (r && !sameExport(r.settings, mixNow().export)) useRuntime.setState({ result: null });
+}
+
+/**
+ * 盯著匯出設定（App 開頁時呼叫，回傳取消）：改設定、復原、重做都一樣——設定和結果的不同就清掉結果，
+ * 設定改了也清掉上一次的錯誤訊息（驗證後修正：原本只有在匯出區塊改設定時才清，用 Ctrl＋Z 復原時舊的結果卡還留著）。
+ */
+export function watchExportSettings(): () => void {
+  let last: ExportSettings = { ...mixNow().export };
+  return useMix.subscribe((st) => {
+    const e = st.data.export;
+    if (sameExport(e, last)) return;
+    last = { ...e };
+    if (useRuntime.getState().exportError) useRuntime.setState({ exportError: '' });
+    dropStaleResult();
+  });
 }

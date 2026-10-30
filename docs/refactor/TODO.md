@@ -68,7 +68,7 @@
 | floor-plan | Maptsukuri（maptsukuri.pages.dev，不在 GitHub） | 未授權 | .dd2vtt 匯出、隨機配置 | 中 |
 | ui-frame | [knightleft/trpg-overlay](https://github.com/knightleft/trpg-overlay)（原本列為新工具候選「直播版面產生器」） | 未授權 | OBS 直播版面（作者寫繁中）：和 ui-frame 的 TRPG・直播模式重疊，可以補整面版面配置 | 中 |
 | floor-plan | 本站（2026-10-29 改 L 形範本時沒改的，規格 D81） | — | 辦公大樓 8F、劇場 B1 的轉角走廊照同樣的做法改成 L 形（要重驗格局與線索位置、更新匯出 PNG 的基準） | 小 |
-| ambience-mixer | 本站（2026-10-29，規格 D1、D3、D17） | — | 再合成「房間底噪」「雨打在帳篷／傘上」；OGG／MP3 匯出（候選：wasm-media-encoders〔MIT＋LAME LGPL＋libvorbis BSD，約 3 MB〕、@breezystack/lamejs〔LGPL-3.0〕、WebCodecs 的 Opus＋自己寫 Ogg 封裝〔部分瀏覽器〕）；另找逐檔標明 CC0 的真實錄音內建 | 小～中 |
+| ambience-mixer | 本站（2026-10-29，規格 D1、D23） | — | 另找逐檔標明 CC0 的真實錄音內建（使用者 2026-10-29 選了「收逐檔標 CC0 的錄音」，這個環境連不到 Freesound 等來源，等開網路）；在 CCFOLIA 試聽一次 MP3 的循環接縫（預設是 MP3，聽得出接縫就改回 WAV，D23） | 小～中 |
 | scenario-timeline | 本站（2026-10-29 第二批沒做的，規格 D28、D29） | — | 年表與文字年表列出關聯線；架空曆寫到時刻（時:分） | 小 |
 
 ## 內部改善
@@ -180,4 +180,4 @@
 - 2026-10-29：完成並移出清單——npc-names 的人數名單也附涵義（F57；對等驗證見規格 6.3、裁定 7.3）。
 - 2026-10-29：使用者要求做待做清單的三個新工具（環境音混音、劇本時間表／年表、PL 自我介紹卡／地雷表）與 QR Code 產生器（參考 kozakdenys/qr-code-styling）；另外上傳 KIIN 的「マップ制作スタジオ v1.0」，選擇併進室內平面圖產生器（自動化、L 形房間、圖面風格與座標、VTT 匯出與串接）。
 - 2026-10-29：完成並移出清單——新工具 QR Code 產生器（qr-maker）、PL 自介卡與地雷表（pl-profile）、劇本時間表（scenario-timeline，第一批）、環境音混音器（ambience-mixer）；floor-plan 參考 KIIN マップ制作スタジオ的功能（規格 6.8、7.22）。沒做的記在第三節與內部改善。
-- 2026-10-30：完成並移出清單——劇本時間表（scenario-timeline）第二批（規格 F90～F109：多選、搜尋與篩選、架空曆的月日、事件之間的關聯線、讀入 vis-timeline 的資料；驗證紀錄 6.2、裁定 7.2）；floor-plan 的 L 形範本與「在地圖演出產生器開啟」帶房間的範圍（floor-plan 6.9、7.23；map-fx F85、F86）。沒做的記在第三節。
+- 2026-10-30：完成並移出清單——劇本時間表（scenario-timeline）第二批（規格 F90～F109：多選、搜尋與篩選、架空曆的月日、事件之間的關聯線、讀入 vis-timeline 的資料；驗證紀錄 6.2、裁定 7.2）；floor-plan 的 L 形範本與「在地圖演出產生器開啟」帶房間的範圍（floor-plan 6.9、7.23；map-fx F85、F86）；環境音混音器的 MP3 匯出（lamejs）與兩種新聲音（ambience-mixer 6.2、7.2）。沒做的記在第三節；逐檔標 CC0 的真實錄音等網路開放。

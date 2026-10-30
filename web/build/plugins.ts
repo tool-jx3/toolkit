@@ -109,7 +109,12 @@ export function collectNotices(): Plugin {
   };
 }
 
-/** 沒有附授權檔的套件，授權全文補在這裡（檔名＝套件名，scope 的「/」換成「__」） */
+/**
+ * 授權全文的補充（檔名＝套件名，scope 的「/」換成「__」）：
+ * - 套件沒有附授權檔時，用這個檔當授權全文（例如 onnxruntime-web）；
+ * - 套件附的授權檔不是授權全文時（例如 @breezystack/lamejs 只有一段 LAME 的說明），接在套件的授權檔後面
+ *   （授權全文、原始碼的出處）。
+ */
 const SUPPLEMENTARY_LICENSES = path.join(path.dirname(fileURLToPath(import.meta.url)), 'licenses');
 
 /** 讀授權檔：換行一律 LF（有些套件的授權檔是 CRLF），去掉前後空白 */
@@ -191,12 +196,16 @@ function noticesMarkdown(tools: readonly ToolEntry[] = [], srcToolsDir = ''): st
     const url = (pkg.homepage || repo || '').replace(/^git\+/, '');
     rows.push(`| ${pkg.name} | ${pkg.version} | ${pkg.license ?? '（未標示）'} | ${url} |`);
     const licenseFile = readdirSync(dir).find((f) => /^(licen[cs]e|copying)(\.|$)/i.test(f));
+    const extra = path.join(SUPPLEMENTARY_LICENSES, `${pkg.name.replace('/', '__')}.txt`);
     if (licenseFile) {
       const body = readText(path.join(dir, licenseFile));
-      texts.push(`### ${key}\n\n\`\`\`\n${body}\n\`\`\``);
+      /* 套件的授權檔只是一段說明：build/licenses/<套件名>.txt 補上授權全文與原始碼的出處 */
+      const more = existsSync(extra)
+        ? `\n\n（套件附的授權檔只有上面這段；以下補上授權全文與原始碼的出處）\n\n\`\`\`\n${readText(extra)}\n\`\`\``
+        : '';
+      texts.push(`### ${key}\n\n\`\`\`\n${body}\n\`\`\`${more}`);
     } else {
       /* 套件沒有附授權檔（例如 onnxruntime-web）：用 build/licenses/<套件名>.txt 補上上游 repo 的授權全文 */
-      const extra = path.join(SUPPLEMENTARY_LICENSES, `${pkg.name.replace('/', '__')}.txt`);
       if (existsSync(extra)) {
         const body = readText(extra);
         texts.push(

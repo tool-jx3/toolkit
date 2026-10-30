@@ -11,6 +11,8 @@ import {
   bytesReader,
   DEFAULT_EXPORT,
   EXPORT_LENGTHS,
+  EXPORT_RATES,
+  exportBytes,
   exportFileName,
   FILE_MAX_SECONDS,
   FILES_TOTAL_SECONDS,
@@ -25,7 +27,9 @@ import {
   MAX_FILE_TRACKS,
   MAX_TRACKS,
   type MixState,
+  MP3_KBPS,
   masterGain,
+  mp3Kbps,
   newFileTrack,
   newSynthTrack,
   nextFileKey,
@@ -146,19 +150,30 @@ describe('整理（存檔、網址）', () => {
     expect(many.tracks).toHaveLength(MAX_TRACKS);
   });
 
-  it('匯出設定只收清單上的值；預設＝預覽（60 秒、32 kHz、立體聲）', () => {
+  it('匯出設定只收清單上的值；預設＝預覽（60 秒、32 kHz、立體聲）、MP3 128 kbps', () => {
     expect(DEFAULT_EXPORT).toEqual({
       seconds: PREVIEW_SECONDS,
       sampleRate: PREVIEW_RATE,
       channels: 2,
+      format: 'mp3',
+      kbps: 128,
     });
     expect(
-      sanitizeState({ export: { seconds: 90, sampleRate: 22050, channels: 1 } }).export,
+      sanitizeState({
+        export: { seconds: 90, sampleRate: 22050, channels: 1, format: 'wav', kbps: 192 },
+      }).export,
     ).toEqual({
       seconds: 90,
       sampleRate: 22050,
       channels: 1,
+      format: 'wav',
+      kbps: 192,
     });
+    /* 第 1 版的存檔（沒有格式與位元率）照讀：補上預設 */
+    expect(
+      sanitizeState({ export: { seconds: 30, sampleRate: 44100, channels: 2 } }).export,
+    ).toEqual({ seconds: 30, sampleRate: 44100, channels: 2, format: 'mp3', kbps: 128 });
+    expect(sanitizeState({ export: { format: 'ogg', kbps: 96 } }).export).toEqual(DEFAULT_EXPORT);
     /* 起伏的週期 10 秒：匯出的長度都是 10 的倍數 */
     for (const s of EXPORT_LENGTHS) expect(s % 10).toBe(0);
   });
@@ -172,9 +187,12 @@ describe('整理（存檔、網址）', () => {
 });
 
 describe('預設組合', () => {
-  it('10 個場景：名稱不重複，聲音都存在，參數都在範圍內', () => {
-    expect(PRESETS).toHaveLength(10);
-    expect(new Set(PRESETS.map((p) => p.name)).size).toBe(10);
+  it('12 個場景：名稱不重複，聲音都存在，參數都在範圍內', () => {
+    expect(PRESETS).toHaveLength(12);
+    expect(new Set(PRESETS.map((p) => p.name)).size).toBe(12);
+    /* 2026-10-29 加的兩個用到新的聲音 */
+    expect(PRESETS.find((p) => p.id === 'rainy-camp')?.tracks[0].sound).toBe('rain-tent');
+    expect(PRESETS.find((p) => p.id === 'night-library')?.tracks[0].sound).toBe('room-tone');
     for (const p of PRESETS) {
       expect(p.tracks.length).toBeGreaterThan(1);
       expect(p.tracks.length).toBeLessThanOrEqual(MAX_TRACKS);
@@ -223,6 +241,10 @@ describe('隨機組合', () => {
       }
       if (ids[0] === 'rain-light' || ids[0] === 'rain-heavy')
         expect(ids).not.toContain('rain-window');
+      if (ids[0] === 'rain-tent')
+        for (const a of ['rain-window', 'clock', 'vinyl', 'creak', 'crickets', 'owl'])
+          expect(ids).not.toContain(a);
+      if (ids[0] === 'room-tone') expect(ids).not.toContain('owl');
       for (const t of mix) {
         expect(t.volume).toBeGreaterThanOrEqual(35);
         expect(t.volume).toBeLessThanOrEqual(75);
@@ -304,23 +326,26 @@ describe('分享連結', () => {
 });
 
 describe('檔名、長度、大小', () => {
-  it('檔名：組合名或前三個聲音、秒數', () => {
+  it('檔名：組合名或前三個聲音、秒數、副檔名照格式（預設 .mp3）', () => {
     expect(exportFileName({ ...initialState, mixName: '雨夜洋館', tracks: [synth('wind')] })).toBe(
-      '環境音-雨夜洋館-60秒.wav',
+      '環境音-雨夜洋館-60秒.mp3',
     );
+    const wav = { ...initialState.export, format: 'wav' as const };
     const s: MixState = {
       ...initialState,
       tracks: [synth('wind'), synth('owl'), synth('clock'), synth('bell')],
-      export: { ...initialState.export, seconds: 30 },
+      export: { ...wav, seconds: 30 },
     };
     expect(exportFileName(s)).toBe('環境音-風・貓頭鷹・時鐘-30秒.wav');
     const f = newFileTrack([], { asset: 'a', name: 'my/bgm?.mp3', duration: 3 });
-    expect(exportFileName({ ...initialState, tracks: [f] })).toBe('環境音-my_bgm_-60秒.wav');
-    expect(exportFileName(initialState)).toBe('環境音-混音-60秒.wav');
+    expect(exportFileName({ ...initialState, export: wav, tracks: [f] })).toBe(
+      '環境音-my_bgm_-60秒.wav',
+    );
+    expect(exportFileName(initialState)).toBe('環境音-混音-60秒.mp3');
     /* 沒有混進去的音檔不列 */
     const g = { ...newFileTrack([f], { asset: 'b', name: 'gone.wav', duration: 3 }) };
     expect(exportFileName({ ...initialState, tracks: [g, synth('wind')] }, new Set([g.key]))).toBe(
-      '環境音-風-60秒.wav',
+      '環境音-風-60秒.mp3',
     );
   });
 
@@ -334,6 +359,26 @@ describe('檔名、長度、大小', () => {
     expect(wavBytes(60, 32000, 2)).toBeLessThan(CCFOLIA_AUDIO_MAX_BYTES);
     expect(wavBytes(60, 44100, 2)).toBeGreaterThan(CCFOLIA_AUDIO_MAX_BYTES);
     expect(wavBytes(180, 22050, 1)).toBeLessThan(CCFOLIA_AUDIO_MAX_BYTES);
+  });
+
+  it('MP3：位元率 128／192（22.05 kHz 最高 160）；大小約「秒數 × 位元率 ÷ 8」，最長、最高音質也放得進 10 MB', () => {
+    expect(MP3_KBPS).toEqual([128, 192]);
+    expect(mp3Kbps(192, 44100)).toBe(192);
+    expect(mp3Kbps(192, 32000)).toBe(192);
+    expect(mp3Kbps(192, 22050)).toBe(160);
+    expect(mp3Kbps(128, 22050)).toBe(128);
+    const mp3 = { ...DEFAULT_EXPORT };
+    /* 1 分鐘 128 kbps：約 0.96 MB（＋Info 標頭與前後多編的一點點） */
+    expect(exportBytes(mp3)).toBeGreaterThan(960_000);
+    expect(exportBytes(mp3)).toBeLessThan(975_000);
+    expect(formatMb(exportBytes(mp3))).toMatch(/^96\d KB$/);
+    expect(exportBytes({ ...mp3, channels: 1 })).toBe(exportBytes(mp3));
+    for (const rate of EXPORT_RATES) {
+      const big = exportBytes({ ...mp3, seconds: 180, sampleRate: rate, kbps: 192 });
+      expect(big).toBeLessThan(CCFOLIA_AUDIO_MAX_BYTES / 2);
+    }
+    /* WAV 照舊 */
+    expect(exportBytes({ ...mp3, format: 'wav' })).toBe(wavBytes(60, 32000, 2));
   });
 
   it('大小以 1000 進位顯示（和 CCFOLIA 的「10 MB」一致）', () => {

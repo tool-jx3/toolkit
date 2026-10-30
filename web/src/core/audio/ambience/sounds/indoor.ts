@@ -1,7 +1,8 @@
 /**
- * 室內：時鐘、心跳、空調與日光燈、黑膠唱片的雜音、木頭的嘎吱聲。
+ * 室內：時鐘、心跳、空調與日光燈、房間底噪、黑膠唱片的雜音、木頭的嘎吱聲。
  * 時鐘的滴答＝很短的敲擊經幾個共振（木頭、金屬）；心跳＝兩個往下滑的低頻「咚」；
- * 日光燈＝60 Hz（臺灣的市電）的倍頻；嘎吱聲＝越來越快又變慢的一串摩擦脈衝經木板的共振。
+ * 日光燈＝60 Hz（臺灣的市電）的倍頻；嘎吱聲＝越來越快又變慢的一串摩擦脈衝經木板的共振；
+ * 房間底噪＝房間的空氣聲（很暗的粉紅雜訊）＋冰箱壓縮機低低的嗡嗡聲＋窗外遠方的車流（一台一台開過去）＋房間的殘響。
  */
 import { addLayer, lerp, logLerp, noise, unit, warmSamples } from '../build';
 import {
@@ -10,12 +11,15 @@ import {
   addWrapped,
   applyCurveGain,
   biquad,
+  fillWhite,
   filterOnce,
   filterPeriodic,
   logRange,
   loopFrequency,
   noiseBurst,
+  panGains,
   periodicCurve,
+  pinkInPlace,
   poissonTimes,
   resonate,
   reverbPeriodic,
@@ -174,6 +178,111 @@ function creakEvent(ctx: RenderContext, pitch: number): Float32Array {
   const g = pk > 0 ? logRange(rng, 0.4, 1) / pk : 0;
   for (let i = 0; i < len; i++) out[i] *= g;
   return out;
+}
+
+/* ---------- 房間底噪 ---------- */
+
+/** 遠方開過去的一台車：低沉的雜訊，4～10 秒裡慢慢變大再變小，從一邊移到另一邊（l、r 兩個聲道） */
+function passingCar(ctx: RenderContext): { l: Float32Array; r: Float32Array } {
+  const sr = ctx.sampleRate;
+  const { rng } = ctx;
+  const dur = logRange(rng, 4, 10);
+  const len = Math.round(dur * sr);
+  const x = fillWhite(new Float32Array(len), rng);
+  pinkInPlace(x, 0);
+  filterOnce(x, [
+    biquad('bandpass', logRange(rng, 180, 520), 0.7, sr),
+    biquad('lowpass', 900, 0.7, sr),
+  ]);
+  /* 最近的時候在 35%～65% 的地方；音量是兩段平滑的鐘形 */
+  const top = 0.35 + 0.3 * rng.next();
+  const from = (rng.next() < 0.5 ? -1 : 1) * (0.5 + 0.4 * rng.next());
+  const to = -from * (0.6 + 0.4 * rng.next());
+  const l = new Float32Array(len);
+  const r = new Float32Array(len);
+  /* 音量與位置每 64 個取樣算一次（區塊內不變，變化很慢聽不出來） */
+  for (let s = 0; s < len; s += 64) {
+    const t = (s + 32) / len;
+    const env =
+      t < top
+        ? Math.sin(((Math.PI / 2) * t) / top) ** 2
+        : Math.cos(((Math.PI / 2) * (t - top)) / (1 - top)) ** 2;
+    const [gl, gr] = panGains(from + (to - from) * t);
+    const e = Math.min(len, s + 64);
+    for (let i = s; i < e; i++) {
+      l[i] = x[i] * env * gl;
+      r[i] = x[i] * env * gr;
+    }
+  }
+  return { l, r };
+}
+
+function roomToneRender(ctx: RenderContext, h: number, tr: number, room: number): void {
+  const sr = ctx.sampleRate;
+  const { rng, n } = ctx;
+  /* 房間的空氣聲：很暗的粉紅雜訊（一直都在，三個都調到最小時也還有） */
+  addLayer(
+    ctx,
+    () => {
+      const b = noise(ctx, 'pink', [
+        biquad('lowpass', 1800, 0.6, sr),
+        biquad('highpass', 35, 0.7, sr),
+      ]);
+      return applyCurveGain(b, periodicCurve(n, 512, ctx.seconds / 8, rng), 0.85, 1);
+    },
+    0.03,
+  );
+  /* 冰箱的壓縮機：60 Hz 與倍頻（120 Hz 最強；整數秒裡剛好整數個週期）＋馬達低沉的轟轟聲，慢慢地有點起伏 */
+  if (h > 0) {
+    const hum = new Float32Array(n);
+    for (const [k, a] of [
+      [1, 0.45],
+      [2, 1],
+      [3, 0.22],
+      [4, 0.1],
+    ] as const) {
+      addSine(hum, loopFrequency(60 * k, ctx.seconds), a, rng.next() * 2 * Math.PI, sr);
+    }
+    const motor = noise(ctx, 'brown', [biquad('bandpass', 95, 2, sr)]);
+    for (let i = 0; i < n; i++) hum[i] = hum[i] * 0.03 + motor[i] * 0.12;
+    applyCurveGain(hum, periodicCurve(n, 512, ctx.seconds / 6, rng), 0.75, 1);
+    /* 在房間的一邊（左邊大一點） */
+    for (let i = 0; i < n; i++) {
+      const v = hum[i] * h * 0.45;
+      ctx.left[i] += v;
+      if (ctx.right) ctx.right[i] += v * 0.75;
+    }
+  }
+  /* 窗外遠方的車流：一層低沉的轟轟聲＋一台一台開過去 */
+  if (tr > 0) {
+    addLayer(
+      ctx,
+      () => {
+        const b = noise(ctx, 'brown', [biquad('lowpass', 300, 0.7, sr)]);
+        return applyCurveGain(b, periodicCurve(n, 512, ctx.seconds / 7, rng), 0.55, 1);
+      },
+      0.055 * tr,
+    );
+    const cars = Math.max(1, Math.round((ctx.seconds / 60) * (2 + 14 * tr)));
+    for (const t of spreadTimes(cars, ctx.seconds, rng, 0.45)) {
+      const car = passingCar(ctx);
+      const g = 0.13 * tr * logRange(rng, 0.35, 1);
+      if (ctx.right) {
+        addWrapped(ctx.left, car.l, t * sr, g);
+        addWrapped(ctx.right, car.r, t * sr, g);
+      } else {
+        addWrapped(ctx.left, car.l, t * sr, g * 0.7);
+        addWrapped(ctx.left, car.r, t * sr, g * 0.7);
+      }
+    }
+  }
+  /* 房間的殘響（房間越大越長、越多） */
+  reverbPeriodic(ctx.left, ctx.right, sr, {
+    size: 0.15 + 0.55 * room,
+    damp: 0.55,
+    wet: 0.04 + 0.22 * room,
+    dry: 1,
+  });
 }
 
 export const INDOOR_SOUNDS: AmbienceSoundDef[] = [
@@ -354,6 +463,49 @@ export const INDOOR_SOUNDS: AmbienceSoundDef[] = [
           0.2 * fan,
         );
       }
+    },
+  },
+  {
+    id: 'room-tone',
+    category: 'indoor',
+    label: '房間底噪',
+    description: '安靜的房間：冰箱低低的嗡嗡聲、窗外遠方的車流，房間裡的空氣感。',
+    stereo: true,
+    params: [
+      {
+        kind: 'range',
+        id: 'hum',
+        label: '冰箱的嗡嗡聲',
+        min: 0,
+        max: 100,
+        step: 1,
+        default: 35,
+        ends: ['沒有', '明顯'],
+      },
+      {
+        kind: 'range',
+        id: 'traffic',
+        label: '遠方的車流',
+        min: 0,
+        max: 100,
+        step: 1,
+        default: 40,
+        ends: ['沒有', '很多'],
+      },
+      {
+        kind: 'range',
+        id: 'room',
+        label: '房間',
+        min: 0,
+        max: 100,
+        step: 1,
+        default: 40,
+        ends: ['小', '大'],
+      },
+    ],
+    gain: 6.7,
+    render(ctx, p) {
+      roomToneRender(ctx, unit(p.hum), unit(p.traffic), unit(p.room));
     },
   },
   {
