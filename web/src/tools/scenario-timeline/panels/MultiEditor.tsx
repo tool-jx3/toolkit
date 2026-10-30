@@ -96,7 +96,7 @@ export function MultiEditor({ ids, vdoc, pl }: { ids: string[]; vdoc: VisibleDoc
         />
       </Field>
       {pl ? null : (
-        <Field label={S.fGm} hint={S.gmHint}>
+        <Field label={S.fGm} hint={S.multiGmHint}>
           <Select
             value={gm}
             data-field="multi-gm"

@@ -4,7 +4,8 @@
  * - 同一種條件裡選好幾個是「或」（泳道甲或泳道乙），不同的條件是「且」。
  * - 文字以空白分隔成好幾個詞，每個詞都要出現在標題、說明、地點、相關角色（GM 檢視另加 GM 筆記）裡；不分大小寫、全形半形。
  * - 選了上層泳道時連同它的子泳道；主線是空字串；沒有分類是空字串。
- * - 條件裡指到已經不存在（或這個檢視看不到）的泳道、分類、地點、角色時不算（不會因此全部消失；PL 檢視也不會用到 GM 專用的值）。
+ * - 條件裡指到面板上沒有的選項（已經不存在、這個檢視看不到、沒有事件在用）時不算（不會因此全部消失、也不會留著看不到的條件；
+ *   PL 檢視也不會用到 GM 專用的值）。
  * - 篩選只針對事件；標記、目前進度照常顯示。
  */
 import type { VisibleDoc, VisibleEvent } from './visible';
@@ -95,23 +96,37 @@ export function filterOptions(vdoc: VisibleDoc, untitled: string): FilterOptions
   };
 }
 
-/** 實際有作用的條件（指到不存在的值的拿掉） */
-export function effectiveFilter(vdoc: VisibleDoc, f: FilterState): FilterState {
+/** 篩選的面板上有哪些選項（effectiveFilter 用；不排序） */
+function optionKeys(vdoc: VisibleDoc) {
   const laneIds = new Set(vdoc.lanes.map((l) => l.id));
-  const catIds = new Set(vdoc.categories.map((c) => c.id));
+  const lanes = new Set(laneIds);
+  const categories = new Set<string>();
   const places = new Set<string>();
   const people = new Set<string>();
+  const catIds = new Set(vdoc.categories.map((c) => c.id));
   for (const e of vdoc.events) {
-    places.add(e.place.trim());
+    if (!e.laneId || !laneIds.has(e.laneId)) lanes.add('');
+    categories.add(e.categoryId && catIds.has(e.categoryId) ? e.categoryId : '');
+    if (e.place.trim()) places.add(e.place.trim());
     for (const p of e.people) people.add(p);
   }
-  for (const l of vdoc.lanes) people.add(l.name.trim());
+  for (const l of vdoc.lanes)
+    if ((l.kind === 'character' || l.kind === 'npc') && l.name.trim()) people.add(l.name.trim());
+  return { lanes, categories, places, people };
+}
+
+/**
+ * 實際有作用的條件：面板上沒有對應選項的拿掉（指到已經不存在、這個檢視看不到、或沒有事件在用的泳道〔主線〕、分類、地點、角色），
+ * 所以不會有看不到、只能清除的條件；PL 檢視的 GM 專用條件不算。
+ */
+export function effectiveFilter(vdoc: VisibleDoc, f: FilterState): FilterState {
+  const o = optionKeys(vdoc);
   return {
     text: f.text.trim(),
-    lanes: f.lanes.filter((id) => id === '' || laneIds.has(id)),
-    categories: f.categories.filter((id) => id === '' || catIds.has(id)),
-    places: f.places.filter((p) => p && places.has(p)),
-    people: f.people.filter((p) => p && people.has(p)),
+    lanes: f.lanes.filter((id) => o.lanes.has(id)),
+    categories: f.categories.filter((id) => o.categories.has(id)),
+    places: f.places.filter((p) => o.places.has(p)),
+    people: f.people.filter((p) => o.people.has(p)),
     gm: vdoc.audience === 'gm' ? f.gm : 'all',
   };
 }
@@ -153,7 +168,9 @@ export function eventMatcher(vdoc: VisibleDoc, f: FilterState): (e: VisibleEvent
   return (e) => {
     if (lanes.size) {
       const lane = e.laneId && laneIds.has(e.laneId) ? e.laneId : '';
-      if (!lanes.has(lane) && !(lane && lanes.has(parentOf.get(lane) ?? ''))) return false;
+      /* 選了上層泳道時連同子泳道；最上層泳道的上層是空字串（≠ 主線） */
+      const parent = lane ? (parentOf.get(lane) ?? '') : '';
+      if (!lanes.has(lane) && !(parent && laneIds.has(parent) && lanes.has(parent))) return false;
     }
     if (cats.size && !cats.has(e.categoryId)) return false;
     if (places.size && !places.has(e.place.trim())) return false;

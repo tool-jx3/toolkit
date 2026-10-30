@@ -1,6 +1,6 @@
 /**
  * 範例專案（規格 F83）：本站自己寫的 CoC 風格短劇本（1925 年、新英格蘭的虛構小鎮「黑水灣」），
- * 人名、地名、事件全部原創。示範三種事件、巢狀泳道、GM 專用的泳道與事件、背景、標記、目前進度。
+ * 人名、地名、事件全部原創。示範三種事件、巢狀泳道、GM 專用的泳道與事件、背景、標記、目前進度、關聯線（含 GM 專用的一條）。
  */
 import { emptyCalendar } from './calendar';
 import { newEvent, type TimelineDoc, type TimelineEvent } from './types';
@@ -159,6 +159,31 @@ export function exampleDoc(): TimelineDoc {
     ],
     progress: { on: true, time: '1925-03-12 20:00', plOnly: false },
     calendar: emptyCalendar(),
-    links: [],
+    links: [
+      {
+        id: 'lk-letter',
+        from: 'ex-letter',
+        to: 'ex-arrive',
+        kind: 'cause',
+        note: '收到霍爾的信才來黑水灣',
+        gm: false,
+      },
+      {
+        id: 'lk-bell',
+        from: 'ex-dinner',
+        to: 'ex-search',
+        kind: 'cause',
+        note: '瑪莎提到燈塔的鐘聲，調查員決定去看看',
+        gm: false,
+      },
+      {
+        id: 'lk-rite',
+        from: 'ex-rite1',
+        to: 'ex-rite2',
+        kind: 'cause',
+        note: '第一次失敗，深潮會要在滿月之後再試一次',
+        gm: true,
+      },
+    ],
   };
 }

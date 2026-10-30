@@ -4,7 +4,7 @@
  *
  * - 只到年的時間不受影響（打開、關掉月份都一樣）。
  * - 月份排序：跟著月份走（302-03-05 的「霜月」移到第 5 個月 → 302-05-05）。
- * - 刪掉的月份：用同一個位置的月份（沒有了就用最後一個月），算「調整」。
+ * - 刪掉的月份：用同一個位置的月份（沒有了就用最後一個月），算「調整」（存檔的寫法可能沒變，但意思變了：乙月 10 日 → 丙月 10 日）。
  * - 天數變少：超過的日改成那個月的最後一天，算「調整」。
  * - 關掉月份：月、日拿掉，只留年（會失去精度）。
  * - 期間換完結束不比開始晚時，結束改成和開始同一天（算「調整」）。
@@ -96,7 +96,9 @@ export function planCalendar(doc: TimelineDoc, next: Calendar, untitled: string)
       adjusted = true;
     }
     const lossy = a.lossy || !!b?.lossy;
-    if (a.text === e.start && end === e.end) return e;
+    const same = a.text === e.start && end === e.end;
+    /* 寫法沒變但意思變了（刪掉的月份換成同一個位置的月份）也算調整 */
+    if (same && !adjusted && !lossy) return e;
     if (lossy) plan.lossy++;
     else if (adjusted) plan.adjusted++;
     else plan.renumbered++;
@@ -106,20 +108,20 @@ export function planCalendar(doc: TimelineDoc, next: Calendar, untitled: string)
         b ? [e.start, e.end] : [e.start],
         b ? [a.text, end] : [a.text],
       );
-    return { ...e, start: a.text, end };
+    return same ? e : { ...e, start: a.text, end };
   });
   plan.markers = doc.markers.map((m) => {
     const r = remap(m.time, oldCtx, newCtx);
-    if (r.text === m.time) return m;
+    if (r.text === m.time && !r.adjusted && !r.lossy) return m;
     if (r.lossy) plan.lossy++;
     else if (r.adjusted) plan.adjusted++;
     else plan.renumbered++;
     if (r.lossy || r.adjusted) note(m.label.trim() || untitled, [m.time], [r.text]);
-    return { ...m, time: r.text };
+    return r.text === m.time ? m : { ...m, time: r.text };
   });
   if (doc.progress.time) {
     const r = remap(doc.progress.time, oldCtx, newCtx);
-    if (r.text !== doc.progress.time) {
+    if (r.text !== doc.progress.time || r.adjusted || r.lossy) {
       if (r.lossy) plan.lossy++;
       else if (r.adjusted) plan.adjusted++;
       else plan.renumbered++;

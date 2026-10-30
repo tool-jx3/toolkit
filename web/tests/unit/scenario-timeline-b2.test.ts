@@ -120,6 +120,7 @@ describe('架空曆的月日（F92）', () => {
     };
     expect(bad('302-4')).toBe('月份要在 1～3 之間');
     expect(bad('302 花月 30')).toBe('花月只有 29 天');
+    expect(bad('302-1-0')).toBe('日要在 1～30 之間');
     expect(bad('302 秋月')).toContain('看不懂');
   });
   it('名稱以數字開頭的月份（預設的「1 月」）', () => {
@@ -308,6 +309,30 @@ describe('架空曆的月日（F92）', () => {
     expect(p2.events[0].start).toBe('302-02-28');
     expect(p2.adjusted).toBe(1);
     expect(p2.examples[0].name).toBe('甲');
+    /* 刪掉中間的雪月：雪月的時間改用同一個位置的月份（花月），寫法沒變也算調整；後面的月份跟著序號 */
+    const doc5: TimelineDoc = {
+      ...doc,
+      events: [
+        newEvent({ id: 'x', title: '雪中', start: '302-02-10' }),
+        newEvent({ id: 'y', title: '雪月', start: '302-02' }),
+        newEvent({ id: 'z', title: '花開', start: '302-03-05' }),
+      ],
+      markers: [{ id: 'm', label: '雪標', time: '302-02-01', color: '#000000', gm: false }],
+    };
+    const p5 = planCalendar(
+      doc5,
+      { ...cal, months: cal.months.filter((m) => m.id !== 'snow') },
+      '（無標題）',
+    );
+    expect(p5.events.map((e) => e.start)).toEqual(['302-02-10', '302-02', '302-02-05']);
+    expect(p5.markers[0].time).toBe('302-02-01');
+    expect(p5.adjusted).toBe(3);
+    expect(p5.renumbered).toBe(1);
+    expect(p5.examples.map((x) => [x.name, x.from, x.to])).toEqual([
+      ['雪中', expect.stringContaining('雪月 10 日'), expect.stringContaining('花月 10 日')],
+      ['雪月', '王國曆 302 年 雪月', '王國曆 302 年 花月'],
+      ['雪標', expect.stringContaining('雪月 1 日'), expect.stringContaining('花月 1 日')],
+    ]);
     /* 關掉月份 */
     const p3 = planCalendar(doc, { ...cal, months: [] }, '（無標題）');
     expect(p3.events.map((e) => [e.start, e.end])).toEqual([
@@ -338,6 +363,15 @@ describe('架空曆的月日（F92）', () => {
     expect(c.months[1].days).toBe(100);
     expect(c.weekdays).toEqual([]);
     expect(splitWeekdays('日、月 火,水')).toEqual(['日', '月', '火', '水']);
+  });
+});
+
+describe('範例的關聯線', () => {
+  it('三條（一條 GM 專用）；兩端都存在；PL 版只剩兩條', () => {
+    const ex = exampleDoc();
+    expect(normalizeDoc(ex)?.links).toEqual(ex.links);
+    expect(ex.links).toHaveLength(3);
+    expect(visibleDoc(ex, 'pl').links.map((k) => k.id)).toEqual(['lk-letter', 'lk-bell']);
   });
 });
 
@@ -484,6 +518,45 @@ describe('搜尋與篩選（F91）', () => {
     expect(ids({ gm: 'none', lanes: ['l1'] })).toEqual(['a']);
     /* 不存在的值不算條件（不會全部消失） */
     expect(matchingIds(gm, { ...emptyFilter(), lanes: ['gone'] })).toBeNull();
+  });
+  it('選「主線」只有主線的事件（最上層泳道的事件不算；驗證者發現）', () => {
+    const d: TimelineDoc = {
+      ...doc,
+      events: [...doc.events, newEvent({ id: 'm', title: '主線的', start: '第 1 天 07:00' })],
+    };
+    const gm = visibleDoc(d, 'gm');
+    expect([...(matchingIds(gm, { ...emptyFilter(), lanes: [''] }) ?? [])]).toEqual(['m']);
+    expect([...(matchingIds(gm, { ...emptyFilter(), lanes: ['', 'l2'] }) ?? [])].sort()).toEqual([
+      'b',
+      'e',
+      'm',
+    ]);
+    /* 子泳道的事件：選上層才算，選主線不算 */
+    expect([...(matchingIds(gm, { ...emptyFilter(), lanes: ['l1'] }) ?? [])].sort()).toEqual([
+      'a',
+      'd',
+    ]);
+  });
+  it('面板上沒有對應選項的條件不算（沒有事件在用的分類、主線、地點）', () => {
+    const d: TimelineDoc = {
+      ...doc,
+      categories: [...doc.categories, { id: 'c2', name: '沒人用', color: '#000000' }],
+    };
+    const gm = visibleDoc(d, 'gm');
+    expect(matchingIds(gm, { ...emptyFilter(), categories: ['c2'] })).toBeNull();
+    /* 沒有主線的事件時「主線」不算 */
+    expect(matchingIds(gm, { ...emptyFilter(), lanes: [''] })).toBeNull();
+    expect(matchingIds(gm, { ...emptyFilter(), places: ['沒有的地點'] })).toBeNull();
+    /* PL 檢視：只有 GM 事件在用的分類不算 */
+    const d2: TimelineDoc = {
+      ...doc,
+      events: doc.events.map((e) => (e.id === 'd' ? { ...e, categoryId: 'c9' } : e)),
+      categories: [...doc.categories, { id: 'c9', name: '秘密分類', color: '#000000' }],
+    };
+    expect(matchingIds(visibleDoc(d2, 'pl'), { ...emptyFilter(), categories: ['c9'] })).toBeNull();
+    expect(matchingIds(visibleDoc(d2, 'gm'), { ...emptyFilter(), categories: ['c9'] })?.size).toBe(
+      1,
+    );
   });
   it('PL 檢視：GM 筆記不搜、GM 專用的值不算、選項不含 GM 專用的名稱', () => {
     const pl = visibleDoc(doc, 'pl');
@@ -725,6 +798,59 @@ describe('讀入 vis-timeline 的資料（F94）', () => {
     expect(local && canonical('date', local).slice(0, 10)).toBe(expected);
     expect(visTime(d.getTime())).toEqual(local);
     expect(visTime(`/Date(${d.getTime()})/`)).toEqual(local);
+  });
+  it('很長的「<」、沒收尾的註解與 script 是線性時間（驗證者的 redos 情境）', () => {
+    for (const unit of ['<', '<script ', '<!--', '<script>', '<a', '</p', '<!-', '&a', '<br>x']) {
+      const s = unit.repeat(Math.ceil(200_000 / unit.length));
+      const t0 = performance.now();
+      htmlToText(s);
+      htmlToText(s, true, 4000);
+      expect(performance.now() - t0, unit).toBeLessThan(400);
+    }
+    expect(htmlToText('<'.repeat(5))).toBe('<<<<<');
+    expect(htmlToText('a <!-- 沒收尾 <b>x</b>')).toBe('a');
+    expect(htmlToText('<script>a<b>c')).toBe('ac');
+    expect(htmlToText('x<scripts>y</scripts>')).toBe('xy');
+    expect(htmlToText('<STYLE>p{}</STYLE>文字')).toBe('文字');
+    /* 字數上限：很長的內容截到夠用就停 */
+    expect(htmlToText('字'.repeat(100_000), false, 200).length).toBeLessThanOrEqual(200 * 4 + 256);
+  });
+  it('vis-timeline 的轉換：很長的 content／title 很快（50000 個註解開頭、120000 個「<」）', () => {
+    const t0 = performance.now();
+    const r = convertVis(
+      {
+        items: [
+          { content: '<'.repeat(120_000), title: '<!--'.repeat(50_000), start: '2014-04-20' },
+        ],
+        groups: null,
+      },
+      blankDoc(),
+    );
+    expect(performance.now() - t0).toBeLessThan(100);
+    expect(r.events[0].title).toBe('<'.repeat(200));
+    expect(r.events[0].description).toBe('');
+  });
+  it('不同上層底下的同名分組是不同的泳道（vis-timeline 三層範例的兩個 North America）', () => {
+    const r = convertVis(
+      {
+        items: [
+          { content: 'a', start: '2014-01-01', group: 1 },
+          { content: 'b', start: '2014-01-01', group: 101 },
+        ],
+        groups: [
+          { id: 10, content: 'Group 10', nestedGroups: [1, 2] },
+          { id: 1, content: 'North America' },
+          { id: 2, content: 'Europe' },
+          { id: 100, content: 'Group 100', nestedGroups: [101] },
+          { id: 101, content: 'North America' },
+        ],
+      },
+      blankDoc(),
+    );
+    const na = r.lanes.filter((l) => l.name === 'North America');
+    expect(na).toHaveLength(2);
+    expect(new Set(na.map((l) => l.parentId)).size).toBe(2);
+    expect(r.events[0].laneId).not.toBe(r.events[1].laneId);
   });
   it('style 的背景色', () => {
     expect(styleColor('color: red; background-color: #F00;')).toBe('#ff0000');

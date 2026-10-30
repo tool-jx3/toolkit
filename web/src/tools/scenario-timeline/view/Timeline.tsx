@@ -1980,7 +1980,7 @@ function BackgroundBand({
         'pointer-events-none absolute z-[1]',
         selected && 'ring-2 ring-focus ring-inset',
         dragging && 'opacity-80',
-        dim && !selected && 'opacity-30',
+        dim && !selected && 'opacity-25',
       )}
       style={{ left, top, width: w, height }}
     >

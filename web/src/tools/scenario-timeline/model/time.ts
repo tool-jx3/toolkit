@@ -303,7 +303,8 @@ function finishCalendar(
   if (!dm) return fail(`看不懂這個日子：「${tail}」`);
   const d = Number(dm[1]);
   const dim = info.months[mi].days;
-  if (d < 1 || d > dim) return fail(`${monthName(info, mi)}只有 ${dim} 天`);
+  if (d < 1) return fail(`日要在 1～${dim} 之間`);
+  if (d > dim) return fail(`${monthName(info, mi)}只有 ${dim} 天`);
   const v = calValue(info, y, mi + 1, d);
   const r: ParseResult = { ok: true, tv: { v, p: 'day' } };
   if (wd && info.cal.weekdays.length >= 2) {

@@ -8,7 +8,7 @@
  *   數字（毫秒的時間戳）、ASP.NET 的 `/Date(…)/`、本站看得懂的日期寫法。
  * - vis-timeline 的 end 是「到那一刻為止」：只寫到日的 end（例 2014-04-19）是那天 0:00，換成本站「包含整天」的結束是前一天。
  *
- * 轉換：content→標題、title→說明（HTML 轉純文字）、group→泳道（groups 的 content 當名稱；同名的泳道沿用）、
+ * 轉換：content→標題、title→說明（HTML 轉純文字）、group→泳道（groups 的 content 當名稱；專案裡名稱與上層都相同的泳道沿用）、
  * className→分類（名稱照寫）、style 的 background(-color)→自訂顏色、nestedGroups→子泳道（只有一層：更深的放到最上層底下）。
  * 其他欄位略過（通知略過了哪些）。
  */
@@ -58,7 +58,7 @@ const ENTITIES: Record<string, string> = {
 };
 
 function decodeEntities(s: string): string {
-  return s.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (m, body: string) => {
+  return s.replace(/&(#x[0-9a-f]{1,6}|#\d{1,7}|[a-z]{1,10});/gi, (m, body: string) => {
     if (body[0] === '#') {
       const code =
         body[1] === 'x' || body[1] === 'X'
@@ -70,22 +70,91 @@ function decodeEntities(s: string): string {
   });
 }
 
+/** 結尾換行的區塊標籤 */
+const BLOCK_END = new Set([
+  'p',
+  'div',
+  'li',
+  'h1',
+  'h2',
+  'h3',
+  'h4',
+  'h5',
+  'h6',
+  'tr',
+  'ul',
+  'ol',
+  'table',
+]);
+
 /**
- * HTML → 純文字（規格 D4：本站不收 HTML）：script／style 整段拿掉、<br> 與區塊的結尾換行、其他標籤拿掉、實體字元換回來。
+ * HTML → 純文字（規格 D4：本站不收 HTML）：註解、script／style 整段拿掉、<br> 與區塊的結尾換行、其他標籤拿掉、實體字元換回來。
  * 結果只當文字顯示，不會再當成 HTML。
+ *
+ * 一次由左往右掃（線性時間）：沒收尾的「<」（後面再也沒有「>」）照原文、沒收尾的註解拿掉後面全部、
+ * 沒有結束標籤的 script／style 只拿掉開始標籤。max 給了時，輸出夠長（max 的 4 倍以上）就停（標題、說明有字數上限）。
  */
-export function htmlToText(html: string, multiline = false): string {
-  let s = String(html)
-    .replace(/<!--[\s\S]*?-->/g, '')
-    .replace(/<(script|style)\b[\s\S]*?<\/\1\s*>/gi, ' ')
-    .replace(/<br\s*\/?>/gi, '\n')
-    .replace(/<\/(p|div|li|h[1-6]|tr|ul|ol|table)\s*>/gi, '\n')
-    .replace(/<[^>]*>/g, '');
+export function htmlToText(
+  html: string,
+  multiline = false,
+  max = Number.POSITIVE_INFINITY,
+): string {
+  const src = String(html);
+  const lower = src.toLowerCase();
+  const limit = Number.isFinite(max) ? max * 4 + 256 : Number.POSITIVE_INFINITY;
+  const out: string[] = [];
+  let len = 0;
+  const push = (t: string) => {
+    out.push(t);
+    len += t.length;
+  };
+  /** 沒有結束標籤的 script／style（找過一次就不再找） */
+  const noClose = new Set<string>();
+  let i = 0;
+  while (i < src.length && len < limit) {
+    const lt = src.indexOf('<', i);
+    if (lt < 0) {
+      push(src.slice(i));
+      break;
+    }
+    if (lt > i) push(src.slice(i, lt));
+    i = lt;
+    if (src.startsWith('<!--', i)) {
+      const end = src.indexOf('-->', i + 4);
+      if (end < 0) break;
+      i = end + 3;
+      continue;
+    }
+    const gt = src.indexOf('>', i + 1);
+    if (gt < 0) {
+      /* 後面再也沒有「>」：剩下的都不是標籤 */
+      push(src.slice(i));
+      break;
+    }
+    const m = /^(\/?)([a-z][a-z0-9]*)/.exec(lower.slice(i + 1, Math.min(gt, i + 12)));
+    const closing = m?.[1] === '/';
+    const name = m?.[2] ?? '';
+    i = gt + 1;
+    if (!closing && (name === 'script' || name === 'style') && !noClose.has(name)) {
+      const close = lower.indexOf(`</${name}`, i);
+      const cgt = close < 0 ? -1 : src.indexOf('>', close);
+      if (cgt < 0) noClose.add(name);
+      else {
+        push(' ');
+        i = cgt + 1;
+      }
+      continue;
+    }
+    if (name === 'br' && !closing) push('\n');
+    else if (closing && BLOCK_END.has(name)) push('\n');
+  }
+  let s = out.join('');
+  if (s.length > limit) s = s.slice(0, limit);
   s = decodeEntities(s);
   if (!multiline) return s.replace(/\s+/g, ' ').trim();
   return s
     .split('\n')
-    .map((l) => l.replace(/[ \t ]+/g, ' ').trim())
+    .map((l) => l.replace(/[ \t\u00a0]+/g, ' ').trim())
     .join('\n')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
@@ -263,8 +332,14 @@ export function styleColor(style: unknown): string {
   return '';
 }
 
-const textOf = (v: unknown, multiline = false): string =>
-  typeof v === 'string' ? htmlToText(v, multiline) : typeof v === 'number' ? String(v) : '';
+/** 欄位的文字（HTML 轉純文字，截到 max 字） */
+const textOf = (v: unknown, max: number, multiline = false): string =>
+  (typeof v === 'string'
+    ? htmlToText(v, multiline, max)
+    : typeof v === 'number'
+      ? String(v)
+      : ''
+  ).slice(0, max);
 
 const keyOf = (v: unknown): string | null =>
   typeof v === 'string' || typeof v === 'number' ? String(v) : null;
@@ -285,15 +360,22 @@ export function convertVis(
 
   /* 泳道 */
   const lanes: Lane[] = [];
+  /*
+   * 沿用專案裡已有的泳道：名稱＋上層都相同的（不同上層底下的同名分組是不同的泳道，例如兩個「North America」）。
+   * 這次讀入的分組一個 id 一條泳道（同名的也分開）；只有 group 的值、沒有 groups 時同一個值一條。
+   */
+  const laneKey = (parentId: string, name: string) => `${parentId}\u0000${name}`;
   const laneByName = new Map<string, string>();
-  for (const l of doc.lanes)
-    if (!laneByName.has(l.name.trim())) laneByName.set(l.name.trim(), l.id);
+  for (const l of doc.lanes) {
+    const key = laneKey(l.parentId, l.name.trim());
+    if (!laneByName.has(key)) laneByName.set(key, l.id);
+  }
   const groupLane = new Map<string, string>();
   const collapsed: string[] = [];
   let laneFull = 0;
   const addLane = (name: string, color: string, parentId: string): string => {
     const n = name.slice(0, LIMITS.name);
-    const hit = laneByName.get(n);
+    const hit = laneByName.get(laneKey(parentId, n));
     if (hit) return hit;
     if (doc.lanes.length + lanes.length >= LIMITS.lanes) {
       laneFull++;
@@ -308,7 +390,6 @@ export function convertVis(
       gm: false,
     };
     lanes.push(lane);
-    laneByName.set(n, lane.id);
     return lane.id;
   };
 
@@ -355,7 +436,7 @@ export function convertVis(
       const g = byId.get(id) as Record<string, unknown>;
       for (const k of Object.keys(g)) if (!GROUP_FIELDS.has(k)) ignore(k);
       if (g.visible === false) hidden++;
-      const name = textOf(g.content) || `分組 ${id}`;
+      const name = textOf(g.content, LIMITS.name) || `分組 ${id}`;
       const laneId = addLane(name, styleColor(g.style), parentLane);
       groupLane.set(id, laneId);
       if (
@@ -507,14 +588,14 @@ export function convertVis(
     }
     events.push(
       newEvent({
-        title: textOf(raw.content).slice(0, LIMITS.eventTitle),
+        title: textOf(raw.content, LIMITS.eventTitle),
         kind,
         start: startText,
         end: kind === 'point' ? '' : end,
         laneId,
         categoryId: typeof raw.className === 'string' ? catFor(raw.className) : '',
         color: styleColor(raw.style),
-        description: textOf(raw.title, true).slice(0, LIMITS.text),
+        description: textOf(raw.title, LIMITS.text, true),
       }),
     );
   });

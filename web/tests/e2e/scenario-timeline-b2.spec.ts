@@ -374,6 +374,49 @@ test('篩選：文字、泳道、淡化／藏起來、年表只列符合的、�
   expect(errors).toEqual([]);
 });
 
+test('篩選：選「主線」只有主線的事件（最上層泳道的不算）', async ({ page }) => {
+  await seed(
+    page,
+    {
+      ...DOC,
+      events: [...DOC.events, { ...blankEvent, id: 'm', title: 'M1', start: '第 1 天 06:00' }],
+    },
+    DAY_WINDOW,
+  );
+  const errors = await open(page);
+  await page.getByTestId('filter-toggle').click();
+  await page
+    .getByTestId('filter-panel')
+    .getByRole('group', { name: '泳道' })
+    .getByRole('button', { name: '主線', exact: true })
+    .click();
+  await expect(page.getByTestId('filter-status')).toHaveText(/符合 1 個事件（共 6 個）/);
+  await expect(item(page, 'm')).not.toHaveAttribute('data-dim', 'true');
+  for (const id of ['a', 'b', 'c', 'd', 'e'])
+    await expect(item(page, id)).toHaveAttribute('data-dim', 'true');
+  expect(errors).toEqual([]);
+});
+
+test('範例的關聯線：委託信導致抵達、晚餐導致調查燈塔、兩次儀式（GM 專用）；PL 檢視只畫兩條', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  const layer = page.getByTestId('link-layer');
+  await expect(layer.locator('[data-link-id="lk-letter"]')).toHaveAttribute(
+    'data-link-kind',
+    'cause',
+  );
+  await expect(layer.locator('[data-link-id="lk-bell"] title')).toHaveText(
+    '「旅館晚餐」導致「調查燈塔」：瑪莎提到燈塔的鐘聲，調查員決定去看看',
+  );
+  await expect(layer.locator('[data-link-id="lk-rite"]')).toHaveAttribute('data-secret', 'true');
+  await page.keyboard.press('p');
+  await expect(page.getByTestId('pl-badge')).toBeVisible();
+  await expect(page.locator('[data-link-id]')).toHaveCount(2);
+  await expect(page.locator('[data-link-id="lk-rite"]')).toHaveCount(0);
+  expect(errors).toEqual([]);
+});
+
 test('篩選：PL 檢視的選項與輸入欄不含 GM 專用的值；GM 筆記只在 GM 檢視搜得到', async ({ page }) => {
   await seed(page, DOC, DAY_WINDOW);
   const errors = await open(page);
