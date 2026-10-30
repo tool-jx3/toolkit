@@ -5,7 +5,8 @@
  * 磁力、隱藏於圖例、捆綁忽略；使用數、複製、刪除。
  */
 import { Copy, Trash2 } from 'lucide-react';
-import { Button, Checkbox, Field, OptionalNumberInput, Select, Slider, useConfirm } from '@/ui';
+import { Button, Checkbox, Field, Select, Slider, useConfirm } from '@/ui';
+import { OptionalNumberInput } from '@/ui/OptionalNumberInput';
 import { typeLineColor, typeOutlineColor } from '../engine/geom';
 import { CAP_STYLES, LINE_STYLES } from '../model/normalize';
 import { typeLineCount } from '../model/timeline';

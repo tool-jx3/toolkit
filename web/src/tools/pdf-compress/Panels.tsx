@@ -11,7 +11,8 @@ import {
   type PdfLevel,
   QUALITY_RANGE,
 } from '@/core/pdf';
-import { Button, Field, Notice, OptionalNumberInput, Section, Segmented, Toggle } from '@/ui';
+import { Button, Field, Notice, Section, Segmented, Toggle } from '@/ui';
+import { OptionalNumberInput } from '@/ui/OptionalNumberInput';
 import { viewer } from './actions';
 import { useSettings } from './store';
 import { S } from './strings';

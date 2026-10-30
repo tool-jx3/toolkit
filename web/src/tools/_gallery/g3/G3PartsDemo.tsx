@@ -13,15 +13,15 @@ import {
   Button,
   Field,
   LayerList,
-  PartPicker,
   ProjectMenu,
   Section,
-  SelectableCardList,
   TextArea,
   useChoice,
   useConfirm,
   useToast,
 } from '@/ui';
+import { PartPicker } from '@/ui/PartPicker';
+import { SelectableCardList } from '@/ui/SelectableCardList';
 import { type FaceParts, makeFaceParts } from './art';
 import { type DemoExpression, useG3, useG3Preview } from './store';
 

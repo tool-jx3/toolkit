@@ -16,7 +16,6 @@ import {
   FieldRow,
   FileDrop,
   ImageDrop,
-  LyricStyleControls,
   NumberInput,
   Section,
   Segmented,
@@ -25,6 +24,7 @@ import {
   Toggle,
   withShortcut,
 } from '@/ui';
+import { LyricStyleControls } from '@/ui/LyricStyleControls';
 import {
   addAudio,
   addBackground,

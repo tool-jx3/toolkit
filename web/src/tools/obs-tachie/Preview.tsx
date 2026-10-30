@@ -4,7 +4,8 @@
  */
 import { useEffect, useMemo, useState } from 'react';
 import { createStreamkitScene } from '@/ccfolia/mock';
-import { CssPreviewFrame, cn, Toggle } from '@/ui';
+import { cn, Toggle } from '@/ui';
+import { CssPreviewFrame } from '@/ui/CssPreviewFrame';
 import { previewStatus } from './logic';
 import { SOURCE_SIZE } from './model';
 import { S } from './strings';

@@ -8,7 +8,8 @@
  *   Gamja Flower、Gaegu）。
  */
 import { defineFontChoices } from '@/core/fonts';
-import type { ColorPairItem, FontPoolItem } from '@/ui';
+import type { ColorPairItem } from '@/ui/ColorPairList';
+import type { FontPoolItem } from '@/ui/FontPoolList';
 import { S } from './strings';
 
 export const DEFAULT_PALETTES: readonly ColorPairItem[] = [

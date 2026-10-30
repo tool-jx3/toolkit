@@ -6,7 +6,8 @@
  */
 import { useState } from 'react';
 import type { Placement } from '@/core/scene';
-import { LayoutCanvas, Section, Stage } from '@/ui';
+import { Section, Stage } from '@/ui';
+import { LayoutCanvas } from '@/ui/LayoutCanvas';
 
 const W = 480;
 const H = 320;

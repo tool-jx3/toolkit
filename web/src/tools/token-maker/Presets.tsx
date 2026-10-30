@@ -5,18 +5,8 @@
 import { Download, Save, Shuffle, Trash2, Upload } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { downloadBlob, pickFiles } from '@/core/files';
-import {
-  Button,
-  EffectGrid,
-  type EffectGridItem,
-  Field,
-  IconButton,
-  Section,
-  TextInput,
-  Toggle,
-  useConfirm,
-  useToast,
-} from '@/ui';
+import { Button, Field, IconButton, Section, TextInput, Toggle, useConfirm, useToast } from '@/ui';
+import { EffectGrid, type EffectGridItem } from '@/ui/EffectGrid';
 import type { Look } from './model';
 import {
   applyPreset,

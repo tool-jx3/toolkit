@@ -26,9 +26,9 @@ import {
   Segmented,
   Transport,
   usePlayback,
-  Viewport3D,
 } from '@/ui';
 import { type FxPlayerHandle, useFxSourceImage, useFxVideoMode } from '@/ui/imagefx';
+import { Viewport3D } from '@/ui/Viewport3D';
 import type { MapState } from './model';
 import {
   docNow,

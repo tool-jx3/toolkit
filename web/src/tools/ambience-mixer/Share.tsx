@@ -3,7 +3,8 @@
  */
 import { useEffect, useMemo } from 'react';
 import { clearShareHash, encodeShareHash, shareTooLong } from '@/core/share';
-import { ShareLinkDialog, type ToastOptions, useConfirm } from '@/ui';
+import { type ToastOptions, useConfirm } from '@/ui';
+import { ShareLinkDialog } from '@/ui/InteractiveHtmlDialog';
 import { applyShared } from './actions';
 import { readShare, SHARE_MAX_LENGTH, SHARE_VERSION, shareData, trackLabel } from './model';
 import { mixNow, useMix, useRuntime } from './store';

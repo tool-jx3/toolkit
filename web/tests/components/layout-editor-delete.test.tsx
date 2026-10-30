@@ -5,7 +5,8 @@
  */
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { LayoutEditor, SHORTCUTS_PASS } from '@/ui';
+import { SHORTCUTS_PASS } from '@/ui';
+import { LayoutEditor } from '@/ui/LayoutEditor';
 
 const items = [{ id: 'a', label: '框 A', box: { x: 10, y: 10, width: 40, height: 40 } }];
 

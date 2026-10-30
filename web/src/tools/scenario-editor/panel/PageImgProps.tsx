@@ -3,16 +3,8 @@
  * 文字的排法、外框與陰影、說明、換圖、刪除。
  */
 import { Trash2 } from 'lucide-react';
-import {
-  Button,
-  Field,
-  FieldRow,
-  NumberInput,
-  OptionalNumberInput,
-  Section,
-  Segmented,
-  TextInput,
-} from '@/ui';
+import { Button, Field, FieldRow, NumberInput, Section, Segmented, TextInput } from '@/ui';
+import { OptionalNumberInput } from '@/ui/OptionalNumberInput';
 import { FREE_GAP, PAPER_H, PAPER_W } from '../model/image';
 import {
   CORNERS,

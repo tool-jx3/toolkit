@@ -20,7 +20,6 @@ import { useSaveStatus, useUndoRedo } from '@/core/storage';
 import {
   Button,
   IconButton,
-  ObsGuide,
   ProjectMenu,
   type Shortcut,
   Tabs,
@@ -29,6 +28,7 @@ import {
   useConfirmedReset,
   withShortcut,
 } from '@/ui';
+import { ObsGuide } from '@/ui/ObsGuide';
 import { measureTarget, previewCss } from './actions';
 import { TextGestureScope } from './controls';
 import { buildStatusBarCss, effectsNeedingObs31, usedFonts } from './css';

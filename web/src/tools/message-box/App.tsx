@@ -13,7 +13,6 @@ import { localFontNames } from '@/core/css';
 import { resetToolStore, useSaveStatus, useUndoRedo } from '@/core/storage';
 import {
   IconButton,
-  ObsGuide,
   ProjectMenu,
   type Shortcut,
   Tabs,
@@ -21,6 +20,7 @@ import {
   UsageSection,
   withShortcut,
 } from '@/ui';
+import { ObsGuide } from '@/ui/ObsGuide';
 import { buildMessageBoxCss } from './css';
 import { Preview } from './Preview';
 import {

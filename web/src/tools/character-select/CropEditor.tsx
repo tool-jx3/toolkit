@@ -3,8 +3,8 @@
  * 範圍以原圖的比例存（0～1）；選整張圖時等於清除範圍。
  */
 import { useEffect, useMemo, useRef } from 'react';
-import type { CropRect } from '@/ui';
-import { CropDialog } from '@/ui';
+import type { CropRect } from '@/ui/CropDialog';
+import { CropDialog } from '@/ui/CropDialog';
 import { applyCrop, imageOf } from './actions';
 import { mainPanelRects, tileRects } from './layout';
 import type { NormCrop } from './model';

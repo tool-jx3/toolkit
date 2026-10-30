@@ -20,7 +20,6 @@ import {
   type ExportOutput,
   ExportPanel,
   Field,
-  LayoutEditor,
   Segmented,
   Stage,
   type StageAnyBackgroundKind,
@@ -29,6 +28,7 @@ import {
   usePlayback,
   useWebpSupport,
 } from '@/ui';
+import { LayoutEditor } from '@/ui/LayoutEditor';
 import { createMotionSource, createTransitionSource, loadDemoImage, MOTION_SIZE } from './scenes';
 import { type G2View, useG2, useG2Preview } from './store';
 

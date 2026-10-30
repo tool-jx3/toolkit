@@ -21,12 +21,9 @@ import { type CurveName, evaluateKeyframes, keyframesDuration } from '@/core/tim
 import type { TransitionMode } from '@/core/transition';
 import {
   ColorField,
-  EffectGrid,
-  type EffectGridItem,
   Field,
   FileDrop,
   IconButton,
-  KeyframeTable,
   Section,
   Segmented,
   Select,
@@ -37,6 +34,8 @@ import {
   ThumbnailList,
   Toggle,
 } from '@/ui';
+import { EffectGrid, type EffectGridItem } from '@/ui/EffectGrid';
+import { KeyframeTable } from '@/ui/KeyframeTable';
 import {
   CURVE_OPTIONS,
   drawCurveThumb,

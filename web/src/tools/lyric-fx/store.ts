@@ -10,7 +10,7 @@ import { createAssetStore } from '@/core/assets';
 import { createAudioPlayer, type PcmAudio } from '@/core/audio';
 import type { LyricRegion } from '@/core/lyricfx';
 import { createPreviewStore, createToolStore } from '@/core/storage';
-import type { LyricUserPreset } from '@/ui';
+import type { LyricUserPreset } from '@/ui/LyricStyleControls';
 import {
   defaultSettings,
   normalizeSettings,

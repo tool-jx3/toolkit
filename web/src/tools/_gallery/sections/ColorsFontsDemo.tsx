@@ -2,7 +2,9 @@ import { useState } from 'react';
 import type { Hsv } from '@/core/color';
 import type { FontValue } from '@/core/fonts';
 import { DEFAULT_GRADIENT, type Gradient, gradientToCss } from '@/core/gradient';
-import { ColorField, Field, FontPicker, GradientField, HsvPanel, hsvToHex, Section } from '@/ui';
+import { ColorField, Field, FontPicker, Section } from '@/ui';
+import { GradientField } from '@/ui/GradientField';
+import { HsvPanel, hsvToHex } from '@/ui/HsvPanel';
 
 /** 顏色與字型元件的各種狀態 */
 export function ColorsFontsDemo() {

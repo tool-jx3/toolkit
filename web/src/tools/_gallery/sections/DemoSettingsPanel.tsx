@@ -1,15 +1,6 @@
 import { EASING_CHOICES, type EasingName } from '@/core/timeline';
-import {
-  ColorField,
-  Field,
-  FontPicker,
-  GradientField,
-  Section,
-  Select,
-  Slider,
-  TextInput,
-  Toggle,
-} from '@/ui';
+import { ColorField, Field, FontPicker, Section, Select, Slider, TextInput, Toggle } from '@/ui';
+import { GradientField } from '@/ui/GradientField';
 import { useDemo } from '../store';
 
 /** 示範動畫的設定：實際工具的設定面板就是這樣組的（Section → Field → 控制項） */

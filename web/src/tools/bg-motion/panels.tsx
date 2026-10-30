@@ -13,8 +13,6 @@ import {
 import { coverPlacement, type SizedImage } from '@/core/motion';
 import {
   Button,
-  EffectGrid,
-  type EffectGridItem,
   type ExportPanelHandle,
   Field,
   FileDrop,
@@ -26,6 +24,7 @@ import {
   TextInput,
   Toggle,
 } from '@/ui';
+import { EffectGrid, type EffectGridItem } from '@/ui/EffectGrid';
 import {
   autoBase,
   clearImages,

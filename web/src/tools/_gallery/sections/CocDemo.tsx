@@ -14,16 +14,8 @@ import {
   skillThresholds,
   successLevel,
 } from '@/core/coc';
-import {
-  Button,
-  Field,
-  FieldRow,
-  NumberInput,
-  OptionalNumberInput,
-  Section,
-  Segmented,
-  TextInput,
-} from '@/ui';
+import { Button, Field, FieldRow, NumberInput, Section, Segmented, TextInput } from '@/ui';
+import { OptionalNumberInput } from '@/ui/OptionalNumberInput';
 
 const BONUS = ['-2', '-1', '0', '1', '2'].map((v) => ({ value: v, label: v }));
 

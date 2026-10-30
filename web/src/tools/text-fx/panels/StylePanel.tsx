@@ -1,15 +1,7 @@
 /** 「樣式」分頁：文字風格、字型、副文字、塗色、外框、陰影、光暈 */
 import { gradientToCss } from '@/core/gradient';
-import {
-  availableWeights,
-  Field,
-  FontPicker,
-  GradientField,
-  Section,
-  Select,
-  Toggle,
-  WEIGHT_LABELS,
-} from '@/ui';
+import { availableWeights, Field, FontPicker, Section, Select, Toggle, WEIGHT_LABELS } from '@/ui';
+import { GradientField } from '@/ui/GradientField';
 import {
   ColorPathField,
   NumField,

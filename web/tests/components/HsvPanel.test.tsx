@@ -4,7 +4,8 @@ import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import { describe, expect, it } from 'vitest';
 import type { Hsv } from '@/core/color';
-import { Field, HsvPanel, hsvToHex, Segmented } from '@/ui';
+import { Field, Segmented } from '@/ui';
+import { HsvPanel, hsvToHex } from '@/ui/HsvPanel';
 
 function Controlled({ initial }: { initial: Hsv }) {
   const [v, setV] = useState(initial);

@@ -8,7 +8,8 @@ import { copyImage, downloadBlob } from '@/core/files';
 import { canvasToBlob, fillPattern, roundRectPath, roundRectPath2D } from '@/core/image';
 import { type Box, clampBoxPosition, percentToBox } from '@/core/layout';
 import { historyGesture } from '@/core/storage';
-import { Button, IconButton, LayoutEditor, type LayoutItem, Stage, useToast } from '@/ui';
+import { Button, IconButton, Stage, useToast } from '@/ui';
+import { LayoutEditor, type LayoutItem } from '@/ui/LayoutEditor';
 import { FIGURE_COLORS, makeFigure } from './art';
 import { type G3Settings, LAYOUT_DEFAULTS, useG3, useG3Preview } from './store';
 

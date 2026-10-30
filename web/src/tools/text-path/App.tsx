@@ -7,7 +7,6 @@ import { useId } from 'react';
 import {
   Button,
   Field,
-  PathPad,
   Section,
   Segmented,
   Slider,
@@ -18,6 +17,7 @@ import {
   UsageSection,
   useToast,
 } from '@/ui';
+import { PathPad } from '@/ui/PathPad';
 import {
   COLS,
   charCount,

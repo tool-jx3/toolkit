@@ -4,7 +4,7 @@
 import { useRef, useSyncExternalStore } from 'react';
 import { create } from 'zustand';
 import { createPreviewStore, createToolStore, historyGesture } from '@/core/storage';
-import type { PreviewBackground } from '@/ui';
+import type { PreviewBackground } from '@/ui/CssPreviewFrame';
 import { DEFAULT_SETTINGS, type MbSettings, normalizeSettings, TOOL_ID } from './settings';
 import { isKnownTemplate } from './templates';
 

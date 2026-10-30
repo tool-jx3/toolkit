@@ -11,12 +11,11 @@ import {
   Notice,
   ProjectMenu,
   type Shortcut,
-  StepNav,
-  Stepper,
   ToolShell,
   UsageSection,
   withShortcut,
 } from '@/ui';
+import { StepNav, Stepper } from '@/ui/Stepper';
 import { buildTachieCss } from './css';
 import { type ImageInputState, INITIAL_INPUT } from './ImageSection';
 import { createPreset, normalizeData, type TachieData } from './model';

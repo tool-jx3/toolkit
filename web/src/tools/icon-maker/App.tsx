@@ -8,8 +8,6 @@ import {
   Button,
   Field,
   IconButton,
-  LayoutEditor,
-  type LayoutItem,
   Section,
   Segmented,
   type Shortcut,
@@ -20,6 +18,7 @@ import {
   ToolShell,
   useToast,
 } from '@/ui';
+import { LayoutEditor, type LayoutItem } from '@/ui/LayoutEditor';
 import { LoadArea } from './LoadArea';
 import {
   BACKGROUND_KINDS,

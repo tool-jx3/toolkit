@@ -4,7 +4,8 @@
  * 排列方式（原作的 openLayoutPanel：點陣型即時預覽、確定保留、取消還原）與對齊與分佈（openAlignPanel）。
  */
 import { useEffect, useRef } from 'react';
-import { Button, Dialog, OptionalNumberInput, Toggle } from '@/ui';
+import { Button, Dialog, Toggle } from '@/ui';
+import { OptionalNumberInput } from '@/ui/OptionalNumberInput';
 import { charLevel } from '../../engine/geom';
 import { type AlignAction, canDistribute } from '../../logic/align';
 import { LAYOUT_KINDS } from '../../model/normalize';

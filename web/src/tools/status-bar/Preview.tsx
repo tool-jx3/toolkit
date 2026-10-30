@@ -6,24 +6,14 @@ import { ImagePlus, RotateCcw } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createCharacterScene } from '@/ccfolia/mock';
 import { pickFiles } from '@/core/files';
+import { Button, Field, NativeNumberInput, Notice, Section, Select, TextInput, Toggle } from '@/ui';
+import { CssExportPanel, SourceUrlField } from '@/ui/CssExport';
 import {
-  applyTestShortcut,
-  Button,
-  CssExportPanel,
   CssPreviewFrame,
   type CssPreviewFrameHandle,
-  Field,
-  NativeNumberInput,
-  Notice,
   type PreviewBackground,
-  Section,
-  Select,
-  SourceUrlField,
-  TestValueRow,
-  TestValueShortcuts,
-  TextInput,
-  Toggle,
-} from '@/ui';
+} from '@/ui/CssPreviewFrame';
+import { applyTestShortcut, TestValueRow, TestValueShortcuts } from '@/ui/TestValueRow';
 import { exportCss, measureTarget, previewCss, registerFrame } from './actions';
 import { type Box, estimateSourceSize } from './geometry';
 import { cssFileBase, cssTargetFor, previewCharacter, previewStatuses } from './logic';

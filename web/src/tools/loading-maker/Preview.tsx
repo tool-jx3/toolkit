@@ -9,8 +9,6 @@ import { canvasToBlob } from '@/core/image';
 import type { Box } from '@/core/layout';
 import {
   Button,
-  LayoutEditor,
-  type LayoutItem,
   Notice,
   Stage,
   type StageAnyBackgroundKind,
@@ -18,6 +16,7 @@ import {
   usePlayback,
   useWebpSupport,
 } from '@/ui';
+import { LayoutEditor, type LayoutItem } from '@/ui/LayoutEditor';
 import { ExportArea } from './ExportArea';
 import { type ElementId, elementBounds, elementOrder, isFollowing } from './geometry';
 import { characterAspect, renderScene, Scratch, textMeasurer } from './render';

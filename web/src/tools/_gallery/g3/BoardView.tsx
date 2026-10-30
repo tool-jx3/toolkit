@@ -9,16 +9,12 @@ import { imageOpaqueBounds, type Rect } from '@/core/image';
 import { type Box, hitTest } from '@/core/layout';
 import { ceilTo, RULER_STYLE, rulerTicks } from '@/core/ruler';
 import { historyGesture } from '@/core/storage';
+import { Button, IconButton, isFormControlTarget, useToast, WindowDrop } from '@/ui';
 import {
-  Button,
-  IconButton,
-  isFormControlTarget,
   type PanZoomView,
   PanZoomViewport,
   type PanZoomViewportHandle,
-  useToast,
-  WindowDrop,
-} from '@/ui';
+} from '@/ui/PanZoomViewport';
 import { FIGURE_COLORS, makeFigure } from './art';
 import { type DemoCharacter, useG3, useG3Preview } from './store';
 

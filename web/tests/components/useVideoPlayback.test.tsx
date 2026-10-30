@@ -4,7 +4,7 @@
  */
 import { act, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { useVideoPlayback } from '@/ui';
+import { useVideoPlayback } from '@/ui/useVideoPlayback';
 
 class FakeVideo extends EventTarget {
   currentTime = 0;

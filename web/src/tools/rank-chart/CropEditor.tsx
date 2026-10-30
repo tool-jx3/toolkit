@@ -3,7 +3,7 @@
  * 範圍換成「放大＋位置」存起來（放大 1～4：範圍最小是短邊的 1/4），套用時做成 512 × 512 的裁切圖。
  */
 import { useEffect, useRef } from 'react';
-import { CropDialog, type CropRect } from '@/ui';
+import { CropDialog, type CropRect } from '@/ui/CropDialog';
 import { drawThumb } from './images';
 import { type Crop, cropRect, type PhotoRef, rectToCrop } from './model';
 import { S } from './strings';

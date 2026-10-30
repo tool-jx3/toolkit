@@ -11,7 +11,6 @@ import {
   Field,
   GestureScope,
   IconButton,
-  ItemListEditor,
   Section,
   Segmented,
   Select,
@@ -22,6 +21,7 @@ import {
   Toggle,
   useToast,
 } from '@/ui';
+import { ItemListEditor } from '@/ui/ItemListEditor';
 import {
   MINE_MAX,
   type MyPreset,

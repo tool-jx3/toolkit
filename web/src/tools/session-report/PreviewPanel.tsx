@@ -5,7 +5,8 @@
 import { Eraser, Redo2, RotateCcw, Undo2 } from 'lucide-react';
 import type { KeyboardEvent, RefObject } from 'react';
 import { UNICODE_TEXT_STYLES } from '@/core/social';
-import { Button, IconButton, PostEditor, type PostEditorHandle, withShortcut } from '@/ui';
+import { Button, IconButton, withShortcut } from '@/ui';
+import { PostEditor, type PostEditorHandle } from '@/ui/PostEditor';
 import { preview, setField, usePreview, useReport } from './store';
 import { S } from './strings';
 

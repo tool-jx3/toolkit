@@ -3,7 +3,8 @@
  */
 import { RotateCcw } from 'lucide-react';
 import { historyGesture } from '@/core/storage';
-import { Button, ColorField, DirectionPad, Field, Section, Segmented, Slider, Toggle } from '@/ui';
+import { Button, ColorField, Field, Section, Segmented, Slider, Toggle } from '@/ui';
+import { DirectionPad } from '@/ui/DirectionPad';
 import { DEFAULT_LIGHT, type Finish, RANGE } from './model';
 import { edit, editLive, step, useSettings } from './store';
 import { S } from './strings';

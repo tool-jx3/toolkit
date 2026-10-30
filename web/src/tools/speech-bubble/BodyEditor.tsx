@@ -8,7 +8,8 @@ import { type KeyboardEvent, useEffect, useMemo } from 'react';
 import { contrastRatio, formatHex, parseColor } from '@/core/color';
 import { fontFamilyCss } from '@/core/fonts';
 import { docLength, type RichAlign } from '@/core/richtext';
-import { Field, RichTextEditor, useToast } from '@/ui';
+import { Field, useToast } from '@/ui';
+import { RichTextEditor } from '@/ui/RichTextEditor';
 import {
   type Bubble,
   bubbleDoc,

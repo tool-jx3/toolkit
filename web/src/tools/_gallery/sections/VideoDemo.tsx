@@ -17,7 +17,8 @@ import {
   recordCanvas,
   type VideoThumbnail,
 } from '@/core/video';
-import { Button, Section, ThumbnailList, Transport, useVideoPlayback } from '@/ui';
+import { Button, Section, ThumbnailList, Transport } from '@/ui';
+import { useVideoPlayback } from '@/ui/useVideoPlayback';
 
 interface DemoVideo {
   url: string;

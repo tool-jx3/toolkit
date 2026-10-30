@@ -12,7 +12,6 @@ import {
   Button,
   cn,
   IconButton,
-  ItemListEditor,
   ProjectMenu,
   Section,
   type Shortcut,
@@ -20,6 +19,7 @@ import {
   UsageSection,
   withShortcut,
 } from '@/ui';
+import { ItemListEditor } from '@/ui/ItemListEditor';
 import { addNpc, removeNpc, rollAll, selectNpc } from './actions';
 import { EditForm } from './EditForm';
 import { currentNpc, type Npc, type NpcProject, readProject, TOOL_ID } from './logic';

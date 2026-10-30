@@ -10,12 +10,11 @@ import {
   DialogClose,
   Field,
   ImageDrop,
-  ImageSampler,
   NumberInput,
-  type SamplePoint,
   Section,
   Segmented,
 } from '@/ui';
+import { ImageSampler, type SamplePoint } from '@/ui/ImageSampler';
 import { makeBands } from './art';
 
 type Mode = 'points' | 'splits';

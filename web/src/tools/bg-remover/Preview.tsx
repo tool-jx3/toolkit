@@ -32,7 +32,6 @@ import {
   Field,
   FileDrop,
   IconButton,
-  type ModelCache,
   Notice,
   type NoticeTone,
   Segmented,
@@ -44,6 +43,7 @@ import {
   useStageScale,
   useWebpSupport,
 } from '@/ui';
+import type { ModelCache } from '@/ui/ModelDownload';
 import { addFiles, finishPick, go, removeImage, selectImage, setStageBackground } from './actions';
 import { demoFiles } from './demo';
 import {

@@ -10,7 +10,6 @@ import {
 } from '@/core/image';
 import {
   Button,
-  CropDialog,
   type DroppedImage,
   Field,
   FileDrop,
@@ -20,6 +19,7 @@ import {
   ThumbnailList,
   useToast,
 } from '@/ui';
+import { CropDialog } from '@/ui/CropDialog';
 import { LayoutCanvasDemo } from './LayoutCanvasDemo';
 
 function Thumb({ img, crop }: { img: DroppedImage; crop: Rect | null }) {

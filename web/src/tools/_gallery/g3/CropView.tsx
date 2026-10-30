@@ -15,7 +15,8 @@ import {
 } from '@/core/image';
 import { clampSpan } from '@/core/layout';
 import { historyGesture } from '@/core/storage';
-import { Button, CropFrame, Stage } from '@/ui';
+import { Button, Stage } from '@/ui';
+import { CropFrame } from '@/ui/CropFrame';
 import { FIGURE_COLORS, makeFigure } from './art';
 import { useG3, useG3Preview } from './store';
 

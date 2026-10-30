@@ -5,16 +5,9 @@
 
 import type { Draft } from 'immer';
 import { ArrowDown, ArrowUp } from 'lucide-react';
-import {
-  Field,
-  FieldRow,
-  IconButton,
-  ItemListEditor,
-  OptionalNumberInput,
-  Section,
-  Select,
-  TextInput,
-} from '@/ui';
+import { Field, FieldRow, IconButton, Section, Select, TextInput } from '@/ui';
+import { ItemListEditor } from '@/ui/ItemListEditor';
+import { OptionalNumberInput } from '@/ui/OptionalNumberInput';
 import { addWeapon, moveWeapon, removeWeapon, step, updateSheet } from './actions';
 import { AutoNumberField, AutoTextField } from './controls';
 import { type Sheet, WEAPON_SLOTS, type Weapon } from './model';

@@ -2,7 +2,8 @@
  * 「角色」分頁：房間網址（F85）、角色清單（F86～F91）。
  */
 import { Copy, Eye, Link2 } from 'lucide-react';
-import { Button, Field, ItemListEditor, Section, TextInput } from '@/ui';
+import { Button, Field, Section, TextInput } from '@/ui';
+import { ItemListEditor } from '@/ui/ItemListEditor';
 import { copyCharacterCss, copyCharacterUrl } from '../actions';
 import { GestureColor, useS } from '../controls';
 import { characterHint, characterSourceUrl, nextCharacterColor } from '../logic';

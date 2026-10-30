@@ -4,7 +4,8 @@
  */
 import { useMemo } from 'react';
 import type { Gradient } from '@/core/gradient';
-import { Button, Field, GradientField, Segmented, Select, Slider, Toggle } from '@/ui';
+import { Button, Field, Segmented, Select, Slider, Toggle } from '@/ui';
+import { GradientField } from '@/ui/GradientField';
 import {
   type Adjust,
   BLEND_MODES,

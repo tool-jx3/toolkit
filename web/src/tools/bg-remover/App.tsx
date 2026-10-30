@@ -7,9 +7,9 @@ import {
   ProjectMenu,
   type Shortcut,
   ToolShell,
-  useModelCache,
   withShortcut,
 } from '@/ui';
+import { useModelCache } from '@/ui/ModelDownload';
 import { finishPick, go, openProject, projectData, projectFiles, resetAll } from './actions';
 import { startEngine, strokeActive, useWork } from './engine';
 import { modelSpec, RANGE, type ViewMode } from './model';
