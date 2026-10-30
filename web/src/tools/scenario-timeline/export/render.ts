@@ -54,10 +54,11 @@ export function textFileName(doc: TimelineDoc, audience: Audience, ext: 'txt' | 
   return `${fileBase(doc)}_${S.fileName.text}${audience === 'gm' ? `_${S.fileName.gm}` : ''}.${ext}`;
 }
 
-/** 範圍的文字寫到哪裡：日期時間、第 N 天寫到分；架空年寫到年（有月份時寫到日） */
+/** 範圍的文字寫到哪裡：日期時間、第 N 天寫到分；架空年寫到年（有月份時寫到日；寫到時刻時到分，F110） */
 function rangeTv(doc: TimelineDoc, v: number): Tv {
   if (doc.mode !== 'year') return { v: Math.round(v), p: 'minute' as Precision };
-  if (calInfo(doc.calendar)) return { v, p: 'day' };
+  const info = calInfo(doc.calendar);
+  if (info) return { v, p: info.clock ? 'minute' : 'day' };
   return { v: Math.round(v), p: 'year' };
 }
 

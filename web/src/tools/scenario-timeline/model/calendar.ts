@@ -5,6 +5,10 @@
  * 時間軸上的位置仍以「年」為單位：某年某月某日 ＝ 年 ＋（那一天在一年裡的第幾天 − 1）÷ 一年的天數。
  * 只到年的時間是整數（和沒有月份時完全相同）。換算一律先換成「第幾天」的整數（T ＝ 年 × 一年的天數 ＋ 年裡的第幾天），
  * 再換回位置，不靠浮點數累加。
+ *
+ * 第三批（F110）：打開「寫到時刻」（clock）時時間可以再寫到時:分（一天固定 24 小時、一小時 60 分）：
+ * 位置＝年＋（年裡的第幾天 × 1440 ＋ 那天的第幾分）÷（一年的天數 × 1440）；換算一律經過「第幾分」的整數
+ * （M ＝ T × 1440 ＋ 那天的第幾分）。沒有時刻的時間和以前完全相同。
  */
 
 export interface CalMonth {
@@ -21,7 +25,15 @@ export interface Calendar {
   weekdays: string[];
   /** 第 1 年第 1 個月第 1 日是一週的第幾天（0 起算） */
   weekStart: number;
+  /**
+   * 寫到時刻（第三批，F110；一天 24 小時、一小時 60 分）。只有 true 時才存（關著時沒有這個欄位，
+   * 和第二批的資料逐欄位相同）；沒有月份時不算。
+   */
+  clock?: boolean;
 }
+
+/** 一天幾分（架空曆的時刻固定 24 小時 × 60 分） */
+export const CAL_DAY_MINUTES = 1440;
 
 export const CAL_LIMITS = {
   months: 24,
@@ -81,6 +93,8 @@ export function normalizeCalendar(raw: unknown): Calendar {
     months,
     weekdays: weekdays.length >= 2 ? weekdays : [],
     weekStart: weekdays.length >= 2 ? clampInt(r.weekStart, 0, weekdays.length - 1, 0) : 0,
+    /* 寫到時刻：只有開著（而且有月份）時才有這個欄位 */
+    ...(r.clock === true && months.length ? { clock: true } : {}),
   };
 }
 
@@ -106,6 +120,8 @@ export interface CalInfo {
   M: number;
   /** 月份名稱（正規化）→ 第幾個月（0 起算）；長的名稱先比對 */
   names: { key: string; index: number }[];
+  /** 寫到時刻（F110） */
+  clock: boolean;
 }
 
 const infoCache = new WeakMap<Calendar, CalInfo>();
@@ -128,6 +144,7 @@ export function calInfo(cal: Calendar | null | undefined): CalInfo | null {
     D: cum[cum.length - 1],
     M: cal.months.length,
     names,
+    clock: cal.clock === true,
   };
   infoCache.set(cal, info);
   return info;
@@ -140,9 +157,11 @@ export const normName = (s: string) => s.normalize('NFKC').replace(/\s+/g, '').t
 export const monthName = (info: CalInfo, index: number) =>
   info.months[index]?.name.trim() || `${index + 1} 月`;
 
-/** 某年某月某日（月、日 1 起算）的位置 */
-export function calValue(info: CalInfo, y: number, m = 1, d = 1): number {
-  return y + (info.cum[m - 1] + d - 1) / info.D;
+/** 某年某月某日（月、日 1 起算）的位置；minute＝那天的第幾分（寫到時刻時） */
+export function calValue(info: CalInfo, y: number, m = 1, d = 1, minute = 0): number {
+  const doy = info.cum[m - 1] + d - 1;
+  if (!minute) return y + doy / info.D;
+  return y + (doy * CAL_DAY_MINUTES + minute) / (info.D * CAL_DAY_MINUTES);
 }
 
 /** 第幾天（T ＝ 年 × 一年的天數 ＋ 年裡的第幾天，0 起算）→ 位置 */
@@ -156,6 +175,26 @@ export function dayOfValue(info: CalInfo, v: number): number {
   return Math.floor(v * info.D + 1e-6);
 }
 
+/**
+ * 位置所在的那一分（第幾分＝第幾天 × 1440 ＋ 那天的第幾分，整數）。寫到分的位置離整數很近（誤差遠小於 0.02 分，
+ * 年份到 ±1000000、一年 2400 天時約 0.001 分），四捨五入；其他的（拖曳中）取下整數。
+ */
+export function minuteOfValue(info: CalInfo, v: number): number {
+  const x = v * info.D * CAL_DAY_MINUTES;
+  const r = Math.round(x);
+  return Math.abs(x - r) < 0.02 ? r : Math.floor(x);
+}
+
+/** 第幾分（minuteOfValue 的整數）→ 位置；剛好是一天的開頭時和 valueOfDay 相同 */
+export function valueOfMinute(info: CalInfo, M: number): number {
+  const T = Math.floor(M / CAL_DAY_MINUTES);
+  const mm = M - T * CAL_DAY_MINUTES;
+  const y = Math.floor(T / info.D);
+  const doy = T - y * info.D;
+  if (!mm) return y + doy / info.D;
+  return y + (doy * CAL_DAY_MINUTES + mm) / (info.D * CAL_DAY_MINUTES);
+}
+
 export interface CalParts {
   y: number;
   /** 1 起算 */
@@ -166,6 +205,8 @@ export interface CalParts {
   doy: number;
   /** 第幾天（絕對） */
   T: number;
+  /** 那天的第幾分（0～1439；寫到時刻時才用得到） */
+  min: number;
 }
 
 export function calParts(info: CalInfo, v: number): CalParts {
@@ -174,7 +215,11 @@ export function calParts(info: CalInfo, v: number): CalParts {
   const doy = T - y * info.D;
   let mi = 0;
   while (mi + 1 < info.M && info.cum[mi + 1] <= doy) mi++;
-  return { y, m: mi + 1, d: doy - info.cum[mi] + 1, doy, T };
+  const min = Math.min(
+    CAL_DAY_MINUTES - 1,
+    Math.max(0, minuteOfValue(info, v) - T * CAL_DAY_MINUTES),
+  );
+  return { y, m: mi + 1, d: doy - info.cum[mi] + 1, doy, T, min };
 }
 
 /** 月份的開頭（第幾個月，可以超出一年：自動進位到下一年） */

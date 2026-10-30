@@ -3,7 +3,15 @@
  */
 import { useMemo } from 'react';
 import { pickStep, snapUnitFor } from '../model/axis';
-import { calInfo, calParts, dayOfValue, monthStartValue, valueOfDay } from '../model/calendar';
+import {
+  calInfo,
+  calParts,
+  dayOfValue,
+  minuteOfValue,
+  monthStartValue,
+  valueOfDay,
+  valueOfMinute,
+} from '../model/calendar';
 import { layoutRows } from '../model/layout';
 import { createMeasure } from '../model/measure';
 import {
@@ -64,10 +72,13 @@ export function snapForWidth(mode: TimeMode, win: Win, width: number, ctx?: EraA
 
 /**
  * 新事件的寫法：吸附到 1 日以上時只寫到日，其他寫到分（架空年只有年；
- * 架空曆有月份時，吸附到日、月的寫到日，吸附到年的只到年）
+ * 架空曆有月份時，吸附到日、月的寫到日，吸附到年的只到年；寫到時刻時吸附到分、時的寫到分，F110）
  */
 export function precisionForSnap(mode: TimeMode, u: SnapUnit): Precision {
-  if (mode === 'year') return u.kind === 'day' || u.kind === 'month' ? 'day' : 'year';
+  if (mode === 'year') {
+    if (u.kind === 'min') return 'minute';
+    return u.kind === 'day' || u.kind === 'month' ? 'day' : 'year';
+  }
   if (u.kind === 'min' && u.n < MINUTES_PER_DAY) return 'minute';
   return 'day';
 }
@@ -88,7 +99,8 @@ export function stepTv(mode: TimeMode, tv: Tv, unit: SnapUnit, dir: 1 | -1, ctx?
   const u = coarser(mode, unit, precisionUnit(mode, tv.p), ctx);
   const info = mode === 'year' ? ctxParts(ctx).info : null;
   let v: number;
-  if (info && u.kind === 'day') v = valueOfDay(info, dayOfValue(info, tv.v) + dir * u.n);
+  if (info && u.kind === 'min') v = valueOfMinute(info, minuteOfValue(info, tv.v) + dir * u.n);
+  else if (info && u.kind === 'day') v = valueOfDay(info, dayOfValue(info, tv.v) + dir * u.n);
   else if (info && u.kind === 'month') {
     const c = calParts(info, tv.v);
     /* 同一天（超過那個月的天數時是那個月的最後一天） */

@@ -1,18 +1,20 @@
 /**
  * 年表（規格 1.6、F90、F91）：依時間排的清單、依日子分段；點一筆選取（Ctrl／⌘＋點選加減、Shift＋點選連續的一段）、
  * 雙擊或 Enter 編輯；列印、複製成文字。照目前的 GM／PL 檢視；篩選中只列符合的（列印、複製也是）。
+ * 每個事件下面列它的關聯線（F111，「列出關聯線」開關；列印、複製也照這個開關）。
  */
 import { Copy, Printer } from 'lucide-react';
 import { memo, useMemo } from 'react';
 import { copyText } from '@/core/files';
 import { PAPER_SIZES, printPages } from '@/core/paged';
-import { Button, cn } from '@/ui';
+import { Button, cn, Toggle } from '@/ui';
 import {
   type ChronRow,
   chronicle,
   chronicleHtml,
+  chroniclePrintCss,
   chronicleText,
-  PRINT_CSS,
+  linkText,
 } from '../model/chronicle';
 import { filteredDoc, matchingIds } from '../model/filter';
 import { GM_COLOR } from '../model/types';
@@ -20,9 +22,11 @@ import { notify } from '../notify';
 import {
   editEvent,
   filterOf,
+  type Prefs,
   prefsNow,
   select,
   selectMany,
+  setPrefs,
   toggleSelected,
   usePrefs,
   useUi,
@@ -32,14 +36,16 @@ import { useFilterState } from './FilterBar';
 import { visibleNow } from './shared';
 import { GM_STRIPES, GmBadge } from './Timeline';
 
+/** 年表檢視列出關聯線（沒選過＝列出） */
+export const chronicleLinksOn = (p: Pick<Prefs, 'chronicleLinks'>) => p.chronicleLinks !== false;
+
 /** 目前看到的年表（篩選中只有符合的） */
 const chronicleNow = () => {
   const vdoc = visibleNow();
-  return chronicle(
-    filteredDoc(vdoc, matchingIds(vdoc, filterOf(prefsNow()))),
-    S.untitled,
-    S.toolName,
-  );
+  const p = prefsNow();
+  return chronicle(filteredDoc(vdoc, matchingIds(vdoc, filterOf(p))), S.untitled, S.toolName, {
+    links: chronicleLinksOn(p),
+  });
 };
 
 /** 點一筆：Ctrl／⌘＝加減、Shift＝從上次點的那筆到這筆（年表的順序，只算事件）、其他＝只選它 */
@@ -75,7 +81,7 @@ export function printChronicle(): Promise<HTMLIFrameElement> {
   const audience = prefsNow().viewMode;
   return printPages({
     title: ch.title,
-    css: PRINT_CSS,
+    css: chroniclePrintCss(ch),
     pages: [chronicleHtml(ch, audience)],
     size: PAPER_SIZES.A4,
     pageMargin: '15mm',
@@ -85,7 +91,11 @@ export function printChronicle(): Promise<HTMLIFrameElement> {
 export function Chronicle() {
   const { vdoc, ids } = useFilterState();
   const pl = usePrefs((s) => s.data.viewMode) === 'pl';
-  const ch = useMemo(() => chronicle(filteredDoc(vdoc, ids), S.untitled, S.toolName), [vdoc, ids]);
+  const linksOn = usePrefs((s) => chronicleLinksOn(s.data));
+  const ch = useMemo(
+    () => chronicle(filteredDoc(vdoc, ids), S.untitled, S.toolName, { links: linksOn }),
+    [vdoc, ids, linksOn],
+  );
   const selectedIds = useUi((s) => s.selectedIds);
   const selected = useMemo(() => new Set(selectedIds), [selectedIds]);
   /* Shift＋點選用的順序（年表上由上而下的事件） */
@@ -106,7 +116,14 @@ export function Chronicle() {
           </h2>
           {ch.range ? <p className="m-0 text-xs text-muted">{ch.range}</p> : null}
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {vdoc.links.length ? (
+            <Toggle
+              label={S.chronLinks}
+              checked={linksOn}
+              onCheckedChange={(v) => setPrefs({ chronicleLinks: v })}
+            />
+          ) : null}
           <Button
             size="sm"
             icon={<Printer />}
@@ -239,6 +256,27 @@ const Row = memo(function Row({
         {r.description.trim() ? (
           <span className="block text-sm whitespace-pre-wrap break-words text-fg">
             {r.description.trim()}
+          </span>
+        ) : null}
+        {r.links.length ? (
+          <span className="mt-0.5 block text-xs text-muted" data-chron-links>
+            {r.links.map((k, i) => (
+              <span
+                // biome-ignore lint/suspicious/noArrayIndexKey: 同樣兩端、同樣種類的線可能有兩條（方向相反），清單不會重排
+                key={i}
+                className={cn('block break-words', gm && k.secret && 'text-warning')}
+                data-chron-link={k.kind}
+                data-secret={(gm && k.secret) || undefined}
+              >
+                {linkText(k)}
+                {gm && k.secret ? (
+                  <>
+                    {' '}
+                    <GmBadge />
+                  </>
+                ) : null}
+              </span>
+            ))}
           </span>
         ) : null}
         {gm && r.gmNote.trim() ? (

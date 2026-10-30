@@ -73,7 +73,6 @@
 | ui-frame | [knightleft/trpg-overlay](https://github.com/knightleft/trpg-overlay)（原本列為新工具候選「直播版面產生器」） | 未授權 | OBS 直播版面（作者寫繁中）：和 ui-frame 的 TRPG・直播模式重疊，可以補整面版面配置 | 中 |
 | floor-plan | 本站（2026-10-29 改 L 形範本時沒改的，規格 D81） | — | 辦公大樓 8F、劇場 B1 的轉角走廊照同樣的做法改成 L 形（要重驗格局與線索位置、更新匯出 PNG 的基準） | 小 |
 | ambience-mixer | 本站（2026-10-29，規格 D1、D23） | — | 另找逐檔標明 CC0 的真實錄音內建（使用者 2026-10-29 選了「收逐檔標 CC0 的錄音」，這個環境連不到 Freesound 等來源，等開網路）；在 CCFOLIA 試聽一次 MP3 的循環接縫（預設是 MP3，聽得出接縫就改回 WAV，D23） | 小～中 |
-| scenario-timeline | 本站（2026-10-29 第二批沒做的，規格 D28、D29） | — | 年表與文字年表列出關聯線；架空曆寫到時刻（時:分） | 小 |
 | coc-sheet（建卡精靈） | [noechou/coc-investigator-generator](https://github.com/noechou/coc-investigator-generator)（`b72a4ed`，2026-10-30；簡中） | MIT（規則程式可以沿用，附 UPSTREAM_LICENSE） | 7 版建卡流程：8 項屬性擲骰 → 年齡修正（`src/domain/rules.ts` 的 `AGE_RULES`：各年齡段的屬性扣減、教育增強檢定次數、外貌扣減、15～19 歲幸運擲兩次取高）→ 職業點數的公式（EDU×4、EDU×2＋APP／DEX／STR／POW 取高等 7 種）與興趣點 → 技能分配與檢查清單；規則有約 770 行測試可以對照。本站 coc-sheet 只有職業 EDU×4／興趣 INT×2 的總數。不收：AI 人設（要 API 金鑰）、職業與技能清單（`catalogs.ts`，含規則書內容，要自己整理）、開團面板（和 CCFOLIA 重複） | 中 |
 | family-tree | [Sectr99/Lineage](https://github.com/Sectr99/Lineage)（`47ffdbb`，2026-10-30 新建） | MIT（只取點子：它用 React Flow＋ELK，和本站不同） | 遺傳特質：替人物加特質（是否遺傳；受影響／帶因／未受影響／不明），父母受影響或帶因時子女自動標「帶因」（只標有沒有風險、不算機率，手填的不覆蓋）。其他功能本站已有（relation-chart、多個圖板）；優先度低 | 小 |
 | session-calendar | [knightleft/tw-calendar](https://github.com/knightleft/tw-calendar)（`ee16ee6`，v0.63，2026-10-29；繁中、台灣假日；底本同樣是 utiyoso/taku_calendar） | 未授權（只參考功能） | 「直播曆」的週曆：三種樣式（7 欄格子、一天一列、一天一張直卡）、4:3／16:9／9:16、休息日、強調日（光暈＋徽章）、每天的貼圖、社群連結貼紙、圓形頭像、配色（輪替、從圖取色、命名儲存）、標題描邊。本站只有月曆與年曆。不收：v0.63 的 Google 帳號同步 | 中 |
@@ -198,6 +197,7 @@
 - 2026-10-29：使用者要求做待做清單的三個新工具（環境音混音、劇本時間表／年表、PL 自我介紹卡／地雷表）與 QR Code 產生器（參考 kozakdenys/qr-code-styling）；另外上傳 KIIN 的「マップ制作スタジオ v1.0」，選擇併進室內平面圖產生器（自動化、L 形房間、圖面風格與座標、VTT 匯出與串接）。
 - 2026-10-29：完成並移出清單——新工具 QR Code 產生器（qr-maker）、PL 自介卡與地雷表（pl-profile）、劇本時間表（scenario-timeline，第一批）、環境音混音器（ambience-mixer）；floor-plan 參考 KIIN マップ制作スタジオ的功能（規格 6.8、7.22）。沒做的記在第三節與內部改善。
 - 2026-10-30：完成並移出清單——劇本時間表（scenario-timeline）第二批（規格 F90～F109：多選、搜尋與篩選、架空曆的月日、事件之間的關聯線、讀入 vis-timeline 的資料；驗證紀錄 6.2、裁定 7.2）；floor-plan 的 L 形範本與「在地圖演出產生器開啟」帶房間的範圍（floor-plan 6.9、7.23；map-fx F85、F86）；環境音混音器的 MP3 匯出（lamejs）與兩種新聲音（ambience-mixer 6.2、7.2）。沒做的記在第三節；逐檔標 CC0 的真實錄音等網路開放。
+- 2026-10-30：劇本時間表（scenario-timeline）第三批實作、移出第三節：年表與文字年表列出關聯線、架空曆寫到時刻（規格 F110～F115、D33～D38），待對等驗證。
 - 2026-10-30：評估 sayaka-aiart/StandRig（Apache-2.0）：主要功能要本機 Node 服務＋MCP 的 AI 助手，不當新工具；「讀入 .srig 播放」記進第三節的 anime-rig 候選，使用者決定先不做。
 
 - 2026-10-30：上游檢查（GitHub 來源 139 個，全部還在，沒有改名、改寫歷史或改授權；10-28 之後 15 個有新 commit）：shiki365/chat-window-maker v1.12 列入第一節，TIER ATELIER 的新功能更新第二節，其餘是 CI、文件、相依套件、外部服務或韓國部落格用的輸出 CSS，不列。「先觀察」的條件都還沒成立；HTML-in-Canvas 的 API 在 Chrome 155 改名（搜尋摘要）；Maptsukuri 的作者標示待確認（第四節）。不在 GitHub 的原作與 docs.ccfolia.com 這次 WebFetch 都連不到。

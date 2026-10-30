@@ -78,10 +78,11 @@ function check(
   };
 }
 
-/** 例子：架空曆有月份時「302 年 1 月 5 日」 */
+/** 例子：架空曆有月份時「302 年 1 月 5 日」（寫到時刻時「302 年 1 月 5 日 14:00」） */
 function placeholderFor(mode: TimeMode, era: EraArg): string {
   const info = mode === 'year' && typeof era !== 'string' ? calInfo(era.calendar) : null;
-  return info ? `302 年 ${monthName(info, 0)} 5 日` : PLACEHOLDER[mode];
+  if (!info) return PLACEHOLDER[mode];
+  return `302 年 ${monthName(info, 0)} 5 日${info.clock ? ' 14:00' : ''}`;
 }
 
 export function TimeField(props: TimeFieldProps) {

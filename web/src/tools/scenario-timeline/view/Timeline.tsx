@@ -452,14 +452,17 @@ export function Timeline() {
   const live = useRef({ w, k, layout, ticks, vdoc: vdocBase, dimOf, xOf });
   live.current = { w, k, layout, ticks, vdoc: vdocBase, dimOf, xOf };
 
-  const snapUnit = (alt: boolean): SnapUnit =>
-    alt
-      ? mode === 'year'
-        ? calOfDoc(live.current.vdoc)
-          ? { kind: 'day', n: 1 }
-          : { kind: 'year', n: 1 }
-        : { kind: 'min', n: 1 }
-      : live.current.ticks.snap;
+  /* 按住 Alt：日期時間與第 N 天 1 分、架空年 1 年、架空曆 1 日（寫到時刻時 1 分，F110） */
+  const altUnit = (): SnapUnit => {
+    if (mode !== 'year') return { kind: 'min', n: 1 };
+    const info = calOfDoc(live.current.vdoc);
+    return info
+      ? info.clock
+        ? { kind: 'min', n: 1 }
+        : { kind: 'day', n: 1 }
+      : { kind: 'year', n: 1 };
+  };
+  const snapUnit = (alt: boolean): SnapUnit => (alt ? altUnit() : live.current.ticks.snap);
 
   /* ---------- 縮放、平移 ---------- */
 

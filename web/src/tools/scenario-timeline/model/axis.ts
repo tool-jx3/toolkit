@@ -3,9 +3,22 @@
  * 上下兩排），階梯與標籤是本站的。純計算。
  *
  * 位置 v：日期時間與第 N 天是分鐘、架空年是年；k＝每單位幾 px。
- * 架空年有月份（架空曆，F92）時多了日、月的階梯；ctx 是曆名與架空曆（專案資料本身就可以）。
+ * 架空年有月份（架空曆，F92）時多了日、月的階梯；打開「寫到時刻」（F110）時再多分、時的階梯（同日期時間）。
+ * ctx 是曆名與架空曆（專案資料本身就可以）。
  */
-import { type CalInfo, calParts, calValue, monthName, monthStartValue } from './calendar';
+import {
+  CAL_DAY_MINUTES,
+  type CalInfo,
+  calParts,
+  calValue,
+  dayOfValue,
+  minuteOfValue,
+  monthName,
+  monthStartValue,
+  valueOfDay,
+  valueOfMinute,
+  weekdayOfDay,
+} from './calendar';
 import {
   addMonths,
   clockText,
@@ -74,12 +87,20 @@ const CAL_STEPS: Step[] = [
   ...YEAR_STEPS,
 ];
 
+/** 架空曆寫到時刻（F110）：分、時（同日期時間）＋日、月、年 */
+const CAL_CLOCK_STEPS: Step[] = [...MIN_STEPS, ...HOUR_STEPS, ...CAL_STEPS];
+
 /** 架空年的架空曆（有月份時） */
 const calOf = (mode: TimeMode, ctx?: EraArg): CalInfo | null =>
   mode === 'year' ? ctxParts(ctx).info : null;
 
+const isClockUnit = (s: Step) => s.unit === 'minute' || s.unit === 'hour';
+/** 間隔是幾分（分、時） */
+const stepMinutes = (s: Step) => s.n * (s.unit === 'hour' ? 60 : 1);
+
 export function stepLadder(mode: TimeMode, ctx?: EraArg): Step[] {
-  if (calOf(mode, ctx)) return CAL_STEPS;
+  const info = calOf(mode, ctx);
+  if (info) return info.clock ? CAL_CLOCK_STEPS : CAL_STEPS;
   return mode === 'date' ? DATE_STEPS : mode === 'day' ? DAY_STEPS : YEAR_STEPS;
 }
 
@@ -89,6 +110,7 @@ export function stepSize(mode: TimeMode, s: Step, ctx?: EraArg): number {
     const info = calOf(mode, ctx);
     if (info && s.unit === 'day') return s.n / info.D;
     if (info && s.unit === 'month') return s.n / info.M;
+    if (info && isClockUnit(s)) return stepMinutes(s) / (info.D * CAL_DAY_MINUTES);
     return s.n;
   }
   switch (s.unit) {
@@ -165,6 +187,7 @@ function minorLabel(mode: TimeMode, s: Step, v: number, ctx?: EraArg): string {
     const c = calParts(info, v);
     return s.unit === 'day' ? String(c.d) : monthName(info, c.m - 1);
   }
+  if (info && isClockUnit(s)) return clockText(calParts(info, v).min);
   if (s.unit === 'minute' || s.unit === 'hour') return clockText(v);
   if (mode === 'year') return String(Math.round(v));
   if (mode === 'day') return `第 ${dayNumber(v)} 天`;
@@ -231,6 +254,16 @@ export function minorValues(
   };
   const info = calOf(mode, ctx);
   if (info && (s.unit === 'day' || s.unit === 'month')) return calMinorValues(info, s, from, to);
+  if (info && isClockUnit(s)) {
+    /* 架空曆的分、時（F110）：每天從 0:00 數（間隔都是 1440 的因數） */
+    const n = stepMinutes(s);
+    const last = minuteOfValue(info, to);
+    for (let M = Math.floor(minuteOfValue(info, from) / n) * n; M <= last; M += n) {
+      if (out.length >= MAX_TICKS) break;
+      push(valueOfMinute(info, M));
+    }
+    return out;
+  }
   if (mode === 'year') {
     const n = s.n;
     for (let y = Math.floor(from / n) * n; y <= to && out.length < MAX_TICKS; y += n) push(y);
@@ -296,6 +329,24 @@ export function majorTicks(
 ): Tick[] {
   const out: Tick[] = [];
   const info = calOf(mode, ctx);
+  if (info && isClockUnit(s)) {
+    /* 架空曆的分、時（F110）：每天一格「302 年 霜月 5 日（月曜）」 */
+    for (let T = dayOfValue(info, from); out.length < MAX_TICKS; T++) {
+      const v = valueOfDay(info, T);
+      if (v > to) break;
+      const p = calParts(info, v);
+      const name = monthName(info, p.m - 1);
+      const w = weekdayOfDay(info, p.T);
+      const wd = w ? `（${w}）` : '';
+      const day = `${name} ${p.d} 日`;
+      out.push({
+        v,
+        label: `${p.y} 年 ${day}${wd}`,
+        short: wd ? [`${day}${wd}`, day, `${p.d} 日`] : [day, `${p.d} 日`],
+      });
+    }
+    return out;
+  }
   if (info && s.unit === 'day') {
     /* 日：每個月一格「302 年 霜月」 */
     const c = calParts(info, from);
@@ -384,11 +435,11 @@ const MIN_SNAPS = [1, 5, 10, 15, 30, 60, 120, 180, 360, 720, 1440];
 
 export function snapUnitFor(mode: TimeMode, s: Step, ctx?: EraArg): SnapUnit {
   if (calOf(mode, ctx)) {
-    /* 架空曆：日、月的間隔吸附到日；1、2 年的間隔吸附到月；再大照架空年 */
+    /* 架空曆：日、月的間隔吸附到日；1、2 年的間隔吸附到月；再大照架空年（分、時照日期時間，F110） */
     if (s.unit === 'day' || s.unit === 'month') return { kind: 'day', n: 1 };
-    if (s.n <= 2) return { kind: 'month', n: 1 };
+    if (s.unit === 'year' && s.n <= 2) return { kind: 'month', n: 1 };
   }
-  if (mode === 'year') {
+  if (mode === 'year' && s.unit === 'year') {
     let best = 1;
     for (const st of YEAR_STEPS) if (st.n <= s.n / 5) best = st.n;
     return { kind: 'year', n: best };

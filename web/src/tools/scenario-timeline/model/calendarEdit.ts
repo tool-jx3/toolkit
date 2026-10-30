@@ -7,6 +7,7 @@
  * - 刪掉的月份：用同一個位置的月份（沒有了就用最後一個月），算「調整」（存檔的寫法可能沒變，但意思變了：乙月 10 日 → 丙月 10 日）。
  * - 天數變少：超過的日改成那個月的最後一天，算「調整」。
  * - 關掉月份：月、日拿掉，只留年（會失去精度）。
+ * - 寫到時刻的時間（F110）：時刻跟著日子走；關掉「寫到時刻」時時刻拿掉、只留日（會失去精度）。
  * - 期間換完結束不比開始晚時，結束改成和開始同一天（算「調整」）。
  */
 import { type Calendar, calInfo, calParts, calValue } from './calendar';
@@ -33,8 +34,7 @@ function remap(
   newCtx: TimeCtx,
 ): { text: string; tv: Tv | null; adjusted: boolean; lossy: boolean } {
   const tv = readTime('year', stored, oldCtx);
-  if (!tv || (tv.p !== 'month' && tv.p !== 'day'))
-    return { text: stored, tv, adjusted: false, lossy: false };
+  if (!tv || tv.p === 'year') return { text: stored, tv, adjusted: false, lossy: false };
   const oldInfo = calInfo(oldCtx.calendar);
   const newInfo = calInfo(newCtx.calendar);
   if (!oldInfo) return { text: stored, tv, adjusted: false, lossy: false };
@@ -51,12 +51,19 @@ function remap(
     adjusted = true;
   }
   let d = c.d;
-  if (tv.p === 'day' && d > newInfo.months[ni].days) {
+  if (tv.p !== 'month' && d > newInfo.months[ni].days) {
     d = newInfo.months[ni].days;
     adjusted = true;
   }
-  const out: Tv = { v: calValue(newInfo, c.y, ni + 1, tv.p === 'day' ? d : 1), p: tv.p };
-  return { text: canonical('year', out, newCtx), tv: out, adjusted, lossy: false };
+  /* 時刻：新的架空曆也寫到時刻時跟著日子走，沒有時只留日（失去精度） */
+  const keepClock = tv.p === 'minute' && newInfo.clock;
+  const p = tv.p === 'minute' && !keepClock ? 'day' : tv.p;
+  const out: Tv = {
+    v: calValue(newInfo, c.y, ni + 1, tv.p === 'month' ? 1 : d, keepClock ? c.min : 0),
+    p,
+  };
+  const lossy = tv.p === 'minute' && !keepClock;
+  return { text: canonical('year', out, newCtx), tv: out, adjusted, lossy };
 }
 
 /** 換成新的架空曆時，所有事件、標記、目前進度的時間（架空年以外的寫法不用換） */
@@ -90,9 +97,10 @@ export function planCalendar(doc: TimelineDoc, next: Calendar, untitled: string)
     const b = e.kind !== 'point' && e.end ? remap(e.end, oldCtx, newCtx) : null;
     let end = b ? b.text : e.end;
     let adjusted = a.adjusted || !!b?.adjusted;
-    /* 期間倒過來：結束改成和開始同一個單位 */
+    /* 期間倒過來：結束改成和開始同一個單位（開始寫到時刻時是開始的那一天） */
     if (b && a.tv && b.tv && afterUnit('year', b.tv, newCtx) <= a.tv.v) {
-      end = canonical('year', { v: a.tv.v, p: b.tv.p === 'year' ? 'year' : a.tv.p }, newCtx);
+      const p = b.tv.p === 'year' ? 'year' : a.tv.p === 'minute' ? 'day' : a.tv.p;
+      end = canonical('year', { v: a.tv.v, p }, newCtx);
       adjusted = true;
     }
     const lossy = a.lossy || !!b?.lossy;
