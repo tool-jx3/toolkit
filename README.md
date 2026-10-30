@@ -115,7 +115,7 @@
 | [跑團紀錄簿](https://tool-jx3.github.io/toolkit/tools/session-log/) | 記錄玩過的團，整理感想、團報與已通關劇本清單；可匯入試算表或團報文字，每一團都能直接送到團報產生器 |
 | [團報產生器](https://tool-jx3.github.io/toolkit/tools/session-report/) | 填入劇本、KP／PL／PC 與結果，從 17 種範本產生可直接貼到 X 的團報文，能即時預覽、編輯 |
 | [團期行事曆](https://tool-jx3.github.io/toolkit/tools/session-calendar/) | 把場次、準備事項和其他預定排在同一張月曆：台灣的國定假日與補假、拖曳新增多日預定、配色與 CP 色、輸出空檔日期揪團、整月或整年存成 PNG、JSON／iCal 匯出入（可讀 Google 日曆匯出的檔案），一團可以直接送到跑團紀錄簿 |
-| [劇本時間表](https://tool-jx3.github.io/toolkit/tools/scenario-timeline/) | 把劇本的事件經過、NPC 的行動排在可以縮放的時間軸上（真實日期、「第 N 天 21:00」或架空曆的年），依角色、地點分泳道、拖曳改時間；轉成年表列印或複製，PL 檢視拿掉 GM 專用的事件，匯出 PNG、SVG、文字年表與 CSV |
+| [劇本時間表](https://tool-jx3.github.io/toolkit/tools/scenario-timeline/) | 把劇本的事件經過、NPC 的行動排在可以縮放的時間軸上（真實日期、「第 N 天 21:00」或架空曆的年月日），依角色、地點分泳道、拖曳改時間、畫事件之間的關聯線；轉成年表列印或複製，PL 檢視拿掉 GM 專用的事件，匯出 PNG、SVG、文字年表與 CSV |
 | [PDF 壓縮器](https://tool-jx3.github.io/toolkit/tools/pdf-compress/) | 在瀏覽器裡縮小劇本、手冊、角色卡的 PDF：無損整理結構、重新壓縮照片並依解析度縮小，或整頁轉成圖片；可以一次多個檔案、看前後比對、打包成 ZIP，檔案不會上傳 |
 | [角色差分管理器](https://tool-jx3.github.io/toolkit/tools/variant-manager/) | 一次檢查立繪與表情差分、整理好檔名打包成 ZIP，並產生 CCFOLIA 用的 @差分 聊天面板 |
 | [劇本資訊卡片產生器](https://tool-jx3.github.io/toolkit/tools/scenario-cards/) | 把劇本內文裡的場景、探索地點、資料、技能成功等資訊做成卡片，複製成 CCFOLIA／Discord 用的文字或 CCFOLIA 的卡片 JSON |
