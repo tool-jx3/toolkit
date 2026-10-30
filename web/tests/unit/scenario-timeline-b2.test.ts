@@ -782,6 +782,10 @@ describe('讀入 vis-timeline 的資料（F94）', () => {
     );
     expect(htmlToText('<p>第一行</p><p>第二行</p>', true)).toBe('第一行\n第二行');
     expect(htmlToText('<img src=x onerror=alert(1)>圖')).toBe('圖');
+    /* 轉小寫會變長的字（İ）不會讓後面的標籤錯位；大寫的標籤名稱也認得 */
+    expect(htmlToText('İ<script>evil</script>x')).toBe('İ x');
+    expect(htmlToText('İİİ<br>y', true)).toBe('İİİ\ny');
+    expect(htmlToText('a<SCRIPT>x</Script>b<BR>c', true)).toBe('a b\nc');
   });
   it('時間：ISO（沒有時區照寫的）、只到日、數字、ASP.NET 的寫法', () => {
     expect(canonical('date', visTime('2014-01-01T01:00:00') ?? { v: 0, p: 'day' })).toBe(

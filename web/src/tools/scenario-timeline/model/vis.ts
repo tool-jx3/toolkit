@@ -100,7 +100,6 @@ export function htmlToText(
   max = Number.POSITIVE_INFINITY,
 ): string {
   const src = String(html);
-  const lower = src.toLowerCase();
   const limit = Number.isFinite(max) ? max * 4 + 256 : Number.POSITIVE_INFINITY;
   const out: string[] = [];
   let len = 0;
@@ -131,12 +130,15 @@ export function htmlToText(
       push(src.slice(i));
       break;
     }
-    const m = /^(\/?)([a-z][a-z0-9]*)/.exec(lower.slice(i + 1, Math.min(gt, i + 12)));
+    /* 標籤名稱在原字串上不分大小寫比對（整串轉小寫會讓「İ」這類字變長、索引錯位） */
+    const m = /^(\/?)([a-z][a-z0-9]*)/i.exec(src.slice(i + 1, Math.min(gt, i + 12)));
     const closing = m?.[1] === '/';
-    const name = m?.[2] ?? '';
+    const name = m?.[2]?.toLowerCase() ?? '';
     i = gt + 1;
     if (!closing && (name === 'script' || name === 'style') && !noClose.has(name)) {
-      const close = lower.indexOf(`</${name}`, i);
+      const endTag = new RegExp(`</${name}`, 'gi');
+      endTag.lastIndex = i;
+      const close = endTag.exec(src)?.index ?? -1;
       const cgt = close < 0 ? -1 : src.indexOf('>', close);
       if (cgt < 0) noClose.add(name);
       else {
