@@ -4,10 +4,12 @@
  * - 票券：PNG（1～3 倍，有沒有墊紙）、GIF（48 格 × 70 ms，浮起＋閃光，長邊 1400／1000／700）。
  * 先等字型載好再畫；GIF 交給共用的編碼器（Web Worker）。
  */
+import { loadAssetBitmaps } from '@/core/assets';
 import { createEncoder, type GifDither, setPngDpi } from '@/core/encode';
 import { canvasToBlob, makeCanvas } from '@/core/image';
 import type { ExportBatchOutput, ExportOutput } from '@/ui';
 import { ensureAll } from './fonts';
+import { type LanyardMode, lanyardHole, lanyardStrap } from './lanyard';
 import {
   CARD_DPI,
   EXPORT_SCALE,
@@ -24,17 +26,22 @@ import {
   type AnyCanvas,
   composeTicket,
   drawGifFrame,
+  type FaceLanyard,
   GIF_DELAY_MS,
   GIF_FRAMES,
   gifLayout,
   gifSolidColors,
   idFontUses,
+  idStrapExtent,
   MAT_PAD,
   renderIdFace,
   renderTicketLayer,
   ticketFontUses,
   ticketStageSize,
 } from './render';
+import { sfAssetIds } from './sf/model';
+import { renderSf, sfFileName, sfFontUses, sfPhotoSource } from './sf/render';
+import { assets } from './store';
 import { S } from './strings';
 import { idTemplate } from './templates';
 
@@ -73,18 +80,36 @@ export interface IdJob {
   faces: IdFaces;
   /** 「目前這一面」用的面 */
   side: Side;
+  /** 掛繩（不給＝'preview'：匯出沒有，同以前） */
+  lanyard?: LanyardMode;
 }
 
-/** 輸出的像素（一面或排在一張） */
-export function idOutputSize(s: IdTicketState, job: Pick<IdJob, 'mode' | 'faces'>) {
-  const one = facePixels(idTemplate(s.idTemplate).orientation, job.mode);
+/** 匯出時的掛繩孔與掛繩（'preview'、'none'：沒有） */
+const faceLanyard = (m: LanyardMode | undefined): FaceLanyard | undefined =>
+  m && lanyardHole(m) ? { hole: true, strap: lanyardStrap(m) } : undefined;
+
+/** 輸出的像素（一面或排在一張；掛繩往上延伸） */
+export function idOutputSize(s: IdTicketState, job: Pick<IdJob, 'mode' | 'faces' | 'lanyard'>) {
+  const face = facePixels(idTemplate(s.idTemplate).orientation, job.mode);
+  const one = {
+    width: face.width,
+    height: face.height + idStrapExtent(EXPORT_SCALE, job.mode, faceLanyard(job.lanyard)),
+  };
   if (job.faces !== 'sheet') return one;
   return { width: one.width * 2 + sheetGapPx(), height: one.height };
 }
 
-function idFace(s: IdTicketState, side: Side, mode: IdExportMode, photo: CanvasImageSource | null) {
+function idFace(
+  s: IdTicketState,
+  side: Side,
+  mode: IdExportMode,
+  photo: CanvasImageSource | null,
+  lanyard?: LanyardMode,
+) {
   const size = facePixels(idTemplate(s.idTemplate).orientation, mode);
-  return renderIdFace(s, side, EXPORT_SCALE, mode, { preview: false, photo }, size).canvas;
+  const l = faceLanyard(lanyard);
+  return renderIdFace(s, side, EXPORT_SCALE, mode, { preview: false, photo }, size, undefined, l)
+    .canvas;
 }
 
 export async function exportId(
@@ -98,7 +123,7 @@ export async function exportId(
   const tpl = idTemplate(s.idTemplate);
   const dpiRow = [{ label: S.dpiDetail, value: S.dpiValue(CARD_DPI) }];
   const one = async (side: Side): Promise<ExportOutput> => {
-    const c = idFace(s, side, job.mode, photo);
+    const c = idFace(s, side, job.mode, photo, job.lanyard);
     return {
       blob: await pngWithDpi(c, CARD_DPI),
       fileName: idFileName(tpl.id, side, job.mode),
@@ -115,9 +140,9 @@ export async function exportId(
     const back = await one('back');
     return { files: [front, back], zipName: `${S.zipName}-${tpl.name}`, details: dpiRow };
   }
-  const f = idFace(s, 'front', job.mode, photo);
+  const f = idFace(s, 'front', job.mode, photo, job.lanyard);
   onProgress(0.4);
-  const b = idFace(s, 'back', job.mode, photo);
+  const b = idFace(s, 'back', job.mode, photo, job.lanyard);
   onProgress(0.7);
   const gap = sheetGapPx();
   const sheet = makeCanvas(f.width + gap + b.width, Math.max(f.height, b.height));
@@ -249,4 +274,37 @@ export async function exportTicket(
   } finally {
     signal.removeEventListener('abort', stop);
   }
+}
+
+/* ---------- SF 證件 ---------- */
+
+export interface SfJob {
+  scale: number;
+  lanyard: LanyardMode;
+}
+
+/** SF 證件的 PNG（1 倍／2 倍，卡片外形以外透明；掛繩孔、掛繩依選擇） */
+export async function exportSf(
+  s: IdTicketState,
+  job: SfJob,
+  { signal }: { signal: AbortSignal; onProgress: (r: number, label?: string) => void },
+): Promise<ExportOutput> {
+  await ensureAll(sfFontUses(s.sf));
+  if (signal.aborted) throw aborted();
+  const ids = sfAssetIds(s.sf);
+  const bitmaps = await loadAssetBitmaps(assets, ids);
+  if (signal.aborted) throw aborted();
+  const photoBmp = s.sf.photo ? (bitmaps.get(s.sf.photo.image.id) ?? null) : null;
+  const { canvas } = renderSf(s.sf, job.scale, {
+    preview: false,
+    photo: sfPhotoSource(s.sf.photo, photoBmp),
+    image: (id) => bitmaps.get(id) ?? null,
+    lanyard: job.lanyard,
+  });
+  return {
+    blob: await canvasToBlob(canvas, 'image/png'),
+    fileName: sfFileName(s.sf, job.scale),
+    width: canvas.width,
+    height: canvas.height,
+  };
 }

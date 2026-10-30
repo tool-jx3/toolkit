@@ -31,6 +31,7 @@ import {
 import { Preview } from './Preview';
 import { importProject, projectAssetIds } from './project';
 import { fontUsesOf } from './render';
+import { LicensesSection, SfCaptionsSection, SfCropDialog, SfStyleSection } from './SfPanel';
 import {
   assets,
   DATA_VERSION,
@@ -114,6 +115,8 @@ function Settings() {
         <div className="flex min-w-0 flex-col gap-3">
           <PhotoSection />
           <FieldsSection />
+          <LicensesSection />
+          <SfCaptionsSection />
           <ItemsSection />
           <CaptionsSection />
         </div>
@@ -124,7 +127,13 @@ function Settings() {
       label: S.tabs.style,
       content: (
         <div className="flex min-w-0 flex-col gap-3">
-          {kind === 'id' ? <IdStyleSection /> : <TicketStyleSection />}
+          {kind === 'id' ? (
+            <IdStyleSection />
+          ) : kind === 'sf' ? (
+            <SfStyleSection />
+          ) : (
+            <TicketStyleSection />
+          )}
         </div>
       ),
     },
@@ -142,6 +151,7 @@ function Settings() {
       />
       <PhotoWindowDrop />
       <FrameDialog />
+      <SfCropDialog />
     </div>
   );
 }

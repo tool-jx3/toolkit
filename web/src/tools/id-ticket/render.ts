@@ -12,6 +12,7 @@ import { detective, member, police } from './faces/cards2';
 import type { IdEnv, IdFaces } from './faces/common';
 import { TICKET_DRAWINGS, type TicketEnv, ticketPalette } from './faces/tickets';
 import { type Ctx, type FontUse, fontUses, type PhotoSource, type Region, rrect } from './kit';
+import { drawStrap, ID_STRAP_U, idSlot, idStrapColor, slotPoly, strapGeometry } from './lanyard';
 import {
   BLEED_U,
   CARD_RADIUS_U,
@@ -26,6 +27,7 @@ import {
   type Side,
   UNITS_PER_MM,
 } from './model';
+import { polyPath } from './sf/geom';
 import {
   ID_TEMPLATES,
   type IdTemplate,
@@ -48,6 +50,9 @@ export const FACES: Record<IdTemplateId, IdFaces> = {
   member,
   detective,
 };
+
+/** 既有證件的照片效果：網點大小 1 ＝ 0.3 設計單位（約 0.055 mm，和 SF 證件的原生像素差不多） */
+export const ID_DOT_UNIT = 0.3;
 
 /** 預覽畫布的解析度（設計單位的幾倍） */
 export const PREVIEW_SCALE = 3;
@@ -144,6 +149,15 @@ export function drawIdFace(ctx: Ctx, s: IdTicketState, side: Side, o: FaceDrawOp
     tpl,
     qrContent: idQrContent(s, tpl),
     code: s.idValues[tpl.codeKey] ?? '',
+    photoFx:
+      s.idPhotoFx && s.idPhotoFx.fx !== 'none'
+        ? {
+            fx: s.idPhotoFx,
+            ink: style.dark ? '#f1f2f4' : '#17181c',
+            card: style.dark ? '#15171c' : '#ffffff',
+            dotUnit: ID_DOT_UNIT,
+          }
+        : undefined,
   };
   ctx.save();
   FACES[tpl.id][side](env);
@@ -151,11 +165,25 @@ export function drawIdFace(ctx: Ctx, s: IdTicketState, side: Side, o: FaceDrawOp
   return regions;
 }
 
+/** 掛繩孔與掛繩（lanyard.ts）：hole＝打洞；strap＝往上延伸畫出掛繩（只在「卡片」） */
+export interface FaceLanyard {
+  hole: boolean;
+  strap: boolean;
+}
+
+/** 往上延伸的掛繩幾 px（沒有時 0；印刷用不畫掛繩） */
+export const idStrapExtent = (
+  scale: number,
+  mode: IdExportMode,
+  lanyard: FaceLanyard | undefined,
+): number => (lanyard?.strap && mode === 'card' ? Math.round(ID_STRAP_U * scale) : 0);
+
 /**
  * 一面的畫布：
  * - 'card'：成品大小、圓角外透明；
  * - 'print'：含出血、白底（印刷廠裁切用）。
  * scale＝每個設計單位幾個像素（匯出 600 dpi ≈ 4.295、預覽 3）。
+ * lanyard：掛繩孔（卡片是透明的洞、印刷是白的）、掛繩（卡片往上延伸 20 mm）；不給＝以前的畫法。
  */
 export function renderIdFace(
   s: IdTicketState,
@@ -165,15 +193,61 @@ export function renderIdFace(
   o: FaceDrawOptions,
   size?: { width: number; height: number },
   into?: AnyCanvas,
+  lanyard?: FaceLanyard,
 ): { canvas: AnyCanvas; regions: Region[] } {
   const tpl = idTemplate(s.idTemplate);
   const { w, h } = cardUnits(tpl.orientation);
   const bleed = mode === 'print' ? BLEED_U : 0;
   const width = size?.width ?? Math.round((w + bleed * 2) * scale);
-  const height = size?.height ?? Math.round((h + bleed * 2) * scale);
+  const faceH = size?.height ?? Math.round((h + bleed * 2) * scale);
+  const top = idStrapExtent(scale, mode, lanyard);
+  const height = faceH + top;
   const canvas = into ? reuseCanvas(into, width, height) : makeCanvas(width, height);
-  const regions = paintIdFace(ctx2d(canvas), s, side, scale, mode, o, { width, height });
+  const ctx = ctx2d(canvas);
+  if (!lanyard?.hole && !top) {
+    const regions = paintIdFace(ctx, s, side, scale, mode, o, { width, height });
+    return { canvas, regions };
+  }
+  ctx.save();
+  ctx.translate(0, top);
+  const regions = paintIdFace(ctx, s, side, scale, mode, o, { width, height: faceH });
+  ctx.restore();
+  const slot = idSlot(tpl.orientation);
+  ctx.save();
+  ctx.translate(0, top);
+  ctx.scale(scale, scale);
+  ctx.translate(bleed, bleed);
+  if (lanyard?.hole) {
+    polyPath(ctx, slotPoly(slot));
+    if (mode === 'card') ctx.globalCompositeOperation = 'destination-out';
+    ctx.fillStyle = '#ffffff';
+    ctx.fill();
+    ctx.globalCompositeOperation = 'source-over';
+  }
+  if (top)
+    drawStrap(ctx, strapGeometry(slot, 0, -ID_STRAP_U), idStrapColor(s.idStyles[tpl.id].color));
+  ctx.restore();
   return { canvas, regions };
+}
+
+/**
+ * 預覽用的掛繩圖層（卡片翻面時不動）：寬＝卡片、高＝掛繩＋到孔的下緣；原點在畫布的左上角。
+ */
+export function renderIdStrap(s: IdTicketState, scale: number, into?: AnyCanvas): AnyCanvas {
+  const tpl = idTemplate(s.idTemplate);
+  const { w } = cardUnits(tpl.orientation);
+  const slot = idSlot(tpl.orientation);
+  const hu = ID_STRAP_U + slot.y + slot.h;
+  const width = Math.round(w * scale);
+  const height = Math.round(hu * scale);
+  const canvas = into ? reuseCanvas(into, width, height) : makeCanvas(width, height);
+  const ctx = ctx2d(canvas);
+  ctx.save();
+  ctx.scale(scale, scale);
+  ctx.translate(0, ID_STRAP_U);
+  drawStrap(ctx, strapGeometry(slot, 0, -ID_STRAP_U), idStrapColor(s.idStyles[tpl.id].color));
+  ctx.restore();
+  return canvas;
 }
 
 /** renderIdFace 的畫法：畫在已經準備好大小的畫布上（測試用記錄指令的 context 比對） */

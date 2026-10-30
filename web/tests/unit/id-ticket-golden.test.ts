@@ -9,7 +9,12 @@
  */
 import { describe, expect, it } from 'vitest';
 import { bytesToHex, sha256Sync } from '@/core/files';
-import { EXPORT_SCALE, facePixels, type IdTicketState, initialState } from '@/tools/id-ticket/model';
+import {
+  EXPORT_SCALE,
+  facePixels,
+  type IdTicketState,
+  initialState,
+} from '@/tools/id-ticket/model';
 import { drawTicket, paintIdFace } from '@/tools/id-ticket/render';
 import { ID_TEMPLATES, TICKET_TEMPLATES } from '@/tools/id-ticket/templates';
 import { recordCanvas } from '../helpers/canvasRecorder';
@@ -80,25 +85,22 @@ function recorder(width: number, height: number) {
 }
 
 /* Node 沒有 Path2D：記下子路徑的指令，記錄器以 __id（指令的 JSON）記下 */
-class FakePath2D {
-  private readonly cmds: unknown[] = [];
-  get __id(): string {
-    return `path:${JSON.stringify(this.cmds)}`;
-  }
-  constructor() {
-    return new Proxy(this, {
-      get(t, key) {
-        if (key === '__id' || key === 'cmds') return Reflect.get(t, key);
+function FakePath2D(): object {
+  const cmds: unknown[] = [];
+  const argOf = (v: unknown) =>
+    v && typeof v === 'object' ? ((v as { __id?: string }).__id ?? 'object') : v;
+  return new Proxy(
+    {},
+    {
+      get(_t, key) {
+        if (key === '__id') return `path:${JSON.stringify(cmds)}`;
         if (typeof key !== 'string') return undefined;
         return (...a: unknown[]) => {
-          (t as unknown as { cmds: unknown[] }).cmds.push([
-            key,
-            ...a.map((v) => (v && typeof v === 'object' ? ((v as { __id?: string }).__id ?? 'object') : v)),
-          ]);
+          cmds.push([key, ...a.map(argOf)]);
         };
       },
-    });
-  }
+    },
+  );
 }
 (globalThis as Record<string, unknown>).Path2D ??= FakePath2D;
 
@@ -138,8 +140,9 @@ function cases(): Record<string, string> {
               { preview: false, photo: withPhoto ? FAKE_PHOTO : null },
               size,
             );
-            out[`id/${t.id}/${dark ? 'dark' : 'light'}/${withPhoto ? 'photo' : 'empty'}/${side}/${mode}`] =
-              hash([r.log, regions]);
+            out[
+              `id/${t.id}/${dark ? 'dark' : 'light'}/${withPhoto ? 'photo' : 'empty'}/${side}/${mode}`
+            ] = hash([r.log, regions]);
           }
       }
   for (const t of TICKET_TEMPLATES)

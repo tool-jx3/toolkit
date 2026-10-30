@@ -11,6 +11,9 @@ import { requestFonts } from './fonts';
 import { fontUses, rrect } from './kit';
 import { CARD_RADIUS_U, cardUnits, type IdTicketState, type Kind } from './model';
 import { type AnyCanvas, drawIdFace, drawTicket, ticketSize } from './render';
+import { type SfBlankId, sfBlank } from './sf/defs';
+import { drawSf } from './sf/draw';
+import { sfPhotoSource } from './sf/render';
 import { assets } from './store';
 import { type IdTemplateId, idTemplate, type TicketTemplateId } from './templates';
 
@@ -40,6 +43,18 @@ export function drawThumb(
     rrect(ctx, 0, 0, w, h, CARD_RADIUS_U);
     ctx.clip();
     drawIdFace(ctx, s, 'front', { preview: false, photo: idPhoto, fonts });
+  } else if (kind === 'sf') {
+    const sf = { ...doc.sf, blank: value as SfBlankId };
+    const b = sfBlank(sf.blank);
+    const k = Math.min((THUMB.w - MARGIN * 2) / b.w, (THUMB.h - MARGIN * 2) / b.h);
+    ctx.translate((THUMB.w - b.w * k) / 2, (THUMB.h - b.h * k) / 2);
+    ctx.scale(k, k);
+    drawSf(ctx, sf, k, {
+      preview: false,
+      photo: sfPhotoSource(sf.photo, idPhoto),
+      image: (id) => assets.peekBitmap(id) ?? null,
+      fonts,
+    });
   } else {
     const s: IdTicketState = { ...doc, ticketTemplate: value as TicketTemplateId };
     const { width, height } = ticketSize(s);
