@@ -58,7 +58,7 @@
 | video-anim | 影片轉動圖工具 | sotsotssi/video-to-pic | MIT | G8 |
 | gif-combiner | GIF 接合器 | sotsotssi/GIF-Combiner | MIT | G8 |
 | music-frame | 音樂播放畫面產生器 | zZnaptime/MVmaker（原 zznaptime/1007mv） | 未授權 | G8 |
-| battlemap | 戰鬥地圖產生器 | usagineko7865-debug/battlemap-generator | MIT | G10（原 G8） |
+| battlemap | 戰鬥地圖產生器 | usagineko7865-debug/battlemap-generator（2026-10-30 起生成法另參考 ondras/rot.js） | MIT（rot.js：BSD-3-Clause） | G10（原 G8） |
 | trpg-lab | 違法建築的 TRPG 實驗室（9 個子工具＋地圖編輯器） | ihoukentiku | MIT | G9 |
 | anime-rig | Anime2.5DRig | 852wa/Anime2.5DRig | MIT | G9 |
 | jizura | JIZURA 字面 | 852wa/JIZURA | MIT | 外部連結（不重寫，維持轉址） |

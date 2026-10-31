@@ -86,7 +86,7 @@ export const TOOLS: readonly ToolEntry[] = [
     id: 'battlemap',
     name: '戰鬥地圖產生器',
     summary:
-      '一鍵產生俯視的地下城戰鬥地圖（22 × 16 格），有石砌地城、洞穴、墓室三種地形，可匯出 PNG 當 VTT 背景。',
+      '一鍵產生俯視的地下城戰鬥地圖：房間、洞窟、迷宮等 6 種生成法，石砌地城、洞穴、墓室三種地形，可調格數與每格 px，匯出 PNG 當 VTT 背景。',
     group: 'G10',
     status: 'live',
     inspiration: {
