@@ -58,7 +58,7 @@
 | video-anim | 影片轉動圖工具 | sotsotssi/video-to-pic | MIT | G8 |
 | gif-combiner | GIF 接合器 | sotsotssi/GIF-Combiner | MIT | G8 |
 | music-frame | 音樂播放畫面產生器 | zZnaptime/MVmaker（原 zznaptime/1007mv） | 未授權 | G8 |
-| battlemap | 戰鬥地圖產生器 | usagineko7865-debug/battlemap-generator（2026-10-30 起生成法另參考 ondras/rot.js） | MIT（rot.js：BSD-3-Clause） | G10（原 G8） |
+| battlemap | 戰鬥地圖產生器 | usagineko7865-debug/battlemap-generator（2026-10-30 起格局另參考 ondras/rot.js） | MIT（rot.js：BSD-3-Clause） | G10（原 G8） |
 | trpg-lab | 違法建築的 TRPG 實驗室（9 個子工具＋地圖編輯器） | ihoukentiku | MIT | G9 |
 | anime-rig | Anime2.5DRig | 852wa/Anime2.5DRig | MIT | G9 |
 | jizura | JIZURA 字面 | 852wa/JIZURA | MIT | 外部連結（不重寫，維持轉址） |
@@ -259,7 +259,7 @@ music-frame 的原作搬到 zZnaptime/MVmaker（功能沒變），連結已修�
 | token-maker | VTT 棋子產生器（2026-10-29 另外加入；圓形外框 28 種〔TW 16＋ED 12〕與自訂外框、出框〔魔術棒、筆刷、自動、讀入遮罩〕、名單 60 個與編號組 ZIP、名字牌與弧形文字、徽章、色彩調整與效果、預設外觀、參考輪廓、嵌進 PNG 的設定；共用 core/encode 加 PNG 文字區塊） | arcana-hanna/token-workshop＋CyberDelaai/eidolon-ui＋Sectr99/TokenForge（開口偵測） | MIT | G3 | ✅ | ✅ | ✅ | ✅ |
 | qr-maker | QR Code 產生器（2026-10-29 另外加入；點 6 種、角的外框與中心各 7 種、單色或漸層、背景、中間放圖、圓形、版本與錯誤更正等級與模式、讀得出來的檢查、外觀預設 8 組、PNG／JPEG／WebP／SVG；共用模組 core/qr，id-ticket 改用） | kozakdenys/qr-code-styling | MIT | G7 | ✅ | ✅ | ✅ | ✅ |
 | pl-profile | PL 自介卡與地雷表（2026-10-29 另外加入；自介卡的欄位與眼睛開關、地雷表 7 類 59 題＋成人向 5 題 × 五級、自訂主題與分類、圖片〔6 種底色〕、純文字〔一般與 Discord〕、分享連結的唯讀檢視、KP 對照表；共用 Chips 加複選、Tabs 切分頁前先失焦） | sonata9x/trpg-profile-maker＋Jara03mofu/trpg-jirai-check＋Tetoriapot/sosaku-sheet-maker＋dearmysn1p3r/DearMySn1p3r_25＋OEC309/trpg-consensus | 未授權 | G7 | ✅ | ✅ | ✅ | ✅ |
-| scenario-timeline | 劇本時間表（2026-10-29 另外加入；第一批：真實日期／第 N 天／架空年、事件三種、泳道與巢狀、縮放平移拖曳、年表與列印、GM／PL 檢視、PNG／SVG／文字年表／CSV／專案檔；第二批〔多選、搜尋與篩選、架空曆的月日、關聯線、讀入 vis-timeline 的資料〕2026-10-30 上線；第三批〔年表列出關聯線、架空曆寫到時刻〕2026-10-30 實作、待驗證；共用 core/csv 加 quotes 與 guard） | visjs/vis-timeline | MIT（二選一） | G6 | ✅ | ✅ | ✅ | ✅ |
+| scenario-timeline | 劇本時間表（2026-10-29 另外加入；第一批：真實日期／第 N 天／架空年、事件三種、泳道與巢狀、縮放平移拖曳、年表與列印、GM／PL 檢視、PNG／SVG／文字年表／CSV／專案檔；第二批〔多選、搜尋與篩選、架空曆的月日、關聯線、讀入 vis-timeline 的資料〕2026-10-30 上線；第三批〔年表列出關聯線、架空曆寫到時刻〕2026-10-31 上線；共用 core/csv 加 quotes 與 guard） | visjs/vis-timeline | MIT（二選一） | G6 | ✅ | ✅ | ✅ | ✅ |
 | ambience-mixer | 環境音混音器（2026-10-29 另外加入；程式合成的環境音 26 種、自己的音檔、各自的音量與參數、起伏、預設組合 12 個、隨機組合、我的組合、分享連結、定時停止、匯出可以無縫循環的 MP3（lamejs，LGPL-3.0）或 WAV；共用模組 core/audio/ambience、core/audio/mp3） | remvze/moodist（音效不收） | MIT | G8 | ✅ | ✅ | ✅ | ✅ |
 
 上游更新的跟進（已上線的工具加功能，照一般的規格修訂與驗證）：
@@ -306,6 +306,9 @@ music-frame 的原作搬到 zZnaptime/MVmaker（功能沒變），連結已修�
 | floor-plan | 範本的 L 形走廊（山中小屋 2F、大學社團大樓 1F／2F、博物館 1F／B1）與 L 形的「門廳」（魔法師之塔 1F）；「在地圖演出產生器開啟」帶有名字的房間範圍（含 L 形、GM 專用；共用 core/handoff 加房間） | 本站（KIIN 那一批沒做的，使用者 2026-10-29 要求做完） | ✅ |
 | map-fx | 平面圖帶來的房間範圍一次做成房間遮罩、L 形的房間遮罩（四種樣式、邊界演出、ZIP、進階 3D 拆成兩間；共用 core/imagefx 加 `redactShape`） | 同上 | ✅ |
 | ambience-mixer | MP3 匯出（lamejs，LGPL-3.0；只在匯出 MP3 時載入、Worker 裡編碼、自己寫 LAME 的 Info 標頭讓循環無縫，共用 core/audio/mp3）；再合成「雨打在帳篷／傘上」「房間底噪」與兩個預設組合 | 本站（使用者 2026-10-29 選 MP3） | ✅ |
+| battlemap | 格局：挖掘式、均勻房間、格狀房間、天然洞窟、三種迷宮（參考 rot.js 改寫，用本站的種子亂數）；地圖尺寸 10～60 格、每格 50／70／100 px；大地圖在 Worker 裡畫、只畫最新的一筆；預設設定與改版前逐位元組相同 | ondras/rot.js（BSD-3-Clause）；使用者 2026-10-30 | ✅ |
+| scenario-timeline | 第三批：年表與文字年表列出關聯線（GM 專用的不給 PL）、架空曆寫到時刻（24／60）；專案檔版本 3 | 本站（第二批沒做的 D28、D29） | ✅ |
+| 共用 ui | 只有少數工具用的 36 個元件改成各自的入口（`@/ui/<檔名>`）：共用區塊 870 → 651 kB，每頁少 190～271 kB，沒有工具變大（DESIGN.md 4.0「分開的入口」） | 本站（內部改善，2026-10-25 記下） | ✅ |
 
 ## 7. 往後新增工具
 
