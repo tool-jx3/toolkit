@@ -2,7 +2,9 @@
  * SF 證件的畫布：一張（1 倍＝原生大小、2 倍）、掛繩孔與掛繩（lanyard.ts）、預覽用的解析度、用到的字型。
  */
 import { makeCanvas } from '@/core/image';
-import { type FontUse, fontUses, type PhotoSource, type Region } from '../kit';
+import { qrMatrix } from '@/core/qr/encode';
+import { code128Modules, code128Widths } from '../code128';
+import { barcodeText, type FontUse, fontUses, type PhotoSource, type Region } from '../kit';
 import {
   drawStrap,
   type LanyardMode,
@@ -138,3 +140,48 @@ export function sfFontUses(s: SfState): FontUse[] {
 /** SF 證件的檔名：`sf-<範本>.png`（2 倍 `sf-<範本>-2x.png`） */
 export const sfFileName = (s: SfState, k: number): string =>
   `sf-${s.blank}${k === 1 ? '' : `-${k}x`}.png`;
+
+/* ---------- 條碼與 QR code 的密度（規格 D39、D40 修訂） ---------- */
+
+/**
+ * 匯出時最細的條／QR code 每格至少幾 px（再小手機多半掃不到）：條碼 1.5、QR code 2（同票券的 QR code；
+ * SF 證件的 QR code 照原作直接畫在卡面上、四周沒有留白，更需要大一點）。
+ */
+export const SF_CODE_MIN_PX = { code: 1.5, qr: 2 } as const;
+
+/** 畫出來的碼的位置（從預覽的可以點的範圍找；原生像素的寬） */
+export interface SfCodeBox {
+  kind: 'code' | 'qr';
+  w: number;
+}
+
+export function sfCodeBox(regions: readonly Region[]): SfCodeBox | null {
+  const qr = regions.find((r) => r.kind === 'qr');
+  if (qr) return { kind: 'qr', w: qr.w };
+  const code = regions.find((r) => r.kind === 'code');
+  return code ? { kind: 'code', w: code.w } : null;
+}
+
+export interface SfCodeDensity {
+  kind: 'code' | 'qr';
+  /** 匯出時最細的條（條碼）或每格（QR code）幾 px */
+  module: number;
+  dense: boolean;
+}
+
+/** 目前這一款的碼在 k 倍匯出時每格幾 px；沒有碼或內容不能編碼時 null */
+export function sfCodeDensity(s: SfState, box: SfCodeBox | null, k: number): SfCodeDensity | null {
+  if (!box || !s.style.barcode) return null;
+  const key = sfBlank(s.blank).codeKey;
+  const value = s.values[key] ?? '';
+  if (box.kind === 'qr') {
+    const m = qrMatrix((s.values.qr ?? '').trim() || value.trim() || 'SF');
+    if (!m) return null;
+    const module = (box.w * k) / m.size;
+    return { kind: 'qr', module, dense: module < SF_CODE_MIN_PX.qr };
+  }
+  const widths = code128Widths(barcodeText(value));
+  if (!widths) return null;
+  const module = (box.w * k) / code128Modules(widths);
+  return { kind: 'code', module, dense: module < SF_CODE_MIN_PX.code };
+}

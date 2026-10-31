@@ -121,6 +121,8 @@ export interface FaceDrawOptions {
   preview: boolean;
   photo: CanvasImageSource | null;
   fonts?: Map<string, Set<string>>;
+  /** 打了掛繩孔（證件：上緣的字避開孔，D32） */
+  slot?: boolean;
 }
 
 /** 在 ctx 目前的變換下（原點＝成品左上角、單位＝設計單位）畫一面；回傳可以點的範圍 */
@@ -150,6 +152,7 @@ export function drawIdFace(ctx: Ctx, s: IdTicketState, side: Side, o: FaceDrawOp
     tpl,
     qrContent: idQrContent(s, tpl),
     code: s.idValues[tpl.codeKey] ?? '',
+    slot: o.slot ? idSlot(tpl.orientation) : null,
     photoFx:
       s.idPhotoFx && s.idPhotoFx.fx !== 'none'
         ? {
@@ -211,7 +214,18 @@ export function renderIdFace(
   }
   ctx.save();
   ctx.translate(0, top);
-  const regions = paintIdFace(ctx, s, side, scale, mode, o, { width, height: faceH });
+  const regions = paintIdFace(
+    ctx,
+    s,
+    side,
+    scale,
+    mode,
+    { ...o, slot: !!lanyard?.hole },
+    {
+      width,
+      height: faceH,
+    },
+  );
   ctx.restore();
   const slot = idSlot(tpl.orientation);
   ctx.save();
@@ -229,6 +243,38 @@ export function renderIdFace(
     drawStrap(ctx, strapGeometry(slot, 0, -ID_STRAP_U), idStrapColor(s.idStyles[tpl.id].color));
   ctx.restore();
   return { canvas, regions };
+}
+
+/**
+ * 測試與對等驗證用：這一面在掛繩孔的範圍裡、和那裡最多的顏色差很多（RGB 差的總和 > 90）的像素比例（%）。
+ * 照「打了孔」（slot）或沒打孔的版面畫、但不打穿，看孔的位置有沒有字或圖（3 倍、沒有照片）。
+ */
+export function slotInk(s: IdTicketState, side: Side, slot: boolean): number {
+  const tpl = idTemplate(s.idTemplate);
+  const { w, h } = cardUnits(tpl.orientation);
+  const k = 3;
+  const size = { width: Math.round(w * k), height: Math.round(h * k) };
+  const ctx = ctx2d(makeCanvas(size.width, size.height));
+  paintIdFace(ctx, s, side, k, 'card', { preview: false, photo: null, slot }, size);
+  const r = idSlot(tpl.orientation);
+  const d = ctx.getImageData(
+    Math.round(r.x * k),
+    Math.round(r.y * k),
+    Math.round(r.w * k),
+    Math.round(r.h * k),
+  ).data;
+  const count = new Map<number, number>();
+  for (let p = 0; p < d.length; p += 4) {
+    const key = ((d[p] >> 3) << 10) | ((d[p + 1] >> 3) << 5) | (d[p + 2] >> 3);
+    count.set(key, (count.get(key) ?? 0) + 1);
+  }
+  const top = [...count].sort((a, b) => b[1] - a[1])[0]?.[0] ?? 0;
+  const tc = [((top >> 10) & 31) * 8 + 4, ((top >> 5) & 31) * 8 + 4, (top & 31) * 8 + 4];
+  let far = 0;
+  for (let p = 0; p < d.length; p += 4)
+    if (Math.abs(d[p] - tc[0]) + Math.abs(d[p + 1] - tc[1]) + Math.abs(d[p + 2] - tc[2]) > 90)
+      far++;
+  return (far / (d.length / 4)) * 100;
 }
 
 /**

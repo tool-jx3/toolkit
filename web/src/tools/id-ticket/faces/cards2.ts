@@ -8,12 +8,16 @@ import {
   circle,
   field,
   fillRRect,
+  fontString,
   line,
+  measure,
   paragraph,
   photo,
+  region,
   stamp,
   starPath,
   strokeRRect,
+  type TextOpts,
   text,
 } from '../kit';
 import {
@@ -82,7 +86,14 @@ export const police: IdFaces = {
     const oc = onColor(t.head);
     badge(e, S + 15, 31, 15, t.gold);
     const tx = S + 38;
-    field(e, 'pol_unit', tx, 29, { size: 13, weight: 900, color: oc, maxWidth: 230, shrink: 0.7 });
+    /* 打了掛繩孔時單位名稱只用到孔的左邊（長的名字縮小或「…」，規格 D32） */
+    field(e, 'pol_unit', tx, 29, {
+      size: 13,
+      weight: 900,
+      color: oc,
+      maxWidth: e.slot ? Math.min(230, e.slot.x - 6 - tx) : 230,
+      shrink: 0.7,
+    });
     field(e, 'pol_division', tx, 45, {
       size: 8.5,
       weight: 500,
@@ -258,12 +269,13 @@ export const member: IdFaces = {
     sparkle(e, W - 150, 34, 9, alpha('#ffffff', 0.9));
     sparkle(e, W - 128, 52, 5, alpha(c, 0.6));
     sparkle(e, W * 0.52, 100, 6, alpha('#ffffff', 0.8));
+    /* 打了掛繩孔時店名只用到孔的左邊（長的名字縮小或「…」，規格 D32） */
     field(e, 'mem_store', S, 52, {
       font: 'serif',
       size: 27,
       weight: 900,
       color: m.deep,
-      maxWidth: 260,
+      maxWidth: e.slot ? Math.min(260, e.slot.x - 6 - S) : 260,
       shrink: 0.62,
     });
     field(e, 'mem_storeEn', S + 1, 68, {
@@ -433,6 +445,49 @@ function paper(e: IdEnv) {
 }
 
 /** 雙線外框＋四角的菱形 */
+/**
+ * 欄位的字分到掛繩孔的左右兩邊（在最靠近中間的空白處分開；左半靠孔的左邊、右半靠孔的右邊，離孔 6）。
+ * 沒有空白、或有一半放不進孔與安全範圍（再往內 10）之間時回傳 false（呼叫的地方改用別的避開法）。
+ */
+function aroundSlot(e: IdEnv, key: string, y: number, o: TextOpts): boolean {
+  const slot = e.slot;
+  const v = e.value(key).trim();
+  if (!slot || !v) return false;
+  const cs = [...v];
+  let cut = -1;
+  for (let i = 0; i < cs.length; i++)
+    if (
+      /\s/.test(cs[i]) &&
+      (cut < 0 || Math.abs(i - cs.length / 2) < Math.abs(cut - cs.length / 2))
+    )
+      cut = i;
+  if (cut < 0) return false;
+  const left = cs.slice(0, cut).join('').trim();
+  const right = cs
+    .slice(cut + 1)
+    .join('')
+    .trim();
+  if (!left || !right) return false;
+  const gap = 6;
+  const spacing = o.spacing ?? 0;
+  e.ctx.font = fontString(o.font ?? 'sans', o.size, o.weight);
+  const room = slot.x - gap - (e.S + 10);
+  const roomR = e.W - e.S - 10 - (slot.x + slot.w + gap);
+  if (measure(e.ctx, left, spacing) > room || measure(e.ctx, right, spacing) > roomR) return false;
+  const base = { ...o, maxWidth: undefined, shrink: undefined };
+  text(e, left, slot.x - gap, y, { ...base, align: 'right' });
+  text(e, right, slot.x + slot.w + gap, y, { ...base, align: 'left' });
+  region(e, {
+    kind: 'field',
+    key,
+    x: e.S + 10,
+    y: y - o.size * 1.02,
+    w: e.W - e.S * 2 - 20,
+    h: o.size * 1.35,
+  });
+  return true;
+}
+
 function frame(e: IdEnv, color: string) {
   const { ctx, W, H } = e;
   strokeRRect(ctx, 9, 9, W - 18, H - 18, 2, color, 1.6);
@@ -508,7 +563,7 @@ export const detective: IdFaces = {
     const { ctx, W, S } = e;
     const p = paper(e);
     frame(e, p.rule);
-    field(e, 'det_agency', W / 2, 40, {
+    const agencyO: TextOpts = {
       font: 'serif',
       size: 9.5,
       weight: 700,
@@ -516,7 +571,10 @@ export const detective: IdFaces = {
       align: 'center',
       spacing: 2,
       maxWidth: W - S * 2 - 20,
-    });
+    };
+    /* 打了掛繩孔：發照機關在空白處分成孔的左右兩半，分不開（沒有空白、放不下）時往下 8、小一點（規格 D32） */
+    if (!e.slot || !aroundSlot(e, 'det_agency', 40, agencyO))
+      field(e, 'det_agency', W / 2, e.slot ? 48 : 40, e.slot ? { ...agencyO, size: 8.5 } : agencyO);
     field(e, 'det_title', W / 2, 70, {
       font: 'serif',
       size: 21,
@@ -582,7 +640,8 @@ export const detective: IdFaces = {
     const { ctx, W, S } = e;
     const p = paper(e);
     frame(e, p.rule);
-    text(e, '注 意 事 項', W / 2, 46, {
+    /* 打了掛繩孔時標題往下 7（避開孔，規格 D32） */
+    text(e, '注 意 事 項', W / 2, e.slot ? 53 : 46, {
       font: 'serif',
       size: 15,
       weight: 900,

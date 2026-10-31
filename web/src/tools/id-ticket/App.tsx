@@ -30,7 +30,7 @@ import {
 } from './Panel';
 import { Preview } from './Preview';
 import { importProject, projectAssetIds } from './project';
-import { fontUsesOf } from './render';
+import { fontUsesOf, slotInk } from './render';
 import { LicensesSection, SfCaptionsSection, SfCropDialog, SfStyleSection } from './SfPanel';
 import {
   assets,
@@ -224,6 +224,7 @@ function useTestHook() {
       doc: () => docNow(),
       prefs: () => prefsNow(),
       fonts: () => fontUsesOf(docNow()),
+      slotInk: (side: 'front' | 'back', slot: boolean) => slotInk(docNow(), side, slot),
     };
   }, []);
 }

@@ -14,7 +14,7 @@ import {
   Trash2,
   Undo2,
 } from 'lucide-react';
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAssetBitmaps, useAssetImage } from '@/core/assets';
 import { pickFiles } from '@/core/files';
 import {
@@ -77,6 +77,7 @@ import {
   WM_RANGES,
   WM_TEXT_MAX,
 } from './sf/model';
+import { sfCodeDensity } from './sf/render';
 import {
   assets,
   currentElements,
@@ -176,6 +177,21 @@ export function LanyardField({ note }: { note?: string }) {
   );
 }
 
+/**
+ * SF 證件的碼太密的提醒（給「編號」或「QR code 內容」欄位；匯出時每格不到 1.5 px，規格 D39、D40 修訂）：
+ * 條碼的提醒放在編號的欄位、QR code 的放在 QR code 內容的欄位；不是 SF 證件、不密時空字串。
+ */
+export function useSfCodeDense(key: string): string {
+  const sf = useDoc((s) => (s.data.kind === 'sf' ? s.data.sf : null));
+  const box = useUi((u) => u.sfCode);
+  const k = usePrefs((p) => p.data.sfScale);
+  if (!sf) return '';
+  const d = sfCodeDensity(sf, box, k);
+  if (!d?.dense) return '';
+  if (d.kind === 'qr' ? key !== 'qr' : key !== sfBlank(sf.blank).codeKey) return '';
+  return S.sfCodeDense(d.kind, d.module, k);
+}
+
 /* ======================================================================
  * 內容：執照
  * ==================================================================== */
@@ -221,6 +237,8 @@ function LicenseGlyph({ shapesKey, on }: { shapesKey: string; on: boolean }) {
 export function LicensesSection() {
   const sf = useDoc((s) => s.data.sf);
   const kind = useDoc((s) => s.data.kind);
+  /* 打開對話框的鉛筆按鈕：關掉（含 Esc）後焦點回到它 */
+  const [opener, setOpener] = useState<HTMLElement | null>(null);
   if (kind !== 'sf' || sf.blank !== 'license') return null;
   return (
     <Section
@@ -261,18 +279,21 @@ export function LicensesSection() {
                 variant="ghost"
                 label={S.licenseEdit(l.label)}
                 icon={<Pencil />}
-                onClick={() => useUi.setState({ license: l.key })}
+                onClick={(ev) => {
+                  setOpener(ev.currentTarget);
+                  useUi.setState({ license: l.key });
+                }}
               />
             </li>
           );
         })}
       </ul>
-      <LicenseDialog />
+      <LicenseDialog opener={opener} />
     </Section>
   );
 }
 
-function LicenseDialog() {
+function LicenseDialog({ opener }: { opener: HTMLElement | null }) {
   const key = useUi((s) => s.license);
   const sf = useDoc((s) => s.data.sf);
   const toast = useToast();
@@ -285,6 +306,7 @@ function LicenseDialog() {
         if (!o) useUi.setState({ license: null });
       }}
       title={def ? S.licenseDialogTitle(def.label) : ''}
+      returnFocus={opener}
       size="sm"
       footer={
         <Button

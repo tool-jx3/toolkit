@@ -4,10 +4,12 @@
  * 編號與日期的產生、讀檔整理（資料版本 1 照讀）。
  */
 import { describe, expect, it } from 'vitest';
+import { code128Modules, code128Widths } from '@/tools/id-ticket/code128';
 import {
   ID_STRAP_MM,
   ID_STRAP_U,
   idSlot,
+  idSlot as idSlotOf,
   idStrapPixels,
   LANYARD_MODES,
   lanyardHole,
@@ -44,7 +46,13 @@ import {
   sfGenerate,
 } from '@/tools/id-ticket/sf/model';
 import { buildMrz, checkDigit, mrzDate, mrzName, mrzSex } from '@/tools/id-ticket/sf/mrz';
-import { sfFileName, sfPixels } from '@/tools/id-ticket/sf/render';
+import {
+  SF_CODE_MIN_PX,
+  sfCodeBox,
+  sfCodeDensity,
+  sfFileName,
+  sfPixels,
+} from '@/tools/id-ticket/sf/render';
 
 const seq = (...v: number[]) => {
   let i = 0;
@@ -74,7 +82,10 @@ describe('機讀區（ICAO 9303 TD2）', () => {
     expect(mrzSex('男')).toBe('M');
     expect(mrzSex('')).toBe('<');
     expect(mrzName('Lin', 'Nova')).toBe(`LIN<<NOVA${'<'.repeat(22)}`);
-    expect(mrzName("O'Hara-Vega", 'Ana María')).toBe(`O<HARA<VEGA<<ANA<MARIA${'<'.repeat(9)}`);
+    expect(mrzName("O'Hara-Vega", 'Ana María')).toBe(`OHARA<VEGA<<ANA<MARIA${'<'.repeat(10)}`);
+    /* 撇號拿掉（ICAO 9303：O'BRIEN → OBRIEN），連字號、空白換成 < */
+    expect(mrzName("O'BRIEN", "D'ARCY JEAN-LUC")).toBe(`OBRIEN<<DARCY<JEAN<LUC${'<'.repeat(9)}`);
+    expect(mrzName('O’Neil', 'Ann')).toBe(`ONEIL<<ANN${'<'.repeat(21)}`);
     /* 中文名字沒有英文字母：不出現在機讀區 */
     expect(mrzName('林', '若晴')).toBe('<'.repeat(31));
     expect(mrzName('A'.repeat(40), 'B')).toHaveLength(31);
@@ -372,6 +383,11 @@ describe('掛繩孔與掛繩的幾何', () => {
       expect(slot.y + slot.h).toBeLessThan(o.y + o.h);
     }
     expect(SF_SLOTS.pass).toEqual({ x: 370, y: 92, w: 260, h: 56 });
+    /* 公民 ID 的孔不切到發行單位的帶子（y 120 起） */
+    expect(SF_SLOTS.citizen.y + SF_SLOTS.citizen.h).toBeLessThan(120);
+    /* 執照卡的孔不切到發照單位的帶子（y 130 起） */
+    expect(SF_SLOTS.license.y + SF_SLOTS.license.h).toBeLessThan(130);
+    expect(idSlotOf('portrait')).toEqual(idSlot('portrait'));
   });
 
   it('SF 證件的輸出大小：1 倍＝原生、2 倍、掛繩往上 400', () => {
@@ -488,5 +504,56 @@ describe('SF 證件的範本與資料', () => {
       '本證屬於 HALCYON DYNAMICS',
     );
     expect(LICENSE_KEYS).toHaveLength(12);
+  });
+});
+
+/* ---------- 條碼與 QR code 的密度（D39、D40 修訂） ---------- */
+
+describe('SF 證件的碼太密的提醒', () => {
+  it('條碼：碼的寬 × 倍數 ÷ 模組數；低於 1.5 px 提醒', () => {
+    const sf = { ...initialSf(), blank: 'event' as const };
+    const mods = code128Modules(code128Widths('MP-2087-0413') ?? []);
+    const one = sfCodeDensity(sf, { kind: 'code', w: 160 }, 1);
+    expect(one?.kind).toBe('code');
+    expect(one?.module).toBeCloseTo(160 / mods, 6);
+    expect(one?.dense).toBe(true);
+    const two = sfCodeDensity(sf, { kind: 'code', w: 160 }, 2);
+    expect(two?.module).toBeCloseTo((160 * 2) / mods, 6);
+    expect(two?.dense).toBe((160 * 2) / mods < SF_CODE_MIN_PX.code);
+    /* 通行證的條碼 800 寬：1 倍就夠 */
+    expect(sfCodeDensity({ ...sf, blank: 'pass' }, { kind: 'code', w: 800 }, 1)?.dense).toBe(false);
+    /* 關掉條碼、沒有碼的位置：不提醒 */
+    expect(
+      sfCodeDensity({ ...sf, style: { ...sf.style, barcode: false } }, { kind: 'code', w: 160 }, 1),
+    ).toBeNull();
+    expect(sfCodeDensity(sf, null, 1)).toBeNull();
+  });
+
+  it('QR code：方形的邊 × 倍數 ÷ 一邊的格數；低於 2 px 提醒（內容長時）', () => {
+    const sf = initialSf();
+    const short = sfCodeDensity(sf, { kind: 'qr', w: 160 }, 1);
+    expect(short?.kind).toBe('qr');
+    expect(short?.dense).toBe(false);
+    const long = { ...sf, values: { ...sf.values, qr: 'https://example.com/'.repeat(22) } };
+    const d1 = sfCodeDensity(long, { kind: 'qr', w: 160 }, 1);
+    expect(d1?.dense).toBe(true);
+    expect(sfCodeDensity(long, { kind: 'qr', w: 160 }, 2)?.module).toBeCloseTo(
+      (d1?.module ?? 0) * 2,
+      6,
+    );
+  });
+
+  it('碼的位置從可以點的範圍找（QR code 優先）', () => {
+    const r = (kind: 'code' | 'qr' | 'field', w: number) => ({
+      kind,
+      key: 'number',
+      x: 0,
+      y: 0,
+      w,
+      h: 10,
+    });
+    expect(sfCodeBox([r('field', 50), r('code', 240)])).toEqual({ kind: 'code', w: 240 });
+    expect(sfCodeBox([r('code', 240), r('qr', 120)])).toEqual({ kind: 'qr', w: 120 });
+    expect(sfCodeBox([r('field', 50)])).toBeNull();
   });
 });

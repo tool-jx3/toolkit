@@ -54,7 +54,7 @@ import {
   TICKET_ZOOM_MAX,
 } from './model';
 import { autoGradient, qrDensity } from './render';
-import { LanyardField, PhotoFxControls } from './SfPanel';
+import { LanyardField, PhotoFxControls, useSfCodeDense } from './SfPanel';
 import { useIdleValue } from './schedule';
 import { SF_BLANKS, type SfBlankId } from './sf/defs';
 import { SF_ZOOM_MAX } from './sf/model';
@@ -354,7 +354,8 @@ function qrDenseText(f: FieldDef, data: Parameters<typeof qrDensity>[0]): string
 /** 一個欄位（只在自己的值改變時重畫：打字時其他欄位不跟著重畫） */
 const FieldControl = memo(function FieldControl({ f }: { f: FieldDef }) {
   const value = useDoc((s) => fieldValue(f.key, s.data));
-  const dense = useDoc((s) => qrDenseText(f, s.data));
+  const sfDense = useSfCodeDense(f.key);
+  const dense = useDoc((s) => qrDenseText(f, s.data)) || sfDense;
   const suffix = canGenerate(f) ? (
     <IconButton
       size="sm"

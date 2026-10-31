@@ -518,6 +518,111 @@ test('證件的掛繩：只在預覽與不要的匯出逐位元組相同；掛�
   expect(errors).toEqual([]);
 });
 
+test('掛繩孔：上緣的字避開孔（往下移、分到孔的兩邊、只用到孔的左邊）；沒打孔時照舊碰得到（D32 修訂）', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  type Hook = { slotInk: (side: 'front' | 'back', slot: boolean) => number };
+  const ink = (side: 'front' | 'back', slot: boolean) =>
+    page.evaluate(
+      ([s, k]) => (window as unknown as { __idTicket: Hook }).__idTicket.slotInk(s, k),
+      [side, slot] as const,
+    );
+  /* 上緣的名稱填到很長（上限），沒有避開時一定會碰到孔 */
+  const long: [string, string, string][] = [
+    ['員工證', 'emp_org', '辰星生技股份有限公司霧港研發中心第三實驗大樓'],
+    ['高中學生證', 'hi_school', '霧港市立海霧高級中學附設國民中學部暨進修部'],
+    ['大學學生證', 'uni_name', '國立雲棲大學霧港校區附設研究所'],
+    ['記者證', 'press_org', '晨鐘日報霧港分社地方新聞中心'],
+    ['刑警證', 'pol_unit', '霧港市政府警察局刑事警察大隊'],
+    ['會員卡', 'mem_store', '月見書房霧港本店會員專用'],
+  ];
+  for (const [tpl, key, value] of long) {
+    await radio(page.getByTestId('template-list'), tpl).click();
+    await fieldInput(page, key).fill(value);
+    await fieldInput(page, key).blur();
+  }
+  const touched: string[] = [];
+  for (const tpl of [
+    '員工證',
+    '高中學生證',
+    '大學學生證',
+    '記者證',
+    '刑警證',
+    '會員卡',
+    '偵探執照（1920 年代）',
+  ]) {
+    await radio(page.getByTestId('template-list'), tpl).click();
+    for (const side of ['front', 'back'] as const) {
+      const before = await ink(side, false);
+      const after = await ink(side, true);
+      if (before > 5) touched.push(`${tpl}/${side}`);
+      /* 會員卡背面的磁條（不是字）照樣打穿（D32） */
+      if (tpl === '會員卡' && side === 'back') expect(after).toBeCloseTo(before, 5);
+      else expect(after, `${tpl}/${side}：孔裡還有東西`).toBeLessThan(0.5);
+    }
+  }
+  /* 沒有避開時：員工證、高中、大學、記者、刑警、偵探執照的上緣都碰到孔 */
+  for (const t of [
+    '員工證/front',
+    '高中學生證/front',
+    '大學學生證/front',
+    '大學學生證/back',
+    '記者證/front',
+    '刑警證/front',
+    '偵探執照（1920 年代）/front',
+    '偵探執照（1920 年代）/back',
+  ])
+    expect(touched).toContain(t);
+  /* 偵探執照的發照機關沒有空白時：往下移（照樣避開） */
+  await fieldInput(page, 'det_agency').fill('霧港市執照審查處');
+  await fieldInput(page, 'det_agency').blur();
+  expect(await ink('front', true)).toBeLessThan(0.5);
+  expect(errors).toEqual([]);
+});
+
+test('SF 證件的碼太密時提醒：活動證的條碼 1 倍、QR code 內容太長；改 2 倍或縮短就不提醒（D39、D40 修訂）', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  await sfOpen(page, '活動證');
+  const dense = page.getByTestId('sf-code-dense');
+  await expect(dense).toContainText('條碼在 1 倍時最細的條只有約');
+  await expect(dense).toContainText('建議匯出 2 倍');
+  /* 編號欄位下面也提醒 */
+  await expect(page.getByTestId('qr-dense')).toContainText('條碼在 1 倍時');
+  await radio(exportPanel(page), '2 倍（2400 × 3200）').click();
+  await expect(dense).toHaveCount(0);
+  await radio(exportPanel(page), '1 倍（1200 × 1600）').click();
+  await expect(dense).toHaveCount(1);
+  /* 編號改短：1 倍也夠 */
+  await fieldInput(page, 'number').fill('0413');
+  await fieldInput(page, 'number').blur();
+  await expect(dense).toHaveCount(0);
+  /* QR code：內容很長時提醒，放在 QR code 內容欄 */
+  await tab(page, '樣式').click();
+  await radio(page, 'QR code').click();
+  await tab(page, '內容').click();
+  await expect(dense).toHaveCount(0);
+  await fieldInput(page, 'qr').fill('https://example.com/'.repeat(14));
+  await fieldInput(page, 'qr').blur();
+  await expect(dense).toContainText('QR code 在 1 倍時每格只有約');
+  await expect(page.getByTestId('qr-dense')).toContainText('QR code 在 1 倍時');
+  expect(errors).toEqual([]);
+});
+
+test('執照的對話框：Esc 關掉後焦點回到鉛筆按鈕', async ({ page }) => {
+  const errors = await open(page);
+  await sfOpen(page, '執照卡');
+  const pencil = page.getByRole('button', { name: '改「醫療」' });
+  await pencil.click();
+  await expect(page.getByRole('dialog', { name: '執照：醫療' })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog', { name: '執照：醫療' })).toBeHidden();
+  await expect(pencil).toBeFocused();
+  expect(errors).toEqual([]);
+});
+
 /* ---------- 儲存與專案檔 ---------- */
 
 test('自動儲存與還原；專案檔（資料版本 2，含 SF 證件的圖）；版本 1 的專案檔照讀；以前的掛繩開關照讀（F56、F59 修訂）', async ({

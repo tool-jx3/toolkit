@@ -31,6 +31,8 @@ import {
   renderSf,
   SF_PREVIEW_SCALE,
   SF_SCALES,
+  sfCodeBox,
+  sfCodeDensity,
   sfPhotoSource,
   sfPixels,
   sfSize,
@@ -94,8 +96,10 @@ export function SfPreview() {
     requestFonts(fontUses(fonts));
     setRegions((prev) => (sameRegions(prev, r.regions) ? prev : r.regions));
     const spot = spotFraction(r.logoSpot);
-    const cur = useUi.getState().spot;
-    if (JSON.stringify(cur) !== JSON.stringify(spot)) useUi.setState({ spot });
+    const ui = useUi.getState();
+    if (JSON.stringify(ui.spot) !== JSON.stringify(spot)) useUi.setState({ spot });
+    const code = sfCodeBox(r.regions);
+    if (JSON.stringify(ui.sfCode) !== JSON.stringify(code)) useUi.setState({ sfCode: code });
   }, [version]);
   const latest = useRef(paint);
   latest.current = paint;
@@ -244,6 +248,8 @@ function SfExport() {
     [],
   );
   const out = sfPixels(s.sf, prefs.sfScale, prefs.lanyard);
+  const codeBox = useUi((u) => u.sfCode);
+  const dense = sfCodeDensity(s.sf, codeBox, prefs.sfScale);
   return (
     <ExportPanel
       title={S.exportTitle}
@@ -251,20 +257,29 @@ function SfExport() {
       settings={settings}
       resetKey={resetKey}
       extra={
-        <Field
-          label={S.sfScale}
-          hint={<span data-testid="export-dims">{S.outputSize(out.width, out.height)}</span>}
-        >
-          <Segmented<string>
-            value={String(prefs.sfScale)}
-            onValueChange={(v) => setPrefs({ sfScale: Number(v) })}
-            options={SF_SCALES.map((k) => {
-              const p = sfPixels(s.sf, k, prefs.lanyard);
-              return { value: String(k), label: S.sfScales(k, p.width, p.height) };
-            })}
-            fullWidth
-          />
-        </Field>
+        <div className="flex min-w-0 flex-col gap-3">
+          <Field
+            label={S.sfScale}
+            hint={<span data-testid="export-dims">{S.outputSize(out.width, out.height)}</span>}
+          >
+            <Segmented<string>
+              value={String(prefs.sfScale)}
+              onValueChange={(v) => setPrefs({ sfScale: Number(v) })}
+              options={SF_SCALES.map((k) => {
+                const p = sfPixels(s.sf, k, prefs.lanyard);
+                return { value: String(k), label: S.sfScales(k, p.width, p.height) };
+              })}
+              fullWidth
+            />
+          </Field>
+          {dense?.dense ? (
+            <div data-testid="sf-code-dense">
+              <Notice tone="warning">
+                {S.sfCodeDense(dense.kind, dense.module, prefs.sfScale)}
+              </Notice>
+            </div>
+          ) : null}
+        </div>
       }
       onExport={(_set, ctx) =>
         exportSf(docNow(), { scale: prefs.sfScale, lanyard: prefs.lanyard }, ctx)

@@ -54,7 +54,7 @@ import {
   sfValueDefaults,
   WHOLE,
 } from './sf/model';
-import { SF_SCALES } from './sf/render';
+import { SF_SCALES, type SfCodeBox } from './sf/render';
 import type { TabId } from './strings';
 import {
   type FieldDef,
@@ -212,7 +212,16 @@ export const useUi = create<{
   license: string | null;
   /** 新的裝飾圖放的位置（預覽畫的時候記下的這一款的「標誌位置」，卡片的比例） */
   spot: { x: number; y: number; size: number } | null;
-}>(() => ({ frame: null, crop: null, element: null, license: null, spot: null }));
+  /** SF 證件的條碼／QR code 畫在哪（預覽畫的時候記下；算密度用） */
+  sfCode: SfCodeBox | null;
+}>(() => ({
+  frame: null,
+  crop: null,
+  element: null,
+  license: null,
+  spot: null,
+  sfCode: null,
+}));
 
 /* ---------- 資產 ---------- */
 

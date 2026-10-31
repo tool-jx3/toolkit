@@ -107,8 +107,9 @@ export const S = {
   lanyardHints: {
     preview: '預覽上畫掛繩與扣環，匯出沒有。',
     none: '不畫掛繩、不打孔。',
-    hole: '卡片上緣中央打一個掛繩孔：匯出的 PNG 裡是透明的洞（印刷用是白的）。',
-    strap: '打孔並畫出掛繩與扣環：匯出的 PNG 往上延伸（印刷用只打孔、不畫掛繩）。',
+    hole: '卡片上緣中央打一個掛繩孔：匯出的 PNG 裡是透明的洞（印刷用是白的）；上緣的字會往下移或避開孔。',
+    strap:
+      '打孔並畫出掛繩與扣環：匯出的 PNG 往上延伸（印刷用只打孔、不畫掛繩）；上緣的字會往下移或避開孔。',
   },
   lanyardPassNote: '通行證本來就有掛繩孔。',
   sectionPalette: '配色',
@@ -171,6 +172,11 @@ export const S = {
   regionLicense: (label: string) => `切換執照「${label}」`,
   regionDna: '切換 DNA 條的畫法',
   sfScale: 'PNG 大小',
+  /** SF 證件的碼太密（匯出時每格不到 1.5 px） */
+  sfCodeDense: (kind: 'code' | 'qr', module: number, k: number) =>
+    kind === 'qr'
+      ? `QR code 在 ${k} 倍時每格只有約 ${module.toFixed(1)} px，可能掃不到；建議${k === 1 ? '匯出 2 倍，或' : ''}放短一點的內容（例如網址）。`
+      : `條碼在 ${k} 倍時最細的條只有約 ${module.toFixed(1)} px，可能掃不到；建議${k === 1 ? '匯出 2 倍、' : ''}縮短編號，或把條碼的種類改成 QR code。`,
   sfScales: (n: number, w: number, h: number) => `${n} 倍（${w} × ${h}）`,
   formatDescSf: '卡片外形以外透明的 PNG。',
   previewSf: 'SF 證件預覽',
