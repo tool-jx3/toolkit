@@ -1,7 +1,7 @@
 /**
  * 畫面範圍（規格 F30～F32、3.3）：縮放、平移、全覽。純計算。
  * 範圍 { start, end }：時間軸左右兩邊的時間（分鐘或年）。
- * ctx（曆名與架空曆）：架空年有月份時可以放大到看得到日（最短 3 日）。
+ * ctx（曆名與架空曆）：架空年有月份時可以放大到看得到日（最短 3 日）；打開「寫到時刻」時最短 60 分（F110）。
  */
 import { contentRange, eventSpan, LABEL_GAP, POINT_R, type Span } from './layout';
 import { ctxParts, type EraArg, MINUTES_PER_DAY, type TimeMode, valueBounds } from './time';
@@ -19,6 +19,7 @@ export function spanLimits(mode: TimeMode, ctx?: EraArg): { min: number; max: nu
   if (mode === 'date') return { min: 60, max: 10000 * YEAR_MIN };
   if (mode === 'day') return { min: 60, max: 20000 * MINUTES_PER_DAY };
   const info = ctxParts(ctx).info;
+  if (info?.clock) return { min: 60 / (info.D * MINUTES_PER_DAY), max: 1000000 };
   return { min: info ? 3 / info.D : 5, max: 1000000 };
 }
 
@@ -86,7 +87,10 @@ export function emptyWindow(mode: TimeMode, today: number, center?: number | nul
   return { start: 0, end: 100 };
 }
 
-/** 全覽：範圍前後各留 pad（比例）；只有一個時間點時前後各 1 天（架空年 5 年；有月份時 15 日） */
+/**
+ * 全覽：範圍前後各留 pad（比例）；只有一個時間點時前後各 1 天（架空年 5 年；有月份時 15 日；
+ * 架空曆寫到時刻時和日期時間相同：前後 1 日、最少留 30 分，F110）
+ */
 export function fitWindow(
   mode: TimeMode,
   range: Span | null,
@@ -98,10 +102,17 @@ export function fitWindow(
   const info = mode === 'year' ? ctxParts(ctx).info : null;
   const span = range.b - range.a;
   if (span <= 0) {
-    const half = info ? 15 / info.D : mode === 'year' ? 5 : MINUTES_PER_DAY;
+    const half = info ? (info.clock ? 1 : 15) / info.D : mode === 'year' ? 5 : MINUTES_PER_DAY;
     return clampWindow(mode, { start: range.a - half, end: range.a + half }, ctx);
   }
-  const margin = Math.max(span * pad, info ? 0.5 / info.D : mode === 'year' ? 0.5 : 30);
+  const least = info
+    ? info.clock
+      ? 30 / (info.D * MINUTES_PER_DAY)
+      : 0.5 / info.D
+    : mode === 'year'
+      ? 0.5
+      : 30;
+  const margin = Math.max(span * pad, least);
   return clampWindow(mode, { start: range.a - margin, end: range.b + margin }, ctx);
 }
 

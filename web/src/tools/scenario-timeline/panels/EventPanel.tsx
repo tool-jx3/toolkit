@@ -21,7 +21,8 @@ import {
   Toggle,
   useConfirm,
 } from '@/ui';
-import { afterUnit, canonical, type EraArg, readTime } from '../model/time';
+import { minuteOfValue, valueOfMinute } from '../model/calendar';
+import { afterUnit, canonical, ctxParts, type EraArg, readTime } from '../model/time';
 import {
   type EventKind,
   eventColor,
@@ -165,6 +166,14 @@ function defaultEnd(
   if (!a) return '';
   if (docMode !== 'year' && a.p === 'minute')
     return canonical(docMode, { v: a.v + 60, p: 'minute' });
+  /* 架空曆寫到時刻（F110）：一樣＋1 小時 */
+  const info = docMode === 'year' && a.p === 'minute' ? ctxParts(era).info : null;
+  if (info)
+    return canonical(
+      docMode,
+      { v: valueOfMinute(info, minuteOfValue(info, a.v) + 60), p: 'minute' },
+      era,
+    );
   return canonical(docMode, a, era);
 }
 

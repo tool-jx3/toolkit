@@ -731,7 +731,7 @@ test('第一批的小事：version 99 與看不懂的寫法要通知；360 寬�
   await page.getByRole('alertdialog').getByRole('button', { name: '開啟' }).click();
   await expect(
     page.getByText(
-      '這個專案檔是比較新的版本（第 99 版；這裡是第 2 版），新版才有的資料可能沒有讀入。',
+      '這個專案檔是比較新的版本（第 99 版；這裡是第 3 版），新版才有的資料可能沒有讀入。',
       {
         exact: true,
       },

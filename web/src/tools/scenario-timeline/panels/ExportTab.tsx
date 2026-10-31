@@ -306,18 +306,23 @@ export function ExportTab() {
 function TextSection() {
   const doc = useDoc((s) => s.data);
   const tPrefs = usePrefs((s) => s.data.text);
+  const viewMode = usePrefs((s) => s.data.viewMode);
   const audience = useAudience(tPrefs.audience);
   const t = useMemo(() => ({ ...tPrefs, audience }), [tPrefs, audience]);
   const secrets = useMemo(() => hasSecrets(doc), [doc]);
+  /* 目前的檢視看得到關聯線時才有「列出關聯線」（PL 檢視只算 PL 看得到的線） */
+  const hasLinks = useMemo(() => visibleDoc(doc, viewMode).links.length > 0, [doc, viewMode]);
+  const linksOn = t.links !== false;
   const filterPrefs = usePrefs((s) => s.data.filter);
   const text = useMemo(() => {
     const ch = chronicle(
       exportDoc(doc, t.audience, exportFilter({ ...prefsNow(), filter: filterPrefs }, t.filtered)),
       S.untitled,
       S.toolName,
+      { links: linksOn },
     );
     return t.format === 'md' ? chronicleMarkdown(ch, t.audience) : chronicleText(ch, t.audience);
-  }, [doc, t, filterPrefs]);
+  }, [doc, t, filterPrefs, linksOn]);
   const setText = (patch: Partial<typeof t>) =>
     setPrefs({ text: { ...prefsNow().text, ...patch } });
   return (
@@ -339,6 +344,11 @@ function TextSection() {
         onChange={(v) => setText({ audience: v })}
       />
       <FilteredField value={t.filtered} onChange={(v) => setText({ filtered: v })} />
+      {hasLinks ? (
+        <Field label={S.chronLinks} layout="inline" hint={S.chronLinksHint}>
+          <Toggle checked={linksOn} onCheckedChange={(v) => setText({ links: v })} />
+        </Field>
+      ) : null}
       <TextOutputPanel
         title={S.textOutput}
         text={text}
