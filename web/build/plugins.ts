@@ -122,7 +122,7 @@ function readText(file: string): string {
   return readFileSync(file, 'utf8').replace(/\r\n?/g, '\n').trim();
 }
 
-/** 參考 MIT／CC0 原作改寫的工具：原作的授權全文放在 `web/src/tools/<id>/UPSTREAM_LICENSE`，建置時併入通知檔。 */
+/** 參考 MIT、CC0、BSD-3-Clause 等開放授權的原作改寫的工具：原作的授權全文放在 `web/src/tools/<id>/UPSTREAM_LICENSE`，建置時併入通知檔。 */
 const UPSTREAM_LICENSE = 'UPSTREAM_LICENSE';
 /**
  * 參考了好幾個原作的工具：`web/src/tools/<id>/UPSTREAM_SOURCES.json`（`[{ "name", "url"? }]`）列出全部原作，
@@ -250,7 +250,7 @@ function noticesMarkdown(tools: readonly ToolEntry[] = [], srcToolsDir = ''): st
         ? [
             '## 參考原作程式改寫的工具',
             '',
-            '下列工具參考原作（MIT／CC0）的程式改寫，依原作授權保留其著作權聲明與授權全文。',
+            '下列工具參考原作（MIT、CC0、BSD-3-Clause 等開放授權）的程式改寫，依原作授權保留其著作權聲明與授權全文。',
             '',
             ...upstream,
             '',

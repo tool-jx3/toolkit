@@ -1,5 +1,5 @@
 import { Download, RefreshCw } from 'lucide-react';
-import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { encodePngAsync } from '@/core/encode';
 import { downloadBytes } from '@/core/files';
 import { createToolStore } from '@/core/storage';
@@ -106,9 +106,16 @@ export function App() {
   const [map, setMap] = useState<MapState>(initialMap);
   const [grid, setGrid] = useState(true);
   const [light, setLight] = useState(true);
-  const [status, setStatus] = useState<{ tone: NoticeTone; text: string } | null>(null);
+  /** 狀態列：匯出的結果，或欄列數被夾小的通知（clamp：下一次改格局設定時清掉） */
+  const [status, setStatus] = useState<{
+    tone: NoticeTone;
+    text: string;
+    kind: 'export' | 'clamp';
+  } | null>(null);
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(false);
+  /** 大地圖還在畫的時候按了匯出：畫好後自動匯出（D12） */
+  const [exportQueued, setExportQueued] = useState(false);
 
   const stored = useLayoutSettings((st) => st.data);
   const settings = useMemo(() => normalizeSettings(stored), [stored]);
@@ -135,13 +142,14 @@ export function App() {
     (patch: Partial<LayoutSettings>) => {
       const next = normalizeSettings({ ...settings, ...patch });
       useLayoutSettings.getState().replace(next);
-      /* 換成較大的每格 px 時，超過每邊 4096 px 的欄列數會被夾小 */
+      /* 換成較大的每格 px 時，超過每邊 4096 px 的欄列數會被夾小；上一次夾小的通知在下一次改設定時清掉 */
       if (patch.cellPx !== undefined && (next.cols < settings.cols || next.rows < settings.rows)) {
         setStatus({
+          kind: 'clamp',
           tone: 'info',
           text: S.clamped(next.cellPx, maxCellsFor(next.cellPx), next.cols, next.rows),
         });
-      }
+      } else setStatus((st) => (st?.kind === 'clamp' ? null : st));
     },
     [settings],
   );
@@ -150,19 +158,26 @@ export function App() {
   latest.current = { shown, pending };
   const exportPng = useCallback(async () => {
     const { shown: m, pending: waiting } = latest.current;
-    if (busyRef.current || waiting || !m) return;
+    if (busyRef.current) return;
+    if (waiting || !m) {
+      /* 大地圖還在畫：畫好後自動匯出畫好的那一張 */
+      setExportQueued(true);
+      setStatus({ kind: 'export', tone: 'progress', text: S.exportQueued });
+      return;
+    }
     busyRef.current = true;
     setBusy(true);
     const r = m.request;
     const name = mapFileName(r.terrain, r.seed, r.settings);
-    setStatus({ tone: 'progress', text: S.exporting });
+    setStatus({ kind: 'export', tone: 'progress', text: S.exporting });
     try {
       /* 傳複本進 Worker（原本的像素還要給畫面用） */
       const bytes = await encodePngAsync(m.pixels.slice(), m.width, m.height);
       downloadBytes(bytes, name, 'image/png');
-      setStatus({ tone: 'success', text: S.exported(name) });
+      setStatus({ kind: 'export', tone: 'success', text: S.exported(name) });
     } catch (e) {
       setStatus({
+        kind: 'export',
         tone: 'danger',
         text: S.exportFailed(e instanceof Error ? e.message : String(e)),
       });
@@ -171,6 +186,17 @@ export function App() {
       setBusy(false);
     }
   }, []);
+
+  /* 等著匯出的：地圖畫好就匯出；畫不出來就取消 */
+  useEffect(() => {
+    if (!exportQueued || pending) return;
+    setExportQueued(false);
+    if (error || !shown) {
+      setStatus({ kind: 'export', tone: 'danger', text: S.exportCanceled });
+      return;
+    }
+    void exportPng();
+  }, [exportQueued, pending, error, shown, exportPng]);
 
   const shortcuts = useMemo<Shortcut[]>(
     () => [
@@ -250,8 +276,8 @@ export function App() {
               <Button
                 variant="primary"
                 icon={<Download />}
-                loading={busy}
-                disabled={pending || !shown}
+                loading={busy || exportQueued}
+                disabled={!shown && !pending}
                 aria-keyshortcuts="D"
                 onClick={() => void exportPng()}
               >

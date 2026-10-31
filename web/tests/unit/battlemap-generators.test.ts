@@ -15,7 +15,7 @@ import {
   VOID,
   WALL,
 } from '@/tools/battlemap/layout';
-import { isHeavy, MapRenderer, requestKey } from '@/tools/battlemap/mapRenderer';
+import { isHeavy, MapRenderer, requestKey, SYNC_MAX_PIXELS } from '@/tools/battlemap/mapRenderer';
 import {
   applyOverlays,
   gridLines,
@@ -392,8 +392,12 @@ describe('每格 px 與大小', () => {
     }
   });
 
-  it('大地圖延後畫的門檻：預設尺寸同步畫，58 × 58 格（70 px）延後', () => {
+  it('大地圖交給 Worker 的門檻：200 萬像素（預設尺寸與 25 × 16 同步畫，24 × 18、58 × 58 交給 Worker）', () => {
+    expect(SYNC_MAX_PIXELS).toBe(2_000_000);
     expect(isHeavy(DEFAULT_SETTINGS)).toBe(false);
+    expect(isHeavy({ ...DEFAULT_SETTINGS, cols: 25 })).toBe(false);
+    expect(isHeavy({ ...DEFAULT_SETTINGS, cols: 24, rows: 18 })).toBe(true);
+    expect(isHeavy({ ...DEFAULT_SETTINGS, cols: 30, rows: 30, cellPx: 50 })).toBe(true);
     expect(isHeavy({ ...DEFAULT_SETTINGS, cols: 58, rows: 58 })).toBe(true);
     expect(isHeavy({ ...DEFAULT_SETTINGS, cols: 40, rows: 40, cellPx: 100 })).toBe(true);
   });

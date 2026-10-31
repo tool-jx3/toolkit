@@ -1,6 +1,6 @@
 /**
  * 戰鬥地圖產生器 2026-10-30 追加（規格 F29～F43）的端對端測試：
- * 生成法與參數（種子不變、地圖資訊）、地圖尺寸與每格 px（畫布、匯出檔名與尺寸）、
+ * 格局（生成法）與參數（種子不變、地圖資訊）、地圖尺寸與每格 px（畫布、匯出檔名與尺寸）、
  * 預設設定匯出的 PNG 與改版前逐位元組相同、瀏覽器與 Node 的繪製逐像素相同（非預設設定）、
  * 記住格局設定、重設、大地圖的生成與繪製時間（@serial）。
  */
@@ -93,7 +93,7 @@ function decodePng(bytes: Buffer) {
 
 test.use({ contextOptions: { reducedMotion: 'reduce' }, viewport: { width: 1280, height: 900 } });
 
-test('預設設定：匯出的 PNG 檔和改版前逐位元組相同；地圖資訊有生成法與尺寸', async ({ page }) => {
+test('預設設定：匯出的 PNG 檔和改版前逐位元組相同；地圖資訊有格局與尺寸', async ({ page }) => {
   const errors = await open(page, '?seed=123456789');
   await expect(page.getByTestId('map-generator')).toHaveText('房間＋走道');
   await expect(page.getByTestId('map-size')).toHaveText('22 × 16 格');
@@ -114,7 +114,7 @@ test('預設設定：匯出的 PNG 檔和改版前逐位元組相同；地圖資
   expect(errors).toEqual([]);
 });
 
-test('生成法：換生成法與參數時種子不變、地圖換；參數依生成法出現；洞窟與迷宮沒有房間數', async ({
+test('格局：換格局與參數時種子不變、地圖換；參數依格局出現；天然洞窟與迷宮沒有房間數', async ({
   page,
 }) => {
   const errors = await open(page, '?seed=777');
@@ -144,8 +144,8 @@ test('生成法：換生成法與參數時種子不變、地圖換；參數依�
     await expect(page.getByTestId('map-rooms')).toHaveText(/^\d+ 間$/);
   }
 
-  await generator(page, '洞窟');
-  await expect(page.getByTestId('map-generator')).toHaveText('洞窟');
+  await generator(page, '天然洞窟');
+  await expect(page.getByTestId('map-generator')).toHaveText('天然洞窟');
   await expect(page.getByTestId('map-rooms')).toHaveText('—');
   await expect(page.getByRole('radio', { name: '少', exact: true })).toHaveCount(0);
   const hCave = await canvasHash(page);
@@ -165,7 +165,7 @@ test('生成法：換生成法與參數時種子不變、地圖換；參數依�
   await page.getByRole('radio', { name: '3 格' }).click();
   expect(await canvasHash(page)).not.toBe(hIcey);
 
-  /* 換地形照舊換種子，生成法不變 */
+  /* 換地形照舊換種子，格局不變 */
   await page.getByRole('radio', { name: '墓室' }).click();
   await expect(page.getByTestId('map-seed')).not.toHaveText('777');
   await expect(page.getByTestId('map-generator')).toHaveText('迷宮');
@@ -177,18 +177,18 @@ test('生成法：換生成法與參數時種子不變、地圖換；參數依�
   expect(errors).toEqual([]);
 });
 
-test('瀏覽器畫出來的像素與 Node 端相同（洞窟 30 × 20 格 50 px；迷宮 25 × 19 格 100 px）', async ({
+test('瀏覽器畫出來的像素與 Node 端相同（天然洞窟 30 × 20 格 50 px；迷宮 25 × 19 格 100 px）', async ({
   page,
 }) => {
   /* 格局設定會記住，所以先設好再用網址的固定種子重開（開頁的地形一定是石砌地城） */
   const errors = await open(page);
-  await generator(page, '洞窟');
+  await generator(page, '天然洞窟');
   await setNumber(page, '欄數', 30);
   await setNumber(page, '列數', 20);
   await page.getByRole('radio', { name: '50 px' }).click();
   await page.goto(`${URL}?seed=777`);
   await expect(page.getByTestId('map-seed')).toHaveText('777');
-  await expect(page.getByTestId('map-generator')).toHaveText('洞窟');
+  await expect(page.getByTestId('map-generator')).toHaveText('天然洞窟');
   await shownSize(page, 30, 20, 50);
   expect(await canvasHash(page)).toBe(NODE_HASH.cave);
 
@@ -235,9 +235,15 @@ test('尺寸與每格 px：畫布、地圖資訊、匯出的檔名與內容；�
   await setNumber(page, '欄數', 58);
   await shownSize(page, 58, 19, 70);
   await page.getByRole('radio', { name: '100 px' }).click();
-  await expect(page.getByText('每格 100 px 時每邊最多 40 格，已改成 40 × 19 格。')).toBeVisible();
+  const clampNotice = page.getByText('每格 100 px 時每邊最多 40 格，已改成 40 × 19 格。');
+  await expect(clampNotice).toBeVisible();
   await expect(page.getByRole('spinbutton', { name: '欄數' })).toHaveValue('40');
   await shownSize(page, 40, 19, 100);
+  /* 夾小的通知：重新產生時留著，下一次改格局設定時清掉（2026-10-30 驗證後） */
+  await page.getByRole('button', { name: '重新產生' }).click();
+  await expect(clampNotice).toBeVisible();
+  await page.getByRole('radio', { name: '蜿蜒' }).click();
+  await expect(clampNotice).toHaveCount(0);
   /* 超出範圍的輸入夾回範圍 */
   await page.getByRole('spinbutton', { name: '列數' }).fill('3');
   await page.getByRole('spinbutton', { name: '列數' }).press('Enter');
@@ -246,11 +252,11 @@ test('尺寸與每格 px：畫布、地圖資訊、匯出的檔名與內容；�
   expect(errors).toEqual([]);
 });
 
-test('記住格局設定：重新整理後生成法、參數、尺寸還在，地形、格線、火光回到預設；重設回到預設', async ({
+test('記住格局設定：重新整理後格局、參數、尺寸還在，地形、格線、火光回到預設；重設回到預設', async ({
   page,
 }) => {
   const errors = await open(page);
-  await generator(page, '洞窟');
+  await generator(page, '天然洞窟');
   await setNumber(page, '填充率', 40);
   await setNumber(page, '欄數', 30);
   await page.getByRole('radio', { name: '50 px' }).click();
@@ -263,7 +269,7 @@ test('記住格局設定：重新整理後生成法、參數、尺寸還在，�
   });
   await page.reload();
   await expect(page.getByTestId('map-seed')).not.toBeEmpty();
-  await expect(page.getByTestId('map-generator')).toHaveText('洞窟');
+  await expect(page.getByTestId('map-generator')).toHaveText('天然洞窟');
   await expect(page.getByRole('spinbutton', { name: '填充率' })).toHaveValue('40');
   await shownSize(page, 30, 16, 50);
   await expect(page.getByTestId('map-terrain')).toHaveText('石砌地城');
@@ -321,8 +327,14 @@ type Timing = { __t0: number; __t1: number; __mo?: MutationObserver };
 /**
  * 在頁面裡量：按下（pointerdown／keydown）到大地圖畫好（畫布的 data-pending 拿掉、已經畫上畫布）。
  * 不用 Playwright 的輪詢量（輪詢的間隔越拉越長，量出來都是 1、2 秒）。
+ * 連續操作時中途可能拿掉又加上好幾次（例如換回正在顯示的那一張）：記最後一次拿掉的時間，
+ * 給了 done 就等它（例如「格局變成最後點的那一個」）之後才讀。
  */
-async function timeToDrawn(page: Page, act: () => Promise<void>): Promise<number> {
+async function timeToDrawn(
+  page: Page,
+  act: () => Promise<void>,
+  done?: () => Promise<void>,
+): Promise<number> {
   await page.evaluate(() => {
     const w = window as unknown as Timing;
     w.__t0 = 0;
@@ -337,7 +349,7 @@ async function timeToDrawn(page: Page, act: () => Promise<void>): Promise<number
     w.__mo?.disconnect();
     w.__mo = new MutationObserver(() => {
       if (c.hasAttribute('data-pending')) seen = true;
-      else if (seen && !w.__t1) w.__t1 = performance.now();
+      else if (seen) w.__t1 = performance.now();
     });
     w.__mo.observe(c, { attributes: true, attributeFilter: ['data-pending'] });
   });
@@ -348,8 +360,13 @@ async function timeToDrawn(page: Page, act: () => Promise<void>): Promise<number
       intervals: [50],
     })
     .toBeGreaterThan(0);
+  if (done) {
+    await done();
+    await settled(page);
+  }
   return page.evaluate(() => {
     const w = window as unknown as Timing;
+    w.__mo?.disconnect();
     return Math.round(w.__t1 - w.__t0);
   });
 }
@@ -382,17 +399,16 @@ test('大地圖的生成與繪製時間（最大尺寸）', { tag: '@serial' }, 
     await setNumber(page, '列數', n);
     await shownSize(page, n, n, px);
     const size = `${n} × ${n} 格、每格 ${px} px（${n * px} × ${n * px} px）`;
-    /* 換生成法：在 Worker 裡產生格局＋畫底圖＋疊火光與格線（同一個種子），畫上畫布 */
-    for (const name of ['洞窟', '迷宮', '挖掘式', '均勻房間', '格狀房間', '房間＋走道']) {
+    /* 換格局：在 Worker 裡產生格局＋畫底圖＋疊火光與格線（同一個種子），畫上畫布 */
+    for (const name of ['天然洞窟', '迷宮', '挖掘式', '均勻房間', '格狀房間', '房間＋走道']) {
       const longest = await watchLongTasks(page);
       const ms = await timeToDrawn(page, async () => {
         await generator(page, name);
-        /* 畫好之前顯示「正在產生」、匯出鈕停用（最大尺寸要畫一秒左右，來得及看到） */
-        if (name === '洞窟') {
+        /* 畫好之前顯示「正在產生」（最大尺寸要畫一秒左右，來得及看到） */
+        if (name === '天然洞窟') {
           await expect(page.getByTestId('map-pending')).toHaveText(
             `正在產生 ${n} × ${n} 格的地圖…`,
           );
-          await expect(page.getByRole('button', { name: '匯出 PNG' })).toBeDisabled();
         }
       });
       await expect(page.getByTestId('map-generator')).toHaveText(name);
@@ -426,5 +442,128 @@ test('大地圖的生成與繪製時間（最大尺寸）', { tag: '@serial' }, 
   }
   info.annotations.push({ type: '大地圖', description: results.join('\n') });
   console.log(results.join('\n'));
+  expect(errors).toEqual([]);
+});
+
+/** 數 Worker 收到的 draw 呼叫（Comlink 每次呼叫送一個訊息） */
+const countWorkerPosts = (page: Page) =>
+  page.addInitScript(() => {
+    const W = window.Worker;
+    const w = window as unknown as { __posted: number };
+    w.__posted = 0;
+    window.Worker = class extends W {
+      constructor(url: string | URL, options?: WorkerOptions) {
+        super(url, options);
+        const post = this.postMessage.bind(this) as (...a: unknown[]) => void;
+        this.postMessage = ((...a: unknown[]) => {
+          w.__posted++;
+          post(...a);
+        }) as Worker['postMessage'];
+      }
+    };
+  });
+const workerPosts = (page: Page) =>
+  page.evaluate(() => (window as unknown as { __posted: number }).__posted);
+
+test(
+  '大地圖：連續換設定只畫最新的一筆（連點 13 下、按住欄數 ↑ 18 下），畫好的和直接開同一組設定相同',
+  { tag: '@serial' },
+  async ({ page, context }, info) => {
+    test.setTimeout(180_000);
+    await countWorkerPosts(page);
+    const errors = await open(page, '?seed=777');
+    await setNumber(page, '欄數', 58);
+    await setNumber(page, '列數', 58);
+    await shownSize(page, 58, 58, 70);
+    /* 連點 13 下格局（兩輪，最後是迷宮）：直接點座標，不等每一下畫好 */
+    const names = ['房間＋走道', '挖掘式', '均勻房間', '格狀房間', '天然洞窟', '迷宮'];
+    const boxes = new Map<string, { x: number; y: number }>();
+    for (const n of names) {
+      const b = await page.getByRole('radio', { name: n, exact: true }).boundingBox();
+      if (b) boxes.set(n, { x: b.x + b.width / 2, y: b.y + b.height / 2 });
+    }
+    const posted0 = await workerPosts(page);
+    const clicks = await timeToDrawn(
+      page,
+      async () => {
+        for (const n of [...names, ...names.slice().reverse(), '迷宮']) {
+          const b = boxes.get(n) as { x: number; y: number };
+          await page.mouse.click(b.x, b.y);
+        }
+      },
+      () => expect(page.getByTestId('map-generator')).toHaveText('迷宮'),
+    );
+    const clickPosts = (await workerPosts(page)) - posted0;
+    /* 正在畫的那一張＋最新的一張 */
+    expect(clickPosts).toBeLessThanOrEqual(3);
+    const hash = await canvasHash(page);
+    /* 同一組設定直接開（設定記在 localStorage，同一個 context 共用）：畫出來的一樣 */
+    const other = await context.newPage();
+    await other.goto(`${URL}?seed=777`);
+    await expect(other.getByTestId('map-generator')).toHaveText('迷宮');
+    await settled(other);
+    expect(await canvasHash(other)).toBe(hash);
+    await other.close();
+
+    /* 40 × 40 格按住欄數 ↑ 18 下（每一下都確定一次） */
+    await setNumber(page, '欄數', 40);
+    await setNumber(page, '列數', 40);
+    await shownSize(page, 40, 40, 70);
+    const box = page.getByRole('spinbutton', { name: '欄數', exact: true });
+    await box.focus();
+    const posted1 = await workerPosts(page);
+    const arrows = await timeToDrawn(
+      page,
+      async () => {
+        for (let i = 0; i < 18; i++) await page.keyboard.press('ArrowUp');
+      },
+      () => shownSize(page, 58, 40, 70),
+    );
+    const arrowPosts = (await workerPosts(page)) - posted1;
+    expect(arrowPosts).toBeLessThanOrEqual(3);
+    const line = `連點 13 下（58 × 58 格）：按下第一下到畫好最後一張 ${clicks} ms、送進 Worker ${clickPosts} 次｜按住 ↑ 18 下（40 → 58 × 40 格）：${arrows} ms、送進 Worker ${arrowPosts} 次`;
+    info.annotations.push({ type: '只畫最新的一筆', description: line });
+    console.log(line);
+    expect(errors).toEqual([]);
+  },
+);
+
+test('大地圖：畫的途中按匯出或 D，畫好後自動匯出畫好的那一張', { tag: '@serial' }, async ({
+  page,
+}) => {
+  test.setTimeout(180_000);
+  const errors = await open(page, '?seed=4242');
+  await setNumber(page, '欄數', 58);
+  await setNumber(page, '列數', 58);
+  await shownSize(page, 58, 58, 70);
+  /* 換格局（要畫一秒左右）後馬上按匯出鈕 */
+  await generator(page, '天然洞窟');
+  const [download] = await Promise.all([
+    page.waitForEvent('download', { timeout: 60_000 }),
+    (async () => {
+      await page.getByRole('button', { name: '匯出 PNG' }).click();
+      await expect(page.getByText('地圖畫好後就匯出 PNG…')).toBeVisible();
+    })(),
+  ]);
+  await settled(page);
+  expect(download.suggestedFilename()).toBe('battlemap_dungeon_4242_cavern_58x58_70px.png');
+  const png = decodePng(readFileSync(await download.path()));
+  expect([png.width, png.height]).toEqual([4060, 4060]);
+  expect(fnv(png.px)).toBe(await canvasHash(page));
+  await expect(page.getByRole('status').filter({ hasText: '已匯出' })).toBeVisible();
+
+  /* 焦點在頁面空白處：G 換種子（大地圖要畫一陣子）後馬上按 D */
+  await page.locator('main').click({ position: { x: 5, y: 5 } });
+  const before = (await page.getByTestId('map-seed').textContent()) ?? '';
+  await page.keyboard.press('g');
+  const [d2] = await Promise.all([
+    page.waitForEvent('download', { timeout: 60_000 }),
+    page.keyboard.press('d'),
+  ]);
+  await settled(page);
+  const seed = (await page.getByTestId('map-seed').textContent()) ?? '';
+  expect(seed).not.toBe(before);
+  expect(d2.suggestedFilename()).toBe(`battlemap_dungeon_${seed}_cavern_58x58_70px.png`);
+  expect(fnv(decodePng(readFileSync(await d2.path())).px)).toBe(await canvasHash(page));
   expect(errors).toEqual([]);
 });

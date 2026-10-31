@@ -7,8 +7,12 @@ import { generateLayout, type Layout } from './layout';
 import { applyOverlays, renderBase, type TerrainId } from './render';
 import type { LayoutSettings } from './settings';
 
-/** 這個像素數以下在主執行緒同步畫（預設 1540 × 1120 約 172 萬；400 萬大約 0.5 秒），以上交給 Worker */
-export const SYNC_MAX_PIXELS = 4_000_000;
+/**
+ * 這個像素數以下在主執行緒同步畫，以上交給 Worker（2026-10-30 驗證後從 400 萬降到 200 萬）：
+ * 預設 1540 × 1120 約 172 萬，同步畫一次主執行緒約 0.12～0.16 秒（CPU 4 倍節流約 0.5 秒）；
+ * 200 萬時約多一成，再大就明顯比預設慢（250 萬約多五成、400 萬約兩倍）。
+ */
+export const SYNC_MAX_PIXELS = 2_000_000;
 
 export interface MapRequest {
   seed: number;
