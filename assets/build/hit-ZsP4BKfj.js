@@ -1,0 +1,1 @@
+function e(e,t,n,r=1/0){let i=null,a=1/0;for(let r of e){let e=(t-r.x)**2+(n-r.y)**2;e<a&&(a=e,i=r)}return!i||a>r**2?null:i}function t(e,t,n,r,i){return{x:(e-n.left)*(r/n.width),y:(t-n.top)*(i/n.height)}}export{e as n,t};

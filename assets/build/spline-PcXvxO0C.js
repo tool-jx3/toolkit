@@ -1,0 +1,1 @@
+import{Vr as e}from"./ui-DdjCU0fL.js";var t={name:`spline`,size:24,node:[[`circle`,{cx:`19`,cy:`5`,r:`2`,key:`mhkx31`}],[`circle`,{cx:`5`,cy:`19`,r:`2`,key:`v8kfzx`}],[`path`,{d:`M5 17A12 12 0 0 1 17 5`,key:`1okkup`}]]};t.node;var n=e(t);export{n as t};
