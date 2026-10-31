@@ -172,7 +172,7 @@ export const S = {
   regionLicense: (label: string) => `切換執照「${label}」`,
   regionDna: '切換 DNA 條的畫法',
   sfScale: 'PNG 大小',
-  /** SF 證件的碼太密（匯出時每格不到 1.5 px） */
+  /** SF 證件的碼太密（匯出時條碼最細的條不到 1.6 px、QR code 每格不到 2.7 px） */
   sfCodeDense: (kind: 'code' | 'qr', module: number, k: number) =>
     kind === 'qr'
       ? `QR code 在 ${k} 倍時每格只有約 ${module.toFixed(1)} px，可能掃不到；建議${k === 1 ? '匯出 2 倍，或' : ''}放短一點的內容（例如網址）。`

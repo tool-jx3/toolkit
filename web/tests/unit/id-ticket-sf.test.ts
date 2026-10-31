@@ -510,7 +510,7 @@ describe('SF 證件的範本與資料', () => {
 /* ---------- 條碼與 QR code 的密度（D39、D40 修訂） ---------- */
 
 describe('SF 證件的碼太密的提醒', () => {
-  it('條碼：碼的寬 × 倍數 ÷ 模組數；低於 1.5 px 提醒', () => {
+  it('條碼：碼的寬 × 倍數 ÷ 模組數；低於 1.6 px 提醒', () => {
     const sf = { ...initialSf(), blank: 'event' as const };
     const mods = code128Modules(code128Widths('MP-2087-0413') ?? []);
     const one = sfCodeDensity(sf, { kind: 'code', w: 160 }, 1);
@@ -529,7 +529,7 @@ describe('SF 證件的碼太密的提醒', () => {
     expect(sfCodeDensity(sf, null, 1)).toBeNull();
   });
 
-  it('QR code：方形的邊 × 倍數 ÷ 一邊的格數；低於 2 px 提醒（內容長時）', () => {
+  it('QR code：方形的邊 × 倍數 ÷ 一邊的格數；低於 2.7 px 提醒（內容長時）', () => {
     const sf = initialSf();
     const short = sfCodeDensity(sf, { kind: 'qr', w: 160 }, 1);
     expect(short?.kind).toBe('qr');

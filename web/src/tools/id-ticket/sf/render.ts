@@ -144,10 +144,10 @@ export const sfFileName = (s: SfState, k: number): string =>
 /* ---------- 條碼與 QR code 的密度（規格 D39、D40 修訂） ---------- */
 
 /**
- * 匯出時最細的條／QR code 每格至少幾 px（再小手機多半掃不到）：條碼 1.5、QR code 2（同票券的 QR code；
- * SF 證件的 QR code 照原作直接畫在卡面上、四周沒有留白，更需要大一點）。
+ * 匯出時最細的條／QR code 每格至少幾 px（再小手機多半掃不到）：條碼 1.6、QR code 2.7（比票券的 QR code 2 px 嚴：
+ * SF 證件的 QR code 照原作直接畫在卡面上、四周沒有留白；複查時 2.3～2.6 px 有解不開的，主控 2026-10-31 提高）。
  */
-export const SF_CODE_MIN_PX = { code: 1.5, qr: 2 } as const;
+export const SF_CODE_MIN_PX = { code: 1.6, qr: 2.7 } as const;
 
 /** 畫出來的碼的位置（從預覽的可以點的範圍找；原生像素的寬） */
 export interface SfCodeBox {
