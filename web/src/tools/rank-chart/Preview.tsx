@@ -4,7 +4,8 @@
  */
 import { Maximize2, Minimize2 } from 'lucide-react';
 import { useEffect, useMemo, useRef } from 'react';
-import { Button, LayoutCanvas, Stage } from '@/ui';
+import { Button, Stage } from '@/ui';
+import { LayoutCanvas } from '@/ui/LayoutCanvas';
 import { pickRank } from './game';
 import { buildLayout, type Layout } from './layout';
 import { CANVAS_W, type Config, canvasHeight, type Run } from './model';

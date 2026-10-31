@@ -18,16 +18,8 @@ import { useAssetImage } from '@/core/assets';
 import { downloadBlob } from '@/core/files';
 import { clientToLocal } from '@/core/layout';
 import type { Placement } from '@/core/scene';
-import {
-  Button,
-  LayoutCanvas,
-  type LayoutSticker,
-  Notice,
-  Segmented,
-  Stage,
-  type StickerPhase,
-  useToast,
-} from '@/ui';
+import { Button, Notice, Segmented, Stage, useToast } from '@/ui';
+import { LayoutCanvas, type LayoutSticker, type StickerPhase } from '@/ui/LayoutCanvas';
 import { useAssetImages } from './media';
 import {
   captionText,

@@ -6,7 +6,8 @@
 import { useMemo, useState } from 'react';
 import { bytesToHex, sha256Sync } from '@/core/files';
 import { type ModelSpec, memoryBackend } from '@/core/models';
-import { ModelDownloadPanel, ProgressBar, Section, Toggle, useModelCache } from '@/ui';
+import { ProgressBar, Section, Toggle } from '@/ui';
+import { ModelDownloadPanel, useModelCache } from '@/ui/ModelDownload';
 
 const BYTES = 2_000_000;
 

@@ -11,20 +11,15 @@ import userEvent from '@testing-library/user-event';
 import { useState } from 'react';
 import { describe, expect, it } from 'vitest';
 import { normalizeDoc, type RichDoc } from '@/core/richtext';
+import { ColorPicker, UiProvider } from '@/ui';
 import {
-  ColorPicker,
   caretAfterChange,
-  cssColorHex,
   insertedRange,
-  isCanonicalRichDom,
   RICH_EDITOR_TEXT,
   RichTextEditor,
-  readRichDom,
-  readRichDomFull,
-  UiProvider,
-  writeRichDom,
-  writeRichDomFull,
-} from '@/ui';
+} from '@/ui/RichTextEditor';
+import { readRichDom, writeRichDom } from '@/ui/RichTextField';
+import { cssColorHex, isCanonicalRichDom, readRichDomFull, writeRichDomFull } from '@/ui/richDom';
 
 const opts = { full: true, baseSize: 30, displaySize: 16, baseFont: 'Base' } as const;
 

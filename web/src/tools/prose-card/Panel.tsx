@@ -29,8 +29,6 @@ import {
   FieldRow,
   FileDrop,
   NumberInput,
-  RichTextEditor,
-  type RichTextEditorHandle,
   Section,
   Segmented,
   Select,
@@ -41,6 +39,7 @@ import {
   useConfirm,
   useToast,
 } from '@/ui';
+import { RichTextEditor, type RichTextEditorHandle } from '@/ui/RichTextEditor';
 import { addFontFile, FontFileError, fontOptions, removeFont, useUploadedFonts } from './fonts';
 import { type ImageSlot, loadImageFiles, openFrame, removeImage, resetPlacement } from './media';
 import {

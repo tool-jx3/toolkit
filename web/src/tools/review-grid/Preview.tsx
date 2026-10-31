@@ -7,16 +7,8 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { loadAssetBitmaps, useAssetBitmaps } from '@/core/assets';
 import { downloadBlob } from '@/core/files';
 import { drawScene, type HitRegion, hitRegionAt } from '@/core/scene';
-import {
-  Button,
-  isEditableTarget,
-  LayoutCanvas,
-  Notice,
-  Segmented,
-  Stage,
-  useToast,
-  WindowDrop,
-} from '@/ui';
+import { Button, isEditableTarget, Notice, Segmented, Stage, useToast, WindowDrop } from '@/ui';
+import { LayoutCanvas } from '@/ui/LayoutCanvas';
 import { cardFontUses, layoutCard } from './layout';
 import { imageIds } from './model';
 import { layoutEnv, loadCardFonts, outputScale, renderCardPng } from './render';

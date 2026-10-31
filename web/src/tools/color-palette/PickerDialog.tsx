@@ -15,17 +15,8 @@ import {
   regionPixels,
   vividColorsBySplits,
 } from '@/core/image';
-import {
-  Button,
-  Dialog,
-  DialogClose,
-  Field,
-  ImageDrop,
-  ImageSampler,
-  NumberInput,
-  type SamplePoint,
-  Tabs,
-} from '@/ui';
+import { Button, Dialog, DialogClose, Field, ImageDrop, NumberInput, Tabs } from '@/ui';
+import { ImageSampler, type SamplePoint } from '@/ui/ImageSampler';
 import { type PickedColor, picksFromPoints, RANGE } from './logic';
 import { S } from './strings';
 

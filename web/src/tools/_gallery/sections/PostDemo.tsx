@@ -3,7 +3,8 @@
  */
 import { useRef, useState } from 'react';
 import { toUnicodeStyle, UNICODE_TEXT_STYLES, type UnicodeTextStyle } from '@/core/social';
-import { Chips, IconButton, PostEditor, type PostEditorHandle, Section } from '@/ui';
+import { Chips, IconButton, Section } from '@/ui';
+import { PostEditor, type PostEditorHandle } from '@/ui/PostEditor';
 
 const SOURCE = ['Call of Cthulhu', '《霧港燈塔》', '', 'KP｜阿德', 'END 2 全員生還'];
 

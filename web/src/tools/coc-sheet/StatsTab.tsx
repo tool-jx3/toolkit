@@ -1,7 +1,8 @@
 /**
  * 屬性與狀態分頁（規格 F17～F27）：8 項屬性（困難／極限自動算）、幸運、移動力、生命值、魔法值、理智、狀態勾選。
  */
-import { Checkbox, Field, FieldRow, OptionalNumberInput, Section } from '@/ui';
+import { Checkbox, Field, FieldRow, Section } from '@/ui';
+import { OptionalNumberInput } from '@/ui/OptionalNumberInput';
 import { step, updateSheet } from './actions';
 import { AutoNumberField } from './controls';
 import { FLAG_KEYS, type FlagKey, type Sheet, STAT_KEYS, type StatKey } from './model';

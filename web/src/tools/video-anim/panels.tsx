@@ -3,17 +3,8 @@
  */
 import { Crop, Film, Images, Sparkles } from 'lucide-react';
 import { Fragment, useState } from 'react';
-import {
-  Button,
-  CropDialog,
-  Field,
-  FileDrop,
-  Section,
-  Segmented,
-  Select,
-  ThumbnailList,
-  Toggle,
-} from '@/ui';
+import { Button, Field, FileDrop, Section, Segmented, Select, ThumbnailList, Toggle } from '@/ui';
+import { CropDialog } from '@/ui/CropDialog';
 import {
   loadSample,
   loadVideoFile,

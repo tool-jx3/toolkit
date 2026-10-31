@@ -4,7 +4,8 @@
  */
 import { Download, FileJson } from 'lucide-react';
 import { downloadText, fileNameWithExt } from '@/core/files';
-import { Button, FileDrop, IconButton, ItemListEditor, Section, useToast } from '@/ui';
+import { Button, FileDrop, IconButton, Section, useToast } from '@/ui';
+import { ItemListEditor } from '@/ui/ItemListEditor';
 import { textHead } from '../filename';
 import { templateById } from '../library';
 import {

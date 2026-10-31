@@ -10,6 +10,7 @@ import { clampPlacement, drawPlacedCrop, type FramePlacement, roundRectPath } fr
 import { qrMatrix } from '@/core/qr/encode';
 import { CODE128_QUIET, code128Modules, code128Widths } from './code128';
 import { alpha } from './colors';
+import { applyPhotoFx, type PhotoFx } from './photofx';
 
 export type Ctx = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
 
@@ -34,6 +35,12 @@ export const FONTS = {
     cjk: 'Noto Serif TC',
     stack: '"Special Elite", "Noto Serif TC", serif',
   },
+  /** SF 證件（原作用 Quantico；本站字型目錄裡相近的方正字型） */
+  sf: {
+    family: 'Chakra Petch',
+    cjk: 'Noto Sans TC',
+    stack: '"Chakra Petch", "Noto Sans TC", sans-serif',
+  },
 } as const;
 
 export type FontKey = keyof typeof FONTS;
@@ -46,6 +53,7 @@ const WEIGHTS: Record<string, readonly number[]> = {
   Oswald: [300, 400, 500, 600, 700],
   'Playfair Display': [400, 700],
   'Special Elite': [400],
+  'Chakra Petch': [300, 400, 500, 600, 700],
 };
 
 export const nearestWeight = (family: string, w: number): number => {
@@ -62,7 +70,7 @@ export interface FontUse {
 
 /* ---------- 畫的環境 ---------- */
 
-export type RegionKind = 'field' | 'photo' | 'code' | 'qr';
+export type RegionKind = 'field' | 'photo' | 'code' | 'qr' | 'license' | 'dna';
 
 /** 預覽上可以點的範圍（設計單位） */
 export interface Region {
@@ -81,6 +89,15 @@ export interface PhotoSource {
   place: FramePlacement;
 }
 
+/** 照片效果（photofx.ts）：效果、墨色、卡面的顏色（決定要不要反過來） */
+export interface PhotoFxEnv {
+  fx: PhotoFx;
+  ink: string;
+  card: string;
+  /** 網點大小的單位換成畫的單位（預設 1：SF 證件的原生像素；既有的證件 1 單位＝0.18 mm，用 0.3） */
+  dotUnit?: number;
+}
+
 export interface DrawEnv {
   ctx: Ctx;
   /** 預覽：欄位空白時畫淡色的提示、空的照片格寫「＋照片」（匯出不畫） */
@@ -97,6 +114,8 @@ export interface DrawEnv {
    * 也換回這一面的設計單位。不給時範圍照原樣記。
    */
   baseInverse?: DOMMatrix;
+  /** 照片效果（沒有或 'none'＝照原樣畫） */
+  photoFx?: PhotoFxEnv;
 }
 
 /** 記下一塊可以點的範圍（換回這一面的設計單位，旋轉過的取外接矩形） */
@@ -144,7 +163,7 @@ export function fontString(font: FontKey, size: number, weight = 400, italic = f
   return `${italic ? 'italic ' : ''}${nearestWeight(f.family, weight)} ${size}px ${f.stack}`;
 }
 
-function record(env: DrawEnv, font: FontKey, weight: number, text: string): void {
+export function recordFont(env: DrawEnv, font: FontKey, weight: number, text: string): void {
   if (!env.fonts || !text) return;
   const f = FONTS[font];
   const add = (family: string) => {
@@ -174,9 +193,25 @@ const chars = (s: string) => [...s];
 const widths = new Map<string, number>();
 const WIDTHS_MAX = 20000;
 
+const ascents = new Map<string, number>();
+
 /** 清掉量過的字寬（字型載好、字寬會變時） */
 export function clearTextWidths(): void {
   widths.clear();
+  ascents.clear();
+}
+
+/** 一段字在目前字型下，基準線以上的高（字形的實際範圍；量過的記起來） */
+export function textAscent(ctx: Ctx, text: string): number {
+  const key = `${ctx.font}\u0000${text}`;
+  let a = ascents.get(key);
+  if (a === undefined) {
+    const m = ctx.measureText(text);
+    a = typeof m.actualBoundingBoxAscent === 'number' ? m.actualBoundingBoxAscent : 0;
+    if (ascents.size >= WIDTHS_MAX) ascents.clear();
+    ascents.set(key, a);
+  }
+  return a;
 }
 
 /** 一段字在目前字型下的寬（不含字距） */
@@ -201,7 +236,14 @@ export function measure(ctx: Ctx, text: string, spacing = 0): number {
   return w + spacing * (cs.length - 1);
 }
 
-function drawRaw(ctx: Ctx, text: string, x: number, y: number, spacing: number, align: string) {
+export function drawRaw(
+  ctx: Ctx,
+  text: string,
+  x: number,
+  y: number,
+  spacing: number,
+  align: string,
+) {
   if (!spacing) {
     ctx.textAlign = align as CanvasTextAlign;
     ctx.fillText(text, x, y);
@@ -258,7 +300,7 @@ export function text(env: DrawEnv, raw: string, x: number, y: number, o: TextOpt
     }
     if (w > o.maxWidth) t = ellipsize(ctx, t, o.maxWidth, spacing);
   }
-  record(env, font, weight, t);
+  recordFont(env, font, weight, t);
   ctx.fillStyle = o.color;
   ctx.textBaseline = o.baseline ?? 'alphabetic';
   const align = o.align ?? 'left';
@@ -545,6 +587,67 @@ function tonedSource(src: PhotoSource, w: number, h: number, scale: number): Can
   return c as CanvasImageSource;
 }
 
+/*
+ * 套了效果的照片：畫成框的大小（輸出像素）再換成效果。效果很花時間（逐像素），同樣的輸入記起來
+ * （打字時預覽重畫、照片沒變就不重算）。
+ */
+const fxCache = new WeakMap<object, Map<string, CanvasImageSource>>();
+
+export function fxSource(
+  src: PhotoSource,
+  w: number,
+  h: number,
+  scale: number,
+  fx: PhotoFxEnv,
+): CanvasImageSource {
+  const pw = Math.max(1, Math.round(w * scale));
+  const ph = Math.max(1, Math.round(h * scale));
+  const p = src.place;
+  const key = [
+    pw,
+    ph,
+    w,
+    h,
+    p.zoom,
+    p.x,
+    p.y,
+    p.turns,
+    fx.fx.fx,
+    fx.fx.level,
+    fx.fx.dot,
+    fx.ink,
+    fx.card,
+    scale,
+    fx.dotUnit ?? 1,
+  ].join('|');
+  const bucket = fxCache.get(src.bitmap as object) ?? new Map<string, CanvasImageSource>();
+  fxCache.set(src.bitmap as object, bucket);
+  const hit = bucket.get(key);
+  if (hit) return hit;
+  const c =
+    typeof OffscreenCanvas !== 'undefined'
+      ? new OffscreenCanvas(pw, ph)
+      : Object.assign(document.createElement('canvas'), { width: pw, height: ph });
+  const x = c.getContext('2d') as Ctx | null;
+  if (!x) return src.bitmap;
+  const place = clampPlacement(
+    { width: src.width, height: src.height },
+    { width: w, height: h },
+    p,
+  );
+  drawPlacedCrop(
+    x,
+    src.bitmap,
+    { width: src.width, height: src.height },
+    { x: 0, y: 0, width: pw, height: ph },
+    place,
+  );
+  applyPhotoFx(x, pw, ph, fx.fx, fx.ink, fx.card, scale * (fx.dotUnit ?? 1));
+  if (bucket.size >= 12) bucket.clear();
+  bucket.set(key, c as CanvasImageSource);
+  return c as CanvasImageSource;
+}
+
 /** 目前 ctx 的縮放（設計單位 → 像素） */
 export const ctxScale = (ctx: Ctx): number => {
   const m = ctx.getTransform();
@@ -565,7 +668,10 @@ export function photo(
   rrect(ctx, x, y, w, h, o.radius ?? 0);
   ctx.clip();
   const src = env.photo;
-  if (src) {
+  if (src && env.photoFx && env.photoFx.fx.fx !== 'none') {
+    const fxed = fxSource(src, w, h, ctxScale(ctx), env.photoFx);
+    ctx.drawImage(fxed, x, y, w, h);
+  } else if (src) {
     if (o.tone === 'sepia') {
       const toned = tonedSource(src, w, h, ctxScale(ctx));
       ctx.imageSmoothingEnabled = true;

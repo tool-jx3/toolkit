@@ -21,8 +21,6 @@ import {
   ColorField,
   Field,
   IconButton,
-  type ModelCache,
-  ModelDownloadPanel,
   Notice,
   Section,
   Segmented,
@@ -31,6 +29,7 @@ import {
   Toggle,
   UsageSection,
 } from '@/ui';
+import { type ModelCache, ModelDownloadPanel } from '@/ui/ModelDownload';
 import { addKeyColor, finishPick, pickFromImage, removeKeyColor } from './actions';
 import { backendLabel, clearStrokes, type PickPurpose, resetAi, useWork } from './engine';
 import {

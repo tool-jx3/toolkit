@@ -7,7 +7,8 @@ import { useMemo, useRef, useState } from 'react';
 import { importAssetFiles } from '@/core/assets';
 import { downloadBytes, pickFiles, readAsBytes } from '@/core/files';
 import { ProjectFileError, parseProjectBytes, serializeProjectZip } from '@/core/storage';
-import { Button, SelectableCardList, useChoice, useConfirm } from '@/ui';
+import { Button, useChoice, useConfirm } from '@/ui';
+import { SelectableCardList } from '@/ui/SelectableCardList';
 import { useLayerResolver, useNotify, usePartNames } from './hooks';
 import {
   buildExportData,

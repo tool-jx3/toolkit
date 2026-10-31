@@ -20,18 +20,17 @@ import {
   Dialog,
   DialogClose,
   GroupTabs,
-  GuidedTour,
-  InteractiveHtmlDialog,
   Kbd,
   Notice,
   Section,
-  ShareLinkDialog,
   ShortcutHelp,
   Tooltip,
   UsageSection,
   useConfirm,
   useToast,
 } from '@/ui';
+import { GuidedTour } from '@/ui/GuidedTour';
+import { InteractiveHtmlDialog, ShareLinkDialog } from '@/ui/InteractiveHtmlDialog';
 
 const SAMPLE_TABS: ToolEntry[] = [
   { id: 'demo-a', name: '狀態條', summary: '', group: 'G4', status: 'next' },

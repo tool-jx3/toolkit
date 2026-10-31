@@ -5,7 +5,9 @@
 import { Box, RotateCcw } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { formatBytes } from '@/core/files';
-import { Button, DirectionPad, Field, type PadVector, Section, Viewport3D } from '@/ui';
+import { Button, Field, Section } from '@/ui';
+import { DirectionPad, type PadVector } from '@/ui/DirectionPad';
+import { Viewport3D } from '@/ui/Viewport3D';
 import type { ThreeDemo as Demo } from './threeScene';
 
 export function ThreeDemo() {

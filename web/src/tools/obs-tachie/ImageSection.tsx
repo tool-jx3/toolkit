@@ -16,8 +16,6 @@ import {
 } from '@/core/image';
 import {
   Button,
-  CropConfirmSummary,
-  CropDialog,
   Field,
   ImageDrop,
   Notice,
@@ -27,6 +25,7 @@ import {
   Segmented,
   TextInput,
 } from '@/ui';
+import { CropConfirmSummary, CropDialog } from '@/ui/CropDialog';
 import { updatePreset } from './actions';
 import { Thumb } from './controls';
 import { imageFromFile, imageFromUrl, UrlInputError } from './images';

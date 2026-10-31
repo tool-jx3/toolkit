@@ -4,14 +4,8 @@
  */
 import { type PointerEvent, useRef, useState } from 'react';
 import type { Box, BoxHandle } from '@/core/layout';
-import {
-  LayoutEditor,
-  type LayoutItem,
-  Notice,
-  Stage,
-  type StageBackground,
-  useStageScale,
-} from '@/ui';
+import { Notice, Stage, type StageBackground, useStageScale } from '@/ui';
+import { LayoutEditor, type LayoutItem } from '@/ui/LayoutEditor';
 import {
   boxFromDrag,
   type ClueMapState,

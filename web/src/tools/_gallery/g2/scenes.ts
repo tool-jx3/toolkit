@@ -35,8 +35,8 @@ import {
   isDynamicShape,
   type TransitionShape,
 } from '@/core/transition';
-import type { EffectGridItem } from '@/ui';
 import { STAGE_SCENE_SVG } from '@/ui';
+import type { EffectGridItem } from '@/ui/EffectGrid';
 import type { G2Settings, MotionDemo } from './store';
 
 /* ---------- 名稱 ---------- */

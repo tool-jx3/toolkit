@@ -7,13 +7,10 @@ import { pickFiles } from '@/core/files';
 import { FONT_FILE_ACCEPT, uploadFont } from '@/core/fonts';
 import {
   Button,
-  EffectGrid,
-  type EffectGridItem,
   Field,
   FieldRow,
   FileDrop,
   FontPicker,
-  KeyframeTable,
   NumberInput,
   Section,
   Segmented,
@@ -21,6 +18,8 @@ import {
   Show,
   TextArea,
 } from '@/ui';
+import { EffectGrid, type EffectGridItem } from '@/ui/EffectGrid';
+import { KeyframeTable } from '@/ui/KeyframeTable';
 import {
   ColorRow,
   drawBarThumb,

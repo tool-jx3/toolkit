@@ -7,7 +7,7 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { useRef, useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
-import { GuidedTour, placeTourCard, type TourStep } from '@/ui';
+import { GuidedTour, placeTourCard, type TourStep } from '@/ui/GuidedTour';
 
 const view = { width: 1280, height: 800 };
 const card = { width: 320, height: 180 };

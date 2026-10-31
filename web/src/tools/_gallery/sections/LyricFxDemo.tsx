@@ -10,7 +10,8 @@ import { formatBytes } from '@/core/files';
 import { buildLyricLines, createCanvasMeasure, scatterStyle } from '@/core/lyricfx';
 import type { ScatterSettings } from '@/core/lyricfx/styles/scatter';
 import { encodeAlphaWebm, findAlphaWebmPlan } from '@/core/video';
-import { Button, LyricStyleControls, Section, Transport, usePlayback } from '@/ui';
+import { Button, Section, Transport, usePlayback } from '@/ui';
+import { LyricStyleControls } from '@/ui/LyricStyleControls';
 
 const LRC = [
   '[00:00.30]骰子落下的聲音',

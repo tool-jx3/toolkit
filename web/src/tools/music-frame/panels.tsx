@@ -8,7 +8,6 @@ import { LYRIC_FILE_ACCEPT, lyricStats } from '@/core/lyrics';
 import {
   Button,
   ColorField,
-  EffectGrid,
   type ExportFormatOption,
   ExportPanel,
   Field,
@@ -24,6 +23,7 @@ import {
   useTheme,
   withShortcut,
 } from '@/ui';
+import { EffectGrid } from '@/ui/EffectGrid';
 import {
   addAudio,
   addCover,

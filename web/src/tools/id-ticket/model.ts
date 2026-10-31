@@ -10,6 +10,8 @@ import {
   normalizePlacement,
 } from '@/core/image';
 import { printPixels } from '@/core/paged/units';
+import { normalizePhotoFx, PHOTO_FX_DEFAULT, type PhotoFx } from './photofx';
+import { initialSf, normalizeSf, type SfState, sfAssetIds } from './sf/model';
 import {
   type FieldDef,
   fieldMax,
@@ -31,8 +33,8 @@ import {
   ticketTemplate,
 } from './templates';
 
-export type Kind = 'id' | 'ticket';
-export const KINDS: readonly Kind[] = ['id', 'ticket'];
+export type Kind = 'id' | 'ticket' | 'sf';
+export const KINDS: readonly Kind[] = ['id', 'sf', 'ticket'];
 export type Side = 'front' | 'back';
 
 /* ---------- 證件的尺寸（規格 3.1） ---------- */
@@ -129,6 +131,10 @@ export interface IdTicketState {
   receiptPhoto: boolean;
   /** 票券的配色（各款共用） */
   theme: TicketTheme;
+  /** 證件照片的效果（各款共用；資料版本 2 起） */
+  idPhotoFx: PhotoFx;
+  /** SF 證件（資料版本 2 起） */
+  sf: SfState;
 }
 
 export const defaultIdStyles = (): Record<IdTemplateId, IdStyle> =>
@@ -161,6 +167,8 @@ export const initialState = (): IdTicketState => ({
   receiptItems: defaultReceiptItems(),
   receiptPhoto: true,
   theme: { c1: TICKET_THEMES[0].c1, c2: TICKET_THEMES[0].c2 },
+  idPhotoFx: { ...PHOTO_FX_DEFAULT },
+  sf: initialSf(),
 });
 
 /* ---------- 文字 ---------- */
@@ -179,8 +187,13 @@ export function cleanValue(f: FieldDef, raw: unknown): string {
 
 /* ---------- 編號 ---------- */
 
+/** 編號裡的英文字母（沒有 I、O：看起來像 1、0） */
+const CODE_LETTERS = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+const CODE_HEX = '0123456789ABCDEF';
+
 /**
- * 依格式產生編號：`#` 換成隨機數字（第一個 `#` 是 1～9，不會以 0 開頭）、`{yyyy}` 換成今年。
+ * 依格式產生編號：`#` 換成隨機數字（第一個 `#` 是 1～9，不會以 0 開頭）、`{yyyy}` 換成今年；
+ * SF 證件另外用 `@`（英文字母，沒有 I、O）、`%`（十六進位）。
  * rand 是 0～1 的亂數（測試可以給固定的）。
  */
 export function generateCode(
@@ -189,11 +202,24 @@ export function generateCode(
   now: Date = new Date(),
 ): string {
   let first = true;
-  return pattern.replace(/\{yyyy\}/g, String(now.getFullYear())).replace(/#/g, () => {
+  const pick = (pool: string) => pool[Math.min(pool.length - 1, Math.floor(rand() * pool.length))];
+  return pattern.replace(/\{yyyy\}/g, String(now.getFullYear())).replace(/[#@%]/g, (c) => {
+    if (c === '@') return pick(CODE_LETTERS);
+    if (c === '%') return pick(CODE_HEX);
     const d = first ? 1 + Math.floor(rand() * 9) : Math.floor(rand() * 10);
     first = false;
     return String(Math.min(9, d));
   });
+}
+
+/** 隨機的日期 YYYY-MM-DD（年份 y0～y1；日只到 28，每個月都有） */
+export function generateDate(
+  [y0, y1]: readonly [number, number],
+  rand: () => number = Math.random,
+): string {
+  const int = (a: number, b: number) => a + Math.min(b - a, Math.floor(rand() * (b - a + 1)));
+  const p2 = (n: number) => String(n).padStart(2, '0');
+  return `${int(y0, y1)}-${p2(int(1, 12))}-${p2(int(1, 28))}`;
 }
 
 /* ---------- 收據 ---------- */
@@ -314,7 +340,7 @@ function normalizeItems(raw: unknown): ReceiptItem[] {
 export function normalizeState(raw: unknown): IdTicketState {
   const d = initialState();
   if (!isObj(raw)) return d;
-  const kind: Kind = raw.kind === 'ticket' ? 'ticket' : 'id';
+  const kind: Kind = raw.kind === 'ticket' || raw.kind === 'sf' ? raw.kind : 'id';
   const idT = (ID_TEMPLATE_IDS as readonly string[]).includes(raw.idTemplate as string)
     ? (raw.idTemplate as IdTemplateId)
     : d.idTemplate;
@@ -364,6 +390,8 @@ export function normalizeState(raw: unknown): IdTicketState {
       c1: normalizeHexColor(theme.c1, d.theme.c1),
       c2: normalizeHexColor(theme.c2, d.theme.c2),
     },
+    idPhotoFx: normalizePhotoFx(raw.idPhotoFx),
+    sf: normalizeSf(raw.sf),
   };
 }
 
@@ -372,6 +400,7 @@ export function stateAssetIds(s: IdTicketState): string[] {
   const ids: string[] = [];
   if (s.idPhoto) ids.push(s.idPhoto.image.id);
   for (const p of Object.values(s.ticketPhotos)) if (p) ids.push(p.image.id);
+  ids.push(...sfAssetIds(s.sf));
   return ids;
 }
 

@@ -15,7 +15,6 @@ import {
   Button,
   Checkbox,
   ColorField,
-  CropFrame,
   Field,
   FileDrop,
   IconButton,
@@ -34,6 +33,7 @@ import {
   ToolShell,
   UsageSection,
 } from '@/ui';
+import { CropFrame } from '@/ui/CropFrame';
 import { createEffectsRunner, latestQueue } from './effects-client';
 import {
   ANCHORS,

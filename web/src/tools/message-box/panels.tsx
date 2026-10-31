@@ -15,9 +15,9 @@ import {
   Section,
   Select,
   Show,
-  SourceUrlField,
   TextInput,
 } from '@/ui';
+import { SourceUrlField } from '@/ui/CssExport';
 import {
   ColorOnly,
   ColorOpacity,

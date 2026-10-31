@@ -14,10 +14,10 @@ import {
   DialogClose,
   Field,
   Segmented,
-  ShareLinkDialog,
   TextOutputPanel,
   useToast,
 } from '@/ui';
+import { ShareLinkDialog } from '@/ui/InteractiveHtmlDialog';
 import type { ProfileData } from './model';
 import {
   type AvatarSource,

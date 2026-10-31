@@ -4,7 +4,8 @@
 import { Crop, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { centeredCrop, type Rect } from '@/core/image';
-import { Button, CropDialog, Field, FieldRow, ImageDrop, Notice, Section, TextInput } from '@/ui';
+import { Button, Field, FieldRow, ImageDrop, Notice, Section, TextInput } from '@/ui';
+import { CropDialog } from '@/ui/CropDialog';
 import { removePortrait, setPortrait, setPortraitCrop, updateSheet } from './actions';
 import { TextAreaField, TextField } from './controls';
 import { CUSTOM_LINES, type InfoKey, PORTRAIT_ASPECT, type Sheet } from './model';

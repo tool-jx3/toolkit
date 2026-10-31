@@ -5,17 +5,10 @@ import { RotateCcw } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { chatUrlFrom } from '@/ccfolia';
 import { createChatScene } from '@/ccfolia/mock/chat';
-import {
-  Button,
-  CssExportPanel,
-  CssPreviewFrame,
-  Field,
-  MessageComposer,
-  Notice,
-  Section,
-  Segmented,
-  SourceUrlField,
-} from '@/ui';
+import { Button, Field, Notice, Section, Segmented } from '@/ui';
+import { CssExportPanel, SourceUrlField } from '@/ui/CssExport';
+import { CssPreviewFrame } from '@/ui/CssPreviewFrame';
+import { MessageComposer } from '@/ui/MessageComposer';
 import { TextRow, useSettings } from './controls';
 import { buildChatCss } from './css';
 import {

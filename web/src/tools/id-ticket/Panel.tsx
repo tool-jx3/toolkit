@@ -54,10 +54,14 @@ import {
   TICKET_ZOOM_MAX,
 } from './model';
 import { autoGradient, qrDensity } from './render';
+import { LanyardField, PhotoFxControls, useSfCodeDense } from './SfPanel';
 import { useIdleValue } from './schedule';
+import { SF_BLANKS, type SfBlankId } from './sf/defs';
+import { SF_ZOOM_MAX } from './sf/model';
 import {
   addItem,
   assets,
+  canGenerate,
   clearFields,
   currentFields,
   currentPhoto,
@@ -73,18 +77,19 @@ import {
   resetCaption,
   resetPhotoPlace,
   setCaption,
+  setIdPhotoFx,
   setIdStyle,
   setIdTemplate,
   setKind,
   setPhotoZoom,
-  setPrefs,
   setReceiptPhoto,
+  setSfBlank,
+  setSfPhotoFx,
   setTheme,
   setTicketTemplate,
   setValue,
   TOOL_ID,
   useDoc,
-  usePrefs,
 } from './store';
 import { S } from './strings';
 import {
@@ -145,12 +150,14 @@ export function TemplateSection() {
   const kind = useDoc((s) => s.data.kind);
   const idT = useDoc((s) => s.data.idTemplate);
   const tkT = useDoc((s) => s.data.ticketTemplate);
+  const sfT = useDoc((s) => s.data.sf.blank);
   /* 縮圖：內容停下之後才重畫、只畫看得到的、一個工作一張（打字時不卡，規格 F02） */
   const doc = useIdleValue(
     useDoc((s) => s.data),
     THUMB_IDLE_MS,
   );
-  const photoId = kind === 'id' ? doc.idPhoto?.image.id : undefined;
+  const photoId =
+    kind === 'id' ? doc.idPhoto?.image.id : kind === 'sf' ? doc.sf.photo?.image.id : undefined;
   /* 縮圖用的照片（證件共用一張；讀好了才畫進縮圖） */
   const photo = useAssetImage(assets, photoId);
   /* 字型載好後重畫（縮圖用到的字型在畫的時候要求） */
@@ -184,6 +191,23 @@ export function TemplateSection() {
             value={idT}
             onValueChange={(v) => setIdTemplate(v as IdTemplateId)}
             options={ID_TEMPLATES.map((t) => ({
+              value: t.id,
+              label: t.name,
+              description: t.description,
+            }))}
+            draw={draw}
+            thumbWidth={THUMB.w}
+            thumbHeight={THUMB.h}
+            minItemWidth={92}
+            frames={1}
+            fps={1}
+          />
+        ) : kind === 'sf' ? (
+          <ThumbChoice<string>
+            aria-label={S.templateList(S.kinds.sf)}
+            value={sfT}
+            onValueChange={(v) => setSfBlank(v as SfBlankId)}
+            options={SF_BLANKS.map((t) => ({
               value: t.id,
               label: t.name,
               description: t.description,
@@ -229,20 +253,23 @@ export function PhotoSection() {
   const loader = usePhotoLoader();
   const frame = useOpenFrame();
   const isReceipt = doc.kind === 'ticket' && doc.ticketTemplate === 'receipt';
-  const hasSlot = doc.kind === 'id' || ticketTemplate(doc.ticketTemplate).photo;
+  const hasSlot = doc.kind !== 'ticket' || ticketTemplate(doc.ticketTemplate).photo;
   if (!hasSlot)
     return (
       <Section title={S.sectionPhoto} persistKey="id-ticket:photo">
         <p className="m-0 text-sm text-muted">{S.noPhotoSlot}</p>
       </Section>
     );
-  const maxZoom = doc.kind === 'id' ? ID_ZOOM_MAX : TICKET_ZOOM_MAX;
+  const maxZoom =
+    doc.kind === 'id' ? ID_ZOOM_MAX : doc.kind === 'sf' ? SF_ZOOM_MAX : TICKET_ZOOM_MAX;
   const name = photo?.image.name || '—';
   return (
     <Section
       title={S.sectionPhoto}
       persistKey="id-ticket:photo"
-      description={doc.kind === 'id' ? S.photoShared : undefined}
+      description={
+        doc.kind === 'id' ? S.photoShared : doc.kind === 'sf' ? S.sfPhotoShared : undefined
+      }
     >
       {isReceipt ? (
         <Field label={S.receiptPhoto} hint={S.receiptPhotoHint} layout="inline">
@@ -300,6 +327,11 @@ export function PhotoSection() {
               {S.photoRemove}
             </Button>
           </div>
+          {doc.kind === 'id' ? (
+            <PhotoFxControls fx={doc.idPhotoFx} onChange={setIdPhotoFx} />
+          ) : doc.kind === 'sf' ? (
+            <PhotoFxControls fx={doc.sf.style.photoFx} onChange={setSfPhotoFx} />
+          ) : null}
         </>
       ) : null}
     </Section>
@@ -322,8 +354,9 @@ function qrDenseText(f: FieldDef, data: Parameters<typeof qrDensity>[0]): string
 /** 一個欄位（只在自己的值改變時重畫：打字時其他欄位不跟著重畫） */
 const FieldControl = memo(function FieldControl({ f }: { f: FieldDef }) {
   const value = useDoc((s) => fieldValue(f.key, s.data));
-  const dense = useDoc((s) => qrDenseText(f, s.data));
-  const suffix = f.gen ? (
+  const sfDense = useSfCodeDense(f.key);
+  const dense = useDoc((s) => qrDenseText(f, s.data)) || sfDense;
+  const suffix = canGenerate(f) ? (
     <IconButton
       size="sm"
       variant="ghost"
@@ -381,7 +414,8 @@ export function FieldsSection() {
   const fields = currentFields(doc);
   const toast = useToast();
   const hasGen = doc.kind === 'ticket' && fields.some((f) => f.gen);
-  const tplKey = doc.kind === 'id' ? doc.idTemplate : doc.ticketTemplate;
+  const tplKey =
+    doc.kind === 'id' ? doc.idTemplate : doc.kind === 'sf' ? doc.sf.blank : doc.ticketTemplate;
   return (
     <Section
       title={S.sectionFields}
@@ -594,7 +628,6 @@ export function ItemsSection() {
 
 export function IdStyleSection() {
   const doc = useDoc((s) => s.data);
-  const strap = usePrefs((p) => p.data.strap);
   const tpl = idTemplate(doc.idTemplate);
   const st = doc.idStyles[tpl.id];
   const auto = autoGradient(st.color);
@@ -644,9 +677,7 @@ export function IdStyleSection() {
             </GestureScope>
           </div>
         </Field>
-        <Field label={S.strap} hint={S.strapHint} layout="inline">
-          <Toggle checked={strap} onCheckedChange={(on) => setPrefs({ strap: on })} />
-        </Field>
+        <LanyardField />
       </Section>
       {tpl.gradient ? (
         <Section

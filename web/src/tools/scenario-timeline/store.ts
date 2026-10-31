@@ -47,8 +47,11 @@ import { notify } from './notify';
 import { S } from './strings';
 
 export const TOOL_ID = 'scenario-timeline';
-/** 資料的版本：2＝第二批（架空曆的月份、關聯線）；1 的專案檔、自動存檔照讀 */
-export const DATA_VERSION = 2;
+/**
+ * 資料的版本：2＝第二批（架空曆的月份、關聯線）；3＝第三批（架空曆寫到時刻：calendar.clock、`302-03-05 14:00`）。
+ * 1、2 的專案檔、自動存檔照讀
+ */
+export const DATA_VERSION = 3;
 
 function local(): Storage | null {
   try {
@@ -96,7 +99,7 @@ function docStorage(): StateStorage {
 export const useDoc = createToolStore<TimelineDoc>(TOOL_ID, exampleDoc(), {
   version: DATA_VERSION,
   storage: docStorage(),
-  /* 第 1 版（第一批）：沒有 calendar、links；normalizeDoc 補上預設 */
+  /* 第 1 版（第一批）：沒有 calendar、links；normalizeDoc 補上預設。第 2 版：沒有 calendar.clock（＝關） */
   migrate: (data) => normalizeDoc(data) ?? exampleDoc(),
 });
 export const docNow = (): TimelineDoc => useDoc.getState().data;
@@ -131,7 +134,10 @@ export interface Prefs {
   windows: Partial<Record<TimeMode, Win>>;
   collapsed: Record<string, boolean>;
   export: ExportPrefs;
-  text: { format: 'text' | 'md'; audience: Audience; filtered?: boolean };
+  /** 年表文字的匯出；links＝列出關聯線（F111；沒有值＝列出） */
+  text: { format: 'text' | 'md'; audience: Audience; filtered?: boolean; links?: boolean };
+  /** 年表檢視（含列印、複製成文字）列出關聯線（F111；沒有值＝列出） */
+  chronicleLinks?: boolean;
   /** 篩選（F91）：GM 檢視與 PL 檢視各一份（PL 檢視的不會含 GM 專用的值） */
   filter: { gm: FilterState; pl: FilterState };
   /** 篩選的面板開著 */

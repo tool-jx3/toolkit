@@ -460,14 +460,16 @@ test('樣式：深色、色票、自訂色；會員卡的背景漸層；掛繩�
   await radio(page, '員工證').click();
   await expect(page.getByRole('button', { name: '背景漸層' })).toHaveCount(0);
   expect((await state(page)).idStyles.employee).toMatchObject({ color: '#123456', dark: true });
-  /* 掛繩 */
+  /* 掛繩（2026-10-30 修訂 F27：開關改成「只在預覽／不要／掛繩孔／掛繩孔＋掛繩」，預設「只在預覽」＝以前的開） */
   await expect(page.getByTestId('strap')).toHaveCount(1);
-  await page.getByRole('switch', { name: '掛繩' }).click();
-  await settle(page);
-  expect((await prefs(page)).strap).toBe(false);
+  await page.getByTestId('lanyard').click();
+  await page.getByRole('option', { name: '不要', exact: true }).click();
+  await expect.poll(async () => (await prefs(page))?.lanyard).toBe('none');
   await expect(page.getByTestId('strap')).toHaveCount(0);
-  /* 掛繩不會匯出：匯出的卡片上緣（掛繩的位置）是圓角外的透明 */
-  await page.getByRole('switch', { name: '掛繩' }).click();
+  /* 「只在預覽」的掛繩不會匯出：匯出的卡片上緣（掛繩的位置）是圓角外的透明 */
+  await page.getByTestId('lanyard').click();
+  await page.getByRole('option', { name: '只在預覽', exact: true }).click();
+  await expect(page.getByTestId('strap')).toHaveCount(1);
   const card = readPng((await exportOne(page, 'PNG')).bytes);
   expect(card.at(2, 2)[3]).toBe(0);
   expect([card.width, card.height]).toEqual([1276, 2031]);

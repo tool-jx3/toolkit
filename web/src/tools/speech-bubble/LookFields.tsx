@@ -9,13 +9,13 @@ import {
   FieldRow,
   FontPicker,
   GestureScope,
-  OptionalNumberInput,
   Segmented,
   Select,
   Show,
   Slider,
   Toggle,
 } from '@/ui';
+import { OptionalNumberInput } from '@/ui/OptionalNumberInput';
 import {
   CORNER_IDS,
   FMT_RANGES,

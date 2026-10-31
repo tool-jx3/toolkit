@@ -36,12 +36,9 @@ import {
   AudioPlayer,
   Button,
   ColorField,
-  ColorPairList,
   Field,
-  FontPoolList,
   IssueList,
   NumberInput,
-  PathPad,
   Section,
   Segmented,
   Show,
@@ -53,6 +50,9 @@ import {
   useAdvancedMode,
   useToast,
 } from '@/ui';
+import { ColorPairList } from '@/ui/ColorPairList';
+import { FontPoolList } from '@/ui/FontPoolList';
+import { PathPad } from '@/ui/PathPad';
 import { buildLoopScene, STYLE_LABELS } from '../g1/scenes';
 import { type G1DemoState, type StyleId, useG1 } from '../g1/store';
 

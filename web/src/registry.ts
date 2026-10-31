@@ -86,7 +86,7 @@ export const TOOLS: readonly ToolEntry[] = [
     id: 'battlemap',
     name: '戰鬥地圖產生器',
     summary:
-      '一鍵產生俯視的地下城戰鬥地圖（22 × 16 格），有石砌地城、洞穴、墓室三種地形，可匯出 PNG 當 VTT 背景。',
+      '一鍵產生俯視的地下城戰鬥地圖：房間、洞窟、迷宮等 6 種生成法，石砌地城、洞穴、墓室三種地形，可調格數與每格 px，匯出 PNG 當 VTT 背景。',
     group: 'G10',
     status: 'live',
     inspiration: {
@@ -572,7 +572,7 @@ export const TOOLS: readonly ToolEntry[] = [
     id: 'id-ticket',
     name: '證件與票券產生器',
     summary:
-      '做跑團用的證件與票券道具：員工證、學生證、記者證、刑警證、會員卡、1920 年代的偵探執照，以及電影票、登機證、車票、收據；放上照片、自動產生編號、條碼與 QR code，證件可以匯出 600 dpi 的印刷用 PNG，票券還能存成浮起加閃光的 GIF。',
+      '做跑團用的證件與票券道具：員工證、學生證、記者證、刑警證、會員卡、偵探執照、賽博龐克風的 SF 證件（公民 ID、執照卡、通行證等），以及電影票、登機證、車票、收據；照片可以變網點，條碼與 QR code 跟著編號，證件能匯出印刷用 PNG 或打掛繩孔，票券還能存成 GIF。',
     group: 'G6',
     status: 'live',
     inspiration: {

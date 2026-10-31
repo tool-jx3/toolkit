@@ -1,7 +1,7 @@
 /**
  * 「專案」分頁的架空曆（規格 F92；時間寫法是架空年時才有）：使用月份與日、月份清單（名稱、天數、排序、刪除）、
- * 一週的每天（選填）與第 1 年第 1 個月第 1 日是星期幾。改月份時存檔的時間跟著換算（一步復原）；
- * 關掉月份會失去月、日時先確認；有時間被調整（刪掉的月份、天數變少）時通知。
+ * 寫到時刻（F110）、一週的每天（選填）與第 1 年第 1 個月第 1 日是星期幾。改月份時存檔的時間跟著換算（一步復原）；
+ * 關掉月份會失去月、日時、關掉「寫到時刻」會失去時刻時先確認；有時間被調整（刪掉的月份、天數變少）時通知。
  */
 import { ArrowDown, ArrowUp, Plus, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
@@ -32,19 +32,31 @@ import { S } from '../strings';
 
 const g = historyGesture(useDoc);
 
-/** 換成新的架空曆：會失去月、日時先確認；調整了時間時通知（可以復原） */
+/** 不寫到時刻的架空曆（沒有 clock 這個欄位，和第二批的資料相同） */
+function withoutClock(cal: Calendar): Calendar {
+  const { clock: _clock, ...rest } = cal;
+  return rest;
+}
+
+/** 換成新的架空曆：會失去月、日或時刻時先確認；調整了時間時通知（可以復原） */
 async function change(next: Calendar, confirm: ReturnType<typeof useConfirm>) {
-  const plan = planCalendar(docNow(), next, S.untitled);
+  const doc = docNow();
+  const plan = planCalendar(doc, next, S.untitled);
   const examples = plan.examples.map((x) => `${x.name}：${x.from} → ${x.to}`);
   if (plan.lossy) {
+    /* 只關掉「寫到時刻」（月份還在）：時刻拿掉、只留日子 */
+    const clockOff = !!doc.calendar.clock && !next.clock && next.months.length > 0;
     const ok = await confirm({
-      title: S.calOffTitle,
-      description: [S.calOffDesc(plan.lossy), ...examples].map((t) => (
+      title: clockOff ? S.calClockOffTitle : S.calOffTitle,
+      description: [
+        clockOff ? S.calClockOffDesc(plan.lossy) : S.calOffDesc(plan.lossy),
+        ...examples,
+      ].map((t) => (
         <span key={t} className="block">
           {t}
         </span>
       )),
-      confirmLabel: S.calOffApply,
+      confirmLabel: clockOff ? S.calClockOffApply : S.calOffApply,
       danger: true,
     });
     if (!ok) return;
@@ -88,7 +100,7 @@ export function CalendarSection({ pl }: { pl: boolean }) {
             set(
               v
                 ? { ...defaultCalendar(), weekdays: cal.weekdays, weekStart: cal.weekStart }
-                : { ...cal, months: [] },
+                : { ...withoutClock(cal), months: [] },
             )
           }
         />
@@ -182,6 +194,13 @@ export function CalendarSection({ pl }: { pl: boolean }) {
               {S.calSummary(info.M, info.D)}
             </span>
           </div>
+          <Field label={S.calClock} layout="inline" hint={S.calClockHint}>
+            <Toggle
+              checked={info.clock}
+              disabled={pl}
+              onCheckedChange={(v) => set(v ? { ...cal, clock: true } : withoutClock(cal))}
+            />
+          </Field>
           <Field label={S.calWeekdays} hint={S.calWeekdaysHint}>
             <TextInput
               value={weekText}

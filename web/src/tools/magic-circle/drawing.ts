@@ -2,7 +2,7 @@
  * 繪圖與編輯的指標操作（規格 1.4）：選取工具的點選、拖曳與控制點；鋼筆、手繪、圖形、文字。
  * 回傳給 PanZoomViewport 的拖曳處理；正在畫的東西與吸附標記放在 useUi（編輯畫面據此重畫）。
  */
-import type { ViewportDrag, ViewportPointer } from '@/ui';
+import type { ViewportDrag, ViewportPointer } from '@/ui/PanZoomViewport';
 import {
   addElement,
   clearSelection,

@@ -6,7 +6,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { ensureFont } from '@/core/fonts';
 import { mmToPx, PAPER_SIZES } from '@/core/paged';
-import { PagedViewport, type PagedViewportHandle } from '@/ui';
+import { PagedViewport, type PagedViewportHandle } from '@/ui/PagedViewport';
 import { buildBook } from './book';
 import { BOOK_CSS, EDITOR_PAPER_CSS, PAPER_FONTS } from './bookCss';
 import { EDITOR_CSS } from './editorCss';

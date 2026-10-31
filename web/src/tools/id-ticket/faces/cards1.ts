@@ -53,10 +53,12 @@ export const employee: IdFaces = {
     ctx.fillStyle = alpha('#ffffff', 0.08);
     ctx.fill();
     ctx.restore();
+    /* 打了掛繩孔時上方的一列往下 14（公司名稱避開孔，規格 D32） */
+    const hy = e.slot ? 14 : 0;
     monogram(
       e,
       S + 14,
-      37,
+      37 + hy,
       14,
       alpha('#ffffff', 0.95),
       dk ? shade(c, 0.25) : c,
@@ -66,14 +68,14 @@ export const employee: IdFaces = {
       },
     );
     const tx = S + 36;
-    field(e, 'emp_org', tx, 36, {
+    field(e, 'emp_org', tx, 36 + hy, {
       size: 12,
       weight: 700,
       color: t.oc,
       maxWidth: W - S - tx - 54,
       shrink: 0.75,
     });
-    field(e, 'emp_orgEn', tx, 49, {
+    field(e, 'emp_orgEn', tx, 49 + hy, {
       size: 6,
       weight: 600,
       color: alpha(t.oc, 0.75),
@@ -81,14 +83,14 @@ export const employee: IdFaces = {
       upper: true,
       maxWidth: W - S - tx - 54,
     });
-    text(e, '員工證', W - S, 34, {
+    text(e, '員工證', W - S, 34 + hy, {
       size: 10,
       weight: 900,
       color: t.oc,
       align: 'right',
       spacing: 1.5,
     });
-    text(e, 'EMPLOYEE ID', W - S, 46, {
+    text(e, 'EMPLOYEE ID', W - S, 46 + hy, {
       size: 5.5,
       weight: 700,
       color: alpha(t.oc, 0.72),
@@ -252,7 +254,10 @@ export const highschool: IdFaces = {
     band(e, 0, 90, dk ? shade(c, 0.3) : c);
     /* 色帶下緣的細線 */
     band(e, 90, 93, alpha(c, 0.35));
-    field(e, 'hi_school', W / 2, 42, {
+    /* 打了掛繩孔時校名往下 10、英文校名往下 9（避開孔，規格 D32） */
+    const sy = e.slot ? 10 : 0;
+    const ey = e.slot ? 9 : 0;
+    field(e, 'hi_school', W / 2, 42 + sy, {
       size: 14.5,
       weight: 700,
       color: t.oc,
@@ -261,7 +266,7 @@ export const highschool: IdFaces = {
       shrink: 0.7,
       spacing: 1,
     });
-    field(e, 'hi_schoolEn', W / 2, 58, {
+    field(e, 'hi_schoolEn', W / 2, 58 + ey, {
       size: 6,
       weight: 600,
       color: alpha(t.oc, 0.78),
@@ -458,7 +463,10 @@ export const university: IdFaces = {
     ctx.restore();
     crest(e, S + 16, 38, 16, u.hc);
     const tx = S + 40;
-    field(e, 'uni_name', tx, 37, {
+    /* 打了掛繩孔時校名往下 14、英文校名往下 10（避開孔，規格 D32） */
+    const ny = e.slot ? 14 : 0;
+    const ey = e.slot ? 10 : 0;
+    field(e, 'uni_name', tx, 37 + ny, {
       font: 'serif',
       size: 15,
       weight: 900,
@@ -466,7 +474,7 @@ export const university: IdFaces = {
       maxWidth: W - S - tx,
       shrink: 0.7,
     });
-    field(e, 'uni_nameEn', tx, 50, {
+    field(e, 'uni_nameEn', tx, 50 + ey, {
       size: 5.8,
       weight: 600,
       color: u.mu,
@@ -551,15 +559,17 @@ export const university: IdFaces = {
   back(e) {
     const { ctx, W, H, S, c, dk } = e;
     const u = uniBase(e);
-    crest(e, S + 13, 36, 13, u.hc);
-    field(e, 'uni_name', S + 34, 34, {
+    /* 打了掛繩孔時校徽、校名、小標往下（12、14、12；避開孔，規格 D32） */
+    const hy = e.slot ? 12 : 0;
+    crest(e, S + 13, 36 + hy, 13, u.hc);
+    field(e, 'uni_name', S + 34, 34 + (e.slot ? 14 : 0), {
       font: 'serif',
       size: 13,
       weight: 900,
       color: u.fg,
       maxWidth: W - S * 2 - 34,
     });
-    cap(e, '校園服務 CAMPUS SERVICES', S + 34, 47, u.hc, { size: 5.8 });
+    cap(e, '校園服務 CAMPUS SERVICES', S + 34, 47 + hy, u.hc, { size: 5.8 });
     rows(
       e,
       [
@@ -623,11 +633,12 @@ export const press: IdFaces = {
       ctx.stroke();
     }
     ctx.restore();
+    /* 打了掛繩孔時媒體名稱只用到孔的左邊（長的名字縮小或「…」，規格 D32） */
     field(e, 'press_org', S, 36, {
       size: 13,
       weight: 900,
       color: t.oc,
-      maxWidth: W - S * 2 - 70,
+      maxWidth: e.slot ? Math.min(W - S * 2 - 70, e.slot.x - 6 - S) : W - S * 2 - 70,
       shrink: 0.7,
     });
     field(e, 'press_orgEn', S, 49, {

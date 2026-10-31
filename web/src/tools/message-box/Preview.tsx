@@ -7,19 +7,10 @@ import { useMemo, useState } from 'react';
 import { roomUrlFrom } from '@/ccfolia';
 import { readAsDataUrl } from '@/core/files';
 import { loadImage } from '@/core/image';
-import {
-  Button,
-  CssExportPanel,
-  CssPreviewFrame,
-  Field,
-  FileDrop,
-  MessageComposer,
-  Notice,
-  Section,
-  Segmented,
-  SourceUrlField,
-  TextInput,
-} from '@/ui';
+import { Button, Field, FileDrop, Notice, Section, Segmented, TextInput } from '@/ui';
+import { CssExportPanel, SourceUrlField } from '@/ui/CssExport';
+import { CssPreviewFrame } from '@/ui/CssPreviewFrame';
+import { MessageComposer } from '@/ui/MessageComposer';
 import { buildMessageBoxCss } from './css';
 import { LocalFontWarning } from './panels';
 import {

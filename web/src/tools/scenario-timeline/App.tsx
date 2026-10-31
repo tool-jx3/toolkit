@@ -9,6 +9,7 @@
 import { Redo2, Undo2 } from 'lucide-react';
 import { useEffect } from 'react';
 import { decodeText } from '@/core/files';
+import { clearPrintFrames } from '@/core/paged';
 import { useSaveError, useSaveStatus, useUndoRedo } from '@/core/storage';
 import {
   IconButton,
@@ -194,6 +195,14 @@ function Glue() {
     const rest = selectedIds.filter((id) => ids.has(id));
     if (rest.length !== selectedIds.length) selectMany(rest, useUi.getState().selectedId);
   }, [events, selectedIds]);
+  /*
+   * 切到 PL 檢視時拿掉 GM 檢視印過的列印文件（共用的列印把 iframe 留到下一次列印，它的 srcdoc 屬性有 GM 用的年表；
+   * PL 檢視的頁面不能有 GM 專用的內容，F61）
+   */
+  const viewMode = usePrefs((s) => s.data.viewMode);
+  useEffect(() => {
+    if (viewMode === 'pl') clearPrintFrames();
+  }, [viewMode]);
   return (
     <>
       <NotifyBridge />

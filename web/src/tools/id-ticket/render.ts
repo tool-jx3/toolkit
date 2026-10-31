@@ -12,6 +12,7 @@ import { detective, member, police } from './faces/cards2';
 import type { IdEnv, IdFaces } from './faces/common';
 import { TICKET_DRAWINGS, type TicketEnv, ticketPalette } from './faces/tickets';
 import { type Ctx, type FontUse, fontUses, type PhotoSource, type Region, rrect } from './kit';
+import { drawStrap, ID_STRAP_U, idSlot, idStrapColor, slotPoly, strapGeometry } from './lanyard';
 import {
   BLEED_U,
   CARD_RADIUS_U,
@@ -26,6 +27,8 @@ import {
   type Side,
   UNITS_PER_MM,
 } from './model';
+import { polyPath } from './sf/geom';
+import { sfFontUses } from './sf/render';
 import {
   ID_TEMPLATES,
   type IdTemplate,
@@ -48,6 +51,9 @@ export const FACES: Record<IdTemplateId, IdFaces> = {
   member,
   detective,
 };
+
+/** 既有證件的照片效果：網點大小 1 ＝ 0.3 設計單位（約 0.055 mm，和 SF 證件的原生像素差不多） */
+export const ID_DOT_UNIT = 0.3;
 
 /** 預覽畫布的解析度（設計單位的幾倍） */
 export const PREVIEW_SCALE = 3;
@@ -115,6 +121,8 @@ export interface FaceDrawOptions {
   preview: boolean;
   photo: CanvasImageSource | null;
   fonts?: Map<string, Set<string>>;
+  /** 打了掛繩孔（證件：上緣的字避開孔，D32） */
+  slot?: boolean;
 }
 
 /** 在 ctx 目前的變換下（原點＝成品左上角、單位＝設計單位）畫一面；回傳可以點的範圍 */
@@ -144,6 +152,16 @@ export function drawIdFace(ctx: Ctx, s: IdTicketState, side: Side, o: FaceDrawOp
     tpl,
     qrContent: idQrContent(s, tpl),
     code: s.idValues[tpl.codeKey] ?? '',
+    slot: o.slot ? idSlot(tpl.orientation) : null,
+    photoFx:
+      s.idPhotoFx && s.idPhotoFx.fx !== 'none'
+        ? {
+            fx: s.idPhotoFx,
+            ink: style.dark ? '#f1f2f4' : '#17181c',
+            card: style.dark ? '#15171c' : '#ffffff',
+            dotUnit: ID_DOT_UNIT,
+          }
+        : undefined,
   };
   ctx.save();
   FACES[tpl.id][side](env);
@@ -151,11 +169,25 @@ export function drawIdFace(ctx: Ctx, s: IdTicketState, side: Side, o: FaceDrawOp
   return regions;
 }
 
+/** 掛繩孔與掛繩（lanyard.ts）：hole＝打洞；strap＝往上延伸畫出掛繩（只在「卡片」） */
+export interface FaceLanyard {
+  hole: boolean;
+  strap: boolean;
+}
+
+/** 往上延伸的掛繩幾 px（沒有時 0；印刷用不畫掛繩） */
+export const idStrapExtent = (
+  scale: number,
+  mode: IdExportMode,
+  lanyard: FaceLanyard | undefined,
+): number => (lanyard?.strap && mode === 'card' ? Math.round(ID_STRAP_U * scale) : 0);
+
 /**
  * 一面的畫布：
  * - 'card'：成品大小、圓角外透明；
  * - 'print'：含出血、白底（印刷廠裁切用）。
  * scale＝每個設計單位幾個像素（匯出 600 dpi ≈ 4.295、預覽 3）。
+ * lanyard：掛繩孔（卡片是透明的洞、印刷是白的）、掛繩（卡片往上延伸 20 mm）；不給＝以前的畫法。
  */
 export function renderIdFace(
   s: IdTicketState,
@@ -165,19 +197,124 @@ export function renderIdFace(
   o: FaceDrawOptions,
   size?: { width: number; height: number },
   into?: AnyCanvas,
+  lanyard?: FaceLanyard,
 ): { canvas: AnyCanvas; regions: Region[] } {
   const tpl = idTemplate(s.idTemplate);
   const { w, h } = cardUnits(tpl.orientation);
   const bleed = mode === 'print' ? BLEED_U : 0;
   const width = size?.width ?? Math.round((w + bleed * 2) * scale);
-  const height = size?.height ?? Math.round((h + bleed * 2) * scale);
+  const faceH = size?.height ?? Math.round((h + bleed * 2) * scale);
+  const top = idStrapExtent(scale, mode, lanyard);
+  const height = faceH + top;
   const canvas = into ? reuseCanvas(into, width, height) : makeCanvas(width, height);
   const ctx = ctx2d(canvas);
+  if (!lanyard?.hole && !top) {
+    const regions = paintIdFace(ctx, s, side, scale, mode, o, { width, height });
+    return { canvas, regions };
+  }
+  ctx.save();
+  ctx.translate(0, top);
+  const regions = paintIdFace(
+    ctx,
+    s,
+    side,
+    scale,
+    mode,
+    { ...o, slot: !!lanyard?.hole },
+    {
+      width,
+      height: faceH,
+    },
+  );
+  ctx.restore();
+  const slot = idSlot(tpl.orientation);
+  ctx.save();
+  ctx.translate(0, top);
+  ctx.scale(scale, scale);
+  ctx.translate(bleed, bleed);
+  if (lanyard?.hole) {
+    polyPath(ctx, slotPoly(slot));
+    if (mode === 'card') ctx.globalCompositeOperation = 'destination-out';
+    ctx.fillStyle = '#ffffff';
+    ctx.fill();
+    ctx.globalCompositeOperation = 'source-over';
+  }
+  if (top)
+    drawStrap(ctx, strapGeometry(slot, 0, -ID_STRAP_U), idStrapColor(s.idStyles[tpl.id].color));
+  ctx.restore();
+  return { canvas, regions };
+}
+
+/**
+ * 測試與對等驗證用：這一面在掛繩孔的範圍裡、和那裡最多的顏色差很多（RGB 差的總和 > 90）的像素比例（%）。
+ * 照「打了孔」（slot）或沒打孔的版面畫、但不打穿，看孔的位置有沒有字或圖（3 倍、沒有照片）。
+ */
+export function slotInk(s: IdTicketState, side: Side, slot: boolean): number {
+  const tpl = idTemplate(s.idTemplate);
+  const { w, h } = cardUnits(tpl.orientation);
+  const k = 3;
+  const size = { width: Math.round(w * k), height: Math.round(h * k) };
+  const ctx = ctx2d(makeCanvas(size.width, size.height));
+  paintIdFace(ctx, s, side, k, 'card', { preview: false, photo: null, slot }, size);
+  const r = idSlot(tpl.orientation);
+  const d = ctx.getImageData(
+    Math.round(r.x * k),
+    Math.round(r.y * k),
+    Math.round(r.w * k),
+    Math.round(r.h * k),
+  ).data;
+  const count = new Map<number, number>();
+  for (let p = 0; p < d.length; p += 4) {
+    const key = ((d[p] >> 3) << 10) | ((d[p + 1] >> 3) << 5) | (d[p + 2] >> 3);
+    count.set(key, (count.get(key) ?? 0) + 1);
+  }
+  const top = [...count].sort((a, b) => b[1] - a[1])[0]?.[0] ?? 0;
+  const tc = [((top >> 10) & 31) * 8 + 4, ((top >> 5) & 31) * 8 + 4, (top & 31) * 8 + 4];
+  let far = 0;
+  for (let p = 0; p < d.length; p += 4)
+    if (Math.abs(d[p] - tc[0]) + Math.abs(d[p + 1] - tc[1]) + Math.abs(d[p + 2] - tc[2]) > 90)
+      far++;
+  return (far / (d.length / 4)) * 100;
+}
+
+/**
+ * 預覽用的掛繩圖層（卡片翻面時不動）：寬＝卡片、高＝掛繩＋到孔的下緣；原點在畫布的左上角。
+ */
+export function renderIdStrap(s: IdTicketState, scale: number, into?: AnyCanvas): AnyCanvas {
+  const tpl = idTemplate(s.idTemplate);
+  const { w } = cardUnits(tpl.orientation);
+  const slot = idSlot(tpl.orientation);
+  const hu = ID_STRAP_U + slot.y + slot.h;
+  const width = Math.round(w * scale);
+  const height = Math.round(hu * scale);
+  const canvas = into ? reuseCanvas(into, width, height) : makeCanvas(width, height);
+  const ctx = ctx2d(canvas);
+  ctx.save();
+  ctx.scale(scale, scale);
+  ctx.translate(0, ID_STRAP_U);
+  drawStrap(ctx, strapGeometry(slot, 0, -ID_STRAP_U), idStrapColor(s.idStyles[tpl.id].color));
+  ctx.restore();
+  return canvas;
+}
+
+/** renderIdFace 的畫法：畫在已經準備好大小的畫布上（測試用記錄指令的 context 比對） */
+export function paintIdFace(
+  ctx: Ctx,
+  s: IdTicketState,
+  side: Side,
+  scale: number,
+  mode: IdExportMode,
+  o: FaceDrawOptions,
+  size: { width: number; height: number },
+): Region[] {
+  const tpl = idTemplate(s.idTemplate);
+  const { w, h } = cardUnits(tpl.orientation);
+  const bleed = mode === 'print' ? BLEED_U : 0;
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = 'high';
   if (mode === 'print') {
     ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, width, height);
+    ctx.fillRect(0, 0, size.width, size.height);
   }
   ctx.scale(scale, scale);
   ctx.translate(bleed, bleed);
@@ -186,8 +323,7 @@ export function renderIdFace(
     rrect(ctx, 0, 0, w, h, CARD_RADIUS_U);
     ctx.clip();
   }
-  const regions = drawIdFace(ctx, s, side, o);
-  return { canvas, regions };
+  return drawIdFace(ctx, s, side, o);
 }
 
 /** 畫一次（不顯示）收集用到的字型與字：預覽與匯出前先載好 */
@@ -247,6 +383,8 @@ export interface QrDensity {
 
 /** 目前這一款的 QR code 有多密；沒有 QR code 的範本 null */
 export function qrDensity(s: IdTicketState): QrDensity | null {
+  /* SF 證件的 QR code 照原作畫在條碼的位置（大小跟著範本與裝飾開關），不另外提醒 */
+  if (s.kind === 'sf') return null;
   const id = s.kind === 'id';
   const tpl = id ? idTemplate(s.idTemplate) : ticketTemplate(s.ticketTemplate);
   if (!tpl.qr) return null;
@@ -365,7 +503,7 @@ export function thumbFontUses(s: IdTicketState, kind: IdTicketState['kind']): Fo
 
 /** 目前類別用到的字型 */
 export const fontUsesOf = (s: IdTicketState): FontUse[] =>
-  s.kind === 'id' ? idFontUses(s) : ticketFontUses(s);
+  s.kind === 'id' ? idFontUses(s) : s.kind === 'sf' ? sfFontUses(s.sf) : ticketFontUses(s);
 
 /* ======================================================================
  * GIF：票微微浮起、一道光掃過（規格 3.5）

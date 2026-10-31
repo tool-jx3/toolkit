@@ -3,7 +3,8 @@
  */
 import { useMemo } from 'react';
 import { characterUrlFrom, chatUrlFrom, roomUrlFrom } from '@/ccfolia';
-import { CssExportPanel, CssPreviewFrame } from '@/ui';
+import { CssExportPanel } from '@/ui/CssExport';
+import { CssPreviewFrame } from '@/ui/CssPreviewFrame';
 import { characterDemoCss, chatDemoCss, roomDemoCss, streamkitDemoCss } from './demoCss';
 import {
   characterScene,

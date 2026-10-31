@@ -3,7 +3,15 @@
  */
 import { useMemo } from 'react';
 import { pickStep, snapUnitFor } from '../model/axis';
-import { calInfo, calParts, dayOfValue, monthStartValue, valueOfDay } from '../model/calendar';
+import {
+  calInfo,
+  calParts,
+  dayOfValue,
+  minuteOfValue,
+  monthStartValue,
+  valueOfDay,
+  valueOfMinute,
+} from '../model/calendar';
 import { layoutRows } from '../model/layout';
 import { createMeasure } from '../model/measure';
 import {
@@ -14,6 +22,7 @@ import {
   dateParts,
   dateValue,
   type EraArg,
+  keepInRange,
   MINUTES_PER_DAY,
   type Precision,
   precisionUnit,
@@ -64,10 +73,13 @@ export function snapForWidth(mode: TimeMode, win: Win, width: number, ctx?: EraA
 
 /**
  * 新事件的寫法：吸附到 1 日以上時只寫到日，其他寫到分（架空年只有年；
- * 架空曆有月份時，吸附到日、月的寫到日，吸附到年的只到年）
+ * 架空曆有月份時，吸附到日、月的寫到日，吸附到年的只到年；寫到時刻時吸附到分、時的寫到分，F110）
  */
 export function precisionForSnap(mode: TimeMode, u: SnapUnit): Precision {
-  if (mode === 'year') return u.kind === 'day' || u.kind === 'month' ? 'day' : 'year';
+  if (mode === 'year') {
+    if (u.kind === 'min') return 'minute';
+    return u.kind === 'day' || u.kind === 'month' ? 'day' : 'year';
+  }
   if (u.kind === 'min' && u.n < MINUTES_PER_DAY) return 'minute';
   return 'day';
 }
@@ -80,7 +92,7 @@ export function newEventStart(mode: TimeMode, v: number, u: SnapUnit, ctx?: EraA
   let s = snapValue(mode, v, unit, ctx);
   if (mode !== 'year' && p === 'day') s = Math.floor(s / MINUTES_PER_DAY) * MINUTES_PER_DAY;
   if (info && p === 'day') s = valueOfDay(info, dayOfValue(info, s));
-  return canonical(mode, { v: s, p }, ctx);
+  return canonical(mode, { v: keepInRange(mode, s, p, ctx), p }, ctx);
 }
 
 /** 往前、往後一步（照事件的寫法；結果對齊到單位） */
@@ -88,7 +100,8 @@ export function stepTv(mode: TimeMode, tv: Tv, unit: SnapUnit, dir: 1 | -1, ctx?
   const u = coarser(mode, unit, precisionUnit(mode, tv.p), ctx);
   const info = mode === 'year' ? ctxParts(ctx).info : null;
   let v: number;
-  if (info && u.kind === 'day') v = valueOfDay(info, dayOfValue(info, tv.v) + dir * u.n);
+  if (info && u.kind === 'min') v = valueOfMinute(info, minuteOfValue(info, tv.v) + dir * u.n);
+  else if (info && u.kind === 'day') v = valueOfDay(info, dayOfValue(info, tv.v) + dir * u.n);
   else if (info && u.kind === 'month') {
     const c = calParts(info, tv.v);
     /* 同一天（超過那個月的天數時是那個月的最後一天） */
@@ -99,7 +112,8 @@ export function stepTv(mode: TimeMode, tv: Tv, unit: SnapUnit, dir: 1 | -1, ctx?
   } else if (u.kind === 'min' || mode === 'year') v = tv.v + dir * u.n;
   else if (u.kind === 'month') v = addMonths(tv.v, dir * u.n);
   else v = dateValue(dateParts(tv.v).y + dir * u.n);
-  return { v: snapValue(mode, v, u, ctx), p: tv.p };
+  /* 範圍的兩端：留在範圍裡（不會變成看不懂的時間） */
+  return { v: keepInRange(mode, snapValue(mode, v, u, ctx), tv.p, ctx), p: tv.p };
 }
 
 /** 專案的架空曆（有月份時；只有架空年用得到） */

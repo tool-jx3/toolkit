@@ -1,9 +1,11 @@
 /**
  * 年表（規格 F50～F54、3.7）：依時間排的清單、分段；純文字、Markdown、列印用的 HTML。純計算。
+ * 第三批：每個事件下面列它的關聯線（F111：「→ 導致：…」「← 起因：…」「⇄ 矛盾：…」）；架空曆的時刻（F110）。
  */
 import { escapeHtml } from '@/core/html';
-import { type CalInfo, calParts, monthName } from './calendar';
+import { type CalInfo, calParts, monthName, valueOfDay } from './calendar';
 import { eventSpan } from './layout';
+import type { LinkKind } from './links';
 import {
   afterUnit,
   clockText,
@@ -21,6 +23,19 @@ import {
 } from './time';
 import { eventColor } from './types';
 import type { VisibleDoc } from './visible';
+
+/** 年表裡一筆事件的一條關聯線（F111） */
+export interface ChronLink {
+  /** out＝從這個事件連出去（導致：→）、in＝連進來（←）；同時、矛盾、相關沒有方向（⇄） */
+  dir: 'out' | 'in' | 'both';
+  kind: LinkKind;
+  /** 另一端的事件 */
+  otherId: string;
+  other: string;
+  note: string;
+  /** PL 版看不到（GM 專用的線、一端是 PL 看不到的事件；只有 GM 版會是 true） */
+  secret: boolean;
+}
 
 export interface ChronRow {
   kind: 'event' | 'marker';
@@ -45,6 +60,8 @@ export interface ChronRow {
   background: boolean;
   ongoing: boolean;
   color: string;
+  /** 這個事件的關聯線（列出關聯線時；依另一端在年表上的順序） */
+  links: ChronLink[];
 }
 
 export interface ChronSection {
@@ -66,12 +83,12 @@ const RANK: Record<Precision, number> = { year: 0, month: 1, day: 2, minute: 3 }
 function sectionOf(mode: TimeMode, tv: Tv, ctx: EraArg): { key: string; heading: string } {
   const { era, info } = ctxParts(ctx);
   if (mode === 'year') {
-    /* 架空曆：只到年的在那一年的段、只到月的在那一月的段、到日的每天一段 */
-    if (info && (tv.p === 'month' || tv.p === 'day')) {
+    /* 架空曆：只到年的在那一年的段、只到月的在那一月的段、到日（與時刻）的每天一段 */
+    if (info && tv.p !== 'year') {
       const c = calParts(info, tv.v);
-      return tv.p === 'month'
-        ? { key: `m${c.y}-${c.m}`, heading: formatLong(mode, tv, ctx) }
-        : { key: `d${c.T}`, heading: formatLong(mode, tv, ctx) };
+      if (tv.p === 'month') return { key: `m${c.y}-${c.m}`, heading: formatLong(mode, tv, ctx) };
+      const day: Tv = tv.p === 'minute' ? { v: valueOfDay(info, c.T), p: 'day' } : tv;
+      return { key: `d${c.T}`, heading: formatLong(mode, day, ctx) };
     }
     return { key: `y${tv.v}`, heading: yearLabel(tv.v, era) };
   }
@@ -85,18 +102,30 @@ function sectionOf(mode: TimeMode, tv: Tv, ctx: EraArg): { key: string; heading:
   return { key: `d${d.days}`, heading: dateLabel(tv.v) };
 }
 
-/** 段裡的開始時間：寫到分＝時刻；只到日＝「整天」（時間點與期間的開始相同：「整天～3月14日」）；只到月、年＝不寫 */
-function startText(mode: TimeMode, tv: Tv): string {
-  if (mode === 'year') return '';
+/**
+ * 段裡的開始時間：寫到分＝時刻；只到日＝「整天」（時間點與期間的開始相同：「整天～3月14日」）；只到月、年＝不寫。
+ * 架空年不寫；架空曆打開「寫到時刻」時和日期時間相同（F110）。
+ */
+function startText(mode: TimeMode, tv: Tv, info: CalInfo | null = null): string {
+  if (mode === 'year') {
+    if (!info?.clock) return '';
+    if (tv.p === 'minute') return clockText(calParts(info, tv.v).min);
+    return tv.p === 'day' ? '整天' : '';
+  }
   if (tv.p === 'minute') return clockText(tv.v);
   if (tv.p === 'day') return '整天';
   return '';
 }
 
-/** 架空曆的期間的結束（同一年不寫年） */
+/** 架空曆的期間的結束（同一年不寫年；寫到時刻的同一天只寫時刻） */
 function calEndText(info: CalInfo, start: Tv, end: Tv, era: string): string {
   const s = calParts(info, start.v);
   const e = calParts(info, end.v);
+  if (end.p === 'minute') {
+    if (s.T === e.T) return clockText(e.min);
+    const md = `${monthName(info, e.m - 1)} ${e.d} 日`;
+    return `${s.y === e.y ? md : `${yearLabel(e.y, era)} ${md}`} ${clockText(e.min)}`;
+  }
   if (end.p !== 'month' && end.p !== 'day') return yearLabel(e.y, era);
   const md = `${monthName(info, e.m - 1)}${end.p === 'day' ? ` ${e.d} 日` : ''}`;
   return s.y === e.y ? md : `${yearLabel(e.y, era)} ${md}`;
@@ -134,10 +163,21 @@ interface Sortable {
   section: { key: string; heading: string };
 }
 
-export function chronicle(vdoc: VisibleDoc, untitled: string, fallbackTitle: string): Chronicle {
+export interface ChronicleOptions {
+  /** 每個事件下面列它的關聯線（F111；預設不列） */
+  links?: boolean;
+}
+
+export function chronicle(
+  vdoc: VisibleDoc,
+  untitled: string,
+  fallbackTitle: string,
+  options: ChronicleOptions = {},
+): Chronicle {
   const { mode } = vdoc;
   /* 曆名與架空曆 */
   const era: EraArg = vdoc;
+  const info = mode === 'year' ? ctxParts(era).info : null;
   const laneOrder = new Map(vdoc.lanes.map((l, i) => [l.id, i]));
   const list: Sortable[] = [];
   let lo = Number.POSITIVE_INFINITY;
@@ -150,7 +190,7 @@ export function chronicle(vdoc: VisibleDoc, untitled: string, fallbackTitle: str
     const isRange = e.kind !== 'point';
     const endTv = isRange ? readTime(mode, e.end, era) : null;
     const span = eventSpan(mode, e, era);
-    let time = startText(mode, a);
+    let time = startText(mode, a, info);
     let fullTime = formatLong(mode, a, era);
     if (isRange) {
       const tail = e.ongoing ? '（進行中）' : endTv ? endText(mode, a, endTv, era) : '';
@@ -189,6 +229,7 @@ export function chronicle(vdoc: VisibleDoc, untitled: string, fallbackTitle: str
         background: e.kind === 'background',
         ongoing: !!e.ongoing,
         color: eventColor(vdoc, e),
+        links: [],
       },
       v: a.v,
       rank: RANK[a.p],
@@ -214,7 +255,7 @@ export function chronicle(vdoc: VisibleDoc, untitled: string, fallbackTitle: str
       row: {
         kind: 'marker',
         id: m.id,
-        time: startText(mode, t),
+        time: startText(mode, t, info),
         fullTime: formatLong(mode, t, era),
         title: m.label.trim() || untitled,
         laneName: '',
@@ -230,6 +271,7 @@ export function chronicle(vdoc: VisibleDoc, untitled: string, fallbackTitle: str
         background: false,
         ongoing: false,
         color: m.color,
+        links: [],
       },
       v: t.v,
       rank: RANK[t.p],
@@ -249,6 +291,7 @@ export function chronicle(vdoc: VisibleDoc, untitled: string, fallbackTitle: str
       p.lane - q.lane ||
       p.idx - q.idx,
   );
+  if (options.links) addLinks(vdoc, list);
   const sections: ChronSection[] = [];
   for (const it of list) {
     const last = sections[sections.length - 1];
@@ -269,6 +312,53 @@ export function chronicle(vdoc: VisibleDoc, untitled: string, fallbackTitle: str
     sections,
     count: list.length,
   };
+}
+
+/**
+ * 每個事件下面的關聯線（F111）：兩端都在年表裡的線（PL 版本來就沒有 GM 專用的線與一端看不到的線；
+ * 篩選中只有兩端都符合的線），從那一端看的方向；依另一端在年表上的順序。
+ */
+function addLinks(vdoc: VisibleDoc, list: Sortable[]): void {
+  const order = new Map<string, number>();
+  const rows = new Map<string, ChronRow>();
+  for (const [i, it] of list.entries())
+    if (it.row.kind === 'event') {
+      order.set(it.row.id, i);
+      rows.set(it.row.id, it.row);
+    }
+  for (const k of vdoc.links) {
+    const a = rows.get(k.from);
+    const b = rows.get(k.to);
+    if (!a || !b || a === b) continue;
+    const both = k.kind !== 'cause';
+    const base = { kind: k.kind, note: k.note.trim(), secret: k.secret };
+    a.links.push({ ...base, dir: both ? 'both' : 'out', otherId: b.id, other: b.title });
+    b.links.push({ ...base, dir: both ? 'both' : 'in', otherId: a.id, other: a.title });
+  }
+  for (const r of rows.values())
+    if (r.links.length > 1)
+      r.links.sort((p, q) => (order.get(p.otherId) ?? 0) - (order.get(q.otherId) ?? 0));
+}
+
+const LINK_ARROW: Record<ChronLink['dir'], string> = { out: '→', in: '←', both: '⇄' };
+const LINK_WORD: Record<LinkKind, string> = {
+  cause: '導致',
+  same: '同時',
+  conflict: '矛盾',
+  related: '相關',
+};
+
+/** 一行裡的文字：連續的空白（含換行）換成一個空白 */
+const oneLine = (t: string) => t.replace(/\s+/g, ' ').trim();
+
+/**
+ * 一條關聯線的文字：「→ 導致：抵達黑水灣車站（說明）」「← 起因：委託信寄出」「⇄ 矛盾：…」。
+ * 標題、說明裡的換行換成空白（CSV 讀入或手改的專案檔可能有換行；一條線一行）。
+ */
+export function linkText(l: ChronLink): string {
+  const word = l.kind === 'cause' && l.dir === 'in' ? '起因' : LINK_WORD[l.kind];
+  const note = oneLine(l.note);
+  return `${LINK_ARROW[l.dir]} ${word}：${oneLine(l.other)}${note ? `（${note}）` : ''}`;
 }
 
 /* ---------- 文字 ---------- */
@@ -313,6 +403,8 @@ export function chronicleText(ch: Chronicle, audience: 'gm' | 'pl'): string {
       out.push(`・${time}${r.title}${rowTags(r, gm)}`);
       for (const l of detailLines(r)) out.push(IND + l);
       for (const l of lines(r.description)) out.push(IND + l);
+      for (const k of r.links)
+        out.push(`${IND}${linkText(k)}${gm && k.secret ? '〔GM 專用〕' : ''}`);
       if (gm && r.gmNote.trim()) {
         const note = lines(r.gmNote);
         for (const [i, l] of note.entries()) out.push(IND + (i === 0 ? `〔GM 筆記〕${l}` : l));
@@ -352,6 +444,8 @@ export function chronicleMarkdown(ch: Chronicle, audience: 'gm' | 'pl'): string 
         out.push(`  - ${mdEscape(desc[0])}`);
         for (const l of desc.slice(1)) out.push(`    ${mdEscape(l)}`);
       }
+      for (const k of r.links)
+        out.push(`  - ${mdEscape(linkText(k))}${gm && k.secret ? '〔GM 專用〕' : ''}`);
       if (gm && r.gmNote.trim()) {
         const note = lines(r.gmNote);
         out.push(`  - **GM 筆記**：${mdEscape(note[0] ?? '')}`);
@@ -383,6 +477,17 @@ li.secret{border-left:3pt solid #d99a1e;padding-left:4pt}
 li.marker .title{font-weight:600}
 `;
 
+/** 列出關聯線時另外加的樣式（沒有關聯線時列印文件和以前相同） */
+const PRINT_LINK_CSS = `.link{color:#444;font-size:9.5pt}
+.link.gm{color:#8a5a12}
+`;
+
+/** 列印用的樣式（年表裡有關聯線時加上關聯線的樣式） */
+export function chroniclePrintCss(ch: Chronicle): string {
+  const any = ch.sections.some((s) => s.rows.some((r) => r.links.length));
+  return any ? PRINT_CSS + PRINT_LINK_CSS : PRINT_CSS;
+}
+
 /** 列印用的 HTML（一頁；跟著內容換頁） */
 export function chronicleHtml(ch: Chronicle, audience: 'gm' | 'pl'): string {
   const gm = audience === 'gm';
@@ -405,7 +510,7 @@ export function chronicleHtml(ch: Chronicle, audience: 'gm' | 'pl'): string {
         const meta: string[] = [];
         if (r.place) meta.push(`地點：${h(r.place)}`);
         if (r.people.length) meta.push(`相關角色：${h(r.people.join('、'))}`);
-        return `<li${cls ? ` class="${cls}"` : ''}><span class="time">${h(r.time)}</span><div><span class="title">${r.kind === 'marker' ? '◆ ' : ''}${h(r.title)}</span>${tags.join('')}${meta.length ? `<div class="meta">${meta.join('／')}</div>` : ''}${r.description.trim() ? `<div class="desc">${h(r.description.trim())}</div>` : ''}${gm && r.gmNote.trim() ? `<div class="note">GM 筆記：${h(r.gmNote.trim())}</div>` : ''}</div></li>`;
+        return `<li${cls ? ` class="${cls}"` : ''}><span class="time">${h(r.time)}</span><div><span class="title">${r.kind === 'marker' ? '◆ ' : ''}${h(r.title)}</span>${tags.join('')}${meta.length ? `<div class="meta">${meta.join('／')}</div>` : ''}${r.description.trim() ? `<div class="desc">${h(r.description.trim())}</div>` : ''}${r.links.map((k) => `<div class="link${gm && k.secret ? ' gm' : ''}">${h(linkText(k))}${gm && k.secret ? '〔GM 專用〕' : ''}</div>`).join('')}${gm && r.gmNote.trim() ? `<div class="note">GM 筆記：${h(r.gmNote.trim())}</div>` : ''}</div></li>`;
       })
       .join('');
   return `<h1>${h(ch.title)}${gm ? '（GM 用）' : ''}</h1>${ch.range ? `<p class="range">${h(ch.range)}</p>` : ''}${ch.sections

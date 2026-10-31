@@ -14,8 +14,6 @@ import {
 } from '@/core/storage';
 import {
   Button,
-  type CanvasPicker,
-  createCanvasPicker,
   IconButton,
   ProjectMenu,
   ProjectMenuItem,
@@ -27,6 +25,7 @@ import {
   WindowDrop,
   withShortcut,
 } from '@/ui';
+import { type CanvasPicker, createCanvasPicker } from '@/ui/LayoutCanvas';
 import { paginateNow } from './autoPaginate';
 import { type Draft, draftAssets, type TemplateDef } from './model';
 import { Panel } from './Panel';

@@ -13,7 +13,6 @@ import { resetToolStore, useSaveStatus, useUndoRedo } from '@/core/storage';
 import {
   Button,
   IconButton,
-  ItemListEditor,
   Notice,
   ProjectMenu,
   Section,
@@ -25,6 +24,7 @@ import {
   useToast,
   withShortcut,
 } from '@/ui';
+import { ItemListEditor } from '@/ui/ItemListEditor';
 import { addSheet, copySheet, removeSheet, renameSheet, selectSheet } from './actions';
 import { CombatTab } from './CombatTab';
 import { InfoTab } from './InfoTab';

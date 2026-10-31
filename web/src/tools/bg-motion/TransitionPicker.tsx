@@ -4,7 +4,8 @@
  */
 import { ChevronDown } from 'lucide-react';
 import { useCallback, useMemo, useRef, useState } from 'react';
-import { Button, Dialog, EffectGrid, type EffectGridItem } from '@/ui';
+import { Button, Dialog } from '@/ui';
+import { EffectGrid, type EffectGridItem } from '@/ui/EffectGrid';
 import { TRANS_KINDS, type TransKind } from './deck';
 import { easeAt } from './deckPlan';
 import { drawMiniScene } from './sample';

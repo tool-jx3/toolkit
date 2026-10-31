@@ -3,7 +3,8 @@
  */
 import { UserPlus } from 'lucide-react';
 import { type FormEvent, useState } from 'react';
-import { Button, Field, ItemListEditor, Notice, Section, TextInput } from '@/ui';
+import { Button, Field, Notice, Section, TextInput } from '@/ui';
+import { ItemListEditor } from '@/ui/ItemListEditor';
 import { addUser, gesture, removeUser, setUserName } from './actions';
 import { combosOfUser, memoOf, type TachieData, type TachieUser, userLabel } from './model';
 import { useTachie } from './store';

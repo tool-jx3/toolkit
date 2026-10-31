@@ -13,7 +13,8 @@ import {
   richAdvance,
   richRowMetrics,
 } from '@/core/scene';
-import { RichTextEditor, Section } from '@/ui';
+import { Section } from '@/ui';
+import { RichTextEditor } from '@/ui/RichTextEditor';
 
 const W = 360;
 const H = 200;

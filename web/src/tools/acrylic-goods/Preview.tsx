@@ -6,7 +6,8 @@
  */
 import { Maximize2, RefreshCw, Vibrate } from 'lucide-react';
 import { type KeyboardEvent, useEffect, useMemo, useRef, useState } from 'react';
-import { Button, Field, Slider, Viewport3D } from '@/ui';
+import { Button, Field, Slider } from '@/ui';
+import { Viewport3D } from '@/ui/Viewport3D';
 import { exitGyro, getEngine, setEngine } from './actions';
 import { ExportArea } from './ExportArea';
 import { AcrylicEngine } from './engine';

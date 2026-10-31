@@ -4,7 +4,8 @@
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { flowPaginate } from '@/core/paged';
-import { HighlightTextArea, Section } from '@/ui';
+import { Section } from '@/ui';
+import { HighlightTextArea } from '@/ui/HighlightTextArea';
 
 const PAGE = { w: 70, h: 52 };
 const INITIAL = [
