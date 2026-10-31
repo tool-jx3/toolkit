@@ -4,7 +4,7 @@
 import { FALLBACK_STACK } from '@/core/fonts';
 import type { Box } from '@/core/layout';
 import { RULER_STYLE, type RulerTickKind, rulerTicks } from '@/core/ruler';
-import type { PanZoomView } from '@/ui';
+import type { PanZoomView } from '@/ui/PanZoomViewport';
 import {
   type Character,
   type ExportLayout,

@@ -5,7 +5,8 @@
 import { ArrowLeft, ArrowRight, Plus, Trash2 } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 import type { ToolStore } from '@/core/storage';
-import { Button, type CanvasPicker, Chips, IconButton, Tabs, useConfirm, useToast } from '@/ui';
+import { Button, Chips, IconButton, Tabs, useConfirm, useToast } from '@/ui';
+import type { CanvasPicker } from '@/ui/LayoutCanvas';
 import { FieldList } from './Fields';
 import type { Draft, GroupDef, SideDef, TemplateDef } from './model';
 import { SlotField } from './SlotField';

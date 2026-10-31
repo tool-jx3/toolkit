@@ -3,7 +3,8 @@
  */
 import { ArrowLeftRight, GripVertical } from 'lucide-react';
 import { type ReactNode, useEffect, useRef, useState } from 'react';
-import { ColorField, IconButton, OptionalNumberInput, TextArea, TextInput } from '@/ui';
+import { ColorField, IconButton, TextArea, TextInput } from '@/ui';
+import { OptionalNumberInput } from '@/ui/OptionalNumberInput';
 import type { ColorValue } from '../model/types';
 import { gesture } from '../state/store';
 import { S } from '../strings';

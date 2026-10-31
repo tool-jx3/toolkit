@@ -7,7 +7,8 @@
  * 每個改動一步復原；文字欄與數字欄離開才記一步。
  */
 import { Pin, PinOff, Trash2 } from 'lucide-react';
-import { Button, Checkbox, Field, OptionalNumberInput, Select } from '@/ui';
+import { Button, Checkbox, Field, Select } from '@/ui';
+import { OptionalNumberInput } from '@/ui/OptionalNumberInput';
 import { displayName, sheetCtx } from '../engine/geom';
 import { noteFontSize } from '../engine/notes';
 import { radarStateName, radarTplName } from '../logic/card';

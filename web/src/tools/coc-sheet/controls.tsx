@@ -2,7 +2,8 @@
  * 表單的小元件：「空白＝自動」的數字欄、綁在目前角色卡上的文字欄。
  */
 import type { ReactNode } from 'react';
-import { Button, Field, OptionalNumberInput, TextArea, TextInput } from '@/ui';
+import { Button, Field, TextArea, TextInput } from '@/ui';
+import { OptionalNumberInput } from '@/ui/OptionalNumberInput';
 import { step } from './actions';
 import { S } from './strings';
 

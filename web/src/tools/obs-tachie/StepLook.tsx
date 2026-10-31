@@ -1,7 +1,9 @@
 /**
  * ② 立繪與效果（規格 F08～F10）：預設集清單（縮圖、名稱、刪除）＋編輯區。
  */
-import { ItemListEditor, Section } from '@/ui';
+
+import { Section } from '@/ui';
+import { ItemListEditor } from '@/ui/ItemListEditor';
 import { addPreset, removePreset } from './actions';
 import { Thumb } from './controls';
 import type { ImageInputState } from './ImageSection';

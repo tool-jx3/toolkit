@@ -8,14 +8,8 @@ import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import {
   Chips,
-  CropFrame,
-  ImageSampler,
   isFormControlTarget,
   LayerList,
-  LayoutEditor,
-  PanZoomViewport,
-  PartPicker,
-  SelectableCardList,
   SortableList,
   Stage,
   ThumbnailList,
@@ -24,6 +18,12 @@ import {
   useShortcuts,
   WindowDrop,
 } from '@/ui';
+import { CropFrame } from '@/ui/CropFrame';
+import { ImageSampler } from '@/ui/ImageSampler';
+import { LayoutEditor } from '@/ui/LayoutEditor';
+import { PanZoomViewport } from '@/ui/PanZoomViewport';
+import { PartPicker } from '@/ui/PartPicker';
+import { SelectableCardList } from '@/ui/SelectableCardList';
 
 describe('useChoice', () => {
   function Probe({ onResult }: { onResult: (v: string | null) => void }) {

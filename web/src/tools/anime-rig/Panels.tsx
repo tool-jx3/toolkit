@@ -10,8 +10,6 @@ import {
   Button,
   Field,
   Kbd,
-  type ModelCache,
-  ModelDownloadPanel,
   Section,
   Segmented,
   Select,
@@ -21,6 +19,7 @@ import {
   UsageSection,
   withShortcut,
 } from '@/ui';
+import { type ModelCache, ModelDownloadPanel } from '@/ui/ModelDownload';
 import {
   calibrate,
   canRecord,

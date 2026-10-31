@@ -4,7 +4,8 @@
  */
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import { ShareLinkDialog, type ShareLinkStrings, UiProvider } from '@/ui';
+import { UiProvider } from '@/ui';
+import { ShareLinkDialog, type ShareLinkStrings } from '@/ui/InteractiveHtmlDialog';
 
 const strings: ShareLinkStrings = {
   title: '分享連結',

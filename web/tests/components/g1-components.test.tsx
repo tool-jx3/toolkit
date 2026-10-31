@@ -12,22 +12,20 @@ import {
   AdvancedToggle,
   AudioPlayer,
   animationFormats,
-  type ColorPairItem,
-  ColorPairList,
   type ExportOutput,
   ExportPanel,
   type ExportSettings,
   Field,
-  type FontPoolItem,
-  FontPoolList,
   IssueList,
-  PathPad,
   TemplateGallery,
   TextOutputPanel,
   ThumbChoice,
   UiProvider,
   useAdvancedMode,
 } from '@/ui';
+import { type ColorPairItem, ColorPairList } from '@/ui/ColorPairList';
+import { type FontPoolItem, FontPoolList } from '@/ui/FontPoolList';
+import { PathPad } from '@/ui/PathPad';
 
 const out = (bytes: number, name = 'a.png'): ExportOutput => ({
   blob: new Blob([new Uint8Array(bytes)], { type: 'image/png' }),

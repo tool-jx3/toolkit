@@ -14,8 +14,6 @@ import {
   type ExportPanelHandle,
   type ExportSettings,
   Field,
-  LayoutEditor,
-  type LayoutItem,
   NumberInput,
   Stage,
   Transport,
@@ -23,6 +21,7 @@ import {
   useStageScale,
   useWebpSupport,
 } from '@/ui';
+import { LayoutEditor, type LayoutItem } from '@/ui/LayoutEditor';
 import {
   type CombinerData,
   type CombinerItem,

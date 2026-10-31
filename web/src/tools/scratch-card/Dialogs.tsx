@@ -4,7 +4,8 @@
  */
 import { useCallback, useEffect, useState } from 'react';
 import { shareTooLong } from '@/core/share';
-import { Field, InteractiveHtmlDialog, ShareLinkDialog, Toggle } from '@/ui';
+import { Field, Toggle } from '@/ui';
+import { InteractiveHtmlDialog, ShareLinkDialog } from '@/ui/InteractiveHtmlDialog';
 import type { Card, CardSpec } from './card';
 import { buildInteractiveHtml, htmlFileName } from './exportHtml';
 import { resolveExportSources, shareCropsOf } from './images';

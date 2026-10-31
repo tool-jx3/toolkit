@@ -13,7 +13,6 @@ import { UNICODE_TEXT_STYLE_IDS } from '@/core/social';
 import {
   Button,
   isMac,
-  type PostEditorHandle,
   type Shortcut,
   ToolShell,
   useChoice,
@@ -21,6 +20,7 @@ import {
   useConfirmedReset,
   useToast,
 } from '@/ui';
+import type { PostEditorHandle } from '@/ui/PostEditor';
 import { InputPanel } from './InputPanel';
 import { applyImportItem } from './importLog';
 import { defaultSettings } from './model';

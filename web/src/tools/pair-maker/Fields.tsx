@@ -9,18 +9,18 @@ import { fontFamilyCss } from '@/core/fonts';
 import { plainDoc, type RichDoc } from '@/core/richtext';
 import type { ToolStore } from '@/core/storage';
 import {
-  type CanvasPicker,
   ColorField,
   Field,
   FieldRow,
   FontPicker,
-  RichTextField,
   Segmented,
   Slider,
   TextArea,
   TextInput,
   Toggle,
 } from '@/ui';
+import type { CanvasPicker } from '@/ui/LayoutCanvas';
+import { RichTextField } from '@/ui/RichTextField';
 import {
   condMet,
   type Draft,

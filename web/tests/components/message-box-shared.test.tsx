@@ -9,7 +9,8 @@ import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { downloadText, pickFiles } from '@/core/files';
 import { createToolStore, historyGesture, serializeProject } from '@/core/storage';
-import { GestureScope, MessageComposer, ProjectMenu, UiProvider } from '@/ui';
+import { GestureScope, ProjectMenu, UiProvider } from '@/ui';
+import { MessageComposer } from '@/ui/MessageComposer';
 
 vi.mock('@/core/files', async (importOriginal) => {
   const orig = await importOriginal<typeof import('@/core/files')>();

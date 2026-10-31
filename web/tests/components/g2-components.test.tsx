@@ -10,15 +10,14 @@ import { describe, expect, it, vi } from 'vitest';
 import type { Keyframe } from '@/core/timeline';
 import {
   animationFormats,
-  EffectGrid,
-  type EffectGridItem,
   ExportPanel,
-  KeyframeTable,
   Stage,
   type StageAnyBackgroundKind,
   Transport,
   UiProvider,
 } from '@/ui';
+import { EffectGrid, type EffectGridItem } from '@/ui/EffectGrid';
+import { KeyframeTable } from '@/ui/KeyframeTable';
 
 type V = 'a' | 'b' | 'c' | 'd' | 'e';
 const ITEMS: EffectGridItem<V>[] = [

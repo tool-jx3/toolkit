@@ -6,7 +6,6 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   animationFormats,
   Button,
-  CropFrame,
   type ExportOutput,
   ExportPanel,
   type ExportSettings,
@@ -18,10 +17,11 @@ import {
   Toggle,
   Tooltip,
   Transport,
-  useVideoPlayback,
   useWebpSupport,
   withShortcut,
 } from '@/ui';
+import { CropFrame } from '@/ui/CropFrame';
+import { useVideoPlayback } from '@/ui/useVideoPlayback';
 import {
   copyResultDataUrl,
   notify,

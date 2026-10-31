@@ -5,7 +5,8 @@ import { ImagePlus } from 'lucide-react';
 import { useMemo } from 'react';
 import { pickFiles } from '@/core/files';
 import { detectImageType, loadImage } from '@/core/image';
-import { Button, type PartOption, PartPicker, useConfirm } from '@/ui';
+import { Button, useConfirm } from '@/ui';
+import { type PartOption, PartPicker } from '@/ui/PartPicker';
 import { builtinThumbLayers, useNotify } from './hooks';
 import {
   CATEGORY_ORDER,

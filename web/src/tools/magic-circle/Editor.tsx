@@ -21,16 +21,8 @@ import {
 import { memo, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { useUndoRedo } from '@/core/storage';
-import {
-  Button,
-  IconButton,
-  NumberInput,
-  PanZoomViewport,
-  type PanZoomViewportHandle,
-  Slider,
-  TextInput,
-  withShortcut,
-} from '@/ui';
+import { Button, IconButton, NumberInput, Slider, TextInput, withShortcut } from '@/ui';
+import { PanZoomViewport, type PanZoomViewportHandle } from '@/ui/PanZoomViewport';
 import { bridge, copyStyle, notify, pasteStyle, setTool } from './actions';
 import { cursorFor, emptyClick, finishPen, pointerDown, pointerHover } from './drawing';
 import { drawEditor, type EditorOverlay, TOOL_IDS, type ToolId } from './editorDraw';

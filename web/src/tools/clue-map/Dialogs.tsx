@@ -3,7 +3,7 @@
  */
 import { useCallback, useMemo } from 'react';
 import { shareTooLong } from '@/core/share';
-import { InteractiveHtmlDialog, ShareLinkDialog } from '@/ui';
+import { InteractiveHtmlDialog, ShareLinkDialog } from '@/ui/InteractiveHtmlDialog';
 import { buildInteractiveHtml, htmlFileName } from './exportHtml';
 import { refsOf, resolveExportSources } from './images';
 import type { ClueMapState } from './model';

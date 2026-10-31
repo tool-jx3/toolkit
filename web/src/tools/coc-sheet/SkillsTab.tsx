@@ -13,11 +13,11 @@ import {
   Field,
   FieldRow,
   IconButton,
-  OptionalNumberInput,
   Section,
   SortableList,
   TextInput,
 } from '@/ui';
+import { OptionalNumberInput } from '@/ui/OptionalNumberInput';
 import {
   currentSkills,
   insertSkill,

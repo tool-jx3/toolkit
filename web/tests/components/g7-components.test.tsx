@@ -11,20 +11,15 @@ import { act, fireEvent, render, screen } from '@testing-library/react';
 import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { docText, plainDoc, type RichDoc } from '@/core/richtext';
+import { fitTransform, frameIn, turnAt, UiProvider, zoomAt } from '@/ui';
+import { createCanvasPicker, LayoutCanvas } from '@/ui/LayoutCanvas';
 import {
-  createCanvasPicker,
   domToOffset,
-  fitTransform,
-  frameIn,
-  LayoutCanvas,
   offsetToDom,
   RichTextField,
   readRichDom,
-  turnAt,
-  UiProvider,
   writeRichDom,
-  zoomAt,
-} from '@/ui';
+} from '@/ui/RichTextField';
 
 describe('RichTextField 的 DOM 換算', () => {
   it('讀：div／p 之間換行、<br> 換行、只有 <br> 的 div 是空行；粗體與顏色', () => {

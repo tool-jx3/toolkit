@@ -28,13 +28,13 @@ import {
   Button,
   cn,
   IconButton,
-  OptionalNumberInput,
   Slider,
   Transport,
   useConfirm,
   usePlayback,
   useSortable,
 } from '@/ui';
+import { OptionalNumberInput } from '@/ui/OptionalNumberInput';
 import {
   frameDur,
   holds,

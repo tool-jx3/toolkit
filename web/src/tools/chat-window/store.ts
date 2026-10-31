@@ -12,7 +12,7 @@ import {
   historyGesture,
   resetToolStore,
 } from '@/core/storage';
-import type { PreviewBackground } from '@/ui';
+import type { PreviewBackground } from '@/ui/CssPreviewFrame';
 import type { PreviewTab } from './samples';
 import type { ChatSettings } from './settings';
 import { initialSettings, normalizeChatSettings } from './templates';

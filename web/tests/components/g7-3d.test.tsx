@@ -8,7 +8,8 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { createRef, useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
-import { clampToDisk, DirectionPad, type PadVector, Viewport3D } from '@/ui';
+import { clampToDisk, DirectionPad, type PadVector } from '@/ui/DirectionPad';
+import { Viewport3D } from '@/ui/Viewport3D';
 
 function Pad({ onCommit }: { onCommit?: (v: PadVector) => void }) {
   const [v, setV] = useState<PadVector>({ x: 0.5, y: 0.5 });

@@ -7,12 +7,8 @@ import { createRandom } from '@/core/timeline';
 import {
   Button,
   Checkbox,
-  type ColorPairItem,
-  ColorPairList,
   Field,
   FieldRow,
-  type FontPoolItem,
-  FontPoolList,
   NativeNumberInput,
   Notice,
   Section,
@@ -25,6 +21,8 @@ import {
   UsageSection,
   useToast,
 } from '@/ui';
+import { type ColorPairItem, ColorPairList } from '@/ui/ColorPairList';
+import { type FontPoolItem, FontPoolList } from '@/ui/FontPoolList';
 import {
   type Align,
   activeFonts,

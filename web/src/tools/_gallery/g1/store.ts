@@ -5,7 +5,8 @@ import type { TargetId } from '@/ccfolia';
 import type { LoopFxKind } from '@/core/fxlayers';
 import type { Point } from '@/core/path';
 import { createPreviewStore } from '@/core/storage';
-import type { ColorPairItem, FontPoolItem } from '@/ui';
+import type { ColorPairItem } from '@/ui/ColorPairList';
+import type { FontPoolItem } from '@/ui/FontPoolList';
 
 export type G1Mode = 'typing' | 'loop' | 'karaoke';
 

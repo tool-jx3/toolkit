@@ -22,7 +22,6 @@ import {
   Field,
   FieldRow,
   GestureScope,
-  GradientField,
   ImageDrop,
   NumberInput,
   Section,
@@ -38,6 +37,7 @@ import {
   useToast,
   useWebpSupport,
 } from '@/ui';
+import { GradientField } from '@/ui/GradientField';
 import { copyCurrent, exportCurrent, removeImage, setImageFile } from './actions';
 import {
   type CornerDotChoice,

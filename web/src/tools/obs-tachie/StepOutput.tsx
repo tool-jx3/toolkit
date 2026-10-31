@@ -6,17 +6,10 @@
 import { BookmarkCheck, BookmarkPlus } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { STREAMKIT_OVERLAY_URL } from '@/ccfolia';
-import {
-  Button,
-  CssExportPanel,
-  type CssExportStatus,
-  Field,
-  ItemListEditor,
-  Notice,
-  ObsGuide,
-  Section,
-  Select,
-} from '@/ui';
+import { Button, Field, Notice, Section, Select } from '@/ui';
+import { CssExportPanel, type CssExportStatus } from '@/ui/CssExport';
+import { ItemListEditor } from '@/ui/ItemListEditor';
+import { ObsGuide } from '@/ui/ObsGuide';
 import { removeCombo, saveCombo, setCurrent } from './actions';
 import { type Combo, comboKey, effectiveCombo, memoOf, sameCombo, userLabel } from './model';
 import { PreviewNotes, TachiePreview } from './Preview';

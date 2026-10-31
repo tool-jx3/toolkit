@@ -1,15 +1,8 @@
 import { FolderOpen, Redo2, Undo2 } from 'lucide-react';
 import { useEffect, useMemo } from 'react';
 import { useUndoRedo } from '@/core/storage';
-import {
-  Button,
-  IconButton,
-  type Shortcut,
-  ToolShell,
-  useModelCache,
-  WindowDrop,
-  withShortcut,
-} from '@/ui';
+import { Button, IconButton, type Shortcut, ToolShell, WindowDrop, withShortcut } from '@/ui';
+import { useModelCache } from '@/ui/ModelDownload';
 import {
   cycleBackground,
   debugState,

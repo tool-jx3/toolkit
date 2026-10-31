@@ -4,7 +4,8 @@
  */
 import { useEffect, useRef, useState } from 'react';
 import { mmToPx, paginate, rasterizeElement, stepZoom } from '@/core/paged';
-import { Button, PagedViewport, type PagedViewportHandle, Section } from '@/ui';
+import { Button, Section } from '@/ui';
+import { PagedViewport, type PagedViewportHandle } from '@/ui/PagedViewport';
 
 const PAGE = { w: 90, h: 70 };
 const TEXTS = [

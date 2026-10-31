@@ -16,12 +16,11 @@ import {
   type ExportSettings,
   Field,
   IconButton,
-  LayoutCanvas,
-  type LayoutSticker,
   Notice,
   Segmented,
   Stage,
 } from '@/ui';
+import { LayoutCanvas, type LayoutSticker } from '@/ui/LayoutCanvas';
 import { useNotify } from './controls';
 import { exportPng } from './exporter';
 import { useEnsureFonts, useFontTick } from './fonts';

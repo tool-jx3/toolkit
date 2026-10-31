@@ -1,7 +1,11 @@
 /**
- * web/src/ui：設計 token 與共用元件。工具一律從這裡 import：
+ * web/src/ui：設計 token 與共用元件。大多數工具都用的元件從這裡 import：
  *   import { ToolShell, Section, Field, Slider } from '@/ui';
  * 樣式入口：import '@/ui/styles.css'（每個工具的 main.tsx 一次）。
+ *
+ * 這個總入口連帶的每個元件都會打包進每頁都載入的共用 ui 區塊，所以只收大多數工具用的元件。
+ * 只有少數工具用的元件不放這裡，從各自的入口 import（`@/ui/PostEditor`、`@/ui/imagefx`…；
+ * DESIGN.md 4.0「分開的入口」，tests/unit/ui-entries.test.ts 檢查總入口沒有連帶載入它們）。
  */
 
 export {
@@ -51,7 +55,6 @@ export {
   canUseEyeDropper,
   DEFAULT_SWATCHES,
 } from './ColorField';
-export { type ColorPairItem, ColorPairList, type ColorPairListProps } from './ColorPairList';
 export {
   ContextMenu,
   type ContextMenuItem,
@@ -60,34 +63,6 @@ export {
   contextMenuPoint,
 } from './ContextMenu';
 export { CopyDiagnostics, type CopyDiagnosticsProps } from './CopyDiagnostics';
-export {
-  type AspectOption,
-  CROP_HOLD_TO_MOVE_MS,
-  type CropConfirmConfig,
-  CropConfirmSummary,
-  type CropConfirmSummaryProps,
-  CropDialog,
-  type CropDialogProps,
-  type CropRect,
-  DEFAULT_ASPECTS,
-} from './CropDialog';
-export { CropFrame, type CropFrameProps, type CropFrameRect } from './CropFrame';
-export {
-  CssExportPanel,
-  type CssExportPanelProps,
-  type CssExportStatus,
-  SourceUrlField,
-  type SourceUrlFieldProps,
-} from './CssExport';
-export {
-  CssPreviewFrame,
-  type CssPreviewFrameHandle,
-  type CssPreviewFrameProps,
-  type PreviewBackground,
-  type PreviewBackgroundKind,
-  type PreviewSize,
-  simulateHoverCss,
-} from './CssPreviewFrame';
 export { cn } from './cn';
 export {
   ChoiceDialog,
@@ -105,13 +80,6 @@ export {
   useChoice,
   useConfirm,
 } from './Dialog';
-export {
-  clampToDisk,
-  DirectionPad,
-  type DirectionPadProps,
-  type PadVector,
-} from './DirectionPad';
-export { EffectGrid, type EffectGridItem, type EffectGridProps } from './EffectGrid';
 export { ErrorBoundary, type ErrorBoundaryProps } from './ErrorBoundary';
 export {
   animationFormats,
@@ -142,27 +110,8 @@ export {
   isInheritFont,
   WEIGHT_LABELS,
 } from './FontPicker';
-export { type FontPoolItem, FontPoolList, type FontPoolListProps } from './FontPoolList';
 export { GestureScope, type GestureScopeProps } from './GestureScope';
-export { GradientField, type GradientFieldProps } from './GradientField';
 export { GroupTabs } from './GroupTabs';
-export {
-  GuidedTour,
-  type GuidedTourProps,
-  placeTourCard,
-  TOUR_PAD,
-  type TourRect,
-  type TourSide,
-  type TourStep,
-  type TourTarget,
-} from './GuidedTour';
-export {
-  type HighlightLine,
-  HighlightTextArea,
-  type HighlightTextAreaHandle,
-  type HighlightTextAreaProps,
-} from './HighlightTextArea';
-export { HsvPanel, type HsvPanelProps, hsvToHex } from './HsvPanel';
 export {
   type DroppedImage,
   FileDrop,
@@ -181,16 +130,7 @@ export {
   turnedSize,
   zoomAt,
 } from './ImageFrameDialog';
-export { ImageSampler, type ImageSamplerProps, type SamplePoint } from './ImageSampler';
 export { InspirationFooter } from './InspirationFooter';
-export {
-  InteractiveHtmlDialog,
-  type InteractiveHtmlDialogProps,
-  type InteractiveHtmlStrings,
-  ShareLinkDialog,
-  type ShareLinkDialogProps,
-  type ShareLinkStrings,
-} from './InteractiveHtmlDialog';
 export {
   ISSUE_LEVEL_LABELS,
   type IssueItem,
@@ -198,23 +138,7 @@ export {
   IssueList,
   type IssueListProps,
 } from './IssueList';
-export { ItemListEditor, type ItemListEditorProps } from './ItemListEditor';
 export { Kbd } from './Kbd';
-export { KeyframeTable, type KeyframeTableProps } from './KeyframeTable';
-export {
-  type CanvasPicker,
-  createCanvasPicker,
-  LayoutCanvas,
-  type LayoutCanvasProps,
-  type LayoutSticker,
-  type StickerPhase,
-} from './LayoutCanvas';
-export {
-  type LayoutChange,
-  LayoutEditor,
-  type LayoutEditorProps,
-  type LayoutItem,
-} from './LayoutEditor';
 export {
   LOCAL_FONT_MESSAGES,
   LOCAL_FONT_SAMPLE,
@@ -222,59 +146,10 @@ export {
   type LocalFontDialogProps,
   supportsLocalFontList,
 } from './LocalFontDialog';
-export {
-  type LyricControlChange,
-  LyricStyleControls,
-  type LyricStyleControlsProps,
-  type LyricUserPreset,
-} from './LyricStyleControls';
 export { MenuButton, type MenuButtonItem, type MenuButtonProps } from './MenuButton';
-export {
-  type ComposedMessage,
-  type ComposerKind,
-  type ComposerOption,
-  MessageComposer,
-  type MessageComposerProps,
-  parseComposerText,
-} from './MessageComposer';
-export {
-  type ModelCache,
-  type ModelCacheOptions,
-  type ModelCacheState,
-  ModelDownloadPanel,
-  type ModelDownloadPanelProps,
-  useModelCache,
-} from './ModelDownload';
 export { NativeNumberInput, type NativeNumberInputProps, spinStep } from './NativeNumberInput';
 export { Notice, type NoticeProps, type NoticeTone } from './Notice';
 export { NumberInput, type NumberInputProps } from './NumberInput';
-export { ObsGuide, type ObsGuideProps } from './ObsGuide';
-export {
-  OptionalNumberInput,
-  type OptionalNumberInputProps,
-  parseOptionalNumber,
-} from './OptionalNumberInput';
-export {
-  PagedViewport,
-  type PagedViewportHandle,
-  type PagedViewportProps,
-} from './PagedViewport';
-export {
-  type PanZoomView,
-  PanZoomViewport,
-  type PanZoomViewportHandle,
-  type PanZoomViewportProps,
-  type ViewportDrag,
-  type ViewportPointer,
-} from './PanZoomViewport';
-export { type PartOption, PartPicker, type PartPickerProps } from './PartPicker';
-export { PathPad, type PathPadLabel, type PathPadProps } from './PathPad';
-export {
-  PostEditor,
-  type PostEditorHandle,
-  type PostEditorMessages,
-  type PostEditorProps,
-} from './PostEditor';
 export { ProgressBar, type ProgressBarProps } from './ProgressBar';
 export {
   type ProjectLoadResult,
@@ -290,45 +165,15 @@ export {
   type PointerGesture,
 } from './pointerGesture';
 export {
-  caretAfterChange,
-  insertedRange,
-  RICH_EDITOR_TEXT,
-  type RichSelectionState,
-  RichTextEditor,
-  type RichTextEditorHandle,
-  type RichTextEditorProps,
-  type RichToolbarOptions,
-} from './RichTextEditor';
-export {
-  domToOffset,
-  offsetToDom,
-  RichTextField,
-  type RichTextFieldProps,
-  readRichDom,
-  writeRichDom,
-} from './RichTextField';
-export {
   type RevealInput,
   type RevealResult,
   type RevealSpan,
   revealDelta,
   revealInScroller,
 } from './reveal';
-export {
-  cssColorHex,
-  isCanonicalRichDom,
-  type RichDomOptions,
-  readRichDomFull,
-  writeRichDomFull,
-} from './richDom';
 export { Section, type SectionProps } from './Section';
 export { Segmented, type SegmentedOption, type SegmentedProps } from './Segmented';
 export { Select, type SelectGroup, type SelectOption, type SelectProps } from './Select';
-export {
-  type CardItem,
-  SelectableCardList,
-  type SelectableCardListProps,
-} from './SelectableCardList';
 export { IN_INPUT_BADGE, ShortcutHelp, type ShortcutHelpProps } from './ShortcutHelp';
 export { Slider, type SliderProps } from './Slider';
 export {
@@ -352,7 +197,6 @@ export {
   useStageScale,
   useStageView,
 } from './Stage';
-export { type StepItem, StepNav, type StepNavProps, Stepper, type StepperProps } from './Stepper';
 export {
   comboText,
   formatCombo,
@@ -373,17 +217,6 @@ export {
   type TemplateItem,
   type TemplateSearch,
 } from './TemplateGallery';
-export {
-  applyTestShortcut,
-  TEST_SHORTCUTS,
-  type TestShortcut,
-  type TestShortcutOptions,
-  TestValueRow,
-  type TestValueRowProps,
-  TestValueShortcuts,
-  type TestValueShortcutsProps,
-  testShortcutLabel,
-} from './TestValueRow';
 export { TextArea, type TextAreaProps, TextInput, type TextInputProps } from './TextInput';
 export {
   selectAllInPlace,
@@ -425,11 +258,5 @@ export { useConfirmedReset } from './useConfirmedReset';
 export { COARSE_POINTER, useMediaQuery } from './useMediaQuery';
 export { type Playback, type PlaybackOptions, usePlayback } from './usePlayback';
 export { LONG_PRESS_SLOP, type SortableOptions, useSortable } from './useSortable';
-export {
-  type UseVideoPlaybackOptions,
-  useVideoPlayback,
-  type VideoPlayback,
-} from './useVideoPlayback';
 export { useVirtualRows, type VirtualRows, type VirtualRowsOptions } from './useVirtualRows';
-export { Viewport3D, type Viewport3DProps } from './Viewport3D';
 export { WindowDrop, type WindowDropProps } from './WindowDrop';

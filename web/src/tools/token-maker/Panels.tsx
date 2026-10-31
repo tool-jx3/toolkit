@@ -22,8 +22,6 @@ import { getTool, hrefToTool } from '@/registry';
 import {
   Button,
   ColorField,
-  EffectGrid,
-  type EffectGridItem,
   Field,
   GestureScope,
   ImageDrop,
@@ -38,6 +36,7 @@ import {
   useToast,
   useWebpSupport,
 } from '@/ui';
+import { EffectGrid, type EffectGridItem } from '@/ui/EffectGrid';
 import {
   allZipName,
   autoPickColor,

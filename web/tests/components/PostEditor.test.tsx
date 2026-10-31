@@ -5,7 +5,8 @@
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { createRef, useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
-import { PostEditor, type PostEditorHandle, UiProvider } from '@/ui';
+import { UiProvider } from '@/ui';
+import { PostEditor, type PostEditorHandle } from '@/ui/PostEditor';
 
 function Harness({
   initial = '',

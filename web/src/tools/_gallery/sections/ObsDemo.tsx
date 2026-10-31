@@ -25,34 +25,30 @@ import {
   AnchorGrid,
   Button,
   ColorField,
-  CropConfirmSummary,
-  CropDialog,
   Field,
   FontPicker,
   GestureScope,
   IconButton,
   ImageDrop,
-  ItemListEditor,
   LocalFontDialog,
-  MessageComposer,
   Notice,
   NumberInput,
-  ObsGuide,
   Section,
   Segmented,
   Select,
   Show,
   Slider,
-  SourceUrlField,
-  StepNav,
-  Stepper,
   supportsLocalFontList,
-  TestValueRow,
-  TestValueShortcuts,
   TextInput,
   Toggle,
 } from '@/ui';
-import { applyTestShortcut } from '@/ui/TestValueRow';
+import { CropConfirmSummary, CropDialog } from '@/ui/CropDialog';
+import { SourceUrlField } from '@/ui/CssExport';
+import { ItemListEditor } from '@/ui/ItemListEditor';
+import { MessageComposer } from '@/ui/MessageComposer';
+import { ObsGuide } from '@/ui/ObsGuide';
+import { StepNav, Stepper } from '@/ui/Stepper';
+import { applyTestShortcut, TestValueRow, TestValueShortcuts } from '@/ui/TestValueRow';
 import {
   CHAT_MAIN,
   CHAT_SECRET,

@@ -5,7 +5,8 @@ import { create } from 'zustand';
 import type { TextOutlineKind } from '@/core/css';
 import type { FontValue } from '@/core/fonts';
 import { createPreviewStore, createToolStore } from '@/core/storage';
-import type { Anchor, PreviewBackground } from '@/ui';
+import type { Anchor } from '@/ui';
+import type { PreviewBackground } from '@/ui/CssPreviewFrame';
 import type { DemoSceneKind } from './scenes';
 
 export interface ObsDemoSettings {

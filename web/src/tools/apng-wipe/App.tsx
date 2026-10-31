@@ -6,8 +6,6 @@ import {
   Button,
   Field,
   FieldRow,
-  HsvPanel,
-  hsvToHex,
   Notice,
   type NoticeTone,
   Section,
@@ -18,6 +16,7 @@ import {
   ToolShell,
   UsageSection,
 } from '@/ui';
+import { HsvPanel, hsvToHex } from '@/ui/HsvPanel';
 import { S } from './strings';
 import {
   ANGLES,

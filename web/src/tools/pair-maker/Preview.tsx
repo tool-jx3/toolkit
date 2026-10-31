@@ -21,17 +21,8 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { downloadBlob, downloadBytes } from '@/core/files';
 import { collectHitRegions, drawScene, loadSceneFonts } from '@/core/scene';
 import type { ToolStore } from '@/core/storage';
-import {
-  Button,
-  type CanvasPicker,
-  IconButton,
-  LayoutCanvas,
-  type LayoutSticker,
-  Notice,
-  Segmented,
-  Stage,
-  useToast,
-} from '@/ui';
+import { Button, IconButton, Notice, Segmented, Stage, useToast } from '@/ui';
+import { type CanvasPicker, LayoutCanvas, type LayoutSticker } from '@/ui/LayoutCanvas';
 import { paginateNow } from './autoPaginate';
 import { type Draft, draftAssets, parseHitKey, stickerMax, type TemplateDef } from './model';
 import { addMemberTo, addPageTo, chooseSide } from './Panel';

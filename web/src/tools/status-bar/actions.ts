@@ -3,7 +3,7 @@
  * 產生要匯出的 CSS、複製角色的網址與 CSS。
  */
 import { copyText } from '@/core/files';
-import type { CssPreviewFrameHandle } from '@/ui';
+import type { CssPreviewFrameHandle } from '@/ui/CssPreviewFrame';
 import { buildStatusBarCss, type CssTarget, PREVIEW_ONLY_CSS } from './css';
 import { type Box, estimateSourceSize } from './geometry';
 import { characterSourceUrl, cssTargetFor } from './logic';

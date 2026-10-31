@@ -56,7 +56,6 @@ import {
   cn,
   DialogClose,
   Field,
-  GuidedTour,
   IconButton,
   isEditableTarget,
   isFormControlTarget,
@@ -64,8 +63,6 @@ import {
   Notice,
   type NoticeTone,
   NumberInput,
-  PanZoomViewport,
-  type PanZoomViewportHandle,
   ProjectMenu,
   type ProjectNotice,
   Section,
@@ -73,16 +70,19 @@ import {
   Slider,
   TextInput,
   ToolShell,
-  type TourRect,
-  type TourStep,
   UsageSection,
   useConfirm,
   useMediaQuery,
   useToast,
-  type ViewportDrag,
-  type ViewportPointer,
   WindowDrop,
 } from '@/ui';
+import { GuidedTour, type TourRect, type TourStep } from '@/ui/GuidedTour';
+import {
+  PanZoomViewport,
+  type PanZoomViewportHandle,
+  type ViewportDrag,
+  type ViewportPointer,
+} from '@/ui/PanZoomViewport';
 import { type AddEntry, BatchAddDialog, SingleAddDialog } from './AddDialogs';
 import { HBOARD_EXT, HboardError, isHboard, parseHboard } from './hboard';
 import {

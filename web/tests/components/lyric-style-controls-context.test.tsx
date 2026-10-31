@@ -6,7 +6,7 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { scatterStyle } from '@/core/lyricfx';
-import { LyricStyleControls } from '@/ui';
+import { LyricStyleControls } from '@/ui/LyricStyleControls';
 
 const position = scatterStyle.controls.filter((s) => s.id === 'position');
 const settings = scatterStyle.defaults() as unknown as Record<string, unknown>;

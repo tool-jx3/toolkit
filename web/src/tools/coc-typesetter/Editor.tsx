@@ -13,14 +13,12 @@ import {
   useRef,
   useState,
 } from 'react';
+import { cn, Kbd, useToast } from '@/ui';
 import {
-  cn,
   type HighlightLine,
   HighlightTextArea,
   type HighlightTextAreaHandle,
-  Kbd,
-  useToast,
-} from '@/ui';
+} from '@/ui/HighlightTextArea';
 import { absorbFrontMatter } from './model';
 import { updateDoc, useDoc, useUiPrefs } from './store';
 import { S } from './strings';

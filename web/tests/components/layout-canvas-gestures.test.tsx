@@ -8,7 +8,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import type { Placement } from '@/core/scene';
-import { LayoutCanvas } from '@/ui';
+import { LayoutCanvas } from '@/ui/LayoutCanvas';
 
 const sticker = {
   id: 's1',

@@ -11,25 +11,21 @@ import { clearLocalFontCache, type FontValue } from '@/core/fonts';
 import {
   type Anchor,
   AnchorGrid,
-  CROP_HOLD_TO_MOVE_MS,
-  CropDialog,
-  CssExportPanel,
   Field,
   FontPicker,
-  ItemListEditor,
   LOCAL_FONT_SAMPLE,
   LocalFontDialog,
-  MessageComposer,
-  ObsGuide,
   Show,
-  SourceUrlField,
-  StepNav,
-  Stepper,
-  simulateHoverCss,
-  TestValueRow,
-  TestValueShortcuts,
   UiProvider,
 } from '@/ui';
+import { CROP_HOLD_TO_MOVE_MS, CropDialog } from '@/ui/CropDialog';
+import { CssExportPanel, SourceUrlField } from '@/ui/CssExport';
+import { simulateHoverCss } from '@/ui/CssPreviewFrame';
+import { ItemListEditor } from '@/ui/ItemListEditor';
+import { MessageComposer } from '@/ui/MessageComposer';
+import { ObsGuide } from '@/ui/ObsGuide';
+import { StepNav, Stepper } from '@/ui/Stepper';
+import { TestValueRow, TestValueShortcuts } from '@/ui/TestValueRow';
 
 const CSS = '/* 測試 */\n#root { color: red !important; }\n';
 
