@@ -33,7 +33,7 @@
 
 下列工具都已依 [docs/refactor/PROCESS.md](docs/refactor/PROCESS.md) 的流程改寫到本站的 `web/` 框架，
 上線前逐項做新舊版對等驗證（紀錄在各規格 [docs/refactor/specs/](docs/refactor/specs/) 的第 6 節）。改寫時參考原作的程式，
-用本站的共用元件重新寫；MIT、CC0、Unlicense、Apache-2.0 等開放授權原作的著作權聲明與授權全文放在各工具的
+用本站的共用元件重新寫；MIT、CC0、Unlicense、Apache-2.0、BSD-3-Clause 等開放授權原作的著作權聲明與授權全文放在各工具的
 `web/src/tools/<id>/UPSTREAM_LICENSE`，建置時整理在網站的 `assets/build/THIRD_PARTY_NOTICES.md`（「參考原作程式改寫的工具」一節）；
 未授權或作者條款限制的原作只參考功能與做法，素材、範本文字與範例資料都由本站自己做。表中較早的工具是在這個做法之前以無塵室方式
 （觀察者只寫行為規格，實作者只看規格）重寫的；之後參考了開放授權原作程式修正的工具，原作的授權全文同樣列在通知檔裡。
@@ -42,7 +42,7 @@
 
 | 工具 | 名稱 | 靈感來源 | 舊版所在的 commit |
 |---|---|---|---|
-| `battlemap` | 戰鬥地圖產生器 | [usagineko7865-debug/battlemap-generator](https://github.com/usagineko7865-debug/battlemap-generator) | `cb0c619` |
+| `battlemap` | 戰鬥地圖產生器 | [usagineko7865-debug/battlemap-generator](https://github.com/usagineko7865-debug/battlemap-generator)、[ondras/rot.js](https://github.com/ondras/rot.js)（2026-10 加的格局，BSD-3-Clause） | `cb0c619` |
 | `apng-wipe` | 輕量轉場 APNG 產生器 | 出處不明的轉場 APNG 小工具（使用者提供的單檔 HTML，沒有可連結的網址） | `cb0c619` |
 | `text-fx` | 文字演出產生器 | [くま。／文字画像APNGメーカー](https://kumachansteps.github.io/trpg-web-tools/tools/text-apng-maker/)（無塵室開發，沒有使用原作的程式碼，見下節）、[Mellow Noise／SF 타이틀 메이커](https://mellow-noise.naru.pub/#sf_title_maker)（SF 標題模式，未授權） | `cb0c619` |
 | `lyric-fx` | 歌詞演出產生器 | [YouRanCoder/LimbusLyricSimulator](https://github.com/YouRanCoder/LimbusLyricSimulator)（GPL-3.0，只參考效果與數值） | —（新收錄，沒有舊版） |
@@ -107,7 +107,7 @@
 | `scratch-card` | 刮刮卡產生器 | [sotsotssi/Scratchcard](https://github.com/sotsotssi/Scratchcard)（未授權） | —（新收錄，沒有舊版） |
 | `clue-map` | 調查熱點圖 | [momo102938/MUNgs_click](https://github.com/momo102938/MUNgs_click)（콕콕，未授權；只借想法） | —（新收錄，沒有舊版） |
 | `lock-screen` | 鎖定畫面訊息產生器 | [TEXTSCENE](https://textscene.netlify.app/)（未授權） | —（新收錄，沒有舊版） |
-| `id-ticket` | 證件與票券產生器 | [dearmysn1p3r/DearMySn1p3r_20](https://github.com/dearmysn1p3r/DearMySn1p3r_20)（ID Studio，未授權）、[dearmysn1p3r/DearMySn1p3r_36](https://github.com/dearmysn1p3r/DearMySn1p3r_36)（Ticket Studio，未授權） | —（新收錄，沒有舊版） |
+| `id-ticket` | 證件與票券產生器 | [dearmysn1p3r/DearMySn1p3r_20](https://github.com/dearmysn1p3r/DearMySn1p3r_20)（ID Studio，未授權）、[dearmysn1p3r/DearMySn1p3r_36](https://github.com/dearmysn1p3r/DearMySn1p3r_36)（Ticket Studio，未授權）、[CyberDelaai/sinforge-ui](https://github.com/CyberDelaai/sinforge-ui)（SF 證件，MIT，2026-10） | —（新收錄，沒有舊版） |
 | `relation-chart` | 角色關係圖產生器 | [PaiTei4234／Relationship Chart Maker](https://paitei4234.itch.io/relationshipchartmaker)（CC BY-NC-SA 4.0） | —（新收錄，沒有舊版） |
 | `family-tree` | 家系圖產生器 | [가계도 편집기](https://gagyedo.j-segrc.workers.dev)（作者不明、未授權） | —（新收錄，沒有舊版） |
 | `prose-card` | 短文圖片產生器 | [dan0030/writeediter2](https://github.com/dan0030/writeediter2)（未授權） | —（新收錄，沒有舊版） |
@@ -166,7 +166,7 @@
 
 `captcha-card` 照新工具引入流程直接在新框架做：原作（commit `a93c2ea`）沒有授權條款，只照原作的功能、版面數值與動畫的影格表（每一格的畫面與時間和原作相同），程式、介面文字、預設文案、範例圖與圖示都由本站自做；原作仿 reCAPTCHA 的名稱與標誌不沿用，做成通用的「圖片驗證題」樣式。
 
-`id-ticket` 照新工具引入流程直接在新框架做：兩個原作（ID Studio commit `c08d489`、Ticket Studio commit `5636d9d`）都沒有授權條款，只照原作的功能、版面數值與做法（卡片 54 × 86 mm、600 dpi、2 mm 出血、票券的墊紙與閃光 GIF），程式、介面文字、範本、範例資料與圖示都由本站自做；機構名稱都是虛構的，不用真實公司、航空公司、鐵路公司、警察的名稱與標誌。QR code 用 npm 的 qrcode-generator（MIT，列在通知檔），條碼是本站自己寫的 Code 128。
+`id-ticket` 照新工具引入流程直接在新框架做：兩個原作（ID Studio commit `c08d489`、Ticket Studio commit `5636d9d`）都沒有授權條款，只照原作的功能、版面數值與做法（卡片 54 × 86 mm、600 dpi、2 mm 出血、票券的墊紙與閃光 GIF），程式、介面文字、範本、範例資料與圖示都由本站自做；機構名稱都是虛構的，不用真實公司、航空公司、鐵路公司、警察的名稱與標誌。QR code 用 npm 的 qrcode-generator（MIT，列在通知檔），條碼是本站自己寫的 Code 128。2026-10 加的「SF 證件」參考 CyberDelaai/sinforge-ui（MIT，commit `67d459a`，授權全文在 `web/src/tools/id-ticket/UPSTREAM_LICENSE`）的程式改寫：活動證、公民 ID、執照卡、操作員 ID、通行證五種底版的尺寸、外形與版面數值、DNA 條的種子、照片的單色化／網點／抖色、浮水印與裝飾圖照原作；機讀區改成照 ICAO 9303 TD2 算檢查碼；欄位翻成繁中，範例資料（虛構的「霧港特區」）是本站寫的；原作的名字產生器要連外部服務（randomuser.me、Behind the Name），不收；原作的「自組底版」這次沒做。
 
 `social-post` 照新工具引入流程直接在新框架做：原作（commit `3297da5`）沒有授權條款，只照原作的功能、版面數值與做法（各畫面的區塊位置、比例、限時動態的分割與貼紙），程式、介面文字、範例帳號與貼文、範例照片（程式畫的）、圖示與配色都由本站自做；原作仿 Instagram 的名稱、標誌與專有圖示不沿用，做成通用的「相片社群 App」樣式。2026-10 跟進原作到 commit `beb5ef1`：首頁動態、朋友的貼文與限時動態、私訊列表與對話、多則限時動態接著看、貼文照片滑動（同樣只照功能與實際量到的版面數值；原作的問題回報表單、把網址照片交給第三方中繼不收）。
 
@@ -211,6 +211,8 @@
 `anime-rig` 參考 852wa/Anime2.5DRig（MIT，原作 commit `7ddbd99`，授權全文在通知檔）的程式改寫：自動綁定、物理與繪製的演算法和數值照原作，舊版與新版拿同一個 PSD 綁定的結果相同（單元測試並排比對過）。原作的範例 PSD（圖畫權利屬於各自的作者）不收，測試用的 PSD 由程式自己畫；原作需要本機 Python 中繼伺服器的 OBS 連動不移植，改成綠幕背景與透明影片的說明。臉部追蹤用 npm 的 @mediapipe/tasks-vision（Apache-2.0）；特徵點模型 `face_landmarker.task`（Apache-2.0，約 3.8 MB）**不在本 repo**：使用者第一次開攝影機追蹤時，瀏覽器從 Google 的 MediaPipe 官方模型網址下載，驗證 SHA-256 後存在瀏覽器裡。2026-10 起相容 [shitagaki-lab/see-through](https://github.com/shitagaki-lab/see-through)（Apache-2.0）從單張插圖拆出來的 PSD：只照它的輸出格式（圖層名稱、左右分割、深度 PSD 與 `.psd.json`）對應，沒有使用它的程式或模型；測試用的 see-through 風格 PSD 由程式合成。
 
 `coc-dice`、`coc-npc`、`coc-sheet`、`map-editor`、`grid-maker`、`range-ruler` 由違法建築的 TRPG 實驗室拆開改寫，見下面「trpg-lab」一節。
+
+`battlemap` 的格局（2026-10）參考 ondras/rot.js（BSD-3-Clause，commit `46782e2`）的地圖產生器改寫：挖掘式（Digger）、均勻房間（Uniform）、格狀房間（Rogue）、天然洞窟（Cellular）、分割法／Eller／蜿蜒三種迷宮；沒有加 npm 相依，演算法用本站的種子亂數重寫（每種參考 rot.js 的哪個檔、刻意的差異寫在 [docs/refactor/specs/battlemap.md](docs/refactor/specs/battlemap.md)），rot.js 的著作權聲明與授權全文和原作 usagineko 的 MIT 一起放在 `web/src/tools/battlemap/UPSTREAM_LICENSE`。
 
 新版用到的 npm 套件與授權，建置時自動整理在網站的 [assets/build/THIRD_PARTY_NOTICES.md](https://tool-jx3.github.io/toolkit/assets/build/THIRD_PARTY_NOTICES.md)（建置產物，不在 repo 裡）。
 

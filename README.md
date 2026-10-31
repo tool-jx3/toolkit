@@ -69,7 +69,7 @@
 | [刮刮卡產生器](https://tool-jx3.github.io/toolkit/tools/scratch-card/) | 做出可以用滑鼠或手指刮開的刮刮卡（隨機圖示、句子或圖片），當劇本的抽獎或謎題道具；輸出不連網也能用的互動網頁或分享連結 |
 | [調查熱點圖](https://tool-jx3.github.io/toolkit/tools/clue-map/) | 在場景圖上畫熱點，點開是線索卡：可以設「先找到某個線索才出現」與隱藏熱點，玩家有已找到清單與進度；存成離線也能玩的互動 HTML 或分享連結，另有攤開全部線索的總覽 PNG 給 KP |
 | [鎖定畫面訊息產生器](https://tool-jx3.github.io/toolkit/tools/lock-screen/) | 做一張角色手機的鎖定畫面當 handout：換上桌布、寫下最多 4 則訊息，存成 PNG 或訊息一則一則跳出來的 GIF，也能把手機放在外框照片上 |
-| [證件與票券產生器](https://tool-jx3.github.io/toolkit/tools/id-ticket/) | 做跑團用的證件與票券道具：員工證、學生證、記者證、刑警證、會員卡、偵探執照，電影票、登機證、車票、收據；正反面、照片、真的條碼與 QR code，可匯出印刷尺寸（含出血、600 dpi）的 PNG 或閃光 GIF |
+| [證件與票券產生器](https://tool-jx3.github.io/toolkit/tools/id-ticket/) | 做跑團用的證件與票券道具：員工證、學生證、記者證、刑警證、會員卡、偵探執照，SF 的活動證、公民 ID（含機讀區）、執照卡、操作員 ID、通行證，電影票、登機證、車票、收據；正反面、照片（可加網點、抖色）、真的條碼與 QR code、可以匯出的掛繩孔與掛繩，可匯出印刷尺寸（含出血、600 dpi）的 PNG 或閃光 GIF |
 | [線索道具產生器](https://tool-jx3.github.io/toolkit/tools/handout-maker/) | 做線索 handout：報紙剪報、通緝令、便條、便利貼、拍立得、系統視窗、遊戲的系統通知、終端機、手機簡訊、電子郵件，部分文字塗黑、狀態印章、紙張質感、附圖濾鏡，匯出 PNG 或直接複製貼到 CCFOLIA |
 | [角色介紹圖產生器](https://tool-jx3.github.io/toolkit/tools/pair-maker/) | 挑一種版型，填上名字、標語與立繪，做出雙人或多人的角色介紹圖、橫幅與置頂推文圖；也有會自動分頁、能匯出 PDF 的文字記錄版型；可存到存檔槽或匯出成編輯檔 |
 | [AI 誤判梗圖產生器](https://tool-jx3.github.io/toolkit/tools/ai-fail/) | 放一張照片，畫上 AI 物件辨識風格的綠框與標籤（例如把貓標成「object」），做成「AI 認錯了」的梗圖：可以多個框、改顏色與字級、調整前後，存成 PNG |
@@ -122,7 +122,7 @@
 | [CCFOLIA 日誌轉換器](https://tool-jx3.github.io/toolkit/tools/log-converter/) | 把 CCFOLIA 匯出的日誌 HTML 轉成小說、時間軸或 CCFOLIA 風格的網頁；可指定旁白、插入插圖、依則數分割檔案，或轉成部落格貼文用的格式；也能匯出 EPUB 電子書 |
 | [CCFOLIA & 圖片調色工作室](https://tool-jx3.github.io/toolkit/tools/psd-studio/) | 把 CCFOLIA 房間 ZIP、PSD 或圖片一次統一調色（色相、曲線、漸層對應），APNG 自動壓到 5 MB 以下，再輸出成房間 ZIP |
 | [文字方框產生器](https://tool-jx3.github.io/toolkit/tools/textbox/) | 用框線字元和全形空白排出可以直接貼進聊天欄的文字方框與表格，自動補正全形字寬 |
-| [戰鬥地圖產生器](https://tool-jx3.github.io/toolkit/tools/battlemap/) | 一鍵程序生成地城、洞窟、墓穴的戰鬥地圖 PNG（1540×1120，每格 70 px），可選格線與火把光暈 |
+| [戰鬥地圖產生器](https://tool-jx3.github.io/toolkit/tools/battlemap/) | 一鍵程序生成戰鬥地圖 PNG：房間與走道、挖掘式、天然洞窟、迷宮等 6 種格局 × 石砌地城、洞穴、墓室三種外觀，10～60 格、每格 50／70／100 px，可選格線與火把光暈 |
 | [文字演出產生器](https://tool-jx3.github.io/toolkit/tools/text-fx/) | 把文字做成透明背景的 APNG 動畫——「戰鬥開始」大字切入、逐字浮現的開場白、地點與時間字幕，二十多種登場與退場效果、停留效果、裝飾與範本，還有雷達、警報橫幅、指令視窗等 8 種 SF 風的 HUD 標題，支援直書，可輸出 APNG（含 256 色減色）、GIF、WebP、PNG 或連番 ZIP |
 | [歌詞演出產生器](https://tool-jx3.github.io/toolkit/tools/lyric-fx/) | 放進音樂與有時間標記的歌詞（LRC／SRT，也能邊聽邊打點），讓歌詞散落在畫面上逐字出現、抖動、發光，唱完往上飄著淡出；可以框出要避開的區域、預先暗顯下一句，匯出有聲影片或透明背景的 WebM，疊在直播或遊戲畫面上 |
 | [RPG 截圖產生器](https://tool-jx3.github.io/toolkit/tools/rpg-screenshot/) | 把一張圖做成老式 RPG 遊戲的截圖：像素化、抖色與色調濾鏡、掃描線，加上訊息視窗、名字、選項、演出文字與地點，台詞可以分頁、換說話者、換顏色，用繁中像素字型匯出 PNG，或逐字打出的 GIF、APNG、WebP |
@@ -163,7 +163,7 @@ CI（GitHub Actions）在 pull request 與 main 上跑 `npm test`、lint、typec
 
 | 工具 | 名稱 | 靈感來源 |
 |---|---|---|
-| `battlemap` | [戰鬥地圖產生器](https://tool-jx3.github.io/toolkit/tools/battlemap/) | [usagineko7865-debug/battlemap-generator](https://github.com/usagineko7865-debug/battlemap-generator) |
+| `battlemap` | [戰鬥地圖產生器](https://tool-jx3.github.io/toolkit/tools/battlemap/) | [usagineko7865-debug/battlemap-generator](https://github.com/usagineko7865-debug/battlemap-generator)、[ondras/rot.js](https://github.com/ondras/rot.js)（格局的演算法） |
 | `apng-wipe` | [輕量轉場 APNG 產生器](https://tool-jx3.github.io/toolkit/tools/apng-wipe/) | 出處不明的轉場 APNG 小工具 |
 | `text-fx` | [文字演出產生器](https://tool-jx3.github.io/toolkit/tools/text-fx/) | [くま。／文字画像APNGメーカー](https://kumachansteps.github.io/trpg-web-tools/tools/text-apng-maker/)（無塵室開發）、[Mellow Noise／SF 타이틀 메이커](https://mellow-noise.naru.pub/#sf_title_maker)（SF 標題模式） |
 | `lyric-fx` | [歌詞演出產生器](https://tool-jx3.github.io/toolkit/tools/lyric-fx/) | [YouRanCoder/LimbusLyricSimulator](https://github.com/YouRanCoder/LimbusLyricSimulator) |
@@ -232,7 +232,7 @@ CI（GitHub Actions）在 pull request 與 main 上跑 `npm test`、lint、typec
 | `polaroid` | [拍立得相框產生器](https://tool-jx3.github.io/toolkit/tools/polaroid/) | [swoonqx/sw-polaroid](https://github.com/swoonqx/sw-polaroid) |
 | `char-chart` | [角色分析圖產生器](https://tool-jx3.github.io/toolkit/tools/char-chart/) | [sotsotssi/char-quadrant](https://github.com/sotsotssi/char-quadrant)、[sotsotssi/visual-coupling-map](https://github.com/sotsotssi/visual-coupling-map) |
 | `lock-screen` | [鎖定畫面訊息產生器](https://tool-jx3.github.io/toolkit/tools/lock-screen/) | [TEXTSCENE](https://textscene.netlify.app/) |
-| `id-ticket` | [證件與票券產生器](https://tool-jx3.github.io/toolkit/tools/id-ticket/) | [dearmysn1p3r/DearMySn1p3r_20](https://github.com/dearmysn1p3r/DearMySn1p3r_20)（ID Studio）、[dearmysn1p3r/DearMySn1p3r_36](https://github.com/dearmysn1p3r/DearMySn1p3r_36)（Ticket Studio） |
+| `id-ticket` | [證件與票券產生器](https://tool-jx3.github.io/toolkit/tools/id-ticket/) | [dearmysn1p3r/DearMySn1p3r_20](https://github.com/dearmysn1p3r/DearMySn1p3r_20)（ID Studio）、[dearmysn1p3r/DearMySn1p3r_36](https://github.com/dearmysn1p3r/DearMySn1p3r_36)（Ticket Studio）、[CyberDelaai/sinforge-ui](https://github.com/CyberDelaai/sinforge-ui)（SF 證件） |
 | `relation-chart` | [角色關係圖產生器](https://tool-jx3.github.io/toolkit/tools/relation-chart/) | [PaiTei4234／Relationship Chart Maker](https://paitei4234.itch.io/relationshipchartmaker)（CC BY-NC-SA 4.0） |
 | `family-tree` | [家系圖產生器](https://tool-jx3.github.io/toolkit/tools/family-tree/) | [가계도 편집기](https://gagyedo.j-segrc.workers.dev) |
 | `prose-card` | [短文圖片產生器](https://tool-jx3.github.io/toolkit/tools/prose-card/) | [dan0030/writeediter2](https://github.com/dan0030/writeediter2) |
