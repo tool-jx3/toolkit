@@ -22,6 +22,7 @@ import { exportId, exportTicket, idOutputSize, ticketOutputSize } from './export
 import { type FocusTarget, focusTarget } from './focus';
 import { requestFonts, useFontTick } from './fonts';
 import { fontUses, type Region } from './kit';
+import { ID_STRAP_MM, idSlot, lanyardHole, lanyardStrap } from './lanyard';
 import {
   CARD_RADIUS_U,
   cardMm,
@@ -30,6 +31,7 @@ import {
   ID_FACES,
   type IdExportMode,
   type IdFaces,
+  type IdTicketState,
   type Side,
 } from './model';
 import { useOpenFrame, usePhotoLoader } from './Panel';
@@ -39,20 +41,26 @@ import {
   MAT_PAD,
   PREVIEW_SCALE,
   renderIdFace,
+  renderIdStrap,
   renderTicketLayer,
   TICKET_PREVIEW_SCALE,
   ticketStageSize,
 } from './render';
+import { SfPreview } from './SfPreview';
 import { afterPaint } from './schedule';
+import { licenseDef } from './sf/licenses';
 import {
   assets,
+  canGenerate,
   docNow,
   fieldDef,
   GIF_LONGS,
   PNG_SCALES,
   regenerate,
   setPrefs,
+  setSfStyle,
   type TicketFormat,
+  toggleLicense,
   useDoc,
   usePrefs,
 } from './store';
@@ -91,6 +99,8 @@ function useRegions<K extends string>(init: Record<K, Region[]>) {
 
 function regionLabel(r: Region, hasPhoto: boolean): string {
   if (r.kind === 'photo') return hasPhoto ? S.regionPhoto : S.regionPhotoEmpty;
+  if (r.kind === 'license') return S.regionLicense(licenseDef(r.key)?.label ?? r.key);
+  if (r.kind === 'dna') return S.regionDna;
   if (r.kind === 'qr') return S.regionQr;
   if (r.kind === 'code') return S.regionCode(fieldDef(r.key)?.label ?? r.key);
   if (r.key.startsWith('item:')) {
@@ -104,7 +114,7 @@ function regionLabel(r: Region, hasPhoto: boolean): string {
   return S.regionField(fieldDef(r.key)?.label ?? r.key);
 }
 
-function RegionLayer({
+export function RegionLayer({
   regions,
   ox,
   oy,
@@ -124,8 +134,17 @@ function RegionLayer({
       return;
     }
     if (r.kind === 'code') {
-      if (fieldDef(r.key)?.gen) regenerate(r.key);
+      const f = fieldDef(r.key);
+      if (f && canGenerate(f)) regenerate(r.key);
       else focusTarget({ kind: 'field', key: r.key });
+      return;
+    }
+    if (r.kind === 'license') {
+      toggleLicense(r.key);
+      return;
+    }
+    if (r.kind === 'dna') {
+      setSfStyle({ dnaText: !docNow().sf.style.dnaText });
       return;
     }
     let t: FocusTarget;
@@ -160,14 +179,32 @@ function RegionLayer({
  * 證件
  * ==================================================================== */
 
-/** 掛繩＋扣環（只在預覽） */
-function Strap({ color, width }: { color: string; width: number }) {
+/** 掛繩＋扣環（「只在預覽」；u＝放大倍數，SF 證件依孔的寬度放大） */
+export function Strap({
+  color,
+  width,
+  u = 1,
+  top = 0,
+}: {
+  color: string;
+  width: number;
+  u?: number;
+  top?: number;
+}) {
   return (
     <div
       aria-hidden
       data-testid="strap"
-      className="pointer-events-none absolute top-0"
-      style={{ left: width / 2 - 10, width: 20, height: STRAP_H - 14 }}
+      className="pointer-events-none absolute top-0 origin-top"
+      style={{
+        left: width / 2 - 10 * u,
+        top,
+        width: 20,
+        height: STRAP_H - 14,
+        transform: u === 1 ? undefined : `scale(${u})`,
+        transformOrigin: 'left top',
+        zIndex: u === 1 ? undefined : 2,
+      }}
     >
       <div
         className="absolute inset-0"
@@ -205,6 +242,27 @@ function Strap({ color, width }: { color: string; width: number }) {
   );
 }
 
+/** 「掛繩孔＋掛繩」：畫進匯出的那一條（畫布；卡片翻面時不動） */
+function StrapLayer({ s, width }: { s: IdTicketState; width: number }) {
+  const ref = useRef<HTMLCanvasElement>(null);
+  const tpl = idTemplate(s.idTemplate);
+  const color = s.idStyles[tpl.id].color;
+  const slot = idSlot(tpl.orientation);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: 只跟著範本與主題色重畫
+  useLayoutEffect(() => {
+    if (ref.current) renderIdStrap(s, PREVIEW_SCALE, ref.current);
+  }, [tpl.id, color]);
+  return (
+    <canvas
+      ref={ref}
+      aria-hidden
+      data-testid="strap-canvas"
+      className="pointer-events-none absolute top-0 left-0 block"
+      style={{ width, height: STRAP_H + slot.y + slot.h, zIndex: 2 }}
+    />
+  );
+}
+
 const FACE_SHADOW =
   '0 1px 1px rgba(0,0,0,.05), 0 3px 8px rgba(0,0,0,.06), 0 24px 48px -16px rgba(0,0,0,.32)';
 
@@ -225,7 +283,10 @@ function IdPreview() {
    * 用到的字型在畫的時候順便要求（fonts.ts）。
    */
   // biome-ignore lint/correctness/useExhaustiveDependencies: tick 只用來在字型載好後重畫
-  const version = useMemo(() => ({ s, bitmap: photo.bitmap }), [s, photo.bitmap, tick]);
+  const version = useMemo(
+    () => ({ s, bitmap: photo.bitmap, lanyard: prefs.lanyard }),
+    [s, photo.bitmap, tick, prefs.lanyard],
+  );
   const drawn = useRef<Record<Side, object | null>>({ front: null, back: null });
   const paint = useCallback(
     (which: Side) => {
@@ -241,6 +302,7 @@ function IdPreview() {
         { preview: true, photo: version.bitmap, fonts },
         undefined,
         canvas,
+        lanyardHole(version.lanyard) ? { hole: true, strap: false } : undefined,
       );
       requestFonts(fontUses(fonts));
       setRegions(which, r.regions);
@@ -258,7 +320,8 @@ function IdPreview() {
     const t = setTimeout(() => paint(side === 'front' ? 'back' : 'front'), HIDDEN_FACE_MS);
     return () => clearTimeout(t);
   }, [paint, side]);
-  const strapH = prefs.strap ? STRAP_H : 0;
+  const lanyard = prefs.lanyard;
+  const strapH = lanyard === 'preview' || lanyard === 'strap' ? STRAP_H : 0;
   const strapColor = shade(s.idStyles[tpl.id].color, 0.1);
   const face = (which: Side, ref: RefObject<HTMLCanvasElement | null>) => (
     <div
@@ -298,7 +361,8 @@ function IdPreview() {
         />
       </div>
       <Stage width={w} height={strapH + h} aria-label={S.previewId} className="shrink-0">
-        {prefs.strap ? <Strap color={strapColor} width={w} /> : null}
+        {lanyard === 'preview' ? <Strap color={strapColor} width={w} /> : null}
+        {lanyard === 'strap' ? <StrapLayer s={s} width={w} /> : null}
         <div
           className="absolute left-0"
           style={{ top: strapH, width: w, height: h, perspective: 1800 }}
@@ -328,14 +392,15 @@ function IdExport({ photo }: { photo: ImageBitmap | null }) {
   const s = useDoc((st) => st.data);
   const prefs = usePrefs((p) => p.data);
   const tpl = idTemplate(s.idTemplate);
-  const out = idOutputSize(s, { mode: prefs.idMode, faces: prefs.idFaces });
+  const out = idOutputSize(s, { mode: prefs.idMode, faces: prefs.idFaces, lanyard: prefs.lanyard });
+  const strapMm = lanyardStrap(prefs.lanyard) && prefs.idMode === 'card' ? ID_STRAP_MM : 0;
   const mm = cardMm(tpl.orientation);
   const mmW = prefs.idMode === 'print' ? mm.w + 4 : mm.w;
-  const mmH = prefs.idMode === 'print' ? mm.h + 4 : mm.h;
+  const mmH = (prefs.idMode === 'print' ? mm.h + 4 : mm.h) + strapMm;
   const settings: ExportSettings = { format: 'png', fps: 20, plays: 0, scale: 1, quantize: false };
   const resetKey = useMemo(
-    () => ({ s, mode: prefs.idMode, faces: prefs.idFaces, side: prefs.side }),
-    [s, prefs.idMode, prefs.idFaces, prefs.side],
+    () => ({ s, mode: prefs.idMode, faces: prefs.idFaces, side: prefs.side, l: prefs.lanyard }),
+    [s, prefs.idMode, prefs.idFaces, prefs.side, prefs.lanyard],
   );
   const formats = useMemo(
     () => [{ id: 'png', label: S.formats.png, description: S.formatDesc.idPng }],
@@ -383,7 +448,7 @@ function IdExport({ photo }: { photo: ImageBitmap | null }) {
         exportId(
           docNow(),
           photo,
-          { mode: prefs.idMode, faces: prefs.idFaces, side: prefs.side },
+          { mode: prefs.idMode, faces: prefs.idFaces, side: prefs.side, lanyard: prefs.lanyard },
           ctx,
         )
       }
@@ -560,5 +625,6 @@ function TicketExport({ photo }: { photo: ImageBitmap | null }) {
 
 export function Preview() {
   const kind = useDoc((s) => s.data.kind);
+  if (kind === 'sf') return <SfPreview />;
   return kind === 'id' ? <IdPreview /> : <TicketPreview />;
 }

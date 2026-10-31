@@ -23,6 +23,8 @@ export interface FieldDef {
    * 有這個欄位的旁邊有「重新產生」按鈕。
    */
   gen?: string;
+  /** SF 證件：「重新產生」隨機的日期（YYYY-MM-DD，年份在這個範圍） */
+  genDate?: readonly [number, number];
   /** 輸入欄的灰字 */
   placeholder?: string;
   /** 設定欄的說明 */

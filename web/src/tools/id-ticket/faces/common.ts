@@ -25,6 +25,11 @@ export interface IdEnv extends DrawEnv {
   qrContent: string;
   /** 編號（條碼的內容） */
   code: string;
+  /**
+   * 掛繩孔（設計單位；選「掛繩孔」「掛繩孔＋掛繩」時才有）：上緣的字避開它（規格 D32）。
+   * 沒有時每一款照以前的畫法（只在預覽、不要的匯出逐位元組不變）。
+   */
+  slot?: { x: number; y: number; w: number; h: number } | null;
 }
 
 export type FaceFn = (e: IdEnv) => void;
