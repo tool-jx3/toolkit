@@ -7,16 +7,8 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useAssetBitmaps, useAssetImage } from '@/core/assets';
 import type { Box } from '@/core/layout';
-import {
-  ExportPanel,
-  type ExportSettings,
-  Field,
-  LayoutEditor,
-  type LayoutItem,
-  Notice,
-  Segmented,
-  Stage,
-} from '@/ui';
+import { ExportPanel, type ExportSettings, Field, Notice, Segmented, Stage } from '@/ui';
+import { LayoutEditor, type LayoutItem } from '@/ui/LayoutEditor';
 import { exportSf } from './exporter';
 import { requestFonts, useFontTick } from './fonts';
 import { fontUses, type Region } from './kit';

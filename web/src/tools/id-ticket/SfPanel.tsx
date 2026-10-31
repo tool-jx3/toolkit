@@ -20,7 +20,6 @@ import { pickFiles } from '@/core/files';
 import {
   Button,
   ColorField,
-  CropDialog,
   Dialog,
   Field,
   FileDrop,
@@ -36,6 +35,7 @@ import {
   useAdvancedMode,
   useToast,
 } from '@/ui';
+import { CropDialog } from '@/ui/CropDialog';
 import { cn } from '@/ui/cn';
 import { LANYARD_MODES, type LanyardMode } from './lanyard';
 import {
