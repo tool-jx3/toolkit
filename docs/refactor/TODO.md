@@ -82,6 +82,7 @@
 
 - anime-rig 的 see-through 深度換算（規格 §3.7：倍率 0.5～20、太平門檻、換算與不換算的部位）是用合成資料調的；拿到真實的 see-through 輸出
   （PSD＋`_depth.psd`＋`.psd.json`，線上試用或本機 `--save_to_psd`）時看轉頭的觀感再校正（2026-10-27）。
+- 共用 ui 區塊（2026-10-30 把只有少數工具用的 36 個元件改成各自的入口之後是 651 kB，DESIGN.md 4.0「分開的入口」）還收著 `ExportPanel`（31 個工具用）連帶的編碼器：它從 `core/timeline/export` 拿 `EXPORT_FORMATS`，那個檔案 import 了 GIF、APNG、PNG 調色盤等編碼器。把格式的說明拆成不含編碼器的檔案（或把 ExportPanel 也改成分開的入口），沒有匯出面板的 53 頁（含首頁）每頁可以再少約 73～78 kB（gzip 27～29 kB）。試做過只把 ExportPanel 改成分開的入口：用到它的 31 頁每頁多 0.5～0.9 kB（gzip 約 +2.7 kB，多 7 個檔），所以這次沒做。另外留在總入口的 15 個小元件也搬出去的話，每頁再少 13～16 kB（gzip 3～5 kB）。
 - 共用的 `ImageFrameDialog` 的兩指縮放可以換成 `createPointerGesture`（`@/ui`，color-palette 的配色卡照片用的）：中點縮放、放開一指接著拖。
   換的時候要回歸測試所有用到它的工具（color-palette 併入配色卡時發現，2026-10-28）。
 - pdf-compress 打包的 pdf.js 標準字型裡，Helvetica 的後備是 Liberation Sans 1.07（GPL-2.0 with font exception，原樣單獨散布）；可以換成度量相容的 Arimo（Apache-2.0）或 Liberation 2.x（OFL），用同樣的檔名放進對照表（驗證者建議，2026-10-28）。
