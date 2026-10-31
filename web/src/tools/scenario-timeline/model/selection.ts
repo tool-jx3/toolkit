@@ -118,13 +118,25 @@ export function moveGroup(
     if (dv !== 0) {
       const a = readTime(mode, g.start, ctx);
       if (a) {
-        const ns = snapTv(mode, clampValue(mode, a.v + dv), a.p, precisionUnit(mode, a.p), ctx);
+        const ns = snapTv(
+          mode,
+          clampValue(mode, a.v + dv, ctx),
+          a.p,
+          precisionUnit(mode, a.p),
+          ctx,
+        );
         start = canonical(mode, ns, ctx);
         const b = g.end ? readTime(mode, g.end, ctx) : null;
         if (b)
           end = canonical(
             mode,
-            snapTv(mode, clampValue(mode, b.v + (ns.v - a.v)), b.p, precisionUnit(mode, b.p), ctx),
+            snapTv(
+              mode,
+              clampValue(mode, b.v + (ns.v - a.v), ctx),
+              b.p,
+              precisionUnit(mode, b.p),
+              ctx,
+            ),
             ctx,
           );
       }

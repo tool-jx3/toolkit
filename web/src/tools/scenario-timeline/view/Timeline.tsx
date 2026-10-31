@@ -73,6 +73,7 @@ import {
   type EraArg,
   endFromExclusive,
   formatLong,
+  keepInRange,
   precisionUnit,
   readTime,
   type SnapUnit,
@@ -691,7 +692,13 @@ export function Timeline() {
     if (cur.kind === 'flag') {
       const orig = readTime(mode, cur.time, vd);
       if (!orig) return;
-      const tv = snapTv(mode, clampValue(mode, orig.v + dx / kk), orig.p, snapUnit(e.altKey), vd);
+      const tv = snapTv(
+        mode,
+        clampValue(mode, orig.v + dx / kk, vd),
+        orig.p,
+        snapUnit(e.altKey),
+        vd,
+      );
       useUi.setState({ flagDrag: { id: cur.id, time: canonical(mode, tv, vd) } });
       const label =
         cur.id === PROGRESS_ID
@@ -714,23 +721,25 @@ export function Timeline() {
     if (cur.part === 'move' || !b) {
       /* 按住 Alt 上下拖（左右不到 LANE_ONLY_PX）：只換泳道，時間不變（不吸附也不跟著手抖） */
       if (!(e.altKey && Math.abs(dx) < LANE_ONLY_PX)) {
-        const ns = snapTv(mode, clampValue(mode, a.v + dv), a.p, unit, vd);
+        const ns = snapTv(mode, clampValue(mode, a.v + dv, vd), a.p, unit, vd);
         start = canonical(mode, ns, vd);
         moved = ns.v - a.v;
         if (b)
           end = canonical(
             mode,
-            snapTv(mode, clampValue(mode, b.v + (ns.v - a.v)), b.p, unit, vd),
+            snapTv(mode, clampValue(mode, b.v + (ns.v - a.v), vd), b.p, unit, vd),
             vd,
           );
       }
     } else if (cur.part === 'start') {
-      const ns = snapTv(mode, clampValue(mode, a.v + dv), a.p, unit, vd);
+      const ns = snapTv(mode, clampValue(mode, a.v + dv, vd), a.p, unit, vd);
       start = ns.v < afterUnit(mode, b, vd) ? canonical(mode, ns, vd) : (prev?.start ?? cur.start);
     } else {
       const u = coarser(mode, unit, precisionUnit(mode, b.p), vd);
-      const t = snapValue(mode, clampValue(mode, afterUnit(mode, b, vd) + dv), u, vd);
-      const ne = endFromExclusive(mode, t, b.p, vd);
+      const t = snapValue(mode, clampValue(mode, afterUnit(mode, b, vd) + dv, vd), u, vd);
+      const ne0 = endFromExclusive(mode, t, b.p, vd);
+      /* 寫到分的結束就是那一刻：拖到範圍的最後面時留在範圍裡 */
+      const ne = { v: keepInRange(mode, ne0.v, ne0.p, vd), p: ne0.p };
       end = afterUnit(mode, ne, vd) > a.v ? canonical(mode, ne, vd) : (prev?.end ?? cur.end);
     }
     let laneId = cur.laneId;
@@ -1089,7 +1098,12 @@ export function Timeline() {
         } else {
           const na = stepTv(mode, a, cur.ticks.snap, dir, ctx);
           next = { ...next, start: canonical(mode, na, ctx) };
-          if (b) next.end = canonical(mode, { v: b.v + (na.v - a.v), p: b.p }, ctx);
+          if (b)
+            next.end = canonical(
+              mode,
+              { v: keepInRange(mode, b.v + (na.v - a.v), b.p, ctx), p: b.p },
+              ctx,
+            );
           dv = na.v - a.v;
         }
       }

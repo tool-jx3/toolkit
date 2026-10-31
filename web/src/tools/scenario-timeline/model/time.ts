@@ -19,7 +19,6 @@ import {
   calValue,
   dayOfValue,
   matchMonthName,
-  minuteOfValue,
   monthName,
   monthStartValue,
   normName,
@@ -248,15 +247,18 @@ function parseYear(raw: string, era: string, info: CalInfo | null): ParseResult 
   return { ok: true, tv: { v: y === 0 ? 0 : y, p: 'year' } };
 }
 
-/** 架空曆的時刻：最後面的 H:MM／HH:MM（前面是開頭、空白、T 或「日」「號」）；拿掉之後剩下的字 */
+/** 架空曆的時刻：最後面的 H:MM／HH:MM（前面是開頭、空白、T 或「日」「號」「月」）；拿掉之後剩下的字 */
 function splitCalClock(s: string): { rest: string; clock: string } | null {
   const m = /(\d{1,2}:\d{2})$/.exec(s);
   if (!m) return null;
   const before = s.slice(0, m.index);
   const last = before.slice(-1);
-  if (before && !/[\sTt日號]/.test(last)) return null;
+  if (before && !/[\sTt日號月]/.test(last)) return null;
   return { rest: (/[Tt]/.test(last) ? before.slice(0, -1) : before).trim(), clock: m[1] };
 }
+
+/** 日子的部分看不懂（parseCalendar 換成引用整串的訊息） */
+const DAY_UNREADABLE = '\u0000day';
 
 /** 寫到時刻時的提示（「寫到時刻」關著） */
 export const CLOCK_OFF_ERROR = '要寫時刻時，先在「專案」分頁的「月份與日」打開「寫到時刻」';
@@ -276,7 +278,10 @@ function parseCalendar(raw: string, text: string, info: CalInfo): ParseResult {
   });
   s = s.replace(/\s+/g, ' ').trim();
   if (!s) return fail('請輸入年份');
-  const bad = () => fail(`看不懂這個時間：「${raw}」（例：302 年 ${monthName(info, 0)} 5 日）`);
+  const bad = () =>
+    fail(
+      `看不懂這個時間：「${raw}」（例：302 年 ${monthName(info, 0)} 5 日${info.clock ? ' 14:00' : ''}）`,
+    );
   /* 時刻（F110） */
   let clock: { hh: number; mm: number } | null = null;
   const sc = splitCalClock(s);
@@ -316,7 +321,9 @@ function parseCalendar(raw: string, text: string, info: CalInfo): ParseResult {
     if (r.ok) return r;
     firstError ??= r;
   }
-  return firstError ?? bad();
+  /* 日子的部分看不懂時引用整串（和日期時間相同；例：「302-1-5 14:5」） */
+  if (!firstError || (!firstError.ok && firstError.error === DAY_UNREADABLE)) return bad();
+  return firstError;
 }
 
 /** 架空曆：月份已經認出來，剩下的是日（沒有＝只到月）；clock＝日子後面的時刻 */
@@ -333,7 +340,7 @@ function finishCalendar(
     return { ok: true, tv: { v: calValue(info, y, mi + 1), p: 'month' } };
   }
   const dm = /^(\d{1,3})\s*[日號]?$/.exec(tail);
-  if (!dm) return fail(`看不懂這個日子：「${tail}」`);
+  if (!dm) return fail(DAY_UNREADABLE);
   const d = Number(dm[1]);
   const dim = info.months[mi].days;
   if (d < 1) return fail(`日要在 1～${dim} 之間`);
@@ -537,8 +544,9 @@ export function snapValue(mode: TimeMode, v: number, u: SnapUnit, era?: EraArg):
     /* 架空曆的時刻（F110）：對齊到 n 分（每天從 0:00 數） */
     const info = ctxParts(era).info;
     if (info) {
+      /* 四捨五入到最近的 n 分（和日期時間相同；n 是 1440 的因數，所以每天從 0:00 數） */
       const n = Math.max(1, u.n);
-      return valueOfMinute(info, Math.round(minuteOfValue(info, v) / n) * n);
+      return valueOfMinute(info, Math.round((v * info.D * CAL_DAY_MINUTES) / n) * n);
     }
   }
   if (mode === 'year' && (u.kind === 'day' || u.kind === 'month')) {
@@ -570,16 +578,52 @@ export function snapValue(mode: TimeMode, v: number, u: SnapUnit, era?: EraArg):
   return v - a < b - v ? a : b;
 }
 
-/** 吸附一個時間（照事件的寫法：寫法比單位粗時用寫法的單位，寫法不變） */
+/** 吸附一個時間（照事件的寫法：寫法比單位粗時用寫法的單位，寫法不變；結果在寫法允許的範圍裡） */
 export function snapTv(mode: TimeMode, v: number, p: Precision, unit: SnapUnit, era?: EraArg): Tv {
   const u = coarser(mode, unit, precisionUnit(mode, p), era);
-  return { v: snapValue(mode, v, u, era), p };
+  return { v: keepInRange(mode, snapValue(mode, v, u, era), p, era), p };
 }
 
-/** 夾在寫法允許的範圍內 */
-export function clampValue(mode: TimeMode, v: number): number {
+/**
+ * 夾在寫法允許的範圍內（拖曳中的位置）。架空曆可以到最後一年的最後一分（輸入欄的上限是最後一年的最後一天；
+ * 以前夾在最後一年的開頭，拖到最後一年的任何地方都變成 1 月 1 日）；其他照舊。
+ */
+export function clampValue(mode: TimeMode, v: number, era?: EraArg): number {
   const b = valueBounds(mode);
-  return Math.min(b.max - 1, Math.max(b.min, v));
+  const info = mode === 'year' ? ctxParts(era).info : null;
+  const hi = info ? lastValue(mode, 'minute', era) : b.max - 1;
+  return Math.min(hi, Math.max(b.min, v));
+}
+
+/**
+ * 某個寫法最晚的位置：範圍裡最後一個單位的開頭（日期時間：9999-12-31 23:59、9999-12-31、9999-12、9999；
+ * 第 N 天：第 9999 天 23:59、第 9999 天；架空年：999999；架空曆：最後一年的最後一個月、最後一天、最後一分）
+ */
+export function lastValue(mode: TimeMode, p: Precision, era?: EraArg): number {
+  const hi = valueBounds(mode).max;
+  if (mode === 'year') {
+    const info = ctxParts(era).info;
+    if (info && p === 'minute')
+      return valueOfMinute(info, (YEAR_MAX + 1) * info.D * CAL_DAY_MINUTES - 1);
+    if (info && p === 'day') return valueOfDay(info, (YEAR_MAX + 1) * info.D - 1);
+    if (info && p === 'month') return monthStartValue(info, YEAR_MAX, info.M - 1);
+    return YEAR_MAX;
+  }
+  if (p === 'minute') return hi - 1;
+  if (p === 'day') return hi - MINUTES_PER_DAY;
+  if (p === 'month') return addMonths(hi, -1);
+  return dateValue(DATE_YEAR_MAX);
+}
+
+/**
+ * 吸附、移動之後的位置留在寫法允許的範圍裡：超出時是範圍裡最早、最晚的那個單位（範圍的兩端吸附到下一格時
+ * 不會變成看不懂的時間，例如 1000000 年、10000 年、第 10000 天）。在範圍裡時不變。
+ */
+export function keepInRange(mode: TimeMode, v: number, p: Precision, era?: EraArg): number {
+  const lo = valueBounds(mode).min;
+  if (v < lo) return lo;
+  const last = lastValue(mode, p, era);
+  return v > last ? last : v;
 }
 
 /* ---------- 換寫法（規格 F04） ---------- */

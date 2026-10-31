@@ -22,6 +22,7 @@ import {
   dateParts,
   dateValue,
   type EraArg,
+  keepInRange,
   MINUTES_PER_DAY,
   type Precision,
   precisionUnit,
@@ -91,7 +92,7 @@ export function newEventStart(mode: TimeMode, v: number, u: SnapUnit, ctx?: EraA
   let s = snapValue(mode, v, unit, ctx);
   if (mode !== 'year' && p === 'day') s = Math.floor(s / MINUTES_PER_DAY) * MINUTES_PER_DAY;
   if (info && p === 'day') s = valueOfDay(info, dayOfValue(info, s));
-  return canonical(mode, { v: s, p }, ctx);
+  return canonical(mode, { v: keepInRange(mode, s, p, ctx), p }, ctx);
 }
 
 /** 往前、往後一步（照事件的寫法；結果對齊到單位） */
@@ -111,7 +112,8 @@ export function stepTv(mode: TimeMode, tv: Tv, unit: SnapUnit, dir: 1 | -1, ctx?
   } else if (u.kind === 'min' || mode === 'year') v = tv.v + dir * u.n;
   else if (u.kind === 'month') v = addMonths(tv.v, dir * u.n);
   else v = dateValue(dateParts(tv.v).y + dir * u.n);
-  return { v: snapValue(mode, v, u, ctx), p: tv.p };
+  /* 範圍的兩端：留在範圍裡（不會變成看不懂的時間） */
+  return { v: keepInRange(mode, snapValue(mode, v, u, ctx), tv.p, ctx), p: tv.p };
 }
 
 /** 專案的架空曆（有月份時；只有架空年用得到） */

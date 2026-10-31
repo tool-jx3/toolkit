@@ -348,10 +348,17 @@ const LINK_WORD: Record<LinkKind, string> = {
   related: '相關',
 };
 
-/** 一條關聯線的文字：「→ 導致：抵達黑水灣車站（說明）」「← 起因：委託信寄出」「⇄ 矛盾：…」 */
+/** 一行裡的文字：連續的空白（含換行）換成一個空白 */
+const oneLine = (t: string) => t.replace(/\s+/g, ' ').trim();
+
+/**
+ * 一條關聯線的文字：「→ 導致：抵達黑水灣車站（說明）」「← 起因：委託信寄出」「⇄ 矛盾：…」。
+ * 標題、說明裡的換行換成空白（CSV 讀入或手改的專案檔可能有換行；一條線一行）。
+ */
 export function linkText(l: ChronLink): string {
   const word = l.kind === 'cause' && l.dir === 'in' ? '起因' : LINK_WORD[l.kind];
-  return `${LINK_ARROW[l.dir]} ${word}：${l.other}${l.note ? `（${l.note}）` : ''}`;
+  const note = oneLine(l.note);
+  return `${LINK_ARROW[l.dir]} ${word}：${oneLine(l.other)}${note ? `（${note}）` : ''}`;
 }
 
 /* ---------- 文字 ---------- */

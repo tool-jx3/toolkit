@@ -32,12 +32,15 @@ import { exampleDoc } from '@/tools/scenario-timeline/model/example';
 import { emptyFilter, filteredDoc, matchingIds } from '@/tools/scenario-timeline/model/filter';
 import { eventSpan } from '@/tools/scenario-timeline/model/layout';
 import { createMeasure } from '@/tools/scenario-timeline/model/measure';
+import { moveGroup } from '@/tools/scenario-timeline/model/selection';
 import {
   afterUnit,
   CLOCK_OFF_ERROR,
   canonical,
+  clampValue,
   convertLoses,
   convertTime,
+  dateValue,
   endFromExclusive,
   formatLong,
   parseTime,
@@ -131,7 +134,19 @@ describe('架空曆寫到時刻（F110）', () => {
     expect(err('302-3-5 24:00')).toBe('時刻要寫成 HH:MM（00:00～23:59）');
     expect(err('302-3-5 12:60')).toBe('時刻要寫成 HH:MM（00:00～23:59）');
     expect(err('14:00')).toMatch(/^看不懂這個時間/);
-    expect(err('302-3-5 1400')).toMatch(/^看不懂這個日子/);
+    /* 日子的部分看不懂：引用整串（驗證後，和日期時間相同） */
+    for (const t of [
+      '302-3-5 1400',
+      '302-3-5 14:5',
+      '302-3-5 14.00',
+      '302-3-5 14:00:00',
+      '302-3-5 ,14:00',
+    ])
+      expect(err(t), t).toBe(`看不懂這個時間：「${t}」（例：302 年 1 月 5 日 14:00）`);
+    expect(err('302年3月14:00')).toBe('只寫到月時不能加時刻');
+    expect(err('302-3-x', ctxOf(months12(false)))).toBe(
+      '看不懂這個時間：「302-3-x」（例：302 年 1 月 5 日）',
+    );
     expect(err('302-3-31 10:00')).toBe('3 月只有 30 天');
     expect(err('302-3-5 14:00', ctxOf(months12(false)))).toBe(CLOCK_OFF_ERROR);
     /* 沒有時刻的寫法照舊 */
@@ -552,6 +567,139 @@ describe('年表列出關聯線（F111）', () => {
       expect(chronicleMarkdown(b, aud)).toBe(chronicleMarkdown(a, aud));
       expect(chronicleHtml(b, aud)).toBe(chronicleHtml(a, aud));
     }
+  });
+});
+
+describe('驗證後的修正', () => {
+  const cal = months12(true);
+  const ctx = ctxOf(cal);
+  const info = calInfo(cal);
+  if (!info) throw new Error('no info');
+
+  it('分的吸附四捨五入到最近的 n 分（和日期時間相同；Alt 的 1 分也是）', () => {
+    let seed = 99;
+    const rnd = () => {
+      seed = (seed * 1664525 + 1013904223) % 4294967296;
+      return seed / 4294967296;
+    };
+    const perYear = info.D * 1440;
+    for (const n of [1, 5, 10, 15, 30, 60, 120, 180, 360, 720]) {
+      let diff = 0;
+      for (let i = 0; i < 5000; i++) {
+        const y = 302 + Math.floor(rnd() * 10);
+        const x = rnd() * perYear;
+        const got = snapValue('year', y + x / perYear, { kind: 'min', n }, ctx);
+        if (minuteOfValue(info, got) - y * perYear !== Math.round(x / n) * n) diff++;
+      }
+      expect(diff, `n=${n}`).toBe(0);
+    }
+    /* 例：14:07.6 → Alt（1 分）14:08、5 分 14:10 */
+    const v = calValue(info, 302, 3, 5, 14 * 60 + 7) + 0.6 / perYear;
+    expect(canonical('year', snapTv('year', v, 'minute', { kind: 'min', n: 1 }, ctx), ctx)).toBe(
+      '302-03-05 14:08',
+    );
+    expect(canonical('year', snapTv('year', v, 'minute', { kind: 'min', n: 5 }, ctx), ctx)).toBe(
+      '302-03-05 14:10',
+    );
+    /* 大年份也一樣 */
+    const big = calValue(info, -999999, 1, 1, 12 * 60 + 2) + 0.7 / perYear;
+    expect(canonical('year', snapTv('year', big, 'minute', { kind: 'min', n: 5 }, ctx), ctx)).toBe(
+      '-999999-01-01 12:05',
+    );
+  });
+
+  it('最後一年：拖曳可以到年底（不再夾在 1 月 1 日）；吸附到下一格時留在範圍裡', () => {
+    const late = calValue(info, 999999, 12, 30, 23 * 60 + 30);
+    /* 以前 clampValue 夾在 999999.0（1 月 1 日） */
+    expect(clampValue('year', late, ctx)).toBe(late);
+    expect(clampValue('year', 1000001, ctx)).toBe(calValue(info, 999999, 12, 30, 1439));
+    expect(clampValue('year', 1000001)).toBe(999999);
+    const off = ctxOf(months12(false));
+    expect(
+      canonical(
+        'year',
+        snapTv('year', clampValue('year', late, off), 'day', { kind: 'day', n: 1 }, off),
+        off,
+      ),
+    ).toBe('999999-12-30');
+    expect(
+      canonical(
+        'year',
+        snapTv(
+          'year',
+          clampValue('year', calValue(info, 999999, 6, 2) + 0.2 / 360, off),
+          'day',
+          { kind: 'day', n: 1 },
+          off,
+        ),
+        off,
+      ),
+    ).toBe('999999-06-02');
+    /* 往右拖過頭：最後一天、最後一分（不會變成 1000000 年） */
+    const over = clampValue('year', 1000000.5, ctx);
+    expect(
+      canonical('year', snapTv('year', over, 'minute', { kind: 'min', n: 15 }, ctx), ctx),
+    ).toBe('999999-12-30 23:59');
+    expect(canonical('year', snapTv('year', over, 'day', { kind: 'day', n: 1 }, ctx), ctx)).toBe(
+      '999999-12-30',
+    );
+    expect(canonical('year', snapTv('year', over, 'month', { kind: 'day', n: 1 }, ctx), ctx)).toBe(
+      '999999-12',
+    );
+    /* 一起拖（只到日的一個、寫到分的一個） */
+    const moved = moveGroup(
+      'year',
+      ctx,
+      [
+        { id: 'a', start: '999999-12-01', end: '', laneId: '', row: 0 },
+        { id: 'b', start: '999999-12-01 08:00', end: '', laneId: '', row: 0 },
+      ],
+      40 / 360,
+      0,
+      [''],
+    );
+    expect(moved.map((m) => m.start)).toEqual(['999999-12-30', '999999-12-30 23:59']);
+    for (const m of moved) expect(readTime('year', m.start, ctx)).not.toBeNull();
+    /* 沒有月份的架空年、日期時間、第 N 天：兩端吸附到下一格時也留在範圍裡 */
+    expect(snapTv('year', 999999, 'year', { kind: 'year', n: 20000 }).v).toBe(999999);
+    expect(snapTv('year', -999999, 'year', { kind: 'year', n: 5 }).v).toBe(-999999);
+    const lastDate = clampValue('date', dateValue(10000));
+    expect(canonical('date', snapTv('date', lastDate, 'day', { kind: 'min', n: 1440 }))).toBe(
+      '9999-12-31',
+    );
+    expect(canonical('date', snapTv('date', lastDate, 'year', { kind: 'year', n: 1 }))).toBe(
+      '9999',
+    );
+    expect(
+      canonical('day', snapTv('day', clampValue('day', 1e9), 'day', { kind: 'min', n: 1440 })),
+    ).toBe('第 9999 天');
+    /* 範圍裡的位置不變 */
+    expect(snapTv('date', dateValue(1925, 3, 12, 21), 'minute', { kind: 'min', n: 5 }).v).toBe(
+      dateValue(1925, 3, 12, 21),
+    );
+  });
+
+  it('關聯線的文字：標題、說明裡的換行換成空白（純文字、Markdown、列印）', () => {
+    const d: TimelineDoc = {
+      ...blankDoc(),
+      events: [
+        newEvent({ id: 'a', title: '甲\n# 標題注入', start: '1925-03-12 10:00' }),
+        newEvent({ id: 'b', title: '乙', start: '1925-03-12 11:00' }),
+      ],
+      links: [
+        { id: 'k', from: 'a', to: 'b', kind: 'cause', note: '第一行\r\n  第二行', gm: false },
+      ],
+    };
+    const ch = chronicle(visibleDoc(d, 'gm'), '?', 'T', { links: true });
+    const text = chronicleText(ch, 'gm');
+    expect(text).toContain('　　← 起因：甲 # 標題注入（第一行 第二行）\n');
+    expect(text).toContain('　　→ 導致：乙（第一行 第二行）\n');
+    expect(text).not.toContain('\n# 標題注入（');
+    const md = chronicleMarkdown(ch, 'gm');
+    expect(md).toContain('  - ← 起因：甲 \\# 標題注入（第一行 第二行）\n');
+    expect(chronicleHtml(ch, 'gm')).toContain(
+      '<div class="link">← 起因：甲 # 標題注入（第一行 第二行）</div>',
+    );
   });
 });
 

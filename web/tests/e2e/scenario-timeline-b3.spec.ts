@@ -415,6 +415,39 @@ test('架空曆寫到時刻：CSV 匯出再貼上讀入、專案檔存了再開�
   expect(errors).toEqual([]);
 });
 
+test('最後一年（999999）：拖曳可以到年底；拖過頭時是最後一天（驗證後）', async ({ page }) => {
+  /* 12 個月 × 30 天；畫面範圍 999999 年 12 月 1 日～年底 */
+  const start = 999999 + 330 / 360;
+  await seed(
+    page,
+    { ...CAL_DOC, events: [{ ...blankEvent, id: 'k', title: '末日', start: '999999-12-10' }] },
+    { view: 'timeline', windows: { year: { start, end: 1000000 } } },
+  );
+  const errors = await open(page);
+  const dragBy = async (days: number) => {
+    const box = await item(page, 'k').boundingBox();
+    const track = await page.getByTestId('track').boundingBox();
+    if (!box || !track) throw new Error('no box');
+    const w = await winOf(page);
+    const px = (days / 360) * (track.width / (w.end - w.start));
+    const x = box.x + 6;
+    const y = box.y + box.height / 2;
+    await page.mouse.move(x, y);
+    await page.mouse.down();
+    await page.mouse.move(x + 6, y, { steps: 2 });
+    await page.mouse.move(x + px, y, { steps: 8 });
+    await page.mouse.up();
+  };
+  await dragBy(5);
+  await expect.poll(async () => (await evOf(page, 'k'))?.start).toBe('999999-12-15');
+  await dragBy(-3);
+  await expect.poll(async () => (await evOf(page, 'k'))?.start).toBe('999999-12-12');
+  /* 拖過年底：最後一天 */
+  await dragBy(25);
+  await expect.poll(async () => (await evOf(page, 'k'))?.start).toBe('999999-12-30');
+  expect(errors).toEqual([]);
+});
+
 test('第二批（版本 2）的自動存檔照讀：架空曆沒有多出 clock，時間不變', async ({ page }) => {
   await seed(page, CAL_DOC, { view: 'timeline' }, 2);
   const errors = await open(page);
