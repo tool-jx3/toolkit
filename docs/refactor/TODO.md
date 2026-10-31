@@ -86,6 +86,7 @@
 - pdf-compress 打包的 pdf.js 標準字型裡，Helvetica 的後備是 Liberation Sans 1.07（GPL-2.0 with font exception，原樣單獨散布）；可以換成度量相容的 Arimo（Apache-2.0）或 Liberation 2.x（OFL），用同樣的檔名放進對照表（驗證者建議，2026-10-28）。
 - 共用 ExportPanel 換格式時把整組設定（含倍率）交回給工具：PNG 以外的格式不傳倍率的工具，切回 PNG 時倍率會變成 100%（social-post 已在工具裡修正，2026-10-28 驗證時發現）。查一遍用到 ExportPanel 的工具。
 - ToolShell 的「說明」對話框關閉後焦點沒有回到「說明」鈕（落在 body；height-board 驗證時發現，2026-10-28）。
+- 2026-10-31 全部 e2e（負載高）各失敗一次、單獨重跑 3／3 通過的兩個：`text-fx.spec.ts:961`（SF 標題匯出 APNG 的決定性：兩次匯出的位元組不同；ui 拆入口的驗證時也在負載下失敗過，像是兩次匯出之間有字型或資源載入完成），`floor-plan.spec.ts:1789`（分享連結與房間編號：`waitForTimeout(450)` 之後的點擊卡到 90 秒逾時）。要查兩次匯出之間有什麼狀態會變、把固定等待換成等狀態。
 - relation-chart 的 e2e「畫布：拖曳、碰撞推擠…」（Esc 後 focus-active 沒消）偶發失敗：main 35 次失敗 1 次；和 hover 重新設定有關，待查。
 - pdf-compress 的大檔結果打包 ZIP 時整份放在記憶體（`fflate` 的 zipSync）；大檔無損又沒變小時可能很吃記憶體，可以改成串流寫 ZIP。WORKERFS 讀取緩衝依賴 qpdf-wasm 0.3.0 壓縮後的內部名稱（找不到時退回不緩衝，有測試），升級 qpdf-wasm 時要再看。
 - map-fx 的 e2e「進階 3D：…復原（F74～F76、F82）」（`map-fx.spec.ts:1108`）在 2026-10-28 的 main（838ddea）連續 3 次失敗：方向鍵連按 3 次後 Ctrl+Z 只復原最後一步（房間 x 是 98、應該是 96）。合併靠共用 store 的 `coalesceMs`（0.4 秒），按鍵間隔一超過就拆成兩步；前一次全部 e2e 時是通過的，像是跟機器速度有關。要查是預覽每次按鍵重畫太慢，還是測試要改成不受時間影響。
