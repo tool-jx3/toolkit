@@ -1,5 +1,5 @@
 /**
- * 圖塊地圖產生器：畫的規則（填滿、圖形、大圖塊）、選取的變換、圖層操作、改大小與整張移動（規格 F 項、第 3 節）。
+ * 圖塊地圖編輯器：畫的規則（填滿、圖形、大圖塊）、選取的變換、圖層操作、改大小與整張移動（規格 F 項、第 3 節）。
  */
 import { describe, expect, it } from 'vitest';
 import { type Brush, LayerEdit } from '@/tools/tile-map/model/edit';

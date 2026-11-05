@@ -1,10 +1,10 @@
 /**
- * 圖塊地圖產生器的介面文字（繁體中文；用詞照 DESIGN.md 第 5 節）。
+ * 圖塊地圖編輯器的介面文字（繁體中文；用詞照 DESIGN.md 第 5 節）。
  */
 import { formatBytes } from '@/core/files';
 
 export const S = {
-  title: '圖塊地圖產生器',
+  title: '圖塊地圖編輯器',
   cancel: '取消',
   defaultMapName: '未命名地圖',
   sampleMapName: '地下水道的岔路',

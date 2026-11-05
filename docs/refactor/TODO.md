@@ -84,6 +84,7 @@
 | family-tree | [Sectr99/Lineage](https://github.com/Sectr99/Lineage)（`47ffdbb`，2026-10-30 新建） | MIT（只取點子：它用 React Flow＋ELK，和本站不同） | 遺傳特質：替人物加特質（是否遺傳；受影響／帶因／未受影響／不明），父母受影響或帶因時子女自動標「帶因」（只標有沒有風險、不算機率，手填的不覆蓋）。其他功能本站已有（relation-chart、多個圖板）；優先度低 | 小 |
 | session-calendar | [knightleft/tw-calendar](https://github.com/knightleft/tw-calendar)（`ee16ee6`，v0.63，2026-10-29；繁中、台灣假日；底本同樣是 utiyoso/taku_calendar） | 未授權（只參考功能） | 「直播曆」的週曆：三種樣式（7 欄格子、一天一列、一天一張直卡）、4:3／16:9／9:16、休息日、強調日（光暈＋徽章）、每天的貼圖、社群連結貼紙、圓形頭像、配色（輪替、從圖取色、命名儲存）、標題描邊。本站只有月曆與年曆。不收：v0.63 的 Google 帳號同步 | 中 |
 | session-log、log-converter | [FreecellRaid/Freecell-log-studio](https://github.com/FreecellRaid/Freecell-log-studio)（v1.4.4，`7e1a3a5`，2026-11-04；10-29 建，簡中） | MIT（Vue 3，和本站不同，只取做法；沿用規則文字要附 UPSTREAM_LICENSE） | 日誌整理的流程：多來源匯入、依日期自動分場景（可以拆、合、拖曳重排）、身分管理（依角色名或帳號聚合、批次改名、指定 PL／NPC／KP／骰子／觀眾）、自訂染色規則（優先順序、多條件）、搜尋與篩選、**自訂匯出範本（佔位符語法）與即時預覽**、TEXT／HTML／DOCX 匯出、專案快照 | 中 |
+| tile-map | [deukrezia/trials](https://github.com/deukrezia/trials)（`dd4f118`，2026-11-05；主控 2026-11-05 裁定這一批不做，規格 D6、D19） | 未授權（程式） | ①讀原作的地圖檔 `.vttmap.json`（圖片是 data URL；Kenney 的圖塊對應得到 `ks:`／`kt:`，原作自己的預設圖塊對應不到、要略過並提醒）；②單一圖塊組的檔案（原作的 `.brushpack.json` 匯出與「Open brush pack…」讀入，F55；目前用圖庫備份代替） | 小～中 |
 
 ## 內部改善
 

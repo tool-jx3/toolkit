@@ -59,7 +59,7 @@
 | gif-combiner | GIF 接合器 | sotsotssi/GIF-Combiner | MIT | G8 |
 | music-frame | 音樂播放畫面產生器 | zZnaptime/MVmaker（原 zznaptime/1007mv） | 未授權 | G8 |
 | battlemap | 戰鬥地圖產生器 | usagineko7865-debug/battlemap-generator（2026-10-30 起格局另參考 ondras/rot.js） | MIT（rot.js：BSD-3-Clause） | G10（原 G8） |
-| tile-map | 圖塊地圖產生器（2026-11-05 另外加入；名稱暫定） | deukrezia/trials（Trials — VTT Battlemap Maker） | 未授權（程式）；內建圖塊 Kenney 的 Scribble Dungeons、Tiny Dungeon 是 CC0 1.0 | G10 |
+| tile-map | 圖塊地圖編輯器（2026-11-05 另外加入） | deukrezia/trials（Trials — VTT Battlemap Maker） | 未授權（程式）；內建圖塊 Kenney 的 Scribble Dungeons、Tiny Dungeon 是 CC0 1.0 | G10 |
 | trpg-lab | 違法建築的 TRPG 實驗室（9 個子工具＋地圖編輯器） | ihoukentiku | MIT | G9 |
 | anime-rig | Anime2.5DRig | 852wa/Anime2.5DRig | MIT | G9 |
 | jizura | JIZURA 字面 | 852wa/JIZURA | MIT | 外部連結（不重寫，維持轉址） |

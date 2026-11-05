@@ -1,5 +1,5 @@
 /**
- * 圖塊地圖產生器（建置產物）的端對端測試：開頁（範例地圖、無 console 錯誤）、畫筆／填滿／圖形／橡皮擦、復原、
+ * 圖塊地圖編輯器（建置產物）的端對端測試：開頁（範例地圖、無 console 錯誤）、畫筆／填滿／圖形／橡皮擦、復原、
  * 選取的搬動、整張移動的裁切確認、圖層（新增、改名、隱藏、刪除的確認）、快捷鍵、匯入圖塊表（透明格略過、框成大圖塊）、
  * 放大圖塊與擦掉、匯出 PNG／PDF（解析下載的檔案）、專案檔存讀（換一個瀏覽器環境也畫得出來、圖塊收進圖庫）、
  * 圖庫備份、自動存檔、交給地圖演出產生器（交接資料寫進 IndexedDB 為止）、390 寬、視覺基準圖。
@@ -51,7 +51,7 @@ async function open(page: Page) {
   });
   await routeFonts(page);
   await page.goto(URL);
-  await expect(page.getByRole('heading', { level: 1, name: '圖塊地圖產生器' })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: '圖塊地圖編輯器' })).toBeVisible();
   await expect
     .poll(() => page.evaluate(() => (window as unknown as W).__tileMap?.useEditor.getState().ready))
     .toBe(true);
@@ -546,45 +546,62 @@ test('專案檔存讀（換一個瀏覽器也畫得出自訂圖塊、收進圖�
   expect([...errors, ...errors2, ...errors3]).toEqual([]);
 });
 
-test('在地圖演出產生器開啟：交接資料寫進 IndexedDB（收件端還沒接）', async ({ page }) => {
+test('在地圖演出產生器開啟：新分頁收到圖、「1 格幾 px」跟著改（map-fx F88）', async ({
+  page,
+  context,
+}) => {
   const errors = await open(page);
-  /* 不真的開 map-fx 的分頁（收件端還沒加 tile-map，讀了會刪掉交接資料）：記下要開的網址 */
+  /* 記下開分頁的網址（照常開） */
   await page.evaluate(() => {
-    const w = window as unknown as { open: (u: string) => unknown; __opened?: string };
-    w.open = (u: string) => {
-      w.__opened = u;
-      return { opener: null };
+    const w = window as unknown as { open: typeof window.open; __opened?: string };
+    const real = w.open.bind(window);
+    w.open = (u?: string | URL, ...rest: [string?, string?]) => {
+      w.__opened = String(u);
+      return real(u, ...rest);
     };
   });
   await page.getByTestId('open-export').click();
-  await page.getByTestId('send-fx').click();
-  await expect(page.getByText('已經送到地圖演出產生器（新分頁）。').first()).toBeVisible();
+  const dlg = page.getByRole('dialog', { name: '匯出' });
+  const px = dlg.getByRole('spinbutton', { name: '每格' });
+  await px.fill('40');
+  await px.press('Enter');
+  const [fx] = await Promise.all([
+    context.waitForEvent('page'),
+    dlg.getByTestId('send-fx').click(),
+  ]);
+  const fxErrors: string[] = [];
+  fx.on('pageerror', (e) => fxErrors.push(e.message));
+  await routeFonts(fx);
   const opened = await page.evaluate(() => (window as unknown as { __opened?: string }).__opened);
   expect(opened).toMatch(/\/map-fx\/#handoff=[\w-]+&from=tile-map$/);
-  const h = await page.evaluate(
-    () =>
-      new Promise<{ from: string; name: string; gridPx: unknown; size: number } | null>(
-        (resolve) => {
-          const req = indexedDB.open('trpg-toolkit:handoff');
-          req.onsuccess = () => {
-            const tx = req.result.transaction('kv', 'readonly');
-            const get = tx.objectStore('kv').get('map-fx');
-            get.onsuccess = () => {
-              const v = get.result;
-              resolve(
-                v
-                  ? { from: v.from, name: v.name, gridPx: v.meta?.gridPx, size: v.blob.size }
-                  : null,
-              );
-            };
-          };
-          req.onerror = () => resolve(null);
-        },
-      ),
-  );
-  expect(h).toMatchObject({ from: 'tile-map', name: '地下水道的岔路', gridPx: 64 });
-  expect(h?.size).toBeGreaterThan(1000);
+  await expect(page.getByText('已經送到地圖演出產生器（新分頁）。').first()).toBeVisible();
+  const ask = fx.getByRole('alertdialog');
+  await expect(ask).toContainText('要讀入圖塊地圖編輯器送來的圖嗎？', { timeout: 20_000 });
+  await expect(ask).toContainText('地下水道的岔路');
+  /* 沒有房間的範圍：只問要不要讀入（不是三選一） */
+  await expect(ask.getByRole('button')).toHaveCount(2);
+  await ask.getByRole('button', { name: '讀入' }).click();
+  await expect(
+    fx.getByText('已讀入圖塊地圖編輯器送來的「地下水道的岔路」', { exact: true }).first(),
+  ).toBeVisible();
+  await expect(
+    fx.getByText('房間遮罩 ZIP 的「1 格幾 px」改成 40 px（和圖塊地圖的格子對齊）。').first(),
+  ).toBeVisible();
+  const got = await fx.evaluate(() => {
+    const h = (
+      window as unknown as {
+        __mapFx: {
+          doc: () => { image: { name: string; width: number; height: number } | null };
+          prefs: () => { grid: number };
+        };
+      }
+    ).__mapFx;
+    return { image: h.doc().image, grid: h.prefs().grid };
+  });
+  expect(got.image).toMatchObject({ name: '地下水道的岔路', width: 32 * 40, height: 24 * 40 });
+  expect(got.grid).toBe(40);
   expect(errors).toEqual([]);
+  expect(fxErrors).toEqual([]);
 });
 
 test('390 寬沒有橫向捲動', async ({ page }) => {
