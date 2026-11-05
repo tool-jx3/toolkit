@@ -9,6 +9,17 @@ import { ensureFont } from '@/core/fonts';
 import { canvasToBlob } from '@/core/image';
 import { autoColor } from './autocolor';
 import { detectInner } from './custom';
+import {
+  autoEdgeReach,
+  cleanSpecks,
+  edgeReach,
+  fillPolygon,
+  fixEdges,
+  gapRemove,
+  hardenMask,
+  softAuto,
+  speckArea,
+} from './edges';
 import { type EmbeddedToken, embedInPng, readEmbedded } from './embed';
 import { badgeText, labelText } from './labels';
 import {
@@ -24,7 +35,9 @@ import {
   maskIsEmpty,
   maskSizeFor,
   morphMask,
+  type Rgba,
   resampleMask,
+  type SelectMode,
   selectedRatio,
   wandRegion,
 } from './mask';
@@ -52,6 +65,7 @@ import { type RenderSources, releaseScratch, renderTokenCanvas } from './render'
 import {
   assets,
   decodeMaskPng,
+  haloImage,
   imageRgbaAt,
   loadCustomMask,
   loadImageWork,
@@ -108,7 +122,14 @@ async function busy<T>(label: string, fn: () => Promise<T>): Promise<T> {
 export type EmbedChoice = 'open' | 'plain' | null;
 
 async function embeddedOf(file: File): Promise<EmbeddedToken | null> {
-  if (file.type && file.type !== 'image/png' && !/\.png$/i.test(file.name)) return null;
+  /* 本站與 token-workshop 的 PNG、token-workshop 的 WebP */
+  if (
+    file.type &&
+    file.type !== 'image/png' &&
+    file.type !== 'image/webp' &&
+    !/\.(png|webp)$/i.test(file.name)
+  )
+    return null;
   try {
     const bytes = new Uint8Array(await file.arrayBuffer());
     return readEmbedded(bytes, docNow().look);
@@ -157,6 +178,7 @@ async function restoreEmbedded(
       badge: e.token.badge,
       adjust: e.token.adjust,
       mask: put?.ref ?? null,
+      ...(put && e.token.halo ? { halo: e.token.halo } : {}),
     },
     persisted: stored.persisted,
   };
@@ -275,7 +297,44 @@ export async function replaceCurrentImage(file: File): Promise<BatchNotice | nul
 
 /* ---------- 自動選出主體 ---------- */
 
-/** 自動選出主體：有透明背景用透明度，否則從四邊的背景往內找；找不到時切到魔術棒 */
+type AutoKind = 'alpha' | 'soft' | 'fixed' | 'hard';
+
+/**
+ * 自動選出主體的遮罩（純計算；規格 F20、F80、F81）：
+ * 透明背景用透明度；背景單純的不透明圖用軟選取（token-workshop ce4c62b）；其他從四邊的背景往內找、再順便修邊。
+ * 「自動時順便修邊」關掉時，軟選取變成硬的、也不修邊。
+ */
+export function autoMask(
+  work: Rgba,
+  opts: { sens: number; shrink: number; fix: boolean },
+): { mask: Mask; kind: AutoKind } | null {
+  if (hasTransparency(work)) return { mask: maskFromAlpha(work), kind: 'alpha' };
+  const soft = softAuto(work, opts);
+  if (soft)
+    return opts.fix
+      ? { mask: soft.mask, kind: 'soft' }
+      : { mask: hardenMask(soft.mask), kind: 'hard' };
+  const hard = autoSubject(work);
+  if (!hard) return null;
+  if (!opts.fix) return { mask: hard, kind: 'hard' };
+  const f = fixEdges(hard, work, autoEdgeReach(work.width, work.height));
+  return { mask: f.mask, kind: f.matte ? 'fixed' : 'hard' };
+}
+
+const autoOpts = () => {
+  const p = prefsNow();
+  return { sens: p.autoSens, shrink: p.autoShrink, fix: p.autoFix };
+};
+
+/** 邊緣變成半透明的結果：同一步打開去光暈 */
+const haloOn = (t: TokenItem) => {
+  t.halo = 100;
+};
+const haloOff = (t: TokenItem) => {
+  delete t.halo;
+};
+
+/** 自動選出主體：有透明背景用透明度，否則依背景找；找不到時切到魔術棒 */
 export async function runAuto(
   tokenId: string | null = docNow().current,
   { quiet = false } = {},
@@ -284,18 +343,183 @@ export async function runAuto(
   if (!token?.image) return { title: S.noImageYet, tone: 'warning' };
   const work = await loadImageWork(token.image);
   if (!work) return { title: S.imageMissing, tone: 'danger' };
-  const alpha = hasTransparency(work.work);
-  const mask = await busy(S.busy, async () => {
-    await new Promise((r) => setTimeout(r, 0));
-    return alpha ? maskFromAlpha(work.work) : autoSubject(work.work);
+  const opts = autoOpts();
+  const r = await busy(S.busy, async () => {
+    await new Promise((res) => setTimeout(res, 0));
+    return autoMask(work.work, opts);
   });
-  if (!mask || maskIsEmpty(mask)) {
+  if (!r || maskIsEmpty(r.mask)) {
     if (!quiet) setTool('wand');
     return { title: S.autoNone, tone: 'warning' };
   }
-  await commitMask(token.id, mask);
+  /* 邊緣變成半透明：打開去光暈；透明背景的立繪（邊緣是圖片本身的透明度，不是混了背景色）：關掉 */
+  await commitMask(
+    token.id,
+    r.mask,
+    r.kind === 'soft' || r.kind === 'fixed' ? haloOn : r.kind === 'alpha' ? haloOff : undefined,
+  );
   useUi.setState({ wand: null });
-  return { title: alpha ? S.autoAlpha : S.autoFound, tone: 'success' };
+  const title =
+    r.kind === 'alpha'
+      ? S.autoAlpha
+      : r.kind === 'soft'
+        ? S.autoSoft
+        : r.kind === 'fixed'
+          ? S.autoFixed
+          : S.autoFound;
+  return { title, tone: 'success' };
+}
+
+/**
+ * 自動的靈敏度、內縮／外擴改了：用新的值重新自動選取（取代目前的選取）。拖曳中只換預覽，放開才存成一步。
+ * 只對背景單純的不透明圖有用（其他時候說明）。
+ */
+export async function retuneAuto(final: boolean): Promise<BatchNotice | null> {
+  const token = currentToken();
+  if (!token?.image) return null;
+  const work = peekImageWork(token.image.id) ?? (await loadImageWork(token.image));
+  if (!work) return null;
+  const opts = autoOpts();
+  const soft = hasTransparency(work.work) ? null : softAuto(work.work, opts);
+  if (!soft) {
+    useUi.setState({ liveMask: null });
+    return { title: S.autoPlainOnly, tone: 'info' };
+  }
+  const mask = opts.fix ? soft.mask : hardenMask(soft.mask);
+  if (!final) {
+    useUi.setState((u) => ({
+      liveMask: { tokenId: token.id, mask, version: (u.liveMask?.version ?? 0) + 1 },
+    }));
+    return null;
+  }
+  useUi.setState((u) => ({
+    liveMask: { tokenId: token.id, mask, version: (u.liveMask?.version ?? 0) + 1 },
+  }));
+  try {
+    await commitMask(token.id, mask, opts.fix ? haloOn : undefined);
+  } finally {
+    const lm = useUi.getState().liveMask;
+    if (lm && lm.mask === mask) useUi.setState({ liveMask: null });
+  }
+  useUi.setState({ wand: null });
+  return null;
+}
+
+/* ---------- 修邊 ---------- */
+
+/** 存一個新的遮罩：存好之前預覽先用它（不閃）；also＝同一步一起改的 */
+async function commitShown(
+  tokenId: string,
+  mask: Mask,
+  also?: (t: TokenItem) => void,
+): Promise<string | null> {
+  useUi.setState((u) => ({
+    liveMask: { tokenId, mask, version: (u.liveMask?.version ?? 0) + 1 },
+  }));
+  try {
+    return await commitMask(tokenId, maskIsEmpty(mask) ? null : mask, also);
+  } finally {
+    const lm = useUi.getState().liveMask;
+    if (lm && lm.mask === mask) useUi.setState({ liveMask: null });
+  }
+}
+
+/** 一鍵修邊：邊緣依顏色變成半透明（同一步打開去光暈）＋去雜點、填洞 */
+export async function fixCurrentEdges(): Promise<BatchNotice | null> {
+  const token = currentToken();
+  if (!token?.image) return { title: S.noImageYet, tone: 'warning' };
+  const base = await currentMask(token);
+  if (!base || maskIsEmpty(base)) return { title: S.fixEdgesNeedSelection, tone: 'info' };
+  const work = peekImageWork(token.image.id) ?? (await loadImageWork(token.image));
+  if (!work) return { title: S.imageMissing, tone: 'danger' };
+  const r = await busy(S.busy, async () => {
+    await new Promise((res) => setTimeout(res, 0));
+    return fixEdges(base, work.work, edgeReach(base.width, base.height));
+  });
+  useUi.setState({ wand: null, retune: null });
+  await commitShown(token.id, r.mask, r.matte ? haloOn : undefined);
+  const cleaned = r.specks + r.filled > 0;
+  if (r.matte) return { title: S.fixEdgesDone(cleaned), tone: 'success' };
+  if (r.busy) return { title: S.fixEdgesBusy, tone: 'info' };
+  if (r.low) return { title: S.fixEdgesLow, tone: 'info' };
+  return { title: S.fixEdgesClean, tone: 'success' };
+}
+
+/** 去雜點與填洞 */
+export async function cleanCurrentSpecks(): Promise<BatchNotice | null> {
+  const token = currentToken();
+  if (!token?.image) return { title: S.noImageYet, tone: 'warning' };
+  const base = await currentMask(token);
+  if (!base || maskIsEmpty(base)) return { title: S.fixEdgesNeedSelection, tone: 'info' };
+  const c = cleanSpecks(base, speckArea(base.width, base.height));
+  if (!c.specks && !c.filled) return { title: S.cleanSpecksNone, tone: 'info' };
+  useUi.setState({ wand: null, retune: null });
+  await commitShown(token.id, c.mask);
+  return { title: S.cleanSpecksDone(c.specks, c.filled), tone: 'success' };
+}
+
+const sameData = (a: Mask | null, b: Mask | null) => {
+  if (!a || !b) return a === b;
+  if (a.width !== b.width || a.height !== b.height) return false;
+  for (let i = 0; i < a.data.length; i++) if (a.data[i] !== b.data[i]) return false;
+  return true;
+};
+
+/**
+ * 去掉小縫隙（寬度＝遮罩的 px）：從第一次拖這個滑桿時的遮罩重算（遮罩被別的動作改掉之後重新起算）。
+ * 拖曳中只換預覽；放開才存成一步。
+ */
+export async function retuneGap(width: number, final: boolean): Promise<BatchNotice | null> {
+  const token = currentToken();
+  if (!token?.image) return null;
+  const work = peekImageWork(token.image.id) ?? (await loadImageWork(token.image));
+  if (!work) return null;
+  const ui = useUi.getState();
+  let seed = ui.retune;
+  if (seed?.kind !== 'gap' || seed.tokenId !== token.id || (token.mask?.id ?? null) !== seed.result)
+    seed = { kind: 'gap', tokenId: token.id, base: token.mask, result: token.mask?.id ?? null };
+  const size = maskSizeFor(token.image);
+  const base = seed.base ? await loadMask(seed.base) : emptyMask(size.width, size.height);
+  if (!base) return null;
+  const r =
+    width > 0 && !maskIsEmpty(base)
+      ? gapRemove(base, work.work, width, edgeReach(base.width, base.height))
+      : { mask: base, n: 0 };
+  useUi.setState({ retune: seed, wand: null });
+  if (!final) {
+    useUi.setState((u) => ({
+      liveMask: { tokenId: token.id, mask: r.mask, version: (u.liveMask?.version ?? 0) + 1 },
+    }));
+    return null;
+  }
+  const now = token.mask ? (peekMask(token.mask.id) ?? (await loadMask(token.mask))) : null;
+  if (sameData(now, maskIsEmpty(r.mask) ? null : r.mask)) {
+    useUi.setState({ liveMask: null });
+    return width > 0 ? { title: S.gapNone, tone: 'info' } : null;
+  }
+  const id = await commitShown(token.id, r.mask);
+  const cur = useUi.getState().retune;
+  if (cur === seed) useUi.setState({ retune: { ...seed, result: id } });
+  return width > 0 ? { title: r.n ? S.gapRemoved(r.n) : S.gapNone, tone: 'info' } : null;
+}
+
+/* ---------- 套索 ---------- */
+
+/** 套索：圈起來的範圍（遮罩的 px）加入或去掉 */
+export async function lassoSelect(
+  pts: readonly { x: number; y: number }[],
+  mode: SelectMode,
+): Promise<BatchNotice | null> {
+  const token = currentToken();
+  if (!token?.image) return null;
+  const base = await currentMask(token);
+  if (!base) return null;
+  const { mask, changed } = fillPolygon(base, pts, mode === 'add' ? 255 : 0);
+  useUi.setState({ wand: null });
+  if (!changed) return { title: S.lassoNothing, tone: 'info' };
+  await commitShown(token.id, mask);
+  const r = changed / (mask.width * mask.height);
+  return { title: mode === 'add' ? S.lassoAdded(pct(r)) : S.lassoRemoved(pct(r)), tone: 'success' };
 }
 
 /* ---------- 選取 ---------- */
@@ -309,14 +533,18 @@ async function currentMask(token: TokenItem): Promise<Mask | null> {
 }
 
 /** 魔術棒：在遮罩的 (x, y) 點一下 */
-export async function wandAt(x: number, y: number): Promise<BatchNotice | null> {
+export async function wandAt(
+  x: number,
+  y: number,
+  forced?: SelectMode,
+): Promise<BatchNotice | null> {
   const token = currentToken();
   if (!token?.image) return null;
   const work = peekImageWork(token.image.id) ?? (await loadImageWork(token.image));
   const base = await currentMask(token);
   if (!work || !base) return null;
   const p = prefsNow();
-  const mode = effectiveMode();
+  const mode = forced ?? effectiveMode();
   const { region } = wandRegion(work.work, x, y, p.tolerance, p.contiguous);
   const { mask, changed } = applyRegion(base, region, mode);
   if (!changed) {
@@ -421,6 +649,9 @@ export async function prepareToken(
     ? (peekMask(token.mask.id) ?? (await loadMask(token.mask)) ?? null)
     : null;
   const texture = await ensureTexture(look.texture, look.texSeed).catch(() => null);
+  /* 去光暈：出框用扣掉背景色的那一份圖片 */
+  const popImage =
+    mask && token.popOn && token.halo ? haloImage(token.image.id, work, mask, token.halo) : null;
   const custom = docNow().custom;
   const frameImg =
     look.frame === 'custom' && custom.frame
@@ -439,6 +670,7 @@ export async function prepareToken(
       customFrame: frameImg,
       customFrameId: custom.frame?.id ?? null,
       customMask,
+      popImage,
     },
     pad: tokenPad(look, token, mask),
   };
@@ -472,6 +704,7 @@ async function embedFor(
       view: token.view,
       popOn: token.popOn,
       adjust: token.adjust,
+      ...(token.halo && token.mask ? { halo: token.halo } : {}),
     },
     image: {
       name: token.image.name,

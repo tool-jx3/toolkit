@@ -2,7 +2,7 @@
  * 預覽：工具列（移動、魔術棒、筆刷、自動、清除、更多）＋工具的選項＋Stage 裡的畫布（與匯出同一段繪圖程式，1024 px）、
  * 疊在上面的提示層（只在預覽）與操作層（拖曳、捏合、滾輪、點選、塗抹）。
  */
-import { Brush, Eraser, ImagePlus, Move, Sparkles, Wand2, X } from 'lucide-react';
+import { Brush, Eraser, ImagePlus, Lasso, Move, Sparkles, Wand2, X } from 'lucide-react';
 import {
   type PointerEvent as ReactPointerEvent,
   useCallback,
@@ -25,9 +25,9 @@ import {
   Tooltip,
   useToast,
 } from '@/ui';
-import { changeMask, retuneWand, runAuto, selectionText, wandAt } from './actions';
+import { changeMask, lassoSelect, retuneWand, runAuto, selectionText, wandAt } from './actions';
 import { badgeText, labelText, type OverlayKind, overlayAt, snapOverlay } from './labels';
-import { copyMask, emptyMask, type Mask, maskSizeFor } from './mask';
+import { copyMask, emptyMask, type Mask, maskSizeFor, type SelectMode } from './mask';
 import {
   clamp,
   type Geom,
@@ -43,7 +43,9 @@ import {
 import { drawOverlay, type OverlayInput } from './overlay';
 import { type Drawable, renderToken } from './render';
 import {
+  haloImage,
   hardMaskCanvas,
+  peekHaloImage,
   peekMask,
   softMaskCanvas,
   useCustomData,
@@ -60,6 +62,7 @@ import {
   setPrefs,
   setTool,
   setView,
+  toggleMaskView,
   tokenPad,
   useDoc,
   usePrefs,
@@ -82,6 +85,20 @@ interface DrawInfo {
 
 type SnapInfo = OverlayInput['snap'];
 
+/** 正在圈的套索：遮罩的 px（填的時候用）與棋子的 px（畫的時候用） */
+interface LassoState {
+  tokenId: string;
+  mode: SelectMode;
+  pts: { x: number; y: number }[];
+  screen: { x: number; y: number }[];
+}
+
+/** 鍵盤的游標（棋子的 px）；focused＝預覽有焦點（才畫十字） */
+interface KeyCursor {
+  at: { x: number; y: number } | null;
+  focused: boolean;
+}
+
 /** 量名字牌、弧形文字大小用的畫布（點選名字時） */
 let measureCtx: CanvasRenderingContext2D | null = null;
 function measure(): CanvasRenderingContext2D | null {
@@ -99,7 +116,7 @@ class LivePaint {
   constructor(
     readonly tokenId: string,
     base: Mask,
-    mode: BrushMode,
+    readonly mode: BrushMode,
     diameter: number,
   ) {
     this.mask = copyMask(base);
@@ -185,6 +202,10 @@ export function Preview({ onPick }: { onPick: () => void }) {
   const over = useRef<HTMLCanvasElement>(null);
   const cursor = useRef<{ x: number; y: number } | null>(null);
   const snap = useRef<SnapInfo>(null);
+  const lasso = useRef<LassoState | null>(null);
+  const keyCursor = useRef<KeyCursor>({ at: null, focused: false });
+  const strip = useRef<(() => void) | null>(null);
+  const maskView = useUi((s) => s.maskView);
   const info = useRef<DrawInfo>({ t: null, R: N / 2, g: geom(N, 0) });
   /** 提示層要用、但不在 store 裡的東西 */
   const extras = useRef<{ customMask: Drawable | null; refImage: Drawable | null }>({
@@ -222,12 +243,22 @@ export function Preview({ onPick }: { onPick: () => void }) {
     const ctx = main.current?.getContext('2d');
     if (!ctx) return;
     const p = paint.current;
-    const popMask =
-      p && token && p.tokenId === token.id
-        ? p.canvas
-        : mask && token?.popOn
-          ? softMaskCanvas(mask, look.feather)
-          : null;
+    const painting = !!(p && token && p.tokenId === token.id);
+    const popMask = painting
+      ? (p as LivePaint).canvas
+      : mask && token?.popOn
+        ? softMaskCanvas(mask, look.feather)
+        : null;
+    /* 去光暈：畫到一半時先用上一次算好的（不每一格重算） */
+    const halo = token?.halo ?? 0;
+    const popImage =
+      !token?.image || !halo || !token.popOn
+        ? null
+        : painting
+          ? peekHaloImage(token.image.id, halo)
+          : mask && data.work
+            ? haloImage(token.image.id, data.work, mask, halo)
+            : null;
     const r = renderToken(
       ctx,
       { N, pad, look, token: token ?? null },
@@ -239,10 +270,12 @@ export function Preview({ onPick }: { onPick: () => void }) {
         customFrame: cdata.frame,
         customFrameId,
         customMask: cdata.mask,
+        popImage,
       },
     );
     info.current = { t: r.transform, R: r.geom.R, g: r.geom };
     drawHints();
+    strip.current?.();
   }, [look, token, data.work, mask, pad, paintTick, texTick, fontTick, cdata.frame, cdata.mask]);
 
   /** 提示層（選取、被藏起來的部分、筆刷圓圈）：游標移動時只重畫這一層 */
@@ -260,6 +293,8 @@ export function Preview({ onPick }: { onPick: () => void }) {
       p && tk && p.tokenId === tk.id ? p.canvas : m ? hardMaskCanvas(m) : null;
     const g = info.current.g;
     const c = cursor.current;
+    const kc = keyCursor.current;
+    const ls = lasso.current && tk && lasso.current.tokenId === tk.id ? lasso.current : null;
     const seed = ui.wand && tk && ui.wand.tokenId === tk.id ? ui.wand : null;
     let wandPoint: { x: number; y: number } | null = null;
     if (seed && tk?.image && info.current.t) {
@@ -295,6 +330,17 @@ export function Preview({ onPick }: { onPick: () => void }) {
               erase: effectiveMode() === 'sub',
             }
           : null,
+      lasso: ls ? { pts: ls.screen, erase: ls.mode === 'sub' } : null,
+      keyCursor: kc.focused && kc.at && prefs.tool === 'wand' && !ui.space ? kc.at : null,
+      maskView:
+        ui.maskView && tk?.image
+          ? p && tk && p.tokenId === tk.id
+            ? p.canvas
+            : m
+              ? softMaskCanvas(m, s.look.feather)
+              : null
+          : null,
+      maskViewOn: ui.maskView && !!tk?.image,
       customMask: extras.current.customMask,
       ref: {
         kind: prefs.refKind,
@@ -311,7 +357,19 @@ export function Preview({ onPick }: { onPick: () => void }) {
   // biome-ignore lint/correctness/useExhaustiveDependencies: 這些改變時重畫提示層
   useEffect(() => {
     drawHints();
-  }, [tool, showOutline, alt, space, wand, drawHints, refKind, refOpacity, guides, refImage]);
+  }, [
+    tool,
+    showOutline,
+    alt,
+    space,
+    wand,
+    drawHints,
+    refKind,
+    refOpacity,
+    guides,
+    refImage,
+    maskView,
+  ]);
 
   return (
     <div className="flex min-w-0 flex-col gap-2">
@@ -341,6 +399,8 @@ export function Preview({ onPick }: { onPick: () => void }) {
               paint={paint}
               cursor={cursor}
               snap={snap}
+              lasso={lasso}
+              keyCursor={keyCursor}
               onPaint={() => setPaintTick((t) => t + 1)}
               onHover={drawHints}
             />
@@ -358,8 +418,76 @@ export function Preview({ onPick }: { onPick: () => void }) {
         </Stage>
       </div>
       <StatusLine token={token} mask={mask} />
+      {hasImage ? <TableStrip source={main} redraw={strip} /> : null}
       {data.status === 'missing' ? <Notice tone="warning">{S.imageMissing}</Notice> : null}
     </div>
+  );
+}
+
+const STRIP_SIZES = [40, 80, 120] as const;
+
+/** 桌面尺寸預覽（40、80、120 px）：預覽畫布縮小（不含提示層）；只在預覽 */
+function TableStrip({
+  source,
+  redraw,
+}: {
+  source: React.RefObject<HTMLCanvasElement | null>;
+  redraw: React.RefObject<(() => void) | null>;
+}) {
+  const on = usePrefs((s) => s.data.tableStrip);
+  const refs = useRef<(HTMLCanvasElement | null)[]>([]);
+  useEffect(() => {
+    if (!on) {
+      redraw.current = null;
+      return;
+    }
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const draw = () => {
+      const src = source.current;
+      if (!src) return;
+      const dpr = Math.min(2, window.devicePixelRatio || 1);
+      refs.current.forEach((c, i) => {
+        if (!c) return;
+        const px = Math.round(STRIP_SIZES[i] * dpr);
+        if (c.width !== px) c.width = c.height = px;
+        const x = c.getContext('2d');
+        if (!x) return;
+        x.clearRect(0, 0, px, px);
+        x.imageSmoothingEnabled = true;
+        x.imageSmoothingQuality = 'high';
+        x.drawImage(src, 0, 0, px, px);
+      });
+    };
+    redraw.current = () => {
+      clearTimeout(timer);
+      timer = setTimeout(draw, 140);
+    };
+    draw();
+    return () => {
+      clearTimeout(timer);
+      redraw.current = null;
+    };
+  }, [on, source, redraw]);
+  if (!on) return null;
+  return (
+    <figure
+      className="checker m-0 flex flex-wrap items-end gap-4 rounded-md p-3"
+      aria-label={S.tableStripLabel}
+      data-testid="table-strip"
+    >
+      {STRIP_SIZES.map((s, i) => (
+        <div key={s} className="flex flex-col items-center gap-1 text-xs text-muted">
+          <canvas
+            ref={(el) => {
+              refs.current[i] = el;
+            }}
+            style={{ width: s, height: s }}
+          />
+          <span className="rounded-sm bg-surface/80 px-1">{s} px</span>
+        </div>
+      ))}
+      <figcaption className="sr-only">{S.tableStrip}</figcaption>
+    </figure>
   );
 }
 
@@ -377,6 +505,8 @@ function ToolBar({ disabled }: { disabled: boolean }) {
   const contiguous = usePrefs((s) => s.data.contiguous);
   const brush = usePrefs((s) => s.data.brush);
   const showOutline = usePrefs((s) => s.data.showOutline);
+  const tableStrip = usePrefs((s) => s.data.tableStrip);
+  const maskView = useUi((s) => s.maskView);
   const busy = useUi((s) => s.busy);
   const toast = useToast();
   const notify = (n: Awaited<ReturnType<typeof changeMask>>) => {
@@ -413,6 +543,7 @@ function ToolBar({ disabled }: { disabled: boolean }) {
       >
         {toolBtn('move', <Move aria-hidden className="size-4" />, 'V')}
         {toolBtn('wand', <Wand2 aria-hidden className="size-4" />, 'W')}
+        {toolBtn('lasso', <Lasso aria-hidden className="size-4" />, 'L')}
         {toolBtn('brush', <Brush aria-hidden className="size-4" />, 'B')}
         <span className="mx-1 h-6 w-px bg-border" aria-hidden />
         <Button
@@ -449,6 +580,11 @@ function ToolBar({ disabled }: { disabled: boolean }) {
               label: showOutline ? S.hideOutline : S.showOutline,
               onSelect: () => setPrefs({ showOutline: !showOutline }),
             },
+            { label: maskView ? S.maskViewOff : S.maskViewOn, onSelect: toggleMaskView },
+            {
+              label: tableStrip ? S.tableStripOff : S.tableStripOn,
+              onSelect: () => setPrefs({ tableStrip: !tableStrip }),
+            },
           ]}
         />
       </div>
@@ -483,6 +619,20 @@ function ToolBar({ disabled }: { disabled: boolean }) {
             checked={contiguous}
             onCheckedChange={(v) => live({ contiguous: v }, true)}
           />
+        </div>
+      ) : tool === 'lasso' ? (
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2" data-testid="lasso-options">
+          <Segmented
+            size="sm"
+            aria-label={S.mode}
+            value={mode}
+            onValueChange={(v) => setPrefs({ mode: v })}
+            options={[
+              { value: 'add', label: S.modeAdd },
+              { value: 'sub', label: S.modeSub },
+            ]}
+          />
+          <span className="text-xs text-muted">{S.lassoHint}</span>
         </div>
       ) : tool === 'brush' ? (
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2" data-testid="brush-options">
@@ -570,7 +720,7 @@ function StatusLine({ token, mask }: { token: TokenItem | null; mask: Mask | nul
 /* ---------- 操作層 ---------- */
 
 interface DragState {
-  kind: 'pan' | 'pinch' | 'paint' | 'overlay';
+  kind: 'pan' | 'pinch' | 'paint' | 'overlay' | 'lasso';
   tokenId: string;
   start: TokenView;
   cur: TokenView;
@@ -585,6 +735,8 @@ function InteractionLayer({
   paint,
   cursor,
   snap,
+  lasso,
+  keyCursor,
   onPaint,
   onHover,
 }: {
@@ -594,6 +746,8 @@ function InteractionLayer({
   paint: React.RefObject<LivePaint | null>;
   cursor: React.RefObject<{ x: number; y: number } | null>;
   snap: React.RefObject<SnapInfo>;
+  lasso: React.RefObject<LassoState | null>;
+  keyCursor: React.RefObject<KeyCursor>;
   onPaint: () => void;
   onHover: () => void;
 }) {
@@ -674,7 +828,7 @@ function InteractionLayer({
   }, [paint, onPaint]);
 
   const startPaint = useCallback(
-    (px: number, py: number) => {
+    (px: number, py: number, forced?: SelectMode) => {
       const img = token.image;
       if (!img) return;
       const ms = maskSizeFor(img);
@@ -688,7 +842,7 @@ function InteractionLayer({
       const t = info.current.t;
       if (!t) return;
       const radiusTokenPx = (prefs.brush / 100) * info.current.R;
-      const mode: BrushMode = effectiveMode() === 'add' ? 'restore' : 'erase';
+      const mode: BrushMode = (forced ?? effectiveMode()) === 'add' ? 'restore' : 'erase';
       /*
        * 擦的時候半徑大 1 px（遮罩的 px）：畫的筆刷邊緣有 1 px 的半透明，同樣大小擦會留下最多 25% 的殘影；
        * 大 1 px 剛好把畫過的地方整個擦乾淨。
@@ -729,8 +883,13 @@ function InteractionLayer({
     const view = useDoc.getState().data.tokens.find((t) => t.id === token.id)?.view ?? token.view;
     const pad = useUi.getState().lockedPad ?? tokenPad(useDoc.getState().data.look, token);
     if (g.current.count() === 2) {
-      /* 第二指：改成捏合縮放（畫到一半的一筆作廢、拖到一半的名字放下） */
+      /* 第二指：改成捏合縮放（畫到一半的一筆作廢、圈到一半的套索作廢、拖到一半的名字放下） */
       if (drag.current?.kind === 'paint') cancelPaint();
+      if (drag.current?.kind === 'lasso') {
+        lasso.current = null;
+        drag.current = null;
+        onHover();
+      }
       if (drag.current?.kind === 'overlay') {
         /* 名字拖到哪就是哪一步（馬上結束，捏合是新的一步） */
         useDoc.endGesture();
@@ -738,7 +897,7 @@ function InteractionLayer({
         drag.current = null;
         onHover();
       }
-      if (!drag.current || drag.current.kind === 'paint') {
+      if (!drag.current || drag.current.kind === 'paint' || drag.current.kind === 'lasso') {
         beginDrag(blurred, () => !!drag.current);
         useUi.setState({ lockedPad: pad });
       }
@@ -776,6 +935,21 @@ function InteractionLayer({
       void wandAt(m.x, m.y).then((n) => {
         useUi.setState({ hint: n?.title ?? null });
       });
+      return;
+    }
+    if (prefs.tool === 'lasso') {
+      const m = toMask(p.x, p.y);
+      if (!m) return;
+      /* Shift 或 Alt：去掉 */
+      lasso.current = {
+        tokenId: token.id,
+        mode: e.shiftKey ? 'sub' : effectiveMode(),
+        pts: [m],
+        screen: [{ x: p.x, y: p.y }],
+      };
+      useUi.setState({ wand: null });
+      drag.current = { kind: 'lasso', tokenId: token.id, start: view, cur: view };
+      onHover();
       return;
     }
     drag.current = { kind: 'paint', tokenId: token.id, start: view, cur: view };
@@ -840,7 +1014,29 @@ function InteractionLayer({
         paint.current.add(m.x, m.y);
         onPaint();
       }
+    } else if (d.kind === 'lasso' && lasso.current) {
+      const m = toMask(p.x, p.y);
+      const L = lasso.current;
+      const last = L.pts[L.pts.length - 1];
+      const ms = token.image ? maskSizeFor(token.image) : { width: 1 };
+      /* 點太密時不加（遮罩的 px，長邊 600 分之一以上） */
+      if (m && Math.hypot(m.x - last.x, m.y - last.y) >= Math.max(1, ms.width / 600)) {
+        L.pts.push(m);
+        L.screen.push({ x: p.x, y: p.y });
+        onHover();
+      }
     }
+  };
+
+  /** 放開套索：圈起來的範圍加入或去掉 */
+  const finishLasso = () => {
+    const L = lasso.current;
+    lasso.current = null;
+    onHover();
+    if (!L || L.tokenId !== token.id) return;
+    void lassoSelect(L.pts, L.mode).then((n) => {
+      useUi.setState({ hint: n?.title ?? null });
+    });
   };
 
   const onPointerUp = (e: ReactPointerEvent<HTMLDivElement>) => {
@@ -857,6 +1053,11 @@ function InteractionLayer({
       void finishPaint();
       return;
     }
+    if (d?.kind === 'lasso') {
+      drag.current = null;
+      finishLasso();
+      return;
+    }
     endDrag();
   };
 
@@ -868,7 +1069,49 @@ function InteractionLayer({
       cancelPaint();
       return;
     }
+    if (drag.current?.kind === 'lasso') {
+      drag.current = null;
+      lasso.current = null;
+      onHover();
+      return;
+    }
     endDrag();
+  };
+
+  /**
+   * 鍵盤操作（token-workshop 的 keyboard cursor）：預覽有焦點、魔術棒或筆刷時，方向鍵移動游標（棋子的 1%，Shift 5%），
+   * Enter 在游標的地方點魔術棒或蓋一下筆刷（Shift＋Enter 去掉）。其他按鍵交給快捷鍵（移動工具時方向鍵照樣移動圖片）。
+   */
+  const onKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    const t = usePrefs.getState().data.tool;
+    if ((t !== 'wand' && t !== 'brush') || useUi.getState().space) return;
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    const arrow = e.key.startsWith('Arrow');
+    if (!arrow && e.key !== 'Enter') return;
+    e.preventDefault();
+    const kc = keyCursor.current;
+    const at = kc.at ?? { x: N / 2, y: N / 2 };
+    if (arrow) {
+      const d = ((e.shiftKey ? 5 : 1) * N) / 100;
+      at.x = clamp(at.x + (e.key === 'ArrowRight' ? d : e.key === 'ArrowLeft' ? -d : 0), 0, N);
+      at.y = clamp(at.y + (e.key === 'ArrowDown' ? d : e.key === 'ArrowUp' ? -d : 0), 0, N);
+    }
+    kc.at = at;
+    if (t === 'brush') cursor.current = { x: at.x, y: at.y };
+    if (e.key === 'Enter' && ready) {
+      const mode: SelectMode = e.shiftKey ? 'sub' : effectiveMode();
+      if (t === 'wand') {
+        const m = toMask(at.x, at.y);
+        if (m)
+          void wandAt(m.x, m.y, mode).then((n) => {
+            useUi.setState({ hint: n?.title ?? null });
+          });
+      } else if (!paint.current) {
+        startPaint(at.x, at.y, mode);
+        void finishPaint();
+      }
+    }
+    onHover();
   };
 
   /* 滾輪：移動工具（或按住空白鍵）時縮放圖片（Shift 旋轉、Alt 細調）；Ctrl＋滾輪留給預覽的縮放 */
@@ -921,13 +1164,15 @@ function InteractionLayer({
         : 'crosshair';
 
   return (
-    // biome-ignore lint/a11y/noStaticElementInteractions: 畫布上的拖曳與點選；鍵盤操作由快捷鍵提供
     <div
       ref={el}
-      tabIndex={-1}
+      role="application"
+      aria-label={S.keyCursorLabel}
+      // biome-ignore lint/a11y/noNoninteractiveTabindex: 預覽可以用 Tab 移過來，用方向鍵與 Enter 操作（role＝application）
+      tabIndex={0}
       data-testid="token-interaction"
       data-tool={space ? 'move' : tool}
-      className="absolute inset-0 touch-none outline-none"
+      className="absolute inset-0 touch-none outline-none focus-visible:ring-2 focus-visible:ring-focus"
       style={{ cursor: cursorStyle }}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
@@ -935,6 +1180,15 @@ function InteractionLayer({
       onPointerCancel={onPointerCancel}
       onPointerLeave={() => {
         cursor.current = null;
+        onHover();
+      }}
+      onKeyDown={onKeyDown}
+      onFocus={() => {
+        keyCursor.current.focused = true;
+        onHover();
+      }}
+      onBlur={() => {
+        keyCursor.current.focused = false;
         onHover();
       }}
       onContextMenu={(e) => e.preventDefault()}

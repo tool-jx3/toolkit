@@ -30,6 +30,7 @@ import { initialState, RANGES } from './model';
 import { ExportTab, FrameTab, ImageTab, PopoutTab } from './Panels';
 import { Preview } from './Preview';
 import { importProject, projectAssetIds } from './project';
+import { peekMask } from './sources';
 import {
   assets,
   currentToken,
@@ -48,6 +49,7 @@ import {
   setTool,
   stepZoom,
   TOOL_ID,
+  toggleMaskView,
   tokenPad,
   useDoc,
   usePrefs,
@@ -255,7 +257,33 @@ function useTestHook() {
       pad: () => tokenPad(docNow().look, currentToken()),
       ui: () => {
         const u = useUi.getState();
-        return { alt: u.alt, space: u.space, painting: u.painting, busy: u.busy, wand: u.wand };
+        return {
+          alt: u.alt,
+          space: u.space,
+          painting: u.painting,
+          busy: u.busy,
+          wand: u.wand,
+          maskView: u.maskView,
+        };
+      },
+      /** 目前棋子的遮罩：寬高、0／半透明／255 的像素數 */
+      maskStats: () => {
+        const t = currentToken();
+        const m = t?.mask ? peekMask(t.mask.id) : null;
+        if (!m) return null;
+        let zero = 0;
+        let full = 0;
+        for (const v of m.data) {
+          if (v === 0) zero++;
+          else if (v === 255) full++;
+        }
+        return {
+          width: m.width,
+          height: m.height,
+          zero,
+          full,
+          partial: m.data.length - zero - full,
+        };
       },
       canUndo: () => useDoc.temporal.getState().pastStates.length > 0,
     };
@@ -317,7 +345,10 @@ export function App() {
       },
       { keys: 'v', label: S.shortcutMove, group: S.groupTool, handler: () => setTool('move') },
       { keys: 'w', label: S.shortcutWand, group: S.groupTool, handler: () => setTool('wand') },
+      { keys: 'l', label: S.shortcutLasso, group: S.groupTool, handler: () => setTool('lasso') },
       { keys: 'b', label: S.shortcutBrush, group: S.groupTool, handler: () => setTool('brush') },
+      { keys: 'm', label: S.shortcutMaskView, group: S.groupTool, handler: toggleMaskView },
+      { keys: 'enter', label: S.shortcutKeyCursor, group: S.groupTool },
       { keys: 'escape', label: S.shortcutEsc, group: S.groupTool, handler: () => setTool('move') },
       { keys: 'alt', label: S.shortcutAlt, group: S.groupTool },
       { keys: 'space', label: S.shortcutSpace, group: S.groupTool },

@@ -41,8 +41,8 @@ import { assets, boundaryFor, boundaryOf, putMask, setImageKeepers, TOOL_ID } fr
 import type { TabId, ToolId } from './strings';
 
 export { TOOL_ID };
-/** 專案檔與自動儲存的資料版本 */
-export const DATA_VERSION = 1;
+/** 專案檔與自動儲存的資料版本（2：外觀加漸層的色彩平衡、棋子加去光暈；1 的照讀） */
+export const DATA_VERSION = 2;
 
 export const useDoc = createToolStore<DocState>(TOOL_ID, initialState(), {
   version: DATA_VERSION,
@@ -119,6 +119,12 @@ export interface Prefs {
   brush: number;
   showOutline: boolean;
   autoDetect: boolean;
+  /** 自動的靈敏度（0～100）、內縮／外擴（遮罩的 px）、自動時順便修邊 */
+  autoSens: number;
+  autoShrink: number;
+  autoFix: boolean;
+  /** 預覽下面的桌面尺寸預覽（40、80、120 px） */
+  tableStrip: boolean;
   /** 匯出尺寸：預設的其中一個，或 custom 時用 customSize */
   sizeChoice: number | 'custom';
   customSize: number;
@@ -147,6 +153,10 @@ export const initialPrefs = (): Prefs => ({
   brush: 10,
   showOutline: true,
   autoDetect: false,
+  autoSens: 50,
+  autoShrink: 0,
+  autoFix: true,
+  tableStrip: false,
   sizeChoice: DEFAULT_SIZE,
   customSize: 300,
   format: 'png',
@@ -194,13 +204,25 @@ export const usePrefs = createPreviewStore<Prefs>(TOOL_ID, initialPrefs());
   const d = initialPrefs();
   const fixed: Prefs = {
     tab: TAB_IDS.includes(p.tab) ? p.tab : d.tab,
-    tool: (['move', 'wand', 'brush'] as ToolId[]).includes(p.tool) ? p.tool : d.tool,
+    tool: (['move', 'wand', 'lasso', 'brush'] as ToolId[]).includes(p.tool) ? p.tool : d.tool,
     mode: p.mode === 'sub' ? 'sub' : 'add',
     tolerance: clamp(Math.round(Number(p.tolerance) || d.tolerance), 1, 100),
     contiguous: p.contiguous !== false,
     brush: clamp(Math.round(Number(p.brush) || d.brush), RANGES.brush.min, RANGES.brush.max),
     showOutline: p.showOutline !== false,
     autoDetect: p.autoDetect === true,
+    autoSens: clamp(
+      Math.round(Number.isFinite(Number(p.autoSens)) ? Number(p.autoSens) : d.autoSens),
+      RANGES.autoSens.min,
+      RANGES.autoSens.max,
+    ),
+    autoShrink: clamp(
+      Math.round(Number(p.autoShrink) || 0),
+      RANGES.autoShrink.min,
+      RANGES.autoShrink.max,
+    ),
+    autoFix: p.autoFix !== false,
+    tableStrip: p.tableStrip === true,
     sizeChoice:
       p.sizeChoice === 'custom' || [256, 280, 400, 512, 1024, 2048].includes(p.sizeChoice as number)
         ? p.sizeChoice
@@ -251,6 +273,11 @@ export function setTool(tool: ToolId): void {
   useUi.setState({ wand: null, hint: null });
 }
 
+/** 檢視遮罩（黑白）開關 */
+export function toggleMaskView(): void {
+  useUi.setState((u) => ({ maskView: !u.maskView }));
+}
+
 /* ---------- 介面狀態 ---------- */
 
 /** 魔術棒上次點的地方（改容許度時從這裡重新選） */
@@ -282,6 +309,20 @@ export interface UiState {
   hint: string | null;
   /** 自動配色按了幾次（每次換下一個候選） */
   autoSeed: number;
+  /** 檢視遮罩（黑白；只在預覽） */
+  maskView: boolean;
+  /** 去掉小縫隙的寬度（遮罩的 px；滑桿的位置） */
+  gap: number;
+  /** 去掉小縫隙、自動的滑桿從哪一份遮罩重算（遮罩被別的動作改掉時作廢） */
+  retune: RetuneSeed | null;
+}
+
+/** 滑桿重算的起點：哪個棋子、從哪一份遮罩（null＝空）、算完之後的遮罩 id */
+export interface RetuneSeed {
+  kind: 'gap' | 'auto';
+  tokenId: string;
+  base: MaskRef | null;
+  result: string | null;
 }
 
 export const useUi = create<UiState>(() => ({
@@ -294,6 +335,9 @@ export const useUi = create<UiState>(() => ({
   lockedPad: null,
   hint: null,
   autoSeed: 0,
+  maskView: false,
+  gap: 0,
+  retune: null,
 }));
 
 /** 目前的模式（按住 Alt 時反過來） */
@@ -339,6 +383,7 @@ export function replaceImage(tokenId: string, ref: ImageRef): void {
     t.view = defaultView();
     t.mask = null;
     t.popOn = true;
+    delete t.halo;
   });
   useUi.setState({ wand: null });
 }
@@ -373,7 +418,7 @@ export function selectToken(id: string | null): void {
     d.current = id;
   });
   useDoc.temporal.getState().resume();
-  useUi.setState({ wand: null, liveMask: null });
+  useUi.setState({ wand: null, liveMask: null, retune: null, gap: 0 });
 }
 
 export function removeToken(id: string): void {
@@ -502,14 +547,24 @@ export function keyRotate(delta: number): void {
 
 /* ---------- 遮罩 ---------- */
 
-/** 換掉一個棋子的遮罩（先存進資產庫，再寫進狀態＝一步復原）；回傳新的遮罩 id */
-export function commitMask(tokenId: string, mask: Mask | null): Promise<string | null> {
+/**
+ * 換掉一個棋子的遮罩（先存進資產庫，再寫進狀態＝一步復原）；回傳新的遮罩 id。
+ * also：同一步裡一起改的東西（例：修邊之後打開去光暈）。
+ */
+export function commitMask(
+  tokenId: string,
+  mask: Mask | null,
+  also?: (t: TokenItem) => void,
+): Promise<string | null> {
   /* 一個接一個存：連續兩筆（畫完馬上擦）時，後面那一筆不會比前面的先寫進狀態 */
   const job = maskSaved.then(async () => {
     const r = mask ? await putMask(mask) : null;
     editToken(tokenId, (t) => {
       t.mask = r ? r.ref : null;
       if (r) t.popOn = true;
+      /* 沒有遮罩時不留去光暈 */
+      if (!r) delete t.halo;
+      else also?.(t);
     });
     return r?.ref.id ?? null;
   });
