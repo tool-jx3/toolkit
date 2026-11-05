@@ -9,6 +9,9 @@
  * - gapRemove（去掉小縫隙）：選取裡像背景色、寬度在指定以內的縫隙去掉（髮捲之間露出的紙）。
  * - unmix（去光暈）：半透明的邊緣像素扣掉背景色（出框蓋在外框上時不會有一圈舊背景的顏色）。
  * - fillPolygon：套索圈起來的範圍。
+ *
+ * softAuto、chamfer、cleanSpecks、gapRemove、unmixHalo、matteEdges、estimateBg（與 solidMap）刻意貼近原作的程式，
+ * 遮罩才會和原作逐像素相同（規格 D44；MIT，授權全文在 UPSTREAM_LICENSE）；fixEdges、hardenMask、fillPolygon（套索）是本站自己寫的。
  */
 import type { Mask, Rgba } from './mask';
 

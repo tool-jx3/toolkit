@@ -309,7 +309,7 @@ export const RANGES = {
   width: { min: 2, max: 30, step: 1 },
   depth: { min: 0, max: 100, step: 1 },
   gAngle: { min: 0, max: 360, step: 1 },
-  gMid: { min: 10, max: 90, step: 1 },
+  gMid: { min: 5, max: 95, step: 1 },
   lightAngle: { min: 0, max: 360, step: 1 },
   lightStrength: { min: 0, max: 150, step: 1 },
   texAmount: { min: 5, max: 100, step: 1 },

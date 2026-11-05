@@ -27,6 +27,7 @@ import {
 } from '../../src/tools/token-maker/edges';
 import {
   fromBase64,
+  fromTokenWorkshop,
   readEmbedded,
   TW_LIMITS,
   toBase64,
@@ -480,13 +481,17 @@ describe('套索', () => {
 });
 
 describe('資料：漸層的色彩平衡、去光暈', () => {
-  it('gMid 夾在 10～90，沒有時 50；漸層色票、外框預設、隨機都回到 50', () => {
+  it('gMid 夾在 5～95（同原作），沒有時 50；漸層色票、外框預設、隨機都回到 50', () => {
     expect(look().gMid).toBe(50);
-    expect(normalizeLook({ ...DEFAULT_LOOK, gMid: 3 }).gMid).toBe(10);
-    expect(normalizeLook({ ...DEFAULT_LOOK, gMid: 95 }).gMid).toBe(90);
+    expect(normalizeLook({ ...DEFAULT_LOOK, gMid: 3 }).gMid).toBe(5);
+    expect(normalizeLook({ ...DEFAULT_LOOK, gMid: 99 }).gMid).toBe(95);
+    expect(normalizeLook({ ...DEFAULT_LOOK, gMid: 95 }).gMid).toBe(95);
     const { gMid: _g, ...old } = DEFAULT_LOOK;
     expect(normalizeLook(old).gMid).toBe(50);
     expect(applyPreset(look({ gMid: 30 }), RING_PRESETS[0]).gMid).toBe(50);
+    /* TW 的 gMid（原作夾在 0.05～0.95）→ 5～95% */
+    expect(fromTokenWorkshop({ gMid: 0.05 }, look()).look.gMid).toBe(5);
+    expect(fromTokenWorkshop({ gMid: 0.95 }, look()).look.gMid).toBe(95);
   });
 
   it('棋子的去光暈：只在有遮罩時留著，0 時不寫（存檔和之前相同）', () => {
