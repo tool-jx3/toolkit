@@ -1,0 +1,36 @@
+本資料夾的 tilemap.png 是 Kenney 的 Tiny Dungeon（1.0）的圖塊表（16 × 16 px 的圖塊 12 欄 × 11 列、間隔 1 px，
+共 132 格），原樣收錄、沒有修改。素材包附的授權文字如下（CC0 1.0，公眾領域貢獻宣告）：
+
+-----
+
+	
+
+	Tiny Dungeon (1.0)
+
+	Created/distributed by Kenney (www.kenney.nl)
+	Creation date: 05-07-2022
+
+			------------------------------
+
+	License: (Creative Commons Zero, CC0)
+	http://creativecommons.org/publicdomain/zero/1.0/
+
+	This content is free to use in personal, educational and commercial projects.
+
+	Support us by crediting Kenney or www.kenney.nl (this is not mandatory)
+
+			------------------------------
+
+	Donate:   http://support.kenney.nl
+	Patreon:  http://patreon.com/kenney/
+
+	Follow on Twitter for updates:
+	http://twitter.com/KenneyNL
+
+-----
+
+CC0 1.0 全文：https://creativecommons.org/publicdomain/zero/1.0/legalcode
+素材包的頁面：https://kenney.nl/assets/tiny-dungeon
+取得：deukrezia/trials（commit dd4f118，2026-11-05）的 assets/kenney-tiny/tilemap.png（該 repo 的 CREDITS.md 說明圖塊表
+取自 Kenney 的素材包、未修改）。SHA-256：5653222ac495d89e942f9b636300759b3f38e85b26e9b888676f2e9ab834095a。
+圖塊的分類與中文名稱是本站寫的（web/src/tools/tile-map/tiles/kenney.ts）。Kenney 與本站沒有關係，也沒有為本站背書。

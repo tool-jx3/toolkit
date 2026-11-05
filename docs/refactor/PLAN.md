@@ -59,6 +59,7 @@
 | gif-combiner | GIF 接合器 | sotsotssi/GIF-Combiner | MIT | G8 |
 | music-frame | 音樂播放畫面產生器 | zZnaptime/MVmaker（原 zznaptime/1007mv） | 未授權 | G8 |
 | battlemap | 戰鬥地圖產生器 | usagineko7865-debug/battlemap-generator（2026-10-30 起格局另參考 ondras/rot.js） | MIT（rot.js：BSD-3-Clause） | G10（原 G8） |
+| tile-map | 圖塊地圖產生器（2026-11-05 另外加入；名稱暫定） | deukrezia/trials（Trials — VTT Battlemap Maker） | 未授權（程式）；內建圖塊 Kenney 的 Scribble Dungeons、Tiny Dungeon 是 CC0 1.0 | G10 |
 | trpg-lab | 違法建築的 TRPG 實驗室（9 個子工具＋地圖編輯器） | ihoukentiku | MIT | G9 |
 | anime-rig | Anime2.5DRig | 852wa/Anime2.5DRig | MIT | G9 |
 | jizura | JIZURA 字面 | 852wa/JIZURA | MIT | 外部連結（不重寫，維持轉址） |
@@ -80,7 +81,7 @@
 | G7 介紹圖與宣傳 | 版型畫布（Konva）、3D（three.js） | pair-maker、character-select、magic-circle、acrylic-goods |
 | G8 影像與動圖 | 影片解碼、動圖編碼、程序生成 | video-anim、gif-combiner、music-frame |
 | G9 CoC 跑團輔助 | CoC 規則（骰子算式、成功等級、DB／體格、衍生值） | coc-dice、coc-npc、coc-sheet（由 trpg-lab 拆出） |
-| G10 地圖與網格 | 格子幾何（方格／六角格、座標、距離）、地圖畫布（Fabric） | map-editor、grid-maker、range-ruler（由 trpg-lab 拆出）、battlemap（從 G8 移來）、map-fx（2026-10-25 另外加入；和 screenshot-fx 共用 core/imagefx，進階 3D 用 three.js） |
+| G10 地圖與網格 | 格子幾何（方格／六角格、座標、距離）、地圖畫布（Fabric） | map-editor、grid-maker、range-ruler（由 trpg-lab 拆出）、battlemap（從 G8 移來）、map-fx（2026-10-25 另外加入；和 screenshot-fx 共用 core/imagefx，進階 3D 用 three.js）；tile-map（2026-11-05 另外加入；點陣圖塊編輯器，共用 PanZoomViewport 盤面與 core/grid，不用 Fabric） |
 
 G9 的決定（2026-10-08，使用者裁定）：trpg-lab 拆成 6 個工具（擲骰＋傷害計算合成 coc-dice、方格＋六角格合成 grid-maker、兩個量尺合成 range-ruler）、
 實驗室首頁與共用頁首捨棄（舊網址轉址）；anime-rig 維持獨立工具、放 G3；地圖編輯器用 Fabric（從 npm 打包，舊地圖可以搬過來）；

@@ -1,0 +1,39 @@
+本資料夾的 atlas.webp 是 Kenney 的 Scribble Dungeons（64 × 64 px 的版本）的 136 張圖塊，由本站排成一張圖
+（12 欄、每格 64 × 64 px、依檔名的字母順序，Characters／Items 兩個子資料夾在最前面）並存成無損的 WebP；
+每一格的像素和原檔相同（ImageMagick compare 的差異像素數 0），只有排列與檔案格式不同。授權：CC0 1.0（公眾領域貢獻宣告）。
+
+授權的出處：Kenney 的 Scribble Dungeons 頁面（https://kenney.nl/assets/scribble-dungeons）標示 License: Creative Commons CC0。
+取得：deukrezia/trials（commit dd4f118，2026-11-05）的 assets/kenney-scribble/tiles/（136 個 PNG）。那個 repo 的 CREDITS.md
+說明這些圖取自素材包的「PNG/Default (64px)」資料夾、未修改，素材包的頁面標示 CC0；同一個資料夾裡的 SOURCE-LICENSE.txt
+其實是 Tiny Dungeon 的授權文字（素材包的上層資料夾附的是 Tiny Dungeon 的 License.txt），內容同樣是 CC0。照原樣附在下面：
+
+-----
+
+	
+
+	Tiny Dungeon (1.0)
+
+	Created/distributed by Kenney (www.kenney.nl)
+	Creation date: 05-07-2022
+
+			------------------------------
+
+	License: (Creative Commons Zero, CC0)
+	http://creativecommons.org/publicdomain/zero/1.0/
+
+	This content is free to use in personal, educational and commercial projects.
+
+	Support us by crediting Kenney or www.kenney.nl (this is not mandatory)
+
+			------------------------------
+
+	Donate:   http://support.kenney.nl
+	Patreon:  http://patreon.com/kenney/
+
+	Follow on Twitter for updates:
+	http://twitter.com/KenneyNL
+
+-----
+
+CC0 1.0 全文：https://creativecommons.org/publicdomain/zero/1.0/legalcode
+圖塊的分類與中文名稱是本站寫的（web/src/tools/tile-map/tiles/kenney.ts）。Kenney 與本站沒有關係，也沒有為本站背書。

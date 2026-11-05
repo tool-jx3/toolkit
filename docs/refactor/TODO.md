@@ -151,7 +151,7 @@
 - 2026-11-05 掃描排除的：
   - 要後端、帳號或 AI：Arbeit2025/trpgposter（Flask）、dan0030/danb、A-1ro/Arkhive、aemeath-projects/bookshelf、AI GM 與骰娘 bot（tkalk1225/trpg-game、xiangshu2026/rp-kp、leon5354/Coc_AI_Runner 等）；pierretusseau/lockpick-minigame 新加的排行榜（Cloudflare Worker）那部分。
   - 桌面程式、手機 App、擴充：utiyoso/scenario-manager 與 uchiyoso_kanri（BOOTH 販售的 Windows 程式，repo 只有宣傳頁）、arcana-hanna/dreamy-loop-editor（Electron＋yt-dlp）、asp0902/CCFOLIA_bookmarklet、wzizary/trpg-obr（Owlbear 擴充）、Foundry 的 CoC 角色卡。
-  - 系統專用：インセイン、D&D 5e、ゆとシートⅡ 的 CCFOLIA 轉換器；deukrezia/trials（像素風戰鬥地圖，免費網頁版與付費桌面版）。
+  - 系統專用：インセイン、D&D 5e、ゆとシートⅡ 的 CCFOLIA 轉換器。
   - 授權不合或沒有授權的重複工具：guaner-334/civ-atlas（AGPL-3.0）、boto-coder/dice 與 1337exp/pkt-dice（3D 骰，未授權；coc-dice 已列 dice-box-threejs）、dan0030/pairinfo（和 pair-maker、relation-chart 重複）、dearmysn1p3r/CdPlayer_Maker（music-frame 已涵蓋）。
   - 和 log-converter 重複的日誌工具：misosiru714/log-theater、guri-dice/log-tools、shockdazou/ccfolia-log-editor、SIRUBEDON/CCfoliaLogConverterWithImages。
   - 資料庫或內容：Tetoriapot/machikado-menu-catalog（虛構店鋪菜單，無授權，資料不能沿用；「依時代與類型抽店鋪」的點子之後可以自己做）、smoke-archive、scenario-shikomi-note（只有 README）；garagaradom/ccfolia-streaming-css（MIT，幾行隱藏 CCFOLIA 介面的 CSS，chat-window 的直播說明可以參考）。
