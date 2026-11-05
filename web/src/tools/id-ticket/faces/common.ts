@@ -30,6 +30,25 @@ export interface IdEnv extends DrawEnv {
    * 沒有時每一款照以前的畫法（只在預覽、不要的匯出逐位元組不變）。
    */
   slot?: { x: number; y: number; w: number; h: number } | null;
+  /**
+   * 浮水印與裝飾圖（2026-11-05，規格 F95）：每一面畫完「底」（底色、底紋）之後呼叫 `ground(e, 照片格)`，
+   * 由這裡畫浮水印與裝飾圖，之後才畫「內容」（色帶、字、照片…）。沒有浮水印也沒有裝飾圖時不給（畫法逐指令不變）。
+   */
+  ground?: (hole: GroundHole | null) => void;
+}
+
+/** 照片格（浮水印不印、「照片蓋過裝飾圖」時裝飾圖不畫的地方；設計單位，r＝圓角） */
+export interface GroundHole {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  r: number;
+}
+
+/** 「底」畫完了：畫浮水印與裝飾圖（沒有時什麼都不做）；hole＝這一面的照片格 */
+export function ground(e: IdEnv, hole: GroundHole | null = null): void {
+  e.ground?.(hole);
 }
 
 export type FaceFn = (e: IdEnv) => void;

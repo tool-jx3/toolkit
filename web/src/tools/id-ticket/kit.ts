@@ -70,7 +70,7 @@ export interface FontUse {
 
 /* ---------- 畫的環境 ---------- */
 
-export type RegionKind = 'field' | 'photo' | 'code' | 'qr' | 'license' | 'dna';
+export type RegionKind = 'field' | 'photo' | 'code' | 'qr' | 'license' | 'dna' | 'chip';
 
 /** 預覽上可以點的範圍（設計單位） */
 export interface Region {
