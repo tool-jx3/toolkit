@@ -99,7 +99,7 @@
 | [網格產生器](https://tool-jx3.github.io/toolkit/tools/grid-maker/) | 產生透明背景的方格或六角格 PNG：格數、大小、線條與發光，可以加上 1-1、A1、流水號等座標；六角格能網格化成 CCFOLIA 對得齊的尺寸 |
 | [距離量尺產生器](https://tool-jx3.github.io/toolkit/tools/range-ruler/) | 以中心格為起點，把每一格的距離寫在格子上、依距離上色，做成可以疊在地圖上的方格或六角格量尺 PNG |
 | [地圖編輯器](https://tool-jx3.github.io/toolkit/tools/map-editor/) | 在方格或六角格上畫戰鬥地圖與平面圖：地面、牆壁、房間、家具與地圖符號、格子填色、手繪與文字，可以群組與布林運算；地圖自動存在瀏覽器，選範圍匯出 PNG、JPEG、SVG |
-| [室內平面圖產生器](https://tool-jx3.github.io/toolkit/tools/floor-plan/) | 探索場景用的室內平面圖：從住宅、洋館、飯店、醫院、廢墟等範本開始擺房間（牆自動產生）、門窗與家具，GM 用與 PL 用分開匯出 PNG |
+| [室內平面圖產生器](https://tool-jx3.github.io/toolkit/tools/floor-plan/) | 探索場景用的室內平面圖：從住宅、洋館、飯店、醫院、廢墟等範本開始擺房間（牆自動產生）、門窗與家具（可以一鍵套用書房、臥室等內裝），夜裡只有燭台與窗邊亮著的光源，GM 用、PL 用與揭露用分開匯出 PNG |
 | [JIZURA 字面](https://tool-jx3.github.io/toolkit/tools/jizura/) | 貼上歌詞、點按拍點，自動排出文字 PV（歌詞動態影片）：一鍵換方案，版面、登場、特效等可以逐段替換，匯出 MP4、綠幕、黑幕或 PNG 序列（連到原作者網站的官方繁中版） |
 | [奇幻世界地圖產生器](https://azgaar.github.io/Fantasy-Map-Generator/) | 一鍵產生整片大陸的奇幻世界地圖：地形、氣候、河流、國家、城鎮、文化、宗教與道路都能逐項編輯，匯出 PNG、SVG 或存成地圖檔（連到 Azgaar 的 Fantasy Map Generator 原站，英文介面） |
 | [2.5D 動態立繪](https://tool-jx3.github.io/toolkit/tools/anime-rig/) | 拖進分好部件的 PSD 就自動綁定、當場動起來：眨眼、嘴型、頭髮物理（直接接受 [see-through](https://github.com/shitagaki-lab/see-through) 從單張插圖拆出來的 PSD，連深度 PSD 一起給時轉頭更立體），可以用攝影機（臉部追蹤，模型第一次使用時下載約 3.8 MB）或麥克風帶動，匯出透明 PNG 或影片 |
@@ -223,7 +223,7 @@ CI（GitHub Actions）在 pull request 與 main 上跑 `npm test`、lint、typec
 | `scenario-text` | [劇本文字產生器](https://tool-jx3.github.io/toolkit/tools/scenario-text/) | [shiki365/scenario-text-maker](https://github.com/shiki365/scenario-text-maker) |
 | `house-rules` | [CoC 房規表產生器](https://tool-jx3.github.io/toolkit/tools/house-rules/) | [くま。／CoCハウスルール表メーカー](https://kumachansteps.github.io/trpg-web-tools/) |
 | `speech-bubble` | [動態對話泡泡產生器](https://tool-jx3.github.io/toolkit/tools/speech-bubble/) | [sotsotssi/TextBubbleMaker-preview](https://github.com/sotsotssi/TextBubbleMaker-preview)、[aokmri/dp-cardmaker](https://github.com/aokmri/dp-cardmaker)（對話卡片） |
-| `floor-plan` | [室內平面圖產生器](https://tool-jx3.github.io/toolkit/tools/floor-plan/) | [くま。／TRPG室内図メーカー](https://kumachansteps.github.io/trpg-web-tools/)、[GMW／Maptsukuri](https://maptsukuri.pages.dev/)（分享連結、房間編號）、[KIIN／マップ制作スタジオ](https://kiin.booth.pm/)（自動化、L 形房間、圖面風格與座標、VTT 匯出） |
+| `floor-plan` | [室內平面圖產生器](https://tool-jx3.github.io/toolkit/tools/floor-plan/) | [くま。／TRPG室内図メーカー](https://kumachansteps.github.io/trpg-web-tools/)、[GMW／Maptsukuri](https://maptsukuri.pages.dev/)（分享連結、房間編號）、[KIIN／マップ制作スタジオ](https://kiin.booth.pm/)（自動化、L 形房間、圖面風格與座標、VTT 匯出；v2.0 的夜的光源、內裝預設、自由線等） |
 | `rank-chart` | [排行榜產生器](https://tool-jx3.github.io/toolkit/tools/rank-chart/) | [sotsotssi/would-you-rank](https://github.com/sotsotssi/would-you-rank) |
 | `scratch-card` | [刮刮卡產生器](https://tool-jx3.github.io/toolkit/tools/scratch-card/) | [sotsotssi/Scratchcard](https://github.com/sotsotssi/Scratchcard) |
 | `clue-map` | [調查熱點圖](https://tool-jx3.github.io/toolkit/tools/clue-map/) | [momo102938/MUNgs_click](https://github.com/momo102938/MUNgs_click)（콕콕；本站自己的構想，只借「熱區＋解鎖」的想法） |
