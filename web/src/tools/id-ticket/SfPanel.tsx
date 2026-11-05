@@ -46,17 +46,11 @@ import {
   type PhotoFx,
   type PhotoFxId,
 } from './photofx';
+import { SfCtorSection } from './SfCtor';
 import { SF_CHIP_TYPES, type SfChipType } from './sf/chips';
 import { SF_CODE_TYPES } from './sf/codes';
 import { formatYmd, SF_DATE_FORMATS, SF_DATE_KEYS, type SfDateFormat } from './sf/dates';
-import {
-  SF_CAPTION_LABELS,
-  SF_CAPTIONS,
-  SF_SCHEMES,
-  type SfDecor,
-  sfBlank,
-  sfCaptionMax,
-} from './sf/defs';
+import { SF_CAPTION_LABELS, SF_CAPTIONS, SF_SCHEMES, type SfDecor, sfCaptionMax } from './sf/defs';
 import { DIGITAL_SWATCHES } from './sf/digital';
 import { drawLicenseShapes, licenseCaption } from './sf/draw';
 import { SF_FRAME_IDS, SF_FRAME_LABELS, type SfFrameId } from './sf/frames';
@@ -78,6 +72,7 @@ import {
   ELEMENT_SIZE_RANGE,
   SF_ELEMENT_MAX,
   type SfCodeType,
+  sfDef,
   type WatermarkMode,
   type WatermarkTone,
   WM_RANGES,
@@ -196,7 +191,7 @@ export function useSfCodeDense(key: string): string {
   if (!sf) return '';
   const d = sfCodeDensity(sf, box, k);
   if (!d?.dense) return '';
-  if (d.kind === 'qr' ? key !== 'qr' : key !== sfBlank(sf.blank).codeKey) return '';
+  if (d.kind === 'qr' ? key !== 'qr' : key !== sfDef(sf).codeKey) return '';
   return S.sfCodeDense(d.kind, d.module, k);
 }
 
@@ -247,7 +242,7 @@ export function LicensesSection() {
   const kind = useDoc((s) => s.data.kind);
   /* 打開對話框的鉛筆按鈕：關掉（含 Esc）後焦點回到它 */
   const [opener, setOpener] = useState<HTMLElement | null>(null);
-  if (kind !== 'sf' || sf.blank !== 'license') return null;
+  if (kind !== 'sf' || sf.blank !== 'license' || sf.custom) return null;
   return (
     <Section
       title={`${S.sectionLicenses}（${sf.licenses.length}／${LICENSES.length}）`}
@@ -382,7 +377,7 @@ export function SfCaptionsSection() {
   const sf = useDoc((s) => s.data.sf);
   const kind = useDoc((s) => s.data.kind);
   const [on, setOn] = useAdvancedMode(TOOL_ID);
-  const keys = sfBlank(sf.blank).captions;
+  const keys = sfDef(sf).captions;
   if (kind !== 'sf' || !keys.length) return null;
   return (
     <Section
@@ -438,10 +433,11 @@ export function SfCaptionsSection() {
 export function SfStyleSection() {
   const sf = useDoc((s) => s.data.sf);
   const st = sf.style;
-  const def = sfBlank(sf.blank);
+  const def = sfDef(sf);
   const has = (d: SfDecor) => def.decor.includes(d);
   return (
     <>
+      <SfCtorSection />
       <Section title={S.sectionScheme} persistKey="id-ticket:sf-scheme">
         <fieldset
           className="m-0 flex min-w-0 flex-wrap gap-1.5 border-0 p-0"

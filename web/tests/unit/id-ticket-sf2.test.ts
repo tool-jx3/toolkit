@@ -22,6 +22,15 @@ import {
   lookalikeShapes,
   SF_CODE_TYPES,
 } from '@/tools/id-ticket/sf/codes';
+import {
+  customCodeKey,
+  customDecor,
+  customFields,
+  fitItem,
+  newCustomBlank,
+  newCustomItem,
+  rebaseCustom,
+} from '@/tools/id-ticket/sf/custom';
 import { formatSfDate, formatYmd, parseSfDate, SF_DATE_FORMATS } from '@/tools/id-ticket/sf/dates';
 import {
   DIGITAL_MARGIN,
@@ -30,12 +39,20 @@ import {
   digitalLayout,
   digitalTint,
 } from '@/tools/id-ticket/sf/digital';
+import { drawSf } from '@/tools/id-ticket/sf/draw';
 import { glowBlur, grainPixels, SF_FX_DEFAULT } from '@/tools/id-ticket/sf/fx';
-import { defaultSfStyle, initialSf, normalizeSf } from '@/tools/id-ticket/sf/model';
+import {
+  defaultSfStyle,
+  initialSf,
+  normalizeSf,
+  sfDef,
+  withTemplate,
+} from '@/tools/id-ticket/sf/model';
 import { generateSfName } from '@/tools/id-ticket/sf/namegen';
 import { SF_NAME_REGIONS } from '@/tools/id-ticket/sf/names';
 import {
   applyExample,
+  applyPresetSf,
   normalizePresets,
   PresetFileError,
   parsePresetFile,
@@ -402,5 +419,142 @@ describe('證件的浮水印與裝飾圖（F95）', () => {
     expect(back).not.toBe(draw(base, 'back'));
     /* 字距不是 0：一個字一個字畫 */
     for (const c of ID_WATERMARK_TEXT.replace(/\s/g, '')) expect(back).toContain(`"${c}"`);
+  });
+});
+
+describe('自組底版（F96～F100）', () => {
+  it('新的底版：借外形的照片格、名字與編號兩行（橫式在照片右邊）', () => {
+    const def = newCustomBlank('citizen', 'CUSTOM 1');
+    expect(def.base).toBe('citizen');
+    expect(def.items.map((it) => it.type)).toEqual(['photo', 'text', 'text']);
+    const [photo, name, no] = def.items;
+    expect([photo.x, photo.y, photo.w, photo.h]).toEqual([157, 220, 413, 530]);
+    expect(name.x).toBe(157 + 413 + 60);
+    expect(no.kind).toBe('serial');
+    expect(customCodeKey(def)).toBe(no.id);
+    expect(customFields(def).map((f) => [f.label, f.gen ?? null])).toEqual([
+      ['NAME', null],
+      ['ID NO.', 'serial'],
+    ]);
+    /* 直式：在照片下面 */
+    const v = newCustomBlank('event', 'V');
+    expect(v.items[1].y).toBe(250 + 840 + 60);
+  });
+
+  it('項目夾在卡片上、晶片是正方形、線可以到 2；換外形時跟著縮放', () => {
+    const it = { ...newCustomItem('chip', 'citizen'), x: 1590, y: -20, w: 100, h: 60 };
+    const f = fitItem(it, 'citizen');
+    expect([f.w, f.h]).toEqual([60, 60]);
+    expect([f.x, f.y]).toEqual([1600 - 60, 0]);
+    expect(fitItem({ ...newCustomItem('rule', 'citizen'), h: 1 }, 'citizen').h).toBe(2);
+    const def = newCustomBlank('citizen', 'C');
+    const r = rebaseCustom(def, 'pass');
+    expect(r.base).toBe('pass');
+    const [p0, p1] = [def.items[0], r.items[0]];
+    expect(p1.x).toBe(Math.round(p0.x * (1000 / 1600)));
+    expect(p1.h).toBe(Math.round(p0.h * (1600 / 1010)));
+    expect(
+      customDecor({ ...def, items: [...def.items, newCustomItem('code', 'citizen')] }),
+    ).toEqual(['edge', 'barcode']);
+  });
+
+  it('讀檔：不認得的外形丟掉、選項照允許的、照片剛好一個、id 重複換新的；開著的底版的範本＝它的外形', () => {
+    const def = newCustomBlank('license', 'L');
+    const raw = {
+      blank: 'event',
+      custom: def.id,
+      customs: [
+        {
+          ...def,
+          items: [
+            ...def.items,
+            { ...def.items[0], id: 'dup-photo' },
+            { ...def.items[1], id: def.items[1].id, color: 'neon', weight: 500, kind: 'date' },
+            { type: 'nope', id: 'x' },
+          ],
+        },
+        { id: 'bad', base: 'moon', items: [] },
+      ],
+      values: { [def.items[1].id]: 'ADA\nKING', other: 'x' },
+    };
+    const s = normalizeSf(raw);
+    expect(s.customs).toHaveLength(1);
+    expect(s.custom).toBe(def.id);
+    expect(s.blank).toBe('license');
+    const items = s.customs[0].items;
+    expect(items.filter((x) => x.type === 'photo')).toHaveLength(1);
+    const again = items[items.length - 1];
+    expect(again.id).not.toBe(def.items[1].id);
+    expect([again.color, again.weight, again.kind]).toEqual(['ink', 700, 'date']);
+    expect(s.values[def.items[1].id]).toBe('ADA KING');
+    expect(s.elements[`custom:${def.id}`]).toEqual([]);
+    expect(sfDef(s).fields.length).toBe(3);
+    expect(withTemplate(s, 'event')).toMatchObject({ blank: 'event', custom: null });
+    expect(withTemplate(s, `custom:${def.id}`)).toMatchObject({ blank: 'license', custom: def.id });
+  });
+
+  it('套用預設：預設裡的底版蓋過同一個，目前另外有的留著（連同值）', () => {
+    const a = newCustomBlank('citizen', 'A');
+    const b = newCustomBlank('pass', 'B');
+    const cur = normalizeSf({
+      customs: [a, b],
+      custom: b.id,
+      values: { [b.items[1].id]: 'KEEP' },
+    });
+    const preset = normalizeSf({ customs: [{ ...a, name: 'A2' }], custom: a.id });
+    const got = applyPresetSf(cur, preset);
+    expect(got.customs.map((c) => c.name)).toEqual(['A2', 'B']);
+    expect(got.custom).toBe(a.id);
+    expect(got.values[b.items[1].id]).toBe('KEEP');
+    expect(applyExample(cur, SF_EXAMPLES[0].sf).customs).toHaveLength(2);
+  });
+
+  it('畫自組底版：文字（標題＋值，日期照格式）、帶子、條碼編第一個編號', () => {
+    const def = newCustomBlank('citizen', 'C');
+    const date = { ...newCustomItem('text', 'citizen'), kind: 'date' as const, cap: 'EXP' };
+    const band = newCustomItem('band', 'citizen');
+    const code = newCustomItem('code', 'citizen');
+    const s = normalizeSf({
+      customs: [{ ...def, items: [...def.items, date, band, code] }],
+      custom: def.id,
+      values: { [def.items[2].id]: 'ZX-0001', [date.id]: '2090-01-02' },
+      style: { dateFmt: 'dmon' },
+    });
+    const r = recordCanvas(1600, 1010);
+    const ctx = new Proxy(r.ctx as unknown as Record<string, unknown>, {
+      get(t, k) {
+        if (k === 'getTransform')
+          return () => {
+            const self = {
+              a: 1,
+              b: 0,
+              c: 0,
+              d: 1,
+              e: 0,
+              f: 0,
+              inverse: () => self,
+              multiply: () => self,
+            };
+            return self;
+          };
+        return t[k as string];
+      },
+      set(t, k, v) {
+        t[k as string] = v;
+        return true;
+      },
+    }) as unknown as CanvasRenderingContext2D;
+    const res = drawSf(ctx, s, 1, { preview: false, photo: null, image: () => null });
+    /* 字距不是 0 時一個字一個字畫：把畫出來的字接起來看 */
+    const drawn = (r.log as unknown[][])
+      .filter((x) => x[0] === 'fillText')
+      .map((x) => x[1])
+      .join('');
+    expect(drawn).toContain('02 JAN 2090');
+    expect(drawn).toContain('EXP');
+    expect(res.regions.some((x) => x.kind === 'code' && x.key === def.items[2].id)).toBe(true);
+    expect(res.regions.filter((x) => x.kind === 'field').map((x) => x.key)).toEqual(
+      expect.arrayContaining([def.items[1].id, date.id]),
+    );
   });
 });

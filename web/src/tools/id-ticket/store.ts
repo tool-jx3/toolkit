@@ -39,10 +39,26 @@ import {
 } from './model';
 import type { PhotoFx } from './photofx';
 import { GIF_LONG_OPTIONS } from './render';
+import {
+  CUSTOM_ITEM_MAX,
+  CUSTOM_MAX,
+  CUSTOM_NAME_MAX,
+  CUSTOM_SAMPLE,
+  type CustomItem,
+  type CustomItemType,
+  customKey,
+  customUid,
+  fitItem,
+  newCustomBlank,
+  newCustomItem,
+  rebaseCustom,
+} from './sf/custom';
+import { parseSfDate } from './sf/dates';
 import { SF_LICENSES_DEFAULT, type SfBlankId, sfBlank, sfCaptionMax } from './sf/defs';
-import { sfPortrait } from './sf/draw';
+import { sfPortraitOf } from './sf/draw';
 import { LICENSE_CAP_MAX } from './sf/licenses';
 import {
+  activeCustom,
   type CropFrac,
   ELEMENT_SIZE_RANGE,
   newElementId,
@@ -52,9 +68,13 @@ import {
   type SfState,
   type SfStyle,
   type SfWatermark,
+  sfDef,
+  sfElementKey,
   sfGenerate,
+  sfTemplateValue,
   sfValueDefaults,
   WHOLE,
+  withTemplate,
 } from './sf/model';
 import { isSfNameRegion, type SfName, type SfNameGender, type SfNameRegion } from './sf/names';
 import { normalizePresets, presetAssetIds, type SfPreset } from './sf/presets';
@@ -232,7 +252,13 @@ export const useUi = create<{
   spot: { x: number; y: number; size: number } | null;
   /** SF 證件的條碼／QR code 畫在哪（預覽畫的時候記下；算密度用） */
   sfCode: SfCodeBox | null;
+  /** 自組底版：在預覽上編輯版面（2026-11-05） */
+  ctor: boolean;
+  /** 自組底版：選取的項目 */
+  ctorItem: string | null;
 }>(() => ({
+  ctor: false,
+  ctorItem: null,
   frame: null,
   crop: null,
   element: null,
@@ -282,7 +308,7 @@ export function setTicketTemplate(id: TicketTemplateId): void {
 
 /** 目前範本的欄位定義 */
 export function currentFields(d: IdTicketState = docNow()): readonly FieldDef[] {
-  if (d.kind === 'sf') return sfBlank(d.sf.blank).fields;
+  if (d.kind === 'sf') return sfDef(d.sf).fields;
   return d.kind === 'id'
     ? idTemplate(d.idTemplate).fields
     : ticketTemplate(d.ticketTemplate).fields;
@@ -359,7 +385,11 @@ export function fillSample(): void {
   edit((d) => {
     if (d.kind === 'sf') {
       const def = sfValueDefaults();
-      for (const f of fields) d.sf.values[f.key] = def[f.key] ?? '';
+      const c = activeCustom(d.sf);
+      for (const f of fields) {
+        const it = c?.items.find((x) => x.id === f.key);
+        d.sf.values[f.key] = it ? CUSTOM_SAMPLE[it.kind] : (def[f.key] ?? '');
+      }
       if (d.sf.blank === 'license') d.sf.licenses = [...SF_LICENSES_DEFAULT];
     } else if (d.kind === 'id')
       for (const f of fields) d.idValues[f.key] = ID_DEFAULTS[f.key] ?? '';
@@ -403,7 +433,7 @@ export function setTheme(patch: Partial<IdTicketState['theme']>): void {
 /** 目前範本的照片格（沒有照片格時 null） */
 export function photoSlot(d: IdTicketState = docNow()) {
   if (d.kind === 'sf') {
-    const { box } = sfPortrait(d.sf.blank, d.sf.style);
+    const { box } = sfPortraitOf(d.sf);
     return {
       aspect: box.w / box.h,
       circle: false,
@@ -529,10 +559,18 @@ export function setIdPhotoFx(patch: Partial<PhotoFx>): void {
  * ==================================================================== */
 
 export function setSfBlank(id: SfBlankId): void {
-  useUi.setState({ element: null });
-  if (docNow().sf.blank === id) return;
+  setSfTemplate(id);
+}
+
+/** 換範本（內建的代號或自組底版 `custom:<id>`） */
+export function setSfTemplate(value: string): void {
+  useUi.setState({ element: null, ctorItem: null });
+  const cur = docNow().sf;
+  if (sfTemplateValue(cur) === value) return;
+  const next = withTemplate(cur, value);
   edit((d) => {
-    d.sf.blank = id;
+    d.sf.blank = next.blank;
+    d.sf.custom = next.custom;
   });
 }
 
@@ -632,20 +670,24 @@ export function currentElements(
   d: IdTicketState = docNow(),
   side: Side = prefsNow().side,
 ): SfElement[] {
-  if (d.kind === 'sf') return d.sf.elements[d.sf.blank] ?? [];
+  if (d.kind === 'sf') return d.sf.elements[sfElementKey(d.sf)] ?? [];
   if (d.kind === 'id') return d.idDecor.elements[d.idTemplate]?.[side] ?? [];
   return [];
 }
 
 /** 改的時候用（edit 裡的草稿） */
 function elementList(d: IdTicketState): SfElement[] {
-  if (d.kind === 'sf') return d.sf.elements[d.sf.blank];
+  if (d.kind === 'sf') {
+    const key = sfElementKey(d.sf);
+    d.sf.elements[key] ??= [];
+    return d.sf.elements[key];
+  }
   if (d.kind === 'id') return d.idDecor.elements[d.idTemplate][prefsNow().side];
   return [];
 }
 
 function setElementList(d: IdTicketState, list: SfElement[]): void {
-  if (d.kind === 'sf') d.sf.elements[d.sf.blank] = list;
+  if (d.kind === 'sf') d.sf.elements[sfElementKey(d.sf)] = list;
   else if (d.kind === 'id') d.idDecor.elements[d.idTemplate][prefsNow().side] = list;
 }
 
@@ -728,7 +770,8 @@ export function moveElement(id: string, dir: 1 | -1): void {
 /** 填入產生的名字：名、姓，活動證的稱謂（MR／MS）、公民 ID 的性別（M／F）；一步復原 */
 export function applySfName(n: SfName): void {
   const d0 = docNow();
-  const def = sfBlank(d0.sf.blank);
+  const def = sfDef(d0.sf);
+  const builtIn = !d0.sf.custom;
   const has = (key: string) => def.fields.find((f) => f.key === key);
   edit((d) => {
     const put = (key: string, v: string) => {
@@ -737,14 +780,14 @@ export function applySfName(n: SfName): void {
     };
     put('given', n.given);
     put('surname', n.surname);
-    if (d.sf.blank === 'event') put('title', n.gender === 'f' ? 'MS' : 'MR');
-    if (d.sf.blank === 'citizen') put('sex', n.gender === 'f' ? 'F' : 'M');
+    if (builtIn && d.sf.blank === 'event') put('title', n.gender === 'f' ? 'MS' : 'MR');
+    if (builtIn && d.sf.blank === 'citizen') put('sex', n.gender === 'f' ? 'F' : 'M');
   });
 }
 
 /** 這一款有名字的欄位（名、姓） */
 export const sfHasNames = (d: IdTicketState = docNow()): boolean =>
-  sfBlank(d.sf.blank).fields.some((f) => f.key === 'given');
+  sfDef(d.sf).fields.some((f) => f.key === 'given');
 
 /* ---------- SF 證件：預設集（2026-11-05） ---------- */
 
@@ -755,5 +798,154 @@ export function replaceSf(next: IdTicketState['sf']): void {
   useUi.setState({ element: null });
   edit((d) => {
     d.sf = structuredClone(next);
+  });
+}
+
+/* ---------- SF 證件：自組底版（2026-11-05，規格 F96～F100） ---------- */
+
+export const customNow = () => activeCustom(docNow().sf);
+
+/** 新的自組底版（外形＝目前的範本的外形），名字與編號兩行先填好；換到它、打開版面編輯 */
+export function addCustomBlank(): string | null {
+  const sf0 = docNow().sf;
+  if (sf0.customs.length >= CUSTOM_MAX) return null;
+  let n = sf0.customs.length + 1;
+  while (sf0.customs.some((c) => c.name === `CUSTOM ${n}`)) n++;
+  const def = newCustomBlank(sf0.blank, `CUSTOM ${n}`);
+  const [, nameIt, noIt] = def.items;
+  edit((d) => {
+    d.sf.customs.push(def);
+    d.sf.values[nameIt.id] =
+      [d.sf.values.given, d.sf.values.surname].filter(Boolean).join(' ') || 'NOVA LIN';
+    d.sf.values[noIt.id] = d.sf.values.number || CUSTOM_SAMPLE.serial;
+    d.sf.elements[customKey(def.id)] = [];
+    d.sf.blank = def.base;
+    d.sf.custom = def.id;
+  });
+  useUi.setState({ element: null, ctorItem: null, ctor: true });
+  return def.name;
+}
+
+/** 複製目前的自組底版（新的 id、同樣的值） */
+export function duplicateCustom(): string | null {
+  const sf0 = docNow().sf;
+  const src = activeCustom(sf0);
+  if (!src || sf0.customs.length >= CUSTOM_MAX) return null;
+  const name = `${[...src.name].slice(0, CUSTOM_NAME_MAX - 5).join('')} COPY`.trim();
+  const ids = new Map(src.items.map((it) => [it.id, customUid('i')]));
+  const def = {
+    ...structuredClone(src),
+    id: customUid('c'),
+    name,
+    items: src.items.map((it) => ({ ...it, id: ids.get(it.id) ?? it.id })),
+  };
+  edit((d) => {
+    d.sf.customs.push(def);
+    for (const [from, to] of ids) if (from in d.sf.values) d.sf.values[to] = d.sf.values[from];
+    d.sf.elements[customKey(def.id)] = [];
+    d.sf.custom = def.id;
+  });
+  useUi.setState({ element: null, ctorItem: null });
+  return name;
+}
+
+/** 刪掉目前的自組底版（它的值、裝飾圖一起），回到它借的外形 */
+export function deleteCustom(): void {
+  const src = activeCustom(docNow().sf);
+  if (!src) return;
+  useUi.setState({ element: null, ctorItem: null });
+  edit((d) => {
+    d.sf.customs = d.sf.customs.filter((c) => c.id !== src.id);
+    for (const it of src.items) delete d.sf.values[it.id];
+    delete d.sf.elements[customKey(src.id)];
+    d.sf.custom = null;
+    d.sf.blank = src.base;
+  });
+}
+
+function editCustom(
+  recipe: (items: CustomItem[], d: IdTicketState) => CustomItem[] | undefined,
+): void {
+  const id = docNow().sf.custom;
+  if (!id) return;
+  edit((d) => {
+    const c = d.sf.customs.find((x) => x.id === id);
+    if (!c) return;
+    const out = recipe(c.items, d);
+    if (out) c.items = out;
+  });
+}
+
+export function renameCustom(raw: string): void {
+  const id = docNow().sf.custom;
+  if (!id) return;
+  const name = [...raw.replace(/\s+/g, ' ')].slice(0, CUSTOM_NAME_MAX).join('');
+  edit((d) => {
+    const c = d.sf.customs.find((x) => x.id === id);
+    if (c) c.name = name.trim() || 'CUSTOM';
+  });
+}
+
+/** 換外形：項目跟著新的大小縮放 */
+export function setCustomBase(base: SfBlankId): void {
+  const id = docNow().sf.custom;
+  if (!id) return;
+  edit((d) => {
+    const i = d.sf.customs.findIndex((x) => x.id === id);
+    if (i < 0 || d.sf.customs[i].base === base) return;
+    d.sf.customs[i] = rebaseCustom(d.sf.customs[i], base);
+    d.sf.blank = base;
+  });
+}
+
+/** 加一個項目（卡片中央；和已經有的同位置時錯開一點）；文字項目先填「TEXT」 */
+export function addCustomItem(type: CustomItemType): void {
+  const c = customNow();
+  if (!c || c.items.length >= CUSTOM_ITEM_MAX) return;
+  let it = newCustomItem(type, c.base);
+  for (let i = 0; i < 20 && c.items.some((o) => o.x === it.x && o.y === it.y); i++)
+    it = fitItem({ ...it, x: it.x + 30, y: it.y + 30 }, c.base);
+  editCustom((items, d) => {
+    if (type === 'text') d.sf.values[it.id] = CUSTOM_SAMPLE.text;
+    items.push(it);
+  });
+  useUi.setState({ ctorItem: it.id });
+}
+
+/** 改一個項目（範圍夾回卡片上；改成日期時值不是日期就填範例日期） */
+export function patchCustomItem(id: string, patch: Partial<Omit<CustomItem, 'id' | 'type'>>): void {
+  const c = customNow();
+  if (!c) return;
+  editCustom((items, d) =>
+    items.map((it) => {
+      if (it.id !== id) return it;
+      if (patch.kind === 'date' && !parseSfDate(d.sf.values[id] ?? ''))
+        d.sf.values[id] = CUSTOM_SAMPLE.date;
+      const cap = patch.cap === undefined ? {} : { cap: [...patch.cap].slice(0, 32).join('') };
+      return fitItem({ ...it, ...patch, ...cap }, c.base);
+    }),
+  );
+}
+
+/** 刪一個項目（照片不能刪） */
+export function removeCustomItem(id: string): void {
+  const c = customNow();
+  if (!c?.items.some((it) => it.id === id && it.type !== 'photo')) return;
+  if (useUi.getState().ctorItem === id) useUi.setState({ ctorItem: null });
+  editCustom((items, d) => {
+    delete d.sf.values[id];
+    return items.filter((it) => it.id !== id);
+  });
+}
+
+/** 上一層（1）／下一層（−1） */
+export function moveCustomItem(id: string, dir: 1 | -1): void {
+  editCustom((items) => {
+    const i = items.findIndex((x) => x.id === id);
+    const j = i + dir;
+    if (i < 0 || j < 0 || j >= items.length) return;
+    const out = [...items];
+    [out[i], out[j]] = [out[j], out[i]];
+    return out;
   });
 }

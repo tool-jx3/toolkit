@@ -9,6 +9,14 @@ import { normalizePhotoFx, PHOTO_FX_DEFAULT, type PhotoFx } from '../photofx';
 import { type FieldDef, fieldMax } from '../templates';
 import { isSfChipType, type SfChipType } from './chips';
 import { isSfCodeType, type SfCodeType } from './codes';
+import {
+  CUSTOM_MAX,
+  CUSTOM_VALUE_MAX,
+  type CustomBlank,
+  customBlankDef,
+  customKey,
+  normalizeCustom,
+} from './custom';
 import { isSfDateFormat, type SfDateFormat } from './dates';
 import {
   SF_BLANK_IDS,
@@ -19,7 +27,9 @@ import {
   SF_SCHEMES,
   SF_SERIALS,
   SF_SPECIES,
+  type SfBlankDef,
   type SfBlankId,
+  sfBlank,
   sfCaptionMax,
 } from './defs';
 import { SF_FRAME_IDS, type SfFrameId } from './frames';
@@ -133,14 +143,20 @@ export interface SfLicenseIcon {
 }
 
 export interface SfState {
+  /** 範本（自組底版開著時是它借的外形） */
   blank: SfBlankId;
+  /** 自組底版（2026-11-05；開著時是它的 id，否則 null） */
+  custom: string | null;
+  /** 自己組的底版（2026-11-05） */
+  customs: CustomBlank[];
   values: Record<string, string>;
   /** 卡上的欄位名稱（改過的才有） */
   captions: Record<string, string>;
   style: SfStyle;
   photo: Photo | null;
   watermark: SfWatermark;
-  elements: Record<SfBlankId, SfElement[]>;
+  /** 每一款的裝飾圖（內建的範本代號；自組底版是 `custom:<id>`） */
+  elements: Record<string, SfElement[]>;
   /** 實心（有執照）的 */
   licenses: string[];
   licenseCaps: Record<string, string>;
@@ -215,6 +231,8 @@ export function sfValueDefaults(): Record<string, string> {
 
 export const initialSf = (): SfState => ({
   blank: 'citizen',
+  custom: null,
+  customs: [],
   values: sfValueDefaults(),
   captions: {},
   style: defaultSfStyle(),
@@ -371,10 +389,19 @@ export function normalizeSf(raw: unknown): SfState {
   for (const k of Object.keys(SF_CAPTIONS))
     if (typeof capsSrc[k] === 'string')
       captions[k] = oneLine(capsSrc[k] as string, sfCaptionMax(k));
+  const seenItems = new Set<string>();
+  const customs: CustomBlank[] = [];
+  for (const c of Array.isArray(raw.customs) ? raw.customs : []) {
+    if (customs.length >= CUSTOM_MAX) break;
+    const def = normalizeCustom(c, seenItems);
+    if (def && !customs.some((x) => x.id === def.id)) customs.push(def);
+  }
+  const custom =
+    typeof raw.custom === 'string' ? (customs.find((c) => c.id === raw.custom) ?? null) : null;
   const elSrc = isObj(raw.elements) ? raw.elements : {};
-  const elements = emptyElements();
+  const elements: Record<string, SfElement[]> = emptyElements();
   const seen = new Set<string>();
-  for (const id of SF_BLANK_IDS) {
+  for (const id of [...SF_BLANK_IDS, ...customs.map((c) => customKey(c.id))]) {
     const list = Array.isArray(elSrc[id]) ? (elSrc[id] as unknown[]) : [];
     elements[id] = list
       .slice(0, SF_ELEMENT_MAX)
@@ -399,11 +426,24 @@ export function normalizeSf(raw: unknown): SfState {
   }
   const photoRaw = isObj(raw.photo) ? raw.photo : null;
   const photoImage = photoRaw ? normalizeImageRef(photoRaw.image) : null;
+  const values = normalizeSfValues(raw.values);
+  const valSrc = isObj(raw.values) ? raw.values : {};
+  for (const c of customs)
+    for (const it of c.items)
+      if (it.type === 'text')
+        values[it.id] =
+          typeof valSrc[it.id] === 'string'
+            ? oneLine(valSrc[it.id] as string, CUSTOM_VALUE_MAX)
+            : '';
   return {
-    blank: (SF_BLANK_IDS as readonly string[]).includes(raw.blank as string)
-      ? (raw.blank as SfBlankId)
-      : d.blank,
-    values: normalizeSfValues(raw.values),
+    blank: custom
+      ? custom.base
+      : (SF_BLANK_IDS as readonly string[]).includes(raw.blank as string)
+        ? (raw.blank as SfBlankId)
+        : d.blank,
+    custom: custom?.id ?? null,
+    customs,
+    values,
     captions,
     style: normalizeStyle(raw.style),
     photo:
@@ -440,4 +480,33 @@ export function sfCaption(s: SfState, key: string): string {
   const own = s.captions[key];
   const t = typeof own === 'string' ? own : (SF_CAPTIONS[key] ?? '');
   return key === 'fine' ? t.replace(/\{org\}/g, (s.values.org ?? '').trim() || 'THE ISSUER') : t;
+}
+
+/* ---------- 自組底版（2026-11-05） ---------- */
+
+/** 開著的自組底版（沒有時 null） */
+export const activeCustom = (s: SfState): CustomBlank | null =>
+  s.custom ? (s.customs.find((c) => c.id === s.custom) ?? null) : null;
+
+/** 目前的範本的定義（自組底版：欄位＝文字項目、裝飾開關＝有的項目） */
+export function sfDef(s: SfState): SfBlankDef {
+  const c = activeCustom(s);
+  return c ? customBlankDef(c) : sfBlank(s.blank);
+}
+
+/** 目前的範本的裝飾圖的鍵 */
+export const sfElementKey = (s: SfState): string => (s.custom ? customKey(s.custom) : s.blank);
+
+/** 範本清單的值（內建的代號或 `custom:<id>`） */
+export const sfTemplateValue = (s: SfState): string => (s.custom ? customKey(s.custom) : s.blank);
+
+/** 換成範本清單的某一個（內建的或自組底版） */
+export function withTemplate(s: SfState, value: string): SfState {
+  if (value.startsWith('custom:')) {
+    const c = s.customs.find((x) => customKey(x.id) === value);
+    if (c) return { ...s, blank: c.base, custom: c.id };
+  }
+  return (SF_BLANK_IDS as readonly string[]).includes(value)
+    ? { ...s, blank: value as SfBlankId, custom: null }
+    : s;
 }

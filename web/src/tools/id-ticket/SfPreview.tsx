@@ -24,10 +24,11 @@ import { requestFonts, useFontTick } from './fonts';
 import { fontUses, type Region } from './kit';
 import { SF_CARD_TOP } from './lanyard';
 import { RegionLayer, Strap } from './Preview';
+import { CtorHint, CustomLayer } from './SfCtor';
 import { afterPaint } from './schedule';
 import { sfBlank } from './sf/defs';
 import { spotFraction } from './sf/media';
-import { sfAssetIds } from './sf/model';
+import { sfAssetIds, sfTemplateValue } from './sf/model';
 import {
   renderSf,
   SF_PREVIEW_SCALE,
@@ -59,6 +60,7 @@ export function SfPreview() {
   const ref = useRef<HTMLCanvasElement>(null);
   const [regions, setRegions] = useState<Region[]>([]);
   const def = sfBlank(sf.blank);
+  const editing = useUi((u) => u.ctor) && !!sf.custom;
   const lanyard = prefs.lanyard;
   // biome-ignore lint/correctness/useExhaustiveDependencies: tick 只用來在字型載好後重畫
   const version = useMemo(
@@ -96,7 +98,7 @@ export function SfPreview() {
   // biome-ignore lint/correctness/useExhaustiveDependencies: 換範本、掛繩時馬上畫（畫法在 latest 裡）
   useLayoutEffect(() => {
     latest.current();
-  }, [sf.blank, lanyard]);
+  }, [sf.blank, sf.custom, lanyard]);
   useEffect(() => afterPaint(paint), [paint]);
 
   const size = sfSize(sf, lanyard);
@@ -132,14 +134,28 @@ export function SfPreview() {
             ref={ref}
             className="block size-full"
             data-testid="sf-canvas"
-            data-template={sf.blank}
+            data-template={sfTemplateValue(sf)}
           />
-          <ElementLayer W={def.w} H={def.h} ox={ox} oy={oy} width={size.w} height={size.h} below />
-          <RegionLayer regions={regions} ox={ox} oy={oy} hasPhoto={!!sf.photo} />
-          <ElementLayer W={def.w} H={def.h} ox={ox} oy={oy} width={size.w} height={size.h} />
+          {editing ? (
+            <CustomLayer ox={ox} oy={oy} width={size.w} height={size.h} />
+          ) : (
+            <>
+              <ElementLayer
+                W={def.w}
+                H={def.h}
+                ox={ox}
+                oy={oy}
+                width={size.w}
+                height={size.h}
+                below
+              />
+              <RegionLayer regions={regions} ox={ox} oy={oy} hasPhoto={!!sf.photo} />
+              <ElementLayer W={def.w} H={def.h} ox={ox} oy={oy} width={size.w} height={size.h} />
+            </>
+          )}
         </div>
       </Stage>
-      <p className="m-0 px-1 text-xs text-muted">{S.previewHint}</p>
+      {editing ? <CtorHint /> : <p className="m-0 px-1 text-xs text-muted">{S.previewHint}</p>}
       {photo.status === 'missing' || others.missing.length ? (
         <Notice tone="warning">{S.photoMissing}</Notice>
       ) : null}

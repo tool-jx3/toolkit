@@ -23,7 +23,7 @@ import { sfBlank } from './defs';
 import { type DigitalLayout, digitalCardOffset, digitalLayout, paintDigital } from './digital';
 import { drawSf, sfCardBounds } from './draw';
 import type { Rect } from './geom';
-import type { SfState } from './model';
+import { type SfState, sfDef } from './model';
 
 type AnyCanvas = HTMLCanvasElement | OffscreenCanvas;
 type C2D = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
@@ -220,7 +220,7 @@ export function sfFontUses(s: SfState): FontUse[] {
 
 /** SF 證件的檔名：`sf-<範本>.png`（2 倍 `sf-<範本>-2x.png`；數位證件 `sf-<範本>-digital.png`） */
 export const sfFileName = (s: SfState, k: number): string =>
-  `sf-${s.blank}${s.style.digital ? '-digital' : ''}${k === 1 ? '' : `-${k}x`}.png`;
+  `sf-${s.custom ? 'custom' : s.blank}${s.style.digital ? '-digital' : ''}${k === 1 ? '' : `-${k}x`}.png`;
 
 /* ---------- 條碼與 QR code 的密度（規格 D39、D40 修訂） ---------- */
 
@@ -253,7 +253,7 @@ export interface SfCodeDensity {
 /** 目前這一款的碼在 k 倍匯出時每格幾 px；沒有碼或內容不能編碼時 null */
 export function sfCodeDensity(s: SfState, box: SfCodeBox | null, k: number): SfCodeDensity | null {
   if (!box || !s.style.barcode || !isScannableCode(s.style.code)) return null;
-  const key = sfBlank(s.blank).codeKey;
+  const key = sfDef(s).codeKey;
   const value = s.values[key] ?? '';
   if (box.kind === 'qr') {
     const m = qrMatrix((s.values.qr ?? '').trim() || value.trim() || 'SF');

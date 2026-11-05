@@ -23,6 +23,7 @@ import {
 import { SF_NAME_REGIONS, type SfNameGender, type SfNameRegion } from './sf/names';
 import {
   applyExample,
+  applyPresetSf,
   cleanPresetName,
   newPresetId,
   PresetFileError,
@@ -157,7 +158,7 @@ export function SfPresetsSection() {
       });
       if (!ok) return;
     }
-    replaceSf(example ? applyExample(docNow().sf, p.sf) : p.sf);
+    replaceSf(example ? applyExample(docNow().sf, p.sf) : applyPresetSf(docNow().sf, p.sf));
     toast({ title: S.presetApplied(p.name), tone: 'success', replace: true });
   };
 

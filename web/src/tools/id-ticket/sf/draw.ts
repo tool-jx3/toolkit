@@ -25,8 +25,17 @@ import {
 } from '../kit';
 import { chipShapes } from './chips';
 import { isLookalikeCode, isSquareCode, lookalikeShapes } from './codes';
+import {
+  type CustomBlank,
+  type CustomColor,
+  type CustomItem,
+  customCodeKey,
+  customFieldLabel,
+  customPortrait,
+  decorOf,
+} from './custom';
 import { formatSfDate, SF_DATE_KEYS } from './dates';
-import { type SfBlankId, sfBlank } from './defs';
+import type { SfBlankId } from './defs';
 import { DNA_PITCH, dnaHelix, dnaLetters, dnaSeed } from './dna';
 import { type FrameWindow, frameWindow, type PortraitSpec } from './frames';
 import { paintGlow, paintGrain, paintScanlines } from './fx';
@@ -44,12 +53,15 @@ import {
 } from './geom';
 import { LICENSES, type LicenseShape, licenseDef } from './licenses';
 import {
+  activeCustom,
   type CropFrac,
   type SfElement,
   type SfState,
   type SfStyle,
   type SfWatermark,
   sfCaption,
+  sfDef,
+  sfElementKey,
 } from './model';
 import { buildMrz } from './mrz';
 
@@ -173,6 +185,14 @@ export function sfPortrait(id: SfBlankId, st: SfStyle): PortraitSpec {
 
 export const sfWindow = (id: SfBlankId, st: SfStyle): FrameWindow =>
   frameWindow(sfPortrait(id, st), st.frame);
+
+/** 目前的範本的照片格（自組底版：它的照片項目） */
+export function sfPortraitOf(s: SfState): PortraitSpec {
+  const c = activeCustom(s);
+  return c ? customPortrait(c) : sfPortrait(s.blank, s.style);
+}
+
+export const sfWindowOf = (s: SfState): FrameWindow => frameWindow(sfPortraitOf(s), s.style.frame);
 
 /* ======================================================================
  * 畫的環境
@@ -1282,6 +1302,138 @@ function drawPass(e: SfEnv): void {
   }
 }
 
+/* ======================================================================
+ * 自組底版（2026-11-05，sf/custom.ts）
+ * ==================================================================== */
+
+const tone = (st: SfStyle, c: CustomColor) =>
+  c === 'accent' ? st.accent : c === 'card' ? st.card : st.ink;
+
+/** 文字項目：標題（字頂在範圍的上緣）＋值（基準線在下緣），字高填滿範圍；縮到放得下、照對齊放 */
+function customText(e: SfEnv, def: CustomBlank, it: CustomItem): void {
+  const { st } = e;
+  const cap = it.cap.trim();
+  const color = tone(st, it.color);
+  const capH = cap ? it.h * 0.28 : 0;
+  const gap = cap ? it.h * 0.12 : 0;
+  const ratio = (w: number) => ascent(e, 'H', w, 100) / 100 || 0.7;
+  const place = (str: string, o: TextO) => {
+    if (it.align === 'left') return it.x;
+    const sz = fitSize(e, str, o);
+    const w = measure(e.ctx, str, (o.spacing ?? 0) * sz);
+    return it.align === 'right' ? it.x + it.w - w : it.x + (it.w - w) / 2;
+  };
+  if (cap) {
+    const o: TextO = { size: capH / ratio(400), maxW: it.w, color, weight: 400, spacing: 0.14 };
+    text(e, cap, place(cap, o), it.y + capH, o);
+  }
+  const raw = e.value(it.id);
+  const shown = it.kind === 'date' ? formatSfDate(raw, st.dateFmt) : raw;
+  const o: TextO = {
+    size: Math.max(4, (it.h - capH - gap) / ratio(it.weight)),
+    maxW: it.w,
+    color,
+    weight: it.weight,
+    spacing: it.weight === 400 ? 0.06 : 0.02,
+  };
+  if (shown) text(e, shown, place(shown, o), it.y + it.h, o);
+  else if (e.preview) {
+    const label = customFieldLabel(def, it);
+    const faint = { ...o, color: alpha(color, 0.3) };
+    text(e, label, place(label, faint), it.y + it.h, faint);
+  }
+  region(e, { kind: 'field', key: it.id, x: it.x, y: it.y, w: it.w, h: it.h });
+}
+
+/** 斜線：三短一長（同發行單位帶子旁的斜線），往右斜半個高 */
+function customSlashes(e: SfEnv, it: CustomItem): void {
+  const { ctx } = e;
+  const lean = it.h * 0.5;
+  const bw = it.h * 0.4;
+  const step = it.h * 0.8;
+  const end = it.x + it.w - lean;
+  ctx.fillStyle = tone(e.st, it.color);
+  let x = it.x;
+  for (let i = 0; i < 3 && x + bw <= end; i++, x += step)
+    slant(ctx, x, it.y, it.y + it.h, bw, lean);
+  if (end - x > bw) slant(ctx, x + bw * 0.25, it.y, it.y + it.h, end - x - bw * 0.25, lean);
+}
+
+/** 警示斜紋：直的一排（比寬高時），否則轉 90° 成橫的一排 */
+function customStripes(e: SfEnv, it: CustomItem): void {
+  const { ctx } = e;
+  const color = tone(e.st, it.color);
+  if (it.h >= it.w) {
+    stripes(ctx, it.x, it.x + it.w, it.y, it.y + it.h, color, it.flip);
+    return;
+  }
+  ctx.save();
+  ctx.translate(it.x, it.y + it.h);
+  ctx.rotate(-Math.PI / 2);
+  stripes(ctx, 0, it.h, 0, it.w, color, it.flip);
+  ctx.restore();
+}
+
+function drawCustom(e: SfEnv, def: CustomBlank): void {
+  const { ctx, st } = e;
+  contour(e, SF_OUTLINES[def.base], 22, false);
+  const codeKey = customCodeKey(def);
+  for (const it of def.items) {
+    const dk = decorOf(it.type);
+    if (dk && !st[dk]) continue;
+    const box = { x: it.x, y: it.y, w: it.w, h: it.h };
+    switch (it.type) {
+      case 'photo':
+        drawPortrait(e);
+        break;
+      case 'text':
+        customText(e, def, it);
+        break;
+      case 'code':
+        code(e, box, codeKey);
+        break;
+      case 'chip':
+        chip(e, box);
+        break;
+      case 'band': {
+        const n = it.shape === 'notch' ? Math.min(it.h / 2, it.w / 4) : 0;
+        const { x, y, w, h } = it;
+        polyPath(
+          ctx,
+          n
+            ? [
+                [x + n, y],
+                [x + w, y],
+                [x + w, y + h - n],
+                [x + w - n, y + h],
+                [x, y + h],
+                [x, y + n],
+              ]
+            : [
+                [x, y],
+                [x + w, y],
+                [x + w, y + h],
+                [x, y + h],
+              ],
+        );
+        ctx.fillStyle = tone(st, it.color);
+        ctx.fill();
+        break;
+      }
+      case 'rule':
+        ctx.fillStyle = tone(st, it.color);
+        ctx.fillRect(it.x, it.y, it.w, it.h);
+        break;
+      case 'stripes':
+        customStripes(e, it);
+        break;
+      case 'slashes':
+        customSlashes(e, it);
+        break;
+    }
+  }
+}
+
 const DRAW: Record<SfBlankId, (e: SfEnv) => void> = {
   event: drawEvent,
   citizen: drawCitizen,
@@ -1524,7 +1676,7 @@ export function paintElements(
 function drawElements(e: SfEnv, W: number, H: number): void {
   paintElements(
     e.ctx,
-    e.sf.elements[e.sf.blank] ?? [],
+    e.sf.elements[sfElementKey(e.sf)] ?? [],
     {
       ...sfGround(e, W, H, [
         [0, 0],
@@ -1564,7 +1716,8 @@ export const blankHoles = (id: SfBlankId): Poly[] =>
 
 /** 在 ctx 目前的變換下（原點＝卡片畫布的左上角、單位＝原生像素）畫一張 */
 export function drawSf(ctx: Ctx, s: SfState, k: number, o: SfDrawOptions): SfDrawResult {
-  const def = sfBlank(s.blank);
+  const def = sfDef(s);
+  const custom = activeCustom(s);
   const st = s.style;
   const outline = SF_OUTLINES[s.blank];
   const holes = [...blankHoles(s.blank), ...(o.holes ?? [])];
@@ -1582,7 +1735,7 @@ export function drawSf(ctx: Ctx, s: SfState, k: number, o: SfDrawOptions): SfDra
     sf: s,
     st,
     k,
-    win: sfWindow(s.blank, st),
+    win: sfWindowOf(s),
     cap: (key) => sfCaption(s, key),
     image: o.image,
     logoSpot: null,
@@ -1606,7 +1759,8 @@ export function drawSf(ctx: Ctx, s: SfState, k: number, o: SfDrawOptions): SfDra
   ctx.clip('evenodd');
   drawWatermark(env, def.w, def.h, outline);
   drawElements(env, def.w, def.h);
-  DRAW[s.blank](env);
+  if (custom) drawCustom(env, custom);
+  else DRAW[s.blank](env);
   /* 掛繩孔的邊（通行證本來就有；另外打的洞也畫，看起來是做好的孔） */
   for (const rim of [...blankHoles(s.blank), ...(o.rims ?? [])]) {
     polyPath(ctx, rim);

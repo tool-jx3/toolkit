@@ -5,6 +5,7 @@
  * 和專案檔的分工（D43）：專案檔＝整個工具（證件、SF 證件、票券與所有的圖，ZIP）；預設集＝這台裝置上幾張 SF 證件的快速切換。
  * 原作的「連匯出設定一起存」不做（PNG 大小、掛繩是預覽設定，本來就不跟著內容走）。
  */
+import { CUSTOM_MAX, customKey } from './custom';
 import { SF_SCHEMES, type SfBlankId } from './defs';
 import { initialSf, normalizeSf, type SfState, sfAssetIds } from './model';
 
@@ -173,15 +174,39 @@ export const SF_EXAMPLES: readonly SfExample[] = [
   },
 ];
 
-/** 套用範例：圖（照片、浮水印的圖、裝飾圖、執照的自訂圖示）留著目前的 */
+/** 套用範例：圖（照片、浮水印的圖、裝飾圖、執照的自訂圖示）與自組底版留著目前的 */
 export function applyExample(cur: SfState, ex: SfState): SfState {
   return {
     ...ex,
+    customs: cur.customs,
+    values: { ...customValues(cur), ...ex.values },
     photo: cur.photo,
     watermark: { ...ex.watermark, image: cur.watermark.image },
     elements: cur.elements,
     licenseIcons: cur.licenseIcons,
   };
+}
+
+/** 自組底版的文字項目的值 */
+function customValues(s: SfState): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const c of s.customs)
+    for (const it of c.items) if (it.type === 'text') out[it.id] = s.values[it.id] ?? '';
+  return out;
+}
+
+/**
+ * 套用存著的預設：整張換成預設的，但目前的自組底版不會不見——預設裡的自組底版（存的時候的複本）蓋過同一個、
+ * 沒有的加回來，目前另外有的留著（連同它的值與裝飾圖；同原作：預設保有自組底版的複本）。最多 CUSTOM_MAX 個。
+ */
+export function applyPresetSf(cur: SfState, p: SfState): SfState {
+  const ids = new Set(p.customs.map((c) => c.id));
+  const keep = cur.customs.filter((c) => !ids.has(c.id));
+  const customs = [...p.customs, ...keep].slice(0, CUSTOM_MAX);
+  const kept = { ...cur, customs: keep };
+  const elements = { ...p.elements };
+  for (const c of keep) elements[customKey(c.id)] = cur.elements[customKey(c.id)] ?? [];
+  return { ...p, customs, values: { ...customValues(kept), ...p.values }, elements };
 }
 
 /* ---------- 匯出、匯入 ---------- */

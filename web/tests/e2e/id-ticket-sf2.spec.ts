@@ -335,6 +335,142 @@ test('預設集：存、目前、套用（一步復原）、蓋過、匯出全�
   expect(errors).toEqual([]);
 });
 
+/* ---------- 自組底版 ---------- */
+
+interface Custom {
+  id: string;
+  name: string;
+  base: string;
+  items: {
+    id: string;
+    type: string;
+    x: number;
+    y: number;
+    w: number;
+    h: number;
+    cap: string;
+    kind: string;
+  }[];
+}
+const customs = async (page: Page) =>
+  (await doc(page)).sf as unknown as { customs: Custom[]; custom: string | null };
+
+test('自組底版：新建、欄位、加項目與設定、預覽上拖曳（吸附 10）、Delete、換外形縮放、匯出、重新整理還在、刪除（F96～F100）', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  await sfOpen(page);
+  await tab(page, '樣式').click();
+  const ctor = page.getByTestId('sf-ctor');
+  await ctor.getByRole('button', { name: '新的自組底版' }).click();
+  await expect(toast(page, '已建立自組底版「CUSTOM 1」')).toBeVisible();
+  const c0 = await customs(page);
+  expect(c0.customs).toHaveLength(1);
+  expect(c0.custom).toBe(c0.customs[0].id);
+  expect(c0.customs[0].base).toBe('citizen');
+  await expect(page.getByTestId('sf-canvas')).toHaveAttribute(
+    'data-template',
+    `custom:${c0.customs[0].id}`,
+  );
+  await expect(radio(page.getByTestId('template-list'), 'CUSTOM 1')).toBeChecked();
+  /* 文字項目是「內容」分頁的欄位 */
+  const [, nameIt, noIt] = c0.customs[0].items;
+  await tab(page, '內容').click();
+  await expect(fieldInput(page, nameIt.id)).toHaveValue('NOVA LIN');
+  await expect(fieldInput(page, noIt.id)).toHaveValue('MP-2087-0413');
+  await fieldInput(page, nameIt.id).fill('ADA KING');
+  await fieldInput(page, nameIt.id).blur();
+  await tab(page, '樣式').click();
+  /* 加文字、設定標題與種類 */
+  await ctor.getByRole('button', { name: '文字', exact: true }).click();
+  const c1 = await customs(page);
+  const added = c1.customs[0].items[3];
+  expect(added.type).toBe('text');
+  await page.getByTestId('ctor-cap').fill('EXPIRES');
+  await page.getByTestId('ctor-cap').blur();
+  await radio(page.getByTestId('ctor-item'), '日期').click();
+  await expect
+    .poll(async () => {
+      const it = (await customs(page)).customs[0].items[3];
+      return [it.cap, it.kind];
+    })
+    .toEqual(['EXPIRES', 'date']);
+  expect((await doc(page)).sf.values[added.id]).toBe('2093-12-31');
+  /* 預覽上拖曳（吸附 10） */
+  const layer = page.getByTestId('ctor-layer');
+  const item = layer.locator(`[data-layout-item="${added.id}"]`);
+  await expect(item).toBeVisible();
+  const box = (await item.boundingBox()) as { x: number; y: number; width: number; height: number };
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width / 2 - 47, box.y + box.height / 2 + 33, { steps: 5 });
+  await page.mouse.up();
+  await expect.poll(async () => (await customs(page)).customs[0].items[3].x).not.toBe(added.x);
+  const moved = (await customs(page)).customs[0].items[3];
+  expect(moved.x % 10).toBe(0);
+  expect(moved.y % 10).toBe(0);
+  /* 方向鍵微調 1 */
+  await page.keyboard.press('ArrowRight');
+  await expect.poll(async () => (await customs(page)).customs[0].items[3].x).toBe(moved.x + 1);
+  /* 拉左上角縮放：對角不動、吸附 10；Shift 維持比例 */
+  const before = (await customs(page)).customs[0].items[3];
+  const nw = layer.locator('[data-layout-handle="nw"]');
+  const hb = (await nw.boundingBox()) as { x: number; y: number; width: number; height: number };
+  await page.mouse.move(hb.x + hb.width / 2, hb.y + hb.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(hb.x + hb.width / 2 - 30, hb.y + hb.height / 2 - 20, { steps: 5 });
+  await page.mouse.up();
+  await expect
+    .poll(async () => (await customs(page)).customs[0].items[3].w)
+    .toBeGreaterThan(before.w);
+  const grown = (await customs(page)).customs[0].items[3];
+  expect(grown.x + grown.w).toBe(before.x + before.w);
+  expect(grown.y + grown.h).toBe(before.y + before.h);
+  expect(grown.x % 10).toBe(0);
+  const se = layer.locator('[data-layout-handle="se"]');
+  const sb = (await se.boundingBox()) as { x: number; y: number; width: number; height: number };
+  await page.keyboard.down('Shift');
+  await page.mouse.move(sb.x + sb.width / 2, sb.y + sb.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(sb.x + sb.width / 2 + 40, sb.y + sb.height / 2 + 2, { steps: 5 });
+  await page.mouse.up();
+  await page.keyboard.up('Shift');
+  await expect
+    .poll(async () => (await customs(page)).customs[0].items[3].w)
+    .toBeGreaterThan(grown.w);
+  const prop = (await customs(page)).customs[0].items[3];
+  expect(prop.w / prop.h).toBeCloseTo(grown.w / grown.h, 1);
+  /* Delete 刪除 */
+  await page.keyboard.press('Delete');
+  await expect.poll(async () => (await customs(page)).customs[0].items.length).toBe(3);
+  /* 換外形：通行證（直式），版面跟著縮放 */
+  await page.getByRole('combobox', { name: '外形' }).click();
+  await page.getByRole('option', { name: '通行證', exact: true }).click();
+  await expect.poll(async () => (await customs(page)).customs[0].base).toBe('pass');
+  const photo = (await customs(page)).customs[0].items[0];
+  expect(photo.x).toBe(Math.round(157 * (1000 / 1600)));
+  await expect(page.getByTestId('export-dims')).toHaveText('輸出 1000 × 1600 px');
+  const out = await exportPng(page);
+  expect(out.name).toBe('sf-custom.png');
+  expect([readPng(out.bytes).width, readPng(out.bytes).height]).toEqual([1000, 1600]);
+  /* 重新整理還在 */
+  await page.reload();
+  await expect(page.getByTestId('sf-canvas')).toHaveAttribute(
+    'data-template',
+    `custom:${c0.customs[0].id}`,
+  );
+  expect((await doc(page)).sf.values[nameIt.id]).toBe('ADA KING');
+  /* 刪除（可以復原） */
+  await tab(page, '樣式').click();
+  await page.getByTestId('sf-ctor').getByRole('button', { name: '刪除這個底版' }).click();
+  await page.getByRole('alertdialog').getByRole('button', { name: '刪除這個底版' }).click();
+  await expect.poll(async () => (await customs(page)).customs.length).toBe(0);
+  expect((await doc(page)).sf.blank).toBe('pass');
+  await page.keyboard.press('Control+z');
+  await expect.poll(async () => (await customs(page)).customs.length).toBe(1);
+  expect(errors).toEqual([]);
+});
+
 /* ---------- 既有證件的浮水印與裝飾圖 ---------- */
 
 test('證件的浮水印：印在哪一面；關掉後匯出和原本逐位元組相同（F95）', async ({ page }) => {
