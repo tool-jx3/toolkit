@@ -261,6 +261,7 @@ music-frame 的原作搬到 zZnaptime/MVmaker（功能沒變），連結已修�
 | pl-profile | PL 自介卡與地雷表（2026-10-29 另外加入；自介卡的欄位與眼睛開關、地雷表 7 類 59 題＋成人向 5 題 × 五級、自訂主題與分類、圖片〔6 種底色〕、純文字〔一般與 Discord〕、分享連結的唯讀檢視、KP 對照表；共用 Chips 加複選、Tabs 切分頁前先失焦） | sonata9x/trpg-profile-maker＋Jara03mofu/trpg-jirai-check＋Tetoriapot/sosaku-sheet-maker＋dearmysn1p3r/DearMySn1p3r_25＋OEC309/trpg-consensus | 未授權 | G7 | ✅ | ✅ | ✅ | ✅ |
 | scenario-timeline | 劇本時間表（2026-10-29 另外加入；第一批：真實日期／第 N 天／架空年、事件三種、泳道與巢狀、縮放平移拖曳、年表與列印、GM／PL 檢視、PNG／SVG／文字年表／CSV／專案檔；第二批〔多選、搜尋與篩選、架空曆的月日、關聯線、讀入 vis-timeline 的資料〕2026-10-30 上線；第三批〔年表列出關聯線、架空曆寫到時刻〕2026-10-31 上線；共用 core/csv 加 quotes 與 guard） | visjs/vis-timeline | MIT（二選一） | G6 | ✅ | ✅ | ✅ | ✅ |
 | ambience-mixer | 環境音混音器（2026-10-29 另外加入；程式合成的環境音 26 種、自己的音檔、各自的音量與參數、起伏、預設組合 12 個、隨機組合、我的組合、分享連結、定時停止、匯出可以無縫循環的 MP3（lamejs，LGPL-3.0）或 WAV；共用模組 core/audio/ambience、core/audio/mp3） | remvze/moodist（音效不收） | MIT | G8 | ✅ | ✅ | ✅ | ✅ |
+| world-map | 世界地圖產生器（2026-11-05 另外加入；分兩批：第一批＝地形〔方格／自由筆刷、六種地形與地表、山林的排法與交界、雪〕、國〔城牆與內城〕、川・街道・航路・國界線・城牆、32 種素材、地名・備註、主題・字型・格線・外框、PNG（公開用／GM 用）、專案檔與原作作業檔、自動產生與地名提案、範本、小地圖、送到地圖演出產生器；第二批＝旅程概算） | KIIN／ワールドマップ制作スタジオ（BOOTH 販售的工具，使用者上傳的 v1.0） | 未授權（條款禁止再散布程式與固有意匠） | G10 | ✅ | 🔨 | ⬜ | ⬜ |
 
 上游更新的跟進（已上線的工具加功能，照一般的規格修訂與驗證）：
 

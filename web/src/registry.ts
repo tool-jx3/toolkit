@@ -1011,6 +1011,15 @@ export const TOOLS: readonly ToolEntry[] = [
     status: 'live',
     inspiration: { name: 'remvze/moodist', url: 'https://github.com/remvze/moodist' },
   },
+  {
+    id: 'world-map',
+    name: '世界地圖產生器',
+    summary:
+      '畫跑團用的奇幻世界地圖：陸地、森林、山脈、沙漠、雪原、濕地，圈出國家、畫川與街道、航路與城牆，擺上王都、港口、遺跡等 32 種素材與地名，也能一鍵自動產生整個世界；GM 專用的據點與路線不會出現在公開用的 PNG，還能直接送到地圖演出產生器。',
+    group: 'G10',
+    status: 'next',
+    inspiration: { name: 'KIIN／ワールドマップ制作スタジオ', url: 'https://kiin.booth.pm/' },
+  },
 ];
 
 export function getTool(id: string): ToolEntry | undefined {

@@ -381,6 +381,16 @@ export const S = {
     timeoutTitle: '沒有收到平面圖送來的圖',
     failedTitle: '平面圖產生器沒能把圖送過來',
     retry: '請回平面圖再送一次，或在平面圖「下載 PNG」之後在這裡讀入。',
+    /* 世界地圖產生器送來的圖（2026-11-05，world-map F55；沒有房間的範圍與格子） */
+    world: {
+      replaceTitle: '要用世界地圖產生器送來的圖取代目前的地圖嗎？',
+      loadTitle: '要讀入世界地圖產生器送來的圖嗎？',
+      loaded: (name: string) => `已讀入世界地圖產生器送來的「${name}」`,
+      waiting: '正在接收世界地圖產生器送來的圖…',
+      timeoutTitle: '沒有收到世界地圖送來的圖',
+      failedTitle: '世界地圖產生器沒能把圖送過來',
+      retry: '請回世界地圖再送一次，或在世界地圖「下載 PNG」之後在這裡讀入。',
+    },
   },
 
   /* 匯出 */

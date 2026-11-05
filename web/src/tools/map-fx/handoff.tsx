@@ -5,6 +5,9 @@
  * 送來房間的範圍（`meta.rooms`，2026-10-29，F85）時改成三選一：讀入並建立房間遮罩／只讀入圖／取消；
  * 房間遮罩和換圖是同一步復原（共用的 setImage 帶 frames）。沒有房間的範圍（舊版的平面圖、沒有有名字的房間）時照舊問。
  *
+ * 2026-11-05 起世界地圖產生器（world-map）也送圖過來：網址的 # 另外帶 `from=world-map`（還在等的時候就知道是誰送的），
+ * 讀到之後看交接資料的 from 決定介面上的稱呼；世界地圖沒有房間的範圍與格子，只問要不要讀入。
+ *
  * 兩種開法：
  * - 平面圖產生器在點擊的當下開的分頁：網址的 # 帶 `handoff=<id>`，圖晚一點才寫好——顯示「正在接收」等那一筆
  *   （`waitHandoff`：平面圖還在畫就繼續等；平面圖說失敗了馬上通知；平面圖沒有回應超過約 10 秒就通知等不到）。
@@ -28,6 +31,18 @@ import { S } from './strings';
 /** 寄件的工具（平面圖產生器）與交接的鍵 */
 export const HANDOFF_FROM = 'floor-plan';
 export const HANDOFF_TO = 'map-fx';
+/** 收得下的寄件工具（2026-11-05 加世界地圖產生器） */
+export const HANDOFF_SOURCES: readonly string[] = [HANDOFF_FROM, 'world-map'];
+
+/** 介面上的稱呼（平面圖用原本的文字） */
+const textsFor = (from: string | null | undefined) =>
+  from === 'world-map' ? S.handoff.world : S.handoff;
+
+/** 網址的 # 裡寫的寄件工具（沒寫時當平面圖） */
+function hashSource(hash: string): string {
+  const from = new URLSearchParams(hash.replace(/^#/, '')).get('from');
+  return from && HANDOFF_SOURCES.includes(from) ? from : HANDOFF_FROM;
+}
 
 /** StrictMode 的開發模式會把 effect 跑兩次：一個分頁只讀一次 */
 let started = false;
@@ -45,13 +60,14 @@ export function FloorPlanHandoff() {
   const confirm = useConfirm();
   const choose = useChoice();
   const toast = useToast();
-  const [waiting, setWaiting] = useState(false);
+  const [waiting, setWaiting] = useState<string | null>(null);
   useEffect(() => {
     if (started) return;
     started = true;
     const apply = async (h: Handoff) => {
+      const T = textsFor(h.from);
       const hasImage = !!docNow().image;
-      const title = hasImage ? S.handoff.replaceTitle : S.handoff.loadTitle;
+      const title = hasImage ? T.replaceTitle : T.loadTitle;
       /* 房間的範圍（F85）：有效的房間數、做得出來的遮罩數（框的上限） */
       const rooms = readHandoffRooms(h.meta);
       const n = rooms?.list.length ?? 0;
@@ -117,7 +133,7 @@ export function FloorPlanHandoff() {
       }
       if (!r.persisted) notes.push(S.imageNotSaved);
       toast({
-        title: S.handoff.loaded(h.name),
+        title: T.loaded(h.name),
         description: notes.join('') || undefined,
         tone: r.persisted ? 'success' : 'warning',
       });
@@ -126,20 +142,22 @@ export function FloorPlanHandoff() {
       const id = readHandoffId(location.hash);
       if (!id) {
         const h = await takeHandoff(HANDOFF_TO);
-        if (h && h.from === HANDOFF_FROM) await apply(h);
+        if (h && HANDOFF_SOURCES.includes(h.from)) await apply(h);
         return;
       }
+      const from = hashSource(location.hash);
+      const T = textsFor(from);
       clearHash();
-      setWaiting(true);
+      setWaiting(T.waiting);
       const r = await waitHandoff(HANDOFF_TO, id);
-      setWaiting(false);
+      setWaiting(null);
       if (r.status === 'ok') {
-        if (r.handoff.from === HANDOFF_FROM) await apply(r.handoff);
+        if (HANDOFF_SOURCES.includes(r.handoff.from)) await apply(r.handoff);
         return;
       }
       toast({
-        title: r.status === 'failed' ? S.handoff.failedTitle : S.handoff.timeoutTitle,
-        description: S.handoff.retry,
+        title: r.status === 'failed' ? T.failedTitle : T.timeoutTitle,
+        description: T.retry,
         tone: 'warning',
         duration: 10_000,
       });
@@ -147,7 +165,7 @@ export function FloorPlanHandoff() {
   }, [confirm, choose, toast]);
   return waiting ? (
     <div data-testid="handoff-waiting">
-      <Notice tone="progress">{S.handoff.waiting}</Notice>
+      <Notice tone="progress">{waiting}</Notice>
     </div>
   ) : null;
 }
