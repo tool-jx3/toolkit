@@ -54,10 +54,17 @@ import {
   TICKET_ZOOM_MAX,
 } from './model';
 import { autoGradient, qrDensity } from './render';
-import { LanyardField, PhotoFxControls, useSfCodeDense } from './SfPanel';
+import {
+  ElementsSection,
+  LanyardField,
+  PhotoFxControls,
+  useSfCodeDense,
+  WatermarkSection,
+} from './SfPanel';
 import { useIdleValue } from './schedule';
-import { SF_BLANKS, type SfBlankId } from './sf/defs';
-import { SF_ZOOM_MAX } from './sf/model';
+import { customBlankDef, customKey } from './sf/custom';
+import { SF_BLANKS } from './sf/defs';
+import { SF_ZOOM_MAX, sfTemplateValue } from './sf/model';
 import {
   addItem,
   assets,
@@ -83,8 +90,8 @@ import {
   setKind,
   setPhotoZoom,
   setReceiptPhoto,
-  setSfBlank,
   setSfPhotoFx,
+  setSfTemplate,
   setTheme,
   setTicketTemplate,
   setValue,
@@ -150,7 +157,8 @@ export function TemplateSection() {
   const kind = useDoc((s) => s.data.kind);
   const idT = useDoc((s) => s.data.idTemplate);
   const tkT = useDoc((s) => s.data.ticketTemplate);
-  const sfT = useDoc((s) => s.data.sf.blank);
+  const sfT = useDoc((s) => sfTemplateValue(s.data.sf));
+  const customs = useDoc((s) => s.data.sf.customs);
   /* 縮圖：內容停下之後才重畫、只畫看得到的、一個工作一張（打字時不卡，規格 F02） */
   const doc = useIdleValue(
     useDoc((s) => s.data),
@@ -206,12 +214,18 @@ export function TemplateSection() {
           <ThumbChoice<string>
             aria-label={S.templateList(S.kinds.sf)}
             value={sfT}
-            onValueChange={(v) => setSfBlank(v as SfBlankId)}
-            options={SF_BLANKS.map((t) => ({
-              value: t.id,
-              label: t.name,
-              description: t.description,
-            }))}
+            onValueChange={setSfTemplate}
+            options={[
+              ...SF_BLANKS.map((t) => ({
+                value: t.id as string,
+                label: t.name,
+                description: t.description,
+              })),
+              ...customs.map((c) => {
+                const def = customBlankDef(c);
+                return { value: customKey(c.id), label: def.name, description: def.description };
+              }),
+            ]}
             draw={draw}
             thumbWidth={THUMB.w}
             thumbHeight={THUMB.h}
@@ -415,7 +429,11 @@ export function FieldsSection() {
   const toast = useToast();
   const hasGen = doc.kind === 'ticket' && fields.some((f) => f.gen);
   const tplKey =
-    doc.kind === 'id' ? doc.idTemplate : doc.kind === 'sf' ? doc.sf.blank : doc.ticketTemplate;
+    doc.kind === 'id'
+      ? doc.idTemplate
+      : doc.kind === 'sf'
+        ? sfTemplateValue(doc.sf)
+        : doc.ticketTemplate;
   return (
     <Section
       title={S.sectionFields}
@@ -735,6 +753,8 @@ export function IdStyleSection() {
           />
         </Section>
       ) : null}
+      <WatermarkSection target="id" />
+      <ElementsSection target="id" />
     </>
   );
 }

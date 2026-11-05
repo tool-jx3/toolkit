@@ -147,6 +147,8 @@ function MiniBar() {
     .filter((s): s is typeof s & { obj: Record<string, unknown> } => !!s.obj);
   const rooms = objs.filter((o) => o.type === 'room');
   const onlyItems = objs.length > 0 && objs.every((o) => o.type === 'item');
+  /* 自由線（2026-11-05，F286）：翻轉＝左右反轉 */
+  const onlyLines = objs.length > 0 && objs.every((o) => o.type === 'line');
   const oneDoor =
     objs.length === 1 &&
     objs[0].type === 'opening' &&
@@ -174,11 +176,11 @@ function MiniBar() {
           icon={<RotateCw />}
           label={S.mini.rotate}
           disabled={rooms.length > 0 && locked}
-          onClick={act.rotateSelection}
+          onClick={() => act.rotateSelection()}
           data-mini="rotate"
         />
       ) : null}
-      {onlyItems || oneDoor ? (
+      {onlyItems || oneDoor || onlyLines ? (
         <IconButton
           size="sm"
           variant="ghost"

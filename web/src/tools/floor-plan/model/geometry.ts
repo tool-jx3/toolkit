@@ -11,6 +11,7 @@ import {
   OPEN,
   PING_M2,
 } from './catalog';
+import { lineBounds } from './lines';
 import { roomCellArea, roomContainsRoom, roomHasPoint } from './shape';
 import type { Floor, Item, Opening, Project, Rect, Room, SizeMode, TextLabel } from './types';
 
@@ -40,10 +41,79 @@ export function emptyProject(name = ''): Project {
   };
 }
 
+/** 角度整理成 0～360（不含 360） */
+export const normDeg = (deg: number): number => (((deg || 0) % 360) + 360) % 360;
+
+/**
+ * 最接近的 90° 是第幾個（0～3）。外框的寬深照它對調（2026-11-05，F277：家具可以轉任何角度，
+ * 外框是「轉到最接近的 90°」時的範圍；0／90／180／270 的結果和以前相同）。
+ */
+export const quarterTurn = (deg: number): number => Math.round(normDeg(deg) / 90) % 4;
+
+/** 這個角度的外框寬深要不要對調 */
+export const swapsAxes = (deg: number): boolean => quarterTurn(deg) % 2 === 1;
+
+/** 是不是 90° 的倍數（細角度的家具有些地方另外處理） */
+export const isRightAngle = (deg: number): boolean => normDeg(deg) % 90 === 0;
+
 /** 家具在自己的座標系（轉向前）的寬、深 */
 export function itemLocalSize(item: Pick<Item, 'w' | 'h' | 'rot'>): { w: number; h: number } {
-  const swap = item.rot === 90 || item.rot === 270;
+  const swap = swapsAxes(item.rot);
   return swap ? { w: item.h, h: item.w } : { w: item.w, h: item.h };
+}
+
+/**
+ * 家具畫出來的範圍：90° 的倍數就是外框；細角度（F277）時是轉過的長方形的外接範圍（匯出範圍、範圍選取用）。
+ */
+export function itemFootprint(item: Pick<Item, 'x' | 'y' | 'w' | 'h' | 'rot'>): Rect {
+  if (isRightAngle(item.rot)) return { x: item.x, y: item.y, w: item.w, h: item.h };
+  const loc = itemLocalSize(item);
+  const a = (normDeg(item.rot) * Math.PI) / 180;
+  const cos = Math.abs(Math.cos(a));
+  const sin = Math.abs(Math.sin(a));
+  const w = loc.w * cos + loc.h * sin;
+  const h = loc.w * sin + loc.h * cos;
+  const cx = item.x + item.w / 2;
+  const cy = item.y + item.h / 2;
+  return { x: cx - w / 2, y: cy - h / 2, w, h };
+}
+
+/** 家具轉過的四個角（細角度的點選、圓形配置的重疊判斷） */
+export function itemCorners(
+  item: Pick<Item, 'x' | 'y' | 'w' | 'h' | 'rot'>,
+): { x: number; y: number }[] {
+  const loc = itemLocalSize(item);
+  const a = (normDeg(item.rot) * Math.PI) / 180;
+  const cos = Math.cos(a);
+  const sin = Math.sin(a);
+  const cx = item.x + item.w / 2;
+  const cy = item.y + item.h / 2;
+  return [
+    [-1, -1],
+    [1, -1],
+    [1, 1],
+    [-1, 1],
+  ].map(([sx, sy]) => {
+    const u = (sx * loc.w) / 2;
+    const v = (sy * loc.h) / 2;
+    return { x: cx + u * cos - v * sin, y: cy + u * sin + v * cos };
+  });
+}
+
+/** 點在轉過的家具裡（細角度的點選） */
+export function itemHasPoint(
+  item: Pick<Item, 'x' | 'y' | 'w' | 'h' | 'rot'>,
+  px: number,
+  py: number,
+  pad = 0,
+): boolean {
+  const loc = itemLocalSize(item);
+  const a = (-normDeg(item.rot) * Math.PI) / 180;
+  const dx = px - (item.x + item.w / 2);
+  const dy = py - (item.y + item.h / 2);
+  const u = dx * Math.cos(a) - dy * Math.sin(a);
+  const v = dx * Math.sin(a) + dy * Math.cos(a);
+  return Math.abs(u) <= loc.w / 2 + pad && Math.abs(v) <= loc.h / 2 + pad;
 }
 
 export function rectsOverlap(a: Rect, b: Rect, eps = 1e-6): boolean {
@@ -141,7 +211,7 @@ export function roughBadgeRect(t: Pick<TextLabel, 'x' | 'y' | 'text' | 'size'>):
 export function floorBounds(floor: Floor): Rect | null {
   let box: Rect | null = null;
   for (const r of floor.rooms) box = unionRect(box, r);
-  for (const i of floor.items) box = unionRect(box, i);
+  for (const i of floor.items) box = unionRect(box, itemFootprint(i));
   for (const w of floor.walls) {
     box = unionRect(box, {
       x: Math.min(w.x1, w.x2),
@@ -152,6 +222,8 @@ export function floorBounds(floor: Floor): Rect | null {
   }
   for (const o of floor.openings) box = unionRect(box, openingRect(o, openingReach(o)));
   for (const t of floor.texts) box = unionRect(box, t.badge ? roughBadgeRect(t) : roughTextRect(t));
+  /* 自由線（2026-11-05，F285） */
+  if (floor.lines) for (const l of floor.lines) box = unionRect(box, lineBounds(l));
   return box;
 }
 
@@ -247,6 +319,32 @@ export function visibleFloor(floor: Floor, playerView: boolean, hideClues = fals
     }),
     items: f.items.filter((i) => !i.gm && !inside(i.x + i.w / 2, i.y + i.h / 2)),
     texts: f.texts.filter((t) => !t.gm && !inside(t.x, t.y)),
+    /* 自由線（2026-11-05，F286）：GM 專用的、中點在 GM 專用房間裡的拿掉（同手畫的牆） */
+    ...(f.lines
+      ? {
+          lines: f.lines.filter((l) => !l.gm && !inside((l.x1 + l.x2) / 2, (l.y1 + l.y2) / 2)),
+        }
+      : {}),
+  };
+}
+
+/**
+ * 揭露用的圖（2026-11-05，F284；驗證後修訂：原本 GM 專用的文字照樣是 GM 色）：GM 專用的東西都照一般的畫——
+ * 房間、手畫的牆、門窗、家具、文字、自由線的「只有 GM 看得到」都拿掉，暗門換成單開門。GM 專用與一般的同一張地圖畫出來一樣。
+ */
+export function revealFloor(floor: Floor): Floor {
+  const plain = <T extends { gm?: boolean }>(x: T): T => (x.gm ? { ...x, gm: false } : x);
+  return {
+    ...floor,
+    rooms: floor.rooms.map(plain),
+    walls: floor.walls.map(plain),
+    openings: floor.openings.map((o) => {
+      const p = plain(o);
+      return p.kind === 'secret' ? { ...p, kind: 'door' } : p;
+    }),
+    items: floor.items.map(plain),
+    texts: floor.texts.map(plain),
+    ...(floor.lines ? { lines: floor.lines.map(plain) } : {}),
   };
 }
 

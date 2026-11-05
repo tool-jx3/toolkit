@@ -42,11 +42,15 @@ import {
   autoPickColor,
   type BatchNotice,
   changeMask,
+  cleanCurrentSpecks,
+  fixCurrentEdges,
   loadCustomFrame,
   loadCustomMaskFile,
   loadMaskFile,
   loadRefImage,
   renderTokenBlob,
+  retuneAuto,
+  retuneGap,
   runAuto,
   selectionText,
   setJobs,
@@ -97,9 +101,11 @@ import {
   setCustomMask,
   setFrame,
   setPrefs,
+  toggleMaskView,
   tokenPad,
   useDoc,
   usePrefs,
+  useUi,
 } from './store';
 import { S } from './strings';
 import { requestTexture } from './textures';
@@ -490,6 +496,7 @@ export function PopoutTab() {
           {S.aiHint.split(S.aiLink)[1]}
         </Notice>
       </Section>
+      <EdgeSection token={token} hasMask={!!token?.mask} />
       <Section title={S.marginSection} persistKey="token-maker:margin">
         <Field label={S.autoMargin} hint={S.autoMarginHint} layout="inline">
           <Toggle
@@ -520,6 +527,120 @@ export function PopoutTab() {
         </Show>
       </Section>
     </div>
+  );
+}
+
+/**
+ * 邊緣（token-workshop ce4c62b 的 Edges）：一鍵修邊、自動的靈敏度與內縮／外擴（重新自動選取）、自動時順便修邊、
+ * 去光暈、去掉小縫隙、去雜點與填洞、檢視遮罩。
+ */
+function EdgeSection({ token, hasMask }: { token: TokenItem | null; hasMask: boolean }) {
+  const notify = useNotice();
+  const autoSens = usePrefs((s) => s.data.autoSens);
+  const autoShrink = usePrefs((s) => s.data.autoShrink);
+  const autoFix = usePrefs((s) => s.data.autoFix);
+  const gap = useUi((s) => s.gap);
+  const maskView = useUi((s) => s.maskView);
+  const busy = useUi((s) => s.busy);
+  const disabled = !token?.image;
+  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  useEffect(() => () => clearTimeout(timer.current), []);
+  /** 拖曳中稍停 0.26 秒才重算一次（重算要一點時間）；放開馬上算、存成一步 */
+  const later = (fn: () => void) => {
+    clearTimeout(timer.current);
+    timer.current = setTimeout(fn, 260);
+  };
+  const autoLive = (patch: { autoSens?: number; autoShrink?: number }, final: boolean) => {
+    setPrefs(patch);
+    clearTimeout(timer.current);
+    if (final) void retuneAuto(true).then(notify);
+    else later(() => void retuneAuto(false).then(notify));
+  };
+  const gapLive = (v: number, final: boolean) => {
+    useUi.setState({ gap: v });
+    clearTimeout(timer.current);
+    if (final) void retuneGap(v, true).then(notify);
+    else later(() => void retuneGap(v, false));
+  };
+  return (
+    <Section title={S.edgeSection} persistKey="token-maker:edges">
+      <p className="m-0 text-sm text-muted">{S.edgeIntro}</p>
+      <div className="flex flex-wrap gap-2">
+        <Button
+          size="sm"
+          variant="secondary"
+          icon={<Sparkles />}
+          disabled={disabled || !hasMask || !!busy}
+          title={S.fixEdgesTitle}
+          onClick={async () => notify(await fixCurrentEdges())}
+        >
+          {S.fixEdges}
+        </Button>
+        <Button
+          size="sm"
+          variant="secondary"
+          disabled={disabled || !hasMask}
+          title={S.cleanSpecksTitle}
+          onClick={async () => notify(await cleanCurrentSpecks())}
+        >
+          {S.cleanSpecks}
+        </Button>
+      </div>
+      <Field label={S.autoSens} hint={S.autoSensHint}>
+        <Slider
+          value={autoSens}
+          min={RANGES.autoSens.min}
+          max={RANGES.autoSens.max}
+          disabled={disabled}
+          onChange={(v) => autoLive({ autoSens: v }, false)}
+          onCommit={(v) => autoLive({ autoSens: v }, true)}
+        />
+      </Field>
+      <Field label={S.autoShrink} hint={S.autoShrinkHint}>
+        <Slider
+          value={autoShrink}
+          min={RANGES.autoShrink.min}
+          max={RANGES.autoShrink.max}
+          unit="px"
+          disabled={disabled}
+          onChange={(v) => autoLive({ autoShrink: v }, false)}
+          onCommit={(v) => autoLive({ autoShrink: v }, true)}
+        />
+      </Field>
+      <Field label={S.autoFix} hint={S.autoFixHint} layout="inline">
+        <Toggle checked={autoFix} onCheckedChange={(v) => setPrefs({ autoFix: v })} />
+      </Field>
+      <Field label={S.halo} hint={S.haloHint}>
+        <Slider
+          value={token?.halo ?? 0}
+          min={RANGES.halo.min}
+          max={RANGES.halo.max}
+          unit="%"
+          disabled={disabled || !hasMask}
+          onChange={gesture.live((v: number) =>
+            editCurrent((t) => {
+              if (v > 0) t.halo = v;
+              else delete t.halo;
+            }),
+          )}
+          onCommit={gesture.commit}
+        />
+      </Field>
+      <Field label={S.gap} hint={S.gapHint}>
+        <Slider
+          value={gap}
+          min={RANGES.gap.min}
+          max={RANGES.gap.max}
+          unit="px"
+          disabled={disabled || !hasMask}
+          onChange={(v) => gapLive(v, false)}
+          onCommit={(v) => gapLive(v, true)}
+        />
+      </Field>
+      <Field label={S.maskView} hint={S.maskViewHint} layout="inline">
+        <Toggle checked={maskView} disabled={disabled} onCheckedChange={toggleMaskView} />
+      </Field>
+    </Section>
   );
 }
 
@@ -612,6 +733,7 @@ export function FrameTab() {
       l.g1 = from;
       l.g2 = to;
       l.gAngle = angle;
+      l.gMid = 50;
       l.colorKey = key;
     });
   const solidActive = look.colorMode === 'solid' ? look.colorKey : null;
@@ -881,6 +1003,15 @@ export function FrameTab() {
                   }
                 />
               </GestureScope>
+            </Field>
+            <Field label={S.gradientMid} hint={S.gradientMidHint}>
+              <Slider
+                value={look.gMid}
+                {...lookSlider('gMid')}
+                min={RANGES.gMid.min}
+                max={RANGES.gMid.max}
+                unit="%"
+              />
             </Field>
             <Field label={S.gradientAngle} hint={S.gradientAngleHint}>
               <Slider value={look.gAngle} {...lookSlider('gAngle')} min={0} max={360} unit="°" />

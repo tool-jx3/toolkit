@@ -227,7 +227,7 @@ test.describe('L 形房間（F257～F260）', () => {
       page.keyboard.press('Control+s'),
     ]);
     const saved = JSON.parse(readFileSync((await dl.path()) as string, 'utf8'));
-    expect(saved).toMatchObject({ format: 'trpg-toolkit-project', tool: 'floor-plan', version: 7 });
+    expect(saved).toMatchObject({ format: 'trpg-toolkit-project', tool: 'floor-plan', version: 8 });
     expect(saved.data.floors[0].rooms[0].cut).toEqual({ c: 'ne', w: 4, h: 3 });
     expect(errors).toEqual([]);
   });

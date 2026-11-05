@@ -9,6 +9,7 @@ import { addImageFile, createAssetStore } from '@/core/assets';
 import { encodePng } from '@/core/encode';
 import { featherMask, getImageData, loadImage, makeCanvas } from '@/core/image';
 import { grayMaskCanvas } from './custom';
+import { edgeReach, estimateBg, hasPartial, unmixHalo } from './edges';
 import { type Mask, maskBoundary, maskSizeFor, type Rgba } from './mask';
 import { IMAGE_MAX_SIDE, type ImageRef, type MaskRef } from './model';
 
@@ -368,6 +369,54 @@ export function boundaryFor(mask: MaskRef, image: ImageRef): Float32Array | null
   }
   return b;
 }
+
+/* ---------- 去光暈 ---------- */
+
+const haloCache = new Map<string, { mask: Mask; halo: number; canvas: AnyCanvas }>();
+const HALO_CACHE = 3;
+
+/**
+ * 去光暈後的圖片（原尺寸）：遮罩半透明的邊緣扣掉背景色；背景色就近找，找不到時用選取邊緣外面估計的背景色。
+ * 依圖片、遮罩物件、強度快取（最近 3 張）；強度 0 或遮罩沒有半透明的像素時 null（出框直接用圖片）。
+ */
+export function haloImage(
+  imageId: string,
+  work: ImageWork,
+  mask: Mask,
+  halo: number,
+): AnyCanvas | null {
+  if (halo <= 0 || !hasPartial(mask)) return null;
+  const hit = haloCache.get(imageId);
+  if (hit && hit.mask === mask && hit.halo === halo) {
+    haloCache.delete(imageId);
+    haloCache.set(imageId, hit);
+    return hit.canvas;
+  }
+  const bmp = work.bitmap;
+  const c = makeCanvas(bmp.width, bmp.height);
+  const ctx = c.getContext('2d', { willReadFrequently: true }) as CanvasRenderingContext2D;
+  ctx.drawImage(bmp, 0, 0);
+  const img = ctx.getImageData(0, 0, bmp.width, bmp.height);
+  const same = work.work.width === mask.width && work.work.height === mask.height;
+  const fallback = same
+    ? estimateBg(mask, work.work, edgeReach(mask.width, mask.height)).c
+    : [128, 128, 128];
+  unmixHalo(img, mask, halo / 100, fallback);
+  ctx.putImageData(img, 0, 0);
+  haloCache.delete(imageId);
+  haloCache.set(imageId, { mask, halo, canvas: c });
+  if (haloCache.size > HALO_CACHE) {
+    const first = haloCache.keys().next().value;
+    if (first !== undefined) haloCache.delete(first);
+  }
+  return c;
+}
+
+/** 上一次算好的去光暈圖片（正在畫的那一筆還沒存好時先用它，不重算） */
+export const peekHaloImage = (imageId: string, halo: number): AnyCanvas | null => {
+  const hit = haloCache.get(imageId);
+  return hit && halo > 0 ? hit.canvas : null;
+};
 
 /* ---------- 縮圖用的小遮罩 ---------- */
 

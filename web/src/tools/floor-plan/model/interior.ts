@@ -55,6 +55,12 @@ function split(floor: Floor, floors: readonly Floor[]): Split | null {
     openings: floor.openings.filter((o) => !seen.has(openingKey(o))),
     items: floor.items.filter((i) => !strictlyIn(drop, i.x + i.w / 2, i.y + i.h / 2)),
     texts: floor.texts.filter((t) => !strictlyIn(drop, t.x, t.y)),
+    /* 自由線（2026-11-05）：拿掉的房間上的一起拿掉（同手畫的牆） */
+    ...(floor.lines
+      ? {
+          lines: floor.lines.filter((l) => !strictlyIn(drop, (l.x1 + l.x2) / 2, (l.y1 + l.y2) / 2)),
+        }
+      : {}),
   };
   const labelInside = (r: Room) => {
     if (r.hideLabel) return false;
@@ -70,6 +76,7 @@ function split(floor: Floor, floors: readonly Floor[]): Split | null {
     openings: own.openings.concat(inner.openings),
     items: own.items.concat(inner.items),
     texts: own.texts.concat(inner.texts),
+    ...(own.lines || inner.lines ? { lines: (own.lines ?? []).concat(inner.lines ?? []) } : {}),
   };
   return { own, composed };
 }

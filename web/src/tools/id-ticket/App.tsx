@@ -31,6 +31,7 @@ import {
 import { Preview } from './Preview';
 import { importProject, projectAssetIds } from './project';
 import { fontUsesOf, slotInk } from './render';
+import { SfNamesSection, SfPresetsSection } from './SfExtras';
 import { LicensesSection, SfCaptionsSection, SfCropDialog, SfStyleSection } from './SfPanel';
 import {
   assets,
@@ -115,10 +116,12 @@ function Settings() {
         <div className="flex min-w-0 flex-col gap-3">
           <PhotoSection />
           <FieldsSection />
+          <SfNamesSection />
           <LicensesSection />
           <SfCaptionsSection />
           <ItemsSection />
           <CaptionsSection />
+          <SfPresetsSection />
         </div>
       ),
     },

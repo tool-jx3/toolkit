@@ -15,6 +15,7 @@ import {
   Clapperboard,
   ClipboardList,
   Coins,
+  Compass,
   Contact,
   Crop,
   Dices,
@@ -188,6 +189,7 @@ const ICONS: Record<string, LucideIcon> = {
   'range-ruler': Ruler,
   'floor-plan': House,
   'map-fx': Route,
+  'world-map': Compass,
   'tile-map': BrickWall,
   /* 其他網站 */
   jizura: MicVocal,

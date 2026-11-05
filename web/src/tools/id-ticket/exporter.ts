@@ -105,12 +105,31 @@ function idFace(
   mode: IdExportMode,
   photo: CanvasImageSource | null,
   lanyard?: LanyardMode,
+  image?: (id: string) => CanvasImageSource | null,
 ) {
   const size = facePixels(idTemplate(s.idTemplate).orientation, mode);
   const l = faceLanyard(lanyard);
-  return renderIdFace(s, side, EXPORT_SCALE, mode, { preview: false, photo }, size, undefined, l)
-    .canvas;
+  return renderIdFace(
+    s,
+    side,
+    EXPORT_SCALE,
+    mode,
+    { preview: false, photo, image },
+    size,
+    undefined,
+    l,
+  ).canvas;
 }
+
+/** 證件的浮水印與裝飾圖用到的圖（這一款） */
+export const idDecorImageIds = (s: IdTicketState): string[] => {
+  const d = s.idDecor;
+  const ids: string[] = [];
+  if (d.watermark.mode === 'image' && d.watermark.image) ids.push(d.watermark.image.id);
+  for (const list of Object.values(d.elements[s.idTemplate]))
+    for (const e of list) ids.push(e.image.id);
+  return ids;
+};
 
 export async function exportId(
   s: IdTicketState,
@@ -120,10 +139,14 @@ export async function exportId(
 ): Promise<ExportOutput | ExportBatchOutput> {
   await ensureAll(idFontUses(s));
   if (signal.aborted) throw aborted();
+  const decorIds = idDecorImageIds(s);
+  const bitmaps = decorIds.length ? await loadAssetBitmaps(assets, decorIds) : new Map();
+  if (signal.aborted) throw aborted();
+  const image = (id: string) => bitmaps.get(id) ?? null;
   const tpl = idTemplate(s.idTemplate);
   const dpiRow = [{ label: S.dpiDetail, value: S.dpiValue(CARD_DPI) }];
   const one = async (side: Side): Promise<ExportOutput> => {
-    const c = idFace(s, side, job.mode, photo, job.lanyard);
+    const c = idFace(s, side, job.mode, photo, job.lanyard, image);
     return {
       blob: await pngWithDpi(c, CARD_DPI),
       fileName: idFileName(tpl.id, side, job.mode),
@@ -140,9 +163,9 @@ export async function exportId(
     const back = await one('back');
     return { files: [front, back], zipName: `${S.zipName}-${tpl.name}`, details: dpiRow };
   }
-  const f = idFace(s, 'front', job.mode, photo, job.lanyard);
+  const f = idFace(s, 'front', job.mode, photo, job.lanyard, image);
   onProgress(0.4);
-  const b = idFace(s, 'back', job.mode, photo, job.lanyard);
+  const b = idFace(s, 'back', job.mode, photo, job.lanyard, image);
   onProgress(0.7);
   const gap = sheetGapPx();
   const sheet = makeCanvas(f.width + gap + b.width, Math.max(f.height, b.height));
@@ -284,27 +307,36 @@ export interface SfJob {
 }
 
 /** SF 證件的 PNG（1 倍／2 倍，卡片外形以外透明；掛繩孔、掛繩依選擇） */
+async function sfCanvas(s: IdTicketState, job: SfJob, signal?: AbortSignal) {
+  await ensureAll(sfFontUses(s.sf));
+  if (signal?.aborted) throw aborted();
+  const ids = sfAssetIds(s.sf);
+  const bitmaps = await loadAssetBitmaps(assets, ids);
+  if (signal?.aborted) throw aborted();
+  const photoBmp = s.sf.photo ? (bitmaps.get(s.sf.photo.image.id) ?? null) : null;
+  return renderSf(s.sf, job.scale, {
+    preview: false,
+    photo: sfPhotoSource(s.sf.photo, photoBmp),
+    image: (id) => bitmaps.get(id) ?? null,
+    lanyard: job.lanyard,
+  }).canvas;
+}
+
 export async function exportSf(
   s: IdTicketState,
   job: SfJob,
   { signal }: { signal: AbortSignal; onProgress: (r: number, label?: string) => void },
 ): Promise<ExportOutput> {
-  await ensureAll(sfFontUses(s.sf));
-  if (signal.aborted) throw aborted();
-  const ids = sfAssetIds(s.sf);
-  const bitmaps = await loadAssetBitmaps(assets, ids);
-  if (signal.aborted) throw aborted();
-  const photoBmp = s.sf.photo ? (bitmaps.get(s.sf.photo.image.id) ?? null) : null;
-  const { canvas } = renderSf(s.sf, job.scale, {
-    preview: false,
-    photo: sfPhotoSource(s.sf.photo, photoBmp),
-    image: (id) => bitmaps.get(id) ?? null,
-    lanyard: job.lanyard,
-  });
+  const canvas = await sfCanvas(s, job, signal);
   return {
     blob: await canvasToBlob(canvas, 'image/png'),
     fileName: sfFileName(s.sf, job.scale),
     width: canvas.width,
     height: canvas.height,
   };
+}
+
+/** 複製到剪貼簿用的 PNG（同匯出；規格 F93） */
+export async function sfPngBlob(s: IdTicketState, job: SfJob): Promise<Blob> {
+  return canvasToBlob(await sfCanvas(s, job), 'image/png');
 }

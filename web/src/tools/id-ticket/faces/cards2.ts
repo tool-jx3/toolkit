@@ -26,6 +26,7 @@ import {
   cardBarcode,
   cardQr,
   fillBleed,
+  ground,
   guilloche,
   type IdEnv,
   type IdFaces,
@@ -81,6 +82,7 @@ export const police: IdFaces = {
     ctx.globalAlpha = dk ? 0.08 : 0.06;
     badge(e, W - 70, 186, 92, dk ? '#ffffff' : c);
     ctx.restore();
+    ground(e, { x: S, y: 80, w: 102, h: 134, r: 2 });
     band(e, 0, 62, t.head);
     band(e, 62, 64.5, t.gold);
     const oc = onColor(t.head);
@@ -179,6 +181,7 @@ export const police: IdFaces = {
     ctx.globalAlpha = dk ? 0.07 : 0.05;
     badge(e, W / 2, H / 2, 110, dk ? '#ffffff' : c);
     ctx.restore();
+    ground(e);
     band(e, 0, 8, t.head);
     text(e, '持證須知', S, 40, { size: 13, weight: 900, color: t.fg, spacing: 1 });
     paragraph(
@@ -266,6 +269,7 @@ export const member: IdFaces = {
     const { ctx, W, S, c, dk } = e;
     const m = memberTones(e);
     memberBg(e);
+    ground(e, { x: W - S - 82, y: 98, w: 76, h: 76, r: 38 });
     sparkle(e, W - 150, 34, 9, alpha('#ffffff', 0.9));
     sparkle(e, W - 128, 52, 5, alpha(c, 0.6));
     sparkle(e, W * 0.52, 100, 6, alpha('#ffffff', 0.8));
@@ -345,6 +349,7 @@ export const member: IdFaces = {
     const { ctx, W, S, c, dk } = e;
     const m = memberTones(e);
     memberBg(e);
+    ground(e);
     /* 磁條 */
     band(e, 22, 62, dk ? '#0b0b0d' : '#1f1d22');
     /* 簽名條 */
@@ -562,6 +567,7 @@ export const detective: IdFaces = {
   front(e) {
     const { ctx, W, S } = e;
     const p = paper(e);
+    ground(e, { x: (W - 100) / 2, y: 124, w: 100, h: 128, r: 0 });
     frame(e, p.rule);
     const agencyO: TextOpts = {
       font: 'serif',
@@ -639,6 +645,7 @@ export const detective: IdFaces = {
   back(e) {
     const { ctx, W, S } = e;
     const p = paper(e);
+    ground(e);
     frame(e, p.rule);
     /* 打了掛繩孔時標題往下 7（避開孔，規格 D32） */
     text(e, '注 意 事 項', W / 2, e.slot ? 53 : 46, {

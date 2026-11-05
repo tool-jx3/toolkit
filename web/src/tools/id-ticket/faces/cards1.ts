@@ -25,6 +25,7 @@ import {
   cardBarcode,
   cardQr,
   fillBleed,
+  ground,
   type IdEnv,
   type IdFaces,
   labeled,
@@ -41,6 +42,7 @@ export const employee: IdFaces = {
     const { ctx, W, H, S, c, dk } = e;
     const t = tones(e);
     fillBleed(e, t.bg);
+    ground(e, { x: (W - 116) / 2, y: 72, w: 116, h: 150, r: 9 });
     /* 上方色帶＋斜的反光 */
     band(e, 0, 118, dk ? shade(c, 0.25) : c);
     ctx.save();
@@ -184,6 +186,7 @@ export const employee: IdFaces = {
     const { ctx, W, H, S, c, dk } = e;
     const t = tones(e);
     fillBleed(e, t.bg);
+    ground(e);
     band(e, 0, 8, c);
     text(e, '使用須知', S, 44, { size: 14, weight: 900, color: t.fg, spacing: 1 });
     cap(e, 'TERMS OF USE', S, 58, t.mu);
@@ -251,6 +254,7 @@ export const highschool: IdFaces = {
     const { ctx, W, H, S, c, dk } = e;
     const t = tones(e);
     fillBleed(e, dk ? '#101817' : '#fbfdfc');
+    ground(e, { x: S + 2, y: 160, w: 104, h: 136, r: 3 });
     band(e, 0, 90, dk ? shade(c, 0.3) : c);
     /* 色帶下緣的細線 */
     band(e, 90, 93, alpha(c, 0.35));
@@ -320,6 +324,7 @@ export const highschool: IdFaces = {
     const { ctx, W, H, S, c, dk } = e;
     const t = tones(e);
     fillBleed(e, dk ? '#101817' : '#fbfdfc');
+    ground(e);
     band(e, 0, 8, c);
     text(e, '註冊章', S, 44, {
       font: 'serif',
@@ -456,6 +461,7 @@ export const university: IdFaces = {
   front(e) {
     const { ctx, W, H, S, c, dk } = e;
     const u = uniBase(e);
+    ground(e, { x: W - S - 96, y: 82, w: 96, h: 126, r: 0 });
     /* 大大的淡校徽 */
     ctx.save();
     ctx.globalAlpha = dk ? 0.07 : 0.08;
@@ -559,6 +565,7 @@ export const university: IdFaces = {
   back(e) {
     const { ctx, W, H, S, c, dk } = e;
     const u = uniBase(e);
+    ground(e);
     /* 打了掛繩孔時校徽、校名、小標往下（12、14、12；避開孔，規格 D32） */
     const hy = e.slot ? 12 : 0;
     crest(e, S + 13, 36 + hy, 13, u.hc);
@@ -618,6 +625,7 @@ export const press: IdFaces = {
     const { ctx, W, H, S, c, dk } = e;
     const t = tones(e);
     fillBleed(e, t.bg);
+    ground(e, { x: S, y: 166, w: 110, h: 142, r: 6 });
     band(e, 0, 150, dk ? shade(c, 0.2) : c);
     /* 斜紋 */
     ctx.save();
@@ -724,6 +732,7 @@ export const press: IdFaces = {
     const { ctx, W, H, S, c } = e;
     const t = tones(e);
     fillBleed(e, t.bg);
+    ground(e);
     band(e, 0, 10, c);
     text(e, '採訪須知', S, 46, { size: 14, weight: 900, color: t.fg, spacing: 1 });
     cap(e, 'PRESS GUIDELINES', S, 60, t.mu);

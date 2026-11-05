@@ -10,6 +10,7 @@ import {
   type FurnStyle,
   hatchRows,
   lw,
+  mirrorX,
   oval,
   paint,
   poly,
@@ -700,6 +701,8 @@ export const HOME: Record<string, FurnDraw> = {
   stairs,
   stairs_u: stairsU,
   spiral,
+  /* 2026-11-05（參考 KIIN v2.0 的螺旋階段 2 種，F281）：逆時針＝順時針的鏡像 */
+  spiral_ccw: mirrorX(spiral),
   elevator,
   pillar,
   fireplace,

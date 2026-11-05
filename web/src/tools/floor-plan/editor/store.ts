@@ -15,7 +15,7 @@ import type { ExportSettings } from '../model/exportPlan';
 import { composedFloor, ownFloor } from '../model/interior';
 import { normalizeProject } from '../model/normalize';
 import type { ShareMode } from '../model/share';
-import type { OpeningKind, Project, SelRef, WallKind } from '../model/types';
+import type { LineKind, OpeningKind, Project, SelRef, WallKind } from '../model/types';
 import { getTemplate, instantiateTemplate } from '../templates';
 
 export const TOOL_ID = 'floor-plan';
@@ -26,9 +26,11 @@ export const TOOL_ID = 'floor-plan';
  * （`items[].t` 的代號，2026-10 第三批；欄位不變）。6：新的門窗種類（雙開拉門）與新的家具 8 種（2026-10-29 跟進原作 v1.15；欄位不變）。
  * 7：L 形房間（`rooms[].cut`）、樣式 `noir`／`terminal`、紙的污漬與摺痕（`wear`、`wearSeed`）、座標標示（`coords`）、
  * 家具不跟著房間（`fixedFurniture`）、桌上的小物 2 種（2026-10-29 參考 KIIN マップ制作スタジオ；D79）。
+ * 8：夜的暗度（`night`）、自由線（`floors[].lines`）、房間的地板（`rooms[].floor`）、家具的細角度（`items[].rot` 任何整數度）
+ * 與圓形配置的群組（`items[].ring`）、新的家具（2026-11-05 參考 KIIN v2.0；D88）。
  * 舊版本的存檔與專案檔不必轉換（少了欄位就是沒有圓標、沒有方格、牆照規則、不顯示內部、長方形的房間…），讀進來一律經過 normalizeProject。
  */
-export const DATA_VERSION = 7;
+export const DATA_VERSION = 8;
 
 /** 開頁第一次（沒有存檔）時的地圖：第一個範本 */
 export function starterProject(): Project {
@@ -110,7 +112,7 @@ export const useProject = createToolStore<Project>(TOOL_ID, starterProject(), {
   historyLimit: 120,
   coalesceMs: 0,
   storage: projectStorage,
-  /* 版本 1 → … → 7：欄位只多不少，整理一次就好 */
+  /* 版本 1 → … → 8：欄位只多不少，整理一次就好 */
   migrate: (persisted) => normalizeProject(persisted, isAsset) ?? starterProject(),
 });
 
@@ -165,13 +167,34 @@ export type ToolId =
   | 'window'
   | 'text'
   | 'eraser'
-  | 'place';
+  | 'place'
+  /* 自由線（2026-11-05，F285） */
+  | 'line';
 
 export type Armed =
   | { kind: 'room'; preset: RoomPresetId }
   | { kind: 'opening'; type: OpeningKind; hinge: 0 | 1 }
   | { kind: 'wall'; type: WallKind }
-  | { kind: 'item'; t: string; rot: number; manual?: boolean };
+  | { kind: 'item'; t: string; rot: number; manual?: boolean }
+  /* 自由線的種類（2026-11-05，F285） */
+  | { kind: 'line'; type: LineKind };
+
+/**
+ * 下繪圖（2026-11-05，參考 KIIN v2.0 的「下絵」，F283）：本機的圖片疊在編輯畫面上描圖用。
+ * 只在這一頁（不存進專案檔、自動儲存，也不畫進匯出的圖）。位置是圖的中心（格）、寬（格）。
+ */
+export interface Underlay {
+  src: string;
+  /** 圖的高 ÷ 寬 */
+  aspect: number;
+  x: number;
+  y: number;
+  w: number;
+  /** 不透明度（0.1～0.9） */
+  opacity: number;
+  visible: boolean;
+  name: string;
+}
 
 export interface Clipboard {
   floorId: string;
@@ -202,6 +225,8 @@ export interface EditorState {
   /** 家具的搜尋與分類 */
   libQuery: string;
   libGroup: string;
+  /** 下繪圖（F283；只在這一頁） */
+  underlay: Underlay | null;
 }
 
 export const useEditor = create<EditorState>(() => ({
@@ -220,6 +245,7 @@ export const useEditor = create<EditorState>(() => ({
   clipboard: null,
   libQuery: '',
   libGroup: 'all',
+  underlay: null,
 }));
 
 export const setEditor = (patch: Partial<EditorState>): void => useEditor.setState(patch);

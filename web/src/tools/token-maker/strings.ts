@@ -3,7 +3,7 @@ import type { ColorSource, FrameId, GlowMode, LabelStyle, TextureId, ToneMode } 
 import type { Guides, RefShape } from './reference';
 
 export type TabId = 'image' | 'popout' | 'frame' | 'text' | 'fx' | 'export';
-export type ToolId = 'move' | 'wand' | 'brush';
+export type ToolId = 'move' | 'wand' | 'lasso' | 'brush';
 
 export const S = {
   tabsLabel: '設定分類',
@@ -151,12 +151,22 @@ export const S = {
 
   /* ---------- 工具列 ---------- */
   toolbarLabel: '預覽的工具',
-  tools: { move: '移動', wand: '魔術棒', brush: '筆刷' } satisfies Record<ToolId, string>,
+  tools: { move: '移動', wand: '魔術棒', lasso: '套索', brush: '筆刷' } satisfies Record<
+    ToolId,
+    string
+  >,
   toolHints: {
     move: '拖曳平移圖片；滾輪縮放、Shift＋滾輪旋轉；兩指捏合縮放',
     wand: '點一下要出框的部分（同色的範圍）；按住 Alt 改成去掉',
+    lasso: '按住拖曳圈出要出框的範圍，放開就選取；按住 Shift 或 Alt 改成去掉',
     brush: '塗抹要出框的部分；按住 Alt 改成擦掉',
   } satisfies Record<ToolId, string>,
+  lassoHint: '按住拖曳圈出範圍，放開就選取（按住 Shift 或 Alt 去掉）',
+  lassoNothing: '圈的範圍太小，或裡面沒有新的範圍。',
+  lassoAdded: (p: string) => `圈進了圖片的 ${p}`,
+  lassoRemoved: (p: string) => `去掉了圖片的 ${p}`,
+  keyCursorLabel:
+    '棋子預覽。移動工具時方向鍵移動圖片；魔術棒、筆刷時方向鍵移動游標、Enter 套用（Shift＋Enter 去掉）。',
   auto: '自動',
   autoTitle: '自動選出主體',
   clear: '清除',
@@ -170,6 +180,12 @@ export const S = {
   loadMask: '讀入遮罩圖…',
   showOutline: '顯示選取範圍的外框',
   hideOutline: '不顯示選取範圍的外框',
+  maskViewOn: '檢視遮罩（黑白）',
+  maskViewOff: '不檢視遮罩',
+  tableStripOn: '顯示桌面尺寸預覽',
+  tableStripOff: '不顯示桌面尺寸預覽',
+  tableStrip: '桌面尺寸',
+  tableStripLabel: '棋子在 40、80、120 px 的樣子',
   mode: '模式',
   modeAdd: '加入',
   modeSub: '去掉',
@@ -199,6 +215,9 @@ export const S = {
   autoFound: '已自動選出主體，可以用魔術棒或筆刷修改，也可以復原。',
   autoAlpha: '已用圖片的透明度選出主體。',
   autoNone: '找不到明顯的主體：請用魔術棒點要出框的部分。',
+  autoSoft:
+    '已自動選出主體（邊緣是半透明的，髮絲留得住），可以在「出框」的「邊緣」微調，也可以復原。',
+  autoFixed: '已自動選出主體並修好邊緣，可以在「出框」的「邊緣」微調，也可以復原。',
   wandAdded: (p: string) => `加入了圖片的 ${p}`,
   wandRemoved: (p: string) => `去掉了圖片的 ${p}`,
   wandNothing: '這裡沒有新的範圍：提高容許度或點別的地方。',
@@ -209,6 +228,42 @@ export const S = {
   aiHint:
     '想要更乾淨的主體？可以先用「立繪去背工具」把背景去掉，再讀進來（有透明背景時自動選出主體會直接用透明度）。',
   aiLink: '立繪去背工具',
+
+  /* ---------- 邊緣（軟選取與修邊） ---------- */
+  edgeSection: '邊緣',
+  edgeIntro: '頭髮、毛邊，或出框的外圍有一圈原本背景的顏色？按一下「一鍵修邊」再微調。',
+  fixEdges: '一鍵修邊',
+  fixEdgesTitle: '邊緣依顏色變成半透明、去掉光暈、去雜點、填小洞',
+  fixEdgesNeedSelection: '先選出要出框的部分，再修邊。',
+  fixEdgesDone: (cleaned: boolean) =>
+    cleaned
+      ? '已修好邊緣並清掉雜點，可以再微調，也可以復原。'
+      : '已修好邊緣，可以再微調，也可以復原。',
+  fixEdgesBusy: '背景太雜，只清掉了雜點與小洞；髮絲請用筆刷補。',
+  fixEdgesLow: '邊緣和背景太像，沒辦法自動變成半透明；已清掉雜點。',
+  fixEdgesClean: '已清掉雜點與小洞。',
+  autoSens: '自動的靈敏度',
+  autoSensHint:
+    '不滿意「自動」的結果？低：要和背景差很多才算主體；高：連淡淡的髮絲、和背景同色的部分都留。會重新自動選取（取代目前的選取）。',
+  autoShrink: '內縮／外擴',
+  autoShrinkHint: '整圈輪廓往內縮（正數）或往外擴（負數），單位是遮罩的 px。會重新自動選取。',
+  autoPlainOnly: '這兩個滑桿要背景單純的不透明圖片才能用（透明背景的立繪「自動」直接用透明度）。',
+  autoFix: '自動時順便修邊',
+  autoFixHint:
+    '關掉時「自動」選出來的邊緣是硬的（不透明度只有有或沒有）。背景有花紋、或和主體的顏色接近時，結果不好可以調低「自動的靈敏度」或關掉這個開關。',
+  halo: '去光暈',
+  haloHint: '出框半透明的邊緣（髮絲、毛）扣掉原本背景的顏色，蓋在外框上時不會有一圈白邊或灰邊。',
+  gap: '去掉小縫隙',
+  gapHint: '髮捲之間露出、和背景同色的小縫（這個寬度以內）從出框去掉；更寬的用筆刷擦。',
+  gapNone: '沒有找到這麼窄、和背景同色的縫隙。',
+  gapRemoved: (n: number) => `去掉了 ${n} 個縫隙。`,
+  cleanSpecks: '去雜點與填洞',
+  cleanSpecksTitle: '去掉散開的小點、填滿小洞',
+  cleanSpecksNone: '沒有這麼小的雜點或洞。',
+  cleanSpecksDone: (specks: number, filled: number) =>
+    `去掉了 ${specks} 個雜點、填了 ${filled} 個洞。`,
+  maskView: '檢視遮罩',
+  maskViewHint: '預覽換成黑白的遮罩（白＝出框；灰＝半透明），比較看得出洞、雜點和光暈（M）。',
 
   /* ---------- 預設外觀 ---------- */
   presetSection: '預設外觀',
@@ -383,6 +438,8 @@ export const S = {
   gradientFrom: '起點色',
   gradientTo: '終點色',
   gradientAngle: '漸層角度',
+  gradientMid: '色彩平衡',
+  gradientMidHint: '兩色交界的位置：小於 50% 終點色多一點、大於 50% 起點色多一點。',
   gradientAngleHint: '0° 由左到右、90° 由上到下。',
   accentColor: '第二色',
   accentHint: '這個樣式另外用到的顏色。',
@@ -500,6 +557,9 @@ export const S = {
   shortcutMove: '移動工具',
   shortcutWand: '魔術棒',
   shortcutBrush: '筆刷',
+  shortcutLasso: '套索',
+  shortcutMaskView: '檢視遮罩（黑白）',
+  shortcutKeyCursor: '預覽有焦點、魔術棒或筆刷時：方向鍵移動游標，Enter 套用（Shift＋Enter 去掉）',
   shortcutAlt: '按住：暫時改成去掉／擦掉',
   shortcutSpace: '按住拖曳：平移圖片（任何工具）',
   shortcutNudge: '微調位置（Shift 5 倍）',
@@ -511,7 +571,7 @@ export const S = {
   shortcutBracket: '筆刷工具：筆刷變小／變大；其他工具：向左／向右轉 1°（Shift 15°）',
   shortcutClear: '清除選取',
   shortcutDownload: '下載',
-  shortcutEsc: '筆刷、魔術棒：回到移動工具',
+  shortcutEsc: '魔術棒、套索、筆刷：回到移動工具',
   previewLabel: '棋子預覽',
   busy: '處理中…',
   saveFailed: '設定無法自動儲存（瀏覽器的儲存空間已滿或被封鎖）。',
@@ -530,7 +590,7 @@ export const S = {
 
   usage: [
     '在「圖片」讀入角色圖（立繪、頭像；可以一次好幾張，每張是名單裡的一個棋子），在預覽上拖曳、滾輪縮放，把要露出來的部分放進外框裡。',
-    '在「出框」用魔術棒點一下、或用筆刷塗出要蓋在外框上面的部分（頭、角、武器）；「自動」會幫你選出主體。',
+    '在「出框」用魔術棒點一下、用套索圈、或用筆刷塗出要蓋在外框上面的部分（頭、角、武器）；「自動」會幫你選出主體，頭髮、毛邊用「一鍵修邊」變成半透明。',
     '在「外框」挑預設外觀，或自己調樣式、顏色、光照與質感；也可以讀入自訂外框。',
     '在「名字」加上名字牌或徽章（在預覽上拖曳換位置）；「效果」可以加色調、故障、掃描線。',
     '在「匯出」選尺寸（Roll20 280 px、Foundry 400 px…）下載透明背景的 PNG；名單可以全部打包，同一種敵人可以做成徽章 1～N 的編號組。',
