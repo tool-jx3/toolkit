@@ -124,6 +124,7 @@
 | `pl-profile` | PL 自介卡與地雷表 | [sonata9x/trpg-profile-maker](https://github.com/sonata9x/trpg-profile-maker)、[Jara03mofu/trpg-jirai-check](https://github.com/Jara03mofu/trpg-jirai-check)、[Tetoriapot/sosaku-sheet-maker](https://github.com/Tetoriapot/sosaku-sheet-maker)、[dearmysn1p3r/DearMySn1p3r_25](https://github.com/dearmysn1p3r/DearMySn1p3r_25)、[OEC309/trpg-consensus](https://github.com/OEC309/trpg-consensus)（都未授權，只參考功能） | —（新收錄，沒有舊版） |
 | `scenario-timeline` | 劇本時間表 | [visjs/vis-timeline](https://github.com/visjs/vis-timeline)（Apache-2.0 或 MIT 二選一，本站選 MIT） | —（新收錄，沒有舊版） |
 | `ambience-mixer` | 環境音混音器 | [remvze/moodist](https://github.com/remvze/moodist)（程式 MIT；音效的授權分不清，一個都沒收） | —（新收錄，沒有舊版） |
+| `world-map` | 世界地圖產生器 | [KIIN／ワールドマップ制作スタジオ](https://kiin.booth.pm/)（BOOTH 販售的工具，條款禁止再散布程式與工具固有的意匠，視同未授權） | —（新收錄，沒有舊版） |
 | `anime-rig` | 2.5D 動態立繪 | [852wa/Anime2.5DRig](https://github.com/852wa/Anime2.5DRig)（MIT） | `6957b28` |
 
 `music-frame` 是照 [docs/refactor/PROCESS.md](docs/refactor/PROCESS.md) 第 6 節「新工具引入流程」直接在新框架做的工具，沒有收錄過原作的副本（原作 commit `0c24db2`）。原作未附授權條款，預設封面、預設文字與說明都由本站自做，只照原作的功能、版面與數值。
@@ -205,6 +206,8 @@
 `scenario-timeline` 照新工具引入流程直接在新框架做，參考 visjs/vis-timeline（Apache-2.0 或 MIT 二選一，本站選 MIT；commit `eb7ab7c`，授權全文在 `web/src/tools/scenario-timeline/UPSTREAM_LICENSE`）的互動：縮放與平移、時間點／期間／背景三種事件、泳道與巢狀、拖曳改時間與長短、自動堆疊、依標籤寬度挑刻度的間隔。不用 vis-timeline 套件本身，時間的計算、刻度、畫法（DOM＋SVG／canvas）、年表、PL 檢視、CSV 都是本站的；範例（1925 年的黑水灣）是本站原創。
 
 `ambience-mixer` 照新工具引入流程直接在新框架做，參考 remvze/moodist（MIT，commit `11c0be2`，授權全文在 `web/src/tools/ambience-mixer/UPSTREAM_LICENSE`）的功能與數值：聲音卡片、各自的音量、起伏（10 秒、40%～100%）、0.25 秒的淡入淡出、隨機組合、定時停止、分享連結。moodist 的音效混用 Pixabay Content License 與 CC0、沒有逐檔標示，所以**一個音效檔都沒有收**：本站的環境音全部由程式合成（`web/src/core/audio/ambience/`），預設組合是本站設計的跑團場景；使用者自己的音檔只存在自己的瀏覽器。2026-10 加的 MP3 匯出用 npm 的 [@breezystack/lamejs](https://www.npmjs.com/package/@breezystack/lamejs)（LGPL-3.0；[zhuker/lamejs](https://github.com/zhuker/lamejs) 把 [LAME](https://lame.sourceforge.io/) 3.98.4 移植成 JavaScript，這個套件是 [shijinyu/lamejs](https://github.com/shijinyu/lamejs) 的分支），原樣打包成獨立的檔案、只有按「匯出 MP3」時才載入；LGPL-3.0 與 GPL-3.0 的全文、原始碼的出處列在 THIRD_PARTY_NOTICES。兩種新聲音（雨打在帳篷／傘上、房間底噪）同樣是程式合成，共 26 種。
+
+`world-map` 照新工具引入流程直接在新框架做：原作是 KIIN 的「ワールドマップ制作スタジオ v1.0」（BOOTH，使用者 2026-11-05 上傳；和 screenshot-fx、map-fx、ui-frame 同一位作者），條款禁止再散布程式與工具固有的意匠，視同未授權，不放 `UPSTREAM_LICENSE`。只參考功能、演算法與數值（地形的格子與海岸線、森林與山的排法、自動產生的構成、旅程概算的補正與數值；旅程概算和原作逐項相同），程式照本站的結構重寫（規格 D16，驗證時量過和原作相同的片段），介面文字、32 種素材的圖形、範本（虛構的艾爾德蘭大陸等三張）、地名的字庫（原作是日英韓三語，本站自己做中文的）、說明與配色都由本站自做（繁中）。原作「匯出後播放演出スタジオ的示範影片」改成送到本站的地圖演出產生器；可以開原作存的作業檔（`.world.json`），不能存成原作的格式。頁尾的靈感來源連到 KIIN 的 BOOTH 商店首頁（原作裡沒有指向這個工具本身的頁面）。
 
 `log-converter` 的 EPUB 匯出（2026-10）參考 sotsotssi/CcfoliaLogConverter 的功能（原作沒有授權條款：只照功能與做法，程式、介面文字與版面都由本站自做）；原作在控制字元、`<wbr>`、`<font>` 與新格式的日誌會產生不合規的電子書或遺失內容，本站的輸出都通過 epubcheck。
 
