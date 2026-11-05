@@ -3,9 +3,10 @@
  */
 import { ASSET, assetDims } from './assets';
 import { OPEN, wallThickness } from './catalog';
+import { nearestOnCurve } from './curve';
 import { clamp, snap } from './geometry';
 import type { Floor, Opening, OpeningKind, Rect } from './types';
-import type { WallRun } from './walls';
+import type { OpeningPose, WallRun } from './walls';
 
 const lineOf = (o: Pick<Opening, 'o' | 'x' | 'y'>) => (o.o === 'h' ? o.y : o.x);
 const startOf = (o: Pick<Opening, 'o' | 'x' | 'y'>) => (o.o === 'h' ? o.x : o.y);
@@ -25,6 +26,29 @@ export interface OpeningGhost {
   run: { a: number; b: number };
   /** 游標沿著線的位置（對齊 0.25 格、夾在牆段內）：沿牆拖曳的起點 */
   along: number;
+  /** 吸到曲線的房間的外框線（2026-11-05，F291）：畫在外形上的位置 */
+  pose?: OpeningPose;
+}
+
+/** 門窗（直的位置）放在曲線的房間 r 的外框線上時，畫在外形上的位置（walls.ts 的 openingPoses 同一條規則） */
+export function poseOnCurve(
+  r: NonNullable<WallRun['curve']>,
+  o: Pick<Opening, 'o' | 'x' | 'y' | 'len'>,
+): OpeningPose | null {
+  const mx = o.o === 'h' ? o.x + o.len / 2 : o.x;
+  const my = o.o === 'h' ? o.y : o.y + o.len / 2;
+  const n = nearestOnCurve(r, mx, my);
+  if (!n) return null;
+  let deg = n.deg;
+  if (o.o === 'h') {
+    while (deg > 90) deg -= 180;
+    while (deg <= -90) deg += 180;
+  } else {
+    while (deg < 0) deg += 180;
+    while (deg >= 180) deg -= 180;
+    deg -= 90;
+  }
+  return { x: n.x, y: n.y, rot: (deg * Math.PI) / 180 };
 }
 
 /**
@@ -46,6 +70,19 @@ export function snapOpening(
   for (const r of lines) {
     const along = r.o === 'h' ? wx : wy;
     const across = r.o === 'h' ? wy : wx;
+    if (r.curve) {
+      /* 曲線（F291）：游標到「這一段的那個位置放在外形上」的距離 */
+      const at = clamp(along, r.a, r.b);
+      const p = poseOnCurve(
+        r.curve,
+        r.o === 'h' ? { o: 'h', x: at, y: r.c, len: 0 } : { o: 'v', x: r.c, y: at, len: 0 },
+      );
+      if (!p) continue;
+      const d = Math.hypot(wx - p.x, wy - p.y);
+      if (d > 1.25) continue;
+      if (!best || d < best.d) best = { r, d, along: at, across };
+      continue;
+    }
     const d = Math.abs(across - r.c);
     if (d > 1.25 || along < r.a - 0.4 || along > r.b + 0.4) continue;
     if (!best || d < best.d) best = { r, d, along, across };
@@ -56,6 +93,17 @@ export function snapOpening(
   const start = clamp(snap(along - size / 2, 0.25), r.a, r.b - size);
   const pos =
     r.o === 'h' ? { o: 'h' as const, x: start, y: r.c } : { o: 'v' as const, x: r.c, y: start };
+  const pose = r.curve ? poseOnCurve(r.curve, { ...pos, len: size }) : null;
+  /* 開的那一側：曲線上照游標在轉過的線的哪一邊（橫線 +＝下、直線 +＝右，跟著轉） */
+  const side: 1 | -1 = pose
+    ? (pos.o === 'h'
+        ? -Math.sin(pose.rot) * (wx - pose.x) + Math.cos(pose.rot) * (wy - pose.y)
+        : Math.cos(pose.rot) * (wx - pose.x) + Math.sin(pose.rot) * (wy - pose.y)) >= 0
+      ? 1
+      : -1
+    : across >= r.c
+      ? 1
+      : -1;
   const clash = openings.some(
     (op) =>
       op.id !== ignoreId &&
@@ -68,11 +116,12 @@ export function snapOpening(
     kind,
     ...pos,
     len: size,
-    side: across >= r.c ? 1 : -1,
+    side,
     t: wallThickness(r.kind),
     clash,
     run: { a: r.a, b: r.b },
     along: clamp(snap(along, 0.25), r.a, r.b),
+    ...(pose ? { pose } : {}),
   };
 }
 

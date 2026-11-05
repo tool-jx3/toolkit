@@ -9,9 +9,17 @@
  *   兩端整個貼在兩間房間的外牆上；取面積最小的，兩端各放一扇門（往房間那一側開）。
  */
 import { isWallMounted } from './assets';
+import { CAT } from './catalog';
+import { flatSpans } from './curve';
 import { round2, snap, uid } from './geometry';
 import { blocking, doorKinds, EPS, hitsDoor, rectHits } from './layoutRules';
-import { roomCellArea, roomCells, shapeFromRects } from './shape';
+import {
+  roomCellArea,
+  roomCells,
+  roomContainsRect,
+  roomContainsRoom,
+  shapeFromRects,
+} from './shape';
 import type { Floor, Opening, OpeningKind, Rect, Room, RoomCut } from './types';
 import { edgeKind, wallLines } from './walls';
 
@@ -49,9 +57,31 @@ interface Seg {
 function ownerMap(rooms: readonly Room[]): Owner {
   const m: Owner = new Map();
   rooms.forEach((r, i) => {
-    for (const [x, y] of roomCells(r)) m.set(key(x, y), i);
+    /* 曲線的房間（2026-11-05）：整個外框都算它的（走廊不穿進外框；共用的牆再剪成外形的直的部分，clipFlat） */
+    if (r.shape) {
+      for (let x = r.x; x < r.x + r.w; x++)
+        for (let y = r.y; y < r.y + r.h; y++) m.set(key(x, y), i);
+    } else for (const [x, y] of roomCells(r)) m.set(key(x, y), i);
   });
   return m;
+}
+
+/**
+ * 曲線的房間（2026-11-05，F292）：共用的牆、走廊接上去的外牆只算外形的直的部分（KIIN v2.0：曲線的部分不直接接，
+ * 「接続は直線の共有壁を優先」）。長方形與 L 形的房間不變。
+ */
+function clipFlat(segs: Seg[], room: Room | undefined): Seg[] {
+  if (!room?.shape) return segs;
+  const spans = flatSpans(room);
+  const out: Seg[] = [];
+  for (const s of segs)
+    for (const f of spans) {
+      if (f.o !== s.o || Math.abs(f.c - s.c) > EPS) continue;
+      const a = Math.max(s.a, f.a);
+      const b = Math.min(s.b, f.b);
+      if (b - a > EPS) out.push({ o: s.o, c: s.c, a, b });
+    }
+  return out;
 }
 
 /** 單位邊合成一段一段（同一條線上相連的接起來） */
@@ -79,17 +109,23 @@ function merge(units: Seg[]): Seg[] {
   return out;
 }
 
+/** 索引 idx 的房間擁有的格子 */
+function* ownedCells(owner: Owner, idx: number): Generator<[number, number]> {
+  for (const [k, v] of owner) if (v === idx) yield k.split(',').map(Number) as [number, number];
+}
+
 /** 兩間房間（索引）之間的共用邊 */
 function sharedSegs(owner: Owner, rooms: readonly Room[], ia: number, ib: number): Seg[] {
   const units: Seg[] = [];
-  for (const [x, y] of roomCells(rooms[ia])) {
+  const room = rooms[ia];
+  for (const [x, y] of room.shape ? ownedCells(owner, ia) : roomCells(room)) {
     if (owner.get(key(x, y)) !== ia) continue;
     if (owner.get(key(x + 1, y)) === ib) units.push({ o: 'v', c: x + 1, a: y, b: y + 1 });
     if (owner.get(key(x - 1, y)) === ib) units.push({ o: 'v', c: x, a: y, b: y + 1 });
     if (owner.get(key(x, y + 1)) === ib) units.push({ o: 'h', c: y + 1, a: x, b: x + 1 });
     if (owner.get(key(x, y - 1)) === ib) units.push({ o: 'h', c: y, a: x, b: x + 1 });
   }
-  return merge(units);
+  return clipFlat(clipFlat(merge(units), rooms[ia]), rooms[ib]);
 }
 
 /** 從中間往兩邊：起點的候選（0.25 格一步） */
@@ -194,6 +230,29 @@ function facing(owner: Owner, idx: number, dir: 'e' | 'w' | 'n' | 's'): Seg[] {
     if (dir === 'n' && !owner.has(key(x, y - 1))) units.push({ o: 'h', c: y, a: x, b: x + 1 });
   }
   return merge(units);
+}
+
+/** 走廊的長方形碰到曲線的房間 r 的外框的那幾條邊，整段都在外形的直的部分上 */
+function attachesFlat(rects: readonly Rect[], r: Room): boolean {
+  for (const q of rects) {
+    const edges: Seg[] = [
+      { o: 'h', c: q.y, a: q.x, b: q.x + q.w },
+      { o: 'h', c: q.y + q.h, a: q.x, b: q.x + q.w },
+      { o: 'v', c: q.x, a: q.y, b: q.y + q.h },
+      { o: 'v', c: q.x + q.w, a: q.y, b: q.y + q.h },
+    ];
+    for (const e of edges) {
+      const [lo, hi, lines] =
+        e.o === 'h' ? [r.x, r.x + r.w, [r.y, r.y + r.h]] : [r.y, r.y + r.h, [r.x, r.x + r.w]];
+      if (!lines.some((c) => Math.abs(c - e.c) < EPS)) continue;
+      const a = Math.max(e.a, lo);
+      const b = Math.min(e.b, hi);
+      if (b - a <= EPS) continue;
+      const on = clipFlat([{ ...e, a, b }], r).reduce((n, s) => n + s.b - s.a, 0);
+      if (on < b - a - EPS) return false;
+    }
+  }
+  return true;
 }
 
 /** 長方形的格子都沒有房間 */
@@ -384,7 +443,25 @@ export function connectRooms(
     const door = placeDoor(floor, owner, shared, swingInto(floor.rooms, ia, ib));
     return door ? { ok: true, kind: 'door', openings: [door] } : { ok: false, reason: 'blocked' };
   }
-  const cands = corridorCandidates(owner, ia, ib, CORRIDOR_WIDTH);
+  /* 曲線的房間（F292）：走廊接上去的那一邊整段要在外形的直的部分上 */
+  const ends = [floor.rooms[ia], floor.rooms[ib]].filter((r) => r.shape);
+  /*
+   * 甲板上的打通兩間房（2026-11-05，F300，跟進 KIIN v2.0「甲板上でも部屋間を自動接続」）：兩間都疊在同一間戶外房間
+   * （甲板、露台、道路、庭院…）上時，走廊可以鋪在那一間上面（那一間的格子當成空的），但整條要在那一間裡
+   */
+  let base: Room | null = null;
+  for (let k = floor.rooms.length - 1; k >= 0 && !base; k--) {
+    const r = floor.rooms[k];
+    if (k === ia || k === ib || !CAT[r.cat]?.outdoor) continue;
+    if (roomContainsRoom(r, floor.rooms[ia]) && roomContainsRoom(r, floor.rooms[ib])) base = r;
+  }
+  const baseIdx = base ? floor.rooms.indexOf(base) : -1;
+  const roads: Owner = base ? new Map([...owner].filter(([, v]) => v !== baseIdx)) : owner;
+  const cands = corridorCandidates(roads, ia, ib, CORRIDOR_WIDTH).filter(
+    (c) =>
+      ends.every((r) => attachesFlat(c.rects, r)) &&
+      (!base || c.rects.every((q) => roomContainsRect(base as Room, q))),
+  );
   let tried = 0;
   for (const c of cands) {
     if (obstructed(floor, c.rects) || breaksExisting(floor, c.rects)) continue;

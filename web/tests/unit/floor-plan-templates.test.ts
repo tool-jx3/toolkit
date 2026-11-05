@@ -383,7 +383,7 @@ describe('範本目錄', () => {
         'gym',
         'campsite',
       ],
-      transport: ['station', 'subway', 'parking', 'ferry', 'warehouse'],
+      transport: ['station', 'subway', 'parking', 'ferry', 'steamliner', 'warehouse'],
       industry: ['factory', 'warehouse', 'construction', 'sewer', 'mine', 'abandoned-factory'],
       military: ['lab', 'police', 'military-base', 'prison'],
       sacred: [
@@ -421,9 +421,9 @@ describe('範本目錄', () => {
     const order = TEMPLATE_GROUPS.map((g) => g.id);
     const groups = TEMPLATES.map((t) => order.indexOf(t.group));
     expect(groups).toEqual([...groups].sort((a, b) => a - b));
-    expect(TEMPLATES).toHaveLength(57);
-    expect(new Set(TEMPLATES.map((t) => t.id)).size).toBe(57);
-    expect(new Set(TEMPLATES.map((t) => t.name)).size).toBe(57);
+    expect(TEMPLATES).toHaveLength(58);
+    expect(new Set(TEMPLATES.map((t) => t.id)).size).toBe(58);
+    expect(new Set(TEMPLATES.map((t) => t.name)).size).toBe(58);
     /* 恐怖調查樣式：主要分類是廢墟的（命案現場除外）與地下教團據點 */
     expect(TEMPLATES.filter((t) => t.theme === 'horror').map((t) => t.id)).toEqual([
       'cult',

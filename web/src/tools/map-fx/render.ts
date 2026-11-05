@@ -606,7 +606,14 @@ function paintDark(g: Ctx, f: RedactFrame, box: Rect, r: Rect, env: RedactEnv) {
   g.strokeStyle = 'rgba(150, 162, 186, 0.28)';
   g.lineWidth = lw;
   const k = maskCutRect(f, box);
-  if (k && f.cut) {
+  if (f.poly) {
+    /* 曲線（2026-11-05，F89）：外形往中心縮 1.5 線寬 */
+    const i = lw * 1.5;
+    const sx = box.w > i * 2 ? (box.w - i * 2) / box.w : 1;
+    const sy = box.h > i * 2 ? (box.h - i * 2) / box.h : 1;
+    tracePolygon(g, maskPolygon(f, { x: box.x + i, y: box.y + i, w: box.w * sx, h: box.h * sy }));
+    g.stroke();
+  } else if (k && f.cut) {
     const i = lw * 1.5;
     tracePolygon(
       g,
@@ -700,7 +707,7 @@ export function paintRoomMask(g: Ctx, f: RedactFrame, r: Rect, env: RedactEnv): 
 
 /** L 形的房間遮罩：外形加進路徑（引擎剪到這個形狀畫遮罩與邊界演出）；長方形的框不動、回傳 false */
 export function roomMaskShape(g: Ctx, f: RedactFrame, r: Rect): boolean {
-  if (!f.cut) return false;
+  if (!f.cut && !f.poly) return false;
   tracePolygon(g, maskPolygon(f, r));
   return true;
 }

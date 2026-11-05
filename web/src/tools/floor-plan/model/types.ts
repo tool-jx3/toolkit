@@ -154,7 +154,40 @@ export interface Room {
    * 只換底色與花紋，牆照種類的規則。
    */
   floor?: FloorMaterial;
+  /**
+   * 曲線的房間（2026-11-05 跟進 KIIN v2.0 第二批，規格 F289、3.17.1）：外框（x、y、w、h）裡的形狀，沒有＝長方形（或 L 形）。
+   * 和 `cut` 不會同時有。model/curve.ts。
+   */
+  shape?: RoomShape;
+  /** 圓角的半徑、八角形的倒角寬（格，0.5 一格；沒有＝預設），只有 `round`、`chamfer` 用 */
+  radius?: number;
+  /**
+   * 甲板的外圍（2026-11-05 第二批，F299；主控裁定 D102）：甲板類的房間（陽台・露台、屋頂平台、甲板）疊在戶外房間上時
+   * 疊放的邊畫欄杆、疊在甲板上時畫段差線。只在 true 時寫；新畫的甲板類房間才有，舊的地圖沒有＝照以前的規則（沒有牆）。
+   */
+  deck?: boolean;
 }
+
+/**
+ * 曲線的房間的形狀（2026-11-05，F289）：圓・橢圓、圓角、八角形（倒角）、圓頂（半圓）、船首、船體；
+ * 後三種是「朝哪一邊」（n 上、e 右、s 下、w 左）。
+ */
+export type RoomShape =
+  | 'ellipse'
+  | 'round'
+  | 'chamfer'
+  | 'dome-n'
+  | 'dome-e'
+  | 'dome-s'
+  | 'dome-w'
+  | 'bow-n'
+  | 'bow-e'
+  | 'bow-s'
+  | 'bow-w'
+  | 'hull-n'
+  | 'hull-e'
+  | 'hull-s'
+  | 'hull-w';
 
 /** 房間的地板（2026-11-05，F282） */
 export type FloorMaterial = 'carpet' | 'water' | 'grating';

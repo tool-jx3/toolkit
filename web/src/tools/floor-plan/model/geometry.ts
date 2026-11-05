@@ -238,7 +238,7 @@ export function floorsBounds(floors: readonly Floor[]): Rect | null {
 }
 
 /** 房間面積（㎡）；L 形是外框減缺角（2026-10-29） */
-export function roomArea(room: Pick<Room, 'w' | 'h' | 'cut'>): number {
+export function roomArea(room: Pick<Room, 'w' | 'h' | 'cut' | 'shape' | 'radius'>): number {
   return roomCellArea({ x: 0, y: 0, ...room }) * CELL_M * CELL_M;
 }
 
@@ -254,17 +254,23 @@ export const metersText = (w: number, h: number): string => `${meterText(w)}×${
 /** 坪數（一位小數） */
 export const pingText = (areaM2: number): string => `${fixed1(areaM2 / PING_M2)} 坪`;
 
-/** 房間名字下方的面積文字（長 × 寬：L 形是外框，加「（L 形）」） */
-export function sizeText(room: Pick<Room, 'w' | 'h' | 'cut'>, mode: SizeMode | undefined): string {
+/** 房間名字下方的面積文字（長 × 寬：L 形是外框，加「（L 形）」；曲線的房間是外框，加「（曲線）」，2026-11-05） */
+export function sizeText(
+  room: Pick<Room, 'w' | 'h' | 'cut' | 'shape' | 'radius'>,
+  mode: SizeMode | undefined,
+): string {
   if (!mode || mode === 'none') return '';
   const area = roomArea(room);
   if (mode === 'ping') return pingText(area);
   if (mode === 'm2') return `${fixed1(area)}㎡`;
-  return `${fixed1(room.w * CELL_M)}×${fixed1(room.h * CELL_M)}m${room.cut ? L_SUFFIX : ''}`;
+  const suffix = room.cut ? L_SUFFIX : room.shape ? CURVE_SUFFIX : '';
+  return `${fixed1(room.w * CELL_M)}×${fixed1(room.h * CELL_M)}m${suffix}`;
 }
 
 /** 「長 × 寬」顯示 L 形房間時加在後面 */
 export const L_SUFFIX = '（L 形）';
+/** 「長 × 寬」顯示曲線的房間時加在後面（2026-11-05） */
+export const CURVE_SUFFIX = '（曲線）';
 
 /** 畫面／匯出用的房間（PL 檢視的 GM 房間只剩框：masked） */
 export type ShownRoom = Room & { masked?: boolean };
@@ -303,6 +309,10 @@ export function visibleFloor(floor: Floor, playerView: boolean, hideClues = fals
     noWall: r.noWall,
     ...(r.wall ? { wall: r.wall } : {}),
     ...(r.cut ? { cut: { ...r.cut } } : {}),
+    /* 曲線的房間（2026-11-05）：牆框也是曲線 */
+    ...(r.shape ? { shape: r.shape } : {}),
+    ...(r.radius ? { radius: r.radius } : {}),
+    ...(r.deck ? { deck: true } : {}),
     name: '',
     masked: true,
   });

@@ -28,9 +28,10 @@ export const TOOL_ID = 'floor-plan';
  * 家具不跟著房間（`fixedFurniture`）、桌上的小物 2 種（2026-10-29 參考 KIIN マップ制作スタジオ；D79）。
  * 8：夜的暗度（`night`）、自由線（`floors[].lines`）、房間的地板（`rooms[].floor`）、家具的細角度（`items[].rot` 任何整數度）
  * 與圓形配置的群組（`items[].ring`）、新的家具（2026-11-05 參考 KIIN v2.0；D88）。
+ * 9：曲線的房間（`rooms[].shape`、`rooms[].radius`，2026-11-05 跟進 KIIN v2.0 第二批；D98）。
  * 舊版本的存檔與專案檔不必轉換（少了欄位就是沒有圓標、沒有方格、牆照規則、不顯示內部、長方形的房間…），讀進來一律經過 normalizeProject。
  */
-export const DATA_VERSION = 8;
+export const DATA_VERSION = 9;
 
 /** 開頁第一次（沒有存檔）時的地圖：第一個範本 */
 export function starterProject(): Project {

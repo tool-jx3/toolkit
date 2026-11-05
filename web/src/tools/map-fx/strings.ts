@@ -262,6 +262,11 @@ export const S = {
   maskCutW: '缺角的寬',
   maskCutH: '缺角的深',
   maskL: 'L 形',
+  /* 曲線的房間遮罩（2026-11-05，F89） */
+  maskCurve: '曲線',
+  maskShapeCurve: '曲線（平面圖送來的外形）',
+  maskCurveHint:
+    '平面圖產生器送來的曲線的房間（圓、圓頂、船體…）：遮罩只蓋在外形裡；拖外框的控點改大小時外形照比例跟著。改成長方形或 L 形之後回不來（可以復原）。',
   density: '濃度',
   densityHint: '遮罩的深淺、迷霧的濃淡。',
   grain: '粒大小',

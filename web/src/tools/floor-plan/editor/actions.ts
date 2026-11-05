@@ -18,6 +18,7 @@ import {
 import { arrangeRing, flipRing, partialRingIds, ringMembers } from '../model/circle';
 import { compatCounts, hasCompatNotes } from '../model/compat';
 import { connectRooms } from '../model/connect';
+import { CURVE_MIN, hasRadius, radiusMax } from '../model/curve';
 import { resizeWithFollow } from '../model/follow';
 import { FURNISH_PRESET, type FurnishPresetId, furnishRoom } from '../model/furnish';
 import {
@@ -25,6 +26,7 @@ import {
   clueCount,
   emptyProject,
   floorBounds,
+  itemCorners,
   itemLocalSize,
   round2,
   swapsAxes,
@@ -52,12 +54,13 @@ import {
   pushObj,
   refKey,
   reorder,
+  roomContents,
   rotateItem,
   rotateRoomsCW,
   translateObj,
   withContents,
 } from '../model/ops';
-import { defaultCut, fitCut, L_MIN } from '../model/shape';
+import { defaultCut, fitCut, L_MIN, roomHasPointClosed } from '../model/shape';
 import { itemGhost } from '../model/snap';
 import { restingOn, SURFACES } from '../model/tabletop';
 import { type MapTransform, transformProject } from '../model/transform';
@@ -71,10 +74,11 @@ import {
   type Project,
   type Rect,
   type Room,
+  type RoomShape,
   type SelRef,
   TYPE_KEY,
 } from '../model/types';
-import type { WallRun } from '../model/walls';
+import { isDeckCat, type WallRun } from '../model/walls';
 import { S } from '../strings';
 import { getTemplate, instantiateTemplate } from '../templates';
 import { importNotice } from './ImportReport';
@@ -169,6 +173,9 @@ export function removeObjects(refs: readonly SelRef[]): void {
 export function newRoom(rect: Rect, preset: RoomPresetId | null, lshape = false): Room {
   const p = preset ? ROOM_PRESETS[preset] : null;
   const cut = lshape ? defaultCut(rect.w, rect.h) : undefined;
+  /* 曲線的房間的預設（2026-11-05）：外框至少 2 × 2 才是曲線；L 形房間工具（J）拿著時照樣是 L 形 */
+  const shape =
+    !cut && p?.shape && rect.w >= CURVE_MIN && rect.h >= CURVE_MIN ? p.shape : undefined;
   return {
     id: uid('r'),
     x: rect.x,
@@ -178,6 +185,9 @@ export function newRoom(rect: Rect, preset: RoomPresetId | null, lshape = false)
     name: p ? S.presets[p.id] : S.newRoom,
     cat: p ? p.cat : 'living',
     ...(cut ? { cut } : {}),
+    ...(shape ? { shape } : {}),
+    /* 新畫的甲板類房間：疊在戶外房間上時外圍是欄杆（F299、D102） */
+    ...(isDeckCat(p ? p.cat : 'living') ? { deck: true } : {}),
   };
 }
 
@@ -1254,7 +1264,14 @@ export function resizeRoom(id: string, next: Rect, start?: RoomResizeStart): num
     const r = getObj(f, 'room', id) as Room | null;
     if (!r) return;
     const cut = fitCut(orig.cut, next.w, next.h);
-    const geo = { x: next.x, y: next.y, w: next.w, h: next.h, ...(cut ? { cut } : {}) };
+    const geo = {
+      x: next.x,
+      y: next.y,
+      w: next.w,
+      h: next.h,
+      ...(cut ? { cut } : {}),
+      ...(orig.shape ? { shape: orig.shape, radius: orig.radius } : {}),
+    };
     misfit = resizeWithFollow(f, before, orig, geo, !p0.fixedFurniture);
     Object.assign(r, { x: next.x, y: next.y, w: next.w, h: next.h });
     if (cut) r.cut = cut;
@@ -1263,15 +1280,78 @@ export function resizeRoom(id: string, next: Rect, start?: RoomResizeStart): num
   return misfit;
 }
 
-/** 房間的形狀：長方形／L 形（F259） */
-export function setRoomShape(id: string, lshape: boolean): void {
+/**
+ * 房間的形狀：長方形／L 形（F259）／曲線的形狀（2026-11-05，F289）。換成曲線的形狀時，這間房裡的家具有超出新外形的就
+ * 不改（KIIN v2.0 的「家具がはみ出す変形は取り消されます」），回傳超出的件數；改成功回傳 0。
+ */
+export function setRoomShape(id: string, shape: 'rect' | 'l' | RoomShape): number {
+  const f = currentFloor();
+  const room = getObj(f, 'room', id) as Room | null;
+  if (!room) return 0;
+  if (shape !== 'rect' && shape !== 'l') {
+    if (room.w < CURVE_MIN || room.h < CURVE_MIN) return 0;
+    const next: Room = {
+      ...room,
+      cut: undefined,
+      shape,
+      radius: hasRadius(shape) ? room.radius : undefined,
+    };
+    const misfit = shapeMisfits(f, room, next);
+    if (misfit) {
+      notify(S.msg.shapeMisfit(misfit), 'warning');
+      return misfit;
+    }
+  }
   editObj<Room>({ type: 'room', id }, (r) => {
-    if (!lshape) delete r.cut;
-    else if (!r.cut) {
-      const cut = defaultCut(r.w, r.h);
-      if (cut) r.cut = cut;
+    if (shape === 'rect') {
+      delete r.cut;
+      delete r.shape;
+      delete r.radius;
+    } else if (shape === 'l') {
+      delete r.shape;
+      delete r.radius;
+      if (!r.cut) {
+        const cut = defaultCut(r.w, r.h);
+        if (cut) r.cut = cut;
+      }
+    } else {
+      delete r.cut;
+      r.shape = shape;
+      if (!hasRadius(shape)) delete r.radius;
     }
   });
+  return 0;
+}
+
+/** 圓角的半徑、八角形的倒角寬（格，0.5 一格；0＝預設）。家具會超出時不改 */
+export function setRoomRadius(id: string, v: number): void {
+  const f = currentFloor();
+  const room = getObj(f, 'room', id) as Room | null;
+  if (!room?.shape || !hasRadius(room.shape)) return;
+  const radius = Math.min(radiusMax(room.w, room.h), Math.max(0, Math.round(v * 2) / 2));
+  const next: Room = { ...room, radius: radius || undefined };
+  const misfit = shapeMisfits(f, room, next);
+  if (misfit) {
+    notify(S.msg.shapeMisfit(misfit), 'warning');
+    return;
+  }
+  editObj<Room>({ type: 'room', id }, (r) => {
+    if (radius) r.radius = radius;
+    else delete r.radius;
+  });
+}
+
+/** 換了外形之後，這間房裡（改之前的外形）的家具有幾件超出新的外形（轉過的四個角都要在裡面） */
+function shapeMisfits(f: Floor, room: Room, next: Room): number {
+  const ids = new Set(
+    roomContents(f, room)
+      .filter((r) => r.type === 'item')
+      .map((r) => r.id),
+  );
+  let n = 0;
+  for (const it of f.items)
+    if (ids.has(it.id) && !itemCorners(it).every((q) => roomHasPointClosed(next, q.x, q.y))) n++;
+  return n;
 }
 
 /** L 形的缺角：角、寬、深（整格，夾在 1～外框減 1） */

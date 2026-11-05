@@ -18,6 +18,7 @@ import { applyGmDefaults } from './gmDefaults';
 import { lodge, studio, townhouse } from './homes';
 import { construction, factory, sewer, warehouse } from './industry';
 import { gym, karaoke, theatre } from './leisure';
+import { steamLiner } from './liner';
 import { apartment, house, japaneseHouse, sanheyuan } from './living';
 import { diner, ryokan, speakeasy } from './lodging';
 import { mansion } from './mansion';
@@ -654,6 +655,20 @@ export const TEMPLATES: readonly FloorTemplate[] = [
       C('1F', '小賣部', 'photo', '收銀機旁的/舊照片'),
       C('2F', '駕駛艙', 'diary', '航海日誌的/最後一頁'),
       C('B1', '貨艙', 'key', '沒登記的/貨櫃鑰匙'),
+    ],
+  },
+  {
+    id: 'steamliner',
+    group: 'transport',
+    name: '夜航蒸汽客輪',
+    description:
+      '霧裡夜航的蒸汽客輪（曲線的船體）：1F 上甲板有交誼廳、一等艙、船長室、無線電室與圓頂的駕駛台，船尾登船口、船首的高甲板；B1 是機艙、三等艙、廚房、餐廳與貨艙，貨艙後面的密艙是 GM 專用。樓梯兩層對齊。',
+    build: steamLiner,
+    clues: [
+      C('1F', '交誼廳', 'memo', '夾在樂譜裡的/字條'),
+      C('1F', '無線電室', 'papers', '沒有發出去的/電報'),
+      C('B1', '三等艙', 'photo', '床板底下的/舊照片'),
+      C('B1', '貨艙', 'key', '沒有標記的/鑰匙'),
     ],
   },
   {

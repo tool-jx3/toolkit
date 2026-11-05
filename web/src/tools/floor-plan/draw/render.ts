@@ -34,7 +34,7 @@ import type {
   TextLabel,
   Wall,
 } from '../model/types';
-import { computeWalls, type WallRun } from '../model/walls';
+import { type CurveRun, computeWalls, type OpeningPose, type WallRun } from '../model/walls';
 import { FURNITURE_DRAW, type FurnStyle } from './furniture';
 import { seeded } from './furniture/kit';
 import { badgeLabel, badgeSize, haloText, labelLayout, textFont, verticalText } from './labels';
@@ -486,6 +486,16 @@ export function drawRun(
     c.restore();
     return;
   }
+  if (run.kind === 'step') {
+    /* 甲板上的甲板的段差線（2026-11-05，F299）：細線＋一排小點（不是牆） */
+    c.save();
+    stepLine(c, theme, lw, () => {
+      c.beginPath();
+      lineAlong(c, run.o, run.c, run.a, run.b);
+    });
+    c.restore();
+    return;
+  }
   const t = wallThickness(run.kind);
   const a = run.a - (run.capA ? t / 2 : 0);
   const b = run.b + (run.capB ? t / 2 : 0);
@@ -557,6 +567,190 @@ export function drawRun(
       if (run.o === 'h') c.fillRect(a, run.c - t / 2, b - a, t);
       else c.fillRect(run.c - t / 2, a, t, b - a);
   }
+  c.restore();
+}
+
+/** 段差線（F299）：path＝畫路徑（呼叫兩次） */
+function stepLine(c: Ctx, theme: FloorTheme, lw: number, path: () => void): void {
+  c.strokeStyle = theme.rail;
+  c.lineCap = 'round';
+  c.globalAlpha = 0.75;
+  c.lineWidth = lw * 0.9;
+  path();
+  c.stroke();
+  c.globalAlpha = 0.55;
+  c.lineWidth = 0.08;
+  c.setLineDash([0.02, 0.22]);
+  path();
+  c.stroke();
+  c.setLineDash([]);
+}
+
+/* ---------- 曲線的牆（2026-11-05，F290） ---------- */
+
+function strokePts(c: Ctx, pts: readonly [number, number][]): void {
+  c.beginPath();
+  c.moveTo(pts[0][0], pts[0][1]);
+  for (let i = 1; i < pts.length; i++) c.lineTo(pts[i][0], pts[i][1]);
+}
+
+/** 折線往一側平移 d（每個點照前後兩段的法線的平均） */
+function offsetPts(pts: readonly [number, number][], d: number): [number, number][] {
+  return pts.map((p, i) => {
+    const a = pts[Math.max(0, i - 1)];
+    const b = pts[Math.min(pts.length - 1, i + 1)];
+    const dx = b[0] - a[0];
+    const dy = b[1] - a[1];
+    const l = Math.hypot(dx, dy) || 1;
+    return [p[0] + (dy / l) * d, p[1] - (dx / l) * d] as [number, number];
+  });
+}
+
+/** 沿著折線每 step 一點（含兩端） */
+function alongPts(pts: readonly [number, number][], step: number): [number, number][] {
+  const out: [number, number][] = [pts[0]];
+  let carry = 0;
+  for (let i = 1; i < pts.length; i++) {
+    const a = pts[i - 1];
+    const b = pts[i];
+    const l = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    let s = step - carry;
+    while (s <= l + 1e-9) {
+      out.push([a[0] + ((b[0] - a[0]) * s) / l, a[1] + ((b[1] - a[1]) * s) / l]);
+      s += step;
+    }
+    carry = l - (s - step);
+  }
+  const last = pts[pts.length - 1];
+  const tail = out[out.length - 1];
+  if (Math.hypot(tail[0] - last[0], tail[1] - last[1]) > step * 0.4) out.push(last);
+  return out;
+}
+
+/**
+ * 曲線的牆：外牆、內牆、薄隔間、石牆、隔音牆、有裂痕的牆、岩壁是牆色（岩壁是岩壁色）的實心粗線（厚度同直的牆）；
+ * 玻璃牆是玻璃色的帶子加兩條邊線；欄杆是兩條細線；圍籬是虛線；鐵欄杆是一條線加一排圓點；崩塌的牆是一段一段的粗線；
+ * 分區線只在編輯畫面（虛線）。端點：接到直的牆的畫成圓的、被門窗切開的不畫。
+ */
+export function drawCurveRun(
+  c: Ctx,
+  run: CurveRun,
+  theme: FloorTheme,
+  lw: number,
+  editor: boolean,
+): void {
+  if (run.pts.length < 2) return;
+  c.save();
+  c.lineJoin = 'round';
+  if (run.kind === 'zone') {
+    if (editor) {
+      c.strokeStyle = theme.rail;
+      c.globalAlpha = 0.5;
+      c.lineWidth = lw;
+      c.setLineDash([lw * 4, lw * 4]);
+      strokePts(c, run.pts);
+      c.stroke();
+    }
+    c.restore();
+    return;
+  }
+  if (run.kind === 'step') {
+    stepLine(c, theme, lw, () => strokePts(c, run.pts));
+    c.restore();
+    return;
+  }
+  const t = wallThickness(run.kind);
+  const caps = () => {
+    for (const [cap, p] of [
+      [run.capA, run.pts[0]],
+      [run.capB, run.pts[run.pts.length - 1]],
+    ] as const) {
+      if (!cap) continue;
+      c.beginPath();
+      c.arc(p[0], p[1], t / 2, 0, TAU);
+      c.fill();
+    }
+  };
+  switch (run.kind) {
+    case 'rail': {
+      c.strokeStyle = theme.rail;
+      c.lineWidth = lw * 0.9;
+      strokePts(c, offsetPts(run.pts, -t / 2));
+      c.stroke();
+      strokePts(c, offsetPts(run.pts, t / 2));
+      c.stroke();
+      break;
+    }
+    case 'glass':
+      c.lineCap = 'butt';
+      c.strokeStyle = theme.window;
+      c.lineWidth = t + lw * 0.8;
+      strokePts(c, run.pts);
+      c.stroke();
+      c.strokeStyle = theme.glass;
+      c.lineWidth = Math.max(lw * 0.2, t - lw * 0.8);
+      strokePts(c, run.pts);
+      c.stroke();
+      break;
+    case 'fence':
+      c.strokeStyle = theme.rail;
+      c.lineWidth = lw * 1.2;
+      c.setLineDash([lw * 5, lw * 3]);
+      strokePts(c, run.pts);
+      c.stroke();
+      break;
+    case 'bars': {
+      c.strokeStyle = theme.wall;
+      c.fillStyle = theme.wall;
+      c.lineWidth = lw * 0.8;
+      strokePts(c, run.pts);
+      c.stroke();
+      c.beginPath();
+      for (const [x, y] of alongPts(run.pts, 0.3)) {
+        c.moveTo(x + t * 0.5, y);
+        c.arc(x, y, t * 0.5, 0, TAU);
+      }
+      c.fill();
+      break;
+    }
+    case 'broken':
+      c.strokeStyle = theme.wall;
+      c.lineWidth = t;
+      c.lineCap = 'butt';
+      c.setLineDash([0.45, 0.3]);
+      strokePts(c, run.pts);
+      c.stroke();
+      break;
+    default:
+      c.strokeStyle = theme.wall;
+      c.fillStyle = theme.wall;
+      c.lineWidth = t;
+      c.lineCap = 'butt';
+      strokePts(c, run.pts);
+      c.stroke();
+      caps();
+  }
+  c.restore();
+}
+
+/** 放在曲線上的門窗（F291）：把直的位置轉到外形上的那一點（門窗的中點對齊那一點、沿著切線） */
+export function withPose(
+  c: Ctx,
+  o: Pick<Opening, 'o' | 'x' | 'y' | 'len'>,
+  pose: OpeningPose | undefined,
+  fn: () => void,
+): void {
+  if (!pose) {
+    fn();
+    return;
+  }
+  const mx = o.o === 'h' ? o.x + o.len / 2 : o.x;
+  const my = o.o === 'h' ? o.y : o.y + o.len / 2;
+  c.save();
+  c.translate(pose.x, pose.y);
+  c.rotate(pose.rot);
+  c.translate(-mx, -my);
+  fn();
   c.restore();
 }
 
@@ -1907,7 +2101,7 @@ export function drawFloor(c: Ctx, floorIn: Floor, opts: DrawFloorOptions): Shown
 
   /* 長方形的房間照舊用 fillRect（輸出逐位元組不變）；L 形房間（2026-10-29）填多邊形 */
   const fillRoom = (room: ShownRoom) => {
-    if (!room.cut) c.fillRect(room.x, room.y, room.w, room.h);
+    if (!room.cut && !room.shape) c.fillRect(room.x, room.y, room.w, room.h);
     else {
       c.beginPath();
       traceRoom(c, room);
@@ -1937,6 +2131,7 @@ export function drawFloor(c: Ctx, floorIn: Floor, opts: DrawFloorOptions): Shown
     c.save();
     c.globalAlpha = 0.14;
     for (const run of g.runs) drawRun(c, run, tinted, lw, false);
+    for (const run of g.curves) drawCurveRun(c, run, tinted, lw, false);
     for (const item of ghost.items)
       if (VERTICAL_LINKS.has(item.t)) drawItem(c, item, theme, lw, { editor: false });
     c.restore();
@@ -1954,9 +2149,13 @@ export function drawFloor(c: Ctx, floorIn: Floor, opts: DrawFloorOptions): Shown
 
   const walls = computeWalls(floor, { playerView: opts.playerView });
   for (const run of walls.runs) drawRun(c, run, theme, lw, opts.editor);
+  /* 曲線的牆（2026-11-05，F290；沒有曲線的房間時是空的） */
+  for (const run of walls.curves) drawCurveRun(c, run, theme, lw, opts.editor);
   for (const w of walls.diagonal) drawDiagonalWall(c, w, theme, lw);
   for (const o of floor.openings)
-    drawOpening(c, o, wallThickness(walls.openingKind.get(o.id)), theme, lw, opts);
+    withPose(c, o, walls.poses.get(o.id), () =>
+      drawOpening(c, o, wallThickness(walls.openingKind.get(o.id)), theme, lw, opts),
+    );
   for (const item of floor.items) if (layer(item) === 2) drawItem(c, item, theme, lw, opts);
   /* 自由線（2026-11-05，F285）：畫在牆、門窗、貼牆素材的上面 */
   if (floor.lines) for (const l of floor.lines) drawFreeLine(c, l, theme, lw, opts);

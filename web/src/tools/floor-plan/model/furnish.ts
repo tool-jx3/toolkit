@@ -17,7 +17,8 @@ import { ASSET, isWallMounted } from './assets';
 import { ownerRoom } from './circle';
 import { itemFootprint, round2, uid } from './geometry';
 import { blocking, doorKinds, EPS, hitsDoor, rectHits } from './layoutRules';
-import { cutRect, roomCells, roomMainRect } from './shape';
+import { curvedMap, ownsRect } from './region';
+import { cutRect, roomCellArea, roomCells, roomMainRect } from './shape';
 import { supportOf } from './tabletop';
 import type { Floor, Item, Rect, Room, RoomCategory } from './types';
 
@@ -205,6 +206,8 @@ function settle(b: Rect, room: Room, owned: Owned): { x: number; y: number } {
 type Owned = (b: Rect) => boolean;
 
 function ownedBy(floor: Floor, room: Room): Owned {
+  /* 曲線的房間（2026-11-05）：照外形 */
+  if (curvedMap(floor.rooms)) return ownsRect(floor.rooms, room);
   const owner = new Map<string, Room>();
   for (const r of floor.rooms) for (const [x, y] of roomCells(r)) owner.set(`${x},${y}`, r);
   return (b) => {
@@ -251,7 +254,7 @@ export function furnishRoom(
   const keep = new Set(mine.filter((it) => it.clue && !isWallMounted(it.t)).map((it) => it.id));
   const removeIds = new Set(remove.map((it) => it.id));
   const base: Floor = { ...floor, items: floor.items.filter((it) => !removeIds.has(it.id)) };
-  const area = (room.w * room.h - (room.cut ? room.cut.w * room.cut.h : 0)) * 0.25;
+  const area = roomCellArea(room) * 0.25;
   const all = area >= preset.extraArea ? [...preset.need, ...preset.extra] : [...preset.need];
   const owned = ownedBy(floor, room);
   for (let n = all.length; n >= preset.need.length; n--) {

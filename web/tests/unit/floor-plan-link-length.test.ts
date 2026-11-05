@@ -49,6 +49,10 @@ interface Row {
 }
 
 const rows: Row[] = [];
+/** 2026-11-05 的客輪範本（曲線的房間）另外量，不改 57 個範本的數字 */
+const LINER = 'steamliner';
+const OLD = TEMPLATES.filter((t) => t.id !== LINER);
+let liner: Row | null = null;
 
 beforeAll(() => {
   act.bindUi(
@@ -63,15 +67,29 @@ beforeAll(() => {
     loadFresh(t.id, true);
     const fullClues = length('full');
     numberEveryFloor();
-    rows.push({
+    const row = {
       id: t.id,
       full,
       pl,
       fullClues,
       fullNumbered: length('full'),
       plNumbered: length('pl'),
-    });
+    };
+    if (t.id === LINER) liner = row;
+    else rows.push(row);
   }
+});
+
+describe('客輪範本（2026-11-05，曲線的房間）的分享連結', () => {
+  it('完整、PL 用、放入隱藏線索並編號都在 8,000 字以內', () => {
+    expect(liner).toBeTruthy();
+    const r = liner as unknown as Row;
+    for (const v of [r.full, r.pl, r.fullClues, r.fullNumbered, r.plNumbered]) {
+      expect(v).toBeGreaterThan(500);
+      expect(v).toBeLessThan(8000);
+    }
+    console.info('steamliner link length', JSON.stringify(r));
+  });
 });
 
 const range = (pick: (r: Row) => number): [number, number] => {
@@ -81,7 +99,7 @@ const range = (pick: (r: Row) => number): [number, number] => {
 
 describe('分享連結的長度（3.7、D41）', () => {
   it('57 個範本都量到了（2026-10 第三批後半 15 → 56，2026-10-29 加健身房）；最短是套房、最長是洋館（2026-10-22 依 7.18 重新設計後仍是洋館）', () => {
-    expect(rows.map((r) => r.id)).toEqual(TEMPLATES.map((t) => t.id));
+    expect(rows.map((r) => r.id)).toEqual(OLD.map((t) => t.id));
     expect(rows).toHaveLength(57);
     const by = (pick: (r: Row) => number, f: (...n: number[]) => number) =>
       rows.find((r) => pick(r) === f(...rows.map(pick)))?.id;
