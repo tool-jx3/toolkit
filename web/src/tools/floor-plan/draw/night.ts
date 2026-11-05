@@ -12,6 +12,7 @@
  */
 import type { ShownFloor } from '../model/geometry';
 import { cellOwners, LIGHT_STOPS, type LightTone, lightsOf, ownedRegions } from '../model/lights';
+import { curvedMap } from '../model/region';
 import { traceRoom } from '../model/shape';
 import type { Rect } from '../model/types';
 import type { FloorTheme } from './themes';
@@ -90,6 +91,48 @@ export function drawNight(c: Ctx, floor: ShownFloor, theme: FloorTheme, level: n
   const owner = cellOwners(floor.rooms);
   const lights = lightsOf(floor, owner);
   const regions = ownedRegions(owner);
+  /*
+   * 有曲線的房間（2026-11-05，F294）：照亮的範圍＝那間房的外形扣掉蓋在上面的房間（一層一層剪），不用格子
+   */
+  const curved = curvedMap(floor.rooms);
+  /** 剪在照亮的範圍裡畫（沒有曲線的房間：那些房間擁有的格子；有：每一間的外形扣掉蓋在上面的房間，一間一間畫） */
+  const inLit = (ctx: Ctx, ids: readonly string[], draw: () => void): void => {
+    if (!curved) {
+      const rects = ids.flatMap((id) => regions.get(id) ?? []);
+      if (!rects.length) return;
+      ctx.save();
+      ctx.beginPath();
+      traceRects(ctx, rects);
+      ctx.clip();
+      draw();
+      ctx.restore();
+      return;
+    }
+    for (const id of ids) {
+      const i = floor.rooms.findIndex((r) => r.id === id);
+      if (i < 0) continue;
+      const room = floor.rooms[i];
+      ctx.save();
+      ctx.beginPath();
+      traceRoom(ctx, room);
+      ctx.clip();
+      for (const up of floor.rooms.slice(i + 1)) {
+        if (
+          up.x >= room.x + room.w ||
+          room.x >= up.x + up.w ||
+          up.y >= room.y + room.h ||
+          room.y >= up.y + up.h
+        )
+          continue;
+        ctx.beginPath();
+        ctx.rect(room.x - 1, room.y - 1, room.w + 2, room.h + 2);
+        traceRoom(ctx, up);
+        ctx.clip('evenodd');
+      }
+      draw();
+      ctx.restore();
+    }
+  };
 
   /* 1. 夜色 */
   l.setTransform(1, 0, 0, 1, 0, 0);
@@ -105,21 +148,15 @@ export function drawNight(c: Ctx, floor: ShownFloor, theme: FloorTheme, level: n
   /* 2. 光源擦淡夜色（剪在照亮的房間裡） */
   l.globalAlpha = 1;
   l.globalCompositeOperation = 'destination-out';
-  for (const light of lights) {
-    const rects = light.rooms.flatMap((id) => regions.get(id) ?? []);
-    if (!rects.length) continue;
-    l.save();
-    l.beginPath();
-    traceRects(l, rects);
-    l.clip();
-    const g = l.createRadialGradient(light.x, light.y, 0, light.x, light.y, light.r);
-    for (const [at, a] of LIGHT_STOPS) g.addColorStop(at, `rgba(0,0,0,${a})`);
-    l.fillStyle = g;
-    l.beginPath();
-    l.arc(light.x, light.y, light.r, 0, Math.PI * 2);
-    l.fill();
-    l.restore();
-  }
+  for (const light of lights)
+    inLit(l, light.rooms, () => {
+      const g = l.createRadialGradient(light.x, light.y, 0, light.x, light.y, light.r);
+      for (const [at, a] of LIGHT_STOPS) g.addColorStop(at, `rgba(0,0,0,${a})`);
+      l.fillStyle = g;
+      l.beginPath();
+      l.arc(light.x, light.y, light.r, 0, Math.PI * 2);
+      l.fill();
+    });
   l.globalCompositeOperation = 'source-over';
   /* 3. 貼回去 */
   c.save();
@@ -130,24 +167,19 @@ export function drawNight(c: Ctx, floor: ShownFloor, theme: FloorTheme, level: n
   /* 4. 光暈 */
   const alpha = (glow: number) => glowAlpha(glow, level);
   for (const light of lights) {
-    const rects = light.rooms.flatMap((id) => regions.get(id) ?? []);
-    if (!rects.length) continue;
     const color = (theme.id === 'terminal' && GLOW_TERMINAL[light.tone]) || GLOW[light.tone];
-    c.save();
-    c.beginPath();
-    traceRects(c, rects);
-    c.clip();
-    c.globalAlpha = alpha(light.glow);
-    const r = light.r * 0.85;
-    const g = c.createRadialGradient(light.x, light.y, 0, light.x, light.y, r);
-    g.addColorStop(0, color);
-    g.addColorStop(0.6, hexAlpha(color, 0.3));
-    g.addColorStop(1, hexAlpha(color, 0));
-    c.fillStyle = g;
-    c.beginPath();
-    c.arc(light.x, light.y, r, 0, Math.PI * 2);
-    c.fill();
-    c.restore();
+    inLit(c, light.rooms, () => {
+      c.globalAlpha = alpha(light.glow);
+      const r = light.r * 0.85;
+      const g = c.createRadialGradient(light.x, light.y, 0, light.x, light.y, r);
+      g.addColorStop(0, color);
+      g.addColorStop(0.6, hexAlpha(color, 0.3));
+      g.addColorStop(1, hexAlpha(color, 0));
+      c.fillStyle = g;
+      c.beginPath();
+      c.arc(light.x, light.y, r, 0, Math.PI * 2);
+      c.fill();
+    });
   }
 }
 

@@ -110,11 +110,15 @@ describe('沒有用到新功能時匯出的圖和改版前相同（D79、D84）'
     ? {}
     : (JSON.parse(fs.readFileSync(GOLDEN, 'utf8')) as Record<string, string>);
 
+  /* 2026-11-05 第二批的新範本（用到曲線的房間）不在基準裡 */
+  const NEW = new Set(['steamliner']);
+  const OLD = TEMPLATES.filter((t) => !NEW.has(t.id));
+
   it('57 個範本都在', () => {
-    expect(TEMPLATES.length).toBe(57);
+    expect(OLD.length).toBe(57);
   });
 
-  for (const t of TEMPLATES)
+  for (const t of OLD)
     it(`範本「${t.name}」（${t.id}）`, () => {
       const r = installRecordingDocument();
       try {

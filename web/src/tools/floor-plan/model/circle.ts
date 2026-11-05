@@ -20,6 +20,7 @@ import {
 } from './geometry';
 import { blocking, doorKinds, hitsDoor } from './layoutRules';
 import { deepClone } from './ops';
+import { curvedMap, roomAtPoint } from './region';
 import { roomHasCell, roomMainRect } from './shape';
 import { restingOn } from './tabletop';
 import type { Floor, Item, Room } from './types';
@@ -58,6 +59,8 @@ const center = (it: Pick<Item, 'x' | 'y' | 'w' | 'h'>): Pt => ({
 
 /** 這一點所在的房間（那一格的主人＝最後蓋上去的房間） */
 export function ownerRoom(floor: Floor, x: number, y: number): Room | null {
+  /* 曲線的房間（2026-11-05）：照外形 */
+  if (curvedMap(floor.rooms)) return roomAtPoint(floor.rooms, x, y);
   const cx = Math.floor(x);
   const cy = Math.floor(y);
   for (let i = floor.rooms.length - 1; i >= 0; i--)

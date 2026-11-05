@@ -64,6 +64,9 @@ export function playerProject(p: Project): { project: Project; removed: PlRemove
         if (r.wall) out.wall = r.wall;
         /* L 形的牆框（2026-10-29） */
         if (r.cut) out.cut = { ...r.cut };
+        /* 曲線的牆框（2026-11-05） */
+        if (r.shape) out.shape = r.shape;
+        if (r.radius) out.radius = r.radius;
         return out;
       }
       const { plName, note: _note, masked: _m, ...rest } = r;

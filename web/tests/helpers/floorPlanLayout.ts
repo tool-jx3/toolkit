@@ -62,8 +62,11 @@ export function blockedDoors(f: Floor): string[] {
 /** 門窗不在牆上的（要整個落在一段自動牆或手畫的牆上） */
 export function openingsOffWall(f: Floor): string[] {
   const lines = wallLines(f);
+  /* 放在曲線上的門窗（2026-11-05，F291）：在曲線的牆上，也算 */
+  const posed = computeWalls(f).poses;
   return f.openings
     .filter((o) => {
+      if (posed.has(o.id)) return false;
       const line = o.o === 'h' ? o.y : o.x;
       const a = o.o === 'h' ? o.x : o.y;
       return !lines.some(

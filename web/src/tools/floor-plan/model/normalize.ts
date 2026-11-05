@@ -28,6 +28,7 @@ import {
   noteDroppedItem,
   noteDroppedOpening,
 } from './compat';
+import { CURVE_MIN, hasRadius, isRoomShape, radiusMax } from './curve';
 import { clamp, emptyFloor, normDeg, uid } from './geometry';
 import { isLineKind, LINE_W_MAX, LINE_W_MIN } from './lines';
 import { isCorner, validCut } from './shape';
@@ -41,6 +42,7 @@ import type {
   Room,
   RoomCategory,
   RoomCut,
+  RoomShape,
   TextLabel,
   Wall,
   WallKind,
@@ -118,6 +120,13 @@ function roomCut(v: unknown, w: number, h: number): RoomCut | undefined {
   return validCut({ w, h }, cut) ? cut : undefined;
 }
 
+/** 圓角的半徑、倒角的寬（2026-11-05）：數字或數字字串、取到 0.5 格、夾在 0～短邊的一半；0 以下或不是數字＝預設（拿掉） */
+function roomRadius(v: unknown, w: number, h: number): number | undefined {
+  const n = Math.round(num(v, 0) * 2) / 2;
+  if (!(n > 0)) return undefined;
+  return Math.min(radiusMax(w, h), n);
+}
+
 /** 每一類的 id 不重複（重複或沒有的給新的） */
 function ids<T extends { id: string }>(arr: T[], prefix: string): T[] {
   const seen = new Set<string>();
@@ -133,6 +142,7 @@ function room(r: Record<string, unknown>, report: CompatReport): Room | null {
   const h = Math.round(num(r.h, 0));
   if (w < 1 || h < 1 || !isNum(r.x) || !isNum(r.y)) return null;
   const cat = roomCat(r.cat, report);
+  const curved = isRoomShape(r.shape) && w >= CURVE_MIN && h >= CURVE_MIN;
   return compact<Room>({
     id: str(r.id),
     x: Math.round(num(r.x)),
@@ -151,9 +161,11 @@ function room(r: Record<string, unknown>, report: CompatReport): Room | null {
     lx: isNum(r.lx) && num(r.lx) !== 0 ? num(r.lx) : undefined,
     ly: isNum(r.ly) && num(r.ly) !== 0 ? num(r.ly) : undefined,
     wall: roomWall(r.wall, report),
-    cut: roomCut(r.cut, w, h),
-    /* 地板（2026-11-05，F282）：認得的才留著 */
+    /* 曲線的房間（2026-11-05，F289）：認得的形狀、外框至少 2 × 2 才留著；有形狀時沒有 L 形的缺角 */
+    cut: curved ? undefined : roomCut(r.cut, w, h),
     floor: isFloorMaterial(r.floor) ? r.floor : undefined,
+    shape: curved ? (r.shape as RoomShape) : undefined,
+    radius: curved && hasRadius(r.shape as RoomShape) ? roomRadius(r.radius, w, h) : undefined,
   });
 }
 

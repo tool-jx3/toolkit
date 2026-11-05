@@ -195,6 +195,11 @@ export interface RedactFrame extends RedactFrameBase<RedactStyle, RevealFx> {
   label: string;
   /** L 形（沒有＝長方形；2026-10-29，平面圖產生器送來的 L 形房間、屬性面板的「形狀」） */
   cut?: MaskCut;
+  /**
+   * 曲線或多邊形的外形（2026-11-05，F89；平面圖產生器送來的曲線的房間）：外框裡的點，座標是外框的比例（0～1，順時針），
+   * 外框怎麼變都跟著。有 `poly` 時沒有 `cut`。
+   */
+  poly?: [number, number][];
 }
 
 export type Frame = ZoomFrame | RouteFrame | RedactFrame;
@@ -500,7 +505,7 @@ export function normalizeFrame(v: unknown, image: Size, d = initialDefaults()): 
     edge: pick(v.edge, EDGE_FXS, d.redact.edge),
     glow: snapRange('glow', v.glow, d.redact.glow),
     label: lineText(v.label, MAP_LIMITS.label),
-    ...cutField(normalizeCut(v.cut)),
+    ...shapeFields(normalizePoly(v.poly), normalizeCut(v.cut)),
   };
 }
 
@@ -592,6 +597,107 @@ export function applyRect(draft: Frame, r: Rect): void {
 /* ---------- L 形的房間遮罩（2026-10-29，F86） ---------- */
 
 const cutField = (cut: MaskCut | null) => (cut ? { cut } : {});
+
+/** 曲線的外形優先；沒有時 L 形 */
+const shapeFields = (poly: [number, number][] | null, cut: MaskCut | null) =>
+  poly ? { poly } : cutField(cut);
+
+/* ---------- 曲線、多邊形的房間遮罩（2026-11-05，F89） ---------- */
+
+/** 外形最多幾點 */
+export const POLY_MAX = 512;
+
+const q4 = (v: number) => Math.round(v * 1e4) / 1e4;
+
+/**
+ * 存檔裡的外形：每一點是兩個數字、夾在 0～1、四位小數，連續重複的點拿掉；超過 512 點時平均地挑到 512 點以內；
+ * 不到 3 點、面積是 0 時 null（＝長方形）
+ */
+export function normalizePoly(v: unknown): [number, number][] | null {
+  if (!Array.isArray(v)) return null;
+  const out: [number, number][] = [];
+  /* 點太多時平均地挑（不截斷，外形還是一整圈） */
+  const step = Math.ceil(v.length / POLY_MAX);
+  for (let i = 0; i < v.length; i += step) {
+    const p = v[i];
+    if (!Array.isArray(p) || p.length < 2) continue;
+    const x = num(p[0], Number.NaN);
+    const y = num(p[1], Number.NaN);
+    if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
+    const pt: [number, number] = [q4(clamp(x, 0, 1)), q4(clamp(y, 0, 1))];
+    const last = out[out.length - 1];
+    if (last && last[0] === pt[0] && last[1] === pt[1]) continue;
+    out.push(pt);
+  }
+  if (
+    out.length > 1 &&
+    out[0][0] === out[out.length - 1][0] &&
+    out[0][1] === out[out.length - 1][1]
+  )
+    out.pop();
+  if (out.length < 3 || Math.abs(polyArea(out)) < 1e-6) return null;
+  return out;
+}
+
+function polyArea(pts: readonly [number, number][]): number {
+  let s = 0;
+  for (let i = 0; i < pts.length; i++) {
+    const a = pts[i];
+    const b = pts[(i + 1) % pts.length];
+    s += a[0] * b[1] - b[0] * a[1];
+  }
+  return s / 2;
+}
+
+/** 送來的外形（px）→ 外框 box 的比例（normalizePoly 整理） */
+export function polyFromPx(pts: readonly [number, number][], box: Rect): [number, number][] | null {
+  if (!(box.w > 0 && box.h > 0)) return null;
+  return normalizePoly(pts.map(([x, y]) => [(x - box.x) / box.w, (y - box.y) / box.h]));
+}
+
+/**
+ * 外形裡最大的長方形（「？」與房名放在這裡）：上下兩條水平線（24 等分）之間、兩條線上的寬的交集取面積最大的
+ * （凸的外形就是最大的內接長方形；平面圖送來的曲線都是凸的）。
+ */
+export function polyMainRect(pts: readonly [number, number][]): Rect {
+  const N = 24;
+  const chord = (y: number): [number, number] | null => {
+    const xs: number[] = [];
+    for (let i = 0; i < pts.length; i++) {
+      const [ax, ay] = pts[i];
+      const [bx, by] = pts[(i + 1) % pts.length];
+      if (Math.abs(ay - by) < 1e-12) {
+        if (Math.abs(ay - y) < 1e-9) xs.push(ax, bx);
+        continue;
+      }
+      if ((ay <= y && by >= y) || (by <= y && ay >= y))
+        xs.push(ax + ((bx - ax) * (y - ay)) / (by - ay));
+    }
+    return xs.length >= 2 ? [Math.min(...xs), Math.max(...xs)] : null;
+  };
+  const ys = pts.map((p) => p[1]);
+  const y0 = Math.min(...ys);
+  const y1 = Math.max(...ys);
+  const levels: number[] = [];
+  for (let i = 0; i <= N; i++) levels.push(y0 + ((y1 - y0) * i) / N);
+  const chords = levels.map(chord);
+  let best: Rect = { x: 0, y: 0, w: 1, h: 1 };
+  let area = -1;
+  for (let i = 0; i < levels.length; i++)
+    for (let j = i + 1; j < levels.length; j++) {
+      const a = chords[i];
+      const b = chords[j];
+      if (!a || !b) continue;
+      const lo = Math.max(a[0], b[0]);
+      const hi = Math.min(a[1], b[1]);
+      const v = (hi - lo) * (levels[j] - levels[i]);
+      if (hi > lo && v > area + 1e-12) {
+        area = v;
+        best = { x: lo, y: levels[i], w: hi - lo, h: levels[j] - levels[i] };
+      }
+    }
+  return best;
+}
 
 const cutRatio = (v: number) => clamp(v, CUT_MIN, CUT_MAX);
 
@@ -690,7 +796,8 @@ export function lPolygon(r: Rect, cut: MaskCut | null): [number, number][] {
 }
 
 /** 框在畫面上的外形（r＝畫面上的外框；缺角照 r 與框的比例換算） */
-export function maskPolygon(f: Pick<RedactFrame, 'cut'>, r: Rect): [number, number][] {
+export function maskPolygon(f: Pick<RedactFrame, 'cut' | 'poly'>, r: Rect): [number, number][] {
+  if (f.poly) return f.poly.map(([u, v]) => [r.x + u * r.w, r.y + v * r.h]);
   const k = maskCutRect(f, r);
   return lPolygon(r, k && f.cut ? { c: f.cut.c, w: k.w, h: k.h } : null);
 }
@@ -699,7 +806,11 @@ export function maskPolygon(f: Pick<RedactFrame, 'cut'>, r: Rect): [number, numb
  * L 形裡最大的長方形（「？」與房名放在這裡，同平面圖產生器的規則）：缺角上面或下面的整列與左邊或右邊的整欄取面積大的，
  * 一樣大時取整列。長方形的框是 r 本身。
  */
-export function maskMainRect(f: Pick<RedactFrame, 'cut'>, r: Rect): Rect {
+export function maskMainRect(f: Pick<RedactFrame, 'cut' | 'poly'>, r: Rect): Rect {
+  if (f.poly) {
+    const m = polyMainRect(f.poly);
+    return { x: r.x + m.x * r.w, y: r.y + m.y * r.h, w: m.w * r.w, h: m.h * r.h };
+  }
   const k = maskCutRect(f, r);
   if (!k || !f.cut) return r;
   const north = f.cut.c === 'nw' || f.cut.c === 'ne';
@@ -717,8 +828,22 @@ export function maskMainRect(f: Pick<RedactFrame, 'cut'>, r: Rect): Rect {
  * L 形拆成兩塊不重疊的長方形（原圖 px，取整；進階 3D 的房間用）：第一塊是最大的那一塊；長方形的框是它自己。
  * 缺角的大小取整、至少 1 px、比外框少至少 1 px。
  */
-export function maskPieces(f: Pick<RedactFrame, 'x' | 'y' | 'w' | 'h' | 'cut'>): Rect[] {
+export function maskPieces(f: Pick<RedactFrame, 'x' | 'y' | 'w' | 'h' | 'cut' | 'poly'>): Rect[] {
   const box = { x: f.x, y: f.y, w: f.w, h: f.h };
+  /* 曲線（2026-11-05，F89）：3D 的房間只有長方形，用外形裡最大的那一塊（取整，至少 1 px） */
+  if (f.poly) {
+    const m = maskMainRect(f, box);
+    const x0 = Math.round(m.x);
+    const y0 = Math.round(m.y);
+    return [
+      {
+        x: x0,
+        y: y0,
+        w: Math.max(1, Math.round(m.x + m.w) - x0),
+        h: Math.max(1, Math.round(m.y + m.h) - y0),
+      },
+    ];
+  }
   if (!f.cut || box.w < 2 || box.h < 2) return [box];
   const cw = clamp(Math.round(f.cut.w * box.w), 1, box.w - 1);
   const ch = clamp(Math.round(f.cut.h * box.h), 1, box.h - 1);
@@ -801,7 +926,15 @@ export function masksFromPlan(
       f.density = 100;
       if (f.style !== 'dark' && f.style !== 'keepout') f.style = 'dark';
     }
-    if (r.cut) {
+    /* 曲線的房間（2026-11-05，F89）：外形換成框的比例（框是取整、夾在圖裡之後的） */
+    const poly = r.poly
+      ? polyFromPx(
+          r.poly.map(([x, y]) => [x * sx, y * sy] as [number, number]),
+          rect,
+        )
+      : null;
+    if (poly) f.poly = poly;
+    else if (r.cut) {
       const cut = cutFromPx(r.cut.c, r.cut.w, r.cut.h, r.w, r.h);
       if (cut) f.cut = cut;
     }

@@ -52,12 +52,22 @@ import {
   WEAR_DEFAULT,
 } from '../model/catalog';
 import { RING_COUNTS, ringMembers } from '../model/circle';
+import { hasRadius, ROOM_SHAPES, radiusMax } from '../model/curve';
 import { FURNISH_PRESETS, NO_FURNISH } from '../model/furnish';
 import { clamp, metersText, meterText, pingText, roomArea, round2 } from '../model/geometry';
 import { isLineKind, LINE_KINDS, LINE_W_MAX, LINE_W_MIN, lineLength } from '../model/lines';
 import { getObj, rotateItem } from '../model/ops';
 import { CORNERS, L_MIN } from '../model/shape';
-import type { FreeLine, Item, Opening, Room, SelRef, TextLabel, Wall } from '../model/types';
+import type {
+  FreeLine,
+  Item,
+  Opening,
+  Room,
+  RoomShape,
+  SelRef,
+  TextLabel,
+  Wall,
+} from '../model/types';
 import { S } from '../strings';
 import * as act from './actions';
 import { currentFloor, useEditor, usePrefs, useProject } from './store';
@@ -571,24 +581,65 @@ function RingFields({ it }: { it: Item }) {
   );
 }
 
-/** L 形房間（F259）：形狀、缺角、缺角的寬與深 */
+/** L 形房間（F259）、曲線的房間（2026-11-05，F289）：形狀、缺角、曲線的形狀與圓角 */
 function RoomShapeFields({ r }: { r: Room }) {
   const ref: SelRef = { type: 'room', id: r.id };
   const small = r.w < L_MIN || r.h < L_MIN;
   return (
     <>
-      <Field label={S.props.shape} hint={small && !r.cut ? S.props.shapeTooSmall : undefined}>
+      <Field
+        label={S.props.shape}
+        hint={small && !r.cut && !r.shape ? S.props.shapeTooSmall : undefined}
+      >
         <Segmented
           size="sm"
-          value={r.cut ? 'l' : 'rect'}
+          value={r.cut ? 'l' : r.shape ? 'curve' : 'rect'}
           disabled={r.locked}
-          onValueChange={(v) => act.setRoomShape(r.id, v === 'l')}
+          onValueChange={(v) =>
+            act.setRoomShape(
+              r.id,
+              v === 'curve' ? (r.shape ?? 'ellipse') : v === 'l' ? 'l' : 'rect',
+            )
+          }
           options={[
             { value: 'rect', label: S.props.shapes.rect },
             { value: 'l', label: S.props.shapes.l, disabled: small },
+            { value: 'curve', label: S.props.shapes.curve, disabled: small },
           ]}
         />
       </Field>
+      {r.shape ? (
+        <>
+          <Field label={S.props.curveShape} hint={S.props.curveHint}>
+            <Select
+              value={r.shape}
+              disabled={r.locked}
+              onValueChange={(v) => act.setRoomShape(r.id, v as RoomShape)}
+              options={ROOM_SHAPES.map((v) => ({ value: v, label: S.props.curveShapes[v] }))}
+              data-testid="room-curve-shape"
+            />
+          </Field>
+          {hasRadius(r.shape) ? (
+            <Typing>
+              <Field
+                label={r.shape === 'round' ? S.props.radiusRound : S.props.radiusChamfer}
+                hint={S.props.radiusAuto}
+              >
+                <NumberInput
+                  value={r.radius ?? 0}
+                  step={0.5}
+                  min={0}
+                  max={radiusMax(r.w, r.h)}
+                  unit={S.props.cells}
+                  disabled={r.locked}
+                  onChange={(v) => act.setRoomRadius(ref.id, v)}
+                  data-testid="room-radius"
+                />
+              </Field>
+            </Typing>
+          ) : null}
+        </>
+      ) : null}
       {r.cut ? (
         <>
           <Field label={S.props.cutCorner}>
@@ -851,15 +902,17 @@ function RoomProps({ r }: { r: Room }) {
                 round2(area),
                 pingText(area),
               )
-            : `${metersText(r.w, r.h)} · ${round2(area)}㎡ · ${pingText(area)}`
+            : r.shape
+              ? S.props.areaCurve(metersText(r.w, r.h), round2(area), pingText(area))
+              : `${metersText(r.w, r.h)} · ${round2(area)}㎡ · ${pingText(area)}`
         }
       />
       <Typing>
         <FieldRow columns={2}>
           {num(S.props.x, 'x')}
           {num(S.props.y, 'y')}
-          {num(S.props.w, 'w', r.cut ? L_MIN : 1)}
-          {num(S.props.h, 'h', r.cut ? L_MIN : 1)}
+          {num(S.props.w, 'w', r.cut || r.shape ? L_MIN : 1)}
+          {num(S.props.h, 'h', r.cut || r.shape ? L_MIN : 1)}
         </FieldRow>
       </Typing>
       <RoomShapeFields r={r} />

@@ -242,10 +242,13 @@ describe('新的種類的資料（F226、F227、F229）', () => {
   });
 
   it('房間卡片：新的兩組，每種新的房間種類一張（共 51 張）', () => {
-    const groups = ROOM_PRESET_GROUPS.slice(-2);
+    /* 2026-11-05 加的「曲線的房間・船」一組（6 張）接在最後，這裡不算 */
+    const before = ROOM_PRESET_GROUPS.filter((g) => g.id !== 'curve');
+    const groups = before.slice(-2);
     expect(groups.map((g) => g.id)).toEqual(['build', 'transit']);
     expect(groups.flatMap((g) => g.items.map((p) => p.cat)).sort()).toEqual([...NEW_ROOMS].sort());
-    expect(ROOM_PRESET_GROUPS.flatMap((g) => g.items)).toHaveLength(51);
+    expect(before.flatMap((g) => g.items)).toHaveLength(51);
+    expect(ROOM_PRESET_GROUPS.flatMap((g) => g.items)).toHaveLength(57);
     for (const g of groups) {
       expect(S.presetGroups[g.id]).toBeTruthy();
       for (const p of g.items) expect(S.presets[p.id], p.id).toBeTruthy();

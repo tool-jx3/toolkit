@@ -103,7 +103,9 @@ function RoomCard({ p }: { p: RoomPreset }) {
     >
       <span
         aria-hidden
-        className="size-6 shrink-0 rounded-sm border border-border-strong"
+        className={`size-6 shrink-0 border border-border-strong ${
+          p.shape === 'ellipse' ? 'rounded-full' : p.shape ? 'rounded-lg' : 'rounded-sm'
+        }`}
         style={{ background: THEMES.clean.fills[p.cat] ?? '#ffffff' }}
       />
       <span className="flex min-w-0 flex-col">

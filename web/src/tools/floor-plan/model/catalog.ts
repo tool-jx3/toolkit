@@ -5,6 +5,7 @@ import type {
   FloorMaterial,
   OpeningKind,
   RoomCategory,
+  RoomShape,
   SizeMode,
   ThemeId,
   TokenGridSize,
@@ -260,13 +261,22 @@ export type RoomPresetId =
   | 'slab'
   | 'yard'
   | 'karesansui'
-  | 'shipDeck';
+  | 'shipDeck'
+  /* 2026-11-05（跟進 KIIN v2.0 第二批）：曲線的房間 */
+  | 'roundHall'
+  | 'tower'
+  | 'domeRoom'
+  | 'octagon'
+  | 'hullDeck'
+  | 'bowDeck';
 
 export interface RoomPreset {
   id: RoomPresetId;
   cat: RoomCategory;
   w: number;
   h: number;
+  /** 曲線的形狀（2026-11-05，F289；沒有＝長方形） */
+  shape?: RoomShape;
 }
 
 export type RoomPresetGroupId =
@@ -276,7 +286,8 @@ export type RoomPresetGroupId =
   | 'special'
   | 'world'
   | 'build'
-  | 'transit';
+  | 'transit'
+  | 'curve';
 
 const P = (id: RoomPresetId, cat: RoomCategory, w: number, h: number): RoomPreset => ({
   id,
@@ -371,6 +382,18 @@ export const ROOM_PRESET_GROUPS: readonly { id: RoomPresetGroupId; items: RoomPr
       P('yard', 'dirt', 16, 12),
       P('karesansui', 'gravel', 10, 6),
       P('shipDeck', 'shipdeck', 24, 8),
+    ],
+  },
+  /* 2026-11-05（跟進 KIIN v2.0 第二批，F289）：曲線的房間（尺寸本站自己定） */
+  {
+    id: 'curve',
+    items: [
+      { ...P('roundHall', 'public', 12, 12), shape: 'ellipse' },
+      { ...P('tower', 'stone', 8, 8), shape: 'ellipse' },
+      { ...P('domeRoom', 'living', 10, 8), shape: 'dome-n' },
+      { ...P('octagon', 'special', 10, 10), shape: 'chamfer' },
+      { ...P('hullDeck', 'shipdeck', 36, 12), shape: 'hull-e' },
+      { ...P('bowDeck', 'shipdeck', 8, 12), shape: 'bow-e' },
     ],
   },
 ];

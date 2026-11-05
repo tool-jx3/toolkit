@@ -11,6 +11,7 @@ import { ASSET } from '../model/assets';
 import { CELL_M, ROOM_PRESETS } from '../model/catalog';
 import { partialRingIds } from '../model/circle';
 import { coordGrid, coordLabels } from '../model/coords';
+import { CURVE_MIN } from '../model/curve';
 import { type ExportSettings, wearSheet } from '../model/exportPlan';
 import { resizeWithFollow } from '../model/follow';
 import {
@@ -78,7 +79,13 @@ import {
   type TextLabel,
   type Wall,
 } from '../model/types';
-import { type WallRun, wallLines } from '../model/walls';
+import {
+  computeWalls,
+  curveSnapLines,
+  type OpeningPose,
+  type WallRun,
+  wallLines,
+} from '../model/walls';
 import { S } from '../strings';
 import * as act from './actions';
 import {
@@ -195,6 +202,8 @@ export class EditorController {
   private pointers = new Map<number, { sx: number; sy: number }>();
   private dirty = false;
   private linesCache: { floor: Floor; lines: WallRun[] } | null = null;
+  private openLinesCache: { floor: Floor; lines: WallRun[] } | null = null;
+  private posesCache: { floor: Floor; pv: boolean; poses: Map<string, OpeningPose> } | null = null;
   private unsubs: (() => void)[] = [];
   private ro: ResizeObserver | null = null;
   /** 從素材面板拖過來的家具或房間 */
@@ -385,6 +394,28 @@ export class EditorController {
     return lines;
   }
 
+  /** 門窗吸附的線：牆線＋曲線的房間的外框線上沒有直的牆的段（2026-11-05，F291） */
+  private openingLines(): WallRun[] {
+    const f = currentFloor();
+    if (this.openLinesCache?.floor === f) return this.openLinesCache.lines;
+    const lines = this.wallLines().concat(curveSnapLines(f));
+    this.openLinesCache = { floor: f, lines };
+    return lines;
+  }
+
+  /** 放在曲線上的門窗的位置（畫面上的樓層；沒有曲線的房間時是空的） */
+  private poses(): Map<string, OpeningPose> {
+    const f = this.shownFloor();
+    const key = currentFloor();
+    if (this.posesCache?.floor === key && this.posesCache.pv === useEditor.getState().playerView)
+      return this.posesCache.poses;
+    const poses = f.rooms.some((r) => r.shape)
+      ? computeWalls(f).poses
+      : new Map<string, OpeningPose>();
+    this.posesCache = { floor: key, pv: useEditor.getState().playerView, poses };
+    return poses;
+  }
+
   private onDataChange(): void {
     act.dropMissingSelection();
     this.requestRender();
@@ -435,7 +466,8 @@ export class EditorController {
     /* 細角度的家具（2026-11-05，F277）：轉過的範圍 */
     if (type === 'item') return itemFootprint(o as Item);
     if (type === 'line') return lineBounds(o as FreeLine);
-    if (type === 'opening') return openingRect(o as Opening, 0.3);
+    if (type === 'opening')
+      return posedRect(o as Opening, this.poses().get((o as Opening).id), 0.3);
     if (type === 'wall') {
       const w = o as Wall;
       return {
@@ -505,10 +537,13 @@ export class EditorController {
       const l = lines[i];
       if (lineDistance(l, wx, wy) <= Math.max(0.25, tol)) return { type: 'line', id: l.id };
     }
+    const poses = this.poses();
     for (let i = f.openings.length - 1; i >= 0; i--) {
       const o = f.openings[i];
-      const along = (o.o === 'h' ? wx : wy) - (o.o === 'h' ? o.x : o.y);
-      const across = (o.o === 'h' ? wy : wx) - (o.o === 'h' ? o.y : o.x);
+      /* 曲線上的門窗（F291）：把點轉回直的位置再比 */
+      const [px, py] = unpose(o, poses.get(o.id), wx, wy);
+      const along = (o.o === 'h' ? px : py) - (o.o === 'h' ? o.x : o.y);
+      const across = (o.o === 'h' ? py : px) - (o.o === 'h' ? o.y : o.x);
       if (along >= -tol && along <= o.len + tol && Math.abs(across) <= Math.max(0.32, tol * 1.4))
         return { type: 'opening', id: o.id };
     }
@@ -807,8 +842,8 @@ export class EditorController {
       c.restore();
       return;
     }
-    if (type === 'room' && (obj as Room).cut) {
-      /* L 形房間（2026-10-29）：照外形描 */
+    if (type === 'room' && ((obj as Room).cut || (obj as Room).shape)) {
+      /* L 形房間（2026-10-29）、曲線的房間（2026-11-05）：照外形描 */
       const px = 1 / this.view.zoom;
       c.save();
       c.lineJoin = 'miter';
@@ -981,7 +1016,13 @@ export class EditorController {
       const cat = armed?.kind === 'room' ? ROOM_PRESETS[armed.preset].cat : 'living';
       /* L 形房間工具：預覽也是 L 形（2026-10-29） */
       const cut = ed.tool === 'lroom' ? defaultCut(r.w, r.h) : undefined;
-      const shape = { ...r, cut };
+      /* 曲線的房間的預設（2026-11-05）：預覽也是那個形狀 */
+      const curve = armed?.kind === 'room' ? ROOM_PRESETS[armed.preset].shape : undefined;
+      const shape = {
+        ...r,
+        cut,
+        ...(!cut && curve && r.w >= CURVE_MIN && r.h >= CURVE_MIN ? { shape: curve } : {}),
+      };
       c.save();
       c.fillStyle = roomFill(theme, { cat });
       c.globalAlpha = 0.85;
@@ -1100,6 +1141,14 @@ export class EditorController {
     const go = this.ghostOpening;
     if (go && !d) {
       c.save();
+      /* 吸到曲線上（F291）：預覽也畫在外形上 */
+      if (go.pose) {
+        const mx = go.o === 'h' ? go.x + go.len / 2 : go.x;
+        const my = go.o === 'h' ? go.y : go.y + go.len / 2;
+        c.translate(go.pose.x, go.pose.y);
+        c.rotate(go.pose.rot);
+        c.translate(-mx, -my);
+      }
       c.globalAlpha = go.clash ? 0.35 : 0.85;
       c.fillStyle = theme.bg === 'transparent' ? '#ffffff' : theme.bg;
       if (go.o === 'h') c.fillRect(go.x, go.y - go.t / 2 - px, go.len, go.t + px * 2);
@@ -1357,7 +1406,7 @@ export class EditorController {
         const armed = ed.armed;
         if (armed?.kind !== 'opening') return;
         const hit = this.hitTest(w.x, w.y, { skipRooms: true });
-        const g = snapOpening(this.wallLines(), currentFloor().openings, w.x, w.y, armed.type);
+        const g = snapOpening(this.openingLines(), currentFloor().openings, w.x, w.y, armed.type);
         if (hit?.type === 'opening' && (!g || g.clash)) {
           act.setTool('select');
           setEditor({ sel: [hit] });
@@ -1601,12 +1650,15 @@ export class EditorController {
         const orig = e.orig as Opening;
         const o = getObj(f, 'opening', e.id) as Opening | null;
         if (!o) return;
-        const mid =
-          orig.o === 'h'
+        /* 曲線上的門窗（F291）：從外形上的那一點拖 */
+        const posed = this.poses().get(orig.id);
+        const mid = posed
+          ? { x: posed.x, y: posed.y }
+          : orig.o === 'h'
             ? { x: orig.x + orig.len / 2, y: orig.y }
             : { x: orig.x, y: orig.y + orig.len / 2 };
         const g = snapOpening(
-          lines,
+          this.openingLines(),
           f.openings,
           mid.x + (w.x - d.start.x),
           mid.y + (w.y - d.start.y),
@@ -1694,7 +1746,7 @@ export class EditorController {
         const r = o as Room;
         const step = d.type === 'room' ? 1 : e.altKey ? 0.05 : 0.25;
         /* L 形房間的外框至少 2 × 2（2026-10-29） */
-        const min = d.type === 'room' ? (orig.cut ? L_MIN : 1) : 0.25;
+        const min = d.type === 'room' ? (orig.cut || orig.shape ? L_MIN : 1) : 0.25;
         const s = (v: number) => snap(v, step);
         let x1 = orig.x;
         let y1 = orig.y;
@@ -1708,7 +1760,15 @@ export class EditorController {
           /* 缺角跟著它的角、夾到合法的大小；家具跟著房間（F254；地圖設定關掉或按住 Alt 時不跟） */
           const before = d.before.floors[d.before.active];
           const cut = fitCut(orig.cut, round2(x2 - x1), round2(y2 - y1));
-          const geo = { x: x1, y: y1, w: x2 - x1, h: y2 - y1, ...(cut ? { cut } : {}) };
+          const geo = {
+            x: x1,
+            y: y1,
+            w: x2 - x1,
+            h: y2 - y1,
+            ...(cut ? { cut } : {}),
+            /* 曲線的房間（2026-11-05）：形狀跟著外框 */
+            ...(orig.shape ? { shape: orig.shape, radius: orig.radius } : {}),
+          };
           /* 每次從拖曳前的位置算（家具回到原位再移） */
           d.misfit = resizeWithFollow(f, before, orig, geo, !p.fixedFurniture && !e.altKey);
           if (cut) r.cut = cut;
@@ -1907,7 +1967,7 @@ export class EditorController {
     } else if (ed.tool === 'door' || ed.tool === 'window') {
       this.ghostOpening =
         ed.armed?.kind === 'opening'
-          ? snapOpening(this.wallLines(), currentFloor().openings, w.x, w.y, ed.armed.type)
+          ? snapOpening(this.openingLines(), currentFloor().openings, w.x, w.y, ed.armed.type)
           : null;
       act.updateHint(!this.ghostOpening);
       this.requestRender();
@@ -2004,3 +2064,47 @@ function segDist(px: number, py: number, w: Wall): number {
 }
 
 export const editor = new EditorController();
+
+/** 曲線上的門窗（F291）：世界座標的點 → 門窗直的位置的座標（沒有 pose 時原樣） */
+function unpose(
+  o: Pick<Opening, 'o' | 'x' | 'y' | 'len'>,
+  pose: OpeningPose | undefined,
+  wx: number,
+  wy: number,
+): [number, number] {
+  if (!pose) return [wx, wy];
+  const mx = o.o === 'h' ? o.x + o.len / 2 : o.x;
+  const my = o.o === 'h' ? o.y : o.y + o.len / 2;
+  const dx = wx - pose.x;
+  const dy = wy - pose.y;
+  const cos = Math.cos(-pose.rot);
+  const sin = Math.sin(-pose.rot);
+  return [mx + dx * cos - dy * sin, my + dx * sin + dy * cos];
+}
+
+/** 門窗的範圍（曲線上的：轉過的長方形的外接範圍） */
+function posedRect(o: Opening, pose: OpeningPose | undefined, pad: number): Rect {
+  const r = openingRect(o, pad);
+  if (!pose) return r;
+  const mx = o.o === 'h' ? o.x + o.len / 2 : o.x;
+  const my = o.o === 'h' ? o.y : o.y + o.len / 2;
+  const cos = Math.cos(pose.rot);
+  const sin = Math.sin(pose.rot);
+  const pts = [
+    [r.x, r.y],
+    [r.x + r.w, r.y],
+    [r.x + r.w, r.y + r.h],
+    [r.x, r.y + r.h],
+  ].map(([x, y]) => [
+    pose.x + (x - mx) * cos - (y - my) * sin,
+    pose.y + (x - mx) * sin + (y - my) * cos,
+  ]);
+  const xs = pts.map((p) => p[0]);
+  const ys = pts.map((p) => p[1]);
+  return {
+    x: Math.min(...xs),
+    y: Math.min(...ys),
+    w: Math.max(...xs) - Math.min(...xs),
+    h: Math.max(...ys) - Math.min(...ys),
+  };
+}

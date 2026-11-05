@@ -31,11 +31,23 @@ export interface TplFloor {
   texts: NoId<TextLabel>[];
 }
 
-/** 房間的其他設定；`cut`＝L 形房間的缺角（2026-10-29，範本的轉角走廊；規格 D81） */
+/** 房間的其他設定；`cut`＝L 形房間的缺角（2026-10-29，範本的轉角走廊；規格 D81）；`shape`＝曲線的房間（2026-11-05） */
 export type RoomExtra = Partial<
   Pick<
     Room,
-    'plName' | 'note' | 'gm' | 'hideLabel' | 'noWall' | 'lx' | 'ly' | 'color' | 'wall' | 'cut'
+    | 'plName'
+    | 'note'
+    | 'gm'
+    | 'hideLabel'
+    | 'noWall'
+    | 'lx'
+    | 'ly'
+    | 'color'
+    | 'wall'
+    | 'cut'
+    /* 曲線的房間（2026-11-05，客輪範本） */
+    | 'shape'
+    | 'radius'
   >
 >;
 export type ItemExtra = Partial<Pick<Item, 'label' | 'gm' | 'clue' | 'flip' | 'color'>> & {

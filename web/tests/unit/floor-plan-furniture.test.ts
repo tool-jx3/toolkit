@@ -440,7 +440,8 @@ describe('搜尋（F46、F234、F235）', () => {
       'abandoned-hospital',
       'dungeon',
     ]);
-    expect(tpl('#GM專用 #多樓層')).toHaveLength(32);
+    /* 2026-11-05 加了夜航蒸汽客輪（GM 專用的密艙、兩層）：32 → 33 */
+    expect(tpl('#GM專用 #多樓層')).toHaveLength(33);
     expect(tpl('醫院')).toEqual(['hospital', 'hospital-annex', 'abandoned-hospital']);
     expect(tpl('#廢墟 #住家')).toEqual(['ruined-house']);
     expect(tpl('#鐵道')).toEqual(['station', 'subway']);
