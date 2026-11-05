@@ -59,7 +59,6 @@
 | gif-combiner | GIF 接合器 | sotsotssi/GIF-Combiner | MIT | G8 |
 | music-frame | 音樂播放畫面產生器 | zZnaptime/MVmaker（原 zznaptime/1007mv） | 未授權 | G8 |
 | battlemap | 戰鬥地圖產生器 | usagineko7865-debug/battlemap-generator（2026-10-30 起格局另參考 ondras/rot.js） | MIT（rot.js：BSD-3-Clause） | G10（原 G8） |
-| tile-map | 圖塊地圖編輯器（2026-11-05 另外加入） | deukrezia/trials（Trials — VTT Battlemap Maker） | 未授權（程式）；內建圖塊 Kenney 的 Scribble Dungeons、Tiny Dungeon 是 CC0 1.0 | G10 |
 | trpg-lab | 違法建築的 TRPG 實驗室（9 個子工具＋地圖編輯器） | ihoukentiku | MIT | G9 |
 | anime-rig | Anime2.5DRig | 852wa/Anime2.5DRig | MIT | G9 |
 | jizura | JIZURA 字面 | 852wa/JIZURA | MIT | 外部連結（不重寫，維持轉址） |
@@ -263,6 +262,7 @@ music-frame 的原作搬到 zZnaptime/MVmaker（功能沒變），連結已修�
 | scenario-timeline | 劇本時間表（2026-10-29 另外加入；第一批：真實日期／第 N 天／架空年、事件三種、泳道與巢狀、縮放平移拖曳、年表與列印、GM／PL 檢視、PNG／SVG／文字年表／CSV／專案檔；第二批〔多選、搜尋與篩選、架空曆的月日、關聯線、讀入 vis-timeline 的資料〕2026-10-30 上線；第三批〔年表列出關聯線、架空曆寫到時刻〕2026-10-31 上線；共用 core/csv 加 quotes 與 guard） | visjs/vis-timeline | MIT（二選一） | G6 | ✅ | ✅ | ✅ | ✅ |
 | ambience-mixer | 環境音混音器（2026-10-29 另外加入；程式合成的環境音 26 種、自己的音檔、各自的音量與參數、起伏、預設組合 12 個、隨機組合、我的組合、分享連結、定時停止、匯出可以無縫循環的 MP3（lamejs，LGPL-3.0）或 WAV；共用模組 core/audio/ambience、core/audio/mp3） | remvze/moodist（音效不收） | MIT | G8 | ✅ | ✅ | ✅ | ✅ |
 | world-map | 世界地圖產生器（2026-11-05 另外加入；分兩批：第一批＝地形〔方格／自由筆刷、六種地形與地表、山林的排法與交界、雪〕、國〔城牆與內城〕、川・街道・航路・國界線・城牆、32 種素材、地名・備註、主題・字型・格線・外框、PNG（公開用／GM 用）、專案檔與原作作業檔、自動產生與地名提案、範本、小地圖、送到地圖演出產生器；第二批＝旅程概算〔和原作並排比對〕、地圖尺寸 16:9／正方形／直式） | KIIN／ワールドマップ制作スタジオ（BOOTH 販售的工具，使用者上傳的 v1.0） | 未授權（條款禁止再散布程式與固有意匠） | G10 | ✅ | ✅ | ✅ | ✅ |
+| tile-map | 圖塊地圖編輯器（2026-11-05 另外加入；每格一張圖塊的戰鬥地圖：畫筆、橡皮擦、填滿、圖形 6 種、滴管、選取後跨圖層搬動與轉向、整張移動；圖層 12 層；內建簡易地形 16 種與 Kenney 兩包，匯入自己的圖塊表〔大圖塊〕；圖庫跨地圖共用與備份；PNG〔超過 iOS 上限時分段編碼〕、照實際尺寸分頁的列印 PDF、專案檔；送到地圖演出產生器） | deukrezia/trials（Trials — VTT Battlemap Maker） | 未授權（程式）；內建圖塊 Kenney 的 Scribble Dungeons、Tiny Dungeon 是 CC0 1.0 | G10 | ✅ | ✅ | ✅ | ✅ |
 
 上游更新的跟進（已上線的工具加功能，照一般的規格修訂與驗證）：
 
