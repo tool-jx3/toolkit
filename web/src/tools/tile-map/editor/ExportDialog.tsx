@@ -2,6 +2,7 @@
  * 匯出（對話框，共用的匯出區）：
  * - PNG：每格 8～512 px（預設 64）、格線（預設開）、透明背景；每邊最多 8192 px、總共最多 3,600 萬像素，
  *   超過一張畫布的上限（iOS Safari 1,677 萬像素）時分段畫再編碼。
+ * - PNG、PDF 超過上限時說明原因，「匯出」按鈕停用（共用匯出區停用選中的格式時按鈕跟著停用）。
  * - 列印用 PDF：每格的實際大小（英寸）、列印品質、A4／Letter、直式／橫式、格線、背景色；分頁最多 100 頁。
  * - 在地圖演出產生器開啟：照 PNG 的設定畫好，交給 map-fx（共用的 core/handoff；網址的 # 帶 from=tile-map）。
  */
@@ -77,6 +78,12 @@ export function ExportDialog() {
   const size = pngSize(map, png.px);
   const pngOk = pngFits(size.width, size.height);
   const pdf = useMemo(() => printInfo(map, print), [map, print]);
+  /*
+   * 選中的格式超過上限時停用它：共用匯出區的「匯出」按鈕跟著停用（原因寫在下面的設定裡，不另外給 disabledReason，
+   * 免得同一句出現兩次）。只停用選中的那個——沒選中的照樣點得到，才能切過去調它的設定。
+   */
+  const blocked =
+    prefs.format === 'pdf' ? (pdf.ok ? null : 'pdf') : pngOk ? null : ('png' as const);
   /* 地圖或設定改了：上次的結果作廢（新的物件＝換了） */
   // biome-ignore lint/correctness/useExhaustiveDependencies: 依賴本身就是要比對的對象
   const resultKey = useMemo(() => ({}), [map, png, print, prefs.format]);
@@ -259,8 +266,8 @@ export function ExportDialog() {
         <ExportPanel
           title="格式與設定"
           formats={[
-            { id: 'png', label: S.exp.formats.png },
-            { id: 'pdf', label: S.exp.formats.pdf },
+            { id: 'png', label: S.exp.formats.png, disabled: blocked === 'png' },
+            { id: 'pdf', label: S.exp.formats.pdf, disabled: blocked === 'pdf' },
           ]}
           settings={{ format: prefs.format, fps: 0, plays: 0, scale: 1, quantize: false }}
           onSettingsChange={(s) => patch({ format: s.format === 'pdf' ? 'pdf' : 'png' })}

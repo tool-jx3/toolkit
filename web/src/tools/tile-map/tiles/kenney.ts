@@ -9,9 +9,12 @@ export const TINY_SET = 'kenney-tiny';
 export const SCRIBBLE_SRC = 'builtin:kenney-scribble';
 export const TINY_SRC = 'builtin:kenney-tiny';
 
-/* ---------- Scribble Dungeons：64 px，排成 12 欄的圖（依檔名的字母順序） ---------- */
+/* ---------- Scribble Dungeons：64 px，排成 12 欄的圖 ---------- */
 
-/** 圖上的順序（第 i 格＝第 i 個檔名） */
+/**
+ * 圖上的順序（第 i 格＝第 i 個檔名）：Characters 子資料夾 8 張、Items 子資料夾 16 張、tiles 資料夾本身 112 張，
+ * 各自照檔名的字元碼順序排（底線在小寫字母前面）。
+ */
 const SCRIBBLE_FILES = [
   'green_character',
   'green_hand',

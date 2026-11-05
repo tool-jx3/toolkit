@@ -1,8 +1,9 @@
 /**
  * 圖塊地圖編輯器（建置產物）的端對端測試：開頁（範例地圖、無 console 錯誤）、畫筆／填滿／圖形／橡皮擦、復原、
- * 選取的搬動、整張移動的裁切確認、圖層（新增、改名、隱藏、刪除的確認）、快捷鍵、匯入圖塊表（透明格略過、框成大圖塊）、
- * 放大圖塊與擦掉、匯出 PNG／PDF（解析下載的檔案）、專案檔存讀（換一個瀏覽器環境也畫得出來、圖塊收進圖庫）、
- * 圖庫備份、自動存檔、交給地圖演出產生器（交接資料寫進 IndexedDB 為止）、390 寬、視覺基準圖。
+ * 拖曳中按 Esc 作廢、選取的搬動、整張移動的裁切確認、圖層（新增、改名、隱藏、刪除的確認）、快捷鍵、
+ * 匯入圖塊表（透明格略過、框成大圖塊）、放大圖塊與擦掉、匯出 PNG／PDF（解析下載的檔案；超過上限時按鈕停用）、
+ * 專案檔存讀（換一個瀏覽器環境也畫得出來、圖塊收進圖庫）、圖庫備份、自動存檔（圖庫改了馬上重新整理也留著）、
+ * 在地圖演出產生器開啟（新分頁真的收到圖）、390 寬、視覺基準圖。
  */
 import { readFileSync } from 'node:fs';
 import { crc32, deflateSync, inflateSync } from 'node:zlib';
@@ -234,6 +235,76 @@ test('畫筆、橡皮擦、填滿、圖形、滴管、復原', async ({ page }) 
   expect(errors).toEqual([]);
 });
 
+/** 按住拖到 to、按 Esc、再移一點才放開（放開前後都不能寫進地圖） */
+async function escapeDrag(page: Page, from: [number, number], to: [number, number]) {
+  const a = await point(page, ...from);
+  const b = await point(page, ...to);
+  await page.mouse.move(a.x, a.y);
+  await page.mouse.down();
+  if (to[0] !== from[0] || to[1] !== from[1]) await page.mouse.move(b.x, b.y, { steps: 4 });
+  await page.keyboard.press('Escape');
+  await page.mouse.move(b.x + 30, b.y + 20, { steps: 2 });
+  await page.mouse.up();
+}
+
+/** 地圖的格子與復原的步數（Esc 作廢前後比對） */
+async function snapshot(page: Page) {
+  return page.evaluate(() => {
+    const h = (window as unknown as W).__tileMap;
+    return {
+      cells: h.useMap.getState().data.layers.map((l) => l.cells),
+      steps: h.useMap.temporal.getState().pastStates.length,
+    };
+  });
+}
+
+const ESC_CASES = [
+  { name: '畫筆', key: 'b', from: [0, 0], to: [1, 6] },
+  /* 填滿：按下時已經畫出結果，放開前按 Esc */
+  { name: '填滿', key: 'g', from: [0, 5], to: [0, 5] },
+  { name: '圖形', key: 'u', from: [0, 0], to: [1, 8] },
+  /* 整張移動：會裁掉圖塊的位移 */
+  { name: '整張移動', key: 'm', from: [10, 10], to: [14, 12] },
+] as const;
+
+for (const c of ESC_CASES)
+  test(`拖曳中按 Esc 作廢（${c.name}）：放開時不寫進地圖、不多一步復原，之後照常能畫`, async ({
+    page,
+  }) => {
+    const errors = await open(page);
+    await page.locator('[data-tile="kb:grass"]').click();
+    const before = await snapshot(page);
+    await page.keyboard.press(c.key);
+    await escapeDrag(page, [...c.from], [...c.to]);
+    expect(await snapshot(page)).toEqual(before);
+    if (c.key === 'm') {
+      /* 放開時也不跳裁掉的確認；拖曳中的 Esc 只作廢那一次，再按一次 Esc 才回到選取 */
+      await expect(page.getByRole('dialog', { name: '移動地圖並裁掉圖塊？' })).toHaveCount(0);
+      expect((await editorOf(page)).tool).toBe('move-map');
+      await page.keyboard.press('Escape');
+      expect((await editorOf(page)).tool).toBe('select');
+    }
+    await page.keyboard.press('b');
+    await dragCells(page, [0, 0], [1, 0]);
+    expect((await cellAt(page, 0, 1, 0))?.t).toBe('kb:grass');
+    expect((await snapshot(page)).steps).toBe(before.steps + 1);
+    expect(errors).toEqual([]);
+  });
+
+test('拖曳中按 Esc 作廢（搬動選取）：圖塊不動、選取照舊', async ({ page }) => {
+  const errors = await open(page);
+  await page.getByRole('button', { name: '選擇圖層「物件」' }).click();
+  await page.keyboard.press('Control+a');
+  const selected = (await editorOf(page)).selection;
+  expect(selected.length).toBeGreaterThan(0);
+  const before = await snapshot(page);
+  /* 從寶箱拖走 */
+  await escapeDrag(page, [4, 4], [6, 5]);
+  expect(await snapshot(page)).toEqual(before);
+  expect((await editorOf(page)).selection).toEqual(selected);
+  expect(errors).toEqual([]);
+});
+
 test('選取：框選、方向鍵搬動、刪除；整張移動會裁掉時確認', async ({ page }) => {
   const errors = await open(page);
   await page.getByRole('button', { name: '選擇圖層「物件」' }).click();
@@ -398,6 +469,55 @@ test('匯入圖塊表：透明格略過、框成大圖塊；放大圖塊、擦�
     [1, 1],
   ])
     expect(await cellAt(page, 2, x, y)).toBeNull();
+  expect(errors).toEqual([]);
+});
+
+test('圖庫：換了順序馬上重新整理也留著（離開頁面時立刻存）', async ({ page }) => {
+  const errors = await open(page);
+  await page.locator('[data-tile="kb:flagstone"]').focus();
+  await page.keyboard.press('Alt+ArrowRight');
+  await expect(page.locator('[data-tile]').nth(1)).toHaveAttribute('data-tile', 'kb:flagstone');
+  /* 不等自動存檔的 0.1 秒 */
+  await page.reload();
+  await expect
+    .poll(() => page.evaluate(() => (window as unknown as W).__tileMap?.useEditor.getState().ready))
+    .toBe(true);
+  await expect(page.locator('[data-tile]').nth(0)).toHaveAttribute('data-tile', 'kb:cobble');
+  await expect(page.locator('[data-tile]').nth(1)).toHaveAttribute('data-tile', 'kb:flagstone');
+  expect(errors).toEqual([]);
+});
+
+test('匯出：超過上限時說明原因、「匯出」按鈕停用；沒選中的格式照樣切得過去', async ({ page }) => {
+  const errors = await open(page);
+  await page.getByTestId('new-map').click();
+  const nd = page.getByRole('dialog', { name: '新地圖' });
+  /* 用 Tab 離開欄位（Enter 會直接送出「建立」） */
+  for (const side of ['寬', '高']) {
+    const f = nd.getByRole('spinbutton', { name: side });
+    await f.fill('200');
+    await f.press('Tab');
+  }
+  await nd.getByTestId('new-map-create').click();
+  await expect.poll(async () => (await mapOf(page)).width).toBe(200);
+  await page.getByTestId('open-export').click();
+  const dlg = page.getByRole('dialog', { name: '匯出' });
+  /* PNG：每格 64 px → 12,800 px，超過每邊 8,192 */
+  await expect(dlg.getByTestId('png-size')).toHaveText('12,800 × 12,800 px');
+  await expect(dlg.getByText(/太大了：每邊最多 8,192 px/)).toBeVisible();
+  await expect(dlg.getByRole('button', { name: '匯出 PNG 圖片' })).toBeDisabled();
+  await expect(dlg.getByTestId('send-fx')).toBeDisabled();
+  /* 列印用 PDF：每格 1 英寸 → 29 × 20 頁，超過 100 頁 */
+  await dlg.getByRole('radio', { name: '列印用 PDF' }).click();
+  await expect(dlg.getByText(/這樣要 580 頁，最多 100 頁/)).toBeVisible();
+  await expect(dlg.getByRole('button', { name: '匯出 列印用 PDF' })).toBeDisabled();
+  /* 切回 PNG、每格改小就能匯出 */
+  await dlg.getByRole('radio', { name: 'PNG 圖片' }).click();
+  const px = dlg.getByRole('spinbutton', { name: '每格' });
+  await px.fill('16');
+  await px.press('Enter');
+  await expect(dlg.getByTestId('png-size')).toHaveText('3,200 × 3,200 px');
+  await expect(dlg.getByRole('button', { name: '匯出 PNG 圖片' })).toBeEnabled();
+  await expect(dlg.getByTestId('send-fx')).toBeEnabled();
   expect(errors).toEqual([]);
 });
 

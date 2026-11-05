@@ -1,6 +1,13 @@
 本資料夾的 atlas.webp 是 Kenney 的 Scribble Dungeons（64 × 64 px 的版本）的 136 張圖塊，由本站排成一張圖
-（12 欄、每格 64 × 64 px、依檔名的字母順序，Characters／Items 兩個子資料夾在最前面）並存成無損的 WebP；
-每一格的像素和原檔相同（ImageMagick compare 的差異像素數 0），只有排列與檔案格式不同。授權：CC0 1.0（公眾領域貢獻宣告）。
+（12 欄、每格 64 × 64 px，由左到右、由上到下）並存成無損的 WebP；每一格的像素和原檔相同（ImageMagick compare 的差異像素數 0），
+只有排列與檔案格式不同。授權：CC0 1.0（公眾領域貢獻宣告）。
+
+排列的順序（第 0 格在左上角）：
+  1. 第 0～7 格：Characters 子資料夾的 8 張，依檔名排；
+  2. 第 8～23 格：Items 子資料夾的 16 張，依檔名排（不和 Characters 混在一起排）；
+  3. 第 24～135 格：tiles 資料夾本身的 112 張，依檔名排。
+  「依檔名排」是去掉 .png 之後照字元碼的順序（底線「_」排在英文小寫字母前面，例如 door_open 在 doorway 前面）。
+  每一格是哪個檔案的完整對照表在 web/src/tools/tile-map/tiles/kenney.ts 的 SCRIBBLE_FILES（第 i 個檔名＝第 i 格）。
 
 授權的出處：Kenney 的 Scribble Dungeons 頁面（https://kenney.nl/assets/scribble-dungeons）標示 License: Creative Commons CC0。
 取得：deukrezia/trials（commit dd4f118，2026-11-05）的 assets/kenney-scribble/tiles/（136 個 PNG）。那個 repo 的 CREDITS.md

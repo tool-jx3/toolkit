@@ -56,7 +56,7 @@ describe('圖形的格子', () => {
     expect(shapeCells(1, 1, 3, 2, 'rect')).toHaveLength(6);
     expect(shapeCells(0, 0, 4, 4, 'rect', true)).toHaveLength(16);
   });
-  it('直線（Bresenham）', () => {
+  it('直線（含兩端、8 連通）', () => {
     expect(lineCells(0, 0, 3, 1)).toEqual([
       [0, 0],
       [1, 0],
@@ -82,6 +82,88 @@ describe('圖形的格子', () => {
   it('指定大小：以那一格為中心（偶數偏右下）', () => {
     expect(centeredBox(10, 10, 3, 3)).toEqual({ x0: 9, y0: 9, x1: 11, y1: 11 });
     expect(centeredBox(10, 10, 4, 2)).toEqual({ x0: 8, y0: 9, x1: 11, y1: 10 });
+  });
+
+  /*
+   * 指紋：2026-11-05 改寫 model/shapes.ts（守則 1，D24）之前，用舊的程式算的「總格數:雜湊」。
+   * 改寫後一格、順序都不能變；驗證者拿原作比對過的 132 組（6 形狀 × 實心／外框 × 12 個框）也在裡面。
+   */
+  const KINDS = ['rect', 'ellipse', 'circle', 'diamond', 'triangle', 'line'] as const;
+  /** 每一份清單的長度與每格的 x、y 依序餵進 FNV-1a（32 位元，每個數 4 個位元組） */
+  const digest = (lists: Iterable<readonly (readonly [number, number])[]>) => {
+    let h = 0x811c9dc5;
+    let n = 0;
+    const feed = (v: number) => {
+      for (let k = 0; k < 4; k++) h = Math.imul(h ^ ((v >>> (8 * k)) & 0xff), 0x01000193);
+    };
+    for (const list of lists) {
+      feed(list.length);
+      for (const [x, y] of list) {
+        feed(x);
+        feed(y);
+        n++;
+      }
+    }
+    return `${n}:${(h >>> 0).toString(16).padStart(8, '0')}`;
+  };
+  it('指紋：驗證者比對原作的 132 組', () => {
+    const boxes = [
+      [2, 2, 2, 2],
+      [1, 1, 4, 3],
+      [3, 2, 9, 8],
+      [2, 5, 10, 5],
+      [5, 1, 5, 9],
+      [1, 1, 8, 8],
+      [9, 9, 2, 3],
+      [3, 3, 7, 12],
+      [1, 2, 12, 6],
+      [4, 4, 5, 5],
+      [2, 2, 6, 3],
+      [0, 0, 9, 4],
+    ] as const;
+    function* all() {
+      for (const k of KINDS)
+        for (const o of [false, true]) {
+          if (k === 'line' && o) continue;
+          for (const [x0, y0, x1, y1] of boxes) yield shapeCells(x0, y0, x1, y1, k, o);
+        }
+    }
+    const list = [...all()];
+    expect(list).toHaveLength(132);
+    expect(digest(list)).toBe('2125:7693f4b3');
+  });
+  it('指紋：1～40 格的每一種寬高、到 200 格的大範圍（兩個方向拉）', () => {
+    const sizes: [number, number][] = [];
+    for (let w = 1; w <= 40; w++) for (let h = 1; h <= 40; h++) sizes.push([w, h]);
+    for (const w of [50, 63, 64, 97, 128, 150, 199, 200])
+      for (const h of [1, 2, 3, 50, 63, 64, 97, 128, 150, 199, 200]) sizes.push([w, h], [h, w]);
+    function* all() {
+      for (const k of KINDS)
+        for (const o of [false, true]) {
+          if (k === 'line' && o) continue;
+          for (const [w, h] of sizes) {
+            yield shapeCells(3, 5, 3 + w - 1, 5 + h - 1, k, o);
+            yield shapeCells(3 + w - 1, 5 + h - 1, 3, 5, k, o);
+          }
+        }
+    }
+    expect(digest(all())).toBe('18056532:2376114d');
+  });
+  it('指紋：各方向的直線、反對角拉的範圍', () => {
+    function* all() {
+      for (let dx = -30; dx <= 30; dx++)
+        for (let dy = -30; dy <= 30; dy++) yield lineCells(7, 9, 7 + dx, 9 + dy);
+      for (const k of KINDS) {
+        if (k === 'line') continue;
+        for (const o of [false, true])
+          for (let w = 1; w <= 25; w++)
+            for (let h = 1; h <= 25; h++) {
+              yield shapeCells(2 + w - 1, 4, 2, 4 + h - 1, k, o);
+              yield shapeCells(2, 4 + h - 1, 2 + w - 1, 4, k, o);
+            }
+      }
+    }
+    expect(digest(all())).toBe('996629:1926f02d');
   });
 });
 

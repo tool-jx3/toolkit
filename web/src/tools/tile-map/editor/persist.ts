@@ -1,7 +1,8 @@
 /**
  * 自動存檔（IndexedDB `trpg-toolkit:tool:tile-map`）：
- * - `workspace`：目前的地圖（編碼後的格子；改了 0.6 秒後寫入，離開頁面時立刻寫）。
- * - `library`：圖庫（改了就寫）。
+ * - `workspace`：目前的地圖（編碼後的格子；改了 0.6 秒後寫入）。
+ * - `library`：圖庫（改了 0.1 秒後寫入）。
+ * 離開頁面、切到背景時兩者還沒寫的立刻寫，而且交易開了馬上要求提交（put 的 leaving）。
  * 自訂圖塊的圖片在資產庫（同一個工具的另一個資料庫，依內容產生 id）。
  * 開頁時：讀圖庫、讀上次的地圖、讀好用到的圖片、清掉沒人用的舊圖片；讀完之前不寫，免得蓋掉上次的地圖。
  */
@@ -30,16 +31,34 @@ export function bindPersistNotify(fn: Notify): void {
   notify = fn;
 }
 
+/**
+ * 寫一筆。leaving：離開頁面、切到背景時——交易開了就呼叫 IDBTransaction.commit()，不等瀏覽器自己判斷
+ * 「沒有要求了」才提交；頁面接著就被拿掉，還沒提交的交易會被放棄（重新整理時圖庫的變更因此丟過）。
+ */
+function put(key: string, value: unknown, leaving: boolean): Promise<void> {
+  if (!leaving) return idbSet(key, value, store());
+  return store()('readwrite', (os) => {
+    const tx = os.transaction;
+    os.put(value, key);
+    tx.commit?.();
+    return new Promise<void>((resolve, reject) => {
+      tx.oncomplete = () => resolve();
+      tx.onabort = () => reject(tx.error);
+      tx.onerror = () => reject(tx.error);
+    });
+  });
+}
+
 /* ---------- 地圖 ---------- */
 
 let timer: ReturnType<typeof setTimeout> | null = null;
 let started = false;
 let warned = false;
 
-async function writeWorkspace(map: TileMap): Promise<void> {
+async function writeWorkspace(map: TileMap, leaving = false): Promise<void> {
   if (!hasIndexedDb()) return;
   try {
-    await idbSet(WORKSPACE, encodeMap(pruneDefs(map)), store());
+    await put(WORKSPACE, encodeMap(pruneDefs(map)), leaving);
     setEditor({ savedAt: Date.now(), saveError: false });
   } catch {
     setEditor({ saveError: true });
@@ -50,11 +69,11 @@ async function writeWorkspace(map: TileMap): Promise<void> {
   }
 }
 
-export function flushWorkspace(): void {
+function flushWorkspace(): void {
   if (!timer) return;
   clearTimeout(timer);
   timer = null;
-  void writeWorkspace(mapNow());
+  void writeWorkspace(mapNow(), true);
 }
 
 function scheduleSave(): void {
@@ -71,18 +90,36 @@ function scheduleSave(): void {
 let libTimer: ReturnType<typeof setTimeout> | null = null;
 let libWarned = false;
 
+function writeLibrary(leaving = false): void {
+  put(LIBRARY, libraryNow(), leaving).catch(() => {
+    if (!libWarned) {
+      libWarned = true;
+      notify('libraryFailed');
+    }
+  });
+}
+
+/** 還沒存的圖庫變更立刻存（離開頁面、切到背景時） */
+function flushLibrary(): void {
+  if (!libTimer) return;
+  clearTimeout(libTimer);
+  libTimer = null;
+  writeLibrary(true);
+}
+
 function scheduleLibrary(): void {
   if (!started || !hasIndexedDb()) return;
   if (libTimer) clearTimeout(libTimer);
   libTimer = setTimeout(() => {
     libTimer = null;
-    idbSet(LIBRARY, libraryNow(), store()).catch(() => {
-      if (!libWarned) {
-        libWarned = true;
-        notify('libraryFailed');
-      }
-    });
+    writeLibrary();
   }, 100);
+}
+
+/** 離開頁面、切到背景：地圖與圖庫都立刻存 */
+function flushAll(): void {
+  flushWorkspace();
+  flushLibrary();
 }
 
 /** 圖庫換掉（改名、匯入、刪除…）；自動存 */
@@ -135,9 +172,9 @@ async function boot(): Promise<void> {
   if (restored) notify('restored');
   /* 沒人用的舊圖片（地圖、復原紀錄、圖庫都沒用到）清掉 */
   void assets.gcStale(keepImages()).catch(() => []);
-  window.addEventListener('pagehide', flushWorkspace);
+  window.addEventListener('pagehide', flushAll);
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'hidden') flushWorkspace();
+    if (document.visibilityState === 'hidden') flushAll();
   });
 }
 

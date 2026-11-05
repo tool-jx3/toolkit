@@ -165,10 +165,15 @@ export function MapCanvas() {
     }
   }, [ed.ready]);
 
+  /* Esc：和指標被取消一樣作廢這次拖曳（盤面的拖曳還在，之後的移動與放開由 guard 略過） */
+  const abort = useRef<(() => void) | null>(null);
   useEffect(() => {
     cancelGesture = () => {
       if (!gesture.current) return false;
+      const fn = abort.current;
       gesture.current = null;
+      abort.current = null;
+      fn?.();
       vp.current?.redraw();
       return true;
     };
@@ -199,6 +204,33 @@ export function MapCanvas() {
     useHover.setState(inMap(m, c.x, c.y) ? c : null, true);
   };
 
+  /**
+   * 開始一次拖曳：記下進行中的手勢，交給盤面的處理包一層——這次拖曳被作廢（Esc、右鍵開對話框）之後
+   * gesture 不再是它，移動、放開、取消都不做事（不寫進地圖、不多一步復原）。
+   */
+  const begin = (g: Gesture, d: ViewportDrag): ViewportDrag => {
+    gesture.current = g;
+    abort.current = () => d.onCancel?.();
+    const live = () => gesture.current === g;
+    return {
+      cursor: d.cursor,
+      onMove: (q) => {
+        track(q);
+        if (live()) d.onMove?.(q);
+      },
+      onEnd: (q, moved) => {
+        if (!live()) return;
+        abort.current = null;
+        d.onEnd?.(q, moved);
+      },
+      onCancel: (reason) => {
+        if (!live()) return;
+        abort.current = null;
+        d.onCancel?.(reason);
+      },
+    };
+  };
+
   const onPointerDown = (p: ViewportPointer): ViewportDrag | null => {
     const m = mapNow();
     const e = editorNow();
@@ -211,11 +243,9 @@ export function MapCanvas() {
     }
     if (e.tool === 'move-map') {
       const g: Gesture = { kind: 'move-map', start: at, end: at };
-      gesture.current = g;
-      return {
+      return begin(g, {
         cursor: 'grabbing',
         onMove: (q) => {
-          track(q);
           g.end = cellOf(q);
           redraw();
         },
@@ -228,7 +258,7 @@ export function MapCanvas() {
           gesture.current = null;
           redraw();
         },
-      };
+      });
     }
     if (e.tool === 'select') {
       const layers = m.layers.filter((l) => e.layers.includes(l.id) && editableLayer(l));
@@ -239,11 +269,9 @@ export function MapCanvas() {
       const i = at.y * m.width + at.x;
       if (!p.shiftKey && selected.has(i) && layers.some((l) => l.cells[i])) {
         const g: Gesture = { kind: 'move-sel', start: at, end: at };
-        gesture.current = g;
-        return {
+        return begin(g, {
           cursor: 'grabbing',
           onMove: (q) => {
-            track(q);
             g.end = cellOf(q);
             redraw();
           },
@@ -258,7 +286,7 @@ export function MapCanvas() {
             gesture.current = null;
             redraw();
           },
-        };
+        });
       }
       const g: Gesture = {
         kind: 'select-rect',
@@ -267,12 +295,10 @@ export function MapCanvas() {
         additive: p.shiftKey,
         original: e.selection,
       };
-      gesture.current = g;
       if (!p.shiftKey) setEditor({ selection: [] });
-      return {
+      return begin(g, {
         cursor: 'crosshair',
         onMove: (q) => {
-          track(q);
           g.end = clamp(m, cellOf(q));
           redraw();
         },
@@ -292,7 +318,7 @@ export function MapCanvas() {
           gesture.current = null;
           setEditor({ selection: g.original });
         },
-      };
+      });
     }
     /* 畫的工具 */
     const li = act.activeIndex(m);
@@ -313,17 +339,16 @@ export function MapCanvas() {
       if (cells) act.commitLayerCells(li, cells);
       redraw();
     };
+    /* 工作副本直接丟掉；快取畫過工作副本的話，下次重畫時發現和地圖不同、整張重畫 */
     const cancel = () => {
       gesture.current = null;
       redraw();
     };
     if (e.tool === 'shape' && b) {
       const g: Gesture = { kind: 'shape', layer: li, start: at, end: at, shape, outline };
-      gesture.current = g;
-      return {
+      return begin(g, {
         cursor: 'crosshair',
         onMove: (q) => {
-          track(q);
           g.end = clamp(m, cellOf(q));
           redraw();
         },
@@ -333,15 +358,18 @@ export function MapCanvas() {
           finish(edit);
         },
         onCancel: cancel,
-      };
+      });
     }
     const edit = new LayerEdit(m.width, m.height, layer.cells);
     if (e.tool === 'fill' && b) {
       edit.fill(at.x, at.y, b.brush);
       patchCache(edit, li);
-      gesture.current = { kind: 'fill', edit, layer: li };
+      const drag = begin(
+        { kind: 'fill', edit, layer: li },
+        { cursor: 'cell', onEnd: () => finish(edit), onCancel: cancel },
+      );
       redraw();
-      return { cursor: 'cell', onEnd: () => finish(edit), onCancel: cancel };
+      return drag;
     }
     const paint = (x: number, y: number) => {
       if (erase) edit.set(x, y, null);
@@ -350,12 +378,9 @@ export function MapCanvas() {
     paint(at.x, at.y);
     patchCache(edit, li);
     const g: Gesture = { kind: 'paint', edit, layer: li, erase, last: at };
-    gesture.current = g;
-    redraw();
-    return {
+    const drag = begin(g, {
       cursor: erase ? 'cell' : 'crosshair',
       onMove: (q) => {
-        track(q);
         const to = clamp(m, cellOf(q));
         if (to.x === g.last.x && to.y === g.last.y) return;
         for (const [x, y] of lineCells(g.last.x, g.last.y, to.x, to.y).slice(1)) paint(x, y);
@@ -365,7 +390,9 @@ export function MapCanvas() {
       },
       onEnd: () => finish(edit),
       onCancel: cancel,
-    };
+    });
+    redraw();
+    return drag;
   };
 
   const onHover = (p: ViewportPointer | null) => {
@@ -642,7 +669,7 @@ export function MapCanvas() {
           act.notify(S.canvas.noTile, 'warning');
           return;
         }
-        gesture.current = null;
+        cancelGesture?.();
         setEditor({ dialog: { kind: 'shape', x, y } });
       }}
       data-testid="map-canvas"
