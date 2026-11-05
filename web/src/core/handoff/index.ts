@@ -24,6 +24,8 @@
  *   每一間 `{ name, x, y, w, h, cut?, gm? }`：長方形的外框，`cut`＝外框的 c 那個角缺一塊 w × h（L 形），
  *   `gm`＝只有 GM 看得到的房間。室內平面圖產生器送給地圖演出產生器時帶（floor-plan F271、map-fx F85）。
  *   讀的那一邊用 `readHandoffRooms(meta)`：看不懂的整個 null、看不懂的那一間略過。
+ *   **2026-11-05**：選填的 `poly`＝曲線或多邊形的外形（同一張圖的 px，`[x, y]` 的陣列，順時針、在外框裡；
+ *   floor-plan F297、map-fx F89）。有 `poly` 時收件的工具照外形、不看 `cut`；不認得 `poly` 的舊版收件的工具照外框（長方形）讀。
  */
 import {
   hasIndexedDb,
@@ -65,7 +67,12 @@ export interface HandoffRoom {
   cut?: { c: HandoffCorner; w: number; h: number };
   /** 只有 GM 看得到的房間 */
   gm?: boolean;
+  /** 曲線或多邊形的外形（px，3～1024 點；2026-11-05）：有時照這個外形，不看 cut */
+  poly?: [number, number][];
 }
+
+/** 外形最多幾點 */
+export const HANDOFF_POLY_MAX = 1024;
 
 /** `meta.rooms`：座標是寬 width、高 height 的圖的 px */
 export interface HandoffRooms {
@@ -113,9 +120,22 @@ export function readHandoffRooms(meta: Record<string, unknown> | undefined): Han
     )
       room.cut = { c: c.c as HandoffCorner, w: c.w, h: c.h };
     if (o.gm === true) room.gm = true;
+    const poly = readPoly(o.poly);
+    if (poly) room.poly = poly;
     list.push(room);
   }
   return { width: r.width, height: r.height, list };
+}
+
+/** 外形：每一點是兩個有限的數字；3～1024 點才收，不然 null（照外框或缺角） */
+function readPoly(v: unknown): [number, number][] | null {
+  if (!Array.isArray(v) || v.length < 3 || v.length > HANDOFF_POLY_MAX) return null;
+  const out: [number, number][] = [];
+  for (const p of v) {
+    if (!Array.isArray(p) || !finite(p[0]) || !finite(p[1])) return null;
+    out.push([p[0], p[1]]);
+  }
+  return out;
 }
 
 export interface Handoff extends HandoffInput {

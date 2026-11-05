@@ -19,6 +19,7 @@ import {
   type VttPx,
 } from './catalog';
 import { coordGrid } from './coords';
+import { outlineOf } from './curve';
 import { floorHasClues } from './geometry';
 import { composedFloor } from './interior';
 import { cutRect, roomContainsRoom } from './shape';
@@ -216,6 +217,22 @@ export function handoffRoomsOf(
         const ch = north ? px(k.y + k.h, o.y) - y0 : y1 - px(k.y, o.y);
         if (cw >= 1 && ch >= 1 && cw < room.w && ch < room.h)
           room.cut = { c: r.cut.c, w: cw, h: ch };
+      }
+      /* 曲線的房間（2026-11-05，F297）：外形換算成圖的 px（落在外框線上的點用外框四捨五入的值，和牆線對齊） */
+      if (r.shape) {
+        const fx = (v: number) =>
+          Math.abs(v - r.x) < 1e-7
+            ? x0
+            : Math.abs(v - (r.x + r.w)) < 1e-7
+              ? x1
+              : Math.round((v + o.x) * s * 100) / 100;
+        const fy = (v: number) =>
+          Math.abs(v - r.y) < 1e-7
+            ? y0
+            : Math.abs(v - (r.y + r.h)) < 1e-7
+              ? y1
+              : Math.round((v + o.y) * s * 100) / 100;
+        room.poly = outlineOf(r).map(([x, y]) => [fx(x), fy(y)] as [number, number]);
       }
       if (isGm(r)) room.gm = true;
       list.push(room);

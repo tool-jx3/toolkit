@@ -1,0 +1,67 @@
+{
+  "format": "trpg-toolkit-project",
+  "tool": "floor-plan",
+  "version": 8,
+  "data": {
+    "name": "疊放的甲板（版本 8）",
+    "theme": "clean",
+    "showSize": "none",
+    "showNames": true,
+    "active": 0,
+    "floors": [
+      {
+        "id": "f1",
+        "name": "1F",
+        "rooms": [
+          {
+            "id": "sea",
+            "x": 0,
+            "y": 0,
+            "w": 40,
+            "h": 24,
+            "name": "海面",
+            "cat": "water",
+            "hideLabel": true
+          },
+          { "id": "deck", "x": 4, "y": 4, "w": 24, "h": 10, "name": "甲板", "cat": "shipdeck" },
+          { "id": "fore", "x": 20, "y": 6, "w": 6, "h": 6, "name": "船首甲板", "cat": "shipdeck" },
+          { "id": "cabin", "x": 8, "y": 6, "w": 6, "h": 6, "name": "船室", "cat": "bedroom" },
+          { "id": "garden", "x": 0, "y": 26, "w": 20, "h": 12, "name": "庭院", "cat": "garden" },
+          { "id": "terrace", "x": 4, "y": 28, "w": 8, "h": 6, "name": "露台", "cat": "balcony" },
+          { "id": "road", "x": 22, "y": 26, "w": 18, "h": 12, "name": "道路", "cat": "road" },
+          { "id": "roof", "x": 26, "y": 28, "w": 8, "h": 6, "name": "屋頂平台", "cat": "rooftop" },
+          { "id": "pier", "x": 28, "y": 4, "w": 6, "h": 4, "name": "棧橋", "cat": "shipdeck" }
+        ],
+        "walls": [],
+        "openings": [
+          {
+            "id": "d1",
+            "kind": "door",
+            "o": "v",
+            "x": 14,
+            "y": 8,
+            "len": 1.5,
+            "side": 1,
+            "hinge": 0
+          },
+          {
+            "id": "w1",
+            "kind": "window",
+            "o": "h",
+            "x": 10,
+            "y": 6,
+            "len": 2,
+            "side": 1,
+            "hinge": 0
+          }
+        ],
+        "items": [
+          { "id": "i1", "t": "bed_single", "x": 8.4, "y": 7, "w": 2, "h": 4, "rot": 0 },
+          { "id": "i2", "t": "capstan", "x": 22, "y": 8, "w": 1.6, "h": 1.6, "rot": 0 },
+          { "id": "i3", "t": "bench", "x": 6, "y": 30, "w": 4, "h": 1, "rot": 0 }
+        ],
+        "texts": []
+      }
+    ]
+  }
+}

@@ -19,7 +19,10 @@ import type { Floor, Item, Opening, Rect, Room, TextLabel } from './types';
 export const HUG = 0.35;
 const EPS = 1e-6;
 
-type Geo = Pick<Room, 'x' | 'y' | 'w' | 'h' | 'cut'>;
+type Geo = Pick<Room, 'x' | 'y' | 'w' | 'h' | 'cut' | 'shape' | 'radius'>;
+
+/** 曲線的房間（2026-11-05）：邊與頂點的對應照外框（長方形）算，放不下的判斷照外形 */
+const boxOf = (g: Geo): Geo => (g.shape ? { x: g.x, y: g.y, w: g.w, h: g.h } : g);
 
 interface Edge {
   /** v＝直的邊（x 固定）、h＝橫的邊 */
@@ -91,9 +94,9 @@ export function resizeWithFollow(
  * 回傳放不下（不在新的外形裡）的家具組數。外形的種類（長方形／L 形）不同時不動、回傳 0。
  */
 export function followRoomResize(before: Floor, orig: Room, next: Geo, floor: Floor): number {
-  if (!!orig.cut !== !!next.cut) return 0;
-  const op = roomPolygon(orig);
-  const np = roomPolygon(next);
+  if (!!orig.cut !== !!next.cut || orig.shape !== next.shape) return 0;
+  const op = roomPolygon(boxOf(orig));
+  const np = roomPolygon(boxOf(next));
   if (op.length !== np.length) return 0;
   const mapX = axisMap(
     op.map((p) => p[0]),
@@ -111,7 +114,7 @@ export function followRoomResize(before: Floor, orig: Room, next: Geo, floor: Fl
     next.y,
     next.h,
   );
-  const edges = edgesOf(orig);
+  const edges = edgesOf(boxOf(orig));
   const mapEdge = (e: Edge): Edge =>
     e.o === 'v'
       ? { o: 'v', c: mapX(e.c), a: mapY(e.a), b: mapY(e.b) }

@@ -303,12 +303,14 @@ function RedactControls({
  * 房間遮罩的形狀（2026-10-29，F86）：長方形／L 形（缺哪個角）、缺角的寬與深（外框的 %）。
  * 只在框的設定裡（新畫的框一律是長方形）；平面圖產生器送來的 L 形房間是 L 形。
  */
-type MaskShape = 'rect' | MaskCorner;
+type MaskShape = 'rect' | MaskCorner | 'poly';
 function MaskShapeControls({ frame, commit }: { frame: RedactFrame; commit: () => void }) {
   const cut = frame.cut;
   const setShape = (v: MaskShape) =>
     updateFrame(frame.id, (f) => {
-      if (f.kind !== 'redact') return;
+      if (f.kind !== 'redact' || v === 'poly') return;
+      /* 曲線的外形（2026-11-05，F89）：換成長方形或 L 形時拿掉 */
+      delete f.poly;
       if (v === 'rect') delete f.cut;
       else f.cut = f.cut ? { ...f.cut, c: v } : defaultCut(v);
     });
@@ -324,13 +326,14 @@ function MaskShapeControls({ frame, commit }: { frame: RedactFrame; commit: () =
     )();
   return (
     <>
-      <Field label={S.maskShape} hint={S.maskShapeHint}>
+      <Field label={S.maskShape} hint={frame.poly ? S.maskCurveHint : S.maskShapeHint}>
         <Select<MaskShape>
-          value={cut ? cut.c : 'rect'}
+          value={frame.poly ? 'poly' : cut ? cut.c : 'rect'}
           onValueChange={setShape}
           options={[
             { value: 'rect', label: S.maskShapes.rect },
             ...MASK_CORNERS.map((c) => ({ value: c, label: S.maskShapes[c] })),
+            ...(frame.poly ? [{ value: 'poly' as const, label: S.maskShapeCurve }] : []),
           ]}
         />
       </Field>
@@ -466,6 +469,7 @@ function frameSummary(f: Frame): string {
   const parts: string[] = [S.redactStyles[r.style], S.redactModes[r.mode]];
   if (r.mode !== 'static') parts.push(S.revealFxs[r.dir]);
   if (r.cut) parts.push(S.maskL);
+  if (r.poly) parts.push(S.maskCurve);
   if (r.label.trim()) parts.push(r.label.trim());
   return parts.join('・');
 }

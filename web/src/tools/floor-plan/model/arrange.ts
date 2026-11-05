@@ -16,8 +16,10 @@
  */
 import { ASSET, isWallMounted } from './assets';
 import { OPEN } from './catalog';
+import { flatSpans, outlineOf } from './curve';
 import { isRightAngle, round2, snap } from './geometry';
 import { blocking, doorKinds, EPS, hitsDoor, rectHits, windowFront } from './layoutRules';
+import { curvedMap, ownsRect, roomAtPoint } from './region';
 import { roomCells, roomHasPoint } from './shape';
 import { restingOn, SURFACES } from './tabletop';
 import type { Floor, Item, Rect, Room } from './types';
@@ -105,10 +107,13 @@ export function arrangeRoom(
   const owner = new Map<string, Room>();
   for (const r of floor.rooms) for (const [x, y] of roomCells(r)) owner.set(key(x, y), r);
   const own = (x: number, y: number) => owner.get(key(x, y)) === room;
+  /* 有曲線的房間的樓層（2026-11-05）：「在這間房裡」照外形算（region.ts） */
+  const curved = curvedMap(floor.rooms);
   const targets = floor.items.filter((it) => {
     if (!blocking(it) || isWallMounted(it.t) || opts.keep?.has(it.id)) return false;
     const cx = it.x + it.w / 2;
     const cy = it.y + it.h / 2;
+    if (curved) return roomAtPoint(floor.rooms, cx, cy) === room;
     return roomHasPoint(room, cx, cy) && own(Math.floor(cx), Math.floor(cy));
   });
   if (!targets.length) return { ...empty, reason: 'empty' };
@@ -157,7 +162,9 @@ export function arrangeRoom(
         r.o === 'h' ? [b.y, b.y + b.h, b.x, b.x + b.w] : [b.x, b.x + b.w, b.y, b.y + b.h];
       return c0 < r.c - EPS && c1 > r.c + EPS && Math.min(a1, r.b) - Math.max(a0, r.a) > EPS;
     });
+  const owns = curved ? ownsRect(floor.rooms, room) : null;
   const inRoom = (b: Rect) => {
+    if (owns) return owns(b);
     for (let x = Math.floor(b.x + EPS); x < b.x + b.w - EPS; x++)
       for (let y = Math.floor(b.y + EPS); y < b.y + b.h - EPS; y++) if (!own(x, y)) return false;
     return true;
@@ -182,7 +189,26 @@ export function arrangeRoom(
     const k = edgeKind(room, other ?? null);
     return k !== null && k !== 'zone';
   };
-  for (const [x, y] of roomCells(room)) {
+  /* 曲線的房間：格子的邊是鋸齒，貼牆只用外形的直的部分（另外沿著曲線找，見下面的 curveSlots） */
+  if (room.shape) {
+    for (const sp of flatSpans(room)) {
+      const dir: WallSeg['dir'] =
+        sp.o === 'h' ? (sp.c === room.y ? 'n' : 's') : sp.c === room.x ? 'w' : 'e';
+      const out = dir === 'n' || dir === 'w' ? -1e-4 : 1e-4;
+      const cuts = [sp.a];
+      for (let v = Math.floor(sp.a) + 1; v < sp.b - 1e-9; v++) cuts.push(v);
+      cuts.push(sp.b);
+      for (let i = 0; i + 1 < cuts.length; i++) {
+        const m = (cuts[i] + cuts[i + 1]) / 2;
+        const [ix, iy, ox, oy] =
+          sp.o === 'h' ? [m, sp.c - out, m, sp.c + out] : [sp.c - out, m, sp.c + out, m];
+        if (roomAtPoint(floor.rooms, ix, iy) !== room) continue;
+        if (!hasWall(roomAtPoint(floor.rooms, ox, oy) ?? undefined)) continue;
+        units1.push({ dir, c: sp.c, a: cuts[i], b: cuts[i + 1] });
+      }
+    }
+  }
+  for (const [x, y] of room.shape ? [] : roomCells(room)) {
     if (!own(x, y)) continue;
     const n = owner.get(key(x, y - 1));
     const s = owner.get(key(x, y + 1));
@@ -235,8 +261,74 @@ export function arrangeRoom(
     const [a0, a1] = horiz ? [b.x, b.x + b.w] : [b.y, b.y + b.h];
     return Math.hypot(Math.max(0, across), Math.max(0, w.a - a1, a0 - w.b));
   };
+  /*
+   * 曲線的牆（2026-11-05，跟進 KIIN v2.0「曲線の壁では、家具が収まる最小限の壁からの距離を採用」）：背面朝北／東／南／西，
+   * 沿著外框每 0.25 格一個位置，往那一側推到四個角剛好還在外形裡（取到 0.25 格），那裡的曲線真的有牆才用
+   */
+  const pts = room.shape ? outlineOf(room) : [];
+  const span = (o: 'x' | 'y', v: number): [number, number] | null => {
+    const hits: number[] = [];
+    for (let i = 0; i < pts.length; i++) {
+      const p = pts[i];
+      const q = pts[(i + 1) % pts.length];
+      const [pa, pb, qa, qb] = o === 'x' ? [p[0], p[1], q[0], q[1]] : [p[1], p[0], q[1], q[0]];
+      if ((pa - v) * (qa - v) <= 0 && Math.abs(qa - pa) > 1e-12)
+        hits.push(pb + ((qb - pb) * (v - pa)) / (qa - pa));
+    }
+    return hits.length ? [Math.min(...hits), Math.max(...hits)] : null;
+  };
+  const up = (v: number) => Math.ceil(v / 0.25 - 1e-9) * 0.25;
+  const down = (v: number) => Math.floor(v / 0.25 + 1e-9) * 0.25;
+  const curveSlot = (dir: WallSeg['dir'], s0: number, w: number, h: number): Rect | null => {
+    const horiz = dir === 'n' || dir === 's';
+    const a = span(horiz ? 'x' : 'y', s0);
+    const b = span(horiz ? 'x' : 'y', s0 + (horiz ? w : h));
+    if (!a || !b) return null;
+    let r: Rect;
+    if (dir === 'n') r = { x: s0, y: up(Math.max(a[0], b[0])), w, h };
+    else if (dir === 's') r = { x: s0, y: down(Math.min(a[1], b[1])) - h, w, h };
+    else if (dir === 'w') r = { x: up(Math.max(a[0], b[0])), y: s0, w, h };
+    else r = { x: down(Math.min(a[1], b[1])) - w, y: s0, w, h };
+    /* 背面的中點往外一點點：那裡真的有牆（不是蓋在上面的房間、不是沒有牆的邊） */
+    const [mx, my] =
+      dir === 'n'
+        ? [r.x + w / 2, r.y - 0.3]
+        : dir === 's'
+          ? [r.x + w / 2, r.y + h + 0.3]
+          : dir === 'w'
+            ? [r.x - 0.3, r.y + h / 2]
+            : [r.x + w + 0.3, r.y + h / 2];
+    const outer = roomAtPoint(floor.rooms, mx, my);
+    if (outer === room || !hasWall(outer ?? undefined)) return null;
+    return r;
+  };
+  /* 主體離曲線的牆 1 m 以內（外框的四個角之一離外形的邊 ≤ NEAR_WALL）也算靠牆 */
+  const nearCurve = (b: Rect) => {
+    if (!room.shape) return false;
+    let best = Number.POSITIVE_INFINITY;
+    for (const [x, y] of [
+      [b.x, b.y],
+      [b.x + b.w, b.y],
+      [b.x + b.w, b.y + b.h],
+      [b.x, b.y + b.h],
+    ] as const)
+      for (let i = 0; i < pts.length; i++) {
+        const p = pts[i];
+        const q = pts[(i + 1) % pts.length];
+        const dx = q[0] - p[0];
+        const dy = q[1] - p[1];
+        const l2 = dx * dx + dy * dy || 1;
+        const t = Math.max(0, Math.min(1, ((x - p[0]) * dx + (y - p[1]) * dy) / l2));
+        best = Math.min(best, Math.hypot(x - p[0] - dx * t, y - p[1] - dy * t));
+      }
+    return best <= NEAR_WALL + EPS;
+  };
   for (const u of units)
-    if (u.kind === 0 && !walls.some((w) => wallGap(u.anchor, w) <= NEAR_WALL + EPS))
+    if (
+      u.kind === 0 &&
+      !walls.some((w) => wallGap(u.anchor, w) <= NEAR_WALL + EPS) &&
+      !nearCurve(u.anchor)
+    )
       u.kind = SURFACES.has(u.anchor.t) ? 1 : 2;
   units.sort(
     (a, b) => a.kind - b.kind || b.area - a.area || a.anchor.id.localeCompare(b.anchor.id),
@@ -275,6 +367,22 @@ export function arrangeRoom(
           near.push({ d, boxes: turned.map((m) => ({ ...m, x: m.x + dx, y: m.y + dy })) });
         }
       }
+      if (room.shape)
+        for (const dir of ['n', 'e', 's', 'w'] as const) {
+          const turned = rotateUnit(u.members, u.anchor, ROT[dir] - (u.anchor.rot || 0));
+          const a = turned[0];
+          const horiz = dir === 'n' || dir === 's';
+          const [lo, hi] = horiz ? [room.x, room.x + room.w] : [room.y, room.y + room.h];
+          for (let s0 = lo; s0 + (horiz ? a.w : a.h) <= hi + EPS; s0 += 0.25) {
+            const r = curveSlot(dir, s0, a.w, a.h);
+            if (!r) continue;
+            const d = Math.hypot(r.x + a.w / 2 - ax, r.y + a.h / 2 - ay);
+            if (d > SNAP_MAX + EPS) continue;
+            const dx = r.x - a.x;
+            const dy = r.y - a.y;
+            near.push({ d, boxes: turned.map((m) => ({ ...m, x: m.x + dx, y: m.y + dy })) });
+          }
+        }
       near.sort((p, q) => p.d - q.d);
       for (const c of near) yield c.boxes;
     }

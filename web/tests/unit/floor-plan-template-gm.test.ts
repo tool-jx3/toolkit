@@ -67,6 +67,8 @@ const BUILT_IN: Record<string, string[]> = {
   subway: ['B1/工作通道', 'B2/廢棄月台'],
   parking: ['B2/封鎖區'],
   ferry: ['B1/船底密艙'],
+  /* 2026-11-05：夜航蒸汽客輪的密艙 */
+  steamliner: ['B1/密艙'],
   factory: ['2F/密封儲藏室'],
   warehouse: ['1F/改裝貨櫃'],
   construction: ['1F/開挖區'],

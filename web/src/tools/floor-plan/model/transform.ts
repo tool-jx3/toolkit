@@ -11,6 +11,7 @@
  * - 反轉：以範圍的中線反轉（範圍不變），反兩次回到原樣。
  */
 import { SWING_DOORS } from './catalog';
+import { flipShapeX, flipShapeY, rotateShapeCW } from './curve';
 import {
   itemFootprint,
   itemLocalSize,
@@ -118,6 +119,14 @@ function room(r: Room, mode: MapTransform, pt: Map2, vec: Map2): void {
         ? { c: map[r.cut.c], w: r.cut.h, h: r.cut.w }
         : { c: map[r.cut.c], w: r.cut.w, h: r.cut.h };
   }
+  /* 曲線的房間（2026-11-05）：形狀換方向（外框已經換過去） */
+  if (r.shape)
+    r.shape =
+      mode === 'rotate'
+        ? rotateShapeCW(r.shape)
+        : mode === 'flipX'
+          ? flipShapeX(r.shape)
+          : flipShapeY(r.shape);
   if (r.lx || r.ly) {
     const [lx, ly] = vec(r.lx || 0, r.ly || 0);
     delete r.lx;

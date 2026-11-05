@@ -14,8 +14,10 @@
 import { ASSET } from './assets';
 import { OPEN } from './catalog';
 import type { ShownFloor, ShownRoom } from './geometry';
+import { curvedMap, roomAtPoint } from './region';
 import { roomCells } from './shape';
 import type { Rect } from './types';
+import { computeWalls } from './walls';
 
 /** 光的顏色（畫法在 draw/night.ts） */
 export type LightTone = 'fire' | 'mystic' | 'screen' | 'moon';
@@ -81,6 +83,7 @@ export function cellOwners(rooms: readonly ShownRoom[]): Map<string, ShownRoom> 
 
 /** 這一層的光源（看得到的樓層：visibleFloor 的結果） */
 export function lightsOf(floor: ShownFloor, owner = cellOwners(floor.rooms)): Light[] {
+  if (curvedMap(floor.rooms)) return curvedLights(floor);
   const out: Light[] = [];
   const lit = (r: ShownRoom | undefined) => (r && !r.masked ? r.id : null);
   for (const it of floor.items) {
@@ -113,6 +116,54 @@ export function lightsOf(floor: ShownFloor, owner = cellOwners(floor.rooms)): Li
       glow: WINDOW_LIGHT.glow,
       tone: 'moon',
       rooms,
+    });
+  }
+  return out;
+}
+
+/**
+ * 有曲線的房間的樓層（2026-11-05，F294）：光源所在的房間照外形（region.ts 的 roomAtPoint）；放在曲線上的窗（F291）
+ * 在外形上的那一點、往兩側一點點看是哪兩間。
+ */
+function curvedLights(floor: ShownFloor): Light[] {
+  const out: Light[] = [];
+  const rooms = floor.rooms;
+  const lit = (r: ShownRoom | null) => (r && !r.masked ? r.id : null);
+  for (const it of floor.items) {
+    const spec = LIGHT_ITEMS[it.t];
+    const a = ASSET[it.t];
+    if (!spec || !a) continue;
+    const cx = it.x + it.w / 2;
+    const cy = it.y + it.h / 2;
+    const room = lit(roomAtPoint(rooms, cx, cy) as ShownRoom | null);
+    if (!room) continue;
+    const k = Math.min(3, Math.max(0.5, Math.sqrt((it.w * it.h) / (a.w * a.h))));
+    out.push({ x: cx, y: cy, r: spec.r * k, glow: spec.glow, tone: spec.tone, rooms: [room] });
+  }
+  const poses = computeWalls(floor, { openings: false }).poses;
+  for (const o of floor.openings) {
+    if (!LIGHT_WINDOWS.has(o.kind) || OPEN[o.kind]?.group !== 'window') continue;
+    const h = o.o === 'h';
+    const p = poses.get(o.id);
+    const mx = p ? p.x : h ? o.x + o.len / 2 : o.x;
+    const my = p ? p.y : h ? o.y : o.y + o.len / 2;
+    /* 牆的法線方向（直的位置：橫線往上下、直線往左右；在曲線上時跟著轉） */
+    const rot = p?.rot ?? 0;
+    const [nx, ny] = h ? [-Math.sin(rot), Math.cos(rot)] : [-Math.cos(rot), -Math.sin(rot)];
+    const d = 0.3;
+    const rs = [
+      lit(roomAtPoint(rooms, mx - nx * d, my - ny * d) as ShownRoom | null),
+      lit(roomAtPoint(rooms, mx + nx * d, my + ny * d) as ShownRoom | null),
+    ];
+    const ids = [...new Set(rs)].filter((id): id is string => !!id);
+    if (!ids.length) continue;
+    out.push({
+      x: mx,
+      y: my,
+      r: Math.max(WINDOW_LIGHT.min, o.len * WINDOW_LIGHT.k),
+      glow: WINDOW_LIGHT.glow,
+      tone: 'moon',
+      rooms: ids,
     });
   }
   return out;
@@ -160,7 +211,9 @@ export function darknessAt(
   y: number,
   owner = cellOwners(floor.rooms),
 ): number {
-  const room = owner.get(key(Math.floor(x), Math.floor(y)));
+  const room = curvedMap(floor.rooms)
+    ? (roomAtPoint(floor.rooms, x, y) as ShownRoom | null)
+    : owner.get(key(Math.floor(x), Math.floor(y)));
   if (!room) return 0;
   let d = level;
   for (const l of lightsOf(floor, owner)) {

@@ -2,8 +2,10 @@
  * 編輯操作的規則（純函式；要改資料的函式直接改傳進來的物件，給 Immer 的 recipe 用）：
  * 房間裡有什麼、一起移動的東西、旋轉、複製的位移、上下層。
  */
+
 import { isWallMounted } from './assets';
 import { SWING_DOORS } from './catalog';
+import { rotateShapeCW } from './curve';
 import { itemLocalSize, normDeg, openingMid, round2, swapsAxes, uid } from './geometry';
 import { mapLine } from './lines';
 import {
@@ -272,6 +274,8 @@ export function rotateRoomsCW(floor: Floor, rooms: readonly Room[], refs: readon
       rect(r);
       /* L 形的缺角跟著轉（2026-10-29） */
       if (r.cut) r.cut = rotateCutCW(r.cut);
+      /* 曲線的房間（2026-11-05）：形狀跟著轉 */
+      if (r.shape) r.shape = rotateShapeCW(r.shape);
       if (r.lx || r.ly) {
         const lx = round2(-(r.ly || 0));
         const ly = round2(r.lx || 0);

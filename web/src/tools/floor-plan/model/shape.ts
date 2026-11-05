@@ -5,6 +5,19 @@
  * 缺角至少 1 × 1，而且比外框各少至少 1 格（L 的兩隻手至少 1 格寬），所以外框至少 2 × 2。
  * 沒有 `cut` 的房間就是長方形，所有函式對長方形的結果和原本（直接用外框）相同。
  */
+import {
+  convexOverlap,
+  curvedArea,
+  curvedCells,
+  curvedContainsPts,
+  curvedContainsRect,
+  curvedHas,
+  curvedHasClosed,
+  curvedMainRect,
+  outlineOf,
+  rectPts,
+  traceCurved,
+} from './curve';
 import type { Corner, Rect, Room, RoomCut } from './types';
 
 export const CORNERS: readonly Corner[] = ['nw', 'ne', 'se', 'sw'];
@@ -14,7 +27,11 @@ export const isCorner = (v: unknown): v is Corner =>
 /** L 形的外框最小幾格（每一邊） */
 export const L_MIN = 2;
 
-type Shape = Pick<Room, 'x' | 'y' | 'w' | 'h' | 'cut'>;
+/**
+ * 房間的形狀：外框＋L 形的缺角或曲線的形狀（2026-11-05，model/curve.ts）。曲線的房間的函式交給 curve.ts，
+ * 長方形與 L 形的結果和原本相同。
+ */
+type Shape = Pick<Room, 'x' | 'y' | 'w' | 'h' | 'cut' | 'shape' | 'radius'>;
 
 const EPS = 1e-6;
 
@@ -62,12 +79,14 @@ function inCut(r: Shape, x: number, y: number, strict: boolean): boolean {
 
 /** 點在房間裡（不含邊界） */
 export function roomHasPoint(r: Shape, x: number, y: number): boolean {
+  if (r.shape) return curvedHas(r, x, y);
   if (!(x > r.x && x < r.x + r.w && y > r.y && y < r.y + r.h)) return false;
   return !inCut(r, x, y, false);
 }
 
 /** 點在房間裡或邊上（含缺角的那兩條邊） */
 export function roomHasPointClosed(r: Shape, x: number, y: number): boolean {
+  if (r.shape) return curvedHasClosed(r, x, y);
   if (!(x >= r.x - EPS && x <= r.x + r.w + EPS && y >= r.y - EPS && y <= r.y + r.h + EPS))
     return false;
   return !inCut(r, x, y, true);
@@ -80,6 +99,11 @@ export function roomHasCell(r: Shape, cx: number, cy: number): boolean {
 
 /** 房間的格子（自動牆用；外框裡扣掉缺角） */
 export function* roomCells(r: Shape): Generator<[number, number]> {
+  /* 曲線的房間（2026-11-05）：中心在外形裡的格子 */
+  if (r.shape) {
+    yield* curvedCells(r);
+    return;
+  }
   const k = cutRect(r);
   for (let x = r.x; x < r.x + r.w; x++)
     for (let y = r.y; y < r.y + r.h; y++) {
@@ -90,6 +114,7 @@ export function* roomCells(r: Shape): Generator<[number, number]> {
 
 /** 面積（格²）＝外框減缺角 */
 export function roomCellArea(r: Shape): number {
+  if (r.shape) return curvedArea(r);
   return r.w * r.h - (r.cut ? r.cut.w * r.cut.h : 0);
 }
 
@@ -98,6 +123,8 @@ export function roomCellArea(r: Shape): number {
  * 畫地板、判斷長方形在不在房間裡用。
  */
 export function roomRects(r: Shape): Rect[] {
+  /* 曲線的房間（2026-11-05）：外框（範圍、座標、巢狀的判斷用；外框在裡面時外形一定在裡面） */
+  if (r.shape) return [{ x: r.x, y: r.y, w: r.w, h: r.h }];
   const k = cutRect(r);
   if (!k) return [{ x: r.x, y: r.y, w: r.w, h: r.h }];
   const top = k.y === r.y;
@@ -119,6 +146,7 @@ export function roomRects(r: Shape): Rect[] {
  * 一樣大時取整列（橫的）。長方形的房間是外框本身。
  */
 export function roomMainRect(r: Shape): Rect {
+  if (r.shape) return curvedMainRect(r);
   const k = cutRect(r);
   if (!k) return { x: r.x, y: r.y, w: r.w, h: r.h };
   const row: Rect =
@@ -134,6 +162,7 @@ export function roomMainRect(r: Shape): Rect {
 
 /** 房間的外形（多邊形，順時針；長方形 4 點、L 形 6 點） */
 export function roomPolygon(r: Shape): [number, number][] {
+  if (r.shape) return outlineOf(r).map((p) => [p[0], p[1]] as [number, number]);
   const x1 = r.x;
   const y1 = r.y;
   const x2 = r.x + r.w;
@@ -199,6 +228,10 @@ export function cutHandlePoint(r: Shape): { x: number; y: number } | null {
 
 /** 把房間的外形加進目前的路徑（畫地板、蓋灰、剪裁用） */
 export function traceRoom(c: CanvasRenderingContext2D, r: Shape): void {
+  if (r.shape) {
+    traceCurved(c, r);
+    return;
+  }
   if (!r.cut) {
     c.rect(r.x, r.y, r.w, r.h);
     return;
@@ -211,6 +244,7 @@ export function traceRoom(c: CanvasRenderingContext2D, r: Shape): void {
 
 /** 長方形整個在房間裡（含邊界；L 形時不能碰到缺角的內部） */
 export function roomContainsRect(r: Shape, inner: Rect): boolean {
+  if (r.shape) return curvedContainsRect(r, inner);
   if (
     !(
       inner.x >= r.x - EPS &&
@@ -232,11 +266,22 @@ export function roomContainsRect(r: Shape, inner: Rect): boolean {
 
 /** 房間（可能是 L 形）整個在另一間房間裡 */
 export function roomContainsRoom(outer: Shape, inner: Shape): boolean {
+  /* 曲線的房間在曲線的房間裡：外形的點都在裡面（外形是凸的） */
+  if (outer.shape && inner.shape) return curvedContainsPts(outer, outlineOf(inner));
   return roomRects(inner).every((p) => roomContainsRect(outer, p));
 }
 
 /** 兩間房間有沒有重疊的格子（只碰到邊不算） */
 export function roomsOverlap(a: Shape, b: Shape): boolean {
+  if (a.shape || b.shape) {
+    const pa = a.shape ? outlineOf(a) : rectPts(a);
+    const pb = b.shape ? outlineOf(b) : rectPts(b);
+    if (!a.cut && !b.cut) return convexOverlap(pa, pb);
+    /* L 形和曲線：L 形的兩塊各自比 */
+    const parts = (r: Shape, p: ReturnType<typeof outlineOf>) =>
+      r.cut ? roomRects(r).map(rectPts) : [p];
+    return parts(a, pa).some((p) => parts(b, pb).some((q) => convexOverlap(p, q)));
+  }
   return roomRects(a).some((p) =>
     roomRects(b).some(
       (q) =>
