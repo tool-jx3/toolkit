@@ -29,6 +29,9 @@ export const DATA_VERSION = 2;
 
 export const starterDoc = (): WorldDoc => sampleDoc('continent');
 
+/** 自動儲存是否失敗（寫入是延後的，共用的存檔狀態看不到之後的失敗；頁首的狀態用它，成功寫入後清掉） */
+export const useSaveHealth = create<{ failed: boolean }>(() => ({ failed: false }));
+
 /** 寫入 localStorage 延後一點（連續變更只寫最後一次）；離開頁面或切到背景時立刻寫 */
 function deferredLocal(onError: (e: unknown) => void, delayMs = 350) {
   const pending = new Map<string, string>();
@@ -43,26 +46,26 @@ function deferredLocal(onError: (e: unknown) => void, delayMs = 350) {
   const flush = () => {
     if (timer) clearTimeout(timer);
     timer = null;
+    if (!pending.size) return;
     const s = base();
-    for (const [k, v] of pending) s?.setItem(k, v);
+    if (!s) throw new Error('localStorage unavailable');
+    for (const [k, v] of pending) s.setItem(k, v);
     pending.clear();
   };
+  /** 寫出去並記下結果（失敗時留著待寫的內容，下一次變更再試） */
+  const write = () => {
+    try {
+      flush();
+      if (useSaveHealth.getState().failed) useSaveHealth.setState({ failed: false });
+    } catch (e) {
+      useSaveHealth.setState({ failed: true });
+      onError(e);
+    }
+  };
   if (typeof window !== 'undefined') {
-    window.addEventListener('pagehide', () => {
-      try {
-        flush();
-      } catch (e) {
-        onError(e);
-      }
-    });
+    window.addEventListener('pagehide', write);
     document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'hidden') {
-        try {
-          flush();
-        } catch (e) {
-          onError(e);
-        }
-      }
+      if (document.visibilityState === 'hidden') write();
     });
   }
   return {
@@ -70,13 +73,7 @@ function deferredLocal(onError: (e: unknown) => void, delayMs = 350) {
     setItem: (k: string, v: string) => {
       pending.set(k, v);
       if (timer) clearTimeout(timer);
-      timer = setTimeout(() => {
-        try {
-          flush();
-        } catch (e) {
-          onError(e);
-        }
-      }, delayMs);
+      timer = setTimeout(write, delayMs);
     },
     removeItem: (k: string) => {
       pending.delete(k);

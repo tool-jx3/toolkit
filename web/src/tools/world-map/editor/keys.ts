@@ -3,6 +3,7 @@
  * 輸入框、選單裡打字時不攔（Ctrl＋S 例外）；滑桿上的方向鍵照滑桿原本的操作；按鈕、勾選框按過之後
  * Space 照樣是移動畫面、方向鍵照樣移動選取的東西。
  */
+import { arrowDelta } from '@/core/layout';
 import { isEditableTarget, type Shortcut } from '@/ui';
 import { S } from '../strings';
 import * as act from './actions';
@@ -125,12 +126,11 @@ export function handleKeyDown(e: KeyboardEvent): void {
     editor.canvas?.focus({ preventScroll: true });
     return;
   }
-  if (e.key.startsWith('Arrow') && st.sel) {
+  /* 方向鍵移動選取的東西（Shift：一格 12 px） */
+  const nudge = st.sel ? arrowDelta(e.key, e.shiftKey ? 12 : 1) : null;
+  if (nudge) {
     e.preventDefault();
-    const step = e.shiftKey ? 12 : 1;
-    const dx = e.key === 'ArrowLeft' ? -step : e.key === 'ArrowRight' ? step : 0;
-    const dy = e.key === 'ArrowUp' ? -step : e.key === 'ArrowDown' ? step : 0;
-    act.nudgeSelected(dx, dy);
+    act.nudgeSelected(nudge.dx, nudge.dy);
     editor.canvas?.focus({ preventScroll: true });
   }
 }

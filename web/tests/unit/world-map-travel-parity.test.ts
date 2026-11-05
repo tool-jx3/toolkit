@@ -141,7 +141,7 @@ const close = (a: number | null, b: number | null) =>
 function compare(api: OriginalApi, doc: WorldDoc, p: MapPath, label: string) {
   const o = ours(doc, p);
   const t = theirs(api, doc, p);
-  const where = `${label}（${p.kind}・${o.mode}${p.simpleCalc ? '・只用距離' : ''}・${p.access}）`;
+  const where = `${label}（${p.kind}・${o.mode}${p.simpleCalc ? '・光看距離' : ''}・${p.access}）`;
   expect(close(o.km, t.km), `${where} km ${o.km} / ${t.km}`).toBe(true);
   expect(close(o.days, t.days), `${where} 日數 ${o.days} / ${t.days}`).toBe(true);
   expect(close(o.pureDays, t.pureDays), `${where} 單純距離 ${o.pureDays} / ${t.pureDays}`).toBe(
@@ -195,7 +195,7 @@ describe.runIf(HAVE)('旅程概算：和原作並排比對（F76～F81）', () =
       }
   });
 
-  it('範本的路線（越嶺的街道、川、海岸的街道）：徒步、騎乘、船、只用距離、可以通行、不能通行、難度、自訂日距', () => {
+  it('範本的路線（越嶺的街道、川、海岸的街道）：徒步、騎乘、船、光看距離換算、可以通行、不能通行、難度、自訂日距', () => {
     const doc = sampleDoc('continent');
     let n = 0;
     for (const p of doc.paths)
@@ -384,7 +384,7 @@ describe('旅程概算：本站的數值（不需要原作）', () => {
     expect(r.factor).toBeCloseTo(1);
     expect(r.terrain[1]).toBeCloseTo(100);
   });
-  it('只用距離計算：不看地形與不能通行', () => {
+  it('光看距離換算：不看地形與不能通行', () => {
     const doc = sampleDoc('continent');
     const r = ours(doc, {
       ...doc.paths[1],

@@ -7,6 +7,7 @@ import { Button, IconButton, Segmented, TextInput, withShortcut } from '@/ui';
 import { LIMITS } from '../model/types';
 import { S } from '../strings';
 import * as act from './actions';
+import { openExport } from './ExportDialog';
 import { setEditor, useDoc, useEditor } from './store';
 
 const g = historyGesture(useDoc);
@@ -74,7 +75,7 @@ export function EditorBar() {
           size="sm"
           variant="secondary"
           icon={<Download />}
-          onClick={() => setEditor({ exportOpen: true })}
+          onClick={(e) => openExport(e.currentTarget)}
           data-testid="export-open"
         >
           {S.bar.export}

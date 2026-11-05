@@ -217,6 +217,19 @@ export function brushStroke(
  * 方向：陸地在前進方向的右手邊（畫面座標下順時針）；湖、內海是反方向的內圈，用 evenodd 填色就會挖空。
  * 兩塊只有一個角相接時，在那個角往右轉，分成兩圈。
  */
+/**
+ * 格子的四條邊，依前進方向（0 右、1 下、2 左、3 上）：那一邊的鄰格、邊的起點是格子的哪個角。
+ * 沿著符合條件的格子外緣走時，格子永遠在右手邊。
+ */
+const SIDES = [
+  { nx: 0, ny: -1, cx: 0, cy: 0 },
+  { nx: 1, ny: 0, cx: 1, cy: 0 },
+  { nx: 0, ny: 1, cx: 1, cy: 1 },
+  { nx: -1, ny: 0, cx: 0, cy: 1 },
+];
+/** 到了一個角，下一條邊依序試：右轉、直走、左轉、回頭（相對於目前方向的轉動量） */
+const TURN_ORDER = [1, 0, 3, 2];
+
 export function traceOutlines(
   cells: ArrayLike<number>,
   cols: number,
@@ -225,51 +238,50 @@ export function traceOutlines(
 ): Pt[][] {
   const inside = (x: number, y: number) =>
     x >= 0 && y >= 0 && x < cols && y < rows && test(cells[y * cols + x]);
-  /* 邊：起點（格子角的編號）→ 方向（0 右、1 下、2 左、3 上） */
+  /* 角的編號＝列 × (cols + 1)＋行；每個角往每個方向最多一條邊 */
   const W = cols + 1;
-  const starts = new Map<number, number[]>();
-  const edges: { from: number; to: number; dir: number; used: boolean }[] = [];
-  const add = (x0: number, y0: number, x1: number, y1: number, dir: number) => {
-    const from = y0 * W + x0;
-    const e = { from, to: y1 * W + x1, dir, used: false };
-    const idx = edges.length;
-    edges.push(e);
-    const list = starts.get(from);
-    if (list) list.push(idx);
-    else starts.set(from, [idx]);
-  };
+  const advance = [1, W, -1, -W];
+  const exits = new Int32Array(W * (rows + 1) * 4).fill(-1);
+  const origin: number[] = [];
+  const heading: number[] = [];
   for (let y = 0; y < rows; y++)
     for (let x = 0; x < cols; x++) {
       if (!inside(x, y)) continue;
-      if (!inside(x, y - 1)) add(x, y, x + 1, y, 0);
-      if (!inside(x + 1, y)) add(x + 1, y, x + 1, y + 1, 1);
-      if (!inside(x, y + 1)) add(x + 1, y + 1, x, y + 1, 2);
-      if (!inside(x - 1, y)) add(x, y + 1, x, y, 3);
+      SIDES.forEach((side, dir) => {
+        if (inside(x + side.nx, y + side.ny)) return;
+        const corner = (y + side.cy) * W + x + side.cx;
+        exits[corner * 4 + dir] = origin.length;
+        origin.push(corner);
+        heading.push(dir);
+      });
     }
-  /* 轉彎的優先順序：右轉、直走、左轉、回頭 */
-  const PREF = [1, 0, 3, 2];
+  const walked = new Uint8Array(origin.length);
+  const nextEdge = (corner: number, dir: number) => {
+    for (const turn of TURN_ORDER) {
+      const k = exits[corner * 4 + ((dir + turn) % 4)];
+      if (k >= 0 && !walked[k]) return k;
+    }
+    return -1;
+  };
+  const cornerPt = (corner: number): Pt => ({
+    x: (corner % W) * CELL,
+    y: Math.floor(corner / W) * CELL,
+  });
   const loops: Pt[][] = [];
-  for (let k = 0; k < edges.length; k++) {
-    const first = edges[k];
-    if (first.used) continue;
-    const loop: Pt[] = [];
-    let e: (typeof edges)[number] | undefined = first;
-    let guard = 0;
-    while (e && !e.used && guard++ <= edges.length) {
-      e.used = true;
-      loop.push({ x: (e.from % W) * CELL, y: Math.floor(e.from / W) * CELL });
-      if (e.to === first.from) {
-        loops.push(loop);
-        break;
+  origin.forEach((home, start) => {
+    if (walked[start]) return;
+    const ring: Pt[] = [];
+    for (let e = start, n = 0; e >= 0 && !walked[e] && n <= origin.length; n++) {
+      walked[e] = 1;
+      ring.push(cornerPt(origin[e]));
+      const reached = origin[e] + advance[heading[e]];
+      if (reached === home) {
+        loops.push(ring);
+        return;
       }
-      const cur: (typeof edges)[number] = e;
-      const options = (starts.get(cur.to) ?? []).map((i) => edges[i]).filter((o) => !o.used);
-      options.sort(
-        (p, q) => PREF.indexOf((p.dir - cur.dir + 4) % 4) - PREF.indexOf((q.dir - cur.dir + 4) % 4),
-      );
-      e = options[0];
+      e = nextEdge(reached, heading[e]);
     }
-  }
+  });
   return loops;
 }
 

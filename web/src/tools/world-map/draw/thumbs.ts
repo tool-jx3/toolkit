@@ -1,6 +1,8 @@
 /**
  * 介面用的小圖：素材按鈕的圖示、地形按鈕的預覽（用地圖上同樣的花紋與圖案，跟著主題的顏色）、地圖的縮圖。
  */
+
+import { hash3 } from '../model/relief';
 import { gridOf } from '../model/terrain';
 import {
   CELL,
@@ -48,6 +50,23 @@ export function assetIconUrl(kind: string, theme: ThemeId): string {
   });
 }
 
+/** 地形按鈕預覽的森林：三排樹的基準高度 */
+const THUMB_TREE_ROWS = [30, 62, 94];
+/** 山：後排兩座大的、前排三座（x、y、縮放） */
+const THUMB_PEAKS: readonly (readonly [number, number, number])[] = [
+  [64, 62, 0.95],
+  [122, 66, 0.88],
+  [32, 100, 0.74],
+  [92, 104, 0.82],
+  [152, 98, 0.76],
+];
+/** 濕地：三叢蘆葦 */
+const THUMB_REEDS: readonly (readonly [number, number])[] = [
+  [36, 44],
+  [96, 76],
+  [150, 48],
+];
+
 /** 地形按鈕的預覽（180 × 112） */
 export function terrainThumbUrl(paint: Paint, theme: ThemeId): string {
   return cachedUrl(`t:${paint}:${theme}`, () => {
@@ -66,52 +85,29 @@ export function terrainThumbUrl(paint: Paint, theme: ThemeId): string {
       ctx.fillRect(0, 0, 180, 112);
     }
     const relief = reliefColors(theme);
+    const stamp = (x: number, y: number, k: number, draw: () => void) => {
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.scale(k, k);
+      draw();
+      ctx.restore();
+    };
     if (paint === FOREST) {
-      const spots: [number, number][] = [
-        [42, 35],
-        [91, 32],
-        [139, 38],
-        [24, 66],
-        [69, 62],
-        [117, 67],
-        [158, 71],
-        [43, 92],
-        [91, 94],
-        [139, 98],
-      ];
-      spots.forEach(([x, y], i) => {
-        ctx.save();
-        ctx.translate(x, y);
-        ctx.scale(0.95, 0.95);
-        drawTree(ctx, deepForest(relief, 0.35), (i * 0.173) % 1, 0);
-        ctx.restore();
+      /* 三排交錯、每 36 px 一棵，位置與樣式用雜湊稍微打散；由上往下畫（前面的蓋住後面的） */
+      const leaves = deepForest(relief, 0.35);
+      THUMB_TREE_ROWS.forEach((y, row) => {
+        for (let col = 0, x = row % 2 ? 40 : 22; x < 180; x += 36, col++) {
+          const dx = (hash3(col, row, 11) - 0.5) * 6;
+          const dy = (hash3(col, row, 23) - 0.5) * 4;
+          stamp(x + dx, y + dy, 0.9, () => drawTree(ctx, leaves, hash3(col, row, 37), 0));
+        }
       });
     } else if (paint === MOUNTAIN) {
-      (
-        [
-          [49, 68],
-          [99, 58],
-          [139, 86],
-          [72, 96],
-        ] as const
-      ).forEach(([x, y], i) => {
-        ctx.save();
-        ctx.translate(x, y);
-        ctx.scale(0.9, 0.9);
-        drawMountain(ctx, relief, 0.25 + i * 0.17, 0, 0);
-        ctx.restore();
-      });
+      for (const [x, y, k] of THUMB_PEAKS)
+        stamp(x, y, k, () => drawMountain(ctx, relief, hash3(x, y, 5), 0, 0));
     } else if (paint === MARSH) {
-      for (const [x, y] of [
-        [45, 55],
-        [125, 80],
-      ] as const) {
-        ctx.save();
-        ctx.translate(x, y);
-        ctx.scale(0.8, 0.8);
-        drawReeds(ctx, buildColors(theme), relief.tree, 0);
-        ctx.restore();
-      }
+      const ui = buildColors(theme);
+      for (const [x, y] of THUMB_REEDS) stamp(x, y, 0.72, () => drawReeds(ctx, ui, relief.tree, 0));
     }
     return c.toDataURL('image/png');
   });

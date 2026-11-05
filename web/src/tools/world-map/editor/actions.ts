@@ -419,13 +419,12 @@ export function applySample(id: SampleId): void {
   notify(S.samples.replaced(S.samples.items[id].name), 'success');
 }
 
-/** 空白的海（size：尺寸；沒有時照目前的尺寸） */
+/** 空白的海（size：尺寸；沒有時照目前的尺寸）：主題留著，畫法一律方格・圓角（D5） */
 export function newBlank(size?: MapSizeId): void {
   const d = docNow();
   const dims = size ? MAP_SIZES[size] : { cols: d.cols, rows: d.rows };
   const next = blankDoc(dims.cols, dims.rows);
   next.theme = d.theme;
-  next.drawMode = d.drawMode;
   replaceDoc(next);
   setEditor({ samplesOpen: false, audience: 'gm', tool: 'brush' });
   editor.fitView();

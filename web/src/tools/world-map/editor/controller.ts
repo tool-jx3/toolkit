@@ -91,6 +91,15 @@ const serialOf = (d: Derived) => {
 const mapW = (d: WorldDoc) => d.cols * CELL;
 const mapH = (d: WorldDoc) => d.rows * CELL;
 
+/** 上一次點在頂點上（按兩下刪點用） */
+interface ControllerVertexClick {
+  ref: SelRef;
+  index: number;
+  x: number;
+  y: number;
+  t: number;
+}
+
 export class WorldController {
   canvas: HTMLCanvasElement | null = null;
   private ctx: CanvasRenderingContext2D | null = null;
@@ -102,11 +111,14 @@ export class WorldController {
   private hover: Pt | null = null;
   private spaceDown = false;
   private pointers = new Map<number, Pt>();
+  /** 觸控：放開時才做的點一下（素材、地名、線的點、公開用的提醒）；第二指落下時取消 */
+  private pendingTap: { id: number; run: () => void } | null = null;
+  /** 觸控：第一指落下前的選取（第二指落下、變成縮放時還原） */
+  private selBeforeTouch: SelRef | null | undefined = undefined;
   private raf = 0;
   private cache: LayerCache | null = null;
   private brushDerived: Derived | null = null;
-  private lastVertexClick: { ref: SelRef; index: number; x: number; y: number; t: number } | null =
-    null;
+  private lastVertexClick: ControllerVertexClick | null = null;
   private suppressDblUntil = 0;
   private unsubs: (() => void)[] = [];
   private ro: ResizeObserver | null = null;
@@ -462,21 +474,19 @@ export class WorldController {
     c.focus({ preventScroll: true });
     const s = this.local(e);
     this.pointers.set(e.pointerId, s);
-    if (this.pointers.size === 2 && e.pointerType === 'touch') {
-      if (this.drag && this.drag.mode !== 'pan') this.cancelDrag();
-      const [a, b] = [...this.pointers.values()];
-      this.drag = {
-        mode: 'pinch',
-        dist: Math.hypot(a.x - b.x, a.y - b.y) || 1,
-        zoom: this.view.zoom,
-        mid: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 },
-        ox: this.view.ox,
-        oy: this.view.oy,
-      };
+    const touch = e.pointerType === 'touch';
+    if (touch && this.pointers.size >= 2) {
+      this.startPinch();
       return;
     }
+    if (touch) this.selBeforeTouch = useEditor.getState().sel;
     if (e.button !== 0 && e.button !== 1) return;
     const st = useEditor.getState();
+    /* 觸控的點一下等放開才做：中途變成兩指縮放時不留下東西 */
+    const tap = (run: () => void) => {
+      if (touch) this.pendingTap = { id: e.pointerId, run };
+      else run();
+    };
     const prevClick = this.lastVertexClick;
     this.lastVertexClick = null;
     if (st.tool === 'hand' || this.spaceDown || e.button === 1) {
@@ -486,7 +496,7 @@ export class WorldController {
       return;
     }
     if (st.audience === 'player') {
-      act.notify(S.msg.playerLocked, 'warning');
+      tap(() => act.notify(S.msg.playerLocked, 'warning'));
       return;
     }
     const doc = docNow();
@@ -504,23 +514,56 @@ export class WorldController {
       return;
     }
     if (LINE_TOOLS.includes(st.tool)) {
-      const last = this.draft[this.draft.length - 1];
-      if (!last || Math.hypot(p.x - last.x, p.y - last.y) > 5 / this.view.zoom) {
+      tap(() => {
+        const last = this.draft[this.draft.length - 1];
+        if (last && Math.hypot(p.x - last.x, p.y - last.y) <= 5 / this.view.zoom) return;
         if (this.draft.length >= LIMITS.points) act.notify(S.msg.pointLimit, 'warning');
         else this.setDraft([...this.draft, p]);
-      }
+      });
       return;
     }
     if (st.tool === 'asset') {
-      act.placeAsset(st.asset, p);
+      tap(() => act.placeAsset(st.asset, p));
       return;
     }
     if (st.tool === 'note') {
+      /* 不讓之後的滑鼠相容事件把焦點拉回畫布（放下後焦點要在文字欄） */
       e.preventDefault();
-      act.placeNote(p);
+      tap(() => act.placeNote(p));
       return;
     }
-    /* 選取 */
+    this.onSelectDown(e, s, p, prevClick);
+  }
+
+  /** 第二指落下：取消第一指正在做的事（不留下復原的一步），開始兩指縮放；第三指以後不理 */
+  private startPinch(): void {
+    this.pendingTap = null;
+    if (this.drag?.mode === 'pinch') return;
+    if (this.drag && this.drag.mode !== 'pan') this.cancelDrag(false);
+    if (this.selBeforeTouch !== undefined) setEditor({ sel: this.selBeforeTouch });
+    this.selBeforeTouch = undefined;
+    const [a, b] = [...this.pointers.values()];
+    this.drag = {
+      mode: 'pinch',
+      dist: Math.hypot(a.x - b.x, a.y - b.y) || 1,
+      zoom: this.view.zoom,
+      mid: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 },
+      ox: this.view.ox,
+      oy: this.view.oy,
+    };
+  }
+
+  /** 選取工具按下：插入點、拖頂點、按兩下刪點、拖標籤、移動 */
+  private onSelectDown(
+    e: PointerEvent,
+    s: Pt,
+    p: Pt,
+    prevClick: ControllerVertexClick | null,
+  ): void {
+    const c = this.canvas;
+    if (!c) return;
+    const st = useEditor.getState();
+    const doc = docNow();
     const hit = this.hitTest(p);
     if (hit?.kind === 'insert' && st.sel) {
       const before = docNow();
@@ -660,6 +703,12 @@ export class WorldController {
 
   private onUp(e: PointerEvent, cancel = false): void {
     this.pointers.delete(e.pointerId);
+    if (!this.pointers.size) this.selBeforeTouch = undefined;
+    const tap = this.pendingTap;
+    if (tap && tap.id === e.pointerId) {
+      this.pendingTap = null;
+      if (!cancel) tap.run();
+    }
     const drag = this.drag;
     if (!drag) return;
     if (drag.mode === 'pinch') {
@@ -708,11 +757,15 @@ export class WorldController {
     useDoc.endGesture();
   }
 
-  private cancelDrag(): void {
+  /** 取消拖曳並還原；clearPointers＝false 時留著按著的手指（變成兩指縮放時） */
+  private cancelDrag(clearPointers = true): void {
     const drag = this.drag;
     if (!drag) return;
     this.drag = null;
-    this.pointers.clear();
+    if (clearPointers) {
+      this.pointers.clear();
+      this.pendingTap = null;
+    }
     if (drag.mode === 'brush') {
       this.brushDerived = null;
       this.dirty();

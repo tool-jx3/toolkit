@@ -111,7 +111,7 @@ export interface MapPath {
   dailyKm?: number;
   difficulty: TravelDifficulty;
   access: TravelAccess;
-  /** 只用距離計算（不看地形、素材、川與「不能通行」） */
+  /** 光看距離換算（不看地形、素材、川與「不能通行」） */
   simpleCalc: boolean;
 }
 

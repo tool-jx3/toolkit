@@ -9,12 +9,13 @@ import { notify } from './editor/actions';
 import { Editor } from './editor/Editor';
 import { openForeign, openProject, PROJECT_ACCEPT, projectFileName } from './editor/files';
 import { SHORTCUT_HELP } from './editor/keys';
-import { DATA_VERSION, docNow, TOOL_ID } from './editor/store';
+import { DATA_VERSION, docNow, TOOL_ID, useSaveHealth } from './editor/store';
 import { S } from './strings';
 import { Usage } from './Usage';
 
 export function App() {
   const savedAt = useSaveStatus(TOOL_ID);
+  const saveFailed = useSaveHealth((h) => h.failed);
   return (
     <ToolShell
       toolId={TOOL_ID}
@@ -38,6 +39,7 @@ export function App() {
           onForeignFile={(_file, bytes) => openForeign(bytes)}
           onReset={act.newBlank}
           savedAt={savedAt}
+          statusText={saveFailed ? S.project.saveFailed : undefined}
           resetText={{
             label: S.project.resetLabel,
             title: S.project.resetTitle,

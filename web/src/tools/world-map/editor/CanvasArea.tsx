@@ -4,7 +4,7 @@
 import { Maximize, Minus, Plus } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 import { Button, IconButton } from '@/ui';
-import { ASSETS, assetDef } from '../model/assets';
+import { assetDef } from '../model/assets';
 import { CELL } from '../model/types';
 import { S } from '../strings';
 import { editor } from './controller';
@@ -55,7 +55,7 @@ function StatusBar() {
         {audience === 'player' ? S.hint.player : S.hint[tool]}
       </span>
       <span className="hidden tabular-nums sm:inline">
-        {S.zoom.size(cols * CELL, rows * CELL, ASSETS.length)}
+        {S.zoom.size(cols, rows, cols * CELL, rows * CELL)}
       </span>
       <div className="flex items-center gap-0.5">
         <IconButton

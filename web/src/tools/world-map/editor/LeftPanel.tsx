@@ -38,6 +38,7 @@ import { FONT_STYLES, type MapSettings, PAINTS, RANGES, THEME_IDS } from '../mod
 import { S } from '../strings';
 import * as act from './actions';
 import { editor } from './controller';
+import { openExport } from './ExportDialog';
 import { setEditor, type ToolId, useDoc, useEditor, usePrefs } from './store';
 
 const g = historyGesture(useDoc);
@@ -424,7 +425,7 @@ function FinishTab() {
       <p className="m-0 text-xs text-muted">{S.finish.exportTip}</p>
       <Button
         variant="primary"
-        onClick={() => setEditor({ exportOpen: true })}
+        onClick={(e) => openExport(e.currentTarget)}
         data-testid="export-side"
       >
         {S.bar.export}

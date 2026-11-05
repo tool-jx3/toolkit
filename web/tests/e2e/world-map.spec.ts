@@ -2,7 +2,7 @@
  * 世界地圖產生器（規格 docs/refactor/specs/world-map.md）：
  * 開頁與範本、畫地形（方格／自由、森林自動打開圖案、變回海、只擦山林）、國（畫、退點、城牆與內城、頂點、只拖國名）、
  * 路線、素材、地名・備註、骰子、複製刪除、公開預覽、復原；匯出 PNG（公開用不含 GM 專用）、專案檔與原作作業檔、
- * 自動產生、小地圖、送到地圖演出產生器；390 寬沒有橫向捲動、1280／390 視覺基準。
+ * 自動產生、小地圖、送到地圖演出產生器、自動儲存失敗的狀態、觸控的兩指縮放（每種工具）；390 寬沒有橫向捲動、1280／390 視覺基準。
  */
 import { readFileSync } from 'node:fs';
 import { expect, type Page, test } from '@playwright/test';
@@ -471,7 +471,7 @@ test('自動產生世界、範本、小地圖', async ({ page }) => {
   expect(errors).toEqual([]);
 });
 
-test('旅程概算（第二批）：日數、只用距離計算、移動方式與日距、難度、不能通行、地形別的距離', async ({
+test('旅程概算（第二批）：日數、光看距離換算、移動方式與日距、難度、不能通行、地形別的距離', async ({
   page,
 }) => {
   const errors = await open(page);
@@ -487,7 +487,7 @@ test('旅程概算（第二批）：日數、只用距離計算、移動方式�
   const box = page.getByTestId('path-travel');
   await expect(box.getByTestId('path-length')).toHaveText('總長：約 157.8 km');
   await expect(box.getByTestId('travel-days')).toContainText('必要日數：約 18.5 日');
-  await expect(box.getByTestId('travel-days')).toContainText('只用距離計算：約 5.3 日');
+  await expect(box.getByTestId('travel-days')).toContainText('光看距離換算是 5.3 日');
   await expect(box.getByTestId('travel-cliff')).toBeVisible();
   await expect(box.getByTestId('travel-terrain')).toContainText('山地');
   await expect(box.getByTestId('travel-used')).toContainText('王都・首都');
@@ -502,9 +502,11 @@ test('旅程概算（第二批）：日數、只用距離計算、移動方式�
   /* 不能通行 */
   await inspector.getByRole('combobox', { name: '通行的方式' }).click();
   await page.getByRole('option', { name: '不能通行' }).click();
-  await expect(box.getByTestId('travel-reason')).toHaveText('指定了「不能通行」，算不出日數。');
-  /* 只用距離計算：不管不能通行；通行的方式不顯示 */
-  await inspector.getByRole('switch', { name: '不看山路、川等障礙，只用距離計算' }).click();
+  await expect(box.getByTestId('travel-reason')).toHaveText(
+    '這條路線設成「不能通行」，所以不算日數。',
+  );
+  /* 光看距離換算：不管不能通行；通行的方式不顯示 */
+  await inspector.getByRole('switch', { name: '光看距離換算（略過地形、川與素材）' }).click();
   await expect(box.getByTestId('travel-reason')).toHaveCount(0);
   await expect(box.getByTestId('travel-days')).toHaveText('必要日數：約 2.4 日');
   await expect(inspector.getByRole('combobox', { name: '通行的方式' })).toHaveCount(0);
@@ -543,6 +545,8 @@ test('地圖的尺寸（第二批）：空白的海與自動產生可以選 16:9
   await page.getByTestId('sample-blank').click();
   let d = await doc(page);
   expect([d.cols, d.rows, d.terrain.length]).toEqual([128, 72, 128 * 72]);
+  /* 範本是自由筆刷；空白的海一律方格・圓角（D5） */
+  expect(d.drawMode).toBe('grid');
   await page.getByTestId('export-open').click();
   await page.getByTestId('export-dialog').getByRole('radio', { name: '2400 px' }).click();
   await expect(page.getByTestId('export-info')).toContainText('2400 × 1350 px');
@@ -553,6 +557,16 @@ test('地圖的尺寸（第二批）：空白的海與自動產生可以選 16:9
   d = await doc(page);
   expect([d.cols, d.rows]).toEqual([80, 128]);
   expect(d.objects[0].kind).toBe('capital');
+  /* 直式的 4096 px 會超過畫布的上限（4096 × 4096 像素）：改成 3238 px 並說明（D17） */
+  await page.getByTestId('export-open').click();
+  const dlg = page.getByTestId('export-dialog');
+  await expect(dlg.getByRole('radio', { name: '4096 px' })).toHaveCount(0);
+  await dlg.getByRole('radio', { name: '3238 px' }).click();
+  await expect(page.getByTestId('export-info')).toContainText('3238 × 5181 px');
+  await expect(page.getByTestId('export-cap')).toContainText('最寬匯出 3238 px');
+  /* Esc 關掉後焦點回到「匯出圖片」 */
+  await page.keyboard.press('Escape');
+  await expect(page.getByTestId('export-open')).toBeFocused();
   /* 「地形」分頁的自動產生照目前的尺寸；範本是 16:10 */
   await page.getByTestId('generate').click();
   expect([(await doc(page)).cols, (await doc(page)).rows]).toEqual([80, 128]);
@@ -584,6 +598,121 @@ test('在地圖演出產生器開啟：新分頁收到圖', async ({ page, conte
     fx.getByText('已讀入世界地圖產生器送來的「艾爾德蘭大陸_公開用」', { exact: true }),
   ).toBeVisible();
   expect(errors).toEqual([]);
+});
+
+test('自動儲存失敗時頁首寫失敗（D20），之後寫得進去就恢復', async ({ page }) => {
+  const errors = await open(page);
+  /* 頁首的存檔狀態（通知也是 status，用「通知」分開） */
+  const status = page
+    .getByRole('status')
+    .filter({ hasText: '自動儲存' })
+    .filter({ hasNotText: '通知' });
+  await page.evaluate(() => {
+    const w = window as unknown as { __realSetItem?: Storage['setItem'] };
+    w.__realSetItem = Storage.prototype.setItem;
+    Storage.prototype.setItem = () => {
+      throw new DOMException('full', 'QuotaExceededError');
+    };
+  });
+  await page.getByRole('textbox', { name: '地圖的標題' }).fill('存不進去的地圖');
+  await expect(status).toContainText('自動儲存失敗');
+  await page.evaluate(() => {
+    const w = window as unknown as { __realSetItem: Storage['setItem'] };
+    Storage.prototype.setItem = w.__realSetItem;
+  });
+  await page.getByRole('textbox', { name: '地圖的標題' }).fill('又存得進去');
+  await expect(status).not.toContainText('失敗');
+  await expect(status).toContainText('已自動儲存');
+  expect(errors).toEqual([]);
+});
+
+test.describe('觸控', () => {
+  test.use({ hasTouch: true, viewport: { width: 1000, height: 800 } });
+
+  test('兩指縮放（F64、D15）：每一種工具都能縮放、不出錯、不留下東西或復原的一步', async ({
+    page,
+    context,
+  }) => {
+    const errors = await open(page);
+    const cdp = await context.newCDPSession(page);
+    const state = () =>
+      page.evaluate(() => {
+        const h = (window as unknown as { __worldMap: Hook }).__worldMap;
+        const store = h.useDoc as unknown as {
+          temporal: { getState: () => { pastStates: unknown[] } };
+        };
+        const ed = h.editor as unknown as { draft: unknown[]; view: { zoom: number } };
+        return {
+          doc: JSON.stringify(h.useDoc.getState().data),
+          past: store.temporal.getState().pastStates.length,
+          sel: JSON.stringify(h.useEditor.getState().sel),
+          draft: ed.draft.length,
+          zoom: ed.view.zoom,
+        };
+      });
+    const center = await page.evaluate(() => {
+      const r = document.querySelector('canvas')!.getBoundingClientRect();
+      return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+    });
+    const fingers = (d: number) => [
+      { x: center.x - d, y: center.y, id: 1 },
+      { x: center.x + d, y: center.y, id: 2 },
+    ];
+    const touch = (type: string, touchPoints: { x: number; y: number; id: number }[]) =>
+      cdp.send('Input.dispatchTouchEvent', { type, touchPoints } as never);
+    const tools = [
+      'select',
+      'hand',
+      'brush',
+      'erase',
+      'relief',
+      'region',
+      'road',
+      'river',
+      'sea',
+      'border',
+      'wall',
+      'note',
+      'asset',
+    ];
+    for (const tool of tools)
+      for (const staggered of [false, true]) {
+        await page.evaluate((t) => {
+          const h = (window as unknown as { __worldMap: Hook }).__worldMap;
+          if (t === 'asset') h.act.armAsset('town');
+          else h.act.setTool(t);
+          h.editor.fitView();
+        }, tool);
+        const before = await state();
+        if (staggered) {
+          /* 第一指先按下、稍微動一下，第二指才落下 */
+          const [a] = fingers(40);
+          await touch('touchStart', [a]);
+          await touch('touchMove', [{ ...a, x: a.x + 8, y: a.y + 6 }]);
+          await touch('touchStart', [{ ...a, x: a.x + 8, y: a.y + 6 }, fingers(40)[1]]);
+        } else await touch('touchStart', fingers(40));
+        for (let d = 50; d <= 140; d += 10) await touch('touchMove', fingers(d));
+        await touch('touchEnd', []);
+        const after = await state();
+        const where = `${tool}${staggered ? '（先一指）' : ''}`;
+        expect(after.zoom, `${where} 有放大`).toBeGreaterThan(before.zoom * 1.8);
+        expect(after.doc === before.doc, `${where} 地圖沒有變`).toBe(true);
+        expect(after.past, `${where} 沒有多一步復原`).toBe(before.past);
+        expect(after.draft, `${where} 沒有留下線的點`).toBe(0);
+        expect(after.sel, `${where} 選取不變`).toBe(before.sel);
+      }
+    /* 一指點一下照常有作用：素材放在點的位置 */
+    await page.evaluate(() => {
+      const h = (window as unknown as { __worldMap: Hook }).__worldMap;
+      h.act.armAsset('town');
+      h.editor.fitView();
+    });
+    const n = (await doc(page)).objects.length;
+    await touch('touchStart', [{ x: center.x, y: center.y, id: 3 }]);
+    await touch('touchEnd', []);
+    await expect.poll(async () => (await doc(page)).objects.length).toBe(n + 1);
+    expect(errors).toEqual([]);
+  });
 });
 
 test.describe('版面', () => {

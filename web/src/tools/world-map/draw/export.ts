@@ -17,6 +17,20 @@ export const exportSize = (doc: Pick<WorldDoc, 'cols' | 'rows'>, width: number) 
   height: Math.round((width * doc.rows) / doc.cols),
 });
 
+/** 一張畫布最多的像素（iPhone、iPad 的 Safari：4096 × 4096；超過時畫不出圖） */
+export const CANVAS_MAX_PIXELS = 16_777_216;
+
+/** 這張地圖最寬能匯出幾 px（寬 × 高不超過畫布的上限；直式 960 × 1536 是 3238） */
+export function maxExportWidth(doc: Pick<WorldDoc, 'cols' | 'rows'>): number {
+  let w = Math.floor(Math.sqrt((CANVAS_MAX_PIXELS * doc.cols) / doc.rows));
+  while (w > 1 && w * exportSize(doc, w).height > CANVAS_MAX_PIXELS) w--;
+  return w;
+}
+
+/** 選的寬（1536～4096）實際匯出的寬：超過這張地圖的上限時改成上限 */
+export const exportWidthFor = (doc: Pick<WorldDoc, 'cols' | 'rows'>, choice: number): number =>
+  Math.min(choice, maxExportWidth(doc));
+
 /** 地圖上用到的字（只下載用到的字） */
 export function mapText(doc: WorldDoc): string {
   return [
@@ -48,10 +62,10 @@ export { secretCount } from '../model/visibility';
 
 export function renderPngCanvas(
   doc: WorldDoc,
-  width: number,
+  requested: number,
   audience: Audience,
 ): HTMLCanvasElement {
-  const { height } = exportSize(doc, width);
+  const { width, height } = exportSize(doc, exportWidthFor(doc, requested));
   const c = document.createElement('canvas');
   c.width = width;
   c.height = height;

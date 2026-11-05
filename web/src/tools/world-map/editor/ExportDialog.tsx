@@ -14,6 +14,8 @@ import {
   EXPORT_WIDTHS,
   ensureMapFonts,
   exportSize,
+  exportWidthFor,
+  maxExportWidth,
   pngName,
   renderPngCanvas,
   secretCount,
@@ -27,6 +29,15 @@ import { docNow, setEditor, TOOL_ID, useDoc, useEditor, usePrefs } from './store
 /** 地圖演出產生器的網址（還沒上線時在 next/） */
 const MAP_FX_HREF = hrefToTool(getTool('map-fx') ?? { id: 'map-fx', status: 'next' });
 
+/** 打開匯出對話框的按鈕（關掉後焦點回到這裡；用快捷鍵或別的方式打開時回到編輯列的「匯出圖片」） */
+let opener: HTMLElement | null = null;
+export function openExport(from: HTMLElement | null): void {
+  opener = from;
+  setEditor({ exportOpen: true });
+}
+const returnTarget = () =>
+  opener?.isConnected ? opener : document.querySelector<HTMLElement>('[data-testid="export-open"]');
+
 export function ExportDialog() {
   const open = useEditor((s) => s.exportOpen);
   const doc = useDoc((s) => s.data);
@@ -34,7 +45,10 @@ export function ExportDialog() {
   const audience = usePrefs((s) => s.data.exportAudience);
   const [preview, setPreview] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const w = (EXPORT_WIDTHS as readonly number[]).includes(width) ? width : 2400;
+  const choice = (EXPORT_WIDTHS as readonly number[]).includes(width) ? width : 2400;
+  /* 寬 × 高超過畫布上限的選項改成上限的寬（直式的 4096 → 3238） */
+  const w = exportWidthFor(doc, choice);
+  const maxW = maxExportWidth(doc);
   const size = exportSize(doc, w);
   const secrets = secretCount(doc);
 
@@ -116,6 +130,7 @@ export function ExportDialog() {
     <Dialog
       open={open}
       onOpenChange={(o) => setEditor({ exportOpen: o })}
+      returnFocus={returnTarget()}
       title={S.exp.title}
       size="xl"
       footer={
@@ -154,10 +169,18 @@ export function ExportDialog() {
             <Segmented
               size="sm"
               columns={2}
-              value={String(w)}
+              value={String(choice)}
               onValueChange={(v) => usePrefs.getState().patch({ exportWidth: Number(v) })}
-              options={EXPORT_WIDTHS.map((v) => ({ value: String(v), label: `${v} px` }))}
+              options={EXPORT_WIDTHS.map((v) => ({
+                value: String(v),
+                label: `${exportWidthFor(doc, v)} px`,
+              }))}
             />
+            {maxW < EXPORT_WIDTHS[EXPORT_WIDTHS.length - 1] ? (
+              <p className="m-0 mt-1 text-xs text-muted" data-testid="export-cap">
+                {S.exp.capped(maxW)}
+              </p>
+            ) : null}
           </Field>
           <Field label={S.exp.audience}>
             <Segmented

@@ -4,10 +4,17 @@
  */
 import { describe, expect, it } from 'vitest';
 import { drawAsset } from '@/tools/world-map/draw/assets';
+import {
+  CANVAS_MAX_PIXELS,
+  EXPORT_WIDTHS,
+  exportSize,
+  exportWidthFor,
+  maxExportWidth,
+} from '@/tools/world-map/draw/export';
 import { drawMountain, drawReeds, drawTree } from '@/tools/world-map/draw/marks';
 import { buildColors, deepForest, reliefColors } from '@/tools/world-map/draw/palette';
 import { ASSETS } from '@/tools/world-map/model/assets';
-import { THEME_IDS } from '@/tools/world-map/model/types';
+import { MAP_SIZE_IDS, MAP_SIZES, THEME_IDS } from '@/tools/world-map/model/types';
 
 type M = [number, number, number, number, number, number];
 const mul = (m: M, n: M): M => [
@@ -165,5 +172,21 @@ describe('山林的圖形在小圖的範圍裡（F09、F13）', () => {
     const { ctx, b } = boundsCtx();
     drawReeds(ctx, buildColors('night'), '#557755', 1);
     expect(b.paints).toBeGreaterThan(2);
+  });
+});
+
+describe('匯出的寬不超過畫布的上限（D17）', () => {
+  it('每種尺寸、每個選項的寬 × 高都在 16,777,216 像素以內；只有直式的 4096 改成 3238', () => {
+    for (const id of MAP_SIZE_IDS) {
+      const doc = MAP_SIZES[id];
+      for (const choice of EXPORT_WIDTHS) {
+        const w = exportWidthFor(doc, choice);
+        const { height } = exportSize(doc, w);
+        expect(w * height).toBeLessThanOrEqual(CANVAS_MAX_PIXELS);
+        expect(w).toBe(id === 'portrait' && choice === 4096 ? 3238 : choice);
+      }
+    }
+    expect(maxExportWidth(MAP_SIZES.square)).toBe(4096);
+    expect(exportSize(MAP_SIZES.portrait, 3238).height).toBe(5181);
   });
 });
