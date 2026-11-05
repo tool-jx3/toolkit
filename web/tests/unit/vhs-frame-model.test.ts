@@ -301,14 +301,15 @@ describe('磨損度、檔名、存檔', () => {
     const s = normalizeState({
       photo: { id: 'abc', name: 'w.png', width: 3000, height: 1000 },
       view: { zoom: 99, x: 5, y: -5 },
-      caption: 'x'.repeat(100),
+      caption: 'x'.repeat(500),
       osd: 'REC\n●',
       osdFont: 'comic',
       timecode: { mode: 'clock', tape: -5, clock: '2026-02-30 00:00:00' },
       wear: 123.4,
       aspect: '21:9',
     });
-    expect(s.caption).toHaveLength(80);
+    /* 2026-11-05 起字幕最多 400 字（之前 80） */
+    expect(s.caption).toHaveLength(400);
     expect(s.osd).toBe('REC ●');
     expect(s.osdFont).toBe('mono');
     /* 起點不合法（負數）→ 預設 0:00:14（規格 3.9；對等驗證 7.1） */

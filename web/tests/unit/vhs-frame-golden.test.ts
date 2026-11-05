@@ -260,6 +260,8 @@ interface Job {
   plays: number;
   quantize: boolean;
   tapeTime: number;
+  pngSize?: number;
+  gifColors?: number;
 }
 
 const JOBS: Record<string, Job> = {
@@ -272,8 +274,8 @@ const JOBS: Record<string, Job> = {
   webp: { format: 'webp', animSize: 0, plays: 1, quantize: false, tapeTime: 0 },
 };
 
-/** 匯出一次：畫布指令＋編碼器＋結果的說明（不含檔案內容；指令相同時檔案相同） */
-async function exportLog(key: string, c: Case, job: Job, filter: boolean): Promise<string> {
+/** 匯出一次，回傳畫布指令與結果的說明 */
+async function exportRaw(c: Case, job: Job, filter = true) {
   rec.state.filter = filter;
   rec.state.log = [];
   rec.state.seq = 0;
@@ -283,12 +285,18 @@ async function exportLog(key: string, c: Case, job: Job, filter: boolean): Promi
     onProgress: () => {},
   });
   const { blob: _blob, ...meta } = out;
+  return { log: rec.state.log as unknown[][], meta };
+}
+
+/** 匯出一次：畫布指令＋編碼器＋結果的說明（不含檔案內容；指令相同時檔案相同） */
+async function exportLog(key: string, c: Case, job: Job, filter: boolean): Promise<string> {
+  const { log, meta } = await exportRaw(c, job, filter);
   if (DUMP)
     writeFileSync(
       `${DUMP}/${key.replace(/\//g, '_')}.json`,
-      JSON.stringify([rec.state.log, meta]).replace(/\],\[/g, '],\n['),
+      JSON.stringify([log, meta]).replace(/\],\[/g, '],\n['),
     );
-  return hash([rec.state.log, meta]);
+  return hash([log, meta]);
 }
 
 async function all(): Promise<Record<string, string>> {
@@ -324,5 +332,187 @@ describe('vhs-frame：沒用新功能時匯出的畫法不變', () => {
     const want = JSON.parse(readFileSync(FIXTURE, 'utf8')) as Record<string, string>;
     expect(Object.keys(got).sort()).toEqual(Object.keys(want).sort());
     for (const k of Object.keys(want)) expect(got[k], k).toBe(want[k]);
+  });
+});
+
+/* ---------- 新功能有作用（同一個記錄器） ---------- */
+
+/** 指令裡的文字（fillText 的字、填色、對齊） */
+const texts = (log: unknown[][]) =>
+  log
+    .filter((e) => e[1] === 'fillText')
+    .map((e) => e[2] as string)
+    .filter((t) => t !== 'NO SIGNAL');
+const has = (log: unknown[][], pred: (e: unknown[]) => boolean) => log.some(pred);
+
+describe('vhs-frame：新功能有作用', () => {
+  const base = () => cases().photo;
+  const png = JOBS['png@7.25'];
+  const gif = JOBS.gif;
+  beforeAll(() => {
+    rec.state.prefix = 'noise';
+    noiseTiles();
+  });
+
+  it('預設值明寫（PNG 1280、GIF 64 色）時和基準相同', async () => {
+    const want = JSON.parse(readFileSync(FIXTURE, 'utf8')) as Record<string, string>;
+    expect(await exportLog('x', base(), { ...png, pngSize: 1 }, true)).toBe(want['photo/png@7.25']);
+    expect(await exportLog('x', base(), { ...gif, gifColors: 64 }, true)).toBe(want['photo/gif']);
+  });
+
+  it('日期戳記：右下兩行（時間、日期），橘色；開著時下方的字幕往上 0.075H', async () => {
+    const c = base();
+    const off = await exportRaw(c, png);
+    const on = await exportRaw(
+      { ...c, s: { ...c.s, stamp: { ...c.s.stamp, on: true, value: '1999-08-14 16:20' } } },
+      png,
+    );
+    expect(texts(on.log)).toEqual(expect.arrayContaining(['PM 4:20', 'AUG. 14 1999']));
+    expect(has(on.log, (e) => e[1] === '=' && e[2] === 'fillStyle' && e[3] === '#FFB23E')).toBe(
+      true,
+    );
+    const capY = (log: unknown[][]) =>
+      log.find((e) => e[1] === 'strokeText' && e[2] === '走廊的門自己打開了')?.[4] as number;
+    expect(capY(off.log) - capY(on.log)).toBeCloseTo(960 * 0.075, 6);
+  });
+
+  it('字幕：黑底（不描邊）、黃字、明體、上方、大小', async () => {
+    const c = base();
+    const run = (style: Partial<VhsState['captionStyle']>) =>
+      exportRaw({ ...c, s: { ...c.s, captionStyle: { ...c.s.captionStyle, ...style } } }, png);
+    const box = await run({ look: 'box' });
+    expect(has(box.log, (e) => e[1] === 'strokeText')).toBe(false);
+    expect(has(box.log, (e) => e[1] === '=' && e[3] === 'rgba(0,0,0,0.62)')).toBe(true);
+    const yellow = await run({ look: 'yellow' });
+    expect(has(yellow.log, (e) => e[1] === '=' && e[3] === '#FFE45C')).toBe(true);
+    const serif = await run({ font: 'serif' });
+    expect(has(serif.log, (e) => e[1] === '=' && String(e[3]).includes('Noto Serif TC'))).toBe(
+      true,
+    );
+    const top = await run({ position: 'top' });
+    const y = top.log.find((e) => e[1] === 'strokeText')?.[4] as number;
+    /* 有左上文字：round(0.15H) ＋ 字級 60 */
+    expect(y).toBe(Math.round(960 * 0.15) + 60);
+    const big = await run({ size: 140 });
+    expect(
+      has(
+        big.log,
+        (e) => e[1] === '=' && String(e[3]).startsWith(`700 ${Math.round(960 * 0.062 * 1.4)}px`),
+      ),
+    ).toBe(true);
+  });
+
+  it('色調、亮度、左右反轉：照片層的濾鏡、夜視的綠色、鏡射', async () => {
+    const c = base();
+    const night = await exportRaw(
+      { ...c, s: { ...c.s, picture: { ...c.s.picture, tone: 'night', brightness: 110 } } },
+      png,
+    );
+    expect(
+      has(
+        night.log,
+        (e) =>
+          e[2] === 'filter' &&
+          e[3] === 'grayscale(1) contrast(1.2) brightness(1.15) brightness(1.1)',
+      ),
+    ).toBe(true);
+    expect(has(night.log, (e) => e[3] === '#6DFF8E')).toBe(true);
+    const flip = await exportRaw({ ...c, s: { ...c.s, flip: true } }, png);
+    expect(has(flip.log, (e) => e[1] === 'scale' && e[2] === -1 && e[3] === 1)).toBe(true);
+  });
+
+  it('弧面 0、暗角 0、沒有圓角、效果全關：不伸長、不畫暗角、不裁圓角、不畫雜訊與掃描線', async () => {
+    const c = base();
+    const plain = await exportRaw(
+      {
+        ...c,
+        s: {
+          ...c.s,
+          picture: { ...c.s.picture, curve: 0, vignette: 0, corners: false },
+          effects: {
+            chroma: false,
+            tear: false,
+            dropout: false,
+            tracking: false,
+            noise: false,
+            scan: false,
+            hum: false,
+            flicker: false,
+          },
+        },
+      },
+      png,
+    );
+    expect(has(plain.log, (e) => e[1] === 'radial')).toBe(false);
+    expect(has(plain.log, (e) => e[3] === 'destination-in')).toBe(false);
+    expect(has(plain.log, (e) => e[3] === 'overlay')).toBe(false);
+    expect(has(plain.log, (e) => e[1] === 'pattern')).toBe(false);
+    /* 弧面 0：輸出只畫一次訊號層 */
+    expect(plain.log.filter((e) => e[0] === 'c0' && e[1] === 'drawImage')).toHaveLength(1);
+  });
+
+  it('閃爍、「●」閃爍與暫停的雜訊帶', async () => {
+    const c = base();
+    const flick = await exportRaw(
+      { ...c, s: { ...c.s, effects: { ...c.s.effects, flicker: true } } },
+      png,
+    );
+    expect(
+      has(flick.log, (e) => e[2] === 'fillStyle' && /^rgba\(0,0,0,0\.\d{3}\)$/.test(String(e[3]))),
+    ).toBe(true);
+    /* t＝0.7：「●」暗的那一下（不畫）；關掉動態時照畫 */
+    const at = { ...png, tapeTime: 0.7 };
+    const blink = await exportRaw({ ...c, s: { ...c.s, osdMotion: true } }, at);
+    expect(texts(blink.log)).not.toContain('●');
+    expect(texts((await exportRaw(c, at)).log)).toContain('●');
+    /* PAUSE：追蹤條不畫（t＝5 時本來有）、多一條裁切的雜訊帶 */
+    const t5 = { ...png, tapeTime: 5 };
+    const pause = await exportRaw({ ...c, s: { ...c.s, osd: 'PAUSE', osdMotion: true } }, t5);
+    const plain = await exportRaw({ ...c, s: { ...c.s, osd: 'PAUSE' } }, t5);
+    expect(has(plain.log, (e) => e[1] === 'drawImage' && e[2] === 'c7')).toBe(true);
+    expect(has(pause.log, (e) => e[1] === 'clip')).toBe(true);
+    expect(has(plain.log, (e) => e[1] === 'clip')).toBe(false);
+  });
+
+  it('右上角的頻道', async () => {
+    const c = base();
+    const ch = await exportRaw(
+      { ...c, s: { ...c.s, channel: '12', timecode: { ...c.s.timecode, mode: 'channel' } } },
+      png,
+    );
+    expect(texts(ch.log)).toContain('CH 12');
+  });
+
+  it('動畫：開場 18 格＋收尾 8 格（共 50 格、4.5 秒）；開場有頻道與收訊格，收尾整張重畫後再裁圓角', async () => {
+    const c = base();
+    const s = { ...c.s, anim: { ...c.s.anim, intro: true, outro: true } };
+    const out = await exportRaw({ ...c, s }, gif);
+    expect(out.log.filter((e) => e[0] === 'addFrame')).toHaveLength(50);
+    expect(out.meta.duration).toBeCloseTo(4.5, 9);
+    expect(texts(out.log)).toEqual(expect.arrayContaining(['CH 01', 'CH 02', 'CH 03']));
+    expect(has(out.log, (e) => e[3] === '#030406')).toBe(true);
+    expect(has(out.log, (e) => e[2] === 'shadowColor')).toBe(true);
+  });
+
+  it('場景：GIF 依序換場景；PNG 用選的場景', async () => {
+    const c = base();
+    const s = { ...c.s, caption: '第一個場景\n\n第二個場景', scene: 1 };
+    const g = await exportRaw({ ...c, s }, gif);
+    expect(g.log.filter((e) => e[0] === 'addFrame')).toHaveLength(32);
+    const t = texts(g.log);
+    expect(t).toContain('第一個場景');
+    expect(t).toContain('第二個場景');
+    expect(t.indexOf('第一個場景')).toBeLessThan(t.indexOf('第二個場景'));
+    const p = await exportRaw({ ...c, s }, png);
+    expect(texts(p.log)).toContain('第二個場景');
+    expect(texts(p.log)).not.toContain('第一個場景');
+  });
+
+  it('PNG 1920 寬、GIF 256 色', async () => {
+    const big = await exportRaw(base(), { ...png, pngSize: 2 });
+    expect([big.meta.width, big.meta.height]).toEqual([1920, 1440]);
+    const g = await exportRaw(base(), { ...gif, gifColors: 256 });
+    const enc = g.log.find((e) => e[0] === 'encoder')?.[1] as { options: { maxColors: number } };
+    expect(enc.options.maxColors).toBe(256);
   });
 });

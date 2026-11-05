@@ -1,6 +1,7 @@
 /**
  * 錄影帶畫面產生器：把照片做成老錄影帶在映像管電視上播放的畫面（色差、撕裂、掉訊、追蹤條、雜訊、掃描線、弧面），
- * 加上字幕與左上的播放字樣、時間碼，匯出 PNG 或字幕逐字打出的 GIF（CoC 的錄影帶、監視器截圖這類 handout）。
+ * 加上字幕（可以分好幾個場景）與左上的播放字樣、右上的時間碼或頻道、攝影機的日期戳記，
+ * 匯出 PNG 或字幕逐字打出的 GIF（可以加轉台的開場、關機的收尾；CoC 的錄影帶、監視器截圖這類 handout）。
  * 規格：docs/refactor/specs/vhs-frame.md。
  */
 import { Redo2, Undo2 } from 'lucide-react';
@@ -17,17 +18,18 @@ import {
   WindowDrop,
   withShortcut,
 } from '@/ui';
-import { renderInto } from './exporter';
+import { masterFor, renderInto } from './exporter';
 import { type BatchNotice, loadPhotoFiles } from './media';
+import { animSize, gifFrameTime, initialState, masterWidthFor, pngSize } from './model';
 import {
-  animSize,
-  gifFrameTime,
-  initialState,
-  masterWidthFor,
-  SCREEN_W,
-  screenSize,
-} from './model';
-import { PhotoSection, resetView, ScreenSection, TextSection } from './Panel';
+  AnimSection,
+  CaptionSection,
+  OsdSection,
+  PhotoSection,
+  resetView,
+  ScreenSection,
+  StampSection,
+} from './Panel';
 import { Preview, type ScreenHandle } from './Preview';
 import { importProject, projectAssetIds } from './project';
 import { VhsRenderer } from './render';
@@ -79,8 +81,11 @@ function Settings({ onResetView }: { onResetView: () => void }) {
     <div className="flex min-w-0 flex-col gap-3">
       <SaveErrorNotice />
       <PhotoSection onFiles={load} onResetView={onResetView} />
-      <TextSection />
+      <CaptionSection />
+      <OsdSection />
+      <StampSection />
       <ScreenSection />
+      <AnimSection />
       {/* 整個視窗都可以拖放照片 */}
       <WindowDrop label={S.windowDrop} hint={S.windowDropHint} onDrop={(files) => load(files)} />
     </div>
@@ -106,8 +111,8 @@ function ProjectActions() {
         description: S.openConfirmDesc,
         confirmLabel: S.openConfirmLabel,
       }}
-      onLoad={async (data, _file, files) => {
-        const r = await importProject(data, files);
+      onLoad={async (data, file, files) => {
+        const r = await importProject(data, files, file.version);
         resetAll(r.state);
         return { warnings: [r.notSaved && S.projectNotSaved] };
       }}
@@ -154,7 +159,7 @@ declare global {
 
 /**
  * 測試與對等驗證用的入口：讀狀態、預覽的時間、停在某個時間；
- * frame(kind, at) 用目前的內容另外畫一格（'png'：t＝at；'anim'：第 at 格，四角透明、還沒鋪黑），回傳 PNG 的 data URL。
+ * frame(kind, at) 用目前的內容另外畫一格（'png'：t＝at，PNG 的大小；'anim'：第 at 格，四角透明、還沒鋪黑），回傳 PNG 的 data URL。
  */
 function useTestHook(screen: React.RefObject<ScreenHandle | null>) {
   useEffect(() => {
@@ -167,18 +172,16 @@ function useTestHook(screen: React.RefObject<ScreenHandle | null>) {
         const s = docNow();
         const bmp = s.photo ? await assets.bitmap(s.photo.id).catch(() => undefined) : undefined;
         const size =
-          kind === 'png' ? screenSize(s.aspect) : animSize(s.aspect, prefsNow().animSize);
+          kind === 'png'
+            ? pngSize(s.aspect, prefsNow().pngSize)
+            : animSize(s.aspect, prefsNow().animSize);
         const r = new VhsRenderer();
-        const master =
-          bmp && s.photo
-            ? r.compose(
-                bmp,
-                s.photo,
-                s.view,
-                s.aspect,
-                kind === 'png' ? SCREEN_W : masterWidthFor(size.width),
-              )
-            : null;
+        const master = masterFor(
+          r,
+          s,
+          bmp ?? null,
+          kind === 'png' ? size.width : masterWidthFor(size.width),
+        );
         const c = document.createElement('canvas');
         c.width = size.width;
         c.height = size.height;
