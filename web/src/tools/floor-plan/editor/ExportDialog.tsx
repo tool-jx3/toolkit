@@ -98,6 +98,18 @@ export function ExportDialog() {
         }`
       : '';
   const blocked = empty || !!tooLarge;
+  /* 揭露用（F284）：GM 專用的東西在 PL 用的圖的範圍外面時，兩張圖的範圍不同，疊圖對不齊 */
+  const revealFrameDiffers = useMemo(() => {
+    if (exp.view !== 'reveal' || !layout) return false;
+    if (!hasExportContent(floors, true, exp.clues === 'hide')) return true;
+    const pl = exportLayout(floors, exportOptions(project, { ...e2, view: 'pl' }, theme, e2.px));
+    return (
+      pl.width !== layout.width ||
+      pl.height !== layout.height ||
+      pl.frames[0]?.x !== layout.frames[0]?.x ||
+      pl.frames[0]?.y !== layout.frames[0]?.y
+    );
+  }, [exp.view, exp.clues, layout, floors, project, e2, theme]);
 
   useEffect(() => {
     if (!open || empty) {
@@ -296,9 +308,16 @@ export function ExportDialog() {
               options={[
                 { value: 'pl', label: S.exp.pl },
                 { value: 'gm', label: S.exp.gm },
+                { value: 'reveal', label: S.exp.reveal },
               ]}
             />
           </Field>
+          {exp.view === 'reveal' ? (
+            <div className="flex flex-col gap-1" data-testid="export-reveal-note">
+              <p className="m-0 text-xs text-muted">{S.exp.revealNote}</p>
+              {revealFrameDiffers ? <Notice tone="warning">{S.exp.revealFrame}</Notice> : null}
+            </div>
+          ) : null}
           {hasClues ? (
             <Field label={S.exp.clues}>
               <Segmented

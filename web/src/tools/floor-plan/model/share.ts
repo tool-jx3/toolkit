@@ -53,7 +53,8 @@ export function playerProject(p: Project): { project: Project; removed: PlRemove
       (f.walls.length - v.walls.length) +
       (f.openings.length - secrets - v.openings.length) +
       (f.items.length - clueItems - v.items.length) +
-      (f.texts.length - clueTexts - v.texts.length);
+      (f.texts.length - clueTexts - v.texts.length) +
+      ((f.lines?.length ?? 0) - (v.lines?.length ?? 0));
     const rooms = v.rooms.map((r): Room => {
       if (r.masked) {
         const out: Room = { id: r.id, x: r.x, y: r.y, w: r.w, h: r.h, name: '', cat: r.cat };
@@ -77,6 +78,8 @@ export function playerProject(p: Project): { project: Project; removed: PlRemove
       items: v.items.map(({ gm: _g, clue: _c, ...i }) => i),
       texts: v.texts.map(({ gm: _g, clue: _c, ...t }) => t),
     };
+    /* 自由線（2026-11-05）：GM 專用的已經拿掉 */
+    if (v.lines?.length) out.lines = v.lines.map(({ gm: _g, ...l }) => l);
     /* 外觀層的「顯示內部」不是秘密（疊上來的樓層本身也照 PL 檢視整理過） */
     if (f.showInside) out.showInside = true;
     if (f.inside) out.inside = f.inside;
@@ -127,6 +130,8 @@ export function packProject(p: Project): Record<string, unknown> {
     ...(p.wearSeed !== undefined ? { wearSeed: p.wearSeed } : {}),
     ...(p.coords ? { coords: true } : {}),
     ...(p.fixedFurniture ? { fixedFurniture: true } : {}),
+    /* 2026-11-05（參考 KIIN v2.0）：夜的暗度（不是秘密；PL 用的連結也帶，光源已經照 PL 檢視整理過） */
+    ...(p.night ? { night: p.night } : {}),
     floors: p.floors.map((f) => {
       const out: Record<string, unknown> = {
         name: f.name,
@@ -136,6 +141,8 @@ export function packProject(p: Project): Record<string, unknown> {
         items: f.items.map(packItem),
         texts: f.texts.map(dropId),
       };
+      /* 自由線（2026-11-05，F285）：有的時候才寫 */
+      if (f.lines?.length) out.lines = f.lines.map(dropId);
       /* 外觀層的「顯示內部」（2026-10 第二批）：疊上來的樓層寫成順序 */
       if (f.showInside) out.showInside = true;
       const inside = f.inside ? p.floors.findIndex((o) => o !== f && o.id === f.inside) : -1;

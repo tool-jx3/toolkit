@@ -3,10 +3,10 @@
  */
 import { ASSET } from '../model/assets';
 import { OPEN, wallThickness } from '../model/catalog';
-import type { OpeningKind, WallKind } from '../model/types';
+import type { LineKind, OpeningKind, WallKind } from '../model/types';
 import type { WallRun } from '../model/walls';
 import { FURNITURE_DRAW } from './furniture';
-import { drawOpening, drawRun, furnStyle } from './render';
+import { drawFreeLine, drawOpening, drawRun, furnStyle } from './render';
 import { THEMES } from './themes';
 
 const dprNow = () => (typeof window === 'undefined' ? 1 : window.devicePixelRatio || 1);
@@ -107,4 +107,30 @@ export function drawWallIcon(canvas: HTMLCanvasElement, kind: WallKind, size = 4
     return;
   }
   drawRun(c, { ...run, a: 0.6 + wallThickness(kind) / 2 - 0.0 }, THEMES.clean, lw, true);
+}
+
+/** 自由線的圖示（2026-11-05，F285）：一條往上彎的曲線 */
+export function drawLineIcon(canvas: HTMLCanvasElement, kind: LineKind, size = 44): void {
+  const c = prepare(canvas, size);
+  if (!c) return;
+  const k = size / 4.4;
+  c.scale(k, k);
+  const lw = Math.max(1 / 22, 1 / k);
+  drawFreeLine(
+    c,
+    {
+      id: 'icon',
+      kind,
+      x1: 0.6,
+      y1: 3.2,
+      cx: 2.2,
+      cy: 0.2,
+      x2: 3.8,
+      y2: 3.2,
+      w: kind === 'step' ? 1.4 : 1.2,
+    },
+    THEMES.clean,
+    lw,
+    { editor: false },
+  );
 }

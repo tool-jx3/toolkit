@@ -8,20 +8,38 @@ import {
   BADGE_RING,
   CAT,
   CELL_M,
+  FLOOR_PATTERN,
   type FloorPattern,
   OPEN,
   TOKEN_GRID_OPACITY,
   wallThickness,
 } from '../model/catalog';
 import { type CoordLabels, columnName } from '../model/coords';
-import { itemLocalSize, type ShownFloor, type ShownRoom, visibleFloor } from '../model/geometry';
+import {
+  itemLocalSize,
+  revealFloor,
+  type ShownFloor,
+  type ShownRoom,
+  visibleFloor,
+} from '../model/geometry';
+import { LINE_BASE, lineSamples, lineTangent } from '../model/lines';
 import { traceRoom } from '../model/shape';
-import type { Floor, Item, Opening, Rect, SizeMode, TextLabel, Wall } from '../model/types';
+import type {
+  Floor,
+  FreeLine,
+  Item,
+  Opening,
+  Rect,
+  SizeMode,
+  TextLabel,
+  Wall,
+} from '../model/types';
 import { computeWalls, type WallRun } from '../model/walls';
 import { FURNITURE_DRAW, type FurnStyle } from './furniture';
 import { seeded } from './furniture/kit';
 import { badgeLabel, badgeSize, haloText, labelLayout, textFont, verticalText } from './labels';
-import { type FloorTheme, getTheme, roomFill } from './themes';
+import { drawNight } from './night';
+import { type FloorTheme, floorFill, getTheme } from './themes';
 
 const TAU = Math.PI * 2;
 type Ctx = CanvasRenderingContext2D;
@@ -65,7 +83,8 @@ function tatami(c: Ctx, room: Rect, lw: number): void {
 }
 
 export function drawPattern(c: Ctx, room: ShownRoom, theme: FloorTheme, lw: number): void {
-  const p = CAT[room.cat]?.pattern;
+  /* 房間的地板（2026-11-05，F282）優先，沒有時照種類 */
+  const p = room.floor ? FLOOR_PATTERN[room.floor] : CAT[room.cat]?.pattern;
   if (!p) return;
   const { x, y, w, h } = room;
   c.save();
@@ -383,6 +402,33 @@ function drawNewPattern(c: Ctx, p: FloorPattern, room: Rect, lw: number, rnd: ()
       }
       c.lineWidth = lw * 0.7;
       c.stroke();
+      break;
+    }
+    case 'carpet': {
+      /* 地毯（2026-11-05，F282）：離牆 0.35 格的一圈雙線的滾邊，裡面是斜的菱格（每 1 格） */
+      const m = 0.35;
+      if (L > m * 2 + 0.3 && W > m * 2 + 0.3) {
+        c.rect(x + m, y + m, w - m * 2, h - m * 2);
+        c.rect(x + m + 0.14, y + m + 0.14, w - m * 2 - 0.28, h - m * 2 - 0.28);
+        c.stroke();
+        c.save();
+        c.beginPath();
+        c.rect(x + m + 0.14, y + m + 0.14, w - m * 2 - 0.28, h - m * 2 - 0.28);
+        c.clip();
+        c.beginPath();
+        c.lineWidth = lw * 0.6;
+        for (let d = -h; d < w + h; d += 1) {
+          c.moveTo(x + d, y);
+          c.lineTo(x + d + h, y + h);
+          c.moveTo(x + d, y + h);
+          c.lineTo(x + d + h, y);
+        }
+        c.stroke();
+        c.restore();
+      } else {
+        c.rect(x + 0.12, y + 0.12, w - 0.24, h - 0.24);
+        c.stroke();
+      }
       break;
     }
     case 'planks': {
@@ -1387,6 +1433,148 @@ export function drawItem(
   }
 }
 
+/* ---------- 自由線（2026-11-05，F285） ---------- */
+
+/** 沿著曲線的折線 */
+function strokeSamples(c: Ctx, pts: readonly { x: number; y: number }[]): void {
+  c.beginPath();
+  c.moveTo(pts[0].x, pts[0].y);
+  for (let i = 1; i < pts.length; i++) c.lineTo(pts[i].x, pts[i].y);
+  c.stroke();
+}
+
+/** 沿著曲線每 step 格一個點（含法線方向），畫欄杆的短橫桿、段差的刻度用 */
+function along(
+  pts: readonly { x: number; y: number }[],
+  step: number,
+  fn: (x: number, y: number, nx: number, ny: number) => void,
+): void {
+  let carry = step / 2;
+  for (let i = 1; i < pts.length; i++) {
+    const a = pts[i - 1];
+    const b = pts[i];
+    const len = Math.hypot(b.x - a.x, b.y - a.y);
+    if (len < 1e-9) continue;
+    const ux = (b.x - a.x) / len;
+    const uy = (b.y - a.y) / len;
+    let d = carry;
+    while (d <= len) {
+      fn(a.x + ux * d, a.y + uy * d, -uy, ux);
+      d += step;
+    }
+    carry = d - len;
+  }
+}
+
+/**
+ * 自由線的畫法（本站自己設計）：欄杆＝空心的雙線＋每 0.5 格一根短橫桿；內牆＝牆色的實心粗線；段差＝細線＋一側的短刻度；
+ * 繩索＝深色的芯＋淡色的一節一節；箭頭＝字色的曲線（下面墊一圈淡色）＋實心的箭頭。粗細照倍率（`w`）。
+ * GM 專用的在編輯畫面變淡、加 GM 色的虛線。
+ */
+export function drawFreeLine(
+  c: Ctx,
+  l: FreeLine,
+  theme: FloorTheme,
+  lw: number,
+  opts: { editor: boolean },
+): void {
+  const k = l.w ?? 1;
+  const base = (LINE_BASE[l.kind] ?? 0.1) * k;
+  const pts = lineSamples(l, 40);
+  c.save();
+  if (l.gm && opts.editor) c.globalAlpha = 0.72;
+  c.lineCap = 'round';
+  c.lineJoin = 'round';
+  c.setLineDash([]);
+  switch (l.kind) {
+    case 'rail': {
+      c.strokeStyle = theme.rail;
+      c.lineWidth = base;
+      strokeSamples(c, pts);
+      c.strokeStyle = theme.bg === 'transparent' ? '#ffffff' : theme.bg;
+      c.lineWidth = Math.max(lw * 0.6, base - Math.max(lw * 1.4, base * 0.45));
+      strokeSamples(c, pts);
+      c.strokeStyle = theme.rail;
+      c.lineWidth = Math.max(lw * 0.7, base * 0.22);
+      c.beginPath();
+      along(pts, 0.5, (x, y, nx, ny) => {
+        c.moveTo(x - (nx * base) / 2, y - (ny * base) / 2);
+        c.lineTo(x + (nx * base) / 2, y + (ny * base) / 2);
+      });
+      c.stroke();
+      break;
+    }
+    case 'wall':
+      c.lineCap = 'butt';
+      c.strokeStyle = theme.wall;
+      c.lineWidth = base;
+      strokeSamples(c, pts);
+      break;
+    case 'step': {
+      c.strokeStyle = theme.wall;
+      c.lineWidth = Math.max(lw, base);
+      strokeSamples(c, pts);
+      c.lineWidth = Math.max(lw * 0.7, base * 0.6);
+      c.beginPath();
+      along(pts, 0.3, (x, y, nx, ny) => {
+        c.moveTo(x, y);
+        c.lineTo(x + nx * 0.18 * k, y + ny * 0.18 * k);
+      });
+      c.stroke();
+      break;
+    }
+    case 'rope':
+      c.strokeStyle = theme.furn.ink;
+      c.lineWidth = base;
+      strokeSamples(c, pts);
+      c.strokeStyle = theme.furn.wood;
+      c.lineWidth = base * 0.55;
+      c.lineCap = 'butt';
+      c.setLineDash([base * 1.1, base * 0.5]);
+      strokeSamples(c, pts);
+      c.setLineDash([]);
+      break;
+    case 'arrow': {
+      const t = lineTangent(l, 1);
+      const len = Math.hypot(t.x, t.y) || 1;
+      const ux = t.x / len;
+      const uy = t.y / len;
+      const head = Math.max(0.35, base * 4);
+      /* 曲線停在箭頭的根部，不從箭頭的尖端穿出去 */
+      const end = { x: l.x2 - ux * head * 0.6, y: l.y2 - uy * head * 0.6 };
+      const body = [...pts.slice(0, -1), end];
+      const tip = () => {
+        c.beginPath();
+        c.moveTo(l.x2, l.y2);
+        c.lineTo(l.x2 - ux * head - uy * head * 0.5, l.y2 - uy * head + ux * head * 0.5);
+        c.lineTo(l.x2 - ux * head + uy * head * 0.5, l.y2 - uy * head - ux * head * 0.5);
+        c.closePath();
+      };
+      c.strokeStyle = theme.halo;
+      c.lineWidth = base * 2.2;
+      strokeSamples(c, body);
+      tip();
+      c.lineWidth = base * 1.2;
+      c.stroke();
+      c.strokeStyle = theme.label;
+      c.fillStyle = theme.label;
+      c.lineWidth = base;
+      strokeSamples(c, body);
+      tip();
+      c.fill();
+      break;
+    }
+  }
+  if (l.gm && opts.editor) {
+    c.globalAlpha = 1;
+    c.strokeStyle = theme.gm;
+    c.lineWidth = lw;
+    c.setLineDash([lw * 2, lw * 2]);
+    strokeSamples(c, pts);
+  }
+  c.restore();
+}
+
 /* ---------- 名字與文字 ---------- */
 
 export interface LabelDrawOptions {
@@ -1693,11 +1881,23 @@ export interface DrawFloorOptions {
   tokenGrid?: TokenGridDraw;
   /** 座標標示（2026-10-29，F264；沒有＝不畫） */
   coords?: CoordLabels | null;
+  /** 夜的暗度（2026-11-05，F273；沒有或 0＝白天） */
+  night?: number;
+  /**
+   * 揭露用（公開差分用，2026-11-05，F284）：GM 專用的東西照一般的顏色畫——不畫 GM 的斜線，暗門畫成一般的門
+   * （`revealFloor`：GM 專用的房間、牆、門窗、家具、文字、自由線和一般的畫出來一樣）。
+   */
+  reveal?: boolean;
 }
 
 export function drawFloor(c: Ctx, floorIn: Floor, opts: DrawFloorOptions): ShownFloor {
   const theme = opts.theme;
-  const floor = visibleFloor(floorIn, opts.playerView, opts.hideClues);
+  /* 揭露用（F284）：GM 專用的東西拿掉「GM 專用」、暗門換成門，再照一般的畫 */
+  const floor = visibleFloor(
+    opts.reveal ? revealFloor(floorIn) : floorIn,
+    opts.playerView,
+    opts.hideClues,
+  );
   const lw = lineWidthFor(opts.zoom);
   if (opts.viewRect && opts.background !== false && theme.bg !== 'transparent') {
     c.fillStyle = theme.bg;
@@ -1725,7 +1925,7 @@ export function drawFloor(c: Ctx, floorIn: Floor, opts: DrawFloorOptions): Shown
       c.restore();
       continue;
     }
-    c.fillStyle = roomFill(theme, room, Boolean(CAT[room.cat]?.outdoor));
+    c.fillStyle = floorFill(theme, room, Boolean(CAT[room.cat]?.outdoor));
     fillRoom(room);
     drawPattern(c, room, theme, lw);
   }
@@ -1746,6 +1946,11 @@ export function drawFloor(c: Ctx, floorIn: Floor, opts: DrawFloorOptions): Shown
   const layer = (i: Item) => (ASSET[i.t]?.under ? 0 : ASSET[i.t]?.wall ? 2 : 1);
   for (const item of floor.items) if (layer(item) === 0) drawItem(c, item, theme, lw, opts);
   for (const item of floor.items) if (layer(item) === 1) drawItem(c, item, theme, lw, opts);
+  /*
+   * 夜的暗度與光源（2026-11-05，F273）：蓋在地板與家具上；牆、門窗、貼牆素材、自由線、GM 的斜線、棋子方格、名字與文字
+   * 畫在上面（房間的範圍以外不蓋夜色，牆的外半邊也是，所以牆整條畫在夜色上面才不會一半亮一半暗）
+   */
+  if (opts.night) drawNight(c, floor, theme, opts.night);
 
   const walls = computeWalls(floor, { playerView: opts.playerView });
   for (const run of walls.runs) drawRun(c, run, theme, lw, opts.editor);
@@ -1753,6 +1958,8 @@ export function drawFloor(c: Ctx, floorIn: Floor, opts: DrawFloorOptions): Shown
   for (const o of floor.openings)
     drawOpening(c, o, wallThickness(walls.openingKind.get(o.id)), theme, lw, opts);
   for (const item of floor.items) if (layer(item) === 2) drawItem(c, item, theme, lw, opts);
+  /* 自由線（2026-11-05，F285）：畫在牆、門窗、貼牆素材的上面 */
+  if (floor.lines) for (const l of floor.lines) drawFreeLine(c, l, theme, lw, opts);
 
   if (!opts.playerView) {
     for (const room of floor.rooms) {

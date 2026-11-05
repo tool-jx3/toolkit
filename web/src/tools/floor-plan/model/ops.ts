@@ -4,7 +4,8 @@
  */
 import { isWallMounted } from './assets';
 import { SWING_DOORS } from './catalog';
-import { openingMid, round2, uid } from './geometry';
+import { itemLocalSize, normDeg, openingMid, round2, swapsAxes, uid } from './geometry';
+import { mapLine } from './lines';
 import {
   roomCellArea,
   roomContainsRoom,
@@ -15,6 +16,7 @@ import {
 import { withTabletop } from './tabletop';
 import {
   type Floor,
+  type FreeLine,
   type Item,
   type ObjType,
   type Opening,
@@ -26,14 +28,25 @@ import {
   type Wall,
 } from './types';
 
-export type AnyObj = Room | Item | Opening | Wall | TextLabel;
+export type AnyObj = Room | Item | Opening | Wall | TextLabel | FreeLine;
 
 /** 深拷貝（Immer 的 draft 也可以） */
 export const deepClone = <T>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
 
+/** 這一層的某一類（自由線沒有時是空的；2026-11-05） */
+export const objList = (floor: Floor, type: ObjType): AnyObj[] =>
+  (floor[TYPE_KEY[type]] as AnyObj[] | undefined) ?? [];
+
+/** 把東西加進這一層（自由線的陣列沒有時先建一個） */
+export function pushObj(floor: Floor, type: ObjType, obj: AnyObj): void {
+  if (type === 'line') {
+    if (!floor.lines) floor.lines = [];
+    floor.lines.push(obj as FreeLine);
+  } else (floor[TYPE_KEY[type]] as AnyObj[]).push(obj);
+}
+
 export function getObj(floor: Floor, type: ObjType, id: string): AnyObj | null {
-  const arr = floor[TYPE_KEY[type]] as AnyObj[];
-  return arr.find((o) => o.id === id) ?? null;
+  return objList(floor, type).find((o) => o.id === id) ?? null;
 }
 
 export const refKey = (s: SelRef): string => `${s.type}:${s.id}`;
@@ -62,6 +75,9 @@ export function roomContents(floor: Floor, room: Room): SelRef[] {
     if (r.id !== room.id && roomContainsRoom(room, r)) out.push({ type: 'room', id: r.id });
   for (const w of floor.walls)
     if (closed(w.x1, w.y1) && closed(w.x2, w.y2)) out.push({ type: 'wall', id: w.id });
+  /* 自由線（2026-11-05，F286）：兩端都在房間裡（同手畫的牆） */
+  for (const l of floor.lines ?? [])
+    if (closed(l.x1, l.y1) && closed(l.x2, l.y2)) out.push({ type: 'line', id: l.id });
   return out;
 }
 
@@ -122,9 +138,15 @@ export function existingRefs(floor: Floor, refs: readonly SelRef[]): SelRef[] {
 }
 
 /** 各種類的個數 */
-export function countRefs(refs: readonly SelRef[]): Record<ObjType, number> {
-  const n: Record<ObjType, number> = { room: 0, item: 0, opening: 0, wall: 0, text: 0 };
-  for (const r of refs) n[r.type]++;
+/** 各種類的個數；自由線（2026-11-05）只在有的時候才有 `line` */
+export type RefCounts = Record<Exclude<ObjType, 'line'>, number> & { line?: number };
+
+export function countRefs(refs: readonly SelRef[]): RefCounts {
+  const n: RefCounts = { room: 0, item: 0, opening: 0, wall: 0, text: 0 };
+  for (const r of refs) {
+    if (r.type === 'line') n.line = (n.line ?? 0) + 1;
+    else n[r.type]++;
+  }
   return n;
 }
 
@@ -135,7 +157,7 @@ export function countRefs(refs: readonly SelRef[]): Record<ObjType, number> {
 export function countContents(
   floor: Floor,
   refs: readonly SelRef[],
-): Record<ObjType | 'mounted', number> {
+): RefCounts & { mounted: number } {
   const n = { ...countRefs(refs), mounted: 0 };
   for (const r of refs) {
     if (r.type !== 'item') continue;
@@ -182,6 +204,10 @@ export function movable(floor: Floor, sel: readonly SelRef[], alone = false): Se
 }
 
 export function translateObj(type: ObjType, o: AnyObj, dx: number, dy: number): void {
+  if (type === 'line') {
+    mapLine(o as FreeLine, (x, y) => [round2(x + dx), round2(y + dy)]);
+    return;
+  }
   if (type === 'wall') {
     const w = o as Wall;
     w.x1 = round2(w.x1 + dx);
@@ -195,16 +221,18 @@ export function translateObj(type: ObjType, o: AnyObj, dx: number, dy: number): 
   }
 }
 
-/** 家具以中心轉 delta 度（90 的倍數；寬高對調） */
+/**
+ * 家具以中心轉 delta 度。外框照「最接近的 90°」對調寬深（2026-11-05，F277：任何角度都可以；
+ * 90° 的倍數和以前相同）。角度存成整數度。
+ */
 export function rotateItem(item: Item, delta: number): void {
   const cx = item.x + item.w / 2;
   const cy = item.y + item.h / 2;
-  item.rot = ((((item.rot || 0) + delta) % 360) + 360) % 360;
-  if (Math.abs(delta) % 180 === 90) {
-    const w = item.w;
-    item.w = item.h;
-    item.h = w;
-  }
+  const loc = itemLocalSize(item);
+  item.rot = Math.round(normDeg((item.rot || 0) + delta)) % 360;
+  const swap = swapsAxes(item.rot);
+  item.w = swap ? loc.h : loc.w;
+  item.h = swap ? loc.w : loc.h;
   item.x = round2(cx - item.w / 2);
   item.y = round2(cy - item.h / 2);
 }
@@ -263,6 +291,8 @@ export function rotateRoomsCW(floor: Floor, rooms: readonly Room[], refs: readon
       const w = o as Wall;
       [w.x1, w.y1] = pt(w.x1, w.y1);
       [w.x2, w.y2] = pt(w.x2, w.y2);
+    } else if (type === 'line') {
+      mapLine(o as FreeLine, pt);
     } else {
       rotateOpeningCW(o as Opening, pt);
     }
@@ -307,7 +337,7 @@ export function copyOffset(floor: Floor, refs: readonly SelRef[]): { dx: number;
 /** 複製一個東西（新 id、拿掉鎖定、位移） */
 export function cloneObj<T extends AnyObj>(type: ObjType, o: T, dx: number, dy: number): T {
   const copy = deepClone(o);
-  copy.id = uid(type[0]);
+  copy.id = uid(type === 'line' ? 'l' : type[0]);
   delete (copy as Partial<Room>).locked;
   translateObj(type, copy, dx, dy);
   return copy;
@@ -348,5 +378,6 @@ export function cloneFloor(f: Floor, name: string): Floor {
   copy.name = name;
   for (const type of ['room', 'item', 'opening', 'wall', 'text'] as const)
     for (const o of copy[TYPE_KEY[type]] as AnyObj[]) o.id = uid(type[0]);
+  for (const l of copy.lines ?? []) l.id = uid('l');
   return copy;
 }

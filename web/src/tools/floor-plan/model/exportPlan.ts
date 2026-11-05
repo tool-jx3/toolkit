@@ -29,7 +29,8 @@ export type ExportRange = 'current' | 'all' | 'each';
 /** 匯出設定（記在瀏覽器裡） */
 export interface ExportSettings {
   range: ExportRange;
-  view: 'pl' | 'gm';
+  /** PL 用／GM 用／揭露用（公開差分用：GM 專用的東西照一般的顏色、沒有 GM 字帶，2026-11-05，F284） */
+  view: 'pl' | 'gm' | 'reveal';
   clues: 'show' | 'hide';
   px: ExportPx;
   grid: boolean;
@@ -84,13 +85,15 @@ export function exportOptions(
     coordGrid: p.coords ? coordGrid(p.floors, p.tokenGrid) : null,
     wear: p.wear ? { strength: p.wear, seed: p.wearSeed ?? 0 } : null,
     noNoise: exp.noise === false,
+    ...(p.night ? { night: p.night } : {}),
+    ...(exp.view === 'reveal' ? { reveal: true } : {}),
     showSize: p.showSize,
     hideNames: p.showNames === false,
     playerView: exp.view === 'pl',
     hideClues: exp.clues === 'hide',
     grid: exp.grid,
     transparent: exp.transparent,
-    gmBadge: exp.view === 'pl' ? null : S.badgeGm,
+    gmBadge: exp.view === 'gm' ? S.badgeGm : null,
     tokenGrid: p.tokenGrid ?? 0,
     tokenGridColor: p.tokenGridColor,
     tokenGridOpacity: p.tokenGridOpacity,
@@ -119,7 +122,7 @@ export function exportFileName(
 ): string {
   const parts = [fileBase(p.name)];
   if (floor) parts.push(String(floor.name || '').replace(/[\\/:*?"<>|\s]+/g, '_'));
-  parts.push(exp.view === 'pl' ? 'PL' : 'GM');
+  parts.push(exp.view === 'pl' ? 'PL' : exp.view === 'reveal' ? S.exp.revealSuffix : 'GM');
   if (exp.clues === 'hide' && p.floors.some(floorHasClues)) parts.push(S.exp.noClueSuffix);
   if (cells) parts.push(`${cells.x}x${cells.y}`);
   return `${parts.filter(Boolean).join('_')}.png`;

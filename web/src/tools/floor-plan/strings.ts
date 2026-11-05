@@ -3,7 +3,16 @@
  */
 import type { RoomPresetGroupId, RoomPresetId } from './model/catalog';
 import type { CompatCounts, CompatType } from './model/compat';
-import type { OpeningKind, RoomCategory, SizeMode, ThemeId, WallKind } from './model/types';
+import type { FurnishPresetId } from './model/furnish';
+import type {
+  FloorMaterial,
+  LineKind,
+  OpeningKind,
+  RoomCategory,
+  SizeMode,
+  ThemeId,
+  WallKind,
+} from './model/types';
 
 export const S = {
   title: '室內平面圖產生器',
@@ -41,6 +50,8 @@ export const S = {
     window: '窗',
     text: '文字',
     eraser: '橡皮擦',
+    /** 自由線（2026-11-05，F285） */
+    line: '自由線',
   },
 
   hints: {
@@ -63,6 +74,9 @@ export const S = {
     text: '點一下放一段文字。',
     eraser: '點一下刪掉東西；拖曳可以連續刪掉家具等（房間只能用點的）。',
     noWall: '這裡沒有牆。請靠近房間的外圍，或用牆工具畫的牆。',
+    /** 自由線（2026-11-05，F285） */
+    line: (name: string) =>
+      `「${name}」：拖曳畫一條線（對齊 0.25 格，按住 Alt 不對齊）。選取之後拖兩端的圓點改位置、中間的方塊改彎曲。只是畫在圖上的線，不會變成牆、不擋家具。`,
   },
 
   lib: {
@@ -86,7 +100,38 @@ export const S = {
     tagSuggest: '標籤',
     elsewhere: (n: number) => `其他分類還有 ${n} 件符合。`,
     searchAll: '在全部分類裡找',
+    /** 自由線（2026-11-05，F285） */
+    lines: '自由線',
+    linesNote:
+      '曲線的欄杆、內牆、段差、繩索與箭頭。只是畫在圖上的線：不產生牆、不擋家具，圍起來也不會變成房間。',
   },
+
+  /** 自由線的種類（2026-11-05，F285） */
+  lines: {
+    rail: '曲線的欄杆・手扶',
+    wall: '曲線的內牆',
+    step: '段差',
+    rope: '繩索',
+    arrow: '曲線箭頭',
+  } satisfies Record<LineKind, string>,
+
+  /** 房間的內裝預設（2026-11-05，F275） */
+  furnish: {
+    study: '書房',
+    parlor: '會客室',
+    bedroom: '臥室',
+    lab: '研究室',
+    ritual: '儀式場',
+    bridge: '駕駛台',
+    engine: '輪機室',
+  } satisfies Record<FurnishPresetId, string>,
+
+  /** 房間的地板（2026-11-05，F282） */
+  floorMaterials: {
+    carpet: '地毯',
+    water: '水面',
+    grating: '格柵・鐵板',
+  } satisfies Record<FloorMaterial, string>,
 
   presetGroups: {
     home: '住家',
@@ -369,6 +414,57 @@ export const S = {
     /** 重新產生污漬與摺痕的位置（原本「換一組」） */
     wearShuffle: '重新產生',
     wearShuffleHint: '重新產生污漬與摺痕的位置（可以復原）',
+    /* ---------- 2026-11-05（參考 KIIN マップ制作スタジオ v2.0） ---------- */
+    /** 夜的暗度（F273） */
+    night: '夜的暗度',
+    nightHint:
+      '0% 是白天。房間蓋上夜色，燭台、壁爐、魔法陣、螢幕、窗…是光源，只照亮所在的房間（不是陰影的模擬）。PL 用的圖不含 GM 專用的光源。',
+    /** 整張地圖轉 90°、反轉（F276） */
+    transform: '整張地圖',
+    rotateMap: '轉 90°',
+    flipMapX: '左右反轉',
+    flipMapY: '上下反轉',
+    transformHint:
+      '所有樓層的房間、門窗、家具、文字與自由線一起轉（以所有樓層的範圍為準，樓梯照樣對齊）；文字照樣是正的。下繪圖不跟著轉。',
+    /** 下繪圖（F283） */
+    underlay: '下繪圖',
+    underlayPick: '選圖片…',
+    underlayClear: '拿掉',
+    underlayShow: '顯示下繪圖',
+    underlayOpacity: '不透明度',
+    underlayW: '寬',
+    underlayX: '中心 X',
+    underlayY: '中心 Y',
+    underlayHint:
+      '把手邊的平面圖、截圖疊在畫面上描。只在這個畫面上：不存進專案檔與自動儲存，也不畫進匯出的圖（重新整理後要重新選）。',
+    /** 房間的內裝預設（F275） */
+    furnishTitle: '套用內裝',
+    furnishHint:
+      '這間房的家具換成一組（貼牆素材與隱藏線索留著），位置照「自動擺放家具」排；房間不夠大時少放幾件，還是放不下就不改。可以用「復原」回來。',
+    /** 房間的地板（F282） */
+    floor: '地板',
+    floorAuto: '依種類',
+    floorHint: '只換底色與花紋；牆照房間的種類產生。',
+    /** 家具的角度與倍率（F277、F278） */
+    angle: '角度',
+    angleHint: '0～359°；Shift＋R／Shift＋Q 每次 15°，R／Q 每次 90°。',
+    scale: '倍率',
+    scaleHint: '和這種家具的預設大小相比（0.5～3 倍；寬深一起變）。',
+    /** 圓形配置（F279） */
+    ring: '圓形配置',
+    ring6: '6 個一圈',
+    ring8: '8 個一圈',
+    ringFlip: '內外反轉',
+    ringSelect: '選取整圈',
+    ringHint:
+      '以同一間房裡最近的圓桌、魔法陣、水井、祭壇…（沒有時房間的中心）為圓心，連這一件排成一圈、朝著圓心；已經是一圈時整圈換成 6／8 個。放不下時不改。',
+    ringMember: (n: number) => `這一件在一圈 ${n} 個的圓形配置裡（單獨移動或複製會離開這一圈）。`,
+    /** 自由線（F285、F286） */
+    line: '自由線',
+    lineKind: '線的種類',
+    lineWidth: '粗細',
+    flipX: '左右反轉',
+    flipY: '上下反轉',
   },
 
   mini: {
@@ -433,6 +529,12 @@ export const S = {
     view: '對象',
     pl: 'PL 用（藏起 GM 專用）',
     gm: 'GM 用（全部顯示）',
+    /** 揭露用（公開差分用，2026-11-05，F284） */
+    reveal: '揭露用',
+    revealSuffix: '揭露',
+    revealNote:
+      '揭露秘密時換上去的圖：GM 專用的房間、家具、門、文字與自由線都照一般的顏色畫（沒有「GM 用」字帶與斜線，暗門畫成一般的門）。和 PL 用的圖疊在同一個位置用；公開前請先看過預覽。',
+    revealFrame: '注意：有 GM 專用的東西在 PL 用的圖的範圍外面，這張圖比 PL 用的大，疊圖時對不齊。',
     clues: '隱藏線索',
     cluesShow: '顯示',
     cluesHide: '藏起來',
@@ -592,19 +694,56 @@ export const S = {
     /** 家具跟著房間縮放（F254） */
     followMisfit: (n: number) => `有 ${n} 件家具在新的大小裡放不下，可能疊在一起`,
     copiedVtt: '已複製格數與大小',
+    /* ---------- 2026-11-05（參考 KIIN v2.0） ---------- */
+    /** 整張地圖轉 90°、反轉（F276） */
+    transformed: {
+      rotate: '整張地圖轉了 90°',
+      flipX: '整張地圖左右反轉了',
+      flipY: '整張地圖上下反轉了',
+    },
+    transformEmpty: '地圖是空的，沒有東西可以轉。',
+    /** 內裝預設（F275） */
+    furnished: (room: string, preset: string, n: number, dropped: number) =>
+      dropped
+        ? `已把「${room}」換成${preset}的內裝（${n} 件；房間不夠大，少放 ${dropped} 件）`
+        : `已把「${room}」換成${preset}的內裝（${n} 件）`,
+    furnishFail: {
+      noRoom: '請選一間房間。',
+      kind: '水邊、道路、鐵軌、田地不能套用內裝。',
+      full: (room: string, preset: string) =>
+        `「${room}」放不下${preset}的家具，沒有改變。請把房間放大，或換一組。`,
+    },
+    /** 圓形配置（F279） */
+    ringDone: (n: number) => `已排成 ${n} 個一圈`,
+    ringFlipped: '整圈內外反轉了',
+    ringFail: {
+      noRoom: '家具要放在房間裡才能排成一圈。',
+      tabletop: '上面放著小物的家具不能排成一圈：先把小物移開。',
+      space: '空間不夠，排不成一圈（會出了房間、和別的家具疊在一起或擋到門）。沒有改變。',
+    },
+    /** 15° 的旋轉（F277） */
+    fineRotateItemsOnly: '15° 的旋轉只用在家具上（房間、門窗、牆照 90° 轉）。',
+    /** 下繪圖（F283） */
+    underlayLoaded: '已放上下繪圖（只在這個畫面上，不存檔、不匯出）',
+    underlayFailed: '讀不出這張圖片：請選 PNG、JPEG、WebP 或 GIF（20 MB 以下）。',
   },
 
   /** 刪除有東西的房間（F224） */
   del: {
     title: (rooms: number, name: string) =>
       rooms === 1 ? `刪除「${name || '房間'}」？` : `刪除 ${rooms} 間房間？`,
-    text: (c: Record<'room' | 'item' | 'mounted' | 'opening' | 'wall' | 'text', number>) =>
+    text: (
+      c: Record<'room' | 'item' | 'mounted' | 'opening' | 'wall' | 'text', number> & {
+        line?: number;
+      },
+    ) =>
       `房間裡還有 ${[
         c.item ? `${c.item} 件家具` : '',
         c.mounted ? `${c.mounted} 個貼牆素材` : '',
         c.text ? `${c.text} 則文字` : '',
         c.opening ? `${c.opening} 個門窗` : '',
         c.wall ? `${c.wall} 道牆` : '',
+        c.line ? `${c.line} 條自由線` : '',
         c.room ? `${c.room} 間房間` : '',
       ]
         .filter(Boolean)
@@ -697,6 +836,10 @@ export const S = {
     lroom: 'L 形房間工具（拖曳畫外框；L 是鎖定，所以用 J）',
     connect: '打通選取的兩間房（共用的牆放門，或畫一條走廊）',
     space: '按住拖曳平移畫面',
+    /* 2026-11-05（參考 KIIN v2.0） */
+    line: '自由線工具（曲線的欄杆、內牆、段差、繩索、箭頭）',
+    rotateBack: '反方向旋轉 90°（家具、房間）；放置中的家具反方向轉',
+    rotateFine: '家具轉 15°（Shift＋R、Shift＋E 順時針，Shift＋Q 逆時針）',
   },
   usage: {
     steps: [
@@ -712,6 +855,7 @@ export const S = {
       '地圖設定的「替這一層的房間編號」依位置放上 1、2、3…的圓標（GM 專用的房間排在最後）；文字也可以在右邊改成「圓標」樣式。「專案 → 分享連結…」把地圖放進連結傳給別人：PL 用的連結不含 GM 專用的東西、隱藏線索與 GM 筆記。',
       'L 形房間：工具列的「L 形房間」（J）拖曳畫外框，或在房間的屬性把「形狀」改成 L 形；轉角裡面的菱形控制點改缺角。選兩間房間（Shift＋點一下）按「打通兩間房」（K）：有共用的牆時放一扇門，沒有時自動畫一條直的或 L 形的走廊。選一間房間按「自動擺放家具」：離牆近的靠牆家具貼牆、桌椅成組、門窗前面留空。改房間大小時家具跟著移動（地圖設定可以關掉）；放在桌上的小物（燭台、檯燈、桌上螢幕、筆電…）跟著桌子移動、旋轉、複製。',
       '地圖設定另有「座標標示（A1、B2…）」與「紙的污漬與摺痕」；顯示樣式多了「黑色電影」「監視終端」。匯出時「用途」選「VTT 用」：每格 50／70／100 px、圖的大小是整數格，對話框寫的格數可以複製下來填進 CCFOLIA；「在地圖演出產生器開啟」把圖直接送到地圖演出產生器做演出，有名字的房間的範圍（含 L 形）一起帶過去，在那邊可以一次做成房間遮罩。',
+      '地圖設定的「夜的暗度」把房間蓋上夜色，燭台、壁爐、魔法陣、螢幕與窗會照亮所在的房間（匯出的圖也一樣）；「整張地圖」可以轉 90°、左右或上下反轉；「下繪圖」可以疊一張手邊的圖片來描（不存檔、不匯出）。房間的屬性可以「套用內裝」（書房、會客室、臥室、研究室、儀式場、駕駛台、輪機室，一次換掉房間裡的家具）、換「地板」（地毯、水面、格柵）。家具可以轉任何角度（Shift＋R／Shift＋Q 每次 15°，Q 反方向 90°）、改倍率、排成 6 或 8 個一圈（朝著圓桌或魔法陣）。「自由線」（U）畫曲線的欄杆、內牆、段差、繩索與箭頭。匯出的「揭露用」是把 GM 專用的東西照一般顏色畫的完成圖，揭露秘密時換上去。',
     ],
     note: '地圖自動存在這個瀏覽器裡；要換電腦接著做，用「專案 → 存成專案檔」存下來，再在另一台開啟。原作（TRPG 室內圖メーカー）存的 .trpgmap.json 也可以從「專案」選單匯入（房間、門窗、牆、家具的種類照讀；本工具不認得的會換成相近的種類或略過，並列出來）。做好的平面圖可以自由用在團務、直播與劇本。',
   },

@@ -3,7 +3,8 @@
  * 2026-10-29（參考 KIIN マップ制作スタジオ）：黑色電影、監視終端——房間的底色由彩色樣式的明度推出來（深淺不同的灰／暗綠），
  * 另外有畫面效果（底片顆粒與暗角、掃描線與取景框，draw/effects.ts）。
  */
-import type { RoomCategory, ThemeId } from '../model/types';
+import { FLOOR_FILL_FROM } from '../model/catalog';
+import type { FloorMaterial, RoomCategory, ThemeId } from '../model/types';
 
 /** 家具的配色（每個家具的畫法只用這些名字） */
 export interface FurnPalette {
@@ -61,6 +62,8 @@ export interface FloorTheme {
   font: string;
   /** 畫面效果（2026-10-29）：grain＝底片顆粒＋暗角、scan＝掃描線＋雜訊＋取景框（draw/effects.ts） */
   effect?: 'grain' | 'scan';
+  /** 地毯的底色（房間的地板，2026-11-05，F282；沒有＝預設的底色） */
+  carpet?: string;
 }
 
 export const SANS =
@@ -115,6 +118,7 @@ const clean: FloorTheme = {
     gravel: '#f3f0e7',
     shipdeck: '#e8d5b1',
   },
+  carpet: '#e6c3bd',
   defaultFill: '#ffffff',
   pattern: 'rgba(58, 68, 88, 0.13)',
   furn: {
@@ -283,6 +287,7 @@ const paper: FloorTheme = {
     gravel: '#e9dfc5',
     shipdeck: '#dbc396',
   },
+  carpet: '#d9b08f',
   defaultFill: '#efe2c4',
   pattern: 'rgba(96, 70, 40, 0.14)',
   furn: {
@@ -363,6 +368,7 @@ const horror: FloorTheme = {
     gravel: '#2c2b27',
     shipdeck: '#2f2620',
   },
+  carpet: '#4a2326',
   defaultFill: '#16151a',
   pattern: 'rgba(255, 255, 255, 0.05)',
   furn: {
@@ -441,6 +447,7 @@ const noir: FloorTheme = {
     const v = 34 + t * 34;
     return toHex(v + 3, v + 1, v - 1);
   }),
+  carpet: '#3b3230',
   defaultFill: '#1d1c1a',
   outdoorFill: '#191817',
   pattern: 'rgba(236, 228, 210, 0.08)',
@@ -488,6 +495,7 @@ const terminal: FloorTheme = {
   halo: 'rgba(6, 18, 14, 0.88)',
   /* 暗綠：明度 0～1 → 深到淺 */
   fills: derivedFills((t) => toHex(8 + t * 10, 27 + t * 27, 21 + t * 18)),
+  carpet: '#0f3a2a',
   defaultFill: '#0b1d17',
   outdoorFill: '#08160f',
   pattern: 'rgba(122, 240, 180, 0.09)',
@@ -538,6 +546,20 @@ export const isDarkTheme = (t: Pick<FloorTheme, 'bg'>): boolean =>
 
 export function getTheme(id: string | null | undefined): FloorTheme {
   return (id && THEMES[id as ThemeId]) || clean;
+}
+
+/**
+ * 房間的底色（地板也算進去，2026-11-05，F282）：自訂色 → 地板（地毯的底色；水面、格柵借水邊、格柵地面的顏色）→ 種類的底色…。
+ * 沒有設地板時就是 roomFill（輸出不變）。
+ */
+export function floorFill(
+  theme: FloorTheme,
+  room: { cat: RoomCategory; color?: string; floor?: FloorMaterial },
+  outdoor = false,
+): string {
+  if (room.color || !room.floor) return roomFill(theme, room, outdoor);
+  if (room.floor === 'carpet') return theme.carpet ?? theme.defaultFill;
+  return theme.fills[FLOOR_FILL_FROM[room.floor]] ?? roomFill(theme, room, outdoor);
 }
 
 /** 房間的底色：自訂色 → 種類的底色 → 戶外的底色 → 預設 */
