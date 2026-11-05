@@ -7,6 +7,8 @@
  *
  * 2026-11-05 起世界地圖產生器（world-map）也送圖過來：網址的 # 另外帶 `from=world-map`（還在等的時候就知道是誰送的），
  * 讀到之後看交接資料的 from 決定介面上的稱呼；世界地圖沒有房間的範圍與格子，只問要不要讀入。
+ * 同一天起圖塊地圖編輯器（tile-map，F88）也送圖過來（`from=tile-map`）：沒有房間的範圍（只問要不要讀入），
+ * 帶的「1 格幾 px」照平面圖的做法改房間遮罩 ZIP 的格子大小。房間的範圍只收平面圖帶的。
  *
  * 兩種開法：
  * - 平面圖產生器在點擊的當下開的分頁：網址的 # 帶 `handoff=<id>`，圖晚一點才寫好——顯示「正在接收」等那一筆
@@ -31,12 +33,16 @@ import { S } from './strings';
 /** 寄件的工具（平面圖產生器）與交接的鍵 */
 export const HANDOFF_FROM = 'floor-plan';
 export const HANDOFF_TO = 'map-fx';
-/** 收得下的寄件工具（2026-11-05 加世界地圖產生器） */
-export const HANDOFF_SOURCES: readonly string[] = [HANDOFF_FROM, 'world-map'];
+/** 收得下的寄件工具（2026-11-05 加世界地圖產生器、圖塊地圖編輯器） */
+export const HANDOFF_SOURCES: readonly string[] = [HANDOFF_FROM, 'world-map', 'tile-map'];
 
 /** 介面上的稱呼（平面圖用原本的文字） */
 const textsFor = (from: string | null | undefined) =>
-  from === 'world-map' ? S.handoff.world : S.handoff;
+  from === 'world-map' ? S.handoff.world : from === 'tile-map' ? S.handoff.tile : S.handoff;
+
+/** 這個寄件的工具帶來的東西收不收：房間的範圍只收平面圖的；「1 格幾 px」收平面圖與圖塊地圖的 */
+const takesRooms = (from: string) => from === HANDOFF_FROM;
+const takesGrid = (from: string) => from === HANDOFF_FROM || from === 'tile-map';
 
 /** 網址的 # 裡寫的寄件工具（沒寫時當平面圖） */
 function hashSource(hash: string): string {
@@ -69,7 +75,7 @@ export function FloorPlanHandoff() {
       const hasImage = !!docNow().image;
       const title = hasImage ? T.replaceTitle : T.loadTitle;
       /* 房間的範圍（F85）：有效的房間數、做得出來的遮罩數（框的上限） */
-      const rooms = readHandoffRooms(h.meta);
+      const rooms = takesRooms(h.from) ? readHandoffRooms(h.meta) : null;
       const n = rooms?.list.length ?? 0;
       const made = Math.min(n, LIMITS.frames);
       let withRooms = false;
@@ -123,13 +129,13 @@ export function FloorPlanHandoff() {
             ).frames
           : [];
       setImage(r.ref, masks.length ? { frames: masks } : undefined);
-      const raw = h.meta?.gridPx;
+      const raw = takesGrid(h.from) ? h.meta?.gridPx : undefined;
       const grid = typeof raw === 'number' ? snapRange('grid', raw, -1) : -1;
       const notes: string[] = [];
       if (masks.length) notes.push(S.handoff.madeMasks(masks.length));
       if (grid > 0 && grid === raw) {
         setPrefs({ grid });
-        notes.push(S.handoff.grid(grid));
+        notes.push(h.from === 'tile-map' ? S.handoff.tile.grid(grid) : S.handoff.grid(grid));
       }
       if (!r.persisted) notes.push(S.imageNotSaved);
       toast({

@@ -1020,6 +1020,15 @@ export const TOOLS: readonly ToolEntry[] = [
     status: 'live',
     inspiration: { name: 'KIIN／ワールドマップ制作スタジオ', url: 'https://kiin.booth.pm/' },
   },
+  {
+    id: 'tile-map',
+    name: '圖塊地圖編輯器',
+    summary:
+      '用圖塊一格一格拼戰鬥地圖（像 RPG Maker、Tiled 那樣每格一張圖，和畫向量圖形的「地圖編輯器」不同）：畫筆、填滿、圖形、選取後搬動與轉向，地面、牆壁、物件分圖層；內建簡易地形與 Kenney 的地城圖塊，也能匯入自己的圖塊表（大圖塊一次佔好幾格），匯出 VTT 用的 PNG 或照實際尺寸分頁的列印 PDF。',
+    group: 'G10',
+    status: 'live',
+    inspiration: { name: 'deukrezia／Trials', url: 'https://github.com/deukrezia/trials' },
+  },
 ];
 
 export function getTool(id: string): ToolEntry | undefined {

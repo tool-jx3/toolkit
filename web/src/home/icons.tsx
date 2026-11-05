@@ -4,6 +4,7 @@ import {
   BookHeart,
   BookOpen,
   Box,
+  BrickWall,
   CalendarDays,
   Camera,
   CassetteTape,
@@ -189,6 +190,7 @@ const ICONS: Record<string, LucideIcon> = {
   'floor-plan': House,
   'map-fx': Route,
   'world-map': Compass,
+  'tile-map': BrickWall,
   /* 其他網站 */
   jizura: MicVocal,
   'fantasy-map': Earth,

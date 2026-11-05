@@ -84,6 +84,7 @@
 | family-tree | [Sectr99/Lineage](https://github.com/Sectr99/Lineage)（`47ffdbb`，2026-10-30 新建） | MIT（只取點子：它用 React Flow＋ELK，和本站不同） | 遺傳特質：替人物加特質（是否遺傳；受影響／帶因／未受影響／不明），父母受影響或帶因時子女自動標「帶因」（只標有沒有風險、不算機率，手填的不覆蓋）。其他功能本站已有（relation-chart、多個圖板）；優先度低 | 小 |
 | session-calendar | [knightleft/tw-calendar](https://github.com/knightleft/tw-calendar)（`ee16ee6`，v0.63，2026-10-29；繁中、台灣假日；底本同樣是 utiyoso/taku_calendar） | 未授權（只參考功能） | 「直播曆」的週曆：三種樣式（7 欄格子、一天一列、一天一張直卡）、4:3／16:9／9:16、休息日、強調日（光暈＋徽章）、每天的貼圖、社群連結貼紙、圓形頭像、配色（輪替、從圖取色、命名儲存）、標題描邊。本站只有月曆與年曆。不收：v0.63 的 Google 帳號同步 | 中 |
 | session-log、log-converter | [FreecellRaid/Freecell-log-studio](https://github.com/FreecellRaid/Freecell-log-studio)（v1.4.4，`7e1a3a5`，2026-11-04；10-29 建，簡中） | MIT（Vue 3，和本站不同，只取做法；沿用規則文字要附 UPSTREAM_LICENSE） | 日誌整理的流程：多來源匯入、依日期自動分場景（可以拆、合、拖曳重排）、身分管理（依角色名或帳號聚合、批次改名、指定 PL／NPC／KP／骰子／觀眾）、自訂染色規則（優先順序、多條件）、搜尋與篩選、**自訂匯出範本（佔位符語法）與即時預覽**、TEXT／HTML／DOCX 匯出、專案快照 | 中 |
+| tile-map | [deukrezia/trials](https://github.com/deukrezia/trials)（`dd4f118`，2026-11-05；主控 2026-11-05 裁定這一批不做，規格 D6、D19） | 未授權（程式） | ①讀原作的地圖檔 `.vttmap.json`（圖片是 data URL；Kenney 的圖塊對應得到 `ks:`／`kt:`，原作自己的預設圖塊對應不到、要略過並提醒）；②單一圖塊組的檔案（原作的 `.brushpack.json` 匯出與「Open brush pack…」讀入，F55；目前用圖庫備份代替） | 小～中 |
 
 ## 內部改善
 
@@ -152,7 +153,7 @@
 - 2026-11-05 掃描排除的：
   - 要後端、帳號或 AI：Arbeit2025/trpgposter（Flask）、dan0030/danb、A-1ro/Arkhive、aemeath-projects/bookshelf、AI GM 與骰娘 bot（tkalk1225/trpg-game、xiangshu2026/rp-kp、leon5354/Coc_AI_Runner 等）；pierretusseau/lockpick-minigame 新加的排行榜（Cloudflare Worker）那部分。
   - 桌面程式、手機 App、擴充：utiyoso/scenario-manager 與 uchiyoso_kanri（BOOTH 販售的 Windows 程式，repo 只有宣傳頁）、arcana-hanna/dreamy-loop-editor（Electron＋yt-dlp）、asp0902/CCFOLIA_bookmarklet、wzizary/trpg-obr（Owlbear 擴充）、Foundry 的 CoC 角色卡。
-  - 系統專用：インセイン、D&D 5e、ゆとシートⅡ 的 CCFOLIA 轉換器；deukrezia/trials（像素風戰鬥地圖，免費網頁版與付費桌面版）。
+  - 系統專用：インセイン、D&D 5e、ゆとシートⅡ 的 CCFOLIA 轉換器。
   - 授權不合或沒有授權的重複工具：guaner-334/civ-atlas（AGPL-3.0）、boto-coder/dice 與 1337exp/pkt-dice（3D 骰，未授權；coc-dice 已列 dice-box-threejs）、dan0030/pairinfo（和 pair-maker、relation-chart 重複）、dearmysn1p3r/CdPlayer_Maker（music-frame 已涵蓋）。
   - 和 log-converter 重複的日誌工具：misosiru714/log-theater、guri-dice/log-tools、shockdazou/ccfolia-log-editor、SIRUBEDON/CCfoliaLogConverterWithImages。
   - 資料庫或內容：Tetoriapot/machikado-menu-catalog（虛構店鋪菜單，無授權，資料不能沿用；「依時代與類型抽店鋪」的點子之後可以自己做）、smoke-archive、scenario-shikomi-note（只有 README）；garagaradom/ccfolia-streaming-css（MIT，幾行隱藏 CCFOLIA 介面的 CSS，chat-window 的直播說明可以參考）。
