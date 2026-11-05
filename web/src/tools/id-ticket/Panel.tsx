@@ -54,7 +54,13 @@ import {
   TICKET_ZOOM_MAX,
 } from './model';
 import { autoGradient, qrDensity } from './render';
-import { LanyardField, PhotoFxControls, useSfCodeDense } from './SfPanel';
+import {
+  ElementsSection,
+  LanyardField,
+  PhotoFxControls,
+  useSfCodeDense,
+  WatermarkSection,
+} from './SfPanel';
 import { useIdleValue } from './schedule';
 import { SF_BLANKS, type SfBlankId } from './sf/defs';
 import { SF_ZOOM_MAX } from './sf/model';
@@ -735,6 +741,8 @@ export function IdStyleSection() {
           />
         </Section>
       ) : null}
+      <WatermarkSection target="id" />
+      <ElementsSection target="id" />
     </>
   );
 }

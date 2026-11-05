@@ -13,11 +13,13 @@ import { createPreviewStore, createToolStore, historyGesture } from '@/core/stor
 import { LANYARD_MODES, type LanyardMode } from './lanyard';
 import {
   CAPTION_MAX,
+  cardUnits,
   cleanValue,
   generateCode,
   ID_EXPORT_MODES,
   ID_FACES,
   ID_ZOOM_MAX,
+  type IdDecor,
   type IdExportMode,
   type IdFaces,
   type IdTicketState,
@@ -54,6 +56,8 @@ import {
   sfValueDefaults,
   WHOLE,
 } from './sf/model';
+import { isSfNameRegion, type SfName, type SfNameGender, type SfNameRegion } from './sf/names';
+import { normalizePresets, presetAssetIds, type SfPreset } from './sf/presets';
 import { SF_SCALES, type SfCodeBox } from './sf/render';
 import type { TabId } from './strings';
 import {
@@ -67,8 +71,11 @@ import {
 } from './templates';
 
 export const TOOL_ID = 'id-ticket';
-/** 專案檔與自動儲存的資料版本（2：加 SF 證件、證件照片的效果；1 的照讀） */
-export const DATA_VERSION = 2;
+/**
+ * 專案檔與自動儲存的資料版本（2：加 SF 證件、證件照片的效果；3：SF 證件的條碼種類、晶片、日期格式、效果、數位證件，
+ * 證件的浮水印與裝飾圖；1、2 的照讀）
+ */
+export const DATA_VERSION = 3;
 
 export const useDoc = createToolStore<IdTicketState>(TOOL_ID, initialState(), {
   version: DATA_VERSION,
@@ -131,6 +138,10 @@ export interface Prefs {
   gifLong: number;
   /** GIF 的播放次數（0＝無限循環） */
   plays: number;
+  /** SF 證件的名字產生器的設定（2026-11-05） */
+  sfNames: { region: SfNameRegion; gender: SfNameGender };
+  /** SF 證件的預設集（存在這台裝置，2026-11-05） */
+  sfPresets: SfPreset[];
 }
 
 export const initialPrefs = (): Prefs => ({
@@ -145,6 +156,8 @@ export const initialPrefs = (): Prefs => ({
   mat: true,
   gifLong: 1400,
   plays: 0,
+  sfNames: { region: 'any', gender: 'any' },
+  sfPresets: [],
 });
 
 export const usePrefs = createPreviewStore<Prefs>(TOOL_ID, initialPrefs());
@@ -176,6 +189,11 @@ export const usePrefs = createPreviewStore<Prefs>(TOOL_ID, initialPrefs());
       typeof p.plays === 'number' && Number.isFinite(p.plays)
         ? Math.max(0, Math.min(99, Math.round(p.plays)))
         : 0,
+    sfNames: {
+      region: isSfNameRegion(p.sfNames?.region) ? p.sfNames.region : 'any',
+      gender: p.sfNames?.gender === 'm' || p.sfNames?.gender === 'f' ? p.sfNames.gender : 'any',
+    },
+    sfPresets: normalizePresets(p.sfPresets),
   };
   if (JSON.stringify(fixed) !== JSON.stringify(p)) usePrefs.getState().replace(fixed);
 }
@@ -227,8 +245,12 @@ export const useUi = create<{
 
 export const assets = createAssetStore(TOOL_ID);
 
-/** 目前的狀態與復原紀錄用到的圖（開頁的整理時保留） */
-export const referencedImages = (): Set<string> => referencedAssetIds(useDoc, stateAssetIds);
+/** 目前的狀態與復原紀錄、存著的 SF 證件預設用到的圖（開頁的整理時保留） */
+export function referencedImages(): Set<string> {
+  const ids = referencedAssetIds(useDoc, stateAssetIds);
+  for (const id of presetAssetIds(prefsNow().sfPresets)) ids.add(id);
+  return ids;
+}
 
 /* ---------- 類別與範本 ---------- */
 
@@ -242,6 +264,7 @@ export function setKind(kind: Kind): void {
 /** 換證件範本：回到正面（同原作） */
 export function setIdTemplate(id: IdTemplateId): void {
   setPrefs({ side: 'front' });
+  useUi.setState({ element: null });
   if (docNow().idTemplate === id) return;
   edit((d) => {
     d.idTemplate = id;
@@ -588,10 +611,52 @@ export function setWatermark(patch: Partial<SfWatermark>): void {
   });
 }
 
-/* ---------- 裝飾圖（每一款各自） ---------- */
+/* ---------- 證件的浮水印與裝飾圖（2026-11-05） ---------- */
 
-export const currentElements = (d: IdTicketState = docNow()): SfElement[] =>
-  d.sf.elements[d.sf.blank] ?? [];
+export function setIdWatermark(patch: Partial<SfWatermark>): void {
+  edit((d) => {
+    Object.assign(d.idDecor.watermark, patch);
+  });
+}
+
+export function setIdDecor(patch: Partial<Pick<IdDecor, 'side' | 'photoOverElements'>>): void {
+  edit((d) => {
+    Object.assign(d.idDecor, patch);
+  });
+}
+
+/* ---------- 裝飾圖（SF 證件：每一款各自；證件：每一款的每一面各自） ---------- */
+
+/** 目前的裝飾圖（SF 證件：這一款；證件：這一款顯示的那一面；票券沒有） */
+export function currentElements(
+  d: IdTicketState = docNow(),
+  side: Side = prefsNow().side,
+): SfElement[] {
+  if (d.kind === 'sf') return d.sf.elements[d.sf.blank] ?? [];
+  if (d.kind === 'id') return d.idDecor.elements[d.idTemplate]?.[side] ?? [];
+  return [];
+}
+
+/** 改的時候用（edit 裡的草稿） */
+function elementList(d: IdTicketState): SfElement[] {
+  if (d.kind === 'sf') return d.sf.elements[d.sf.blank];
+  if (d.kind === 'id') return d.idDecor.elements[d.idTemplate][prefsNow().side];
+  return [];
+}
+
+function setElementList(d: IdTicketState, list: SfElement[]): void {
+  if (d.kind === 'sf') d.sf.elements[d.sf.blank] = list;
+  else if (d.kind === 'id') d.idDecor.elements[d.idTemplate][prefsNow().side] = list;
+}
+
+/** 裝飾圖的座標用的卡片大小（SF 證件：原生像素；證件：成品的設計單位） */
+export function elementFrame(d: IdTicketState = docNow()): { w: number; h: number } {
+  if (d.kind === 'sf') {
+    const b = sfBlank(d.sf.blank);
+    return { w: b.w, h: b.h };
+  }
+  return cardUnits(idTemplate(d.idTemplate).orientation);
+}
 
 /** 放一張新的裝飾圖：在這一款的「標誌位置」或卡片中央（同一個位置已經有的話錯開一點） */
 export function addElement(
@@ -599,10 +664,10 @@ export function addElement(
   spot: { x: number; y: number; size: number } | null,
 ): string | null {
   const d0 = docNow();
-  if (currentElements(d0).length >= SF_ELEMENT_MAX) return null;
+  if (d0.kind === 'ticket' || currentElements(d0).length >= SF_ELEMENT_MAX) return null;
   const id = newElementId();
   edit((d) => {
-    const list = d.sf.elements[d.sf.blank];
+    const list = elementList(d);
     const el: SfElement = {
       id,
       image,
@@ -626,7 +691,7 @@ export function addElement(
 
 export function patchElement(id: string, patch: Partial<Omit<SfElement, 'id' | 'image'>>): void {
   edit((d) => {
-    const el = d.sf.elements[d.sf.blank].find((x) => x.id === id);
+    const el = elementList(d).find((x) => x.id === id);
     if (!el) return;
     Object.assign(el, patch);
     el.size = Math.min(ELEMENT_SIZE_RANGE.max, Math.max(ELEMENT_SIZE_RANGE.min, el.size));
@@ -640,17 +705,55 @@ export function patchElement(id: string, patch: Partial<Omit<SfElement, 'id' | '
 export function removeElement(id: string): void {
   if (useUi.getState().element === id) useUi.setState({ element: null });
   edit((d) => {
-    d.sf.elements[d.sf.blank] = d.sf.elements[d.sf.blank].filter((x) => x.id !== id);
+    setElementList(
+      d,
+      elementList(d).filter((x) => x.id !== id),
+    );
   });
 }
 
 /** 上一層（dir 1）／下一層（−1） */
 export function moveElement(id: string, dir: 1 | -1): void {
   edit((d) => {
-    const list = d.sf.elements[d.sf.blank];
+    const list = elementList(d);
     const i = list.findIndex((x) => x.id === id);
     const j = i + dir;
     if (i < 0 || j < 0 || j >= list.length) return;
     [list[i], list[j]] = [list[j], list[i]];
+  });
+}
+
+/* ---------- SF 證件：名字產生器（2026-11-05） ---------- */
+
+/** 填入產生的名字：名、姓，活動證的稱謂（MR／MS）、公民 ID 的性別（M／F）；一步復原 */
+export function applySfName(n: SfName): void {
+  const d0 = docNow();
+  const def = sfBlank(d0.sf.blank);
+  const has = (key: string) => def.fields.find((f) => f.key === key);
+  edit((d) => {
+    const put = (key: string, v: string) => {
+      const f = has(key);
+      if (f) d.sf.values[key] = cleanValue(f, v);
+    };
+    put('given', n.given);
+    put('surname', n.surname);
+    if (d.sf.blank === 'event') put('title', n.gender === 'f' ? 'MS' : 'MR');
+    if (d.sf.blank === 'citizen') put('sex', n.gender === 'f' ? 'F' : 'M');
+  });
+}
+
+/** 這一款有名字的欄位（名、姓） */
+export const sfHasNames = (d: IdTicketState = docNow()): boolean =>
+  sfBlank(d.sf.blank).fields.some((f) => f.key === 'given');
+
+/* ---------- SF 證件：預設集（2026-11-05） ---------- */
+
+export const savedPresets = (): SfPreset[] => prefsNow().sfPresets;
+
+/** 換掉整張 SF 證件（套用預設；一步復原） */
+export function replaceSf(next: IdTicketState['sf']): void {
+  useUi.setState({ element: null });
+  edit((d) => {
+    d.sf = structuredClone(next);
   });
 }

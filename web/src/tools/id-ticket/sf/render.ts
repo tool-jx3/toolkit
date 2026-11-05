@@ -17,8 +17,11 @@ import {
   strapGeometry,
 } from '../lanyard';
 import type { Photo } from '../model';
+import { S } from '../strings';
+import { isScannableCode } from './codes';
 import { sfBlank } from './defs';
-import { drawSf } from './draw';
+import { type DigitalLayout, digitalCardOffset, digitalLayout, paintDigital } from './digital';
+import { drawSf, sfCardBounds } from './draw';
 import type { Rect } from './geom';
 import type { SfState } from './model';
 
@@ -59,11 +62,32 @@ export function sfPhotoSource(
 /** 往上延伸的掛繩（原生像素；不畫掛繩時 0） */
 export const sfStrapExtent = (mode: LanyardMode): number => (lanyardStrap(mode) ? SF_STRAP_PX : 0);
 
-/** 整張的大小（原生像素：卡片＋往上延伸的掛繩） */
-export function sfSize(s: SfState, mode: LanyardMode): { w: number; h: number; top: number } {
+/** 卡片的畫布（原生像素：卡片＋往上延伸的掛繩） */
+function cardSize(s: SfState, mode: LanyardMode): { w: number; h: number; top: number } {
   const b = sfBlank(s.blank);
   const top = sfStrapExtent(mode);
   return { w: b.w, h: b.h + top, top };
+}
+
+/** 數位證件的場景（關著時 null） */
+export const sfDigitalLayout = (s: SfState, mode: LanyardMode): DigitalLayout | null => {
+  if (!s.style.digital) return null;
+  const c = cardSize(s, mode);
+  return digitalLayout(c.w, c.h);
+};
+
+/**
+ * 整張的大小（原生像素：卡片＋往上延伸的掛繩；數位證件是整個場景）；
+ * x、y＝卡片的畫布在整張裡的位置（數位證件以外是 0）。
+ */
+export function sfSize(
+  s: SfState,
+  mode: LanyardMode,
+): { w: number; h: number; top: number; x: number; y: number } {
+  const c = cardSize(s, mode);
+  const d = sfDigitalLayout(s, mode);
+  if (!d) return { ...c, x: 0, y: 0 };
+  return { w: d.w, h: d.h, top: c.top, x: d.x, y: d.y };
 }
 
 /** 輸出的像素 */
@@ -117,6 +141,15 @@ export function paintSf(
   return r;
 }
 
+/** 數位證件的字（讀數、連線紀錄） */
+export const sfDigitalTexts = () => ({
+  readout: S.digitalReadout,
+  log: S.digitalLog,
+});
+
+/** 數位證件：卡片先畫在另一張畫布（預覽重用同一張） */
+let cardScratch: AnyCanvas | null = null;
+
 export function renderSf(
   s: SfState,
   k: number,
@@ -125,8 +158,55 @@ export function renderSf(
 ): { canvas: AnyCanvas; regions: Region[]; logoSpot: Rect | null } {
   const { width, height } = sfPixels(s, k, o.lanyard);
   const canvas = into ? reuse(into, width, height) : makeCanvas(width, height);
-  const r = paintSf(ctxOf(canvas), s, k, o);
+  const layout = sfDigitalLayout(s, o.lanyard);
+  if (!layout) {
+    const r = paintSf(ctxOf(canvas), s, k, o);
+    return { canvas, ...r };
+  }
+  const c = cardSize(s, o.lanyard);
+  const cw = Math.round(c.w * k);
+  const ch = Math.round(c.h * k);
+  let card: AnyCanvas;
+  if (into) {
+    cardScratch = cardScratch ? reuse(cardScratch, cw, ch) : makeCanvas(cw, ch);
+    card = cardScratch;
+  } else card = makeCanvas(cw, ch);
+  const r = paintSf(ctxOf(card), s, k, o);
+  composeDigital(ctxOf(canvas), s, k, layout, card, c.top, o.fonts);
   return { canvas, ...r };
+}
+
+function composeDigital(
+  ctx: C2D,
+  s: SfState,
+  k: number,
+  layout: DigitalLayout,
+  card: AnyCanvas,
+  top: number,
+  fonts?: Map<string, Set<string>>,
+): void {
+  const shape = sfCardBounds(s.blank);
+  const env = fonts
+    ? { ctx, preview: true, value: () => '', label: () => '', photo: null, regions: [], fonts }
+    : null;
+  paintDigital(ctx, {
+    card: card as CanvasImageSource & { width: number; height: number },
+    k,
+    layout,
+    shape: { ...shape, y: shape.y + top },
+    bg: s.style.digitalBg,
+    accent: s.style.accent,
+    ink: s.style.ink,
+    seed: s.values.number ?? '',
+    texts: sfDigitalTexts(),
+    env,
+  });
+}
+
+/** 卡片的畫布在整張裡的位置（畫布像素；數位證件以外是 0） */
+export function sfCardOffset(s: SfState, k: number, mode: LanyardMode): { x: number; y: number } {
+  const layout = sfDigitalLayout(s, mode);
+  return layout ? digitalCardOffset(layout, k) : { x: 0, y: 0 };
 }
 
 /** 用到的字型（畫一次不顯示） */
@@ -134,12 +214,13 @@ export function sfFontUses(s: SfState): FontUse[] {
   const fonts = new Map<string, Set<string>>();
   const ctx = ctxOf(makeCanvas(1, 1));
   paintSf(ctx, s, 1, { preview: true, photo: null, image: () => null, fonts, lanyard: 'none' });
+  if (s.style.digital) composeDigital(ctx, s, 1, digitalLayout(1, 1), makeCanvas(1, 1), 0, fonts);
   return fontUses(fonts);
 }
 
-/** SF 證件的檔名：`sf-<範本>.png`（2 倍 `sf-<範本>-2x.png`） */
+/** SF 證件的檔名：`sf-<範本>.png`（2 倍 `sf-<範本>-2x.png`；數位證件 `sf-<範本>-digital.png`） */
 export const sfFileName = (s: SfState, k: number): string =>
-  `sf-${s.blank}${k === 1 ? '' : `-${k}x`}.png`;
+  `sf-${s.blank}${s.style.digital ? '-digital' : ''}${k === 1 ? '' : `-${k}x`}.png`;
 
 /* ---------- 條碼與 QR code 的密度（規格 D39、D40 修訂） ---------- */
 
@@ -171,7 +252,7 @@ export interface SfCodeDensity {
 
 /** 目前這一款的碼在 k 倍匯出時每格幾 px；沒有碼或內容不能編碼時 null */
 export function sfCodeDensity(s: SfState, box: SfCodeBox | null, k: number): SfCodeDensity | null {
-  if (!box || !s.style.barcode) return null;
+  if (!box || !s.style.barcode || !isScannableCode(s.style.code)) return null;
   const key = sfBlank(s.blank).codeKey;
   const value = s.values[key] ?? '';
   if (box.kind === 'qr') {

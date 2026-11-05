@@ -9,9 +9,18 @@ import { qrMatrix } from '@/core/qr/encode';
 import { mix, rgbOf, tint } from './colors';
 import { employee, highschool, press, university } from './faces/cards1';
 import { detective, member, police } from './faces/cards2';
-import type { IdEnv, IdFaces } from './faces/common';
+import type { GroundHole, IdEnv, IdFaces } from './faces/common';
 import { TICKET_DRAWINGS, type TicketEnv, ticketPalette } from './faces/tickets';
-import { type Ctx, type FontUse, fontUses, type PhotoSource, type Region, rrect } from './kit';
+import {
+  type Ctx,
+  ctxScale,
+  type DrawEnv,
+  type FontUse,
+  fontUses,
+  type PhotoSource,
+  type Region,
+  rrect,
+} from './kit';
 import { drawStrap, ID_STRAP_U, idSlot, idStrapColor, slotPoly, strapGeometry } from './lanyard';
 import {
   BLEED_U,
@@ -27,6 +36,7 @@ import {
   type Side,
   UNITS_PER_MM,
 } from './model';
+import { type GroundPaint, paintElements, paintWatermark } from './sf/draw';
 import { polyPath } from './sf/geom';
 import { sfFontUses } from './sf/render';
 import {
@@ -123,6 +133,49 @@ export interface FaceDrawOptions {
   fonts?: Map<string, Set<string>>;
   /** 打了掛繩孔（證件：上緣的字避開孔，D32） */
   slot?: boolean;
+  /** 讀好的圖（證件的浮水印與裝飾圖；不給時不畫圖片的浮水印與裝飾圖） */
+  image?: (id: string) => CanvasImageSource | null;
+}
+
+/** 證件浮水印的單位：SF 證件的 1 原生像素＝0.3 設計單位（同照片效果的網點，ID_DOT_UNIT） */
+export const ID_GROUND_UNIT = 0.3;
+
+/** 這一面有沒有浮水印或裝飾圖（沒有時不給 ground，畫法和以前逐指令相同） */
+export function idHasGround(s: IdTicketState, side: Side): boolean {
+  const d = s.idDecor;
+  const wm = d.watermark;
+  const wmOn = wm.mode !== 'off' && !!wm.amount && (d.side === 'both' || d.side === side);
+  return wmOn || d.elements[s.idTemplate][side].length > 0;
+}
+
+/** 浮水印與裝飾圖（「底」畫完之後；faces/common.ts 的 ground） */
+function idGround(
+  env: IdEnv,
+  s: IdTicketState,
+  side: Side,
+  o: FaceDrawOptions,
+): (hole: GroundHole | null) => void {
+  const d = s.idDecor;
+  const style = s.idStyles[s.idTemplate];
+  const { W, H, B } = env;
+  return (hole) => {
+    const g: GroundPaint = {
+      W,
+      H,
+      area: (ctx) => ctx.rect(-B, -B, W + B * 2, H + B * 2),
+      hole: hole ? (ctx) => rrect(ctx, hole.x, hole.y, hole.w, hole.h, hole.r) : null,
+      ink: style.dark ? '#f1f2f4' : '#17181c',
+      accent: style.color,
+      card: style.dark ? '#15171c' : '#ffffff',
+      unit: ID_GROUND_UNIT,
+      font: 'sans',
+      k: ctxScale(env.ctx),
+      image: o.image ?? (() => null),
+    };
+    if (d.side === 'both' || d.side === side) paintWatermark(env as DrawEnv, d.watermark, g);
+    const list = d.elements[s.idTemplate][side];
+    if (list.length) paintElements(env.ctx, list, g, d.photoOverElements);
+  };
 }
 
 /** 在 ctx 目前的變換下（原點＝成品左上角、單位＝設計單位）畫一面；回傳可以點的範圍 */
@@ -163,6 +216,7 @@ export function drawIdFace(ctx: Ctx, s: IdTicketState, side: Side, o: FaceDrawOp
           }
         : undefined,
   };
+  if (idHasGround(s, side)) env.ground = idGround(env, s, side, o);
   ctx.save();
   FACES[tpl.id][side](env);
   ctx.restore();

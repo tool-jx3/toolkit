@@ -7,6 +7,9 @@ import { normalizePlacement } from '@/core/image';
 import { generateCode, generateDate, normalizeHexColor, oneLine, type Photo } from '../model';
 import { normalizePhotoFx, PHOTO_FX_DEFAULT, type PhotoFx } from '../photofx';
 import { type FieldDef, fieldMax } from '../templates';
+import { isSfChipType, type SfChipType } from './chips';
+import { isSfCodeType, type SfCodeType } from './codes';
+import { isSfDateFormat, type SfDateFormat } from './dates';
 import {
   SF_BLANK_IDS,
   SF_BLANKS,
@@ -20,17 +23,36 @@ import {
   sfCaptionMax,
 } from './defs';
 import { SF_FRAME_IDS, type SfFrameId } from './frames';
+import { FX_AMOUNT_RANGE, SF_FX_DEFAULT } from './fx';
 import { LICENSE_CAP_MAX, LICENSE_KEYS } from './licenses';
 
-export type SfCodeType = 'barcode' | 'qr';
+export type { SfCodeType } from './codes';
 
 export interface SfStyle {
   card: string;
   ink: string;
   accent: string;
   frame: SfFrameId;
-  /** 條碼的種類：Code 128 條碼或 QR code（2D 的放在方形的位置） */
+  /**
+   * 條碼的種類：Code 128 條碼（'barcode'）、QR code，或看起來像的 EAN-13、四態郵政、堆疊、點碼（2026-11-05；
+   * 2D 的〔QR code、點碼〕放在方形的位置）
+   */
   code: SfCodeType;
+  /** 晶片的種類（2026-11-05；以前只有 ISO 接觸式） */
+  chipType: SfChipType;
+  /** 卡上日期的格式（2026-11-05；預設照打的 YYYY-MM-DD） */
+  dateFmt: SfDateFormat;
+  /** 卡片效果（2026-11-05）：光暈、顆粒、掃描線與強度（5～100%） */
+  glow: boolean;
+  glowAmt: number;
+  grain: boolean;
+  grainAmt: number;
+  scan: boolean;
+  scanAmt: number;
+  /** 數位證件的場景（2026-11-05；開著時匯出整個場景） */
+  digital: boolean;
+  /** 數位證件的背景（null＝夜色） */
+  digitalBg: string | null;
   stripes: boolean;
   slashes: boolean;
   /** 條碼（或 QR code）要不要畫 */
@@ -143,6 +165,11 @@ export const defaultSfStyle = (): SfStyle => ({
   accent: SF_SCHEMES[0].accent,
   frame: 'notch',
   code: 'barcode',
+  chipType: 'contact',
+  dateFmt: 'iso',
+  ...SF_FX_DEFAULT,
+  digital: false,
+  digitalBg: null,
   stripes: true,
   slashes: true,
   barcode: true,
@@ -250,7 +277,20 @@ function normalizeStyle(raw: unknown): SfStyle {
     frame: (SF_FRAME_IDS as readonly string[]).includes(raw.frame as string)
       ? (raw.frame as SfFrameId)
       : d.frame,
-    code: raw.code === 'qr' ? 'qr' : 'barcode',
+    code: isSfCodeType(raw.code) ? raw.code : d.code,
+    chipType: isSfChipType(raw.chipType) ? raw.chipType : d.chipType,
+    dateFmt: isSfDateFormat(raw.dateFmt) ? raw.dateFmt : d.dateFmt,
+    glow: bool(raw.glow, d.glow),
+    glowAmt: Math.round(num(raw.glowAmt, d.glowAmt, FX_AMOUNT_RANGE.min, FX_AMOUNT_RANGE.max)),
+    grain: bool(raw.grain, d.grain),
+    grainAmt: Math.round(num(raw.grainAmt, d.grainAmt, FX_AMOUNT_RANGE.min, FX_AMOUNT_RANGE.max)),
+    scan: bool(raw.scan, d.scan),
+    scanAmt: Math.round(num(raw.scanAmt, d.scanAmt, FX_AMOUNT_RANGE.min, FX_AMOUNT_RANGE.max)),
+    digital: bool(raw.digital, d.digital),
+    digitalBg:
+      raw.digitalBg === null || raw.digitalBg === undefined
+        ? null
+        : normalizeHexColor(raw.digitalBg, '') || null,
     stripes: bool(raw.stripes, d.stripes),
     slashes: bool(raw.slashes, d.slashes),
     barcode: bool(raw.barcode, d.barcode),
@@ -264,8 +304,7 @@ function normalizeStyle(raw: unknown): SfStyle {
   };
 }
 
-function normalizeWatermark(raw: unknown): SfWatermark {
-  const d = defaultWatermark();
+export function normalizeWatermark(raw: unknown, d: SfWatermark = defaultWatermark()): SfWatermark {
   if (!isObj(raw)) return d;
   const r = WM_RANGES;
   return {
@@ -292,7 +331,7 @@ let elSeq = 0;
 export const newElementId = (): string =>
   `e${Date.now().toString(36)}${(elSeq++).toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 
-function normalizeElement(raw: unknown, seen: Set<string>): SfElement | null {
+export function normalizeElement(raw: unknown, seen: Set<string>): SfElement | null {
   if (!isObj(raw)) return null;
   const image = normalizeImageRef(raw.image);
   if (!image) return null;

@@ -38,6 +38,7 @@ import {
 import { CropDialog } from '@/ui/CropDialog';
 import { cn } from '@/ui/cn';
 import { LANYARD_MODES, type LanyardMode } from './lanyard';
+import { WATERMARK_SIDES, type WatermarkSide } from './model';
 import {
   PHOTO_DOT_RANGE,
   PHOTO_FX_IDS,
@@ -45,6 +46,9 @@ import {
   type PhotoFx,
   type PhotoFxId,
 } from './photofx';
+import { SF_CHIP_TYPES, type SfChipType } from './sf/chips';
+import { SF_CODE_TYPES } from './sf/codes';
+import { formatYmd, SF_DATE_FORMATS, SF_DATE_KEYS, type SfDateFormat } from './sf/dates';
 import {
   SF_CAPTION_LABELS,
   SF_CAPTIONS,
@@ -53,8 +57,10 @@ import {
   sfBlank,
   sfCaptionMax,
 } from './sf/defs';
+import { DIGITAL_SWATCHES } from './sf/digital';
 import { drawLicenseShapes, licenseCaption } from './sf/draw';
 import { SF_FRAME_IDS, SF_FRAME_LABELS, type SfFrameId } from './sf/frames';
+import { FX_AMOUNT_RANGE } from './sf/fx';
 import { LICENSE_CAP_MAX, LICENSES } from './sf/licenses';
 import {
   applyElementCrop,
@@ -87,11 +93,13 @@ import {
   removeElement,
   resetLicense,
   resetSfCaption,
+  setIdDecor,
+  setIdWatermark,
   setLicenseCap,
   setPrefs,
   setSfCaption,
   setSfStyle,
-  setWatermark,
+  setWatermark as setSfWatermark,
   TOOL_ID,
   toggleLicense,
   useDoc,
@@ -508,14 +516,40 @@ export function SfStyleSection() {
         ) : null}
         {st.barcode ? (
           <Field label={S.codeType} hint={S.codeTypeHint}>
-            <Segmented<SfCodeType>
+            <Select<SfCodeType>
               value={st.code}
               onValueChange={(v) => setSfStyle({ code: v })}
-              options={[
-                { value: 'barcode', label: S.codeTypes.barcode },
-                { value: 'qr', label: S.codeTypes.qr },
-              ]}
-              fullWidth
+              options={SF_CODE_TYPES.map((c) => ({ value: c, label: S.codeTypes[c] }))}
+              aria-label={S.codeType}
+              data-testid="sf-code-type"
+            />
+          </Field>
+        ) : null}
+        {has('chip') && st.chip ? (
+          <Field label={S.chipType} hint={S.chipTypeHint}>
+            <Select<SfChipType>
+              value={st.chipType}
+              onValueChange={(v) => setSfStyle({ chipType: v })}
+              options={SF_CHIP_TYPES.map((c) => ({ value: c, label: S.chipTypes[c] }))}
+              aria-label={S.chipType}
+              data-testid="sf-chip-type"
+            />
+          </Field>
+        ) : null}
+        {def.fields.some((f) => SF_DATE_KEYS.includes(f.key)) ? (
+          <Field label={S.dateFmt} hint={S.dateFmtHint}>
+            <Select<SfDateFormat>
+              value={st.dateFmt}
+              onValueChange={(v) => setSfStyle({ dateFmt: v })}
+              options={SF_DATE_FORMATS.map((f) => ({
+                value: f,
+                label:
+                  f === 'iso'
+                    ? S.dateFmtAsTyped(formatYmd(DATE_SAMPLE, f))
+                    : formatYmd(DATE_SAMPLE, f),
+              }))}
+              aria-label={S.dateFmt}
+              data-testid="sf-date-fmt"
             />
           </Field>
         ) : null}
@@ -529,16 +563,116 @@ export function SfStyleSection() {
         </Field>
         <LanyardField note={sf.blank === 'pass' ? S.lanyardPassNote : undefined} />
       </Section>
-      <WatermarkSection />
-      <ElementsSection />
+      <FxSection />
+      <DigitalSection />
+      <WatermarkSection target="sf" />
+      <ElementsSection target="sf" />
     </>
+  );
+}
+
+/** 日期格式的選項用的日期（同原作的例子） */
+const DATE_SAMPLE = { y: 2077, m: 10, d: 31 };
+
+/* ---------- 效果（光暈、顆粒、掃描線） ---------- */
+
+function FxSection() {
+  const st = useDoc((s) => s.data.sf.style);
+  const row = (
+    key: 'glow' | 'grain' | 'scan',
+    amt: 'glowAmt' | 'grainAmt' | 'scanAmt',
+    label: string,
+  ) => (
+    <div className="flex min-w-0 flex-col gap-2">
+      <Toggle label={label} checked={st[key]} onCheckedChange={(v) => setSfStyle({ [key]: v })} />
+      {st[key] ? (
+        <Slider
+          aria-label={S.fxAmount(label)}
+          value={st[amt]}
+          min={FX_AMOUNT_RANGE.min}
+          max={FX_AMOUNT_RANGE.max}
+          step={1}
+          unit="%"
+          onChange={gesture.live((v: number) => setSfStyle({ [amt]: v }))}
+          onCommit={gesture.commit}
+        />
+      ) : null}
+    </div>
+  );
+  return (
+    <Section title={S.sectionFx} persistKey="id-ticket:sf-fx" description={S.fxHint}>
+      <div className="flex min-w-0 flex-col gap-3" data-testid="sf-fx">
+        {row('glow', 'glowAmt', S.fxGlow)}
+        {row('grain', 'grainAmt', S.fxGrain)}
+        {row('scan', 'scanAmt', S.fxScan)}
+      </div>
+    </Section>
+  );
+}
+
+/* ---------- 數位證件 ---------- */
+
+function DigitalSection() {
+  const st = useDoc((s) => s.data.sf.style);
+  const bg = st.digitalBg;
+  const custom = !!bg && !DIGITAL_SWATCHES.includes(bg);
+  const swatch = (value: string | null, label: string, background: string) => {
+    const on = value === bg;
+    return (
+      <button
+        key={value ?? 'night'}
+        type="button"
+        aria-label={label}
+        title={label}
+        aria-pressed={on}
+        className={cn(
+          'focus-visible:focus-ring size-7 cursor-pointer rounded-md border border-border p-0',
+          on && 'ring-2 ring-accent ring-offset-2 ring-offset-surface',
+        )}
+        style={{ background }}
+        onClick={() => setSfStyle({ digitalBg: value })}
+      />
+    );
+  };
+  return (
+    <Section title={S.sectionDigital} persistKey="id-ticket:sf-digital" description={S.digitalHint}>
+      <Toggle
+        label={S.digitalToggle}
+        checked={st.digital}
+        onCheckedChange={(v) => setSfStyle({ digital: v })}
+        data-testid="sf-digital"
+      />
+      {st.digital ? (
+        <Field label={S.digitalBg}>
+          <div className="flex min-w-0 flex-col gap-2">
+            <fieldset
+              className="m-0 flex min-w-0 flex-wrap gap-1.5 border-0 p-0"
+              aria-label={S.digitalBg}
+            >
+              {swatch(null, S.digitalNight, 'radial-gradient(#0a0d16, #030307)')}
+              {DIGITAL_SWATCHES.map((c) => swatch(c, S.digitalSwatch(c), c))}
+            </fieldset>
+            <GestureScope gesture={gesture}>
+              <ColorField
+                aria-label={S.digitalCustom}
+                value={custom && bg ? bg : '#2b1055'}
+                onChange={(c) => setSfStyle({ digitalBg: c })}
+              />
+            </GestureScope>
+          </div>
+        </Field>
+      ) : null}
+    </Section>
   );
 }
 
 /* ---------- 浮水印 ---------- */
 
-function WatermarkSection() {
-  const wm = useDoc((s) => s.data.sf.watermark);
+/** 浮水印（SF 證件：5 款共用；證件：7 款共用，另外選印在哪一面） */
+export function WatermarkSection({ target }: { target: 'sf' | 'id' }) {
+  const wm = useDoc((s) => (target === 'sf' ? s.data.sf.watermark : s.data.idDecor.watermark));
+  const side = useDoc((s) => s.data.idDecor.side);
+  const setWatermark = target === 'sf' ? setSfWatermark : setIdWatermark;
   const toast = useToast();
   const r = WM_RANGES;
   const slider = (
@@ -562,157 +696,176 @@ function WatermarkSection() {
   return (
     <Section
       title={S.sectionWatermark}
-      persistKey="id-ticket:sf-watermark"
-      description={S.watermarkHint}
+      persistKey={target === 'sf' ? 'id-ticket:sf-watermark' : 'id-ticket:id-watermark'}
+      description={target === 'sf' ? S.watermarkHint : S.idWatermarkHint}
     >
-      <Segmented<WatermarkMode>
-        aria-label={S.sectionWatermark}
-        value={wm.mode}
-        onValueChange={(v) => setWatermark({ mode: v })}
-        options={(['off', 'text', 'image'] as const).map((m) => ({
-          value: m,
-          label: S.wmModes[m],
-        }))}
-        fullWidth
-      />
-      {wm.mode === 'text' ? (
-        <Field label={S.wmText}>
-          <TextInput
-            value={wm.text}
-            maxLength={WM_TEXT_MAX * 2}
-            data-field="wm-text"
-            onFocus={gesture.begin}
-            onBlur={gesture.commit}
-            onChange={(e) => setWatermark({ text: e.target.value.slice(0, WM_TEXT_MAX) })}
-          />
-        </Field>
-      ) : null}
-      {wm.mode === 'image' ? (
-        <div className="flex min-w-0 flex-col gap-2">
-          <FileDrop
-            aria-label={S.wmImageDrop}
-            accept="image/*"
-            paste="focus"
-            compact={!!wm.image}
-            label={wm.image ? wm.image.name || S.wmImage : S.wmImageDrop}
-            buttonLabel={wm.image ? S.changePhoto : S.choosePhoto}
-            onFiles={async (files) => {
-              if (!files[0]) return;
-              const n = await loadWatermarkImage(files[0]);
-              if (n) toast({ ...n, replace: true });
-            }}
-          />
-          <div className="grid min-w-0 grid-cols-2 gap-2">
-            <Toggle
-              label={S.wmTint}
-              checked={wm.tint}
-              onCheckedChange={(v) => setWatermark({ tint: v })}
+      <div className="flex min-w-0 flex-col gap-3" data-testid={`${target}-watermark`}>
+        <Segmented<WatermarkMode>
+          aria-label={S.sectionWatermark}
+          value={wm.mode}
+          onValueChange={(v) => setWatermark({ mode: v })}
+          options={(['off', 'text', 'image'] as const).map((m) => ({
+            value: m,
+            label: S.wmModes[m],
+          }))}
+          fullWidth
+        />
+        {target === 'id' && wm.mode !== 'off' ? (
+          <Field label={S.wmSide}>
+            <Segmented<WatermarkSide>
+              value={side}
+              onValueChange={(v) => setIdDecor({ side: v })}
+              options={WATERMARK_SIDES.map((v) => ({ value: v, label: S.wmSides[v] }))}
+              fullWidth
             />
-            <Toggle
-              label={S.wmTile}
-              checked={wm.tile}
-              onCheckedChange={(v) => setWatermark({ tile: v })}
+          </Field>
+        ) : null}
+        {wm.mode === 'text' ? (
+          <Field label={S.wmText}>
+            <TextInput
+              value={wm.text}
+              maxLength={WM_TEXT_MAX * 2}
+              data-field="wm-text"
+              onFocus={gesture.begin}
+              onBlur={gesture.commit}
+              onChange={(e) => setWatermark({ text: e.target.value.slice(0, WM_TEXT_MAX) })}
             />
-            <Toggle
-              label={S.wmSmart}
-              checked={wm.smart}
-              onCheckedChange={(v) => setWatermark({ smart: v })}
+          </Field>
+        ) : null}
+        {wm.mode === 'image' ? (
+          <div className="flex min-w-0 flex-col gap-2">
+            <FileDrop
+              aria-label={S.wmImageDrop}
+              accept="image/*"
+              paste="focus"
+              compact={!!wm.image}
+              label={wm.image ? wm.image.name || S.wmImage : S.wmImageDrop}
+              buttonLabel={wm.image ? S.changePhoto : S.choosePhoto}
+              onFiles={async (files) => {
+                if (!files[0]) return;
+                const n = await loadWatermarkImage(files[0], setWatermark);
+                if (n) toast({ ...n, replace: true });
+              }}
             />
-            <Toggle
-              label={S.wmInvert}
-              checked={wm.invert}
-              disabled={wm.tint}
-              onCheckedChange={(v) => setWatermark({ invert: v })}
-            />
+            <div className="grid min-w-0 grid-cols-2 gap-2">
+              <Toggle
+                label={S.wmTint}
+                checked={wm.tint}
+                onCheckedChange={(v) => setWatermark({ tint: v })}
+              />
+              <Toggle
+                label={S.wmTile}
+                checked={wm.tile}
+                onCheckedChange={(v) => setWatermark({ tile: v })}
+              />
+              <Toggle
+                label={S.wmSmart}
+                checked={wm.smart}
+                onCheckedChange={(v) => setWatermark({ smart: v })}
+              />
+              <Toggle
+                label={S.wmInvert}
+                checked={wm.invert}
+                disabled={wm.tint}
+                onCheckedChange={(v) => setWatermark({ invert: v })}
+              />
+            </div>
+            {wm.image ? (
+              <Button
+                size="sm"
+                variant="ghost"
+                icon={<Trash2 />}
+                onClick={() => setWatermark({ image: null })}
+              >
+                {S.wmRemoveImage}
+              </Button>
+            ) : null}
           </div>
-          {wm.image ? (
+        ) : null}
+        {wm.mode !== 'off' ? (
+          <>
+            {wm.mode === 'text' || wm.tint ? (
+              <Field label={S.wmTone}>
+                <div className="flex min-w-0 flex-col gap-2">
+                  <Segmented<WatermarkTone>
+                    value={wm.tone}
+                    onValueChange={(v) => setWatermark({ tone: v })}
+                    options={(['ink', 'accent', 'custom'] as const).map((t) => ({
+                      value: t,
+                      label: S.wmTones[t],
+                    }))}
+                    fullWidth
+                  />
+                  {wm.tone === 'custom' ? (
+                    <GestureScope gesture={gesture}>
+                      <ColorField value={wm.color} onChange={(c) => setWatermark({ color: c })} />
+                    </GestureScope>
+                  ) : null}
+                </div>
+              </Field>
+            ) : null}
+            {slider(S.wmAmount, 'amount', '%')}
+            {slider(S.wmScale, 'scale', '%')}
+            {slider(S.wmRotate, 'rotate', '°')}
+            {wm.mode === 'text' || wm.tile
+              ? slider(S.wmOverlap, 'overlap', '%', S.wmOverlapHint)
+              : null}
+            {wm.mode === 'text' || wm.tile ? slider(S.wmShift, 'shift', '%', S.wmShiftHint) : null}
+            <div className="grid min-w-0 grid-cols-2 gap-2">
+              <Field label={S.wmX}>
+                <Slider
+                  value={Math.round(wm.x * 100)}
+                  min={-50}
+                  max={50}
+                  step={1}
+                  unit="%"
+                  onChange={gesture.live((v: number) => setWatermark({ x: v / 100 }))}
+                  onCommit={gesture.commit}
+                />
+              </Field>
+              <Field label={S.wmY}>
+                <Slider
+                  value={Math.round(wm.y * 100)}
+                  min={-50}
+                  max={50}
+                  step={1}
+                  unit="%"
+                  onChange={gesture.live((v: number) => setWatermark({ y: v / 100 }))}
+                  onCommit={gesture.commit}
+                />
+              </Field>
+            </div>
             <Button
               size="sm"
               variant="ghost"
-              icon={<Trash2 />}
-              onClick={() => setWatermark({ image: null })}
+              icon={<Crosshair />}
+              disabled={!wm.x && !wm.y}
+              onClick={() => setWatermark({ x: 0, y: 0 })}
             >
-              {S.wmRemoveImage}
+              {S.wmCenter}
             </Button>
-          ) : null}
-        </div>
-      ) : null}
-      {wm.mode !== 'off' ? (
-        <>
-          {wm.mode === 'text' || wm.tint ? (
-            <Field label={S.wmTone}>
-              <div className="flex min-w-0 flex-col gap-2">
-                <Segmented<WatermarkTone>
-                  value={wm.tone}
-                  onValueChange={(v) => setWatermark({ tone: v })}
-                  options={(['ink', 'accent', 'custom'] as const).map((t) => ({
-                    value: t,
-                    label: S.wmTones[t],
-                  }))}
-                  fullWidth
-                />
-                {wm.tone === 'custom' ? (
-                  <GestureScope gesture={gesture}>
-                    <ColorField value={wm.color} onChange={(c) => setWatermark({ color: c })} />
-                  </GestureScope>
-                ) : null}
-              </div>
-            </Field>
-          ) : null}
-          {slider(S.wmAmount, 'amount', '%')}
-          {slider(S.wmScale, 'scale', '%')}
-          {slider(S.wmRotate, 'rotate', '°')}
-          {wm.mode === 'text' || wm.tile
-            ? slider(S.wmOverlap, 'overlap', '%', S.wmOverlapHint)
-            : null}
-          {wm.mode === 'text' || wm.tile ? slider(S.wmShift, 'shift', '%', S.wmShiftHint) : null}
-          <div className="grid min-w-0 grid-cols-2 gap-2">
-            <Field label={S.wmX}>
-              <Slider
-                value={Math.round(wm.x * 100)}
-                min={-50}
-                max={50}
-                step={1}
-                unit="%"
-                onChange={gesture.live((v: number) => setWatermark({ x: v / 100 }))}
-                onCommit={gesture.commit}
-              />
-            </Field>
-            <Field label={S.wmY}>
-              <Slider
-                value={Math.round(wm.y * 100)}
-                min={-50}
-                max={50}
-                step={1}
-                unit="%"
-                onChange={gesture.live((v: number) => setWatermark({ y: v / 100 }))}
-                onCommit={gesture.commit}
-              />
-            </Field>
-          </div>
-          <Button
-            size="sm"
-            variant="ghost"
-            icon={<Crosshair />}
-            disabled={!wm.x && !wm.y}
-            onClick={() => setWatermark({ x: 0, y: 0 })}
-          >
-            {S.wmCenter}
-          </Button>
-        </>
-      ) : null}
+          </>
+        ) : null}
+      </div>
     </Section>
   );
 }
 
 /* ---------- 裝飾圖 ---------- */
 
-function ElementsSection() {
+/** 裝飾圖（SF 證件：這一款；證件：這一款顯示的那一面） */
+export function ElementsSection({ target }: { target: 'sf' | 'id' }) {
   const doc = useDoc((s) => s.data);
   const sel = useUi((s) => s.element);
-  const spot = useUi((s) => s.spot);
+  const sfSpot = useUi((s) => s.spot);
+  const side = usePrefs((p) => p.data.side);
+  const spot = target === 'sf' ? sfSpot : null;
   const toast = useToast();
-  const list = currentElements(doc);
+  const list = currentElements(doc, side);
+  const photoOver =
+    target === 'sf' ? doc.sf.style.photoOverElements : doc.idDecor.photoOverElements;
+  const setPhotoOver = (v: boolean) =>
+    target === 'sf' ? setSfStyle({ photoOverElements: v }) : setIdDecor({ photoOverElements: v });
   const { bitmaps } = useAssetBitmaps(
     assets,
     list.map((e) => e.image.id),
@@ -731,8 +884,10 @@ function ElementsSection() {
   return (
     <Section
       title={`${S.sectionElements}（${list.length}）`}
-      persistKey="id-ticket:sf-elements"
-      description={S.elementsHint(SF_ELEMENT_MAX)}
+      persistKey={target === 'sf' ? 'id-ticket:sf-elements' : 'id-ticket:id-elements'}
+      description={
+        target === 'sf' ? S.elementsHint(SF_ELEMENT_MAX) : S.idElementsHint(SF_ELEMENT_MAX)
+      }
     >
       <FileDrop
         aria-label={S.elementsDrop}
@@ -752,7 +907,7 @@ function ElementsSection() {
       />
       {list.length ? (
         <ThumbnailList
-          aria-label={S.elementList}
+          aria-label={target === 'sf' ? S.elementList : S.idElementList(S.sides[side])}
           items={items}
           selectedId={sel}
           onSelect={(id) => useUi.setState({ element: id })}
@@ -838,10 +993,7 @@ function ElementsSection() {
         <p className="m-0 text-xs text-muted">{S.elementNone}</p>
       ) : null}
       <Field label={S.photoOverElements} hint={S.photoOverElementsHint} layout="inline">
-        <Toggle
-          checked={doc.sf.style.photoOverElements}
-          onCheckedChange={(v) => setSfStyle({ photoOverElements: v })}
-        />
+        <Toggle checked={photoOver} onCheckedChange={setPhotoOver} />
       </Field>
     </Section>
   );

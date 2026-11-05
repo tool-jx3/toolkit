@@ -80,6 +80,12 @@ async function sfOpen(page: Page, blank = '公民 ID') {
   await expect(sfCanvas(page)).toBeVisible();
 }
 
+/** 條碼的種類（2026-11-05 起是下拉選單） */
+async function chooseCode(page: Page, label: string) {
+  await page.getByRole('combobox', { name: '條碼的種類' }).click();
+  await page.getByRole('option', { name: label, exact: true }).click();
+}
+
 async function chooseLanyard(page: Page, label: string) {
   await page.getByTestId('lanyard').click();
   await page.getByRole('option', { name: label, exact: true }).click();
@@ -291,7 +297,7 @@ test('樣式：配色組合、裝飾開關（機讀區、DNA 條關掉時照片�
     .poll(async () => [(await doc(page)).sf.style.mrz, (await doc(page)).sf.style.dna])
     .toEqual([false, false]);
   /* 照片格往下長到 878（調整範圍的比例 413 ÷ 658） */
-  await radio(page, 'QR code').click();
+  await chooseCode(page, 'QR code');
   await expect.poll(async () => (await doc(page)).sf.style.code).toBe('qr');
   await expect(page.locator('[data-region="qr:qr"]')).toHaveCount(1);
   await page.getByRole('combobox', { name: '照片框' }).click();
@@ -601,7 +607,7 @@ test('SF 證件的碼太密時提醒：活動證的條碼 1 倍、QR code 內容
   await expect(dense).toHaveCount(0);
   /* QR code：內容很長時提醒，放在 QR code 內容欄 */
   await tab(page, '樣式').click();
-  await radio(page, 'QR code').click();
+  await chooseCode(page, 'QR code');
   await tab(page, '內容').click();
   await expect(dense).toHaveCount(0);
   await fieldInput(page, 'qr').fill('https://example.com/'.repeat(14));
@@ -625,7 +631,7 @@ test('執照的對話框：Esc 關掉後焦點回到鉛筆按鈕', async ({ page
 
 /* ---------- 儲存與專案檔 ---------- */
 
-test('自動儲存與還原；專案檔（資料版本 2，含 SF 證件的圖）；版本 1 的專案檔照讀；以前的掛繩開關照讀（F56、F59 修訂）', async ({
+test('自動儲存與還原；專案檔（資料版本 3〔2026-11-05〕，含 SF 證件的圖）；版本 1 的專案檔照讀；以前的掛繩開關照讀（F56、F59 修訂）', async ({
   page,
 }) => {
   const errors = await open(page);
@@ -669,7 +675,8 @@ test('自動儲存與還原；專案檔（資料版本 2，含 SF 證件的圖�
   ]);
   const zip = unzipSync(new Uint8Array(readFileSync((await dl.path()) as string)));
   const proj = JSON.parse(strFromU8(zip['project.json']));
-  expect(proj.version).toBe(2);
+  /* 2026-11-05 起資料版本 3 */
+  expect(proj.version).toBe(3);
   expect(proj.data.sf.values.role).toBe('VIP');
   const photoId = proj.data.sf.photo.image.id;
   expect(Object.keys(zip).some((k) => k.startsWith(`files/${photoId}`))).toBe(true);
