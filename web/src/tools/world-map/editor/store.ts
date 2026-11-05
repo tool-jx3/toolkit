@@ -11,11 +11,21 @@ import type { Audience } from '../draw/render';
 import type { AssetCategory } from '../model/assets';
 import { normalizeDoc } from '../model/normalize';
 import { sampleDoc } from '../model/samples';
-import { type Paint, type PathKind, RANGES, type SelRef, type WorldDoc } from '../model/types';
+import {
+  type MapSizeId,
+  type Paint,
+  type PathKind,
+  RANGES,
+  type SelRef,
+  type WorldDoc,
+} from '../model/types';
 
 export const TOOL_ID = 'world-map';
-/** 存檔格式版本（1：第一批） */
-export const DATA_VERSION = 1;
+/**
+ * 存檔格式版本。1：第一批。2：路線多了旅程的設定（`travelMode`、`dailyKm`、`difficulty`、`access`、`simpleCalc`）、
+ * 地圖的尺寸多了 16:9、正方形、直式（`cols`／`rows`；2026-11-05 第二批）。版本 1 的資料讀進來一律經過 normalizeDoc（少了的欄位補預設）。
+ */
+export const DATA_VERSION = 2;
 
 export const starterDoc = (): WorldDoc => sampleDoc('continent');
 
@@ -113,6 +123,8 @@ export interface Prefs {
   tab: LeftTab;
   exportWidth: number;
   exportAudience: Audience;
+  /** 範本對話框裡「空白的海／自動產生」的尺寸 */
+  mapSize: MapSizeId;
 }
 
 export const usePrefs = createPreviewStore<Prefs>(TOOL_ID, {
@@ -122,6 +134,7 @@ export const usePrefs = createPreviewStore<Prefs>(TOOL_ID, {
   tab: 'land',
   exportWidth: DEFAULT_EXPORT_WIDTH,
   exportAudience: 'player',
+  mapSize: 'wide',
 });
 
 export type ToolId =

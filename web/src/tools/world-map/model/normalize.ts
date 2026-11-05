@@ -6,6 +6,7 @@ import { assetDef } from './assets';
 import { DEFAULT_TITLE, defaultSettings, uid } from './factory';
 import { clamp, polygonArea } from './geometry';
 import { encodeCells, fixGround, inferGround } from './terrain';
+import { DAILY_KM } from './travel';
 import {
   DEFAULT_COLS,
   DEFAULT_ROWS,
@@ -19,6 +20,7 @@ import {
   type MapObject,
   type MapPath,
   type MapSettings,
+  mapSizeOf,
   type Note,
   PATH_KINDS,
   type PathKind,
@@ -28,6 +30,12 @@ import {
   type Region,
   THEME_IDS,
   type ThemeId,
+  TRAVEL_ACCESS,
+  TRAVEL_DIFFICULTIES,
+  TRAVEL_MODES,
+  type TravelAccess,
+  type TravelDifficulty,
+  type TravelMode,
   type WorldDoc,
 } from './types';
 
@@ -130,7 +138,39 @@ export function normalizePath(v: unknown, c: NormalizeContext): MapPath | null {
     width: num(v.width, RANGES.width.min, RANGES.width.max, pathWidthDefault(k)),
     smooth: k === 'wall' ? false : v.smooth !== false,
     secret: v.secret === true,
+    ...travelOf(v, k),
   };
+}
+
+/**
+ * 旅程的設定（第二批）。本站的欄位名稱 difficulty、access；原作的 travelDifficulty、travelAccess 也收。
+ * 每日距離只在有寫時留著（1～1000；看不懂時照移動方式的預設）。
+ */
+function travelOf(
+  v: Raw,
+  kind: PathKind,
+): Pick<MapPath, 'travelMode' | 'dailyKm' | 'difficulty' | 'access' | 'simpleCalc'> {
+  const mode = TRAVEL_MODES.includes(v.travelMode as TravelMode)
+    ? (v.travelMode as TravelMode)
+    : undefined;
+  const out: Pick<MapPath, 'travelMode' | 'dailyKm' | 'difficulty' | 'access' | 'simpleCalc'> = {
+    difficulty: pick<TravelDifficulty>(
+      v.difficulty ?? v.travelDifficulty,
+      TRAVEL_DIFFICULTIES,
+      'normal',
+    ),
+    access: pick<TravelAccess>(v.access ?? v.travelAccess, TRAVEL_ACCESS, 'auto'),
+    simpleCalc: v.simpleCalc === true,
+  };
+  if (mode) out.travelMode = mode;
+  if (v.dailyKm !== undefined && v.dailyKm !== null)
+    out.dailyKm = num(
+      v.dailyKm,
+      RANGES.dailyKm.min,
+      RANGES.dailyKm.max,
+      DAILY_KM[mode ?? (kind === 'sea' ? 'ship' : 'walk')],
+    );
+  return out;
 }
 
 export function normalizeNote(v: unknown, c: NormalizeContext): Note | null {
@@ -177,8 +217,8 @@ export function normalizeDoc(raw: unknown): WorldDoc | null {
   if (!isObj(raw)) return null;
   const cols = num(raw.cols, 16, 512, DEFAULT_COLS);
   const rows = num(raw.rows, 16, 512, DEFAULT_ROWS);
-  /* 第一批只開放 128 × 80 */
-  if (cols !== DEFAULT_COLS || rows !== DEFAULT_ROWS) return null;
+  /* 只收四種尺寸（沒有寫格數的舊資料是 128 × 80） */
+  if (!mapSizeOf(cols, rows)) return null;
   const n = cols * rows;
   if (!cellsOk(raw.terrain, n, /^[0-6]*$/)) return null;
   const terrain = Uint8Array.from(raw.terrain, (ch) => ch.charCodeAt(0) - 48);
@@ -227,8 +267,6 @@ export interface OriginalImport {
   /** 匯出設定（原作存在作業檔裡） */
   exportWidth: number | null;
   exportAudience: 'player' | 'gm' | null;
-  /** 原作的旅程設定（第二批才用；目前讀進來時略過）的路線數 */
-  travelPaths: number;
 }
 
 export class OriginalFileError extends Error {}
@@ -261,7 +299,6 @@ export function fromOriginal(raw: unknown): OriginalImport {
   const c: NormalizeContext = { w: DEFAULT_COLS * 12, h: DEFAULT_ROWS * 12, ids: new Set() };
   const s = isObj(raw.settings) ? raw.settings : {};
   const exp = isObj(raw.export) ? raw.export : {};
-  const rawPaths = list(raw.paths, LIMITS.paths);
   const doc: WorldDoc = {
     title: str(raw.title, LIMITS.title) || DEFAULT_TITLE,
     seed: Math.floor(num(raw.seed, 0, 4294967295, 701)),
@@ -277,7 +314,9 @@ export function fromOriginal(raw: unknown): OriginalImport {
     objects: list(raw.objects, LIMITS.objects)
       .map((v) => normalizeObject(v, c, 'key'))
       .filter((v): v is MapObject => !!v),
-    paths: rawPaths.map((v) => normalizePath(v, c)).filter((v): v is MapPath => !!v),
+    paths: list(raw.paths, LIMITS.paths)
+      .map((v) => normalizePath(v, c))
+      .filter((v): v is MapPath => !!v),
     notes: list(raw.notes, LIMITS.notes)
       .map((v) => normalizeNote(v, c))
       .filter((v): v is Note => !!v),
@@ -288,15 +327,6 @@ export function fromOriginal(raw: unknown): OriginalImport {
     doc,
     exportWidth: Number.isFinite(width) ? width : null,
     exportAudience: exp.audience === 'gm' ? 'gm' : exp.audience === 'player' ? 'player' : null,
-    travelPaths: rawPaths.filter(
-      (p) =>
-        isObj(p) &&
-        (p.travelMode !== undefined ||
-          p.dailyKm !== undefined ||
-          p.simpleCalc === true ||
-          (p.travelAccess !== undefined && p.travelAccess !== 'auto') ||
-          (p.travelDifficulty !== undefined && p.travelDifficulty !== 'normal')),
-    ).length,
   };
 }
 

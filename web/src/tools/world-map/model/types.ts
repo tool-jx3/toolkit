@@ -16,6 +16,18 @@ export const GRID_PX = CELL * GRID_STEP;
 export const DEFAULT_COLS = 128;
 export const DEFAULT_ROWS = 80;
 
+/** 地圖的尺寸（第二批；格數都是偶數，方格筆刷的 2 × 2 對得齊） */
+export type MapSizeId = 'wide' | 'hd' | 'square' | 'portrait';
+export const MAP_SIZES: Record<MapSizeId, { cols: number; rows: number }> = {
+  wide: { cols: 128, rows: 80 },
+  hd: { cols: 128, rows: 72 },
+  square: { cols: 96, rows: 96 },
+  portrait: { cols: 80, rows: 128 },
+};
+export const MAP_SIZE_IDS = Object.keys(MAP_SIZES) as MapSizeId[];
+export const mapSizeOf = (cols: number, rows: number): MapSizeId | null =>
+  MAP_SIZE_IDS.find((k) => MAP_SIZES[k].cols === cols && MAP_SIZES[k].rows === rows) ?? null;
+
 /** 地形代碼 */
 export const SEA = 0;
 export const PLAIN = 1;
@@ -70,6 +82,18 @@ export interface Region {
 export type PathKind = 'river' | 'road' | 'sea' | 'border' | 'wall';
 export const PATH_KINDS: readonly PathKind[] = ['river', 'road', 'sea', 'border', 'wall'];
 
+export type TravelMode = 'walk' | 'horse' | 'ship';
+export const TRAVEL_MODES: readonly TravelMode[] = ['walk', 'horse', 'ship'];
+export type TravelDifficulty = 'easy' | 'normal' | 'hard' | 'extreme';
+export const TRAVEL_DIFFICULTIES: readonly TravelDifficulty[] = [
+  'easy',
+  'normal',
+  'hard',
+  'extreme',
+];
+export type TravelAccess = 'auto' | 'passable' | 'blocked';
+export const TRAVEL_ACCESS: readonly TravelAccess[] = ['auto', 'passable', 'blocked'];
+
 export interface MapPath {
   id: string;
   kind: PathKind;
@@ -80,6 +104,15 @@ export interface MapPath {
   /** 平滑的曲線（城牆一律是折線） */
   smooth: boolean;
   secret: boolean;
+  /* ---- 旅程概算（第二批；資料版本 2） ---- */
+  /** 移動方式（沒有時：航路是船、其他是徒步） */
+  travelMode?: TravelMode;
+  /** 平地・平靜水面上一天走幾 km（沒有時照移動方式：徒步 30、騎乘 65、船 140） */
+  dailyKm?: number;
+  difficulty: TravelDifficulty;
+  access: TravelAccess;
+  /** 只用距離計算（不看地形、素材、川與「不能通行」） */
+  simpleCalc: boolean;
 }
 
 export type DockSide = 'auto' | 'left' | 'right' | 'up' | 'down';
@@ -181,6 +214,7 @@ export const RANGES = {
   opacity: { min: 0, max: 0.7, def: 0.23 },
   curve: { min: -100, max: 100, def: 0 },
   width: { min: 1, max: 16 },
+  dailyKm: { min: 1, max: 1000 },
   kmPer100: { min: 0.01, max: 100000, def: 50 },
 } as const;
 

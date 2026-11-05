@@ -20,7 +20,6 @@ import {
 } from '@/ui';
 import { assetIconUrl } from '../draw/thumbs';
 import { assetDef } from '../model/assets';
-import { formatLength, pathKm } from '../model/scale';
 import {
   CELL,
   DOCK_SIDES,
@@ -37,6 +36,7 @@ import { S } from '../strings';
 import * as act from './actions';
 import { Minimap } from './Minimap';
 import { setEditor, useDoc, useEditor } from './store';
+import { TravelPanel } from './TravelPanel';
 
 const g = historyGesture(useDoc);
 
@@ -321,7 +321,6 @@ function NoteProps({ sel, n }: { sel: SelRef; n: Note }) {
 }
 
 function PathProps({ sel, p }: { sel: SelRef; p: MapPath }) {
-  const km = useDoc((s) => s.data.settings.kmPer100);
   return (
     <>
       <NameField
@@ -331,12 +330,7 @@ function PathProps({ sel, p }: { sel: SelRef; p: MapPath }) {
         max={LIMITS.name}
         testId="prop-name"
       />
-      <p
-        className="m-0 rounded-md bg-surface-2 px-2.5 py-1.5 text-sm font-medium tabular-nums"
-        data-testid="path-length"
-      >
-        {S.inspector.length(formatLength(pathKm(p, km)))}
-      </p>
+      <TravelPanel sel={sel} p={p} />
       <SliderField
         label={p.kind === 'wall' ? S.inspector.wallWidth : S.inspector.width}
         value={p.width}

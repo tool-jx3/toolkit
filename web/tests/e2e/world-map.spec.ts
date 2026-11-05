@@ -374,7 +374,7 @@ test('專案檔：存了再開回來相同；開啟原作的作業檔；拖到�
   ]);
   expect(dl.suggestedFilename()).toBe('艾爾德蘭大陸.world-map.json');
   const saved = JSON.parse(readFileSync((await dl.path()) as string, 'utf8'));
-  expect(saved).toMatchObject({ format: 'trpg-toolkit-project', tool: 'world-map', version: 1 });
+  expect(saved).toMatchObject({ format: 'trpg-toolkit-project', tool: 'world-map', version: 2 });
   const original = await doc(page);
   await blank(page);
   await page.getByRole('button', { name: '專案' }).click();
@@ -427,9 +427,9 @@ test('專案檔：存了再開回來相同；開啟原作的作業檔；拖到�
   expect(d).toMatchObject({ theme: 'atlas', drawMode: 'free' });
   expect(d.objects.map((o) => [o.kind, o.name])).toEqual([['castle', '城']]);
   expect(d.settings.kmPer100).toBe(20);
-  await expect(
-    page.getByText('已讀入作業檔；1 條路線的旅程設定這一版還沒有支援，先略過。').first(),
-  ).toBeVisible();
+  /* 旅程的設定照讀（第二批，F81） */
+  expect(d.paths[0]).toMatchObject({ kind: 'road', travelMode: 'horse' });
+  await expect(page.getByText('已讀入作業檔。').first()).toBeVisible();
   /* 復原回到開檔前 */
   await page.getByTestId('undo').click();
   expect((await doc(page)).title).toBe('艾爾德蘭大陸');
@@ -468,6 +468,101 @@ test('自動產生世界、範本、小地圖', async ({ page }) => {
   expect(r.x + r.w / 2).toBeCloseTo(1536 * 0.8, -1);
   expect(r.y + r.h / 2).toBeCloseTo(960 * 0.8, -1);
   expect((await doc(page)).title).toBe('星砂群島');
+  expect(errors).toEqual([]);
+});
+
+test('旅程概算（第二批）：日數、只用距離計算、移動方式與日距、難度、不能通行、地形別的距離', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  const road = (await doc(page)).paths.find((p) => p.name === '越嶺古道')!;
+  await page.getByRole('tab', { name: '國與路線' }).click();
+  await page.evaluate((id) => {
+    const h = (window as unknown as { __worldMap: Hook }).__worldMap;
+    (h as unknown as { useEditor: { setState: (s: unknown) => void } }).useEditor.setState({
+      tool: 'select',
+      sel: { kind: 'path', id },
+    });
+  }, road.id);
+  const box = page.getByTestId('path-travel');
+  await expect(box.getByTestId('path-length')).toHaveText('總長：約 157.8 km');
+  await expect(box.getByTestId('travel-days')).toContainText('必要日數：約 18.5 日');
+  await expect(box.getByTestId('travel-days')).toContainText('只用距離計算：約 5.3 日');
+  await expect(box.getByTestId('travel-cliff')).toBeVisible();
+  await expect(box.getByTestId('travel-terrain')).toContainText('山地');
+  await expect(box.getByTestId('travel-used')).toContainText('王都・首都');
+  /* 騎乘：日距換成 65 */
+  const inspector = page.getByTestId('inspector');
+  await inspector.getByRole('combobox', { name: '移動方式' }).click();
+  await page.getByRole('option', { name: '騎乘' }).click();
+  await expect(
+    inspector.getByRole('spinbutton', { name: '平地・平靜水面上一天走幾 km' }),
+  ).toHaveValue('65');
+  expect((await doc(page)).paths.find((p) => p.id === road.id)?.travelMode).toBe('horse');
+  /* 不能通行 */
+  await inspector.getByRole('combobox', { name: '通行的方式' }).click();
+  await page.getByRole('option', { name: '不能通行' }).click();
+  await expect(box.getByTestId('travel-reason')).toHaveText('指定了「不能通行」，算不出日數。');
+  /* 只用距離計算：不管不能通行；通行的方式不顯示 */
+  await inspector.getByRole('switch', { name: '不看山路、川等障礙，只用距離計算' }).click();
+  await expect(box.getByTestId('travel-reason')).toHaveCount(0);
+  await expect(box.getByTestId('travel-days')).toHaveText('必要日數：約 2.4 日');
+  await expect(inspector.getByRole('combobox', { name: '通行的方式' })).toHaveCount(0);
+  /* 難度 ×2 */
+  await inspector.getByRole('combobox', { name: '追加的難度' }).click();
+  await page.getByRole('option', { name: '非常困難 ×2' }).click();
+  await expect(box.getByTestId('travel-days')).toHaveText('必要日數：約 4.9 日');
+  /* 復原回去（復原時取消選取） */
+  await page.keyboard.press('Control+z');
+  expect((await doc(page)).paths.find((p) => p.id === road.id)).toMatchObject({
+    difficulty: 'normal',
+    simpleCalc: true,
+    access: 'blocked',
+  });
+  /* 國界線只顯示總長 */
+  const border = await page.evaluate(() => {
+    const h = (window as unknown as { __worldMap: Hook }).__worldMap;
+    const d = h.useDoc.getState().data;
+    const p = { ...d.paths[0], id: 'bd', kind: 'border' as const, name: '' };
+    h.useDoc.getState().replace({ ...d, paths: [...d.paths, p] });
+    (h as unknown as { useEditor: { setState: (s: unknown) => void } }).useEditor.setState({
+      sel: { kind: 'path', id: 'bd' },
+    });
+    return p.id;
+  });
+  expect(border).toBe('bd');
+  await expect(page.getByTestId('path-travel')).toHaveCount(0);
+  await expect(inspector.getByTestId('path-length')).toContainText('總長：約');
+  expect(errors).toEqual([]);
+});
+
+test('地圖的尺寸（第二批）：空白的海與自動產生可以選 16:9、正方形、直式', async ({ page }) => {
+  const errors = await open(page);
+  await page.getByTestId('open-samples').click();
+  await page.getByRole('radio', { name: '16:9（1536 × 864）' }).click();
+  await page.getByTestId('sample-blank').click();
+  let d = await doc(page);
+  expect([d.cols, d.rows, d.terrain.length]).toEqual([128, 72, 128 * 72]);
+  await page.getByTestId('export-open').click();
+  await page.getByTestId('export-dialog').getByRole('radio', { name: '2400 px' }).click();
+  await expect(page.getByTestId('export-info')).toContainText('2400 × 1350 px');
+  await page.keyboard.press('Escape');
+  await page.getByTestId('open-samples').click();
+  await page.getByRole('radio', { name: '直式（960 × 1536）' }).click();
+  await page.getByTestId('sample-generate').click();
+  d = await doc(page);
+  expect([d.cols, d.rows]).toEqual([80, 128]);
+  expect(d.objects[0].kind).toBe('capital');
+  /* 「地形」分頁的自動產生照目前的尺寸；範本是 16:10 */
+  await page.getByTestId('generate').click();
+  expect([(await doc(page)).cols, (await doc(page)).rows]).toEqual([80, 128]);
+  await page.getByTestId('open-samples').click();
+  await page.getByTestId('sample-continent').click();
+  d = await doc(page);
+  expect([d.cols, d.rows]).toEqual([128, 80]);
+  /* 復原回到直式 */
+  await page.getByTestId('undo').click();
+  expect((await doc(page)).rows).toBe(128);
   expect(errors).toEqual([]);
 });
 

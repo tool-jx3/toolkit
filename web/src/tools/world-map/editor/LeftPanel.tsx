@@ -340,7 +340,7 @@ function ThemeCards() {
             <img
               src={docThumbUrl(preview, 160, `theme:${t}:${terrainKey}`)}
               alt=""
-              className="aspect-[1536/960] w-24 shrink-0 rounded-sm"
+              className="aspect-[1536/960] w-24 shrink-0 rounded-sm bg-surface-2 object-contain"
             />
             <span className="flex min-w-0 flex-col">
               <b className="text-sm">{S.finish.themes[t].name}</b>

@@ -15,7 +15,7 @@ import { sampleCurve } from '@/tools/world-map/model/geometry';
 import { dominantClimate, suggestName } from '@/tools/world-map/model/names';
 import { SAMPLE_IDS, sampleDoc } from '@/tools/world-map/model/samples';
 import { decodeCells } from '@/tools/world-map/model/terrain';
-import { CELL } from '@/tools/world-map/model/types';
+import { CELL, MAP_SIZE_IDS, MAP_SIZES } from '@/tools/world-map/model/types';
 
 const COLS = 128;
 const ROWS = 80;
@@ -153,5 +153,34 @@ describe('地名提案（F59、3.13）', () => {
     const plain = suggestName('forest', 3, null);
     expect(suggestName('forest', 3, { snow: 1, desert: 0, wet: 0 })).toBe(plain);
     expect(dominantClimate({ snow: 0.5, desert: 0, wet: 0 })).toBeNull();
+  });
+});
+
+describe('地圖的尺寸（F82）', () => {
+  it('四種尺寸都產生得出陸地與町，據點在陸地上、道路不穿過海', () => {
+    for (const id of MAP_SIZE_IDS) {
+      const { cols, rows } = MAP_SIZES[id];
+      expect((cols % 2) + (rows % 2)).toBe(0);
+      for (const seed of [702, 2402, 5]) {
+        const t = generateTerrain(seed, cols, rows);
+        expect(t.terrain.length).toBe(cols * rows);
+        const pop = populateWorld(t.terrain, t.ground, cols, rows, seed, ids);
+        expect(pop.objects.length, `${id} ${seed}`).toBeGreaterThan(0);
+        const land = (x: number, y: number) =>
+          t.terrain[Math.floor(y / CELL) * cols + Math.floor(x / CELL)] > 0;
+        for (const o of pop.objects) expect(land(o.x, o.y)).toBe(true);
+        for (const p of pop.paths)
+          for (const q of sampleCurve(p.points, p.smooth)) expect(land(q.x, q.y)).toBe(true);
+      }
+    }
+  });
+
+  it('換尺寸時：產生的地圖是新的尺寸（沒有可以比的陸地時第一個種子就用）', () => {
+    const cur = generateTerrain(702, COLS, ROWS);
+    const r = pickNewSeed({ seed: 702, terrain: cur.terrain }, 96, 96, () => 0.25);
+    expect(r.terrain.terrain.length).toBe(96 * 96);
+    const d = generateWorld({ ...blankDoc(), cols: 80, rows: 128 }, 11, null, ids);
+    expect([d.cols, d.rows, d.terrain.length, d.ground.length]).toEqual([80, 128, 10240, 10240]);
+    expect(blankDoc(128, 72).terrain.length).toBe(128 * 72);
   });
 });

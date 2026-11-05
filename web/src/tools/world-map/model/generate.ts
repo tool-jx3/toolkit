@@ -276,7 +276,9 @@ export function pickNewSeed(
     let seed = Math.floor(rand() * 4294967296) >>> 0;
     if (familyOf(seed) === familyOf(current.seed)) seed = (seed + 1) >>> 0;
     const t = generateTerrain(seed, cols, rows);
-    const sim = landSimilarity(current.terrain, t.terrain);
+    /* 換了尺寸時沒有可以比的陸地：第一個就用 */
+    const sim =
+      current.terrain.length === t.terrain.length ? landSimilarity(current.terrain, t.terrain) : 0;
     if (sim < bestSim) {
       bestSim = sim;
       best = { seed, terrain: t };

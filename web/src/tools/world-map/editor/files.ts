@@ -56,9 +56,7 @@ export function openForeign(bytes: Uint8Array): boolean {
           p.exportWidth = r.exportWidth;
         if (r.exportAudience) p.exportAudience = r.exportAudience;
       });
-    notify(S.project.importOriginal(r.travelPaths), r.travelPaths ? 'warning' : 'success', {
-      duration: 5000,
-    });
+    notify(S.project.importOriginal, 'success');
   } catch (e) {
     notify(S.project.openFailed, 'danger', {
       description: e instanceof OriginalFileError ? e.message : undefined,

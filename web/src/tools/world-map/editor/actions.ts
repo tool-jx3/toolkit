@@ -29,8 +29,10 @@ import { decodeCells, gridOf } from '../model/terrain';
 import {
   CELL,
   LIMITS,
+  MAP_SIZES,
   type MapObject,
   type MapPath,
+  type MapSizeId,
   type Note,
   type PathKind,
   type Pt,
@@ -38,6 +40,7 @@ import {
   type Region,
   type SelKind,
   type SelRef,
+  type TravelMode,
   type WorldDoc,
 } from '../model/types';
 import { S } from '../strings';
@@ -127,6 +130,16 @@ function updateItem(ref: SelRef, fn: (o: Draft<AnyItem>) => void): void {
 
 export function patchItem(ref: SelRef, patch: Record<string, unknown>): void {
   updateItem(ref, (o) => Object.assign(o, patch));
+}
+
+/** 換移動方式：每日距離回到那種方式的預設 */
+export function setTravelMode(ref: SelRef, mode: TravelMode): void {
+  updateItem(ref, (o) => {
+    if ('simpleCalc' in o) {
+      o.travelMode = mode;
+      delete o.dailyKm;
+    }
+  });
 }
 
 export function mutatePoints(ref: SelRef, fn: (pts: Pt[]) => void): void {
@@ -381,15 +394,21 @@ function replaceDoc(next: WorldDoc): void {
   setEditor({ sel: null });
 }
 
-export function generate(rand: () => number = Math.random): void {
+/**
+ * 自動產生世界。size：換成那個尺寸（範本對話框；沒有時照目前的尺寸）。換了尺寸時畫面回到整張地圖。
+ */
+export function generate(rand: () => number = Math.random, size?: MapSizeId): void {
   const d = docNow();
+  const dims = size ? MAP_SIZES[size] : { cols: d.cols, rows: d.rows };
+  const resized = dims.cols !== d.cols || dims.rows !== d.rows;
   const { seed, terrain } = pickNewSeed(
     { seed: d.seed, terrain: decodeCells(d.terrain, d.cols * d.rows) },
-    d.cols,
-    d.rows,
+    dims.cols,
+    dims.rows,
     rand,
   );
-  replaceDoc(generateWorld(d, seed, terrain, uid));
+  replaceDoc(generateWorld({ ...d, ...dims }, seed, terrain, uid));
+  if (resized) editor.fitView();
   notify(S.msg.generated, 'success');
 }
 
@@ -400,9 +419,11 @@ export function applySample(id: SampleId): void {
   notify(S.samples.replaced(S.samples.items[id].name), 'success');
 }
 
-export function newBlank(): void {
+/** 空白的海（size：尺寸；沒有時照目前的尺寸） */
+export function newBlank(size?: MapSizeId): void {
   const d = docNow();
-  const next = blankDoc(d.cols, d.rows);
+  const dims = size ? MAP_SIZES[size] : { cols: d.cols, rows: d.rows };
+  const next = blankDoc(dims.cols, dims.rows);
   next.theme = d.theme;
   next.drawMode = d.drawMode;
   replaceDoc(next);

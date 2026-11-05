@@ -60,6 +60,49 @@ describe('專案檔（F71、3.14）', () => {
     expect(n.theme).toBe('parchment');
   });
 
+  it('四種尺寸都收；其他格數不收；版本 1 的路線補上旅程的預設', () => {
+    for (const [cols, rows] of [
+      [128, 80],
+      [128, 72],
+      [96, 96],
+      [80, 128],
+    ]) {
+      const d = blankDoc(cols, rows);
+      d.paths = [
+        newPath('road', [
+          { x: 0, y: 0 },
+          { x: 9, y: 9 },
+        ]),
+      ];
+      expect(normalizeDoc(JSON.parse(JSON.stringify(d)))).toEqual(d);
+    }
+    expect(normalizeDoc(blankDoc(100, 100))).toBeNull();
+    const v1 = JSON.parse(JSON.stringify(blankDoc()));
+    v1.paths = [
+      {
+        id: 'p',
+        kind: 'sea',
+        name: '',
+        points: [
+          { x: 0, y: 0 },
+          { x: 5, y: 5 },
+        ],
+        width: 3,
+        smooth: true,
+        secret: false,
+      },
+    ];
+    expect(normalizeDoc(v1)!.paths[0]).toMatchObject({
+      difficulty: 'normal',
+      access: 'auto',
+      simpleCalc: false,
+    });
+    expect(normalizeDoc(v1)!.paths[0].travelMode).toBeUndefined();
+    v1.paths[0].travelMode = 'horse';
+    v1.paths[0].dailyKm = 5000;
+    expect(normalizeDoc(v1)!.paths[0]).toMatchObject({ travelMode: 'horse', dailyKm: 1000 });
+  });
+
   it('地形的長度不對時整份不收；地表壞掉時從地形推算', () => {
     const d = blankDoc();
     expect(normalizeDoc({ ...d, terrain: '012' })).toBeNull();
@@ -154,7 +197,15 @@ describe('原作的作業檔（F72、3.15）', () => {
     });
     expect(r.exportWidth).toBe(3200);
     expect(r.exportAudience).toBe('gm');
-    expect(r.travelPaths).toBe(1);
+    expect(r.doc.paths[1]).toMatchObject({
+      travelMode: 'horse',
+      dailyKm: 80,
+      difficulty: 'normal',
+      access: 'auto',
+      simpleCalc: false,
+    });
+    expect(r.doc.paths[0].travelMode).toBeUndefined();
+    expect(r.doc.paths[0].dailyKm).toBeUndefined();
     expect(normalizeDoc(r.doc)).toEqual(r.doc);
   });
 

@@ -102,6 +102,9 @@ export function newPath(kind: PathKind, points: Pt[], makeId = uid): MapPath {
     width: pathWidthDefault(kind),
     smooth: kind !== 'wall',
     secret: false,
+    difficulty: 'normal',
+    access: 'auto',
+    simpleCalc: false,
   };
 }
 

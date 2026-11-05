@@ -897,6 +897,7 @@ loading-maker 預設（透明）、不透明背景＋預設的結尾動作（最
   沒有共用的（`web/src/tools/world-map/`）：12 px 格子的地形與地表（字串存檔、方格／自由筆刷、格子的外框接成迴圈與兩種海岸線修飾；`model/terrain.ts`）、
   山林的排法（離邊界的距離、森林的深度、山與森林的交界；`model/relief.ts`）、氣候與積雪（`model/climate.ts`）、自動產生（值雜訊的六種構成、町與道路的最短路；`model/generate.ts`）、
   繁中的地名提案（`model/names.ts`）、內側城牆的縮放與檢查（`model/geometry.ts` 的 `innerWallPoints`）、canvas 的地圖繪製（地表與山林的圖層快取、樹與山的小圖、川的漸寬、城牆、32 種素材；`draw/`）。
+  第二批（2026-11-05）也沒有改共用層：旅程概算（`model/travel.ts`：山地的深度、難所素材的密集、橋與川的渡河、港口、街道的據點；和原作並排比對的測試讀使用者上傳的原作檔，不在 repo 裡時略過）、四種地圖尺寸（`MAP_SIZES`）。
   別的地圖類工具要「格子的外框接成迴圈＋修圓／平滑」或「值雜訊的陸地產生」時可以把 `traceOutlines`、`roundedOutline`、`smoothOutline`、`generateTerrain` 搬進 `core/`。
 
 ## 5. 用詞表（台灣繁體中文）

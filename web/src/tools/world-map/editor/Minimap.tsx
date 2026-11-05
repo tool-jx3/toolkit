@@ -98,7 +98,7 @@ export function Minimap() {
       ref={ref}
       aria-label={S.inspector.minimap}
       title={S.inspector.minimap}
-      className="mx-auto block aspect-[1536/960] w-full max-w-72 cursor-pointer touch-none rounded-sm border border-border"
+      className="mx-auto block w-full max-w-72 cursor-pointer touch-none rounded-sm border border-border"
       data-testid="minimap"
       onPointerDown={(e) => {
         if (e.button !== 0 || pointer.current !== null) return;

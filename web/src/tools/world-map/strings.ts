@@ -5,7 +5,19 @@
 import type { LeftTab, ToolId } from './editor/store';
 import type { AssetCategory } from './model/assets';
 import type { SampleId } from './model/samples';
-import type { DockSide, FontStyle, LabelFont, Paint, PathKind, ThemeId } from './model/types';
+import type { TravelReason } from './model/travel';
+import type {
+  DockSide,
+  FontStyle,
+  LabelFont,
+  MapSizeId,
+  Paint,
+  PathKind,
+  ThemeId,
+  TravelAccess,
+  TravelDifficulty,
+  TravelMode,
+} from './model/types';
 
 const PAINT_NAMES: Record<Paint, string> = {
   1: '平原',
@@ -196,6 +208,49 @@ export const S = {
     duplicate: '複製',
     delete: '刪除',
   },
+  travel: {
+    days: (d: string) => `必要日數：約 ${d} 日`,
+    pureNote: (d: string) => `（不看障礙、只用距離計算：約 ${d} 日）`,
+    pureIfIgnore: (d: string) => `※不看障礙、只用距離計算的話約 ${d} 日`,
+    reasons: {
+      blocked: '指定了「不能通行」，算不出日數。',
+      water: '會橫越海或湖，當成陸路算不出日數（請確認橋的範圍或通行的方式）。',
+      ship: '判斷不了陸地或川能不能行船。請確認港口的上下岸範圍，或指定「全部當成可以通行」。',
+      river: '會橫越沒有橋的川。請放橋，或指定「全部當成可以通行」或「只用距離計算」。',
+      length: '路線沒有長度，算不出日數。',
+    } satisfies Record<TravelReason, string>,
+    cliff: (km: string) =>
+      `會經過假設為險峻的山岳・難所（約 ${km} km），日數會大增；請和走平地的繞路比較。`,
+    terrains: ['海・湖', '平原', '森林', '山地', '沙漠', '雪原', '濕地'],
+    hazards: (n: number) => `難所素材 ${n} 件（含密集度）`,
+    infra: (n: number) => `據點・驛站整備 ${n} 件`,
+    bridge: '橋渡河',
+    port: '港口上下岸',
+    used: '影響計算的素材',
+    assume: (mode: string, speed: number) => `創作用的假設：${mode}一天 ${speed} km。`,
+    assumeSimple: (d: number) => `只看距離、速度與追加難度 ×${d}，也不管「不能通行」。`,
+    assumeFull: (f: string, d: number) => `地形・素材的補正 ×${f}、難度 ×${d}。`,
+    simple: '不看山路、川等障礙，只用距離計算',
+    mode: '移動方式',
+    modes: { walk: '徒步', horse: '騎乘', ship: '船' } satisfies Record<TravelMode, string>,
+    dailyKm: '平地・平靜水面上一天走幾 km',
+    difficulty: '追加的難度',
+    difficulties: {
+      easy: '良好 ×0.8',
+      normal: '標準 ×1',
+      hard: '困難 ×1.5',
+      extreme: '非常困難 ×2',
+    } satisfies Record<TravelDifficulty, string>,
+    access: '通行的方式',
+    accesses: {
+      auto: '依地形與素材判斷',
+      passable: '全部當成可以通行',
+      blocked: '不能通行',
+    } satisfies Record<TravelAccess, string>,
+    howTitle: '補正的方式',
+    how: '平原以外的地表（沙漠、雪原、濕地）與森林要多花時間；山地越往山裡（稜線）負擔越重（3.2～10 倍以上），配置的山、山脈、火山、森林等素材越密集也越險峻——這些都是創作用的假設，不是實際的高度或懸崖。橋依方向與大小蓋住的那一段川可以渡過；港口讓船在沿岸上下岸，航路的點放在港口的範圍裡也算停靠（範圍外的陸地不行）。街道經過驛站、城鎮、要塞附近時，惡路的額外負擔減少 35%。天候、休息日、橋的強度、水深都沒有考慮；騎乘的結果不能直接當成馬車能不能走。',
+    hint: '日數是依縮尺、地形與配置的素材估算的創作用參考。山口、可以行船的川請指定「全部當成可以通行」，懸崖或封閉的路段請指定「不能通行」。',
+  },
   exp: {
     title: '匯出圖片',
     width: '圖片的寬',
@@ -233,6 +288,14 @@ export const S = {
     generate: '自動產生世界',
     generateDesc: '地形、城鎮與道路一起產生',
     use: '使用',
+    size: '地圖的尺寸（空白的海、自動產生）',
+    sizeHint: '範本都是 16:10。16:9 和 CCFOLIA 的背景同比例。',
+    sizes: {
+      wide: '16:10（1536 × 960）',
+      hd: '16:9（1536 × 864）',
+      square: '正方形（1152 × 1152）',
+      portrait: '直式（960 × 1536）',
+    } satisfies Record<MapSizeId, string>,
     replaced: (name: string) => `已換成「${name}」；按復原可以回到原本的地圖。`,
   },
   project: {
@@ -240,8 +303,7 @@ export const S = {
     resetTitle: '換成空白的地圖？',
     resetText: '目前的地圖會被換掉（可以復原）。需要的話先存成專案檔。',
     resetConfirm: '換成空白',
-    importOriginal: (n: number) =>
-      n ? `已讀入作業檔；${n} 條路線的旅程設定這一版還沒有支援，先略過。` : '已讀入作業檔。',
+    importOriginal: '已讀入作業檔。',
     openFailed: '開不了這個檔案',
     opened: '已開啟專案檔',
     badData: '專案檔的地圖資料不正確。',
@@ -301,7 +363,7 @@ export const S = {
   usage: {
     steps: [
       '「地形」分頁：拖曳畫陸地、森林、山地、沙漠、雪原、濕地；「變回海」可以挖出湖與海峽。「自動產生世界」一次做好地形、城鎮與道路。',
-      '「國與路線」分頁：點一下放點、Enter 完成，圈出國家、畫川（從上游到下游）、街道、航路、國界線與城牆；選取國可以一鍵圍上城牆。',
+      '「國與路線」分頁：點一下放點、Enter 完成，圈出國家、畫川（從上游到下游）、街道、航路、國界線與城牆；選取國可以一鍵圍上城牆。選取街道、川、航路時可以看旅程的概算（依縮尺、地形、配置的素材、橋與港口，創作用的參考）。',
       '「配置」分頁：選素材再點地圖放下城鎮、城堡、港口（棧橋自動朝海）、遺跡等；名字欄的骰子會依種類與氣候提案地名。',
       '「完成」分頁：選主題、字型、格線與外框，匯出公開用或 GM 用的 PNG；也可以直接送到地圖演出產生器。',
     ],
