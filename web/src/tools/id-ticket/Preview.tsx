@@ -14,11 +14,18 @@ import {
   useRef,
   useState,
 } from 'react';
-import { useAssetImage } from '@/core/assets';
+import { useAssetBitmaps, useAssetImage } from '@/core/assets';
 import { makeCanvas } from '@/core/image';
 import { ExportPanel, type ExportSettings, Field, Notice, Segmented, Stage, Toggle } from '@/ui';
 import { shade } from './colors';
-import { exportId, exportTicket, idOutputSize, ticketOutputSize } from './exporter';
+import { ElementLayer } from './ElementLayer';
+import {
+  exportId,
+  exportTicket,
+  idDecorImageIds,
+  idOutputSize,
+  ticketOutputSize,
+} from './exporter';
 import { type FocusTarget, focusTarget } from './focus';
 import { requestFonts, useFontTick } from './fonts';
 import { fontUses, type Region } from './kit';
@@ -48,6 +55,7 @@ import {
 } from './render';
 import { SfPreview } from './SfPreview';
 import { afterPaint } from './schedule';
+import { SF_CHIP_TYPES } from './sf/chips';
 import { licenseDef } from './sf/licenses';
 import {
   assets,
@@ -63,6 +71,7 @@ import {
   toggleLicense,
   useDoc,
   usePrefs,
+  useUi,
 } from './store';
 import { S } from './strings';
 import { idTemplate, ticketTemplate } from './templates';
@@ -101,6 +110,7 @@ function regionLabel(r: Region, hasPhoto: boolean): string {
   if (r.kind === 'photo') return hasPhoto ? S.regionPhoto : S.regionPhotoEmpty;
   if (r.kind === 'license') return S.regionLicense(licenseDef(r.key)?.label ?? r.key);
   if (r.kind === 'dna') return S.regionDna;
+  if (r.kind === 'chip') return S.regionChip;
   if (r.kind === 'qr') return S.regionQr;
   if (r.kind === 'code') return S.regionCode(fieldDef(r.key)?.label ?? r.key);
   if (r.key.startsWith('item:')) {
@@ -145,6 +155,11 @@ export function RegionLayer({
     }
     if (r.kind === 'dna') {
       setSfStyle({ dnaText: !docNow().sf.style.dnaText });
+      return;
+    }
+    if (r.kind === 'chip') {
+      const cur = SF_CHIP_TYPES.indexOf(docNow().sf.style.chipType);
+      setSfStyle({ chipType: SF_CHIP_TYPES[(cur + 1) % SF_CHIP_TYPES.length] });
       return;
     }
     let t: FocusTarget;
@@ -272,6 +287,7 @@ function IdPreview() {
   const tpl = idTemplate(s.idTemplate);
   const { w, h } = cardUnits(tpl.orientation);
   const photo = useAssetImage(assets, s.idPhoto?.image.id);
+  const decor = useAssetBitmaps(assets, idDecorImageIds(s));
   const tick = useFontTick();
   const side = prefs.side;
   const front = useRef<HTMLCanvasElement>(null);
@@ -284,8 +300,8 @@ function IdPreview() {
    */
   // biome-ignore lint/correctness/useExhaustiveDependencies: tick 只用來在字型載好後重畫
   const version = useMemo(
-    () => ({ s, bitmap: photo.bitmap, lanyard: prefs.lanyard }),
-    [s, photo.bitmap, tick, prefs.lanyard],
+    () => ({ s, bitmap: photo.bitmap, bitmaps: decor.bitmaps, lanyard: prefs.lanyard }),
+    [s, photo.bitmap, decor.bitmaps, tick, prefs.lanyard],
   );
   const drawn = useRef<Record<Side, object | null>>({ front: null, back: null });
   const paint = useCallback(
@@ -299,7 +315,12 @@ function IdPreview() {
         which,
         PREVIEW_SCALE,
         'card',
-        { preview: true, photo: version.bitmap, fonts },
+        {
+          preview: true,
+          photo: version.bitmap,
+          fonts,
+          image: (id) => version.bitmaps.get(id) ?? null,
+        },
         undefined,
         canvas,
         lanyardHole(version.lanyard) ? { hole: true, strap: false } : undefined,
@@ -343,7 +364,11 @@ function IdPreview() {
         data-template={tpl.id}
       />
       {side === which ? (
-        <RegionLayer regions={regions[which]} ox={0} oy={0} hasPhoto={!!s.idPhoto} />
+        <>
+          <ElementLayer W={w} H={h} below />
+          <RegionLayer regions={regions[which]} ox={0} oy={0} hasPhoto={!!s.idPhoto} />
+          <ElementLayer W={w} H={h} />
+        </>
       ) : null}
     </div>
   );
@@ -366,6 +391,10 @@ function IdPreview() {
         <div
           className="absolute left-0"
           style={{ top: strapH, width: w, height: h, perspective: 1800 }}
+          onPointerDown={(e) => {
+            if (!(e.target as HTMLElement).closest('[data-layout-item]'))
+              useUi.setState({ element: null });
+          }}
         >
           <div
             data-testid="flip"
@@ -382,7 +411,9 @@ function IdPreview() {
         </div>
       </Stage>
       <p className="m-0 px-1 text-xs text-muted">{S.previewHint}</p>
-      {photo.status === 'missing' ? <Notice tone="warning">{S.photoMissing}</Notice> : null}
+      {photo.status === 'missing' || decor.missing.length ? (
+        <Notice tone="warning">{S.photoMissing}</Notice>
+      ) : null}
       <IdExport photo={photo.bitmap} />
     </>
   );

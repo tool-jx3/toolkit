@@ -1,6 +1,7 @@
 /**
  * 室內平面圖產生器：2026-10 第三批（家具擴充、貼牆素材、標籤搜尋；規格 F232～F236、3.11、D46～D51）。
- * - 目錄：391 種（2026-10-29 跟進原作 v1.15 加 8 種；同日參考 KIIN 加桌上的小物 2 種）、24 類、尺寸、標籤；
+ * - 目錄：397 種（2026-10-29 跟進原作 v1.15 加 8 種；同日參考 KIIN 加桌上的小物 2 種；2026-11-05 參考 KIIN v2.0 加船的素材 5 種、
+ *   逆時針的螺旋梯，F280、F281）、24 類、尺寸、標籤；
  * - 畫法：每一種都有、五種樣式都畫得出來（用記錄呼叫的假 canvas：沒有例外、畫得出東西、不超出外框太多、彼此不同）；
  * - 搜尋：名稱、#標籤、組合、全形＃、建議；範本的標籤；
  * - 貼牆素材：吸到牆線、跟著牆的方向、畫在牆的上面。
@@ -177,10 +178,13 @@ function drawAsset(a: AssetInfo, theme: (typeof THEME_IDS)[number], icon = false
 /* ---------- 目錄 ---------- */
 
 describe('家具目錄（F232、3.11）', () => {
-  it('391 種、24 類；原作新增的 242 種（v1.15 的 8 種含）代號相同，另有本站的貼牆素材 4 種與桌上的小物 2 種', () => {
-    expect(ASSETS.length).toBe(391);
+  it('397 種、24 類；原作新增的 242 種（v1.15 的 8 種含）代號相同，另有本站的貼牆素材 4 種、桌上的小物 2 種、船的素材 5 種與逆時針的螺旋梯', () => {
+    expect(ASSETS.length).toBe(397);
     expect(ASSET_GROUPS.length).toBe(24);
-    expect(new Set(ASSETS.map((a) => a.id)).size).toBe(391);
+    expect(new Set(ASSETS.map((a) => a.id)).size).toBe(397);
+    /* 2026-11-05（參考 KIIN v2.0）：帆柱、艦砲、蒸汽機、絞盤、一捲纜繩、逆時針的螺旋梯（本站自己的代號） */
+    for (const id of ['mast', 'ship_cannon', 'steam_engine', 'capstan', 'rope_coil', 'spiral_ccw'])
+      expect(ASSET[id], id).toBeDefined();
     /* 2026-10-29（參考 KIIN 的卓上小物）：檯燈、桌上螢幕（本站自己的代號） */
     for (const id of ['desk_lamp', 'desk_monitor']) expect(ASSET[id], id).toBeDefined();
     expect(NEW.length).toBe(246);
@@ -240,6 +244,7 @@ describe('家具目錄（F232、3.11）', () => {
         'stairs',
         'stairs_u',
         'spiral',
+        'spiral_ccw',
         'elevator',
         'stairs_down',
         'trapdoor',
@@ -370,7 +375,7 @@ describe('搜尋（F46、F234、F235）', () => {
     expect(find('＃鐵道')).toEqual(rail);
     /* 「#床」不是標籤：沒有結果（名稱有床的不算） */
     expect(find('#床')).toEqual([]);
-    expect(find('#')).toHaveLength(391);
+    expect(find('#')).toHaveLength(397);
     /* 代號也可以：#railway */
     expect(find('#railway')).toEqual(rail);
   });

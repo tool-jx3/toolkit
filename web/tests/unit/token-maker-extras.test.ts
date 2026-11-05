@@ -3,7 +3,7 @@
  * 自訂外框的開口偵測（TokenForge 的做法）、預設外觀（套用、相同判斷、隨機）、自動配色、編號組與打包的檔名。
  */
 import { describe, expect, it } from 'vitest';
-import { readPngText, setPngText } from '../../src/core/encode';
+import { crc32, readPngText, setPngText } from '../../src/core/encode';
 import { encodePng } from '../../src/core/encode/png';
 import { autoColor } from '../../src/tools/token-maker/autocolor';
 import { detectInnerFromAlpha } from '../../src/tools/token-maker/custom';
@@ -265,12 +265,13 @@ describe('嵌進 PNG 的設定', () => {
     new DataView(data.buffer).setUint32(0, meta.length);
     data.set(meta, 4);
     data.set(imgBytes, 4 + meta.length);
-    /* 自己組一個 tkWs chunk 插在 IEND 前面（CRC 不檢查） */
+    /* 自己組一個 tkWs chunk 插在 IEND 前面（2026-11-05 起照原作檢查 CRC） */
     const png = await tiny();
     const chunk = new Uint8Array(12 + data.length);
     new DataView(chunk.buffer).setUint32(0, data.length);
     chunk.set(new TextEncoder().encode('tkWs'), 4);
     chunk.set(data, 8);
+    new DataView(chunk.buffer).setUint32(8 + data.length, crc32(chunk, 4, 8 + data.length));
     const out = new Uint8Array(png.length + chunk.length);
     out.set(png.subarray(0, png.length - 12));
     out.set(chunk, png.length - 12);

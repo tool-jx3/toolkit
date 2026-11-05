@@ -21,7 +21,10 @@ export const SHORTCUT_HELP: Shortcut[] = [
   { keys: 'n', label: K.window, group: K.tools },
   { keys: 't', label: K.text, group: K.tools },
   { keys: 'e', label: K.eraser, group: K.tools },
+  { keys: 'u', label: K.line, group: K.tools },
   { keys: 'r', label: K.rotate, group: K.edit },
+  { keys: 'q', label: K.rotateBack, group: K.edit },
+  { keys: ['shift+r', 'shift+e', 'shift+q'], label: K.rotateFine, group: K.edit },
   { keys: 'f', label: K.flip, group: K.edit },
   { keys: 'l', label: K.lock, group: K.edit },
   { keys: 'k', label: K.connect, group: K.edit },
@@ -58,6 +61,8 @@ const TOOL_KEYS: Record<string, ToolId> = {
   KeyN: 'window',
   KeyT: 'text',
   KeyE: 'eraser',
+  /* 自由線（2026-11-05，F285；KIIN 是 B，本工具的 B 是房間） */
+  KeyU: 'line',
 };
 
 const ARROWS: Record<string, [number, number]> = {
@@ -178,8 +183,20 @@ export function handleKeyDown(e: KeyboardEvent): void {
     act.nudge(arrow[0], arrow[1], e.shiftKey);
     return;
   }
+  /* 家具轉 15°（2026-11-05，F277）：Shift＋R、Shift＋E 順時針，Shift＋Q 逆時針 */
+  if (e.shiftKey && (e.code === 'KeyR' || e.code === 'KeyE' || e.code === 'KeyQ')) {
+    const placing = ed.tool === 'place' && ed.armed?.kind === 'item';
+    if (!placing && !ed.sel.length) return;
+    e.preventDefault();
+    act.rotateKey(() => editor.refreshHover(), e.code === 'KeyQ' ? -1 : 1, true);
+    return;
+  }
   if (e.shiftKey && e.key !== '+') return;
   switch (e.code) {
+    case 'KeyQ':
+      /* 反方向轉 90°（2026-11-05，F277） */
+      act.rotateKey(() => editor.refreshHover(), -1);
+      return;
     case 'KeyR':
       act.rotateKey(() => editor.refreshHover());
       return;

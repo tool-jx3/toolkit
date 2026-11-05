@@ -2,6 +2,7 @@
  * 房間種類、門窗種類、牆的種類、房間的預設尺寸（名稱在 strings.ts）。
  */
 import type {
+  FloorMaterial,
   OpeningKind,
   RoomCategory,
   SizeMode,
@@ -40,7 +41,9 @@ export type FloorPattern =
   | 'slab'
   | 'dirt'
   | 'raked'
-  | 'planks';
+  | 'planks'
+  /* 2026-11-05：地毯（房間的地板，F282） */
+  | 'carpet';
 
 export interface CategoryInfo {
   id: RoomCategory;
@@ -421,6 +424,30 @@ export const TOKEN_GRID_OPACITY_MIN = 0.1;
 export const WEAR_MIN = 0.1;
 export const WEAR_DEFAULT = 0.6;
 export const WEAR_SEEDS = 1_000_000;
+
+/**
+ * 夜的暗度（2026-11-05，參考 KIIN v2.0 的「夜の暗さと明かり」0～85%；規格 F273）：
+ * 地圖設定的滑桿 0%～85%（每次 5%），0% 是白天（不寫這個欄位）；打開時預設 55%。
+ */
+export const NIGHT_MIN = 0.05;
+export const NIGHT_MAX = 0.85;
+export const NIGHT_DEFAULT = 0.55;
+
+/** 房間的地板（2026-11-05，F282）：地毯、水面、格柵；花紋與底色的來源 */
+export const FLOOR_MATERIALS: readonly FloorMaterial[] = ['carpet', 'water', 'grating'];
+export const isFloorMaterial = (v: unknown): v is FloorMaterial =>
+  typeof v === 'string' && (FLOOR_MATERIALS as readonly string[]).includes(v);
+/** 地板的花紋 */
+export const FLOOR_PATTERN: Record<FloorMaterial, FloorPattern> = {
+  carpet: 'carpet',
+  water: 'water',
+  grating: 'grating',
+};
+/** 地板的底色借哪一種房間的顏色（地毯另外配色，themes.ts 的 carpet） */
+export const FLOOR_FILL_FROM: Record<Exclude<FloorMaterial, 'carpet'>, RoomCategory> = {
+  water: 'water',
+  grating: 'grate',
+};
 
 /** 匯出時 1 格的像素數 */
 export const EXPORT_PX = [24, 32, 48, 64, 96] as const;

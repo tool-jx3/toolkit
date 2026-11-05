@@ -11,7 +11,18 @@ import {
 } from '@/core/image';
 import { printPixels } from '@/core/paged/units';
 import { normalizePhotoFx, PHOTO_FX_DEFAULT, type PhotoFx } from './photofx';
-import { initialSf, normalizeSf, type SfState, sfAssetIds } from './sf/model';
+import {
+  defaultWatermark,
+  initialSf,
+  normalizeElement,
+  normalizeSf,
+  normalizeWatermark,
+  SF_ELEMENT_MAX,
+  type SfElement,
+  type SfState,
+  type SfWatermark,
+  sfAssetIds,
+} from './sf/model';
 import {
   type FieldDef,
   fieldMax,
@@ -135,6 +146,77 @@ export interface IdTicketState {
   idPhotoFx: PhotoFx;
   /** SF 證件（資料版本 2 起） */
   sf: SfState;
+  /** 既有證件的浮水印與裝飾圖（資料版本 3 起，規格 F95） */
+  idDecor: IdDecor;
+}
+
+/** 浮水印印在哪一面 */
+export type WatermarkSide = 'front' | 'back' | 'both';
+export const WATERMARK_SIDES: readonly WatermarkSide[] = ['both', 'front', 'back'];
+
+export interface IdDecor {
+  /** 浮水印（7 款共用，同 SF 證件的 5 款共用） */
+  watermark: SfWatermark;
+  side: WatermarkSide;
+  /** 裝飾圖：每一款、每一面各自（最多 16 張） */
+  elements: Record<IdTemplateId, Record<Side, SfElement[]>>;
+  /** 照片蓋過裝飾圖 */
+  photoOverElements: boolean;
+}
+
+/** 證件浮水印的預設字（範例；預設是關的） */
+export const ID_WATERMARK_TEXT = 'SPECIMEN 樣本';
+
+export const defaultIdWatermark = (): SfWatermark => ({
+  ...defaultWatermark(),
+  text: ID_WATERMARK_TEXT,
+});
+
+const emptyIdElements = (): IdDecor['elements'] =>
+  Object.fromEntries(ID_TEMPLATES.map((t) => [t.id, { front: [], back: [] }])) as unknown as Record<
+    IdTemplateId,
+    Record<Side, SfElement[]>
+  >;
+
+export const initialIdDecor = (): IdDecor => ({
+  watermark: defaultIdWatermark(),
+  side: 'both',
+  elements: emptyIdElements(),
+  photoOverElements: false,
+});
+
+export function normalizeIdDecor(raw: unknown): IdDecor {
+  const d = initialIdDecor();
+  if (!isObj(raw)) return d;
+  const elSrc = isObj(raw.elements) ? raw.elements : {};
+  const seen = new Set<string>();
+  const elements = emptyIdElements();
+  for (const t of ID_TEMPLATES) {
+    const sides = isObj(elSrc[t.id]) ? (elSrc[t.id] as Record<string, unknown>) : {};
+    for (const side of ['front', 'back'] as const) {
+      const list = Array.isArray(sides[side]) ? (sides[side] as unknown[]) : [];
+      elements[t.id][side] = list
+        .slice(0, SF_ELEMENT_MAX)
+        .map((e) => normalizeElement(e, seen))
+        .filter((e): e is SfElement => !!e);
+    }
+  }
+  return {
+    watermark: normalizeWatermark(raw.watermark, defaultIdWatermark()),
+    side: (WATERMARK_SIDES as readonly string[]).includes(raw.side as string)
+      ? (raw.side as WatermarkSide)
+      : d.side,
+    elements,
+    photoOverElements: typeof raw.photoOverElements === 'boolean' ? raw.photoOverElements : false,
+  };
+}
+
+export function idDecorAssetIds(d: IdDecor): string[] {
+  const ids: string[] = [];
+  if (d.watermark.image) ids.push(d.watermark.image.id);
+  for (const sides of Object.values(d.elements))
+    for (const list of Object.values(sides)) for (const e of list) ids.push(e.image.id);
+  return ids;
 }
 
 export const defaultIdStyles = (): Record<IdTemplateId, IdStyle> =>
@@ -169,6 +251,7 @@ export const initialState = (): IdTicketState => ({
   theme: { c1: TICKET_THEMES[0].c1, c2: TICKET_THEMES[0].c2 },
   idPhotoFx: { ...PHOTO_FX_DEFAULT },
   sf: initialSf(),
+  idDecor: initialIdDecor(),
 });
 
 /* ---------- 文字 ---------- */
@@ -392,6 +475,7 @@ export function normalizeState(raw: unknown): IdTicketState {
     },
     idPhotoFx: normalizePhotoFx(raw.idPhotoFx),
     sf: normalizeSf(raw.sf),
+    idDecor: normalizeIdDecor(raw.idDecor),
   };
 }
 
@@ -401,6 +485,7 @@ export function stateAssetIds(s: IdTicketState): string[] {
   if (s.idPhoto) ids.push(s.idPhoto.image.id);
   for (const p of Object.values(s.ticketPhotos)) if (p) ids.push(p.image.id);
   ids.push(...sfAssetIds(s.sf));
+  ids.push(...idDecorAssetIds(s.idDecor));
   return ids;
 }
 

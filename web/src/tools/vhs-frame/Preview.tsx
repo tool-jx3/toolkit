@@ -2,8 +2,8 @@
  * 預覽區（規格 1.6、1.7）：預覽模式（錄影帶／GIF 動畫）、舞台（直接拖曳、縮放照片）、播放列、共用的匯出區。
  * - 錄影帶：一直在播（0～58 秒一輪、每 1/24 秒一格）；PNG 存目前這一格。播放中、拖曳與縮放照片時以畫面顯示的大小
  *   （含 devicePixelRatio，最多 1280 寬）畫，暫停而且沒在操作時以 PNG 的大小畫（暫停時的預覽＝下載的 PNG）。
- * - GIF 動畫：以動畫的大小畫出跟匯出一樣的 24 格（字幕逐字打出）。
- * 合成好的照片層依「照片、位置、比例、寬度」快取（最近 4 份），切換預覽模式、播放與暫停不重新縮照片。
+ * - GIF 動畫：以動畫的大小畫出跟匯出一樣的影格（預設 24 格；場景依序換、字幕逐字打出、開場與收尾）。
+ * 合成好的照片層依「照片、位置、比例、寬度、調色」快取（最近 4 份），切換預覽模式、播放與暫停不重新縮照片。
  * 畫一格比一格的時間還久時少畫幾格（播放的時間照走），主執行緒不被佔滿；停下來時一定畫到最新的狀態。
  */
 import {
@@ -36,25 +36,34 @@ import {
   useStageView,
   useWebpSupport,
 } from '@/ui';
-import { type ExportJob, outputSize, renderInto, runExport } from './exporter';
+import {
+  composeLook,
+  type ExportJob,
+  outputSize,
+  renderAnimFrame,
+  renderInto,
+  runExport,
+} from './exporter';
 import { fontLoads, useEnsureFonts, useFontTick } from './fonts';
 import {
   ANIM_SIZES,
+  animPlan,
   animSize,
   EXPORT_FORMATS,
   type ExportFormat,
-  GIF_DURATION,
-  GIF_FRAMES,
+  GIF_COLOR_OPTIONS,
+  GIF_COLORS,
   GIF_STEP,
   gifFrameAt,
-  gifFrameTime,
   heightFor,
   KEY_STEP,
   KEY_STEP_BIG,
   KEY_ZOOM,
   masterWidthFor,
   type PhotoView,
+  PNG_WIDTHS,
   panView,
+  pngSize,
   SCREEN_W,
   screenSize,
   TAPE_FPS,
@@ -127,6 +136,8 @@ export interface ScreenHandle {
     composed: number;
     /** 目前是不是以顯示的大小畫（播放中或操作中） */
     live: boolean;
+    /** 「GIF 動畫」的格數 */
+    frames: number;
   };
 }
 
@@ -135,15 +146,19 @@ export interface ScreenHandle {
 function Screen({ mode, ref }: { mode: PreviewMode; ref: Ref<ScreenHandle> }) {
   const s = useDoc((st) => st.data);
   const animIndex = usePrefs((p) => p.data.animSize);
+  const pngIndex = usePrefs((p) => p.data.pngSize);
   const tapePaused = usePrefs((p) => p.data.tapePaused);
+  /* 動畫的安排（長度、場景、開場、收尾） */
+  const plan = useMemo(() => animPlan(s), [s]);
   const photo = useAssetImage(assets, s.photo?.id);
   const loads = useMemo(() => fontLoads(s), [s]);
   useEnsureFonts(loads);
   const tick = useFontTick();
   const renderer = useMemo(() => new VhsRenderer(), []);
 
-  /* 舞台上的大小（內容座標）：錄影帶＝PNG 的大小、GIF 動畫＝動畫的大小 */
+  /* 舞台上的大小（內容座標）：錄影帶＝畫面（1280 寬）、GIF 動畫＝動畫的大小；暫停的錄影帶以 PNG 的大小畫 */
   const size = mode === 'tape' ? screenSize(s.aspect) : animSize(s.aspect, animIndex);
+  const png = pngSize(s.aspect, pngIndex);
   const bitmap = photo.bitmap && s.photo ? photo.bitmap : null;
 
   /* 操作中（拖曳、捏合、滾輪、方向鍵）：停下來 SETTLE_MS 之後才算結束 */
@@ -170,7 +185,7 @@ function Screen({ mode, ref }: { mode: PreviewMode; ref: Ref<ScreenHandle> }) {
     loop: true,
     autoPlay: tapePrefs.current.tapePaused ? false : undefined,
   });
-  const gif = usePlayback({ duration: GIF_DURATION, loop: true, autoPlay: false });
+  const gif = usePlayback({ duration: plan.total * GIF_STEP, loop: true, autoPlay: false });
   const pb = useRef({ tape, gif });
   pb.current = { tape, gif };
   const active = mode === 'tape' ? tape : gif;
@@ -183,16 +198,18 @@ function Screen({ mode, ref }: { mode: PreviewMode; ref: Ref<ScreenHandle> }) {
   const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
   const liveW = Math.min(SCREEN_W, Math.max(64, Math.ceil(shownWidth * dpr)));
   const target =
-    mode === 'tape' && live ? { width: liveW, height: heightFor(liveW, s.aspect) } : size;
-  const masterRes = mode === 'tape' && !live ? SCREEN_W : masterWidthFor(target.width);
+    mode === 'tape' ? (live ? { width: liveW, height: heightFor(liveW, s.aspect) } : png) : size;
+  /* 暫停的錄影帶＝PNG：照片層以 PNG 的寬合成 */
+  const masterRes = mode === 'tape' && !live ? png.width : masterWidthFor(target.width);
 
-  /* 照片層的快取（照片、位置、比例、寬度；最近 MASTER_CACHE 份） */
+  /* 照片層的快取（照片、位置、比例、寬度、調色與反轉；最近 MASTER_CACHE 份） */
   const masters = useRef(new Map<string, Master>());
   const composed = useRef(0);
   const masterFor = (res: number): Master | null => {
     if (!bitmap || !s.photo) return null;
     const v = s.view;
-    const key = `${s.photo.id}|${s.aspect}|${v.zoom}|${v.x}|${v.y}|${res}`;
+    const look = composeLook(s);
+    const key = `${s.photo.id}|${s.aspect}|${v.zoom}|${v.x}|${v.y}|${res}|${look.tone}|${look.brightness}|${look.saturation}|${look.flip}`;
     const cache = masters.current;
     const hit = cache.get(key);
     if (hit) {
@@ -200,7 +217,7 @@ function Screen({ mode, ref }: { mode: PreviewMode; ref: Ref<ScreenHandle> }) {
       cache.set(key, hit);
       return hit;
     }
-    const m = renderer.compose(bitmap, s.photo, v, s.aspect, res);
+    const m = renderer.compose(bitmap, s.photo, v, s.aspect, res, look);
     composed.current++;
     cache.set(key, m);
     while (cache.size > MASTER_CACHE) cache.delete(cache.keys().next().value as string);
@@ -248,7 +265,7 @@ function Screen({ mode, ref }: { mode: PreviewMode; ref: Ref<ScreenHandle> }) {
       setPrefs({ tapePaused: true, tapeTime: tapeFrameTime(tape.time) });
   }, [mode, tape.playing, tape.loop, tape.time]);
 
-  const frameKey = mode === 'tape' ? tapeFrameTime(tape.time) : gifFrameAt(gif.time);
+  const frameKey = mode === 'tape' ? tapeFrameTime(tape.time) : gifFrameAt(gif.time, plan.total);
   useEffect(() => {
     useTapeClock.setState({ t: tapeFrameTime(tape.time), playing: tape.playing });
   }, [tape.time, tape.playing]);
@@ -270,13 +287,25 @@ function Screen({ mode, ref }: { mode: PreviewMode; ref: Ref<ScreenHandle> }) {
     const start = performance.now();
     const master = masterFor(masterRes);
     if (mode === 'tape') renderInto(renderer, c, s, master, frameKey);
-    else renderInto(renderer, c, s, master, gifFrameTime(frameKey), frameKey);
+    else renderAnimFrame(renderer, c, s, master, plan, frameKey);
     const end = performance.now();
     const cost = end - start;
     nextAllowed.current = cost > FRAME_MS ? end + cost : 0;
     drawn.current++;
     c.dataset.frame = String(frameKey);
-  }, [mode, frameKey, s, bitmap, tick, target.width, target.height, masterRes, moving, renderer]);
+  }, [
+    mode,
+    frameKey,
+    s,
+    plan,
+    bitmap,
+    tick,
+    target.width,
+    target.height,
+    masterRes,
+    moving,
+    renderer,
+  ]);
 
   /* 暫停並停在某個時間（錄影帶的暫停與時間一併記進 prefs） */
   const seekPaused = (t: number, m: PreviewMode = mode) => {
@@ -308,6 +337,7 @@ function Screen({ mode, ref }: { mode: PreviewMode; ref: Ref<ScreenHandle> }) {
         drawn: drawn.current,
         composed: composed.current,
         live,
+        frames: plan.total,
       };
     },
   }));
@@ -451,6 +481,9 @@ function Screen({ mode, ref }: { mode: PreviewMode; ref: Ref<ScreenHandle> }) {
     setView(next);
   };
 
+  /* GIF 動畫的影格表（播放列的 ←／→ 逐格） */
+  const gifTable = useMemo(() => uniformFrames(plan.total, 1 / GIF_STEP), [plan.total]);
+
   const v = s.view;
   return (
     <>
@@ -522,7 +555,7 @@ function Screen({ mode, ref }: { mode: PreviewMode; ref: Ref<ScreenHandle> }) {
           onTimeChange={gif.onTimeChange}
           onPlayingChange={gif.onPlayingChange}
           onRestart={gif.onRestart}
-          frames={GIF_TABLE}
+          frames={gifTable}
           fps={Math.round(1 / GIF_STEP)}
           legend={false}
         />
@@ -530,9 +563,6 @@ function Screen({ mode, ref }: { mode: PreviewMode; ref: Ref<ScreenHandle> }) {
     </>
   );
 }
-
-/** GIF 動畫的影格表（播放列的 ←／→ 逐格） */
-const GIF_TABLE = uniformFrames(GIF_FRAMES, 1 / GIF_STEP);
 
 /** PNG 存哪一格的說明（播放中／暫停在幾秒） */
 function PngFrameNote() {
@@ -580,6 +610,7 @@ export function Preview({
         drawn: 0,
         composed: 0,
         live: false,
+        frames: 0,
       },
   }));
 
@@ -604,12 +635,32 @@ export function Preview({
     scale: 1,
     quantize: prefs.quantize,
   };
-  const out = outputSize({ aspect }, { format: prefs.format, animSize: prefs.animSize });
+  const out = outputSize(
+    { aspect },
+    { format: prefs.format, animSize: prefs.animSize, pngSize: prefs.pngSize },
+  );
   /* 影響輸出的設定改了：已完成的結果卡作廢（錄影帶的時間不算，播放中一直在變） */
   const doc = useDoc((st) => st.data);
+  const frames = useMemo(() => animPlan(doc).total, [doc]);
   const resetKey = useMemo(
-    () => ({ doc, f: prefs.format, a: prefs.animSize, p: prefs.plays, q: prefs.quantize }),
-    [doc, prefs.format, prefs.animSize, prefs.plays, prefs.quantize],
+    () => ({
+      doc,
+      f: prefs.format,
+      a: prefs.animSize,
+      p: prefs.plays,
+      q: prefs.quantize,
+      s: prefs.pngSize,
+      c: prefs.gifColors,
+    }),
+    [
+      doc,
+      prefs.format,
+      prefs.animSize,
+      prefs.plays,
+      prefs.quantize,
+      prefs.pngSize,
+      prefs.gifColors,
+    ],
   );
 
   return (
@@ -631,7 +682,8 @@ export function Preview({
       </div>
       <Screen mode={prefs.preview} ref={handle} />
       <p className="m-0 px-1 text-xs text-muted" data-testid="preview-hint">
-        {hasPhoto ? S.hintPhoto : S.hintNoPhoto} {prefs.preview === 'tape' ? S.hintTape : S.hintGif}
+        {hasPhoto ? S.hintPhoto : S.hintNoPhoto}{' '}
+        {prefs.preview === 'tape' ? S.hintTape : S.hintGif(frames)}
       </p>
       {missing !== null ? <Notice tone="warning">{S.photoMissing}</Notice> : null}
       <ExportPanel
@@ -647,31 +699,60 @@ export function Preview({
           })
         }
         fixedFps={Math.round(1 / GIF_STEP)}
-        fixedFpsHint={S.animFrames}
+        fixedFpsHint={S.animFrames(frames)}
         loopHint={prefs.format === 'gif' ? S.loopHint : undefined}
         resetKey={resetKey}
         extra={
           prefs.format === 'png' ? (
-            <div className="flex min-w-0 flex-col gap-1">
-              <p className="m-0 text-xs text-muted tabular-nums" data-testid="export-size">
-                {S.pngSize(out.width, out.height)}
-              </p>
-              <PngFrameNote />
+            <div className="flex min-w-0 flex-col gap-2">
+              <Field label={S.pngSizeLabel}>
+                <Select
+                  value={String(prefs.pngSize)}
+                  onValueChange={(v) => setPrefs({ pngSize: Number(v) })}
+                  options={PNG_WIDTHS.map((w, i) => {
+                    const sz = pngSize(aspect, i);
+                    return {
+                      value: String(i),
+                      label: S.animSizeOption(S.pngSizes[i], sz.width, sz.height, w === SCREEN_W),
+                    };
+                  })}
+                />
+              </Field>
+              <div className="flex min-w-0 flex-col gap-1">
+                <p className="m-0 text-xs text-muted tabular-nums" data-testid="export-size">
+                  {S.pngSize(out.width, out.height)}
+                </p>
+                <PngFrameNote />
+              </div>
             </div>
           ) : (
-            <Field
-              label={S.animSize}
-              hint={<span data-testid="export-frames">{S.animFrames}</span>}
-            >
-              <Select
-                value={String(prefs.animSize)}
-                onValueChange={(v) => setPrefs({ animSize: Number(v) })}
-                options={ANIM_SIZES[aspect].map((sz, i) => ({
-                  value: String(i),
-                  label: S.animSizeOption(S.animSizes[i], sz.width, sz.height, i === 0),
-                }))}
-              />
-            </Field>
+            <div className="flex min-w-0 flex-col gap-2">
+              <Field
+                label={S.animSize}
+                hint={<span data-testid="export-frames">{S.animFrames(frames)}</span>}
+              >
+                <Select
+                  value={String(prefs.animSize)}
+                  onValueChange={(v) => setPrefs({ animSize: Number(v) })}
+                  options={ANIM_SIZES[aspect].map((sz, i) => ({
+                    value: String(i),
+                    label: S.animSizeOption(S.animSizes[i], sz.width, sz.height, i === 0),
+                  }))}
+                />
+              </Field>
+              {prefs.format === 'gif' ? (
+                <Field label={S.gifColors} hint={S.gifColorsHint}>
+                  <Select
+                    value={String(prefs.gifColors)}
+                    onValueChange={(v) => setPrefs({ gifColors: Number(v) })}
+                    options={GIF_COLOR_OPTIONS.map((n) => ({
+                      value: String(n),
+                      label: S.gifColorOption(n, n === GIF_COLORS),
+                    }))}
+                  />
+                </Field>
+              ) : null}
+            </div>
           )
         }
         onExport={(st, { signal, onProgress }) => {
@@ -681,6 +762,8 @@ export function Preview({
             plays: st.plays,
             quantize: st.quantize,
             tapeTime: handle.current?.tapeT() ?? 0,
+            pngSize: prefsNow().pngSize,
+            gifColors: prefsNow().gifColors,
           };
           return runExport(docNow(), photo.bitmap, job, { signal, onProgress });
         }}

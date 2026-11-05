@@ -6,6 +6,8 @@ import { arrangeRoom } from '../model/arrange';
 import { ASSET, isAsset } from '../model/assets';
 import {
   isTokenGridSize,
+  NIGHT_MAX,
+  NIGHT_MIN,
   ROOM_PRESETS,
   type RoomPresetId,
   WEAR_DEFAULT,
@@ -13,19 +15,24 @@ import {
   WEAR_SEEDS,
   wallThickness,
 } from '../model/catalog';
+import { arrangeRing, flipRing, partialRingIds, ringMembers } from '../model/circle';
 import { compatCounts, hasCompatNotes } from '../model/compat';
 import { connectRooms } from '../model/connect';
 import { resizeWithFollow } from '../model/follow';
+import { FURNISH_PRESET, type FurnishPresetId, furnishRoom } from '../model/furnish';
 import {
   clamp,
   clueCount,
   emptyProject,
   floorBounds,
+  itemLocalSize,
   round2,
+  swapsAxes,
   uid,
   visibleFloor,
 } from '../model/geometry';
 import { interiorFloor } from '../model/interior';
+import { flipLine } from '../model/lines';
 import { isLegacyMapFile, type NormalizeReport, normalizeProject } from '../model/normalize';
 import { isRoomNumber, numberRooms } from '../model/numbering';
 import {
@@ -41,6 +48,8 @@ import {
   groundFloorIndex,
   movable,
   nextFloorName,
+  objList,
+  pushObj,
   refKey,
   reorder,
   rotateItem,
@@ -51,10 +60,13 @@ import {
 import { defaultCut, fitCut, L_MIN } from '../model/shape';
 import { itemGhost } from '../model/snap';
 import { restingOn, SURFACES } from '../model/tabletop';
+import { type MapTransform, transformProject } from '../model/transform';
 import {
   type Corner,
   type Floor,
+  type FreeLine,
   type Item,
+  OBJ_TYPES,
   type ObjType,
   type Project,
   type Rect,
@@ -73,6 +85,7 @@ import {
   setEditor,
   starterProject,
   type ToolId,
+  type Underlay,
   useEditor,
   usePrefs,
   useProject,
@@ -130,7 +143,7 @@ const cur = (p: Project) => p.floors[p.active];
 
 export function addObject(type: ObjType, obj: AnyObj): void {
   update((p) => {
-    (cur(p)[TYPE_KEY[type]] as AnyObj[]).push(obj);
+    pushObj(cur(p), type, obj);
   });
 }
 
@@ -142,6 +155,11 @@ export function removeObjects(refs: readonly SelRef[]): void {
       (f[TYPE_KEY[type]] as AnyObj[]) = (f[TYPE_KEY[type]] as AnyObj[]).filter(
         (o) => !keys.has(`${type}:${o.id}`),
       );
+    /* 自由線（2026-11-05）：刪到沒有時拿掉這個欄位（存檔和以前一樣） */
+    if (f.lines) {
+      f.lines = f.lines.filter((l) => !keys.has(`line:${l.id}`));
+      if (!f.lines.length) delete f.lines;
+    }
   });
   const sel = useEditor.getState().sel.filter((s) => !keys.has(refKey(s)));
   setEditor({ sel });
@@ -171,7 +189,7 @@ export function dropMissingSelection(): void {
   const { sel, playerView } = useEditor.getState();
   if (!sel.length) return;
   const f = visibleFloor(editableFloor(), playerView, !usePrefs.getState().data.showClues);
-  const next = sel.filter((s) => (f[TYPE_KEY[s.type]] as AnyObj[]).some((o) => o.id === s.id));
+  const next = sel.filter((s) => objList(f as Floor, s.type).some((o) => o.id === s.id));
   if (next.length !== sel.length) setEditor({ sel: next });
 }
 
@@ -197,6 +215,7 @@ export function setTool(tool: ToolId, armed?: Armed | null): void {
     else if (tool === 'door') a = { kind: 'opening', type: 'door', hinge: 0 };
     else if (tool === 'window') a = { kind: 'opening', type: 'window', hinge: 0 };
     else if (tool === 'wall') a = { kind: 'wall', type: 'int' };
+    else if (tool === 'line') a = { kind: 'line', type: 'rail' };
   }
   setEditor({ tool, armed: a });
   updateHint(false);
@@ -207,6 +226,7 @@ export function armedName(a: Armed | null): string {
   if (a.kind === 'opening') return S.openings[a.type];
   if (a.kind === 'item') return ASSET[a.t]?.name ?? '';
   if (a.kind === 'room') return S.presets[a.preset];
+  if (a.kind === 'line') return S.lines[a.type];
   return S.walls[a.type];
 }
 
@@ -224,6 +244,7 @@ export function updateHint(warn: boolean): void {
     text = warn ? S.hints.noWall : S.hints.opening(armedName(armed));
   else if (tool === 'place' && armed) text = S.hints.place(armedName(armed));
   else if (tool === 'wall' && armed?.kind === 'wall') text = S.hints.wall(armedName(armed));
+  else if (tool === 'line' && armed?.kind === 'line') text = S.hints.line(armedName(armed));
   else if (
     tool === 'select' ||
     tool === 'hand' ||
@@ -249,16 +270,22 @@ export function toggleArmed(tool: ToolId, armed: Armed): void {
   else setTool(tool, armed);
 }
 
-/** R：要放的家具轉向、門窗的鉸鍊換邊；不然轉選取的東西 */
-export function rotateKey(refresh: () => void): void {
+/**
+ * R：要放的家具轉向、門窗的鉸鍊換邊；不然轉選取的東西。
+ * 2026-11-05（F277）：`dir` −1＝反方向（Q）；`fine`＝每次 15°（Shift，只用在家具）。
+ */
+export function rotateKey(refresh: () => void, dir: 1 | -1 = 1, fine = false): void {
   const { tool, armed } = useEditor.getState();
   if (tool === 'place' && armed?.kind === 'item') {
-    setEditor({ armed: { ...armed, rot: (armed.rot + 90) % 360, manual: true } });
+    const step = (fine ? 15 : 90) * dir;
+    setEditor({
+      armed: { ...armed, rot: Math.round((((armed.rot + step) % 360) + 360) % 360), manual: true },
+    });
     refresh();
   } else if ((tool === 'door' || tool === 'window') && armed?.kind === 'opening') {
     setEditor({ armed: { ...armed, hinge: armed.hinge ? 0 : 1 } });
     refresh();
-  } else rotateSelection();
+  } else rotateSelection(dir, fine);
 }
 
 /* ---------- 選取 ---------- */
@@ -275,8 +302,8 @@ export function selectAll(): void {
   const { playerView } = useEditor.getState();
   const f = visibleFloor(editableFloor(), playerView, !usePrefs.getState().data.showClues);
   const sel: SelRef[] = [];
-  for (const type of ['room', 'item', 'opening', 'wall', 'text'] as const)
-    for (const o of f[TYPE_KEY[type]] as AnyObj[]) sel.push({ type, id: o.id });
+  for (const type of OBJ_TYPES)
+    for (const o of objList(f as Floor, type)) sel.push({ type, id: o.id });
   setEditor({ sel });
 }
 
@@ -337,8 +364,9 @@ export function duplicateSelection(): void {
     obj: cloneObj(e.type, getObj(f, e.type, e.id) as AnyObj, dx, dy),
     top: top.has(refKey(e)),
   }));
+  regroupRings(f, entries, clones);
   update((p) => {
-    for (const c of clones) (cur(p)[TYPE_KEY[c.type]] as AnyObj[]).push(c.obj);
+    for (const c of clones) pushObj(cur(p), c.type, c.obj);
   });
   setEditor({ sel: clones.filter((c) => c.top).map((c) => ({ type: c.type, id: c.obj.id })) });
 }
@@ -380,17 +408,65 @@ export function paste(): void {
     if (e.top) added.push({ type: e.type, id: copy.id });
     return { type: e.type, obj: copy };
   });
+  regroupRings(
+    useProject.getState().data.floors.find((fl) => fl.id === cb.floorId) ?? null,
+    cb.entries.map((e) => ({ type: e.type, id: (e.obj as AnyObj).id })),
+    copies,
+  );
   update((p) => {
-    for (const c of copies) (cur(p)[TYPE_KEY[c.type]] as AnyObj[]).push(c.obj);
+    for (const c of copies) pushObj(cur(p), c.type, c.obj);
   });
   setEditor({ sel: added, clipboard: { ...cb, shift } });
   notify(S.msg.pasted(cb.entries.length));
 }
 
-export function rotateSelection(): void {
+/**
+ * 複製、貼上的圓形配置（F279）：整圈都複製的是新的一圈（新的群組 id），只複製一部分的離開群組
+ * （KIIN：個別複製は元の円形グループから独立）。`floor` 是原本的東西所在的樓層。
+ */
+function regroupRings(
+  floor: Floor | null,
+  refs: readonly SelRef[],
+  clones: readonly { type: ObjType; obj: AnyObj }[],
+): void {
+  const ids = new Set(refs.filter((r) => r.type === 'item').map((r) => r.id));
+  /* 原本的樓層不在了（貼上時）：一律離開群組 */
+  const partial = floor ? new Set(partialRingIds(floor, ids)) : ids;
+  const fresh = new Map<string, string>();
+  refs.forEach((r, i) => {
+    const c = clones[i];
+    if (r.type !== 'item' || !c || c.type !== 'item') return;
+    const it = c.obj as Item;
+    if (!it.ring) return;
+    if (partial.has(r.id)) {
+      delete it.ring;
+      return;
+    }
+    const g = fresh.get(it.ring) ?? uid('g');
+    fresh.set(it.ring, g);
+    it.ring = g;
+  });
+}
+
+/** 單獨移動的家具離開圓形配置（F279；在改資料的 recipe 裡呼叫） */
+export function detachMovedRings(f: Floor, movedIds: ReadonlySet<string>): void {
+  const ids = new Set(partialRingIds(f, movedIds));
+  if (!ids.size) return;
+  for (const it of f.items) if (ids.has(it.id)) delete it.ring;
+}
+
+/**
+ * 旋轉選取的東西。`dir` −1＝反方向（Q，2026-11-05）；`fine`＝15°（Shift，只轉家具，F277）。
+ * 房間：90°（反方向＝順時針轉三次）。家具：各自繞中心轉；放在選取的桌子上的小物繞桌子的中心一起轉。
+ */
+export function rotateSelection(dir: 1 | -1 = 1, fine = false): void {
   const entries = selected();
   if (!entries.length) return;
-  if (entries.some((e) => e.type === 'room')) {
+  if (fine && !entries.some((e) => e.type === 'item')) {
+    notify(S.msg.fineRotateItemsOnly, 'warning');
+    return;
+  }
+  if (!fine && entries.some((e) => e.type === 'room')) {
     const top = entries.filter((e) => !(e.type === 'room' && (e.obj as Room).locked));
     const rooms = top.filter((e) => e.type === 'room').map((e) => e.obj as Room);
     if (!rooms.length) {
@@ -406,15 +482,18 @@ export function rotateSelection(): void {
     const ids = rooms.map((r) => r.id);
     update((p) => {
       const ff = cur(p);
-      rotateRoomsCW(
-        ff,
-        ids.map((id) => getObj(ff, 'room', id) as Room),
-        refs,
-      );
+      for (let k = 0; k < (dir < 0 ? 3 : 1); k++)
+        rotateRoomsCW(
+          ff,
+          ids.map((id) => getObj(ff, 'room', id) as Room),
+          refs,
+        );
     });
     return;
   }
   if (entries.some((e) => e.type === 'item')) {
+    const deg = (fine ? 15 : 90) * dir;
+    const rad = (deg * Math.PI) / 180;
     const ids = entries.filter((e) => e.type === 'item').map((e) => e.id);
     /* 放在選取的桌子上的小物繞著桌子的中心一起轉（2026-10-29，F255） */
     const f = currentFloor();
@@ -428,18 +507,21 @@ export function rotateSelection(): void {
       for (const id of ids) {
         if (carried.has(id)) continue;
         const it = getObj(cur(p), 'item', id);
-        if (it) rotateItem(it as never, 90);
+        if (it) rotateItem(it as never, deg);
       }
       for (const [id, s] of carried) {
         const it = getObj(cur(p), 'item', id) as Item | null;
         if (!it) continue;
         const sx = s.x + s.w / 2;
         const sy = s.y + s.h / 2;
-        const cx = it.x + it.w / 2;
-        const cy = it.y + it.h / 2;
-        rotateItem(it, 90);
-        it.x = round2(sx - (cy - sy) - it.w / 2);
-        it.y = round2(sy + (cx - sx) - it.h / 2);
+        const dx = it.x + it.w / 2 - sx;
+        const dy = it.y + it.h / 2 - sy;
+        rotateItem(it, deg);
+        /* 繞桌子的中心轉（90° 時就是 (−dy, dx)） */
+        const nx = Math.abs(deg) === 90 ? -dy * dir : dx * Math.cos(rad) - dy * Math.sin(rad);
+        const ny = Math.abs(deg) === 90 ? dx * dir : dx * Math.sin(rad) + dy * Math.cos(rad);
+        it.x = round2(sx + nx - it.w / 2);
+        it.y = round2(sy + ny - it.h / 2);
       }
     });
   } else if (entries.length === 1 && entries[0].type === 'opening') flipHinge();
@@ -447,6 +529,8 @@ export function rotateSelection(): void {
 
 export function flipSelection(): void {
   const entries = selected();
+  /* 自由線（2026-11-05，F286）：以兩端的中點左右反轉 */
+  if (entries.some((e) => e.type === 'line')) flipLines('x');
   if (entries.some((e) => e.type === 'item')) {
     const ids = entries.filter((e) => e.type === 'item').map((e) => e.id);
     update((p) => {
@@ -458,6 +542,21 @@ export function flipSelection(): void {
       }
     });
   } else if (entries.length === 1 && entries[0].type === 'opening') flipSwing();
+}
+
+/** 選取的自由線左右（x）或上下（y）反轉（F286） */
+export function flipLines(axis: 'x' | 'y'): void {
+  const ids = useEditor
+    .getState()
+    .sel.filter((s) => s.type === 'line')
+    .map((s) => s.id);
+  if (!ids.length) return;
+  update((p) => {
+    for (const id of ids) {
+      const l = getObj(cur(p), 'line', id) as FreeLine | null;
+      if (l) flipLine(l, axis);
+    }
+  });
 }
 
 export function flipSwing(): void {
@@ -553,6 +652,7 @@ export function nudge(dx: number, dy: number, big: boolean): boolean {
       const o = getObj(cur(p), r.type, r.id);
       if (o) translateObj(r.type, o, dx * step, dy * step);
     }
+    detachMovedRings(cur(p), new Set(refs.filter((r) => r.type === 'item').map((r) => r.id)));
   });
   if (nudgeTimer) clearTimeout(nudgeTimer);
   nudgeTimer = setTimeout(flushNudge, 700);
@@ -636,6 +736,184 @@ function pinInside(p: Project): void {
     const target = interiorFloor(f, p.floors);
     if (target && f.inside !== target.id) f.inside = target.id;
   }
+}
+
+/* ---------- 2026-11-05（參考 KIIN マップ制作スタジオ v2.0） ---------- */
+
+/** 整張地圖轉 90°、左右反轉、上下反轉（F276；所有樓層一起，一步復原） */
+export function transformMap(mode: MapTransform): void {
+  let done = false;
+  update((p) => {
+    done = transformProject(p, mode);
+  });
+  if (!done) {
+    notify(S.msg.transformEmpty, 'warning');
+    return;
+  }
+  viewFns?.fit();
+  notify(S.msg.transformed[mode], 'success', { action: undoAction() });
+}
+
+/** 夜的暗度（F273；0＝白天，拿掉這個欄位） */
+export function setNight(v: number): void {
+  useProject.getState().update((p) => {
+    if (!(v > 0)) delete p.night;
+    else p.night = Math.round(clamp(v, NIGHT_MIN, NIGHT_MAX) * 100) / 100;
+  });
+}
+
+/** 房間的內裝預設（F275）：一步復原 */
+export function furnishRoomPreset(roomId: string, preset: FurnishPresetId): void {
+  const f = currentFloor();
+  const room = getObj(f, 'room', roomId) as Room | null;
+  const r = furnishRoom(f, roomId, preset);
+  const name = room?.name || S.newRoom;
+  const label = S.furnish[preset];
+  if (!r.ok) {
+    notify(
+      r.reason === 'full'
+        ? S.msg.furnishFail.full(name, label)
+        : r.reason === 'kind'
+          ? S.msg.furnishFail.kind
+          : S.msg.furnishFail.noRoom,
+      'warning',
+    );
+    return;
+  }
+  const gone = new Set(r.remove);
+  update((p) => {
+    const ff = cur(p);
+    ff.items = ff.items.filter((it) => !gone.has(it.id)).concat(r.add);
+  });
+  setEditor({ sel: useEditor.getState().sel.filter((s) => s.type !== 'item' || !gone.has(s.id)) });
+  notify(S.msg.furnished(name, label, r.count, r.dropped), r.dropped ? 'warning' : 'success', {
+    action: undoAction(),
+  });
+}
+
+export { FURNISH_PRESET };
+
+/** 圓形配置（F279）：以這一件為準排成 count 個一圈；一步復原 */
+export function arrangeItemRing(itemId: string, count: number): void {
+  const f = currentFloor();
+  const r = arrangeRing(f, itemId, count);
+  if (!r.ok) {
+    notify(S.msg.ringFail[r.reason], 'warning');
+    return;
+  }
+  const gone = new Set(r.remove);
+  const byId = new Map(r.items.map((it) => [it.id, it]));
+  update((p) => {
+    const ff = cur(p);
+    ff.items = ff.items
+      .filter((it) => !gone.has(it.id))
+      .map((it) => byId.get(it.id) ?? it)
+      .concat(r.items.filter((it) => !f.items.some((o) => o.id === it.id)));
+  });
+  setEditor({ sel: [{ type: 'item', id: itemId }] });
+  notify(S.msg.ringDone(r.items.length), 'success', { action: undoAction() });
+}
+
+/** 圓形配置的整圈內外反轉 */
+export function flipItemRing(itemId: string): void {
+  const rots = flipRing(currentFloor(), itemId);
+  if (!rots.size) return;
+  update((p) => {
+    for (const it of cur(p).items) {
+      const r = rots.get(it.id);
+      if (r !== undefined) it.rot = r;
+    }
+  });
+  notify(S.msg.ringFlipped, 'success');
+}
+
+/** 選取整圈 */
+export function selectItemRing(itemId: string): void {
+  const f = currentFloor();
+  const it = getObj(f, 'item', itemId) as Item | null;
+  if (!it) return;
+  setEditor({ sel: ringMembers(f, it).map((m) => ({ type: 'item' as const, id: m.id })) });
+}
+
+export { ringMembers };
+
+/** 家具的倍率（F278）：和預設大小相比（0.5～3），以中心為準 */
+export function setItemScale(itemId: string, scale: number): void {
+  editObj<Item>({ type: 'item', id: itemId }, (it) => {
+    const a = ASSET[it.t];
+    if (!a) return;
+    const k = clamp(scale, 0.5, 3);
+    const cx = it.x + it.w / 2;
+    const cy = it.y + it.h / 2;
+    const lw = round2(a.w * k);
+    const lh = round2(a.h * k);
+    const swap = swapsAxes(it.rot);
+    it.w = swap ? lh : lw;
+    it.h = swap ? lw : lh;
+    it.x = round2(cx - it.w / 2);
+    it.y = round2(cy - it.h / 2);
+  });
+}
+
+/** 家具現在的倍率（寬、深一樣比例時；不一樣時取寬的） */
+export function itemScale(it: Item): number {
+  const a = ASSET[it.t];
+  if (!a) return 1;
+  return round2(itemLocalSize(it).w / a.w);
+}
+
+/** 家具的角度（F277：0～359°，以中心為準） */
+export function setItemAngle(itemId: string, deg: number): void {
+  editObj<Item>({ type: 'item', id: itemId }, (it) => {
+    const target = Math.round(((deg % 360) + 360) % 360) % 360;
+    rotateItem(it, target - (it.rot || 0));
+  });
+}
+
+/** 下繪圖（F283；只在這一頁） */
+export function setUnderlay(patch: Partial<Underlay> | null): void {
+  if (!patch) {
+    setEditor({ underlay: null });
+    return;
+  }
+  const cur0 = useEditor.getState().underlay;
+  if (!cur0 && !patch.src) return;
+  setEditor({ underlay: { ...(cur0 as Underlay), ...patch } });
+}
+
+/** 讀一張本機的圖片當下繪圖：預設放在地圖的中間、寬＝地圖的寬（沒有東西時 24 格） */
+export function loadUnderlay(file: File): void {
+  const ok = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'].includes(file.type);
+  if (!ok || file.size > 20_000_000) {
+    notify(S.msg.underlayFailed, 'warning');
+    return;
+  }
+  const url = URL.createObjectURL(file);
+  const img = new Image();
+  img.onload = () => {
+    const prev = useEditor.getState().underlay;
+    if (prev?.src.startsWith('blob:')) URL.revokeObjectURL(prev.src);
+    const p = useProject.getState().data;
+    const box = floorBounds(cur(p)) ?? { x: 0, y: 0, w: 24, h: 16 };
+    setEditor({
+      underlay: {
+        src: url,
+        aspect: (img.naturalHeight || 1) / (img.naturalWidth || 1),
+        x: round2(box.x + box.w / 2),
+        y: round2(box.y + box.h / 2),
+        w: Math.max(4, Math.round(box.w)),
+        opacity: 0.4,
+        visible: true,
+        name: file.name,
+      },
+    });
+    notify(S.msg.underlayLoaded, 'success');
+  };
+  img.onerror = () => {
+    URL.revokeObjectURL(url);
+    notify(S.msg.underlayFailed, 'warning');
+  };
+  img.src = url;
 }
 
 export function addFloor(): void {

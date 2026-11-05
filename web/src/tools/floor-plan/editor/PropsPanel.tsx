@@ -2,8 +2,21 @@
  * 屬性面板：沒有選取時是地圖設定；選了一個東西時是它的屬性；選了好幾個時是共同的開關與動作。
  * 文字欄、數字欄從聚焦到離開算一步復原；調色盤按下到放開算一步。
  */
-import { Link2, ListOrdered, Lock, LockOpen, RotateCw, Shuffle, Sparkles } from 'lucide-react';
-import { type KeyboardEvent, type ReactNode, useRef } from 'react';
+import {
+  CircleDot,
+  FlipHorizontal2,
+  FlipVertical2,
+  ImagePlus,
+  Link2,
+  ListOrdered,
+  Lock,
+  LockOpen,
+  RotateCw,
+  Shuffle,
+  Sofa,
+  Sparkles,
+} from 'lucide-react';
+import { type ChangeEvent, type KeyboardEvent, type ReactNode, useRef } from 'react';
 import { historyGesture } from '@/core/storage';
 import {
   Button,
@@ -25,7 +38,10 @@ import { ASSET } from '../model/assets';
 import {
   CAT,
   CATEGORIES,
+  FLOOR_MATERIALS,
+  isFloorMaterial,
   isWallKind,
+  NIGHT_DEFAULT,
   OPENINGS,
   ROOM_WALL_KINDS,
   SIZE_MODES,
@@ -35,10 +51,13 @@ import {
   WALL_KINDS,
   WEAR_DEFAULT,
 } from '../model/catalog';
+import { RING_COUNTS, ringMembers } from '../model/circle';
+import { FURNISH_PRESETS, NO_FURNISH } from '../model/furnish';
 import { clamp, metersText, meterText, pingText, roomArea, round2 } from '../model/geometry';
+import { isLineKind, LINE_KINDS, LINE_W_MAX, LINE_W_MIN, lineLength } from '../model/lines';
 import { getObj, rotateItem } from '../model/ops';
 import { CORNERS, L_MIN } from '../model/shape';
-import type { Item, Opening, Room, SelRef, TextLabel, Wall } from '../model/types';
+import type { FreeLine, Item, Opening, Room, SelRef, TextLabel, Wall } from '../model/types';
 import { S } from '../strings';
 import * as act from './actions';
 import { currentFloor, useEditor, usePrefs, useProject } from './store';
@@ -287,6 +306,7 @@ function MapProps() {
       </Field>
       <TokenGridFields />
       <KiinFields />
+      <Kiin2Fields />
       <FloorFields />
       <p className="m-0 border-t border-border pt-3 text-xs text-muted" data-testid="map-stats">
         {f.name}：{S.props.stats(f.rooms.length, f.items.length, f.openings.length)}
@@ -351,6 +371,203 @@ function KiinFields() {
         </div>
       ) : null}
     </>
+  );
+}
+
+/** 2026-11-05（參考 KIIN v2.0）：夜的暗度、整張地圖轉 90°／反轉、下繪圖 */
+function Kiin2Fields() {
+  const night = useProject((s) => s.data.night ?? 0);
+  return (
+    <>
+      <Typing>
+        <Field label={S.props.night} hint={S.props.nightHint}>
+          <Slider
+            value={Math.round(night * 100)}
+            min={0}
+            max={85}
+            step={5}
+            unit="%"
+            aria-label={S.props.night}
+            onChange={(v) => act.setNight(v / 100)}
+          />
+        </Field>
+      </Typing>
+      {night ? null : (
+        <Button
+          size="sm"
+          variant="ghost"
+          className="-mt-2 self-start"
+          onClick={() => act.setNight(NIGHT_DEFAULT)}
+          data-testid="night-on"
+        >
+          {S.props.night} {Math.round(NIGHT_DEFAULT * 100)}%
+        </Button>
+      )}
+      <Field label={S.props.transform} hint={S.props.transformHint}>
+        <div className="flex flex-wrap gap-1.5" data-testid="map-transform">
+          <Button size="sm" icon={<RotateCw />} onClick={() => act.transformMap('rotate')}>
+            {S.props.rotateMap}
+          </Button>
+          <Button size="sm" icon={<FlipHorizontal2 />} onClick={() => act.transformMap('flipX')}>
+            {S.props.flipMapX}
+          </Button>
+          <Button size="sm" icon={<FlipVertical2 />} onClick={() => act.transformMap('flipY')}>
+            {S.props.flipMapY}
+          </Button>
+        </div>
+      </Field>
+      <UnderlayFields />
+    </>
+  );
+}
+
+/** 下繪圖（F283）：選圖片、顯示、不透明度、位置與寬；只在這一頁 */
+function UnderlayFields() {
+  const u = useEditor((s) => s.underlay);
+  const input = useRef<HTMLInputElement>(null);
+  const pick = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (file) act.loadUnderlay(file);
+  };
+  return (
+    <div className="flex flex-col gap-2" data-testid="underlay-fields">
+      <Field label={S.props.underlay} hint={S.props.underlayHint}>
+        <div className="flex flex-wrap items-center gap-1.5">
+          <Button size="sm" icon={<ImagePlus />} onClick={() => input.current?.click()}>
+            {S.props.underlayPick}
+          </Button>
+          {u ? (
+            <Button size="sm" variant="ghost" onClick={() => act.setUnderlay(null)}>
+              {S.props.underlayClear}
+            </Button>
+          ) : null}
+          <input
+            ref={input}
+            type="file"
+            accept="image/png,image/jpeg,image/webp,image/gif"
+            hidden
+            onChange={pick}
+            data-testid="underlay-input"
+          />
+        </div>
+      </Field>
+      {u ? (
+        <>
+          <p className="m-0 truncate text-xs text-muted" title={u.name}>
+            {u.name}
+          </p>
+          <Field label={S.props.underlayShow} layout="inline">
+            <Toggle checked={u.visible} onCheckedChange={(v) => act.setUnderlay({ visible: v })} />
+          </Field>
+          <Field label={S.props.underlayOpacity}>
+            <Slider
+              value={Math.round(u.opacity * 100)}
+              min={10}
+              max={90}
+              step={5}
+              unit="%"
+              aria-label={S.props.underlayOpacity}
+              onChange={(v) => act.setUnderlay({ opacity: v / 100 })}
+            />
+          </Field>
+          <FieldRow columns={3}>
+            <Field label={S.props.underlayX}>
+              <NumberInput
+                value={u.x}
+                step={0.5}
+                precision={2}
+                onChange={(v) => act.setUnderlay({ x: round2(v) })}
+              />
+            </Field>
+            <Field label={S.props.underlayY}>
+              <NumberInput
+                value={u.y}
+                step={0.5}
+                precision={2}
+                onChange={(v) => act.setUnderlay({ y: round2(v) })}
+              />
+            </Field>
+            <Field label={S.props.underlayW}>
+              <NumberInput
+                value={u.w}
+                step={1}
+                min={2}
+                max={400}
+                precision={2}
+                unit={S.props.cells}
+                onChange={(v) => act.setUnderlay({ w: clamp(round2(v), 2, 400) })}
+              />
+            </Field>
+          </FieldRow>
+        </>
+      ) : null}
+    </div>
+  );
+}
+
+/** 房間的內裝預設（F275）：七種，按一下套用 */
+function FurnishFields({ r }: { r: Room }) {
+  if (NO_FURNISH.has(r.cat)) return null;
+  return (
+    <div className="flex flex-col gap-1.5 border-t border-border pt-3" data-testid="furnish">
+      <p className="m-0 flex items-center gap-1.5 text-xs font-semibold text-muted">
+        <Sofa aria-hidden className="size-3.5" />
+        {S.props.furnishTitle}
+      </p>
+      <div className="flex flex-wrap gap-1.5">
+        {FURNISH_PRESETS.map((p) => (
+          <Button
+            key={p.id}
+            size="sm"
+            onClick={() => act.furnishRoomPreset(r.id, p.id)}
+            data-furnish={p.id}
+          >
+            {S.furnish[p.id]}
+          </Button>
+        ))}
+      </div>
+      <p className="m-0 text-xs text-muted">{S.props.furnishHint}</p>
+    </div>
+  );
+}
+
+/** 家具的圓形配置（F279）：6／8 個一圈、內外反轉、選取整圈 */
+function RingFields({ it }: { it: Item }) {
+  const f = currentFloor();
+  const members = it.ring ? ringMembers(f, it) : [it];
+  return (
+    <div className="flex flex-col gap-1.5" data-testid="ring">
+      <p className="m-0 flex items-center gap-1.5 text-xs font-semibold text-muted">
+        <CircleDot aria-hidden className="size-3.5" />
+        {S.props.ring}
+      </p>
+      <div className="flex flex-wrap gap-1.5">
+        {RING_COUNTS.map((n) => (
+          <Button key={n} size="sm" onClick={() => act.arrangeItemRing(it.id, n)} data-ring={n}>
+            {n === 6 ? S.props.ring6 : S.props.ring8}
+          </Button>
+        ))}
+        {members.length > 1 ? (
+          <>
+            <Button size="sm" onClick={() => act.flipItemRing(it.id)} data-ring="flip">
+              {S.props.ringFlip}
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => act.selectItemRing(it.id)}
+              data-ring="select"
+            >
+              {S.props.ringSelect}
+            </Button>
+          </>
+        ) : null}
+      </div>
+      <p className="m-0 text-xs text-muted">
+        {members.length > 1 ? S.props.ringMember(members.length) : S.props.ringHint}
+      </p>
+    </div>
   );
 }
 
@@ -570,7 +787,7 @@ function RoomProps({ r }: { r: Room }) {
               icon={<RotateCw />}
               label={S.props.rotate}
               disabled={r.locked}
-              onClick={act.rotateSelection}
+              onClick={() => act.rotateSelection()}
             />
           </>
         }
@@ -606,6 +823,22 @@ function RoomProps({ r }: { r: Room }) {
             })
           }
           options={CATEGORIES.map((c) => ({ value: c.id, label: S.categories[c.id] }))}
+        />
+      </Field>
+      <Field label={S.props.floor} hint={S.props.floorHint}>
+        <Select
+          value={r.floor ?? AUTO}
+          onValueChange={(v) =>
+            edit((o) => {
+              if (isFloorMaterial(v)) o.floor = v;
+              else delete o.floor;
+            })
+          }
+          options={[
+            { value: AUTO, label: S.props.floorAuto },
+            ...FLOOR_MATERIALS.map((m) => ({ value: m, label: S.floorMaterials[m] })),
+          ]}
+          data-testid="room-floor"
         />
       </Field>
       <Readout
@@ -662,6 +895,7 @@ function RoomProps({ r }: { r: Room }) {
         </Button>
         <p className="m-0 text-xs text-muted">{S.props.arrangeHint}</p>
       </div>
+      <FurnishFields r={r} />
       <Actions>
         {r.lx || r.ly ? (
           <Button
@@ -726,6 +960,31 @@ function ItemProps({ it }: { it: Item }) {
       </Field>
       <Typing>
         <FieldRow columns={2}>
+          <Field label={S.props.angle} hint={S.props.angleHint}>
+            <NumberInput
+              value={it.rot || 0}
+              step={1}
+              min={0}
+              max={359}
+              unit="°"
+              onChange={(v) => act.setItemAngle(it.id, v)}
+            />
+          </Field>
+          <Field label={S.props.scale} hint={S.props.scaleHint}>
+            <NumberInput
+              value={act.itemScale(it)}
+              step={0.1}
+              min={0.5}
+              max={3}
+              precision={2}
+              unit="×"
+              onChange={(v) => act.setItemScale(it.id, v)}
+            />
+          </Field>
+        </FieldRow>
+      </Typing>
+      <Typing>
+        <FieldRow columns={2}>
           {num(S.props.x, 'x')}
           {num(S.props.y, 'y')}
           {num(S.props.w, 'w', 0.25)}
@@ -741,8 +1000,65 @@ function ItemProps({ it }: { it: Item }) {
       />
       {flagToggle<Item>(ref, 'gm', S.props.gmOnly, !!it.gm)}
       {flagToggle<Item>(ref, 'clue', S.props.clue, !!it.clue)}
+      <RingFields it={it} />
       <Actions>
         <CommonButtons order />
+      </Actions>
+    </>
+  );
+}
+
+/** 自由線（F285、F286）：種類、粗細、長度、反轉、GM 專用 */
+function LineProps({ l }: { l: FreeLine }) {
+  const ref: SelRef = { type: 'line', id: l.id };
+  const edit = (fn: (x: FreeLine) => void) => act.editObj<FreeLine>(ref, fn);
+  return (
+    <>
+      <Head kicker={S.props.line} title={S.lines[l.kind]} />
+      <Field label={S.props.lineKind}>
+        <Select
+          value={l.kind}
+          onValueChange={(v) =>
+            edit((x) => {
+              if (isLineKind(v)) x.kind = v;
+            })
+          }
+          options={LINE_KINDS.map((k) => ({ value: k, label: S.lines[k] }))}
+          data-focus="kind"
+          data-testid="line-kind"
+        />
+      </Field>
+      <Typing>
+        <Field label={S.props.lineWidth}>
+          <NumberInput
+            value={l.w ?? 1}
+            step={0.25}
+            min={LINE_W_MIN}
+            max={LINE_W_MAX}
+            precision={2}
+            unit="×"
+            onChange={(v) =>
+              edit((x) => {
+                const w = round2(clamp(v, LINE_W_MIN, LINE_W_MAX));
+                if (w === 1) delete x.w;
+                else x.w = w;
+              })
+            }
+          />
+        </Field>
+      </Typing>
+      <Readout label={S.props.length} value={`${meterText(lineLength(l))}m`} />
+      <div className="flex flex-wrap gap-1.5">
+        <Button size="sm" icon={<FlipHorizontal2 />} onClick={() => act.flipLines('x')}>
+          {S.props.flipX}
+        </Button>
+        <Button size="sm" icon={<FlipVertical2 />} onClick={() => act.flipLines('y')}>
+          {S.props.flipY}
+        </Button>
+      </div>
+      {flagToggle<FreeLine>(ref, 'gm', S.props.gmOnly, !!l.gm)}
+      <Actions>
+        <CommonButtons />
       </Actions>
     </>
   );
@@ -964,13 +1280,13 @@ function MultiProps({
             <Button size="sm" onClick={act.toggleLock}>
               {locked ? S.props.unlock : S.props.lock}
             </Button>
-            <Button size="sm" onClick={act.rotateSelection}>
+            <Button size="sm" onClick={() => act.rotateSelection()}>
               {S.props.rotate}
             </Button>
           </>
         ) : refs.some((r) => r.type === 'item') ? (
           <>
-            <Button size="sm" onClick={act.rotateSelection}>
+            <Button size="sm" onClick={() => act.rotateSelection()}>
               {S.props.rotate}
             </Button>
             <Button size="sm" onClick={act.flipSelection}>
@@ -1007,6 +1323,7 @@ export function PropsPanel() {
     else if (type === 'opening')
       body = <OpeningProps key={objs[0].id} o={obj as unknown as Opening} />;
     else if (type === 'wall') body = <WallProps key={objs[0].id} w={obj as unknown as Wall} />;
+    else if (type === 'line') body = <LineProps key={objs[0].id} l={obj as unknown as FreeLine} />;
     else body = <TextProps key={objs[0].id} t={obj as unknown as TextLabel} />;
   }
   return (

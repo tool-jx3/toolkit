@@ -8,11 +8,14 @@
 import { formatHex, parseColor } from '@/core/color';
 import {
   isCategory,
+  isFloorMaterial,
   isOpeningKind,
   isSizeMode,
   isThemeId,
   isTokenGridSize,
   isWallKind,
+  NIGHT_MAX,
+  NIGHT_MIN,
   TOKEN_GRID_OPACITY,
   TOKEN_GRID_OPACITY_MIN,
   WEAR_MIN,
@@ -25,10 +28,12 @@ import {
   noteDroppedItem,
   noteDroppedOpening,
 } from './compat';
-import { clamp, emptyFloor, uid } from './geometry';
+import { clamp, emptyFloor, normDeg, uid } from './geometry';
+import { isLineKind, LINE_W_MAX, LINE_W_MIN } from './lines';
 import { isCorner, validCut } from './shape';
 import type {
   Floor,
+  FreeLine,
   Item,
   Opening,
   OpeningKind,
@@ -147,6 +152,8 @@ function room(r: Record<string, unknown>, report: CompatReport): Room | null {
     ly: isNum(r.ly) && num(r.ly) !== 0 ? num(r.ly) : undefined,
     wall: roomWall(r.wall, report),
     cut: roomCut(r.cut, w, h),
+    /* 地板（2026-11-05，F282）：認得的才留著 */
+    floor: isFloorMaterial(r.floor) ? r.floor : undefined,
   });
 }
 
@@ -181,10 +188,18 @@ function opening(o: Record<string, unknown>, report: CompatReport): Opening | nu
   });
 }
 
-function item(i: Record<string, unknown>, isAsset: (t: string) => boolean): Item | null {
+function item(
+  i: Record<string, unknown>,
+  isAsset: (t: string) => boolean,
+  quarterOnly = false,
+): Item | null {
   if (typeof i.t !== 'string' || !isAsset(i.t)) return null;
   if (!(num(i.w) > 0) || !(num(i.h) > 0) || !isNum(i.x) || !isNum(i.y)) return null;
-  const rot = num(i.rot);
+  /*
+   * 2026-11-05（F277）：任何整數度（0～359）。原作（くま。）的地圖檔只有 90° 的倍數，照舊：0／90／180／270 以外當成 0
+   */
+  const deg = Math.round(normDeg(num(i.rot))) % 360;
+  const rot = quarterOnly && deg % 90 !== 0 ? 0 : deg;
   return compact<Item>({
     id: str(i.id),
     t: i.t,
@@ -192,12 +207,35 @@ function item(i: Record<string, unknown>, isAsset: (t: string) => boolean): Item
     y: num(i.y),
     w: num(i.w),
     h: num(i.h),
-    rot: [0, 90, 180, 270].includes(rot) ? rot : 0,
+    rot,
     flip: flag(i.flip),
     label: optStr(i.label, 200),
     color: color(i.color),
     gm: flag(i.gm),
     clue: flag(i.clue),
+    ring: optStr(i.ring, 60),
+  });
+}
+
+/** 自由線（2026-11-05，F285）：六個座標都要是數字；種類不認得時當成欄杆；粗細夾在 0.5～3 */
+function freeLine(l: Record<string, unknown>): FreeLine | null {
+  if (!['x1', 'y1', 'x2', 'y2'].every((k) => isNum(l[k]))) return null;
+  const x1 = num(l.x1);
+  const y1 = num(l.y1);
+  const x2 = num(l.x2);
+  const y2 = num(l.y2);
+  const w = isNum(l.w) ? Math.round(clamp(num(l.w), LINE_W_MIN, LINE_W_MAX) * 100) / 100 : 1;
+  return compact<FreeLine>({
+    id: str(l.id),
+    kind: isLineKind(l.kind) ? l.kind : 'rail',
+    x1,
+    y1,
+    cx: isNum(l.cx) ? num(l.cx) : (x1 + x2) / 2,
+    cy: isNum(l.cy) ? num(l.cy) : (y1 + y2) / 2,
+    x2,
+    y2,
+    w: w === 1 ? undefined : w,
+    gm: flag(l.gm),
   });
 }
 
@@ -231,10 +269,12 @@ export function normalizeProject(
   if (!Array.isArray(p.floors)) return null;
   const compat = emptyCompatReport();
   let dropped = 0;
+  /* 原作（くま。）存的地圖檔：家具只有 90° 的倍數 */
+  const legacy = p.app === 'indoor-map-maker';
   const floors: Floor[] = list(p.floors).map((f) => {
     const items: Item[] = [];
     for (const i of list(f.items)) {
-      const it = item(i, isAsset);
+      const it = item(i, isAsset, legacy);
       if (it) items.push(it);
       else if (typeof i.t === 'string' && !isAsset(i.t)) {
         dropped++;
@@ -268,6 +308,11 @@ export function normalizeProject(
       ),
     };
     ids(floor.openings, 'o');
+    /* 自由線（2026-11-05）：有的時候才寫 */
+    const lines = list(f.lines)
+      .map(freeLine)
+      .filter((x): x is FreeLine => !!x);
+    if (lines.length) floor.lines = ids(lines, 'l');
     /* 外觀層的「顯示內部」（原作 v1.12；2026-10 第二批起照讀）：疊上來的樓層的 id 在下面樓層的 id 確定之後檢查 */
     if (f.showInside === true) floor.showInside = true;
     const inside = optStr(f.inside, 200);
@@ -311,6 +356,9 @@ export function normalizeProject(
   if (isNum(p.wearSeed)) out.wearSeed = Math.abs(Math.round(num(p.wearSeed))) % WEAR_SEEDS;
   if (p.coords === true) out.coords = true;
   if (p.fixedFurniture === true) out.fixedFurniture = true;
+  /* 2026-11-05（參考 KIIN v2.0）：夜的暗度 5%～85%（0 以下＝白天，不寫） */
+  if (isNum(p.night) && num(p.night) > 0)
+    out.night = Math.round(clamp(num(p.night), NIGHT_MIN, NIGHT_MAX) * 100) / 100;
   return out;
 }
 

@@ -638,7 +638,7 @@ export const TOOLS: readonly ToolEntry[] = [
     id: 'vhs-frame',
     name: '錄影帶畫面產生器',
     summary:
-      '把照片做成老錄影帶在映像管電視上播放的畫面：色差、撕裂、雜訊、掃描線與弧面，「磨損度」決定壞得多嚴重，加上字幕與時間碼，匯出 PNG 或字幕逐字打出的 GIF，當作錄影帶或監視器截圖的 handout。',
+      '把照片做成老錄影帶在映像管電視上播放的畫面：色差、撕裂、雜訊、掃描線與弧面，「磨損度」決定壞得多嚴重，加上字幕（可以分場景）、時間碼或攝影機的日期戳記，匯出 PNG 或字幕逐字打出的 GIF（可以加轉台的開場與關機的收尾），當作錄影帶或監視器截圖的 handout。',
     group: 'G8',
     status: 'live',
     inspiration: {
@@ -1010,6 +1010,24 @@ export const TOOLS: readonly ToolEntry[] = [
     group: 'G8',
     status: 'live',
     inspiration: { name: 'remvze/moodist', url: 'https://github.com/remvze/moodist' },
+  },
+  {
+    id: 'world-map',
+    name: '世界地圖產生器',
+    summary:
+      '畫跑團用的奇幻世界地圖：陸地、森林、山脈、沙漠、雪原、濕地，圈出國家、畫川與街道、航路與城牆，擺上王都、港口、遺跡等 32 種素材與地名，也能一鍵自動產生整個世界；GM 專用的據點與路線不會出現在公開用的 PNG，還能直接送到地圖演出產生器。',
+    group: 'G10',
+    status: 'live',
+    inspiration: { name: 'KIIN／ワールドマップ制作スタジオ', url: 'https://kiin.booth.pm/' },
+  },
+  {
+    id: 'tile-map',
+    name: '圖塊地圖編輯器',
+    summary:
+      '用圖塊一格一格拼戰鬥地圖（像 RPG Maker、Tiled 那樣每格一張圖，和畫向量圖形的「地圖編輯器」不同）：畫筆、填滿、圖形、選取後搬動與轉向，地面、牆壁、物件分圖層；內建簡易地形與 Kenney 的地城圖塊，也能匯入自己的圖塊表（大圖塊一次佔好幾格），匯出 VTT 用的 PNG 或照實際尺寸分頁的列印 PDF。',
+    group: 'G10',
+    status: 'live',
+    inspiration: { name: 'deukrezia／Trials', url: 'https://github.com/deukrezia/trials' },
   },
 ];
 

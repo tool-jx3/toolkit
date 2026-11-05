@@ -16,7 +16,7 @@
  */
 import { ASSET, isWallMounted } from './assets';
 import { OPEN } from './catalog';
-import { round2, snap } from './geometry';
+import { isRightAngle, round2, snap } from './geometry';
 import { blocking, doorKinds, EPS, hitsDoor, rectHits, windowFront } from './layoutRules';
 import { roomCells, roomHasPoint } from './shape';
 import { restingOn, SURFACES } from './tabletop';
@@ -88,7 +88,16 @@ function rotateUnit(members: readonly Box[], anchor: Box, delta: number): Box[] 
   });
 }
 
-export function arrangeRoom(floor: Floor, roomId: string): ArrangeResult {
+export interface ArrangeOptions {
+  /** 不動的家具（當成障礙；內裝預設〔F275〕留下的隱藏線索） */
+  keep?: ReadonlySet<string>;
+}
+
+export function arrangeRoom(
+  floor: Floor,
+  roomId: string,
+  opts: ArrangeOptions = {},
+): ArrangeResult {
   const empty: ArrangeResult = { ok: false, moves: new Map(), count: 0, pinned: [] };
   const found = floor.rooms.find((r) => r.id === roomId);
   if (!found) return { ...empty, reason: 'empty' };
@@ -97,7 +106,7 @@ export function arrangeRoom(floor: Floor, roomId: string): ArrangeResult {
   for (const r of floor.rooms) for (const [x, y] of roomCells(r)) owner.set(key(x, y), r);
   const own = (x: number, y: number) => owner.get(key(x, y)) === room;
   const targets = floor.items.filter((it) => {
-    if (!blocking(it) || isWallMounted(it.t)) return false;
+    if (!blocking(it) || isWallMounted(it.t) || opts.keep?.has(it.id)) return false;
     const cx = it.x + it.w / 2;
     const cy = it.y + it.h / 2;
     return roomHasPoint(room, cx, cy) && own(Math.floor(cx), Math.floor(cy));
@@ -125,13 +134,15 @@ export function arrangeRoom(floor: Floor, roomId: string): ArrangeResult {
     const chairs = targets.filter((c) => chairOwner.get(c.id) === s);
     const members = [s, ...smalls, ...chairs].filter((m) => !used.has(m.id));
     for (const m of members) used.add(m.id);
-    const orient = Boolean(ASSET[s.t]?.orient);
+    /* 細角度（2026-11-05，F277）的家具不貼牆轉向，照「其他」留在原本的方向 */
+    const orient = Boolean(ASSET[s.t]?.orient) && isRightAngle(s.rot || 0);
     units.push({ anchor: s, members, kind: orient ? 0 : 1, area: s.w * s.h });
   }
   for (const t of targets) {
     if (used.has(t.id)) continue;
     used.add(t.id);
-    units.push({ anchor: t, members: [t], kind: ASSET[t.t]?.orient ? 0 : 2, area: t.w * t.h });
+    const orient = Boolean(ASSET[t.t]?.orient) && isRightAngle(t.rot || 0);
+    units.push({ anchor: t, members: [t], kind: orient ? 0 : 2, area: t.w * t.h });
   }
 
   /* ---------- 障礙 ---------- */
@@ -268,21 +279,30 @@ export function arrangeRoom(floor: Floor, roomId: string): ArrangeResult {
       for (const c of near) yield c.boxes;
     }
     /* 其他（靠牆的貼不上時也是）：原本的位置，再來是附近的空位 */
-    const list: { d: number; boxes: Box[] }[] = [];
-    const b = bbox(u.members);
+    const around = (members: readonly Box[], from: Rect) => {
+      const list: { d: number; boxes: Box[] }[] = [];
+      const b = bbox(members);
+      for (let x = snap(room.x, 0.25); x + b.w <= room.x + room.w + EPS; x += 0.25)
+        for (let y = snap(room.y, 0.25); y + b.h <= room.y + room.h + EPS; y += 0.25) {
+          const dx = x - b.x;
+          const dy = y - b.y;
+          list.push({
+            d: Math.hypot(x + b.w / 2 - (from.x + from.w / 2), y + b.h / 2 - (from.y + from.h / 2)),
+            boxes: members.map((m) => ({ ...m, x: m.x + dx, y: m.y + dy })),
+          });
+        }
+      return list.sort((p, q) => p.d - q.d);
+    };
     /* 原本的位置（不在 0.25 格上的也算）最先試 */
-    list.push({ d: 0, boxes: u.members.map((m) => ({ ...m })) });
-    for (let x = snap(room.x, 0.25); x + b.w <= room.x + room.w + EPS; x += 0.25)
-      for (let y = snap(room.y, 0.25); y + b.h <= room.y + room.h + EPS; y += 0.25) {
-        const dx = x - b.x;
-        const dy = y - b.y;
-        list.push({
-          d: Math.hypot(dx, dy),
-          boxes: u.members.map((m) => ({ ...m, x: m.x + dx, y: m.y + dy })),
-        });
-      }
-    list.sort((p, q) => p.d - q.d);
-    for (const c of list) yield c.boxes;
+    yield u.members.map((m) => ({ ...m }));
+    const b0 = bbox(u.members);
+    for (const c of around(u.members, b0)) yield c.boxes;
+    /*
+     * 原本的方向放不下時才轉 90° 再找（2026-11-05，跟進 KIIN v2.0「中央家具は元の向きを優先し、置けない場合だけ90°回転」；
+     * 細角度的家具不轉）。原本放得下的結果不變
+     */
+    if (u.members.every((m) => isRightAngle(m.rot || 0)))
+      for (const c of around(rotateUnit(u.members, u.anchor, 90), b0)) yield c.boxes;
   }
 
   /* ---------- 排 ---------- */

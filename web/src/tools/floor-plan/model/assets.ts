@@ -149,7 +149,13 @@ export const ASSETS: readonly AssetInfo[] = [
   A('stairs_u', 'structure', 5, 5, '折返樓梯', { vertical: true, keys: '階梯', tags: ['indoor'] }),
   A('spiral', 'structure', 4, 4, '螺旋梯', {
     vertical: true,
-    keys: '樓梯 階梯',
+    keys: '樓梯 階梯 順時針',
+    tags: ['indoor', 'historic'],
+  }),
+  /* 2026-11-05（參考 KIIN v2.0 的螺旋階段 2 種，F281）：往上走是逆時針（順時針的鏡像） */
+  A('spiral_ccw', 'structure', 4, 4, '螺旋梯（逆時針）', {
+    vertical: true,
+    keys: '樓梯 階梯 反時針 逆時針',
     tags: ['indoor', 'historic'],
   }),
   A('elevator', 'structure', 4, 4, '電梯', {
@@ -552,6 +558,20 @@ export const ASSETS: readonly AssetInfo[] = [
     tags: ['ship', 'indoor', 'machinery'],
   }),
   A('ship_hatch', 'vehicle', 2.4, 2.4, '船艙口', { keys: '艙門 甲板', tags: ['ship'] }),
+  /* 2026-11-05（參考 KIIN v2.0 的船的素材，F280；尺寸、名稱、畫法本站自己定） */
+  A('mast', 'vehicle', 4, 1.6, '帆柱', { keys: '船 桅杆 帆桁 甲板', tags: ['ship', 'historic'] }),
+  A('ship_cannon', 'vehicle', 1.6, 3, '艦砲', {
+    orient: true,
+    keys: '船 大砲 砲台 海盜',
+    tags: ['ship', 'historic', 'military'],
+  }),
+  A('steam_engine', 'vehicle', 4.4, 2.8, '蒸汽機', {
+    orient: true,
+    keys: '船 機房 輪機 鍋爐 引擎',
+    tags: ['ship', 'machinery', 'historic'],
+  }),
+  A('capstan', 'vehicle', 1.6, 1.6, '絞盤', { keys: '船 捲揚機 錨 甲板', tags: ['ship'] }),
+  A('rope_coil', 'vehicle', 1.2, 1.2, '一捲纜繩', { keys: '船 繩子 纜繩 甲板', tags: ['ship'] }),
 
   /* ---------- 倉儲・工地 ---------- */
   A('crate', 'industry', 1.6, 1.6, '木箱', { keys: '箱子' }),
@@ -901,7 +921,8 @@ export function assetMatches(a: AssetInfo, query: string | readonly string[]): b
   return matchesQuery({ text: [a.name, a.keys ?? '', a.id], tags: a.tags }, words);
 }
 
-/** 轉向後的外框尺寸 */
+/** 轉向後的外框尺寸（細角度照最接近的 90°，同 geometry.ts 的 swapsAxes；2026-11-05，F277） */
 export function assetDims(a: Pick<AssetInfo, 'w' | 'h'>, rot: number): { w: number; h: number } {
-  return rot === 90 || rot === 270 ? { w: a.h, h: a.w } : { w: a.w, h: a.h };
+  const q = Math.round(((((rot || 0) % 360) + 360) % 360) / 90) % 4;
+  return q % 2 === 1 ? { w: a.h, h: a.w } : { w: a.w, h: a.h };
 }

@@ -98,7 +98,7 @@
 | `scenario-text` | 劇本文字產生器 | [shiki365/scenario-text-maker](https://github.com/shiki365/scenario-text-maker)（MIT） | —（新收錄，沒有舊版） |
 | `house-rules` | CoC 房規表產生器 | [くま。／TRPG WEBツール観測所](https://kumachansteps.github.io/trpg-web-tools/)（`house-rule-table`，未授權） | —（新收錄，沒有舊版） |
 | `speech-bubble` | 動態對話泡泡產生器 | [sotsotssi/TextBubbleMaker-preview](https://github.com/sotsotssi/TextBubbleMaker-preview)（未授權）、[aokmri/dp-cardmaker](https://github.com/aokmri/dp-cardmaker)（對話卡片，未授權） | —（新收錄，沒有舊版） |
-| `floor-plan` | 室內平面圖產生器 | [くま。／TRPG WEBツール観測所](https://kumachansteps.github.io/trpg-web-tools/)（`indoor-map-maker`，未授權）、[GMW／Maptsukuri](https://maptsukuri.pages.dev/)（分享連結與房間編號的功能參考，未授權）、[KIIN／マップ制作スタジオ](https://kiin.booth.pm/)（自動化、L 形房間、圖面風格與座標、VTT 匯出的功能參考，未授權） | —（新收錄，沒有舊版） |
+| `floor-plan` | 室內平面圖產生器 | [くま。／TRPG WEBツール観測所](https://kumachansteps.github.io/trpg-web-tools/)（`indoor-map-maker`，未授權）、[GMW／Maptsukuri](https://maptsukuri.pages.dev/)（分享連結與房間編號的功能參考，未授權）、[KIIN／マップ制作スタジオ](https://kiin.booth.pm/)（自動化、L 形房間、圖面風格與座標、VTT 匯出、v2.0 的光源與內裝預設等的功能參考，未授權） | —（新收錄，沒有舊版） |
 | `rank-chart` | 排行榜產生器 | [sotsotssi/would-you-rank](https://github.com/sotsotssi/would-you-rank)（MIT） | —（新收錄，沒有舊版） |
 | `char-chart` | 角色分析圖產生器 | [sotsotssi/char-quadrant](https://github.com/sotsotssi/char-quadrant)、[sotsotssi/visual-coupling-map](https://github.com/sotsotssi/visual-coupling-map)（都未授權） | —（新收錄，沒有舊版） |
 | `review-grid` | 劇本心得九宮格 | [sotsotssi/scenario-review](https://github.com/sotsotssi/scenario-review)（未授權） | —（新收錄，沒有舊版） |
@@ -124,6 +124,8 @@
 | `pl-profile` | PL 自介卡與地雷表 | [sonata9x/trpg-profile-maker](https://github.com/sonata9x/trpg-profile-maker)、[Jara03mofu/trpg-jirai-check](https://github.com/Jara03mofu/trpg-jirai-check)、[Tetoriapot/sosaku-sheet-maker](https://github.com/Tetoriapot/sosaku-sheet-maker)、[dearmysn1p3r/DearMySn1p3r_25](https://github.com/dearmysn1p3r/DearMySn1p3r_25)、[OEC309/trpg-consensus](https://github.com/OEC309/trpg-consensus)（都未授權，只參考功能） | —（新收錄，沒有舊版） |
 | `scenario-timeline` | 劇本時間表 | [visjs/vis-timeline](https://github.com/visjs/vis-timeline)（Apache-2.0 或 MIT 二選一，本站選 MIT） | —（新收錄，沒有舊版） |
 | `ambience-mixer` | 環境音混音器 | [remvze/moodist](https://github.com/remvze/moodist)（程式 MIT；音效的授權分不清，一個都沒收） | —（新收錄，沒有舊版） |
+| `world-map` | 世界地圖產生器 | [KIIN／ワールドマップ制作スタジオ](https://kiin.booth.pm/)（BOOTH 販售的工具，條款禁止再散布程式與工具固有的意匠，視同未授權） | —（新收錄，沒有舊版） |
+| `tile-map` | 圖塊地圖編輯器 | [deukrezia/trials](https://github.com/deukrezia/trials)（程式未授權；內建圖塊的 Kenney Scribble Dungeons、Tiny Dungeon 是 CC0 1.0） | —（新收錄，沒有舊版） |
 | `anime-rig` | 2.5D 動態立繪 | [852wa/Anime2.5DRig](https://github.com/852wa/Anime2.5DRig)（MIT） | `6957b28` |
 
 `music-frame` 是照 [docs/refactor/PROCESS.md](docs/refactor/PROCESS.md) 第 6 節「新工具引入流程」直接在新框架做的工具，沒有收錄過原作的副本（原作 commit `0c24db2`）。原作未附授權條款，預設封面、預設文字與說明都由本站自做，只照原作的功能、版面與數值。
@@ -140,7 +142,7 @@
 
 `speech-bubble` 照新工具引入流程直接在新框架做：原作（commit `b81c5b7`）只有範本預覽頁、沒有授權條款，製作工具本體在作者的 Postype（付費、不公開）。範本一覽照預覽頁的行為做；編輯與匯出的功能依預覽動畫逐格量到的數值、由本站自己設計；28 組範本的文字、配色與造型都由本站自做，不沿用原作的預覽圖與文字。2026-10 整合 aokmri/dp-cardmaker（commit `b97dd12`，沒有授權條款）的對話卡片功能（整段貼上拆成泡泡、左右兩側的預設樣式、說話者與日期、卡片底、樣式預設、泡泡裡的部分文字格式）：只照功能與做法，程式、介面文字、內建樣式與紋理都由本站自做；頁尾的靈感來源仍只放 TextBubbleMaker-preview。
 
-`floor-plan` 照新工具引入流程直接在新框架做：原作沒有授權條款（網站的利用規約只禁止轉載站內的圖片與圖示），只照原作的功能、牆壁與匯出的算法和數值，程式、介面文字、說明、範本、家具圖形與配色都由本站自做；可以開啟原作存的 `.trpgmap.json`（帖換算成坪）。2026-10 加的分享連結（含拿掉 GM 資訊的 PL 用連結）與房間編號圓標，參考 GMW 的 Maptsukuri（maptsukuri.pages.dev，沒有授權條款）的功能，程式與文字由本站自做。2026-10-29 跟進原作 v1.15（雙開拉門、8 種家具、健身房範本）：家具的圖形、範本的格局與器材配置都由本站自做。2026-10-29 另外參考 KIIN 的「マップ制作スタジオ」（BOOTH，使用者上傳的 v1.0，沒有授權條款）加了自動化（打通兩間房、自動擺放家具、家具跟著房間縮放、桌上小物跟著桌子）、L 形房間、黑色電影與監視終端兩種顯示樣式、紙的污漬與摺痕、座標標示、VTT 用的整格匯出與「在地圖演出產生器開啟」：只參考功能與數值範圍，程式、介面文字、配色、效果與污漬的畫法都由本站自做；頁尾的靈感來源仍只放くま。。
+`floor-plan` 照新工具引入流程直接在新框架做：原作沒有授權條款（網站的利用規約只禁止轉載站內的圖片與圖示），只照原作的功能、牆壁與匯出的算法和數值，程式、介面文字、說明、範本、家具圖形與配色都由本站自做；可以開啟原作存的 `.trpgmap.json`（帖換算成坪）。2026-10 加的分享連結（含拿掉 GM 資訊的 PL 用連結）與房間編號圓標，參考 GMW 的 Maptsukuri（maptsukuri.pages.dev，沒有授權條款）的功能，程式與文字由本站自做。2026-10-29 跟進原作 v1.15（雙開拉門、8 種家具、健身房範本）：家具的圖形、範本的格局與器材配置都由本站自做。2026-10-29 另外參考 KIIN 的「マップ制作スタジオ」（BOOTH，使用者上傳的 v1.0，沒有授權條款）加了自動化（打通兩間房、自動擺放家具、家具跟著房間縮放、桌上小物跟著桌子）、L 形房間、黑色電影與監視終端兩種顯示樣式、紙的污漬與摺痕、座標標示、VTT 用的整格匯出與「在地圖演出產生器開啟」：只參考功能與數值範圍，程式、介面文字、配色、效果與污漬的畫法都由本站自做；頁尾的靈感來源仍只放くま。。2026-11-05 再參考使用者上傳的 v2.0（同樣沒有授權條款）加了夜的暗度與光源、7 種內裝預設、整張地圖的轉向與反轉、家具的細角度與倍率、圓形配置、船的家具、地板、下繪圖、揭露用的匯出與自由線（規格 7.24）：內裝的組合、家具與地板的圖形、光的畫法都由本站自做；曲線的房間、甲板等要改房間形狀的功能留在 TODO。
 
 `rank-chart` 照新工具引入流程直接在新框架做：原作（commit `f323b87`）是 MIT（授權全文在通知檔），盲選排行的玩法、版面數值與預設文字照原作（翻成繁中），圖上不放原作名稱與作者帳號；可以開啟原作存的設定檔（JSON）。
 
@@ -166,7 +168,7 @@
 
 `captcha-card` 照新工具引入流程直接在新框架做：原作（commit `a93c2ea`）沒有授權條款，只照原作的功能、版面數值與動畫的影格表（每一格的畫面與時間和原作相同），程式、介面文字、預設文案、範例圖與圖示都由本站自做；原作仿 reCAPTCHA 的名稱與標誌不沿用，做成通用的「圖片驗證題」樣式。
 
-`id-ticket` 照新工具引入流程直接在新框架做：兩個原作（ID Studio commit `c08d489`、Ticket Studio commit `5636d9d`）都沒有授權條款，只照原作的功能、版面數值與做法（卡片 54 × 86 mm、600 dpi、2 mm 出血、票券的墊紙與閃光 GIF），程式、介面文字、範本、範例資料與圖示都由本站自做；機構名稱都是虛構的，不用真實公司、航空公司、鐵路公司、警察的名稱與標誌。QR code 用 npm 的 qrcode-generator（MIT，列在通知檔），條碼是本站自己寫的 Code 128。2026-10 加的「SF 證件」參考 CyberDelaai/sinforge-ui（MIT，commit `67d459a`，授權全文在 `web/src/tools/id-ticket/UPSTREAM_LICENSE`）的程式改寫：活動證、公民 ID、執照卡、操作員 ID、通行證五種底版的尺寸、外形與版面數值、DNA 條的種子、照片的單色化／網點／抖色、浮水印與裝飾圖照原作；機讀區改成照 ICAO 9303 TD2 算檢查碼；欄位翻成繁中，範例資料（虛構的「霧港特區」）是本站寫的；原作的名字產生器要連外部服務（randomuser.me、Behind the Name），不收；原作的「自組底版」這次沒做。
+`id-ticket` 照新工具引入流程直接在新框架做：兩個原作（ID Studio commit `c08d489`、Ticket Studio commit `5636d9d`）都沒有授權條款，只照原作的功能、版面數值與做法（卡片 54 × 86 mm、600 dpi、2 mm 出血、票券的墊紙與閃光 GIF），程式、介面文字、範本、範例資料與圖示都由本站自做；機構名稱都是虛構的，不用真實公司、航空公司、鐵路公司、警察的名稱與標誌。QR code 用 npm 的 qrcode-generator（MIT，列在通知檔），條碼是本站自己寫的 Code 128。2026-10 加的「SF 證件」參考 CyberDelaai/sinforge-ui（MIT，commit `67d459a`，授權全文在 `web/src/tools/id-ticket/UPSTREAM_LICENSE`）的程式改寫：活動證、公民 ID、執照卡、操作員 ID、通行證五種底版的尺寸、外形與版面數值、DNA 條的種子、照片的單色化／網點／抖色、浮水印與裝飾圖照原作；機讀區改成照 ICAO 9303 TD2 算檢查碼；欄位翻成繁中，範例資料（虛構的「霧港特區」）是本站寫的；2026-11 補收 sinforge-ui 剩下的功能（規格 7.4）：條碼與晶片各 6 種、日期格式、光暈／顆粒／掃描線、數位證件、預設集、複製圖片、自組底版，以及既有 7 款的浮水印與裝飾圖；原作的名字產生器要連外部服務（randomuser.me、Behind the Name），本站改用弄墨 Inknomu 的語料（CC BY 4.0，見 `npc-names` 那段）離線產生；原作的 8 國語言介面不做；內建預設集的 5 個範例由本站自寫。
 
 `social-post` 照新工具引入流程直接在新框架做：原作（commit `3297da5`）沒有授權條款，只照原作的功能、版面數值與做法（各畫面的區塊位置、比例、限時動態的分割與貼紙），程式、介面文字、範例帳號與貼文、範例照片（程式畫的）、圖示與配色都由本站自做；原作仿 Instagram 的名稱、標誌與專有圖示不沿用，做成通用的「相片社群 App」樣式。2026-10 跟進原作到 commit `beb5ef1`：首頁動態、朋友的貼文與限時動態、私訊列表與對話、多則限時動態接著看、貼文照片滑動（同樣只照功能與實際量到的版面數值；原作的問題回報表單、把網址照片交給第三方中繼不收）。
 
@@ -174,7 +176,7 @@
 
 `npc-names` 是本站原創的工具，沒有原作。名字資料的出處與授權（全文在 `web/src/core/names/{jp,tw,us}/` 的 `meta.json` 與 `LICENSE.txt`，建置時列進 THIRD_PARTY_NOTICES）：日本是 shuheilocale/japanese-personal-name-dataset（MIT，人數來自國立國會圖書館的人名權威檔與 Wikidata）與 willnet/gimei（MIT）；台灣是內政部戶政司《112 年全國姓名統計分析》（政府資料開放授權條款第 1 版）；美國是社會安全局的嬰兒名字與 1990、2000 年人口普查的姓氏（公有領域）。coc-npc 的隨機取名用同一份資料。2026-10 導入弄墨 Inknomu《角色姓名產生器》（https://inknomu.com/namegen/）的 29 個姓名資料包（CC BY 4.0，2026-10-29 取得；日本、台灣、韓國、英國、美國、俄羅斯、北歐、奇幻的年代、族裔與種族，姓 2,148、名 6,600，附涵義）：姓名、讀音、涵義、備註與說明照原文，本站只改寫格式、拿掉用不到的欄位（`web/scripts/inknomu-names.mjs` 轉換；出處、各包的 SHA-256 與本站的變更在 `web/src/core/names/inknomu/` 的 `meta.json` 與 `LICENSE.txt`，建置時列進 THIRD_PARTY_NOTICES）；原站的程式沒有授權，只參考產生名字與搜尋的規則，程式自己寫；原站沒有標授權的中文參考譯名表不使用。工具裡的出處在「關於這份語料」（連到原站各地區的頁面與授權），頁尾不放。coc-npc 不用這份語料。
 
-`vhs-frame` 照新工具引入流程直接在新框架做：原作（commit `cd24d0e`）沒有授權條款，只照原作的功能、效果的演算法與數值（同樣的照片、時間點與磨損度畫出和原作逐像素相同的畫面），程式、介面文字（原作是韓文）與範例文字都由本站自做。
+`vhs-frame` 照新工具引入流程直接在新框架做：原作（commit `cd24d0e`）沒有授權條款，只照原作的功能、效果的演算法與數值（同樣的照片、時間點與磨損度畫出和原作逐像素相同的畫面），程式、介面文字（原作是韓文）與範例文字都由本站自做。2026-11 跟進原作 `e5d589e`（規格 7.3）：多個場景、開場與關機、日期戳記、頻道、左右反轉、字幕的樣子、色調與亮度飽和度、弧面暗角圓角、效果開關、PAUSE 雜訊帶、PNG 大小與 GIF 色數，同樣只照功能、演算法與數值（和原作逐像素相同），程式照本站的結構重寫；新功能預設關，以前的設定匯出逐位元組不變。
 
 `bg-motion` 的「圖片切換」模式（2026-10）參考 utiyoso 的きりかえメーカー（commit `0e166ef`，沒有授權條款）的功能、效果的畫法與數值（同樣的圖片與設定，時間軸、每一格的時間與畫面和原作相同），程式、介面文字與範例圖由本站自做。
 
@@ -196,7 +198,7 @@
 
 `pdf-compress` 照新工具引入流程直接在新框架做，參考兩個 MIT 原作的程式改寫：mrflamingchad67/qcompress（commit `d60a155`）的 qpdf 結構整理、影像重新壓縮與候選比較，以及 ECgear/wise-pdf（commit `0fe3907`）的壓縮等級、依解析度縮小與整頁轉圖；兩份授權全文在 `web/src/tools/pdf-compress/UPSTREAM_LICENSE`。引擎用 npm 的 qpdf（Apache-2.0，`@neslinesli93/qpdf-wasm`）、mozjpeg（`@jsquash/jpeg`）、pdf.js（Apache-2.0）與 pdf-lib，都打包在本站、只在這個工具頁載入；WebAssembly 裡靜態連結的 zlib、libjpeg-turbo、Emscripten 執行環境，以及 pdf.js 的 CMap 與標準字型（含 GPL-2.0 with font exception 的 Liberation Sans，原樣單獨散布）的授權條文都整理在 THIRD_PARTY_NOTICES。壓縮效果最好的 Ghostscript、MuPDF 是 AGPL-3.0，和本站的 MIT 不相容，所以沒有使用。
 
-`token-maker` 照新工具引入流程直接在新框架做，參考三個 MIT 原作的程式改寫：arcana-hanna/token-workshop（commit `c27f41e`）的 16 種環形外框與 18 組外觀、金屬與石材的光照、程式產生的質感、魔術棒與自動偵測主體的出框、嵌進 PNG 的設定；CyberDelaai/eidolon-ui（commit `43c44b6`）的 12 種外框、自訂外框與遮罩、名單、名字牌與弧形文字、徽章、編號組 ZIP、色彩調整、效果與參考輪廓的剪影；Sectr99/TokenForge（commit `ff7ad73`）只參考自訂外框的開口半徑偵測，不用它的圖檔。外框、名字牌與剪影的畫法為了和原作逐像素相同，和原作的程式幾乎一對一（MIT 允許，見規格 7.1）；三份授權全文在 `web/src/tools/token-maker/UPSTREAM_LICENSE`、原作清單在 `UPSTREAM_SOURCES.json`。eidolon-ui 的範例圖（吉祥物）與預覽圖不拿；介面文字與說明由本站自己寫繁中。也讀得出 token-workshop 匯出、勾了「Keep editable」的 PNG。
+`token-maker` 照新工具引入流程直接在新框架做，參考三個 MIT 原作的程式改寫：arcana-hanna/token-workshop（commit `c27f41e`）的 16 種環形外框與 18 組外觀、金屬與石材的光照、程式產生的質感、魔術棒與自動偵測主體的出框、嵌進 PNG 的設定；CyberDelaai/eidolon-ui（commit `43c44b6`）的 12 種外框、自訂外框與遮罩、名單、名字牌與弧形文字、徽章、編號組 ZIP、色彩調整、效果與參考輪廓的剪影；Sectr99/TokenForge（commit `ff7ad73`）只參考自訂外框的開口半徑偵測，不用它的圖檔。外框、名字牌與剪影的畫法為了和原作逐像素相同，和原作的程式幾乎一對一（MIT 允許，見規格 7.1）；三份授權全文在 `web/src/tools/token-maker/UPSTREAM_LICENSE`、原作清單在 `UPSTREAM_SOURCES.json`。eidolon-ui 的範例圖（吉祥物）與預覽圖不拿；介面文字與說明由本站自己寫繁中。也讀得出 token-workshop 匯出、勾了「Keep editable」的 PNG。2026-11 跟進 token-workshop `ce4c62b`（規格 7.2）：rle8 的軟遮罩與 TW 的 WebP、自動選取改成軟的邊緣、一鍵修邊、去光暈、去掉小縫隙、去雜點與填洞、套索、檢視遮罩、鍵盤操作、桌面尺寸預覽、漸層的色彩平衡；遮罩的演算法為了和原作逐像素相同，寫法貼近原作（`edges.ts`，MIT 允許），套索與部分修邊是本站自己寫的。
 
 `qr-maker` 照新工具引入流程直接在新框架做，參考 kozakdenys/qr-code-styling（MIT，commit `43d4171`＝npm 1.9.2，授權全文在 `web/src/tools/qr-maker/UPSTREAM_LICENSE`）的程式改寫：點、三個角的外框與中心的形狀、漸層、背景圓角、中間放圖、圓形的畫法照原作（對 1.9.2 並排 451 組 0 差異），QR 的編碼用本站原本就有的 qrcode-generator（id-ticket 的 QR 搬進共用的 `core/qr`，輸出不變）；讀得出來的檢查（解碼器與定位方框的判斷）、外觀預設、專案檔是本站加的。原作 README 的範例圖與預設配色不拿。
 
@@ -205,6 +207,10 @@
 `scenario-timeline` 照新工具引入流程直接在新框架做，參考 visjs/vis-timeline（Apache-2.0 或 MIT 二選一，本站選 MIT；commit `eb7ab7c`，授權全文在 `web/src/tools/scenario-timeline/UPSTREAM_LICENSE`）的互動：縮放與平移、時間點／期間／背景三種事件、泳道與巢狀、拖曳改時間與長短、自動堆疊、依標籤寬度挑刻度的間隔。不用 vis-timeline 套件本身，時間的計算、刻度、畫法（DOM＋SVG／canvas）、年表、PL 檢視、CSV 都是本站的；範例（1925 年的黑水灣）是本站原創。
 
 `ambience-mixer` 照新工具引入流程直接在新框架做，參考 remvze/moodist（MIT，commit `11c0be2`，授權全文在 `web/src/tools/ambience-mixer/UPSTREAM_LICENSE`）的功能與數值：聲音卡片、各自的音量、起伏（10 秒、40%～100%）、0.25 秒的淡入淡出、隨機組合、定時停止、分享連結。moodist 的音效混用 Pixabay Content License 與 CC0、沒有逐檔標示，所以**一個音效檔都沒有收**：本站的環境音全部由程式合成（`web/src/core/audio/ambience/`），預設組合是本站設計的跑團場景；使用者自己的音檔只存在自己的瀏覽器。2026-10 加的 MP3 匯出用 npm 的 [@breezystack/lamejs](https://www.npmjs.com/package/@breezystack/lamejs)（LGPL-3.0；[zhuker/lamejs](https://github.com/zhuker/lamejs) 把 [LAME](https://lame.sourceforge.io/) 3.98.4 移植成 JavaScript，這個套件是 [shijinyu/lamejs](https://github.com/shijinyu/lamejs) 的分支），原樣打包成獨立的檔案、只有按「匯出 MP3」時才載入；LGPL-3.0 與 GPL-3.0 的全文、原始碼的出處列在 THIRD_PARTY_NOTICES。兩種新聲音（雨打在帳篷／傘上、房間底噪）同樣是程式合成，共 26 種。
+
+`world-map` 照新工具引入流程直接在新框架做：原作是 KIIN 的「ワールドマップ制作スタジオ v1.0」（BOOTH，使用者 2026-11-05 上傳；和 screenshot-fx、map-fx、ui-frame 同一位作者），條款禁止再散布程式與工具固有的意匠，視同未授權，不放 `UPSTREAM_LICENSE`。只參考功能、演算法與數值（地形的格子與海岸線、森林與山的排法、自動產生的構成、旅程概算的補正與數值；旅程概算和原作逐項相同），程式照本站的結構重寫（規格 D16，驗證時量過和原作相同的片段），介面文字、32 種素材的圖形、範本（虛構的艾爾德蘭大陸等三張）、地名的字庫（原作是日英韓三語，本站自己做中文的）、說明與配色都由本站自做（繁中）。原作「匯出後播放演出スタジオ的示範影片」改成送到本站的地圖演出產生器；可以開原作存的作業檔（`.world.json`），不能存成原作的格式。頁尾的靈感來源連到 KIIN 的 BOOTH 商店首頁（原作裡沒有指向這個工具本身的頁面）。
+
+`tile-map` 照新工具引入流程直接在新框架做：原作 deukrezia/trials（commit `dd4f118`，2026-11-05）的程式寫明「UNLICENSED」，視同未授權，不放 `UPSTREAM_LICENSE`；只參考功能、演算法與數值（填滿、圖形的格子、選取的轉向翻轉、圖塊表的切格與大圖塊、PNG 的上限、列印 PDF 的實際尺寸與分頁；和原作的純函式對照 0 不符），程式照本站的結構重寫（規格 D24，驗證時量過和原作相同的片段），介面文字、說明、範例地圖（虛構的「地下水道的岔路」）都由本站自做（繁中）。作者自己畫的預設圖塊沒有授權，不用；內建的簡易地形 16 種是本站用程式畫的。原作附的 Kenney「Scribble Dungeons」與「Tiny Dungeon」（https://kenney.nl ，CC0 1.0）收進本站：Tiny 的 `tilemap.png` 原樣、Scribble 的 136 張 PNG 排成一張無損 WebP（像素不變），授權與出處在 `web/src/tools/tile-map/` 的 Kenney 資料夾，建置時列進 THIRD_PARTY_NOTICES；分類與中文名稱由本站寫。原作的免費版限制、浮水印、廣告、贊助連結與桌面版都不做。
 
 `log-converter` 的 EPUB 匯出（2026-10）參考 sotsotssi/CcfoliaLogConverter 的功能（原作沒有授權條款：只照功能與做法，程式、介面文字與版面都由本站自做）；原作在控制字元、`<wbr>`、`<font>` 與新格式的日誌會產生不合規的電子書或遺失內容，本站的輸出都通過 epubcheck。
 

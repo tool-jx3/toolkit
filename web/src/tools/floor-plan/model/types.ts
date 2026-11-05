@@ -149,7 +149,15 @@ export interface Room {
   wall?: WallKind;
   /** L 形房間的缺角（沒有＝長方形；2026-10-29） */
   cut?: RoomCut;
+  /**
+   * 地板（沒有＝依種類的底色與花紋；2026-11-05 參考 KIIN v2.0 的「床の素材」，規格 F282）：地毯、水面、格柵。
+   * 只換底色與花紋，牆照種類的規則。
+   */
+  floor?: FloorMaterial;
 }
+
+/** 房間的地板（2026-11-05，F282） */
+export type FloorMaterial = 'carpet' | 'water' | 'grating';
 
 /** 手畫的牆（線段） */
 export interface Wall {
@@ -178,7 +186,11 @@ export interface Opening {
   gm?: boolean;
 }
 
-/** 家具、小物：外框 (x, y, w, h) 是轉向後的範圍；rot 0／90／180／270（順時針） */
+/**
+ * 家具、小物：外框 (x, y, w, h) 是轉向後的範圍；rot 是順時針的角度。
+ * 2026-11-05（參考 KIIN v2.0，規格 F277）：rot 可以是 0～359 的任何整數度（15° 轉、1° 輸入、圓形配置）；
+ * 外框照「最接近的 90°」決定寬深要不要對調（geometry.ts 的 itemLocalSize），畫的時候照實際的角度轉。
+ */
 export interface Item {
   id: string;
   /** 家具種類（furniture 目錄的 id） */
@@ -194,6 +206,31 @@ export interface Item {
   gm?: boolean;
   /** 隱藏線索（可以另外切換顯示） */
   clue?: boolean;
+  /**
+   * 圓形配置的群組（2026-11-05，F279）：同一層、同一個 id 的家具是一圈，可以整圈換成 6／8 個、內外反轉；
+   * 單獨移動或複製的那幾件離開群組。
+   */
+  ring?: string;
+}
+
+/**
+ * 自由線（2026-11-05，參考 KIIN v2.0 的「自由線」，規格 F285、F286）：兩端 (x1, y1)、(x2, y2) 與控制點 (cx, cy) 的二次曲線。
+ * 只是畫在圖上的線（曲線的欄杆、內牆、段差、繩索、箭頭），不產生牆、不擋家具。
+ */
+export type LineKind = 'rail' | 'wall' | 'step' | 'rope' | 'arrow';
+
+export interface FreeLine {
+  id: string;
+  kind: LineKind;
+  x1: number;
+  y1: number;
+  cx: number;
+  cy: number;
+  x2: number;
+  y2: number;
+  /** 線的粗細倍率（0.5～3；沒有＝1） */
+  w?: number;
+  gm?: boolean;
 }
 
 /** 地圖上的文字（x、y 是中心） */
@@ -221,6 +258,8 @@ export interface Floor {
   openings: Opening[];
   items: Item[];
   texts: TextLabel[];
+  /** 自由線（2026-11-05，F285；沒有或空的時候不寫） */
+  lines?: FreeLine[];
   /**
    * 外觀層的「顯示內部」（2026-10 第二批，原作 v1.12）：拿掉這一層的屋頂，把 `inside` 那一層的內容疊在同樣的位置
    * （畫面與匯出；model/interior.ts）。只在 true 時寫。
@@ -255,10 +294,15 @@ export interface Project {
   coords?: boolean;
   /** 改房間大小時家具不跟著移動（2026-10-29，F254；沒有＝跟著） */
   fixedFurniture?: boolean;
+  /**
+   * 夜的暗度（0.05～0.85；沒有＝白天，不畫；2026-11-05 參考 KIIN v2.0 的「夜の暗さと明かり」，規格 F273）。
+   * 燭台、壁爐、魔法陣、螢幕、窗…是光源，照亮所在的房間。
+   */
+  night?: number;
 }
 
 /** 可以選取的東西 */
-export type ObjType = 'room' | 'item' | 'opening' | 'wall' | 'text';
+export type ObjType = 'room' | 'item' | 'opening' | 'wall' | 'text' | 'line';
 
 export interface SelRef {
   type: ObjType;
@@ -272,9 +316,10 @@ export const TYPE_KEY = {
   opening: 'openings',
   wall: 'walls',
   text: 'texts',
+  line: 'lines',
 } as const satisfies Record<ObjType, keyof Floor>;
 
-export const OBJ_TYPES: readonly ObjType[] = ['room', 'item', 'opening', 'wall', 'text'];
+export const OBJ_TYPES: readonly ObjType[] = ['room', 'item', 'opening', 'wall', 'text', 'line'];
 
 export interface Rect {
   x: number;

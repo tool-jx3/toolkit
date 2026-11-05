@@ -1,5 +1,6 @@
 /**
- * SF 證件的圖：裝飾圖（一次好幾張、放入後依序打開裁切）、執照的自訂圖示（方形裁切）、浮水印的圖片。
+ * SF 證件的圖：裝飾圖（一次好幾張、放入後依序打開裁切；2026-11-05 起既有的證件也能用）、執照的自訂圖示（方形裁切）、
+ * 浮水印的圖片（SF 證件與證件各一張）。
  * 圖都放進資產庫（長邊超過 1600 px 時縮小），狀態只記 id。
  */
 import { addImageFile, addImageFiles, splitImageFiles } from '@/core/assets';
@@ -10,6 +11,7 @@ import {
   assets,
   currentElements,
   docNow,
+  elementFrame,
   patchElement,
   setLicenseIcon,
   setLicenseIconCrop,
@@ -19,7 +21,7 @@ import {
 import { S } from '../strings';
 import { sfBlank } from './defs';
 import { elementRect } from './draw';
-import { type CropFrac, SF_ELEMENT_MAX as SF_ELEMENT_LIMIT } from './model';
+import { type CropFrac, SF_ELEMENT_MAX as SF_ELEMENT_LIMIT, type SfWatermark } from './model';
 
 export interface Notice {
   title: string;
@@ -124,7 +126,7 @@ export function applyElementCrop(id: string, crop: CropFrac, fresh: boolean): vo
     patchElement(id, { crop });
     return;
   }
-  const b = sfBlank(d.sf.blank);
+  const b = elementFrame(d);
   const r0 = elementRect(el, b.w, b.h);
   const ppx = r0.w / Math.max(1e-6, el.crop.w * el.image.width);
   const dx = (crop.x + crop.w / 2 - (el.crop.x + el.crop.w / 2)) * el.image.width * ppx;
@@ -173,10 +175,13 @@ export const applyLicenseCrop = (key: string, crop: CropFrac): void =>
 
 /* ---------- 浮水印的圖片 ---------- */
 
-export async function loadWatermarkImage(file: File): Promise<Notice | null> {
+export async function loadWatermarkImage(
+  file: File,
+  set: (patch: Partial<SfWatermark>) => void = setWatermark,
+): Promise<Notice | null> {
   try {
     const added = await addImageFile(assets, file, { maxSide: PHOTO_MAX_SIDE });
-    setWatermark({ image: added.ref, mode: 'image' });
+    set({ image: added.ref, mode: 'image' });
     return added.persisted ? null : { title: S.photoNotSaved, tone: 'warning' };
   } catch {
     return { title: S.photoFailed, description: S.readError(file.name), tone: 'danger' };

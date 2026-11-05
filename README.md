@@ -35,7 +35,7 @@
 [arcana-hanna](https://github.com/arcana-hanna) 與
 [CyberDelaai](https://github.com/CyberDelaai) 與
 [Sectr99](https://github.com/Sectr99) 與
-[SkyTNT](https://github.com/SkyTNT) 等人製作的網頁小工具與開源專案為靈感來源的 83 個 TRPG 工具合輯（NPC 名字產生器由本站原創；「文字演出產生器」以くま。的工具為靈感，由本 repo 以無塵室方式獨立撰寫；其中三個工具的作者不明），另外連到 JIZURA 字面與 Azgaar 的 Fantasy Map Generator 的原站。所有工具都由本站以共用的框架改寫，只有繁體中文介面。
+[SkyTNT](https://github.com/SkyTNT) 等人製作的網頁小工具與開源專案為靈感來源的 85 個 TRPG 工具合輯（NPC 名字產生器由本站原創；「文字演出產生器」以くま。的工具為靈感，由本 repo 以無塵室方式獨立撰寫；其中三個工具的作者不明），另外連到 JIZURA 字面與 Azgaar 的 Fantasy Map Generator 的原站。所有工具都由本站以共用的框架改寫，只有繁體中文介面。
 
 **https://tool-jx3.github.io/toolkit/**
 
@@ -69,7 +69,7 @@
 | [刮刮卡產生器](https://tool-jx3.github.io/toolkit/tools/scratch-card/) | 做出可以用滑鼠或手指刮開的刮刮卡（隨機圖示、句子或圖片），當劇本的抽獎或謎題道具；輸出不連網也能用的互動網頁或分享連結 |
 | [調查熱點圖](https://tool-jx3.github.io/toolkit/tools/clue-map/) | 在場景圖上畫熱點，點開是線索卡：可以設「先找到某個線索才出現」與隱藏熱點，玩家有已找到清單與進度；存成離線也能玩的互動 HTML 或分享連結，另有攤開全部線索的總覽 PNG 給 KP |
 | [鎖定畫面訊息產生器](https://tool-jx3.github.io/toolkit/tools/lock-screen/) | 做一張角色手機的鎖定畫面當 handout：換上桌布、寫下最多 4 則訊息，存成 PNG 或訊息一則一則跳出來的 GIF，也能把手機放在外框照片上 |
-| [證件與票券產生器](https://tool-jx3.github.io/toolkit/tools/id-ticket/) | 做跑團用的證件與票券道具：員工證、學生證、記者證、刑警證、會員卡、偵探執照，SF 的活動證、公民 ID（含機讀區）、執照卡、操作員 ID、通行證，電影票、登機證、車票、收據；正反面、照片（可加網點、抖色）、真的條碼與 QR code、可以匯出的掛繩孔與掛繩，可匯出印刷尺寸（含出血、600 dpi）的 PNG 或閃光 GIF |
+| [證件與票券產生器](https://tool-jx3.github.io/toolkit/tools/id-ticket/) | 做跑團用的證件與票券道具：員工證、學生證、記者證、刑警證、會員卡、偵探執照，SF 的活動證、公民 ID（含機讀區）、執照卡、操作員 ID、通行證，也可以自己排版面，電影票、登機證、車票、收據；正反面、照片（可加網點、抖色）、浮水印與裝飾圖、真的條碼與 QR code、離線的名字產生器、可以匯出的掛繩孔與掛繩，可匯出印刷尺寸（含出血、600 dpi）的 PNG、手機畫面用的數位證件或閃光 GIF |
 | [線索道具產生器](https://tool-jx3.github.io/toolkit/tools/handout-maker/) | 做線索 handout：報紙剪報、通緝令、便條、便利貼、拍立得、系統視窗、遊戲的系統通知、終端機、手機簡訊、電子郵件，部分文字塗黑、狀態印章、紙張質感、附圖濾鏡，匯出 PNG 或直接複製貼到 CCFOLIA |
 | [角色介紹圖產生器](https://tool-jx3.github.io/toolkit/tools/pair-maker/) | 挑一種版型，填上名字、標語與立繪，做出雙人或多人的角色介紹圖、橫幅與置頂推文圖；也有會自動分頁、能匯出 PDF 的文字記錄版型；可存到存檔槽或匯出成編輯檔 |
 | [AI 誤判梗圖產生器](https://tool-jx3.github.io/toolkit/tools/ai-fail/) | 放一張照片，畫上 AI 物件辨識風格的綠框與標籤（例如把貓標成「object」），做成「AI 認錯了」的梗圖：可以多個框、改顏色與字級、調整前後，存成 PNG |
@@ -90,7 +90,7 @@
 | [音樂播放畫面產生器](https://tool-jx3.github.io/toolkit/tools/music-frame/) | 放進封面與音樂，做出跑團 BGM、角色主題曲的「正在播放」畫面：三種版面、聲音視覺化、邊框與隨時間出現的歌詞（LRC／SRT），存成 1920 × 1080 的 PNG 或有聲音的影片 |
 | [環境音混音器](https://tool-jx3.github.io/toolkit/tools/ambience-mixer/) | 把雨聲、風、雷、海浪、營火、時鐘、心跳、遠方的人聲等程式合成的環境音疊成跑團場景的背景聲，也能加自己的音檔；預設組合、分享連結，匯出可以無縫循環的 MP3 或 WAV 放進 CCFOLIA 當 BGM |
 | [幾何花紋產生器](https://tool-jx3.github.io/toolkit/tools/geo-bloom/) | 一鍵產生從中央的圓長出線條、圓、方形與三角形的幾何花紋，像星座圖、魔法陣或科幻介面：同一個種子畫出同一張，可以加摩斯電碼的環、把種子刻進圖裡再從圖片讀回；調數量、大小、重疊與配色，匯出 PNG 或 SVG |
-| [錄影帶畫面產生器](https://tool-jx3.github.io/toolkit/tools/vhs-frame/) | 把照片做成 VHS 錄影帶或監視器畫面：磨損、掃描線、雜訊與偏色，左上的 PLAY／REC、播放時間或日期時間碼、兩行字幕，存成 PNG，或字幕逐字打出的 GIF、APNG、WebP |
+| [錄影帶畫面產生器](https://tool-jx3.github.io/toolkit/tools/vhs-frame/) | 把照片做成 VHS 錄影帶或監視器畫面：磨損、掃描線、雜訊與偏色、色調與弧面，左上的 PLAY／REC、播放時間或日期時間碼、錄影機的日期戳記與頻道、兩行字幕（可以分成好幾個場景），存成 PNG，或字幕逐字打出、有開場雪花與關機的 GIF、APNG、WebP |
 | [CoC 擲骰工具](https://tool-jx3.github.io/toolkit/tools/coc-dice/) | CoC 7 版的技能檢定（獎勵骰、懲罰骰、自動判定成功等級）與自訂算式擲骰，附擲骰紀錄；另有傷害計算：貼上 BCDice 的結果扣護甲後加總成「:HP-」指令 |
 | [CoC 7 版調查員角色卡](https://tool-jx3.github.io/toolkit/tools/coc-sheet/) | 在瀏覽器填好 CoC 7 版調查員角色卡：屬性的困難／極限、HP、SAN、DB、移動力與技能點數自動算，可以管理多張角色卡、裁切頭像，印成 A4 兩頁或存成 PDF、PNG，也能複製成 CCFOLIA 角色 |
 | [CoC NPC 產生器](https://tool-jx3.github.io/toolkit/tools/coc-npc/) | 一次管理多個 CoC 7 版／6 版的 NPC：擲屬性、自動算衍生值、加技能與攻擊指令、隨機取名，輸出可以直接貼進 CCFOLIA 的角色 JSON 與聊天面板 |
@@ -99,7 +99,9 @@
 | [網格產生器](https://tool-jx3.github.io/toolkit/tools/grid-maker/) | 產生透明背景的方格或六角格 PNG：格數、大小、線條與發光，可以加上 1-1、A1、流水號等座標；六角格能網格化成 CCFOLIA 對得齊的尺寸 |
 | [距離量尺產生器](https://tool-jx3.github.io/toolkit/tools/range-ruler/) | 以中心格為起點，把每一格的距離寫在格子上、依距離上色，做成可以疊在地圖上的方格或六角格量尺 PNG |
 | [地圖編輯器](https://tool-jx3.github.io/toolkit/tools/map-editor/) | 在方格或六角格上畫戰鬥地圖與平面圖：地面、牆壁、房間、家具與地圖符號、格子填色、手繪與文字，可以群組與布林運算；地圖自動存在瀏覽器，選範圍匯出 PNG、JPEG、SVG |
-| [室內平面圖產生器](https://tool-jx3.github.io/toolkit/tools/floor-plan/) | 探索場景用的室內平面圖：從住宅、洋館、飯店、醫院、廢墟等範本開始擺房間（牆自動產生）、門窗與家具，GM 用與 PL 用分開匯出 PNG |
+| [室內平面圖產生器](https://tool-jx3.github.io/toolkit/tools/floor-plan/) | 探索場景用的室內平面圖：從住宅、洋館、飯店、醫院、廢墟等範本開始擺房間（牆自動產生）、門窗與家具（可以一鍵套用書房、臥室等內裝），夜裡只有燭台與窗邊亮著的光源，GM 用、PL 用與揭露用分開匯出 PNG |
+| [世界地圖產生器](https://tool-jx3.github.io/toolkit/tools/world-map/) | 畫跑團用的奇幻世界地圖：陸地、森林、山脈、沙漠、雪原、濕地，圈出國家、畫川與街道、航路與城牆，擺上王都、港口、遺跡等 32 種素材與地名，也能一鍵自動產生整個世界；算得出街道與航路要走幾天，GM 專用的據點與路線不會出現在公開用的 PNG，還能直接送到地圖演出產生器 |
+| [圖塊地圖編輯器](https://tool-jx3.github.io/toolkit/tools/tile-map/) | 用圖塊一格一格拼戰鬥地圖（每格一張圖，和畫向量圖形的「地圖編輯器」不同）：畫筆、填滿、圖形、選取後搬動與轉向，地面、牆壁、物件分圖層；內建簡易地形與 Kenney 的地城圖塊，也能匯入自己的圖塊表；匯出 VTT 用的 PNG，或照實際格子尺寸分頁的列印 PDF |
 | [JIZURA 字面](https://tool-jx3.github.io/toolkit/tools/jizura/) | 貼上歌詞、點按拍點，自動排出文字 PV（歌詞動態影片）：一鍵換方案，版面、登場、特效等可以逐段替換，匯出 MP4、綠幕、黑幕或 PNG 序列（連到原作者網站的官方繁中版） |
 | [奇幻世界地圖產生器](https://azgaar.github.io/Fantasy-Map-Generator/) | 一鍵產生整片大陸的奇幻世界地圖：地形、氣候、河流、國家、城鎮、文化、宗教與道路都能逐項編輯，匯出 PNG、SVG 或存成地圖檔（連到 Azgaar 的 Fantasy Map Generator 原站，英文介面） |
 | [2.5D 動態立繪](https://tool-jx3.github.io/toolkit/tools/anime-rig/) | 拖進分好部件的 PSD 就自動綁定、當場動起來：眨眼、嘴型、頭髮物理（直接接受 [see-through](https://github.com/shitagaki-lab/see-through) 從單張插圖拆出來的 PSD，連深度 PSD 一起給時轉頭更立體），可以用攝影機（臉部追蹤，模型第一次使用時下載約 3.8 MB）或麥克風帶動，匯出透明 PNG 或影片 |
@@ -111,7 +113,7 @@
 | [截圖演出產生器](https://tool-jx3.github.io/toolkit/tools/screenshot-fx/) | 在截圖上畫放大框、螢光筆、塗黑：周圍變暗、框彈出放大、螢光筆畫出來、塗黑揭開或蓋上，背景可以模糊、單色或透明，加上出處，匯出 PNG、APNG 或影片 |
 | [地圖演出產生器](https://tool-jx3.github.io/toolkit/tools/map-fx/) | 在地圖或平面圖上畫區域放大、移動路線與地點、房間遮罩：路線一路畫過去、迷霧散開、房間出現，匯出 PNG、APNG、影片，或給 CCFOLIA 自由探索用的每個房間一張遮罩 PNG；進階 3D 把平面圖變成線框立體空間，鏡頭沿路線走過去並存成影片 |
 | [簡易頭像產生器](https://tool-jx3.github.io/toolkit/tools/icon-maker/) | 從 PNG 立繪做出 1:1 的 TRPG 角色頭像，可加外框、背景、名字（直書或橫書）與 HO 標籤 |
-| [VTT 棋子產生器](https://tool-jx3.github.io/toolkit/tools/token-maker/) | 把立繪、頭像做成 CCFOLIA、Roll20、Foundry 等 VTT 用的圓形棋子：28 種有花紋的外框，頭、角、武器可以出框蓋在外框上，名字牌與徽章，敵人可以做成編號 1～N 的一組，存成透明背景的 PNG（設定嵌在圖裡，之後可以再開來改） |
+| [VTT 棋子產生器](https://tool-jx3.github.io/toolkit/tools/token-maker/) | 把立繪、頭像做成 CCFOLIA、Roll20、Foundry 等 VTT 用的圓形棋子：28 種有花紋的外框，頭、角、武器可以出框蓋在外框上（髮絲的半透明邊緣也留得住），名字牌與徽章，敵人可以做成編號 1～N 的一組，存成透明背景的 PNG（設定嵌在圖裡，之後可以再開來改） |
 | [跑團紀錄簿](https://tool-jx3.github.io/toolkit/tools/session-log/) | 記錄玩過的團，整理感想、團報與已通關劇本清單；可匯入試算表或團報文字，每一團都能直接送到團報產生器 |
 | [團報產生器](https://tool-jx3.github.io/toolkit/tools/session-report/) | 填入劇本、KP／PL／PC 與結果，從 17 種範本產生可直接貼到 X 的團報文，能即時預覽、編輯 |
 | [團期行事曆](https://tool-jx3.github.io/toolkit/tools/session-calendar/) | 把場次、準備事項和其他預定排在同一張月曆：台灣的國定假日與補假、拖曳新增多日預定、配色與 CP 色、輸出空檔日期揪團、整月或整年存成 PNG、JSON／iCal 匯出入（可讀 Google 日曆匯出的檔案），一團可以直接送到跑團紀錄簿 |
@@ -223,7 +225,7 @@ CI（GitHub Actions）在 pull request 與 main 上跑 `npm test`、lint、typec
 | `scenario-text` | [劇本文字產生器](https://tool-jx3.github.io/toolkit/tools/scenario-text/) | [shiki365/scenario-text-maker](https://github.com/shiki365/scenario-text-maker) |
 | `house-rules` | [CoC 房規表產生器](https://tool-jx3.github.io/toolkit/tools/house-rules/) | [くま。／CoCハウスルール表メーカー](https://kumachansteps.github.io/trpg-web-tools/) |
 | `speech-bubble` | [動態對話泡泡產生器](https://tool-jx3.github.io/toolkit/tools/speech-bubble/) | [sotsotssi/TextBubbleMaker-preview](https://github.com/sotsotssi/TextBubbleMaker-preview)、[aokmri/dp-cardmaker](https://github.com/aokmri/dp-cardmaker)（對話卡片） |
-| `floor-plan` | [室內平面圖產生器](https://tool-jx3.github.io/toolkit/tools/floor-plan/) | [くま。／TRPG室内図メーカー](https://kumachansteps.github.io/trpg-web-tools/)、[GMW／Maptsukuri](https://maptsukuri.pages.dev/)（分享連結、房間編號）、[KIIN／マップ制作スタジオ](https://kiin.booth.pm/)（自動化、L 形房間、圖面風格與座標、VTT 匯出） |
+| `floor-plan` | [室內平面圖產生器](https://tool-jx3.github.io/toolkit/tools/floor-plan/) | [くま。／TRPG室内図メーカー](https://kumachansteps.github.io/trpg-web-tools/)、[GMW／Maptsukuri](https://maptsukuri.pages.dev/)（分享連結、房間編號）、[KIIN／マップ制作スタジオ](https://kiin.booth.pm/)（自動化、L 形房間、圖面風格與座標、VTT 匯出；v2.0 的夜的光源、內裝預設、自由線等） |
 | `rank-chart` | [排行榜產生器](https://tool-jx3.github.io/toolkit/tools/rank-chart/) | [sotsotssi/would-you-rank](https://github.com/sotsotssi/would-you-rank) |
 | `scratch-card` | [刮刮卡產生器](https://tool-jx3.github.io/toolkit/tools/scratch-card/) | [sotsotssi/Scratchcard](https://github.com/sotsotssi/Scratchcard) |
 | `clue-map` | [調查熱點圖](https://tool-jx3.github.io/toolkit/tools/clue-map/) | [momo102938/MUNgs_click](https://github.com/momo102938/MUNgs_click)（콕콕；本站自己的構想，只借「熱區＋解鎖」的想法） |
@@ -246,6 +248,8 @@ CI（GitHub Actions）在 pull request 與 main 上跑 `npm test`、lint、typec
 | `pl-profile` | [PL 自介卡與地雷表](https://tool-jx3.github.io/toolkit/tools/pl-profile/) | [sonata9x/trpg-profile-maker](https://github.com/sonata9x/trpg-profile-maker)、[Jara03mofu/trpg-jirai-check](https://github.com/Jara03mofu/trpg-jirai-check)、[Tetoriapot/sosaku-sheet-maker](https://github.com/Tetoriapot/sosaku-sheet-maker)、[dearmysn1p3r/DearMySn1p3r_25](https://github.com/dearmysn1p3r/DearMySn1p3r_25)、[OEC309/trpg-consensus](https://github.com/OEC309/trpg-consensus)（只參考功能） |
 | `scenario-timeline` | [劇本時間表](https://tool-jx3.github.io/toolkit/tools/scenario-timeline/) | [visjs/vis-timeline](https://github.com/visjs/vis-timeline) |
 | `ambience-mixer` | [環境音混音器](https://tool-jx3.github.io/toolkit/tools/ambience-mixer/) | [remvze/moodist](https://github.com/remvze/moodist)（只參考程式，音效一個都沒收） |
+| `world-map` | [世界地圖產生器](https://tool-jx3.github.io/toolkit/tools/world-map/) | [KIIN／ワールドマップ制作スタジオ](https://kiin.booth.pm/) |
+| `tile-map` | [圖塊地圖編輯器](https://tool-jx3.github.io/toolkit/tools/tile-map/) | [deukrezia/trials](https://github.com/deukrezia/trials) |
 
 開發與建置見 [web/README.md](web/README.md)；流程與規格見 [docs/refactor/](docs/refactor/PLAN.md)。
 

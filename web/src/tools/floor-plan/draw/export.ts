@@ -55,6 +55,10 @@ export interface ExportImageOptions {
   wear?: { strength: number; seed: number } | null;
   /** 不畫樣式的顆粒與雜訊（黑色電影、監視終端；匯出的檔案小很多，F261～F262、D74） */
   noNoise?: boolean;
+  /** 夜的暗度（2026-11-05，F273；沒有＝白天） */
+  night?: number;
+  /** 揭露用（公開差分用，2026-11-05，F284）：GM 專用的東西照一般的顏色畫 */
+  reveal?: boolean;
 }
 
 export interface ExportLayout {
@@ -228,6 +232,8 @@ export function renderImage(floors: readonly Floor[], opts: ExportImageOptions):
           }
         : undefined,
       coords: L.coords[i],
+      ...(opts.night ? { night: opts.night } : {}),
+      ...(opts.reveal ? { reveal: true } : {}),
     });
     if (L.titleH) {
       c.textAlign = 'left';
