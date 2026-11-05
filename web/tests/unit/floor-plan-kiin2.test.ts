@@ -16,6 +16,7 @@ import {
 import {
   type ExportSettings,
   exportFileName,
+  exportJobs,
   exportOptions,
 } from '@/tools/floor-plan/model/exportPlan';
 import { FURNISH_PRESETS, furnishRoom } from '@/tools/floor-plan/model/furnish';
@@ -47,6 +48,7 @@ import {
   playerProject,
   readMapHash,
 } from '@/tools/floor-plan/model/share';
+import { supportOf } from '@/tools/floor-plan/model/tabletop';
 import { transformFrame, transformProject } from '@/tools/floor-plan/model/transform';
 import type { Floor, FreeLine, Item, Opening, Project, Room } from '@/tools/floor-plan/model/types';
 import { instantiateTemplate, TEMPLATES } from '@/tools/floor-plan/templates';
@@ -396,6 +398,122 @@ describe('內裝預設（F275）', () => {
     const pond = floorOf({ rooms: [room('r', 0, 0, 10, 10, { cat: 'water' })] });
     expect(furnishRoom(pond, 'r', 'study')).toEqual({ ok: false, reason: 'kind' });
   });
+
+  /*
+   * 2026-11-05 驗證後修訂：小、中的房間有家具排在房間外面卻回報成功（排在中間 ±2.4 格、整理只動中心在房間裡的）。
+   * 照驗證者的掃描：七種 × 長方形 80 種大小、L 形 40 種、有窗＋舊家具＋線索 12 種、有巢狀的房間 12 種，
+   * 成功的結果每件新家具的外框都在這間房的格子裡（L 形的缺角、巢狀的房間都算房外）、擋路的不重疊（桌上的小物和桌子不算）、不擋門
+   */
+  it('掃描：各種大小的房間（含 L 形、巢狀的房間）成功的結果，家具全部在房間裡、不重疊、不擋門；放不下的整個不改', () => {
+    interface Case {
+      w: number;
+      h: number;
+      cut?: 'ne' | 'sw';
+      extra?: boolean;
+      nest?: boolean;
+    }
+    const cases: Case[] = [];
+    for (const w of [4, 5, 6, 7, 8, 9, 10, 12, 14, 16])
+      for (const h of [3, 4, 5, 6, 7, 8, 10, 12]) cases.push({ w, h });
+    for (const w of [6, 8, 10, 12, 16])
+      for (const h of [6, 8, 10, 12])
+        for (const cut of ['ne', 'sw'] as const) cases.push({ w, h, cut });
+    for (const w of [5, 7, 9, 12])
+      for (const h of [4, 7, 10]) cases.push({ w, h, extra: true }, { w, h, nest: true });
+    /* 放在桌上的小物（中心在桌面上、七成以上在桌面上；F255） */
+    const onTable = (small: Item, surface: Item, all: Item[]) => supportOf(small, all) === surface;
+    let ok = 0;
+    let total = 0;
+    const must = new Set(['study 5x4', 'parlor 9x7', 'engine 9x7', 'parlor 16x8', 'engine 16x8']);
+    for (const c of cases)
+      for (const preset of FURNISH_PRESETS) {
+        /* 缺角：右上（ne）或左下（sw）一塊，寬、高各一半 */
+        const cutW = Math.floor(c.w / 2);
+        const cutH = Math.floor(c.h / 2);
+        const cut = c.cut
+          ? {
+              x: c.cut === 'ne' ? c.w - cutW : 0,
+              y: c.cut === 'ne' ? 0 : c.h - cutH,
+              w: cutW,
+              h: cutH,
+            }
+          : undefined;
+        const R = room('R', 0, 0, c.w, c.h, c.cut ? { cut: { c: c.cut, w: cutW, h: cutH } } : {});
+        const N = room('N', c.w - 3, 0, 3, 3);
+        const door: Opening = {
+          id: 'd',
+          kind: 'door',
+          o: 'h',
+          x: Math.floor(c.w / 2) - 1,
+          y: c.h,
+          len: 1.5,
+          side: -1,
+          hinge: 0,
+        };
+        const win: Opening = {
+          id: 'w',
+          kind: 'window',
+          o: 'v',
+          x: 0,
+          y: 1,
+          len: 2,
+          side: 1,
+          hinge: 0,
+        };
+        const clue = { ...item('clue', 'diary', c.w - 2, c.h - 2, 0.8, 0.8), clue: true };
+        const f = floorOf({
+          rooms: c.nest ? [R, N] : [R],
+          openings: c.extra ? [door, win] : [door],
+          items: c.extra ? [item('old', 'bed_single', 0.5, 0.5, 2, 4), clue] : [],
+        });
+        const label = `${preset.id} ${c.w}x${c.h}${c.cut ?? ''}${c.extra ? '+' : ''}${c.nest ? 'N' : ''}`;
+        total++;
+        const r = furnishRoom(f, 'R', preset.id);
+        if (must.has(label)) expect(r.ok, label).toBe(true);
+        if (!r.ok) {
+          expect(r, label).toEqual({ ok: false, reason: 'full' });
+          continue;
+        }
+        ok++;
+        const kept = f.items.filter((it) => !r.remove.includes(it.id));
+        const all = kept.concat(r.add);
+        for (const it of r.add) {
+          const b = itemFootprint(it);
+          for (let x = Math.floor(b.x + 1e-6); x < b.x + b.w - 1e-6; x++)
+            for (let y = Math.floor(b.y + 1e-6); y < b.y + b.h - 1e-6; y++) {
+              const inside =
+                x >= 0 &&
+                y >= 0 &&
+                x < c.w &&
+                y < c.h &&
+                !(cut && x >= cut.x && x < cut.x + cut.w && y >= cut.y && y < cut.y + cut.h) &&
+                !(c.nest && x >= N.x && y < N.y + N.h);
+              if (!inside) throw new Error(`${label}：${it.t} 在房間外面（${x}, ${y}）`);
+            }
+          if (!blocking(it)) continue;
+          for (const o of f.openings)
+            if (o.kind === 'door' && hitsDoor(o, b)) throw new Error(`${label}：${it.t} 擋到門`);
+          for (const o of all) {
+            if (o === it || !blocking(o)) continue;
+            const B = itemFootprint(o);
+            const ov =
+              Math.min(b.x + b.w, B.x + B.w) - Math.max(b.x, B.x) > 1e-6 &&
+              Math.min(b.y + b.h, B.y + B.h) - Math.max(b.y, B.y) > 1e-6;
+            if (ov && !onTable(it, o, all) && !onTable(o, it, all))
+              throw new Error(`${label}：${it.t} 和 ${o.t} 疊在一起`);
+          }
+        }
+        /* 線索留在原位 */
+        if (c.extra)
+          expect(
+            all.find((it) => it.id === 'clue'),
+            label,
+          ).toMatchObject({ x: clue.x, y: clue.y });
+      }
+    expect(total).toBe(1008);
+    /* 2026-11-05：910 組成功（改之前回報成功的 896 組裡有 323 組有家具在房間外面或疊在一起） */
+    expect(ok).toBeGreaterThanOrEqual(900);
+  });
 });
 
 /* ---------- 夜的暗度與光源（F273、F274） ---------- */
@@ -659,6 +777,113 @@ describe('專案檔版本 8、分享連結（F287）', () => {
     expect(o.reveal).toBe(true);
     expect(o.playerView).toBe(false);
     expect(o.gmBadge).toBeNull();
+  });
+
+  /*
+   * 2026-11-05 驗證後修訂：GM 專用的文字原本照樣畫成 GM 色。揭露用的圖裡 GM 專用的房間、牆、門窗、家具、文字、自由線都照一般的畫，
+   * 所以「全部 GM 專用（暗門）」和「全部一般（門）」的同一張地圖，揭露用的圖逐指令相同（GM 用的圖不同）
+   */
+  it('揭露用的圖：全部 GM 專用的地圖和全部一般的地圖畫出來一樣（暗門畫成門、GM 專用的文字不是 GM 色）', () => {
+    const map = (gm: boolean): Project =>
+      project([
+        floorOf({
+          rooms: [room('A', 0, 0, 12, 10), room('G', 12, 0, 12, 10, { gm })],
+          walls: [{ id: 'w', x1: 6, y1: 4, x2: 6, y2: 9, kind: 'int', gm }],
+          openings: [
+            {
+              id: 'o',
+              kind: gm ? 'secret' : 'door',
+              o: 'v',
+              x: 12,
+              y: 6,
+              len: 1.5,
+              side: 1,
+              hinge: 0,
+              gm,
+            },
+          ],
+          items: [{ ...item('s', 'sofa2', 3, 2, 3.2, 1.8), gm }],
+          texts: [
+            { id: 't', x: 16, y: 8, text: 'ABC文字', size: 1, gm },
+            { id: 't2', x: 4, y: 8, text: 'PUB文字', gm },
+            { id: 'b', x: 18, y: 3, text: '3', badge: true, gm },
+          ],
+          lines: [
+            { id: 'l', kind: 'arrow', x1: 14, y1: 2, cx: 18, cy: 6, x2: 22, y2: 2, gm },
+            { id: 'l2', kind: 'rope', x1: 1, y1: 9, cx: 3, cy: 7, x2: 5, y2: 9, gm },
+          ],
+        }),
+      ]);
+    const restore = installRecordingDocument();
+    try {
+      const draw = (p: Project, view: ExportSettings['view']) => {
+        const exp: ExportSettings = {
+          range: 'current',
+          view,
+          clues: 'show',
+          px: 24,
+          grid: false,
+          transparent: false,
+        };
+        return renderImage(
+          p.floors,
+          exportOptions(p, exp, p.theme, 24),
+        ) as unknown as RecordingCanvas;
+      };
+      for (const theme of ['clean', 'mono', 'horror'] as const) {
+        const a = map(true);
+        const b = map(false);
+        a.theme = theme;
+        b.theme = theme;
+        expect(draw(a, 'reveal').hash, theme).toBe(draw(b, 'reveal').hash);
+        expect(draw(a, 'gm').hash, theme).not.toBe(draw(b, 'gm').hash);
+      }
+    } finally {
+      restore();
+    }
+  });
+
+  /*
+   * 補驗（2026-11-05）：送到地圖演出產生器的圖（ExportDialog 的 deliverToFx：exportJobs → exportOptions → renderImage，和下載同一條路）
+   * 照 PL 用／GM 用畫自由線：一般的線兩種都有、GM 專用的線只在 GM 用的圖裡
+   */
+  it('送到地圖演出產生器的圖照 PL 用／GM 用畫自由線：PL 用拿掉 GM 專用的線', () => {
+    const base = (lines?: FreeLine[]): Project =>
+      project([
+        floorOf({
+          rooms: [room('A', 0, 0, 12, 10)],
+          ...(lines ? { lines } : {}),
+        }),
+      ]);
+    const line: FreeLine = { id: 'l', kind: 'rail', x1: 2, y1: 2, cx: 6, cy: 6, x2: 10, y2: 2 };
+    const restore = installRecordingDocument();
+    try {
+      const sent = (p: Project, view: 'pl' | 'gm') => {
+        const exp: ExportSettings = {
+          range: 'current',
+          view,
+          clues: 'show',
+          px: 48,
+          grid: false,
+          transparent: false,
+        };
+        const job = exportJobs(p, exp)[0];
+        const opts = exportOptions(p, exp, p.theme, exp.px);
+        return renderImage(job.floors, opts) as unknown as RecordingCanvas;
+      };
+      const none = base();
+      const pub = base([line]);
+      const secret = base([{ ...line, gm: true }]);
+      /* 一般的線：PL 用、GM 用都畫 */
+      expect(sent(pub, 'pl').hash).not.toBe(sent(none, 'pl').hash);
+      expect(sent(pub, 'gm').hash).not.toBe(sent(none, 'gm').hash);
+      expect(sent(pub, 'pl').calls).toBeGreaterThan(sent(none, 'pl').calls);
+      /* GM 專用的線：GM 用的圖有、PL 用的圖和沒有線時一樣 */
+      expect(sent(secret, 'gm').hash).not.toBe(sent(none, 'gm').hash);
+      expect(sent(secret, 'pl').hash).toBe(sent(none, 'pl').hash);
+    } finally {
+      restore();
+    }
   });
 });
 

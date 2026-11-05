@@ -328,6 +328,26 @@ export function visibleFloor(floor: Floor, playerView: boolean, hideClues = fals
   };
 }
 
+/**
+ * 揭露用的圖（2026-11-05，F284；驗證後修訂：原本 GM 專用的文字照樣是 GM 色）：GM 專用的東西都照一般的畫——
+ * 房間、手畫的牆、門窗、家具、文字、自由線的「只有 GM 看得到」都拿掉，暗門換成單開門。GM 專用與一般的同一張地圖畫出來一樣。
+ */
+export function revealFloor(floor: Floor): Floor {
+  const plain = <T extends { gm?: boolean }>(x: T): T => (x.gm ? { ...x, gm: false } : x);
+  return {
+    ...floor,
+    rooms: floor.rooms.map(plain),
+    walls: floor.walls.map(plain),
+    openings: floor.openings.map((o) => {
+      const p = plain(o);
+      return p.kind === 'secret' ? { ...p, kind: 'door' } : p;
+    }),
+    items: floor.items.map(plain),
+    texts: floor.texts.map(plain),
+    ...(floor.lines ? { lines: floor.lines.map(plain) } : {}),
+  };
+}
+
 /** 有沒有隱藏線索 */
 export const floorHasClues = (f: Floor): boolean =>
   f.items.some((i) => i.clue) || f.texts.some((t) => t.clue);

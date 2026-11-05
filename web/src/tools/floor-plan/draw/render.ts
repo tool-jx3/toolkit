@@ -15,7 +15,13 @@ import {
   wallThickness,
 } from '../model/catalog';
 import { type CoordLabels, columnName } from '../model/coords';
-import { itemLocalSize, type ShownFloor, type ShownRoom, visibleFloor } from '../model/geometry';
+import {
+  itemLocalSize,
+  revealFloor,
+  type ShownFloor,
+  type ShownRoom,
+  visibleFloor,
+} from '../model/geometry';
 import { LINE_BASE, lineSamples, lineTangent } from '../model/lines';
 import { traceRoom } from '../model/shape';
 import type {
@@ -1878,14 +1884,20 @@ export interface DrawFloorOptions {
   /** 夜的暗度（2026-11-05，F273；沒有或 0＝白天） */
   night?: number;
   /**
-   * 揭露用（公開差分用，2026-11-05，F284）：GM 專用的東西照一般的顏色畫——不畫 GM 的斜線，暗門畫成一般的門。
+   * 揭露用（公開差分用，2026-11-05，F284）：GM 專用的東西照一般的顏色畫——不畫 GM 的斜線，暗門畫成一般的門
+   * （`revealFloor`：GM 專用的房間、牆、門窗、家具、文字、自由線和一般的畫出來一樣）。
    */
   reveal?: boolean;
 }
 
 export function drawFloor(c: Ctx, floorIn: Floor, opts: DrawFloorOptions): ShownFloor {
   const theme = opts.theme;
-  const floor = visibleFloor(floorIn, opts.playerView, opts.hideClues);
+  /* 揭露用（F284）：GM 專用的東西拿掉「GM 專用」、暗門換成門，再照一般的畫 */
+  const floor = visibleFloor(
+    opts.reveal ? revealFloor(floorIn) : floorIn,
+    opts.playerView,
+    opts.hideClues,
+  );
   const lw = lineWidthFor(opts.zoom);
   if (opts.viewRect && opts.background !== false && theme.bg !== 'transparent') {
     c.fillStyle = theme.bg;
@@ -1944,20 +1956,12 @@ export function drawFloor(c: Ctx, floorIn: Floor, opts: DrawFloorOptions): Shown
   for (const run of walls.runs) drawRun(c, run, theme, lw, opts.editor);
   for (const w of walls.diagonal) drawDiagonalWall(c, w, theme, lw);
   for (const o of floor.openings)
-    drawOpening(
-      c,
-      /* 揭露用的圖：暗門畫成一般的門（F284） */
-      opts.reveal && o.kind === 'secret' ? { ...o, kind: 'door' } : o,
-      wallThickness(walls.openingKind.get(o.id)),
-      theme,
-      lw,
-      opts,
-    );
+    drawOpening(c, o, wallThickness(walls.openingKind.get(o.id)), theme, lw, opts);
   for (const item of floor.items) if (layer(item) === 2) drawItem(c, item, theme, lw, opts);
   /* 自由線（2026-11-05，F285）：畫在牆、門窗、貼牆素材的上面 */
   if (floor.lines) for (const l of floor.lines) drawFreeLine(c, l, theme, lw, opts);
 
-  if (!opts.playerView && !opts.reveal) {
+  if (!opts.playerView) {
     for (const room of floor.rooms) {
       if (!room.gm) continue;
       c.save();
