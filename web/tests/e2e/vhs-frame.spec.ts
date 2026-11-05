@@ -1123,7 +1123,7 @@ async function frameImg(page: Page, kind: 'png' | 'anim', at: number): Promise<I
   return readPng(dataUrlBytes(await call(page, 'frame', kind, at)));
 }
 
-test('字幕的場景：空一行分場景、預覽與 PNG 選場景、GIF 依序換（每個場景至少 16 格）（F59、F60）', async ({
+test('字幕的場景：空一行分場景、預覽與 PNG 選場景、GIF 依序換（每個場景至少 16 格）；字幕的樣子與位置、常用文字（F59～F61、F67、F72）', async ({
   page,
 }) => {
   const errors = await open(page);
@@ -1157,10 +1157,25 @@ test('字幕的場景：空一行分場景、預覽與 PNG 選場景、GIF 依�
   await cap.fill('一\n二\n三');
   await cap.blur();
   await expect(page.getByTestId('caption-extra')).toContainText('每個場景只用前兩行');
+  /* 字幕的樣子與位置（F67）：黃字黑邊、上方（有左上文字：第一行的基線 round(0.15H) ＋ 字級） */
+  await page.getByRole('radio', { name: '黃字黑邊' }).click();
+  await page.getByRole('radio', { name: '上方', exact: true }).click();
+  const top = (await textCalls(page, 'png', 0)).filter((x) => x.baseline === 'alphabetic');
+  expect(top.map((x) => [x.fn, x.text, x.y, x.style])).toEqual([
+    ['strokeText', '一', 204, 'rgba(0, 0, 0, 0.88)'],
+    ['fillText', '一', 204, '#ffe45c'],
+    ['strokeText', '二', 204 + 60 * 1.28, 'rgba(0, 0, 0, 0.88)'],
+    ['fillText', '二', 204 + 60 * 1.28, '#ffe45c'],
+  ]);
+  await page.getByRole('radio', { name: '黑底白字' }).click();
+  expect((await textCalls(page, 'png', 0)).some((x) => x.fn === 'strokeText')).toBe(false);
+  /* 常用文字的追加（F72） */
+  await page.getByRole('button', { name: '換成「■ STOP」' }).click();
+  expect((await state(page)).osd).toBe('■ STOP');
   expect(errors).toEqual([]);
 });
 
-test('開場（轉台）與收尾（關機）：格數、頻道、最後一格變黑、四角照樣透明；GIF 匯出 50 格（F61～F63）', {
+test('開場（轉台）與收尾（關機）：格數、頻道、最後一格變黑、四角照樣透明；GIF 匯出 50 格（F62、F63）', {
   tag: '@serial',
 }, async ({ page }) => {
   test.setTimeout(180_000);
@@ -1244,7 +1259,9 @@ test('日期戳記：英文／數字、橘色／白色、右下／左下；寫�
   expect(errors).toEqual([]);
 });
 
-test('頻道、左右反轉、色調與效果、「●」閃爍與 PAUSE 的雜訊帶（F65～F70）', async ({ page }) => {
+test('頻道、左右反轉、色調與效果、「●」閃爍與 PAUSE 的雜訊帶（F65、F66、F68～F71）', async ({
+  page,
+}) => {
   const errors = await open(page);
   /* 右上角：頻道 */
   await page.getByRole('radio', { name: '頻道', exact: true }).click();
@@ -1286,7 +1303,7 @@ test('頻道、左右反轉、色調與效果、「●」閃爍與 PAUSE 的雜�
   expect(errors).toEqual([]);
 });
 
-test('PNG 大小（640／1280／1920）與暫停的預覽相同；GIF 256 色（F71、F72）', {
+test('PNG 大小（640／1280／1920）與暫停的預覽相同；GIF 256 色（F73、F74）', {
   tag: '@serial',
 }, async ({ page }) => {
   test.setTimeout(180_000);
@@ -1315,7 +1332,7 @@ test('PNG 大小（640／1280／1920）與暫停的預覽相同；GIF 256 色（
   expect(errors).toEqual([]);
 });
 
-test('第 1 版的自動儲存與專案檔：字幕照以前的畫法搬移、新的設定是預設（3.9）', async ({ page }) => {
+test('第 1 版的自動儲存與專案檔：字幕照以前的畫法搬移、新的設定是預設（F75）', async ({ page }) => {
   const v1 = {
     photo: null,
     view: { zoom: 1, x: 0, y: 0 },
