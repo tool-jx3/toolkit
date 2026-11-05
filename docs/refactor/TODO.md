@@ -98,6 +98,7 @@
 - ToolShell 的「說明」對話框關閉後焦點沒有回到「說明」鈕（落在 body；height-board 驗證時發現，2026-10-28）。
 - 2026-10-31 全部 e2e（負載高）各失敗一次、單獨重跑 3／3 通過的兩個：`text-fx.spec.ts:961`（SF 標題匯出 APNG 的決定性：兩次匯出的位元組不同；ui 拆入口的驗證時也在負載下失敗過，像是兩次匯出之間有字型或資源載入完成），`floor-plan.spec.ts:1789`（分享連結與房間編號：`waitForTimeout(450)` 之後的點擊卡到 90 秒逾時）。要查兩次匯出之間有什麼狀態會變、把固定等待換成等狀態。
 - relation-chart 的 e2e「畫布：拖曳、碰撞推擠…」（Esc 後 focus-active 沒消）偶發失敗：main 35 次失敗 1 次；和 hover 重新設定有關，待查。
+- relation-chart 的單元測試 `relation-chart-b3.test.ts`「改名＝改這件變體…一步復原」在全部 vitest（484 個檔同時跑）時失敗一次（復原後第 2 個分頁不見了：復原退得比改名多一步），單獨重跑 3／3 通過、CI 通過（2026-11-05）；像是復原的合併看時間，負載下兩個動作被合成一步，待查。
 - 2026-11-05 新容器（Playwright 1.56.1 預期 chromium 1194，這裡只有 1243，用 symlink 跑）的全部 e2e：下面 6 個在改版前的 `d2b20de` 也同樣失敗，和程式無關、待查（CI 不跑 e2e）：`acrylic-goods.spec.ts:880`（沉浸模式的 `[data-immersive]` 沒出現）與 `:294` 搖搖樂（serial）、`char-chart.spec.ts:957`（畫布像素還是白的）、`geo-bloom.spec.ts:163`（「只有正方形與雙正方形」那組的雜湊和原作不同，可能是新版 V8 的數學函式）、`music-frame.spec.ts:875`（沒有 MP4 的選項：這個 chromium 沒有 H.264 編碼器）、`room-zip.spec.ts:726`（素材頁的「加工」等不到，90 秒逾時）。`room-zip.spec.ts:293` 在負載下失敗一次，單獨重跑 3／3 通過。
 - 離開頁面時寫 IndexedDB 可能丟（tile-map 實作時發現，2026-11-05）：`pagehide`／`visibilitychange` 時才寫的資料，idb-keyval 不呼叫 `transaction.commit()`，頁面拿掉時交易會被放棄；tile-map 在自己的 `persist.ts` 改成交易一開就 `commit()`。world-map、floor-plan、relation-chart 等也在 pagehide 時寫，要逐一查；可以在 `core/storage` 加一個會 commit 的寫入方式給大家用。
 - pdf-compress 的大檔結果打包 ZIP 時整份放在記憶體（`fflate` 的 zipSync）；大檔無損又沒變小時可能很吃記憶體，可以改成串流寫 ZIP。WORKERFS 讀取緩衝依賴 qpdf-wasm 0.3.0 壓縮後的內部名稱（找不到時退回不緩衝，有測試），升級 qpdf-wasm 時要再看。
