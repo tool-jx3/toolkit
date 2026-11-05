@@ -90,7 +90,7 @@
 | [音樂播放畫面產生器](https://tool-jx3.github.io/toolkit/tools/music-frame/) | 放進封面與音樂，做出跑團 BGM、角色主題曲的「正在播放」畫面：三種版面、聲音視覺化、邊框與隨時間出現的歌詞（LRC／SRT），存成 1920 × 1080 的 PNG 或有聲音的影片 |
 | [環境音混音器](https://tool-jx3.github.io/toolkit/tools/ambience-mixer/) | 把雨聲、風、雷、海浪、營火、時鐘、心跳、遠方的人聲等程式合成的環境音疊成跑團場景的背景聲，也能加自己的音檔；預設組合、分享連結，匯出可以無縫循環的 MP3 或 WAV 放進 CCFOLIA 當 BGM |
 | [幾何花紋產生器](https://tool-jx3.github.io/toolkit/tools/geo-bloom/) | 一鍵產生從中央的圓長出線條、圓、方形與三角形的幾何花紋，像星座圖、魔法陣或科幻介面：同一個種子畫出同一張，可以加摩斯電碼的環、把種子刻進圖裡再從圖片讀回；調數量、大小、重疊與配色，匯出 PNG 或 SVG |
-| [錄影帶畫面產生器](https://tool-jx3.github.io/toolkit/tools/vhs-frame/) | 把照片做成 VHS 錄影帶或監視器畫面：磨損、掃描線、雜訊與偏色，左上的 PLAY／REC、播放時間或日期時間碼、兩行字幕，存成 PNG，或字幕逐字打出的 GIF、APNG、WebP |
+| [錄影帶畫面產生器](https://tool-jx3.github.io/toolkit/tools/vhs-frame/) | 把照片做成 VHS 錄影帶或監視器畫面：磨損、掃描線、雜訊與偏色、色調與弧面，左上的 PLAY／REC、播放時間或日期時間碼、錄影機的日期戳記與頻道、兩行字幕（可以分成好幾個場景），存成 PNG，或字幕逐字打出、有開場雪花與關機的 GIF、APNG、WebP |
 | [CoC 擲骰工具](https://tool-jx3.github.io/toolkit/tools/coc-dice/) | CoC 7 版的技能檢定（獎勵骰、懲罰骰、自動判定成功等級）與自訂算式擲骰，附擲骰紀錄；另有傷害計算：貼上 BCDice 的結果扣護甲後加總成「:HP-」指令 |
 | [CoC 7 版調查員角色卡](https://tool-jx3.github.io/toolkit/tools/coc-sheet/) | 在瀏覽器填好 CoC 7 版調查員角色卡：屬性的困難／極限、HP、SAN、DB、移動力與技能點數自動算，可以管理多張角色卡、裁切頭像，印成 A4 兩頁或存成 PDF、PNG，也能複製成 CCFOLIA 角色 |
 | [CoC NPC 產生器](https://tool-jx3.github.io/toolkit/tools/coc-npc/) | 一次管理多個 CoC 7 版／6 版的 NPC：擲屬性、自動算衍生值、加技能與攻擊指令、隨機取名，輸出可以直接貼進 CCFOLIA 的角色 JSON 與聊天面板 |
