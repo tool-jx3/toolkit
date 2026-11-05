@@ -9,6 +9,8 @@
  * - 預覽：錄影帶的播放／暫停（空白鍵）、PNG 存目前這一格、GIF 動畫模式；
  * - 匯出：PNG（尺寸、檔名、四角透明、與預覽逐像素相同）、GIF（24 格、9/100 秒、無限循環、64 色、四角黑、每一格與減色前相近）、動畫大小、播放次數、APNG、WebP；
  * - 自動儲存與還原（含照片）、照片讀不到的提醒、復原／重做；專案檔 ZIP；
+ * - 2026-11-05 跟進原作（1.10）：字幕的場景（預覽與 PNG 選場景、GIF 依序換）、開場（轉台）與收尾（關機）的格數與畫面、
+ *   日期戳記、頻道、左右反轉、色調與效果的開關、「●」閃爍與 PAUSE、PNG 大小、GIF 色數、第 1 版的自動儲存與專案檔；
  * - 390 寬沒有橫向捲動；1280 與 390 的視覺基準。
  * 兩次修改之間至少隔 450 ms（0.4 秒內的連續變更會合成一步復原）。
  */
@@ -44,6 +46,14 @@ interface Stored {
   timecode: { mode: string; tape: number; clock: string };
   wear: number;
   aspect: string;
+  /* 2026-11-05 */
+  flip: boolean;
+  scene: number;
+  channel: string;
+  stamp: { on: boolean; value: string; format: string; color: string; side: string };
+  picture: { tone: string; brightness: number; saturation: number; curve: number };
+  effects: Record<string, boolean>;
+  anim: { length: number; typing: boolean; intro: boolean; outro: boolean };
 }
 
 interface TextCall {
@@ -127,6 +137,7 @@ interface Hook {
     drawn: number;
     composed: number;
     live: boolean;
+    frames: number;
   };
   seek: (t: number, mode?: 'tape' | 'gif') => void;
   frame: (kind: 'png' | 'anim', at: number) => Promise<string>;
@@ -507,7 +518,7 @@ test('照片的位置：兩指捏合以中點縮放（F07）', async ({ browser 
 
 /* ---------- 文字 ---------- */
 
-test('字幕：前兩行、第 3 行的提醒、80 字、位置與字級、太長時縮小、GIF 逐字打出（F13～F15、F46）', async ({
+test('字幕：前兩行、第 3 行的提醒、400 字、位置與字級、太長時縮小、GIF 逐字打出（F13～F15、F46）', async ({
   page,
 }) => {
   const errors = await open(page);
@@ -515,11 +526,11 @@ test('字幕：前兩行、第 3 行的提醒、80 字、位置與字級、太�
   await cap.fill('第一行\n第二行\n第三行');
   await cap.blur();
   await expect(page.getByTestId('caption-extra')).toBeVisible();
-  await expect(page.getByTestId('caption-count')).toHaveText('11 / 80');
+  await expect(page.getByTestId('caption-count')).toHaveText('11 / 400');
   await page.waitForTimeout(450);
-  await cap.fill('一'.repeat(90));
+  await cap.fill('一'.repeat(450));
   await cap.blur();
-  expect((await state(page)).caption).toHaveLength(80);
+  expect((await state(page)).caption).toHaveLength(400);
   await page.waitForTimeout(450);
   await cap.fill('  第一行  \n第二行');
   await cap.blur();
@@ -894,15 +905,15 @@ test('匯出 GIF：360 × 270、24 格、每格 9/100 秒、無限循環、64 �
   await page.getByRole('textbox', { name: '字幕' }).fill('有人在嗎');
   await page.getByRole('textbox', { name: '字幕' }).blur();
   await exportPanel(page).getByRole('radio', { name: 'GIF', exact: true }).click();
-  /* 「原作的 GIF 一律無限循環」只在 GIF 顯示（對等驗證 7.1） */
-  await expect(exportPanel(page).getByText('原作的 GIF 一律無限循環。')).toBeVisible();
+  /* 「GIF 預設無限循環」只在 GIF 顯示（對等驗證 7.1；2026-11-05 起介面不提原作） */
+  await expect(exportPanel(page).getByText('GIF 預設無限循環。')).toBeVisible();
   await exportPanel(page).getByRole('radio', { name: 'APNG', exact: true }).click();
-  await expect(exportPanel(page).getByText('原作的 GIF 一律無限循環。')).toHaveCount(0);
+  await expect(exportPanel(page).getByText('GIF 預設無限循環。')).toHaveCount(0);
   await exportPanel(page).getByRole('radio', { name: 'WebP', exact: true }).click();
-  await expect(exportPanel(page).getByText('原作的 GIF 一律無限循環。')).toHaveCount(0);
+  await expect(exportPanel(page).getByText('GIF 預設無限循環。')).toHaveCount(0);
   await exportPanel(page).getByRole('radio', { name: 'GIF', exact: true }).click();
   await expect(exportPanel(page).getByRole('combobox', { name: '動畫大小' })).toContainText(
-    '小 360 × 270（原作）',
+    '小 360 × 270（預設）',
   );
   const gif = await exportFile(page, 'GIF');
   expect(gif.name).toBe('cam-vhs.gif');
@@ -1102,6 +1113,299 @@ test('專案檔：存成 ZIP（設定＋照片）、重設、開啟還原；缺�
   await page.keyboard.press('Escape');
   await page.getByRole('button', { name: '說明' }).click();
   await expect(dialog(page)).toContainText('磨損度');
+  expect(errors).toEqual([]);
+});
+
+/* ---------- 2026-11-05 跟進原作（規格 1.10） ---------- */
+
+/** 用測試入口畫一格，讀回像素 */
+async function frameImg(page: Page, kind: 'png' | 'anim', at: number): Promise<Img> {
+  return readPng(dataUrlBytes(await call(page, 'frame', kind, at)));
+}
+
+test('字幕的場景：空一行分場景、預覽與 PNG 選場景、GIF 依序換（每個場景至少 16 格）；字幕的樣子與位置、常用文字（F59～F61、F67、F72）', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  const cap = page.getByRole('textbox', { name: '字幕' });
+  await cap.fill('第一個場景\n\n第二個\n場景\n\n第三個場景');
+  await cap.blur();
+  await expect(page.getByTestId('scene-count')).toHaveText('3 個場景');
+  const alpha = async (kind: 'png' | 'anim', at: number) =>
+    (await textCalls(page, kind, at))
+      .filter((x) => x.fn === 'fillText' && x.baseline === 'alphabetic')
+      .map((x) => x.text);
+  expect(await alpha('png', 0)).toEqual(['第一個場景']);
+  await page.getByRole('radio', { name: '第 2 個場景' }).click();
+  expect((await state(page)).scene).toBe(1);
+  expect(await alpha('png', 0)).toEqual(['第二個', '場景']);
+  /* 動畫：3 個場景 × 16 格＝48 格 */
+  await expect(page.getByTestId('anim-total')).toHaveText('48 格、每格 0.09 秒（共 4.32 秒）。');
+  await page.getByRole('radio', { name: /^GIF 動畫/ }).click();
+  await expect.poll(async () => (await call(page, 'screen')).frames).toBe(48);
+  await expect(page.getByTestId('preview-hint')).toContainText('48 格');
+  expect(await alpha('anim', 15)).toEqual(['第一個場景']);
+  expect(await alpha('anim', 16)).toEqual([]);
+  expect(await alpha('anim', 31)).toEqual(['第二個', '場景']);
+  expect(await alpha('anim', 47)).toEqual(['第三個場景']);
+  /* 長度 5 秒：56 格；關掉逐字打出：場景的第 1 格就是整段 */
+  await page.getByRole('radio', { name: '56 格（5.04 秒）' }).click();
+  await expect.poll(async () => (await call(page, 'screen')).frames).toBe(56);
+  await page.getByRole('switch', { name: '字幕逐字打出' }).click();
+  expect(await alpha('anim', 0)).toEqual(['第一個場景']);
+  /* 每個場景超過兩行的提醒 */
+  await cap.fill('一\n二\n三');
+  await cap.blur();
+  await expect(page.getByTestId('caption-extra')).toContainText('每個場景只用前兩行');
+  /* 字幕的樣子與位置（F67）：黃字黑邊、上方（有左上文字：第一行的基線 round(0.15H) ＋ 字級） */
+  await page.getByRole('radio', { name: '黃字黑邊' }).click();
+  await page.getByRole('radio', { name: '上方', exact: true }).click();
+  const top = (await textCalls(page, 'png', 0)).filter((x) => x.baseline === 'alphabetic');
+  expect(top.map((x) => [x.fn, x.text, x.y, x.style])).toEqual([
+    ['strokeText', '一', 204, 'rgba(0, 0, 0, 0.88)'],
+    ['fillText', '一', 204, '#ffe45c'],
+    ['strokeText', '二', 204 + 60 * 1.28, 'rgba(0, 0, 0, 0.88)'],
+    ['fillText', '二', 204 + 60 * 1.28, '#ffe45c'],
+  ]);
+  await page.getByRole('radio', { name: '黑底白字' }).click();
+  expect((await textCalls(page, 'png', 0)).some((x) => x.fn === 'strokeText')).toBe(false);
+  /* 常用文字的追加（F72） */
+  await page.getByRole('button', { name: '換成「■ STOP」' }).click();
+  expect((await state(page)).osd).toBe('■ STOP');
+  expect(errors).toEqual([]);
+});
+
+test('開場（轉台）與收尾（關機）：格數、頻道、最後一格變黑、四角照樣透明；GIF 匯出 50 格（F62、F63）', {
+  tag: '@serial',
+}, async ({ page }) => {
+  test.setTimeout(180_000);
+  const errors = await open(page);
+  await loadPhoto(page, await photoPng(1280, 960), 'tv.png');
+  await page.getByRole('textbox', { name: '字幕' }).fill('有人在看');
+  await page.getByRole('textbox', { name: '字幕' }).blur();
+  await page.getByRole('switch', { name: '開場：轉台' }).click();
+  await page.getByRole('switch', { name: '收尾：關機' }).click();
+  expect((await state(page)).anim).toMatchObject({ intro: true, outro: true });
+  await expect(page.getByTestId('anim-total')).toHaveText('50 格、每格 0.09 秒（共 4.50 秒）。');
+  /* 頻道欄（開場用）：寫 12 → 開場 CH 10、CH 11、CH 12 */
+  const ch = page.getByRole('textbox', { name: '頻道' });
+  await ch.fill('12');
+  await ch.blur();
+  const big = async (f: number) =>
+    (await textCalls(page, 'anim', f)).filter((x) => x.style === '#86ffa6').map((x) => x.text);
+  expect(await big(0)).toEqual(['CH 10']);
+  expect(await big(17)).toEqual(['CH 12']);
+  /* 開場沒有字幕、左上文字與右上 */
+  expect((await textCalls(page, 'anim', 3)).filter((x) => x.style === '#edede6')).toEqual([]);
+  /* 收尾的最後一格：中間黑、四角透明（APNG、預覽）；第一格（雪花）中間不是黑 */
+  const last = await frameImg(page, 'anim', 49);
+  expect(Math.max(...at(last, 180, 135).slice(0, 3))).toBeLessThan(12);
+  expect(at(last, 0, 0)[3]).toBe(0);
+  const first = await frameImg(page, 'anim', 0);
+  expect(Math.max(...at(first, 180, 135).slice(0, 3))).toBeGreaterThan(12);
+  /* GIF：50 格、每格 9/100 秒 */
+  const gif = await exportFile(page, 'GIF');
+  const info = parseGif(gif.bytes);
+  expect(info.frames).toHaveLength(50);
+  expect(new Set(info.frames.map((f) => f.delayCs))).toEqual(new Set([9]));
+  const frames = composeGif(info);
+  const c = (frames[49] as Uint8Array).subarray((135 * 360 + 180) * 4, (135 * 360 + 180) * 4 + 3);
+  expect(Math.max(...c)).toBeLessThan(16);
+  await expect(gif.result).toContainText('50');
+  expect(errors).toEqual([]);
+});
+
+test('日期戳記：英文／數字、橘色／白色、右下／左下；寫錯時改回；字幕往上移（F64）', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  await page.getByRole('textbox', { name: '字幕' }).fill('家庭錄影');
+  await page.getByRole('textbox', { name: '字幕' }).blur();
+  const capY = async () =>
+    (await textCalls(page, 'png', 0)).find((x) => x.fn === 'strokeText')?.y as number;
+  const y0 = await capY();
+  await page.getByRole('switch', { name: '顯示日期戳記' }).click();
+  const stampCalls = async () =>
+    (await textCalls(page, 'png', 0)).filter(
+      (x) =>
+        x.fn === 'fillText' &&
+        /^(#ffb23e|#f2efe4)$/.test(x.style) &&
+        x.baseline === 'alphabetic' &&
+        x.align !== 'center',
+    );
+  let calls = await stampCalls();
+  expect(calls.map((x) => x.text)).toEqual(['PM 4:20', 'AUG. 14 1999']);
+  expect(calls[0]).toMatchObject({ align: 'right', style: '#ffb23e', x: 1280 - 72 });
+  /* 最後一行的基線在 H − 0.075H（960 − 72） */
+  expect(calls[1].y).toBe(888);
+  expect(y0 - (await capY())).toBeCloseTo(72, 3);
+  /* 改年份、數字、白色、左下 */
+  const value = page.getByRole('textbox', { name: '日期與時間' });
+  await value.fill('1988/2/3 9:05');
+  expect((await state(page)).stamp.value).toBe('1988-02-03 09:05');
+  await value.blur();
+  await page.getByRole('radio', { name: /^數字/ }).click();
+  await page.getByRole('radio', { name: '白色', exact: true }).click();
+  await page.getByRole('radio', { name: '左下', exact: true }).click();
+  calls = await stampCalls();
+  expect(calls.map((x) => x.text)).toEqual(['09:05', '1988.02.03']);
+  expect(calls[0]).toMatchObject({ align: 'left', style: '#f2efe4', x: 72 });
+  /* 寫錯：錯誤訊息，離開時改回 */
+  await value.fill('1988-02-30');
+  await expect(value).toHaveAttribute('aria-invalid', 'true');
+  await value.blur();
+  await expect(toast(page, '日期寫得不對，已改回 1988-02-03 09:05。')).toBeVisible();
+  await expect(value).toHaveValue('1988-02-03 09:05');
+  expect(errors).toEqual([]);
+});
+
+test('頻道、左右反轉、色調與效果、「●」閃爍與 PAUSE 的雜訊帶（F65、F66、F68～F71）', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  /* 右上角：頻道 */
+  await page.getByRole('radio', { name: '頻道', exact: true }).click();
+  const ch = page.getByRole('textbox', { name: '頻道' });
+  await expect(ch).toHaveValue('03');
+  expect((await textCalls(page, 'png', 0)).map((x) => x.text)).toContain('CH 03');
+  await ch.fill('ａｖ');
+  await ch.blur();
+  expect((await state(page)).channel).toBe('AV');
+  expect((await textCalls(page, 'png', 0)).map((x) => x.text)).toContain('AV');
+  /* 左右反轉：左暗右亮的照片 → 左亮右暗 */
+  await loadPhoto(page, await photoPng(1280, 960), 'grad.png');
+  await page.getByRole('switch', { name: '圓角' }).click();
+  const leftRight = async () => {
+    const img = await frameImg(page, 'png', 0);
+    return [at(img, 200, 300)[0], at(img, 1080, 300)[0]];
+  };
+  const [l0, r0] = await leftRight();
+  expect(r0).toBeGreaterThan(l0 + 30);
+  await page.getByRole('switch', { name: '左右反轉' }).click();
+  const [l1, r1] = await leftRight();
+  expect(l1).toBeGreaterThan(r1 + 30);
+  /* 沒有圓角：四角不透明 */
+  expect(at(await frameImg(page, 'png', 0), 0, 0)[3]).toBe(255);
+  /* 黑白：照片的中間灰色 */
+  await page.getByRole('radio', { name: '黑白', exact: true }).click();
+  await page.getByRole('checkbox', { name: '色差' }).click();
+  expect((await state(page)).picture.tone).toBe('mono');
+  expect((await state(page)).effects.chroma).toBe(false);
+  const mono = at(await frameImg(page, 'png', 0), 300, 700);
+  expect(Math.max(mono[0], mono[1], mono[2]) - Math.min(mono[0], mono[1], mono[2])).toBeLessThan(
+    10,
+  );
+  /* 「●」閃爍：t＝0.7 時不畫；PAUSE：沒有追蹤條 */
+  await page.getByRole('button', { name: '換成「REC ●」' }).click();
+  await page.getByRole('switch', { name: '左上文字的動態' }).click();
+  expect((await textCalls(page, 'png', 0.7)).map((x) => x.text)).not.toContain('●');
+  expect((await textCalls(page, 'png', 0)).map((x) => x.text)).toContain('●');
+  expect(errors).toEqual([]);
+});
+
+test('PNG 大小（640／1280／1920）與暫停的預覽相同；GIF 256 色（F73、F74）', {
+  tag: '@serial',
+}, async ({ page }) => {
+  test.setTimeout(180_000);
+  const errors = await open(page);
+  await loadPhoto(page, await photoPng(1600, 1200), 'big.png');
+  await exportPanel(page).getByRole('combobox', { name: 'PNG 大小' }).click();
+  await page.getByRole('option', { name: /^大 1920 × 1440/ }).click();
+  await expect.poll(async () => (await prefs(page)).pngSize).toBe(2);
+  await expect(page.getByTestId('export-size')).toHaveText('1920 × 1440 px');
+  await seek(page, 3.5);
+  await expect(canvas(page)).toHaveJSProperty('width', 1920);
+  const shown = await canvas(page).evaluate((el) =>
+    (el as HTMLCanvasElement).toDataURL('image/png'),
+  );
+  const png = await exportFile(page, 'PNG');
+  const img = readPng(png.bytes);
+  expect([img.width, img.height]).toEqual([1920, 1440]);
+  expect(shown === (await call(page, 'frame', 'png', 3.5))).toBe(true);
+  /* GIF：256 色 */
+  await exportPanel(page).getByRole('radio', { name: 'GIF', exact: true }).click();
+  await exportPanel(page).getByRole('combobox', { name: '色數' }).click();
+  await page.getByRole('option', { name: '256 色' }).click();
+  await expect.poll(async () => (await prefs(page)).gifColors).toBe(256);
+  const gif = parseGif((await exportFile(page, 'GIF')).bytes);
+  expect(gif.globalPalette.length / 3).toBeGreaterThan(64);
+  expect(errors).toEqual([]);
+});
+
+test('第 1 版的自動儲存與專案檔：字幕照以前的畫法搬移、新的設定是預設（F75）', async ({ page }) => {
+  const v1 = {
+    photo: null,
+    view: { zoom: 1, x: 0, y: 0 },
+    caption: '第一行\n\n第三行以前不會畫',
+    osd: 'REC ●',
+    osdFont: 'mono',
+    timecode: { mode: 'clock', tape: 14, clock: '2026-10-31 03:14:15' },
+    wear: 70,
+    aspect: '4:3',
+  };
+  await page.addInitScript(
+    ([key, data]) => {
+      if (!sessionStorage.getItem('seeded')) {
+        localStorage.setItem(key as string, JSON.stringify({ state: { data }, version: 1 }));
+        sessionStorage.setItem('seeded', '1');
+      }
+    },
+    [STORAGE_KEY, v1] as const,
+  );
+  const errors = await open(page);
+  const s = await call(page, 'doc');
+  expect(s.caption).toBe('第一行');
+  expect(s).toMatchObject({
+    osd: 'REC ●',
+    wear: 70,
+    timecode: { mode: 'clock' },
+    flip: false,
+    stamp: { on: false },
+    anim: { intro: false, outro: false, length: 1, typing: true },
+  });
+  await expect
+    .poll(
+      async () =>
+        await page.evaluate(
+          (k) => JSON.parse(localStorage.getItem(k) ?? '{}').version,
+          STORAGE_KEY,
+        ),
+    )
+    .toBe(2);
+  /* 第 1 版的專案檔 */
+  const project = {
+    format: 'trpg-toolkit-project',
+    tool: 'vhs-frame',
+    version: 1,
+    savedAt: '2026-10-20T00:00:00.000Z',
+    data: { ...v1, caption: '\n第二行\n第三行' },
+  };
+  await page.getByRole('button', { name: '專案' }).click();
+  await page.getByRole('menuitem', { name: '開啟專案檔…' }).click();
+  const [chooser] = await Promise.all([
+    page.waitForEvent('filechooser'),
+    alertDialog(page).getByRole('button', { name: '開啟' }).click(),
+  ]);
+  await chooser.setFiles(
+    file(
+      'old.zip',
+      Buffer.from(zipSync({ 'project.json': strToU8(JSON.stringify(project)) })),
+      'application/zip',
+    ),
+  );
+  await expect(toast(page, '已開啟專案檔。')).toBeVisible();
+  expect((await state(page)).caption).toBe('第二行');
+  /* 存成專案檔：第 2 版 */
+  await page.getByRole('button', { name: '專案' }).click();
+  const [dl] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByRole('menuitem', { name: '存成專案檔…' }).click(),
+  ]);
+  const saved = JSON.parse(
+    strFromU8(unzipSync(new Uint8Array(readFileSync((await dl.path()) as string)))['project.json']),
+  );
+  expect(saved.version).toBe(2);
+  expect(saved.data.anim).toEqual({ length: 1, typing: true, intro: false, outro: false });
   expect(errors).toEqual([]);
 });
 

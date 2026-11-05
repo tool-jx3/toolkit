@@ -1,28 +1,41 @@
 /**
- * 匯出（規格 3.6～3.8）：PNG（預覽「錄影帶」目前的那一格，1280 寬）；GIF、APNG、WebP（24 格、每格 90 ms，字幕逐字打出）。
- * 先等字型載好再畫；動畫逐格畫好交給共用的編碼器（Web Worker）。GIF 鋪黑底（四角黑色，同原作）、64 色、不抖色。
+ * 匯出（規格 3.6～3.8）：PNG（預覽「錄影帶」目前的那一格；寬 640／1280〔預設〕／1920）；
+ * GIF、APNG、WebP（每格 90 ms；預設 24 格，2026-11-05 起依長度、場景、開場、收尾決定，字幕逐字打出）。
+ * 先等字型載好再畫；動畫逐格畫好交給共用的編碼器（Web Worker）。GIF 鋪黑底（四角黑色，同原作）、64 色（可以選 128、256）、不抖色。
  */
 import { createEncoder, type EncoderSpec } from '@/core/encode';
 import { canvasToBlob, makeCanvas } from '@/core/image';
 import type { ExportOutput } from '@/ui';
 import { waitFonts } from './fonts';
 import {
+  type AnimFrameInfo,
+  type AnimPlan,
+  animFrameInfo,
+  animPlan,
   animSize,
+  animText,
+  DEFAULT_PNG_SIZE,
   type ExportFormat,
   exportFileName,
   frameText,
   GIF_COLORS,
   GIF_DELAY_CS,
-  GIF_DURATION,
-  GIF_FRAMES,
+  GIF_STEP,
   gifFrameTime,
   masterWidthFor,
-  SCREEN_W,
+  pngSize,
   type Size,
-  screenSize,
+  stampLines,
   type VhsState,
 } from './model';
-import { type AnyCanvas, type Ctx, type Master, VhsRenderer } from './render';
+import {
+  type AnyCanvas,
+  type ComposeLook,
+  type Ctx,
+  type FrameParams,
+  type Master,
+  VhsRenderer,
+} from './render';
 import { S } from './strings';
 
 export interface ExportJob {
@@ -35,6 +48,10 @@ export interface ExportJob {
   quantize: boolean;
   /** PNG：預覽「錄影帶」的時間（這一格的 t） */
   tapeTime: number;
+  /** PNG 的大小（PNG_WIDTHS 的第幾個；不給＝1280） */
+  pngSize?: number;
+  /** GIF 的色數（不給＝64） */
+  gifColors?: number;
 }
 
 /** WebP 的品質（有損） */
@@ -70,23 +87,53 @@ function abortable<T>(p: Promise<T>, signal: AbortSignal): Promise<T> {
 /** 輸出的大小 */
 export function outputSize(
   s: Pick<VhsState, 'aspect'>,
-  job: Pick<ExportJob, 'format' | 'animSize'>,
+  job: Pick<ExportJob, 'format' | 'animSize' | 'pngSize'>,
 ): Size {
-  return job.format === 'png' ? screenSize(s.aspect) : animSize(s.aspect, job.animSize);
+  return job.format === 'png'
+    ? pngSize(s.aspect, job.pngSize ?? DEFAULT_PNG_SIZE)
+    : animSize(s.aspect, job.animSize);
 }
 
-/** 照片層（沒有照片時 null） */
-function masterFor(
+/** 照片層的調色與反轉 */
+export const composeLook = (s: VhsState): ComposeLook => ({
+  tone: s.picture.tone,
+  brightness: s.picture.brightness,
+  saturation: s.picture.saturation,
+  flip: s.flip,
+});
+
+/** 照片層（沒有照片時 null）；res＝合成寬度 */
+export function masterFor(
   r: VhsRenderer,
   s: VhsState,
   photo: CanvasImageSource | null,
-  width: number,
+  res: number,
 ): Master | null {
   if (!photo || !s.photo) return null;
-  return r.compose(photo, s.photo, s.view, s.aspect, masterWidthFor(width));
+  return r.compose(photo, s.photo, s.view, s.aspect, res, composeLook(s));
 }
 
-/** 畫一格到 out（測試入口與匯出共用）；gifFrame 給了就是動畫的第幾格（字幕逐字打出） */
+/** 一格的畫法裡不隨時間變的設定（字幕的樣子、效果、弧面、暗角、圓角、日期戳記…） */
+function lookParams(s: VhsState) {
+  return {
+    font: s.osdFont,
+    captionStyle: s.captionStyle,
+    osdMotion: s.osdMotion,
+    stamp: s.stamp.on
+      ? {
+          lines: stampLines(s.stamp.value, s.stamp.format),
+          color: s.stamp.color,
+          side: s.stamp.side,
+        }
+      : null,
+    effects: s.effects,
+    curve: s.picture.curve / 1000,
+    vignette: s.picture.vignette / 100,
+    corners: s.picture.corners,
+  } satisfies Partial<FrameParams>;
+}
+
+/** 畫一格到 out（測試入口與匯出共用）；gifFrame 給了就是動畫的第幾格（場景、字幕逐字打出、開場、收尾） */
 export function renderInto(
   r: VhsRenderer,
   out: AnyCanvas,
@@ -95,7 +142,33 @@ export function renderInto(
   t: number,
   gifFrame?: number,
 ): void {
-  r.frame(out, { t, wear: s.wear / 100, master, ...frameText(s, t, gifFrame), font: s.osdFont });
+  if (gifFrame !== undefined) {
+    renderAnimFrame(r, out, s, master, animPlan(s), gifFrame);
+    return;
+  }
+  r.frame(out, { t, wear: s.wear / 100, master, ...frameText(s, t), ...lookParams(s) });
+}
+
+/** 動畫的第 f 格（t＝f × 0.09） */
+export function renderAnimFrame(
+  r: VhsRenderer,
+  out: AnyCanvas,
+  s: VhsState,
+  master: Master | null,
+  plan: AnimPlan,
+  f: number,
+  info: AnimFrameInfo = animFrameInfo(s, plan, f),
+): void {
+  const t = gifFrameTime(f);
+  r.frame(out, {
+    t,
+    wear: s.wear / 100,
+    master,
+    ...animText(s, info, t),
+    ...lookParams(s),
+    intro: info.intro,
+    off: info.off,
+  });
 }
 
 /** GIF：鋪黑底（四角的透明變成黑色，同原作） */
@@ -117,7 +190,12 @@ function encoderSpec(
   if (format === 'gif')
     return {
       format: 'gif',
-      options: { ...base, variableDelay: true, maxColors: GIF_COLORS, dither: 'none' },
+      options: {
+        ...base,
+        variableDelay: true,
+        maxColors: job.gifColors ?? GIF_COLORS,
+        dither: 'none',
+      },
     };
   if (format === 'apng') return { format: 'apng', options: { ...base, quantize: job.quantize } };
   return { format: 'webp', options: { ...base, quality: WEBP_QUALITY } };
@@ -139,7 +217,8 @@ export async function runExport(
   const fileName = exportFileName(s.photo?.name, job.format);
   const out = makeCanvas(size.width, size.height);
   if (job.format === 'png') {
-    const master = masterFor(r, s, photo, SCREEN_W);
+    /* 照片層以 PNG 的寬合成 */
+    const master = masterFor(r, s, photo, size.width);
     renderInto(r, out, s, master, job.tapeTime);
     const blob = await canvasToBlob(out, 'image/png');
     return {
@@ -150,19 +229,20 @@ export async function runExport(
       details: [{ label: S.frameDetail, value: S.frameAt(S.seconds(job.tapeTime)) }],
     };
   }
-  const master = masterFor(r, s, photo, size.width);
+  const master = masterFor(r, s, photo, masterWidthFor(size.width));
   const ctx = ctx2d(out);
+  const plan = animPlan(s);
   const enc = createEncoder(encoderSpec(job.format, size, job));
   const stop = () => enc.abort();
   signal.addEventListener('abort', stop);
   try {
-    for (let f = 0; f < GIF_FRAMES; f++) {
+    for (let f = 0; f < plan.total; f++) {
       if (signal.aborted) throw aborted();
-      renderInto(r, out, s, master, gifFrameTime(f), f);
+      renderAnimFrame(r, out, s, master, plan, f);
       if (job.format === 'gif') fillBlack(out);
       const px = ctx.getImageData(0, 0, size.width, size.height).data;
       await abortable(enc.addFrame(px, GIF_DELAY_CS), signal);
-      onProgress(((f + 1) / GIF_FRAMES) * 0.9, S.rendering(f + 1, GIF_FRAMES));
+      onProgress(((f + 1) / plan.total) * 0.9, S.rendering(f + 1, plan.total));
     }
     if (signal.aborted) throw aborted();
     onProgress(0.92, S.encoding);
@@ -175,7 +255,7 @@ export async function runExport(
       height: size.height,
       frames: file.frames,
       storedFrames: file.storedFrames,
-      duration: GIF_DURATION,
+      duration: plan.total * GIF_STEP,
       details: file.colors
         ? [
             {

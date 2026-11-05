@@ -1,10 +1,10 @@
 /**
  * 專案檔（共用專案檔格式的 ZIP：project.json＋files/<資產 id>.<副檔名>，規格 3.9）。
- * 讀入時先整理內容（normalizeState），照片要在 ZIP 裡（或這個瀏覽器已經有）而且能解碼，才換掉目前的內容。
+ * 讀入時先整理內容（第 1 版的先搬移，upgradeState），照片要在 ZIP 裡（或這個瀏覽器已經有）而且能解碼，才換掉目前的內容。
  */
 import { importAssetFiles } from '@/core/assets';
-import { normalizeState, stateAssetIds, type VhsState } from './model';
-import { assets } from './store';
+import { stateAssetIds, type VhsState } from './model';
+import { assets, upgradeState } from './store';
 import { S } from './strings';
 
 export class ProjectDataError extends Error {}
@@ -21,10 +21,11 @@ export interface ImportedProject {
 export async function importProject(
   data: unknown,
   files: Map<string, Uint8Array>,
+  version = 1,
 ): Promise<ImportedProject> {
   if (typeof data !== 'object' || data === null || Array.isArray(data))
     throw new ProjectDataError(S.projectBad);
-  const next = normalizeState(data);
+  const next = upgradeState(data, version);
   const imported = await importAssetFiles(assets, files.entries());
   for (const id of projectAssetIds(next)) {
     const bmp = await assets.bitmap(id).catch(() => undefined);

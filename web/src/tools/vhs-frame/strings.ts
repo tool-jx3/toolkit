@@ -1,5 +1,18 @@
 /** 錄影帶畫面產生器的介面文字 */
-import type { Aspect, ExportFormat, OsdFont, TimecodeMode } from './model';
+import type {
+  Aspect,
+  CaptionFont,
+  CaptionLook,
+  CaptionPosition,
+  EffectKey,
+  ExportFormat,
+  OsdFont,
+  StampColor,
+  StampFormat,
+  StampSide,
+  TimecodeMode,
+  Tone,
+} from './model';
 import type { PreviewMode } from './store';
 
 export const S = {
@@ -16,37 +29,86 @@ export const S = {
   removePhoto: '拿掉照片',
   zoom: '縮放',
   zoomHint: '100%＝照片剛好蓋滿畫面；縮小到最小時整張照片都放得進去（多出來的是黑底）。',
+  flip: '左右反轉',
   privacy: '照片只在你的瀏覽器裡處理，不會上傳到任何地方。',
 
-  /* 文字 */
-  sectionText: '文字',
+  /* 字幕 */
+  sectionCaption: '字幕',
   caption: '字幕',
-  captionPlaceholder: '例：……你也看到了嗎？',
-  captionHint: '最多兩行（按 Enter 換行）；GIF 裡會一個字一個字打出來。',
-  captionExtra: '只會用到前兩行，第 3 行以後不會出現在畫面上。',
+  captionPlaceholder: '例：……你也看到了嗎？\n\n（空一行，就是下一個場景）',
+  captionHint:
+    '每個場景最多兩行（按 Enter 換行）；空一行開始下一個場景。GIF 會依序換場景，一個字一個字打出來。',
+  captionExtraLines: '每個場景只用前兩行，多出來的行不會出現在畫面上。',
+  captionExtraScenes: '最多 10 個場景，之後的不會用到。',
   captionCount: (n: number, max: number) => `${n} / ${max}`,
+  sceneCount: (n: number) => `${n} 個場景`,
+  scene: '預覽與 PNG 的場景',
+  sceneHint: 'GIF、APNG、WebP 會依序播放全部的場景。',
+  sceneAria: (i: number) => `第 ${i} 個場景`,
+  captionLook: '樣子',
+  captionLooks: { outline: '白字黑邊', yellow: '黃字黑邊', box: '黑底白字' } satisfies Record<
+    CaptionLook,
+    string
+  >,
+  captionFont: '字型',
+  captionFonts: { sans: '黑體', serif: '明體' } satisfies Record<CaptionFont, string>,
+  captionFontAria: {
+    sans: '黑體（思源黑體）',
+    serif: '明體（思源宋體）',
+  } satisfies Record<CaptionFont, string>,
+  captionSize: '大小',
+  captionPosition: '位置',
+  captionPositions: { bottom: '下方', top: '上方' } satisfies Record<CaptionPosition, string>,
+
+  /* 左上與右上 */
+  sectionOsd: '左上與右上',
   osd: '左上文字',
   osdPlaceholder: '空白＝不顯示',
   osdHint: '「●」會畫成紅色。',
   osdPresets: '常用文字',
   osdPreset: (t: string) => `換成「${t}」`,
-  osdFont: '左上與時間碼的字型',
+  osdMotion: '左上文字的動態',
+  osdMotionHint: '「●」會閃爍；有「PAUSE」（或「暫停」）時畫面下方出現暫停的雜訊帶、沒有追蹤條。',
+  osdFont: '左上與右上的字型',
   osdFonts: { mono: '等寬', pixel: '像素' } satisfies Record<OsdFont, string>,
   osdFontAria: {
     mono: '等寬字型（Noto Sans Mono）',
     pixel: '像素字型（VT323）',
   } satisfies Record<OsdFont, string>,
-  timecode: '時間碼',
-  timecodeModes: { tape: '播放時間', clock: '日期時間', off: '不顯示' } satisfies Record<
-    TimecodeMode,
-    string
-  >,
+  timecode: '右上角',
+  timecodeModes: {
+    tape: '播放時間',
+    clock: '日期時間',
+    channel: '頻道',
+    off: '不顯示',
+  } satisfies Record<TimecodeMode, string>,
+  channel: '頻道',
+  channelHint: '數字顯示成「CH 03」，也可以寫英文（例如 AV）；開場轉台時從前兩台轉過來。',
   timecodeStart: '起點',
   tapeStartHint: '「時:分:秒」，例如 0:00:14；畫面上的時間從這裡開始走。',
   tapeStartInvalid: '請寫成「時:分:秒」（例如 1:23:45），最多 99:59:59。',
   clockStartHint: '監視器的日期時間，例如 2026-10-31 03:14:15。',
   clockStartInvalid: '請寫成「年-月-日 時:分:秒」，而且日期要真的存在。',
   startReverted: (v: string) => `起點寫得不對，已改回 ${v}。`,
+
+  /* 日期戳記 */
+  sectionStamp: '日期戳記',
+  stampOn: '顯示日期戳記',
+  stampOnHint: '攝影機的日期；改成以前的年份，就像老家庭錄影帶。',
+  stampValue: '日期與時間',
+  stampValueHint: '「年-月-日 時:分」，例如 1999-08-14 16:20；不寫時間就只顯示日期。',
+  stampInvalid: '請寫成「年-月-日 時:分」（時間可以不寫），而且日期要真的存在。',
+  stampReverted: (v: string) => `日期寫得不對，已改回 ${v}。`,
+  stampFormat: '寫法',
+  stampFormats: { en: '英文月份', num: '數字' } satisfies Record<StampFormat, string>,
+  stampFormatAria: {
+    en: '英文月份（例：AUG. 14 1999）',
+    num: '數字（例：1999.08.14）',
+  } satisfies Record<StampFormat, string>,
+  stampColor: '顏色',
+  stampColors: { orange: '橘色', white: '白色' } satisfies Record<StampColor, string>,
+  stampSide: '位置',
+  stampSides: { left: '左下', right: '右下' } satisfies Record<StampSide, string>,
 
   /* 畫面 */
   sectionScreen: '畫面',
@@ -60,6 +122,54 @@ export const S = {
     '4:3': '4:3（1280 × 960，錄影帶與舊電視）',
     '16:9': '16:9（1280 × 720）',
   } satisfies Record<Aspect, string>,
+  tone: '色調',
+  tones: {
+    vhs: 'VHS',
+    warm: '暖色',
+    cool: '冷色',
+    faded: '褪色',
+    mono: '黑白',
+    night: '夜視',
+  } satisfies Record<Tone, string>,
+  toneAria: {
+    vhs: 'VHS（原本的色調）',
+    warm: '暖色（偏黃）',
+    cool: '冷色（偏藍）',
+    faded: '褪色',
+    mono: '黑白',
+    night: '夜視（綠色）',
+  } satisfies Record<Tone, string>,
+  brightness: '亮度',
+  saturation: '飽和度',
+  curve: '弧面',
+  curveHint: '映像管中間鼓起的程度（0＝平的）。',
+  vignette: '暗角',
+  corners: '圓角',
+  cornersHint: '四角裁成圓角；PNG、APNG、WebP 的四角是透明的。',
+  effects: '效果',
+  effectsHint: '磨損度決定色差、撕裂、掉訊與雜訊有多嚴重；關掉的效果不畫。',
+  effectNames: {
+    chroma: '色差',
+    tear: '撕裂',
+    dropout: '掉訊',
+    tracking: '追蹤條',
+    noise: '雜訊',
+    scan: '掃描線',
+    hum: '亮帶',
+    flicker: '閃爍',
+  } satisfies Record<EffectKey, string>,
+
+  /* 動畫 */
+  sectionAnim: '動畫',
+  animLength: '長度',
+  animLengthOption: (sec: string) => `${sec} 秒`,
+  animLengthAria: (frames: number, sec: string) => `${frames} 格（${sec} 秒）`,
+  animLengthHint: '有好幾個場景時，每個場景至少 16 格（1.44 秒）。',
+  typing: '字幕逐字打出',
+  intro: '開場：轉台',
+  introHint: '雪花雜訊、畫面上下捲動之後收到訊號，右上是頻道（多 18 格，1.62 秒）。',
+  outro: '收尾：關機',
+  outroHint: '映像管關機：壓扁成一條光、剩一個亮點之後變黑（多 8 格，0.72 秒）。',
 
   /* 載入 */
   windowDrop: '放開換上這張照片',
@@ -86,7 +196,8 @@ export const S = {
   hintPhoto: '在預覽上拖曳移動照片，滾輪或兩指縮放；點一下預覽後可以用方向鍵移動、＋／－ 縮放。',
   hintNoPhoto: '把照片拖到視窗裡任何地方、貼上（Ctrl＋V），或在左邊選擇照片。',
   hintTape: '「錄影帶」一直在播；PNG 存的是目前這一格，暫停就能挑一格。',
-  hintGif: '「GIF 動畫」是匯出 GIF、APNG、WebP 的 24 格（2.16 秒）。',
+  hintGif: (n: number) =>
+    `「GIF 動畫」是匯出 GIF、APNG、WebP 的 ${n} 格（${(n * 0.09).toFixed(2)} 秒）。`,
   segmentTape: '錄影帶',
 
   /* 匯出 */
@@ -97,20 +208,25 @@ export const S = {
   >,
   formatDesc: {
     png: '靜態圖片：預覽「錄影帶」目前的那一格，四角透明。',
-    gif: '動態圖片：字幕逐字打出的 24 格（2.16 秒），64 色、四角黑色。',
-    apng: '動態圖片：同 GIF 的 24 格，全彩、四角透明；CCFOLIA 可以直接用。',
-    webp: '動態圖片：同 GIF 的 24 格，檔案較小；Safari 無法匯出。',
+    gif: '動態圖片：「GIF 動畫」的影格（字幕逐字打出），四角黑色。',
+    apng: '動態圖片：同 GIF 的影格，全彩、四角透明；CCFOLIA 可以直接用。',
+    webp: '動態圖片：同 GIF 的影格，檔案較小；Safari 無法匯出。',
   } satisfies Record<ExportFormat, string>,
   webpUnsupported: '這個瀏覽器無法匯出 WebP（Safari 不支援），請改用 Chrome、Edge 或 Firefox。',
   pngSize: (w: number, h: number) => `${w} × ${h} px`,
   pngFrame: (t: string) => `存「錄影帶」${t} 這一格。`,
   pngFramePlaying: '播放中：存按下匯出那一刻的畫面（先暫停可以挑一格）。',
+  pngSizeLabel: 'PNG 大小',
+  pngSizes: ['小', '標準', '大'],
   animSize: '動畫大小',
   animSizes: ['小', '中', '大'],
-  animSizeOption: (label: string, w: number, h: number, original: boolean) =>
-    `${label} ${w} × ${h}${original ? '（原作）' : ''}`,
-  animFrames: '24 格、每格 0.09 秒（共 2.16 秒）。',
-  loopHint: '原作的 GIF 一律無限循環。',
+  animSizeOption: (label: string, w: number, h: number, isDefault: boolean) =>
+    `${label} ${w} × ${h}${isDefault ? '（預設）' : ''}`,
+  animFrames: (n: number) => `${n} 格、每格 0.09 秒（共 ${(n * 0.09).toFixed(2)} 秒）。`,
+  gifColors: '色數',
+  gifColorOption: (n: number, isDefault: boolean) => `${n} 色${isDefault ? '（預設）' : ''}`,
+  gifColorsHint: '色數越多越接近原本的畫面，檔案也越大。',
+  loopHint: 'GIF 預設無限循環。',
   rendering: (i: number, n: number) => `畫第 ${i}／${n} 格`,
   encoding: '編碼中',
   colorsDetail: '色數',
@@ -142,9 +258,9 @@ export const S = {
   /* 使用方式 */
   usage: [
     '放一張照片（選檔、拖到視窗裡、或直接貼上），在預覽上拖曳移動、滾輪或兩指縮放，調整要拍到的範圍。',
-    '寫下字幕（最多兩行）與左上角的文字；時間碼可以是播放時間，或監視器的日期時間。',
-    '「磨損度」決定畫面壞得多嚴重：越高色差、撕裂、掉訊與雜訊越多。',
-    '預覽「錄影帶」一直在播，PNG 存的是目前這一格（暫停就能挑一格）；「GIF 動畫」是匯出 GIF、APNG、WebP 的 24 格，字幕一個字一個字打出來。',
+    '寫下字幕（每個場景最多兩行，空一行換下一個場景）與左上角的文字；右上角可以是播放時間、監視器的日期時間或頻道，也可以加上攝影機的日期戳記。',
+    '「磨損度」決定畫面壞得多嚴重：越高色差、撕裂、掉訊與雜訊越多；色調、弧面、暗角與各種效果也可以調。',
+    '預覽「錄影帶」一直在播，PNG 存的是目前這一格（暫停就能挑一格）；「GIF 動畫」是匯出 GIF、APNG、WebP 的影格：場景依序換、字幕一個字一個字打出來，可以加上轉台的開場與關機的收尾。',
     '照片與設定會自動儲存在這個瀏覽器；也可以從「專案」選單存成專案檔，帶到別台電腦。',
   ],
 } as const;
