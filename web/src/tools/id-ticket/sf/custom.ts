@@ -172,6 +172,13 @@ export function rebaseCustom(def: CustomBlank, base: SfBlankId): CustomBlank {
     ...def,
     base,
     items: def.items.map((it) => {
+      if (it.type === 'chip') {
+        /* 晶片是正方形：邊長照短邊的比例、中心照寬高的比例（來回換不會越縮越小；2026-11-05 驗證後） */
+        const side = it.w * (Math.min(B.w, B.h) / Math.min(A.w, A.h));
+        const cx = (it.x + it.w / 2) * fx;
+        const cy = (it.y + it.h / 2) * fy;
+        return fitItem({ ...it, x: cx - side / 2, y: cy - side / 2, w: side, h: side }, base);
+      }
       const n = { ...it, x: it.x * fx, w: it.w * fx, y: it.y * fy, h: it.h * fy };
       if (it.type === 'rule' || it.type === 'stripes') {
         n.w = Math.max(n.w, 2);

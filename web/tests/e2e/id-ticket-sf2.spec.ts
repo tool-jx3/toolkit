@@ -396,11 +396,27 @@ test('自組底版：新建、欄位、加項目與設定、預覽上拖曳（�
     })
     .toEqual(['EXPIRES', 'date']);
   expect((await doc(page)).sf.values[added.id]).toBe('2093-12-31');
+  /* 有日期項目時「日期的格式」出現、照它印（驗證後修正） */
+  await choose(page, '日期的格式', '20771031');
+  await expect.poll(async () => (await doc(page)).sf.style.dateFmt).toBe('compact');
   /* 預覽上拖曳（吸附 10） */
   const layer = page.getByTestId('ctor-layer');
   const item = layer.locator(`[data-layout-item="${added.id}"]`);
   await expect(item).toBeVisible();
   const box = (await item.boundingBox()) as { x: number; y: number; width: number; height: number };
+  /* 單純點一下（沒拖）：不吸附、不多一步復原（驗證後修正；新加的文字不在 10 的格線上） */
+  expect(added.x % 10).not.toBe(0);
+  await layer.locator(`[data-layout-item="${nameIt.id}"]`).click();
+  const beforeClick = JSON.stringify((await customs(page)).customs);
+  await page.mouse.click(box.x + box.width / 2 + 3, box.y + box.height / 2);
+  await expect(
+    page.locator(`[data-ctor-item="${added.id}"] button[aria-pressed="true"]`),
+  ).toHaveCount(1);
+  expect(JSON.stringify((await customs(page)).customs)).toBe(beforeClick);
+  await page.keyboard.press('Control+z');
+  await expect.poll(async () => (await doc(page)).sf.style.dateFmt).toBe('iso');
+  await page.keyboard.press('Control+Shift+z');
+  await expect.poll(async () => (await doc(page)).sf.style.dateFmt).toBe('compact');
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
   await page.mouse.down();
   await page.mouse.move(box.x + box.width / 2 - 47, box.y + box.height / 2 + 33, { steps: 5 });
@@ -443,6 +459,41 @@ test('自組底版：新建、欄位、加項目與設定、預覽上拖曳（�
   /* Delete 刪除 */
   await page.keyboard.press('Delete');
   await expect.poll(async () => (await customs(page)).customs[0].items.length).toBe(3);
+  /* 複製：裝飾圖一起複製（新的 id；驗證後修正） */
+  await page
+    .getByRole('group', { name: '放入裝飾圖' })
+    .locator('input[type=file]')
+    .setInputFiles([{ name: 'ring.png', mimeType: 'image/png', buffer: await ringPng() }]);
+  await page
+    .getByRole('dialog', { name: '裁切裝飾圖' })
+    .getByRole('button', { name: '確定' })
+    .click();
+  const srcId = (await customs(page)).custom as string;
+  await expect
+    .poll(
+      async () =>
+        ((await doc(page)).sf as unknown as { elements: Record<string, { id: string }[]> })
+          .elements[`custom:${srcId}`]?.length,
+    )
+    .toBe(1);
+  await ctor.getByRole('button', { name: '複製', exact: true }).click();
+  await expect(toast(page, '已建立自組底版「CUSTOM 1 COPY」')).toBeVisible();
+  const dup = await customs(page);
+  expect(dup.customs).toHaveLength(2);
+  const els = ((await doc(page)).sf as unknown as { elements: Record<string, { id: string }[]> })
+    .elements;
+  expect(els[`custom:${dup.custom}`]).toHaveLength(1);
+  expect(els[`custom:${dup.custom}`][0].id).not.toBe(els[`custom:${srcId}`][0].id);
+  /* 項目到上限（40）時說明 */
+  for (let i = (await customs(page)).customs[1].items.length; i < 40; i++)
+    await ctor.getByRole('button', { name: '線', exact: true }).first().click();
+  await expect.poll(async () => (await customs(page)).customs[1].items.length).toBe(40);
+  await ctor.getByRole('button', { name: '線', exact: true }).first().click();
+  await expect(toast(page, '一個自組底版最多 40 個項目，請先刪掉不用的。')).toBeVisible();
+  await ctor.getByRole('button', { name: '刪除這個底版' }).click();
+  await page.getByRole('alertdialog').getByRole('button', { name: '刪除這個底版' }).click();
+  await expect.poll(async () => (await customs(page)).customs.length).toBe(1);
+  await radio(page.getByTestId('template-list'), 'CUSTOM 1').click();
   /* 換外形：通行證（直式），版面跟著縮放 */
   await page.getByRole('combobox', { name: '外形' }).click();
   await page.getByRole('option', { name: '通行證', exact: true }).click();

@@ -532,7 +532,7 @@ export function SfStyleSection() {
             />
           </Field>
         ) : null}
-        {def.fields.some((f) => SF_DATE_KEYS.includes(f.key)) ? (
+        {def.fields.some((f) => SF_DATE_KEYS.includes(f.key) || f.genDate) ? (
           <Field label={S.dateFmt} hint={S.dateFmtHint}>
             <Select<SfDateFormat>
               value={st.dateFmt}

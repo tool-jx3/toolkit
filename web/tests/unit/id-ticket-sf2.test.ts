@@ -458,6 +458,19 @@ describe('自組底版（F96～F100）', () => {
     ).toEqual(['edge', 'barcode']);
   });
 
+  it('換外形來回：晶片照短邊的比例縮放、不會越換越小（驗證後修正）', () => {
+    const def = newCustomBlank('citizen', 'C');
+    const chip = { ...newCustomItem('chip', 'citizen'), x: 1200, y: 400, w: 160, h: 160 };
+    let d = { ...def, items: [...def.items, chip] };
+    for (let i = 0; i < 5; i++) d = rebaseCustom(rebaseCustom(d, 'pass'), 'citizen');
+    const back = d.items[d.items.length - 1];
+    expect(back.w).toBe(back.h);
+    expect(Math.abs(back.w - 160)).toBeLessThanOrEqual(1);
+    expect(Math.abs(back.x + back.w / 2 - 1280)).toBeLessThanOrEqual(2);
+    const onPass = rebaseCustom({ ...def, items: [...def.items, chip] }, 'pass').items[3];
+    expect(onPass.w).toBe(Math.round(160 * (1000 / 1010)));
+  });
+
   it('讀檔：不認得的外形丟掉、選項照允許的、照片剛好一個、id 重複換新的；開著的底版的範本＝它的外形', () => {
     const def = newCustomBlank('license', 'L');
     const raw = {

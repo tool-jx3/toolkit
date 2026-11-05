@@ -26,6 +26,7 @@ import {
   CUSTOM_ADDABLE,
   CUSTOM_CAP_MAX,
   CUSTOM_GRID,
+  CUSTOM_ITEM_MAX,
   CUSTOM_MAX,
   CUSTOM_MIN,
   CUSTOM_NAME_MAX,
@@ -156,7 +157,14 @@ export function SfCtorSection() {
                     variant="ghost"
                     icon={<Plus />}
                     onClick={() => {
-                      addCustomItem(t);
+                      if (!addCustomItem(t)) {
+                        toast({
+                          title: S.ctorItemsFull(CUSTOM_ITEM_MAX),
+                          tone: 'warning',
+                          replace: true,
+                        });
+                        return;
+                      }
                       useUi.setState({ ctor: true });
                     }}
                   >
@@ -366,6 +374,8 @@ export function CustomLayer({
   const def = useDoc((s) => activeCustom(s.data.sf));
   const sel = useUi((u) => u.ctorItem);
   const start = useRef<CustomItem | null>(null);
+  /* 真的動了才開始記復原（單純點一下選取不吸附、不多一步，2026-11-05 驗證後） */
+  const moved = useRef(false);
   useEffect(() => {
     const track = (e: KeyboardEvent | PointerEvent) => {
       mods.alt = e.altKey;
@@ -400,8 +410,8 @@ export function CustomLayer({
     const it = def.items.find((x) => x.id === id);
     if (!it) return;
     if (ch.phase === 'start') {
-      gesture.begin();
       start.current = { ...it };
+      moved.current = false;
       return;
     }
     const b = { x: box.x - ox, y: box.y - oy, w: box.width, h: box.height };
@@ -410,6 +420,19 @@ export function CustomLayer({
       return;
     }
     const st = start.current ?? it;
+    const same =
+      Math.abs(b.x - st.x) < 1e-6 &&
+      Math.abs(b.y - st.y) < 1e-6 &&
+      Math.abs(b.w - st.w) < 1e-6 &&
+      Math.abs(b.h - st.h) < 1e-6;
+    if (same && !moved.current) {
+      if (ch.phase === 'end') start.current = null;
+      return;
+    }
+    if (!moved.current) {
+      moved.current = true;
+      gesture.begin();
+    }
     const snap = (v: number) => (mods.alt ? v : Math.round(v / CUSTOM_GRID) * CUSTOM_GRID);
     if (ch.op === 'move') {
       patchCustomItem(id, {
@@ -435,6 +458,7 @@ export function CustomLayer({
     }
     if (ch.phase === 'end') {
       start.current = null;
+      moved.current = false;
       gesture.commit();
     }
   };

@@ -842,7 +842,11 @@ export function duplicateCustom(): string | null {
   edit((d) => {
     d.sf.customs.push(def);
     for (const [from, to] of ids) if (from in d.sf.values) d.sf.values[to] = d.sf.values[from];
-    d.sf.elements[customKey(def.id)] = [];
+    /* 裝飾圖一起複製（新的 id；2026-11-05 驗證後） */
+    d.sf.elements[customKey(def.id)] = (d.sf.elements[customKey(src.id)] ?? []).map((e) => ({
+      ...e,
+      id: newElementId(),
+    }));
     d.sf.custom = def.id;
   });
   useUi.setState({ element: null, ctorItem: null });
@@ -898,10 +902,10 @@ export function setCustomBase(base: SfBlankId): void {
   });
 }
 
-/** 加一個項目（卡片中央；和已經有的同位置時錯開一點）；文字項目先填「TEXT」 */
-export function addCustomItem(type: CustomItemType): void {
+/** 加一個項目（卡片中央；和已經有的同位置時錯開一點）；文字項目先填「TEXT」。滿了（40 個）時 false */
+export function addCustomItem(type: CustomItemType): boolean {
   const c = customNow();
-  if (!c || c.items.length >= CUSTOM_ITEM_MAX) return;
+  if (!c || c.items.length >= CUSTOM_ITEM_MAX) return false;
   let it = newCustomItem(type, c.base);
   for (let i = 0; i < 20 && c.items.some((o) => o.x === it.x && o.y === it.y); i++)
     it = fitItem({ ...it, x: it.x + 30, y: it.y + 30 }, c.base);
@@ -910,6 +914,7 @@ export function addCustomItem(type: CustomItemType): void {
     items.push(it);
   });
   useUi.setState({ ctorItem: it.id });
+  return true;
 }
 
 /** 改一個項目（範圍夾回卡片上；改成日期時值不是日期就填範例日期） */

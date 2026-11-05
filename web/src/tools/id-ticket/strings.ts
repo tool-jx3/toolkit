@@ -227,7 +227,7 @@ export const S = {
     fantasy: '奇幻',
   } as Record<string, string>,
   nameRegionHint:
-    '「不限」從英美、拉美、北歐、俄羅斯、日本、韓國裡挑；台灣的中文名字不會出現在機讀區。',
+    '「不限」從英美、拉美、北歐、俄羅斯、日本、韓國裡挑；「英美」照美國的實際分布，也會有西語的名字；台灣的中文名字不會出現在機讀區。',
   nameGender: '性別',
   nameGenders: { any: '不限', m: '男', f: '女' } as Record<string, string>,
   nameGenerated: (n: string) => `已產生「${n}」`,
@@ -299,6 +299,7 @@ export const S = {
   ctorDeleteDesc: '它的欄位值與裝飾圖一起刪掉（可以復原）；存著的預設裡有它的複本，套用時會回來。',
   ctorCreated: (n: string) => `已建立自組底版「${n}」`,
   ctorFull: (n: number) => `自組底版最多 ${n} 個`,
+  ctorItemsFull: (n: number) => `一個自組底版最多 ${n} 個項目，請先刪掉不用的。`,
   ctorName: '名稱',
   ctorBase: '外形',
   ctorBaseHint: '換外形時版面跟著縮放。',
