@@ -514,6 +514,85 @@ describe('內裝預設（F275）', () => {
     /* 2026-11-05：910 組成功（改之前回報成功的 896 組裡有 323 組有家具在房間外面或疊在一起） */
     expect(ok).toBeGreaterThanOrEqual(900);
   });
+
+  /*
+   * 驗證者的設定（furnish2.mjs）：南牆正中一扇往內開的門、西牆 y＝1 一扇窗（2 格）、舊的單人床、右下角 (W−2, H−2) 一本藏起來的日記（1 × 0.8）。
+   * 5 × 4 格（2.5 × 2 m）七種都放不下（門、窗前、線索把地板佔掉了，3.16.2 的「房間大約要多大」）；7 × 5 格起七種都整組放得下（不少放）
+   */
+  it('驗證者的設定（門＋窗＋舊家具＋線索）：5×4 放不下；7×5、9×7、11×8、16×8 七種都整組放得下', () => {
+    const verifierFloor = (w: number, h: number): Floor =>
+      floorOf({
+        rooms: [room('R', 0, 0, w, h)],
+        openings: [
+          {
+            id: 'd',
+            kind: 'door',
+            o: 'h',
+            x: Math.floor(w / 2) - 1,
+            y: h,
+            len: 1.5,
+            side: -1,
+            hinge: 0,
+          },
+          { id: 'w', kind: 'window', o: 'v', x: 0, y: 1, len: 2, side: 1, hinge: 0 },
+        ],
+        items: [
+          item('old1', 'bed_single', 0.5, 0.5, 2, 4),
+          { ...item('clue', 'diary', w - 2, h - 2, 1, 0.8), clue: true },
+        ],
+      });
+    const table: string[] = [];
+    for (const preset of FURNISH_PRESETS) {
+      const row: string[] = [preset.id];
+      for (const [w, h] of [
+        [5, 4],
+        [7, 5],
+        [9, 7],
+        [11, 8],
+        [16, 8],
+      ]) {
+        const f = verifierFloor(w, h);
+        const r = furnishRoom(f, 'R', preset.id);
+        row.push(r.ok ? `${r.count}${r.dropped ? `-${r.dropped}` : ''}` : 'x');
+        if (!r.ok) continue;
+        const all = f.items.filter((it) => !r.remove.includes(it.id)).concat(r.add);
+        for (const it of r.add) {
+          const b = itemFootprint(it);
+          expect(
+            b.x >= -1e-6 && b.y >= -1e-6 && b.x + b.w <= w + 1e-6 && b.y + b.h <= h + 1e-6,
+            `${preset.id} ${w}x${h} ${it.t}`,
+          ).toBe(true);
+          if (!blocking(it)) continue;
+          for (const o of f.openings)
+            if (o.kind === 'door') expect(hitsDoor(o, b), `${preset.id} ${it.t}`).toBe(false);
+          for (const o of all) {
+            if (o === it || !blocking(o) || supportOf(it, all) === o || supportOf(o, all) === it)
+              continue;
+            const B = itemFootprint(o);
+            const ov =
+              Math.min(b.x + b.w, B.x + B.w) - Math.max(b.x, B.x) > 1e-6 &&
+              Math.min(b.y + b.h, B.y + B.h) - Math.max(b.y, B.y) > 1e-6;
+            expect(ov, `${preset.id} ${w}x${h}：${it.t} 和 ${o.t}`).toBe(false);
+          }
+        }
+        expect(
+          all.find((it) => it.id === 'clue'),
+          preset.id,
+        ).toMatchObject({ x: w - 2, y: h - 2 });
+      }
+      table.push(row.join(' '));
+    }
+    /* 件數（7×5 是 8.75 ㎡，只放一定要有的；9×7 起加上「房間夠大才加的」；x＝放不下） */
+    expect(table).toEqual([
+      'study x 4 7 7 7',
+      'parlor x 4 8 8 8',
+      'bedroom x 3 6 6 6',
+      'lab x 3 6 6 6',
+      'ritual x 4 7 7 7',
+      'bridge x 3 6 6 6',
+      'engine x 3 7 7 7',
+    ]);
+  });
 });
 
 /* ---------- 夜的暗度與光源（F273、F274） ---------- */
