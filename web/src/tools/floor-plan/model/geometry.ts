@@ -312,6 +312,7 @@ export function visibleFloor(floor: Floor, playerView: boolean, hideClues = fals
     /* 曲線的房間（2026-11-05）：牆框也是曲線 */
     ...(r.shape ? { shape: r.shape } : {}),
     ...(r.radius ? { radius: r.radius } : {}),
+    ...(r.deck ? { deck: true } : {}),
     name: '',
     masked: true,
   });

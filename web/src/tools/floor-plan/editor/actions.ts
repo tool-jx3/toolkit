@@ -78,7 +78,7 @@ import {
   type SelRef,
   TYPE_KEY,
 } from '../model/types';
-import type { WallRun } from '../model/walls';
+import { isDeckCat, type WallRun } from '../model/walls';
 import { S } from '../strings';
 import { getTemplate, instantiateTemplate } from '../templates';
 import { importNotice } from './ImportReport';
@@ -186,6 +186,8 @@ export function newRoom(rect: Rect, preset: RoomPresetId | null, lshape = false)
     cat: p ? p.cat : 'living',
     ...(cut ? { cut } : {}),
     ...(shape ? { shape } : {}),
+    /* 新畫的甲板類房間：疊在戶外房間上時外圍是欄杆（F299、D102） */
+    ...(isDeckCat(p ? p.cat : 'living') ? { deck: true } : {}),
   };
 }
 

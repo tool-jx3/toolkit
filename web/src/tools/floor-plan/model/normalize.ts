@@ -47,6 +47,7 @@ import type {
   Wall,
   WallKind,
 } from './types';
+import { isDeckCat } from './walls';
 
 const num = (v: unknown, fallback = 0): number => {
   const n = typeof v === 'number' ? v : typeof v === 'string' && v.trim() ? Number(v) : Number.NaN;
@@ -165,6 +166,8 @@ function room(r: Record<string, unknown>, report: CompatReport): Room | null {
     cut: curved ? undefined : roomCut(r.cut, w, h),
     floor: isFloorMaterial(r.floor) ? r.floor : undefined,
     shape: curved ? (r.shape as RoomShape) : undefined,
+    /* 甲板的外圍（F299、D102）：甲板類的房間才留著 */
+    deck: flag(r.deck) && isDeckCat(cat) ? true : undefined,
     radius: curved && hasRadius(r.shape as RoomShape) ? roomRadius(r.radius, w, h) : undefined,
   });
 }

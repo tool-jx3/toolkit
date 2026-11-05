@@ -67,6 +67,8 @@ export function playerProject(p: Project): { project: Project; removed: PlRemove
         /* 曲線的牆框（2026-11-05） */
         if (r.shape) out.shape = r.shape;
         if (r.radius) out.radius = r.radius;
+        /* 甲板的外圍（F299）：疊放的邊的牆 */
+        if (r.deck) out.deck = true;
         return out;
       }
       const { plName, note: _note, masked: _m, ...rest } = r;

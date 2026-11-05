@@ -260,12 +260,34 @@ test('甲板疊在海面上（F299）：外圍是欄杆、甲板上的甲板是�
   await setFloor(page, {
     rooms: [
       room('sea', 0, 0, 30, 16, { cat: 'water' }),
-      room('deck', 3, 3, 22, 10, { cat: 'shipdeck', shape: 'hull-e' }),
-      room('fore', 17, 5, 7, 6, { cat: 'shipdeck', shape: 'bow-e' }),
+      room('deck', 3, 3, 22, 10, { cat: 'shipdeck', shape: 'hull-e', deck: true }),
+      room('fore', 17, 5, 7, 6, { cat: 'shipdeck', shape: 'bow-e', deck: true }),
     ],
   });
   const w = await walls(page);
   expect(new Set(w.curves)).toEqual(new Set(['rail', 'step']));
+  /* 屬性面板關掉「疊在地面上時外圍是欄杆」：船體的欄杆不見（照以前的規則）；復原 */
+  await click(page, 6, 8);
+  const sw = page
+    .getByTestId('props-panel')
+    .getByRole('switch', { name: '疊在地面上時外圍是欄杆' });
+  await expect(sw).toBeChecked();
+  await sw.click();
+  expect((await floor(page)).rooms[1].deck).toBeUndefined();
+  expect((await walls(page)).curves).toEqual(['step']);
+  await page.getByTestId('map-canvas').focus();
+  await page.keyboard.press('Control+z');
+  expect((await floor(page)).rooms[1].deck).toBe(true);
+  /* 新畫的甲板（素材面板的船體甲板）預設打開 */
+  await page.getByRole('tab', { name: '房間' }).click();
+  await page.locator('[data-room="hullDeck"]').click();
+  await drag(page, [0, 18], [18, 24]);
+  expect((await floor(page)).rooms.at(-1)).toMatchObject({
+    cat: 'shipdeck',
+    shape: 'hull-e',
+    deck: true,
+  });
+  await page.keyboard.press('Escape');
   /* 範本：對話框裡搜尋得到；載入（同範本對話框的載入） */
   await page.getByRole('button', { name: '範本' }).click();
   const dlg = page.getByTestId('template-dialog');

@@ -48,6 +48,7 @@ export type RoomExtra = Partial<
     /* 曲線的房間（2026-11-05，客輪範本） */
     | 'shape'
     | 'radius'
+    | 'deck'
   >
 >;
 export type ItemExtra = Partial<Pick<Item, 'label' | 'gm' | 'clue' | 'flip' | 'color'>> & {

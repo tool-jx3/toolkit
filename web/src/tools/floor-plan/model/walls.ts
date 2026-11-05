@@ -28,8 +28,14 @@ import type { Floor, Opening, Room, Wall, WallKind } from './types';
 export type RunKind = WallKind | 'zone' | 'step';
 
 /** 甲板類（2026-11-05，F299）：外圍是欄杆的戶外房間（陽台・露台、屋頂平台、甲板） */
-export const isDeck = (r: Room | null | undefined): boolean =>
-  !!r && !!CAT[r.cat]?.outdoor && CAT[r.cat]?.edge === 'rail';
+export const isDeckCat = (cat: Room['cat']): boolean =>
+  !!CAT[cat]?.outdoor && CAT[cat]?.edge === 'rail';
+export const isDeck = (r: Room | null | undefined): boolean => !!r && isDeckCat(r.cat);
+
+/**
+ * 疊放的邊照甲板的規則（F299）：甲板類而且設了「甲板的外圍」（`deck`，D102）。舊的地圖沒有這個欄位，照以前的規則。
+ */
+export const isStackDeck = (r: Room | null | undefined): boolean => !!r?.deck && isDeck(r);
 
 /** 不是真的牆的段（分區線、段差線）：門窗不吸、不決定門窗的厚度 */
 export const isSoftRun = (k: RunKind): boolean => k === 'zone' || k === 'step';
@@ -125,7 +131,7 @@ const EPS = 1e-6;
 export function hasStackedDeck(rooms: readonly Room[]): boolean {
   for (let j = 0; j < rooms.length; j++) {
     const d = rooms[j];
-    if (!isDeck(d)) continue;
+    if (!isStackDeck(d)) continue;
     for (let i = 0; i < j; i++) {
       const b = rooms[i];
       if (!CAT[b.cat]?.outdoor) continue;
@@ -231,7 +237,7 @@ function stackedKind(
   const base = edgeKind(a, b);
   if (base !== null || !a || !b || a === b) return base;
   const on = (top: Room, low: Room, p: readonly [number, number]) =>
-    isDeck(top) && rooms.indexOf(low) < rooms.indexOf(top) && covers(low, p[0], p[1]);
+    isStackDeck(top) && rooms.indexOf(low) < rooms.indexOf(top) && covers(low, p[0], p[1]);
   if (on(a, b, pa) || on(b, a, pb)) return isDeck(a) && isDeck(b) ? 'step' : 'rail';
   return null;
 }
@@ -246,7 +252,19 @@ const autoCache = new Map<string, CurvedAuto>();
 /** 有曲線的房間時的自動牆：格線上的段（在曲線的地方切開、兩側照點的主人）＋曲線的牆 */
 export function curvedWalls(rooms: readonly Room[]): CurvedAuto {
   const k = JSON.stringify(
-    rooms.map((r) => [r.x, r.y, r.w, r.h, r.cat, r.noWall, r.wall, r.cut, r.shape, r.radius]),
+    rooms.map((r) => [
+      r.x,
+      r.y,
+      r.w,
+      r.h,
+      r.cat,
+      r.noWall,
+      r.wall,
+      r.cut,
+      r.shape,
+      r.radius,
+      r.deck,
+    ]),
   );
   const hit = autoCache.get(k);
   if (hit) return hit;

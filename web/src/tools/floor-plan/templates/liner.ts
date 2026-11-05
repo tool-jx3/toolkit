@@ -17,8 +17,12 @@ export function steamLiner(): TplFloor[] {
   /* ---------- 1F 上甲板 ---------- */
   const d = new FloorBuilder('1F');
   d.room('海面', 'water', 0, 0, 64, 28, { hideLabel: true })
-    .room('散步甲板', 'shipdeck', 4, 4, 56, 20, { shape: 'hull-e', lx: -14 })
-    .room('船首甲板', 'shipdeck', 43, 9, 12, 10, { shape: 'bow-e', hideLabel: true });
+    .room('散步甲板', 'shipdeck', 4, 4, 56, 20, { shape: 'hull-e', lx: -14, deck: true })
+    .room('船首甲板', 'shipdeck', 43, 9, 12, 10, {
+      shape: 'bow-e',
+      hideLabel: true,
+      deck: true,
+    });
   linerStairs(d);
   d.room('交誼廳', 'public', 12, 8, 12, 12)
     .room('一等艙（甲）', 'bedroom', 24, 8, 6, 6)

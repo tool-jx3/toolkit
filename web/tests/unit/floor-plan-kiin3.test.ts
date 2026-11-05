@@ -373,8 +373,8 @@ describe('甲板與疊放（F299、F300）', () => {
     const f = floorOf({
       rooms: [
         room('sea', 0, 0, 40, 20, { cat: 'water' }),
-        room('hull', 4, 4, 30, 12, { cat: 'shipdeck', shape: 'hull-e' }),
-        room('fore', 24, 7, 8, 6, { cat: 'shipdeck', shape: 'bow-e' }),
+        room('hull', 4, 4, 30, 12, { cat: 'shipdeck', shape: 'hull-e', deck: true }),
+        room('fore', 24, 7, 8, 6, { cat: 'shipdeck', shape: 'bow-e', deck: true }),
         room('cabin', 8, 7, 8, 6),
       ],
     });
@@ -388,14 +388,33 @@ describe('甲板與疊放（F299、F300）', () => {
     expect(wallLines(f).some((r) => r.kind === 'step')).toBe(false);
   });
 
-  it('長方形的甲板疊在水上也是欄杆；沒有疊放時（相鄰）照舊沒有牆', () => {
+  it('長方形的甲板疊在水上也是欄杆；沒有「甲板的外圍」（舊的地圖）時照以前沒有牆；沒有疊放時（相鄰）照舊沒有牆', () => {
     const stacked = floorOf({
+      rooms: [
+        room('sea', 0, 0, 20, 10, { cat: 'water' }),
+        room('d', 4, 2, 8, 4, { cat: 'shipdeck', deck: true }),
+      ],
+    });
+    expect(runsOf(stacked).filter((r) => r.endsWith('rail'))).toHaveLength(4);
+    /* 舊的地圖（沒有 deck）：照原本的格子算法、沒有牆 */
+    const old = floorOf({
       rooms: [
         room('sea', 0, 0, 20, 10, { cat: 'water' }),
         room('d', 4, 2, 8, 4, { cat: 'shipdeck' }),
       ],
     });
-    expect(runsOf(stacked).filter((r) => r.endsWith('rail'))).toHaveLength(4);
+    expect(runsOf(old)).toEqual(runsOf(floorOf({ rooms: [old.rooms[0]] })));
+    expect(computeWalls(old).runs).toEqual(
+      roomRuns(old.rooms).map((r) => ({ ...r, capA: true, capB: true })),
+    );
+    /* 曲線的船體也一樣：沒有 deck 時曲線沒有欄杆 */
+    const hull = floorOf({
+      rooms: [
+        room('sea', 0, 0, 40, 20, { cat: 'water' }),
+        room('hull', 4, 4, 30, 12, { cat: 'shipdeck', shape: 'hull-e' }),
+      ],
+    });
+    expect(computeWalls(hull).curves).toEqual([]);
     const side = floorOf({
       rooms: [
         room('sea', 0, 0, 4, 4, { cat: 'water' }),
@@ -513,7 +532,7 @@ describe('帶著形狀到各處（F295、F296）', () => {
       floorOf({
         rooms: [
           room('sea', 0, 0, 30, 16, { cat: 'water', hideLabel: true }),
-          room('hull', 2, 2, 24, 10, { cat: 'shipdeck', shape: 'hull-e' }),
+          room('hull', 2, 2, 24, 10, { cat: 'shipdeck', shape: 'hull-e', deck: true }),
           room('dome', 6, 4, 6, 5, { shape: 'dome-w' }),
           room('round', 14, 4, 5, 4, { shape: 'round', radius: 1 }),
         ],
@@ -572,6 +591,24 @@ describe('帶著形狀到各處（F295、F296）', () => {
     expect(rs[4].radius).toBeCloseTo(2.98, 6);
     expect(rs[5].radius).toBeUndefined();
     expect(rs[6].radius).toBe(2);
+    /* 甲板的外圍：甲板類的房間才留著 */
+    const d = normalizeProject(
+      {
+        ...raw,
+        floors: [
+          {
+            ...raw.floors[0],
+            rooms: [
+              room('a', 0, 0, 8, 6, { cat: 'shipdeck', deck: true }),
+              room('b', 0, 0, 8, 6, { cat: 'living', deck: true }),
+              { ...room('c', 0, 0, 8, 6, { cat: 'balcony' }), deck: 'yes' },
+            ],
+          },
+        ],
+      },
+      isAsset,
+    );
+    expect(d?.floors[0].rooms.map((r) => r.deck)).toEqual([true, undefined, undefined]);
   });
 
   it('分享連結（完整與 PL 用）帶著形狀；PL 用連結裡 GM 專用的曲線房間的牆框也是曲線', () => {

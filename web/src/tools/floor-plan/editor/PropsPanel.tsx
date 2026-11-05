@@ -68,6 +68,7 @@ import type {
   TextLabel,
   Wall,
 } from '../model/types';
+import { isDeckCat } from '../model/walls';
 import { S } from '../strings';
 import * as act from './actions';
 import { currentFloor, useEditor, usePrefs, useProject } from './store';
@@ -685,6 +686,26 @@ function RoomShapeFields({ r }: { r: Room }) {
 
 /** 房間的牆種類（F228）：室內房間才有（戶外的房間外圍照種類） */
 function RoomWallField({ r }: { r: Room }) {
+  /* 甲板類（2026-11-05，F299、D102）：疊在戶外房間上時的外圍 */
+  if (isDeckCat(r.cat))
+    return (
+      <>
+        <p className="m-0 text-xs text-muted">{S.props.roomWallOutdoor}</p>
+        <Field label={S.props.deckEdge} layout="inline" hint={S.props.deckEdgeHint}>
+          <Toggle
+            checked={!!r.deck}
+            disabled={r.locked}
+            onCheckedChange={(on) =>
+              act.editObj<Room>({ type: 'room', id: r.id }, (o) => {
+                if (on) o.deck = true;
+                else delete o.deck;
+              })
+            }
+            data-testid="room-deck"
+          />
+        </Field>
+      </>
+    );
   if (CAT[r.cat]?.outdoor)
     return <p className="m-0 text-xs text-muted">{S.props.roomWallOutdoor}</p>;
   return (
@@ -870,6 +891,9 @@ function RoomProps({ r }: { r: Room }) {
           value={r.cat}
           onValueChange={(v) =>
             edit((o) => {
+              /* 甲板的外圍（F299、D102）：換成甲板類時打開（同新畫的），換成別的種類時拿掉 */
+              if (isDeckCat(v) && !isDeckCat(o.cat)) o.deck = true;
+              if (!isDeckCat(v)) delete o.deck;
               o.cat = v;
             })
           }
