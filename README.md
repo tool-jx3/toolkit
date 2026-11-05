@@ -69,7 +69,7 @@
 | [刮刮卡產生器](https://tool-jx3.github.io/toolkit/tools/scratch-card/) | 做出可以用滑鼠或手指刮開的刮刮卡（隨機圖示、句子或圖片），當劇本的抽獎或謎題道具；輸出不連網也能用的互動網頁或分享連結 |
 | [調查熱點圖](https://tool-jx3.github.io/toolkit/tools/clue-map/) | 在場景圖上畫熱點，點開是線索卡：可以設「先找到某個線索才出現」與隱藏熱點，玩家有已找到清單與進度；存成離線也能玩的互動 HTML 或分享連結，另有攤開全部線索的總覽 PNG 給 KP |
 | [鎖定畫面訊息產生器](https://tool-jx3.github.io/toolkit/tools/lock-screen/) | 做一張角色手機的鎖定畫面當 handout：換上桌布、寫下最多 4 則訊息，存成 PNG 或訊息一則一則跳出來的 GIF，也能把手機放在外框照片上 |
-| [證件與票券產生器](https://tool-jx3.github.io/toolkit/tools/id-ticket/) | 做跑團用的證件與票券道具：員工證、學生證、記者證、刑警證、會員卡、偵探執照，SF 的活動證、公民 ID（含機讀區）、執照卡、操作員 ID、通行證，電影票、登機證、車票、收據；正反面、照片（可加網點、抖色）、真的條碼與 QR code、可以匯出的掛繩孔與掛繩，可匯出印刷尺寸（含出血、600 dpi）的 PNG 或閃光 GIF |
+| [證件與票券產生器](https://tool-jx3.github.io/toolkit/tools/id-ticket/) | 做跑團用的證件與票券道具：員工證、學生證、記者證、刑警證、會員卡、偵探執照，SF 的活動證、公民 ID（含機讀區）、執照卡、操作員 ID、通行證，也可以自己排版面，電影票、登機證、車票、收據；正反面、照片（可加網點、抖色）、浮水印與裝飾圖、真的條碼與 QR code、離線的名字產生器、可以匯出的掛繩孔與掛繩，可匯出印刷尺寸（含出血、600 dpi）的 PNG、手機畫面用的數位證件或閃光 GIF |
 | [線索道具產生器](https://tool-jx3.github.io/toolkit/tools/handout-maker/) | 做線索 handout：報紙剪報、通緝令、便條、便利貼、拍立得、系統視窗、遊戲的系統通知、終端機、手機簡訊、電子郵件，部分文字塗黑、狀態印章、紙張質感、附圖濾鏡，匯出 PNG 或直接複製貼到 CCFOLIA |
 | [角色介紹圖產生器](https://tool-jx3.github.io/toolkit/tools/pair-maker/) | 挑一種版型，填上名字、標語與立繪，做出雙人或多人的角色介紹圖、橫幅與置頂推文圖；也有會自動分頁、能匯出 PDF 的文字記錄版型；可存到存檔槽或匯出成編輯檔 |
 | [AI 誤判梗圖產生器](https://tool-jx3.github.io/toolkit/tools/ai-fail/) | 放一張照片，畫上 AI 物件辨識風格的綠框與標籤（例如把貓標成「object」），做成「AI 認錯了」的梗圖：可以多個框、改顏色與字級、調整前後，存成 PNG |
@@ -111,7 +111,7 @@
 | [截圖演出產生器](https://tool-jx3.github.io/toolkit/tools/screenshot-fx/) | 在截圖上畫放大框、螢光筆、塗黑：周圍變暗、框彈出放大、螢光筆畫出來、塗黑揭開或蓋上，背景可以模糊、單色或透明，加上出處，匯出 PNG、APNG 或影片 |
 | [地圖演出產生器](https://tool-jx3.github.io/toolkit/tools/map-fx/) | 在地圖或平面圖上畫區域放大、移動路線與地點、房間遮罩：路線一路畫過去、迷霧散開、房間出現，匯出 PNG、APNG、影片，或給 CCFOLIA 自由探索用的每個房間一張遮罩 PNG；進階 3D 把平面圖變成線框立體空間，鏡頭沿路線走過去並存成影片 |
 | [簡易頭像產生器](https://tool-jx3.github.io/toolkit/tools/icon-maker/) | 從 PNG 立繪做出 1:1 的 TRPG 角色頭像，可加外框、背景、名字（直書或橫書）與 HO 標籤 |
-| [VTT 棋子產生器](https://tool-jx3.github.io/toolkit/tools/token-maker/) | 把立繪、頭像做成 CCFOLIA、Roll20、Foundry 等 VTT 用的圓形棋子：28 種有花紋的外框，頭、角、武器可以出框蓋在外框上，名字牌與徽章，敵人可以做成編號 1～N 的一組，存成透明背景的 PNG（設定嵌在圖裡，之後可以再開來改） |
+| [VTT 棋子產生器](https://tool-jx3.github.io/toolkit/tools/token-maker/) | 把立繪、頭像做成 CCFOLIA、Roll20、Foundry 等 VTT 用的圓形棋子：28 種有花紋的外框，頭、角、武器可以出框蓋在外框上（髮絲的半透明邊緣也留得住），名字牌與徽章，敵人可以做成編號 1～N 的一組，存成透明背景的 PNG（設定嵌在圖裡，之後可以再開來改） |
 | [跑團紀錄簿](https://tool-jx3.github.io/toolkit/tools/session-log/) | 記錄玩過的團，整理感想、團報與已通關劇本清單；可匯入試算表或團報文字，每一團都能直接送到團報產生器 |
 | [團報產生器](https://tool-jx3.github.io/toolkit/tools/session-report/) | 填入劇本、KP／PL／PC 與結果，從 17 種範本產生可直接貼到 X 的團報文，能即時預覽、編輯 |
 | [團期行事曆](https://tool-jx3.github.io/toolkit/tools/session-calendar/) | 把場次、準備事項和其他預定排在同一張月曆：台灣的國定假日與補假、拖曳新增多日預定、配色與 CP 色、輸出空檔日期揪團、整月或整年存成 PNG、JSON／iCal 匯出入（可讀 Google 日曆匯出的檔案），一團可以直接送到跑團紀錄簿 |
