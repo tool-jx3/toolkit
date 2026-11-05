@@ -905,15 +905,15 @@ test('匯出 GIF：360 × 270、24 格、每格 9/100 秒、無限循環、64 �
   await page.getByRole('textbox', { name: '字幕' }).fill('有人在嗎');
   await page.getByRole('textbox', { name: '字幕' }).blur();
   await exportPanel(page).getByRole('radio', { name: 'GIF', exact: true }).click();
-  /* 「原作的 GIF 一律無限循環」只在 GIF 顯示（對等驗證 7.1） */
-  await expect(exportPanel(page).getByText('原作的 GIF 一律無限循環。')).toBeVisible();
+  /* 「GIF 預設無限循環」只在 GIF 顯示（對等驗證 7.1；2026-11-05 起介面不提原作） */
+  await expect(exportPanel(page).getByText('GIF 預設無限循環。')).toBeVisible();
   await exportPanel(page).getByRole('radio', { name: 'APNG', exact: true }).click();
-  await expect(exportPanel(page).getByText('原作的 GIF 一律無限循環。')).toHaveCount(0);
+  await expect(exportPanel(page).getByText('GIF 預設無限循環。')).toHaveCount(0);
   await exportPanel(page).getByRole('radio', { name: 'WebP', exact: true }).click();
-  await expect(exportPanel(page).getByText('原作的 GIF 一律無限循環。')).toHaveCount(0);
+  await expect(exportPanel(page).getByText('GIF 預設無限循環。')).toHaveCount(0);
   await exportPanel(page).getByRole('radio', { name: 'GIF', exact: true }).click();
   await expect(exportPanel(page).getByRole('combobox', { name: '動畫大小' })).toContainText(
-    '小 360 × 270（原作）',
+    '小 360 × 270（預設）',
   );
   const gif = await exportFile(page, 'GIF');
   expect(gif.name).toBe('cam-vhs.gif');

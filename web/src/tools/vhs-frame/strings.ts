@@ -220,13 +220,13 @@ export const S = {
   pngSizes: ['小', '標準', '大'],
   animSize: '動畫大小',
   animSizes: ['小', '中', '大'],
-  animSizeOption: (label: string, w: number, h: number, original: boolean) =>
-    `${label} ${w} × ${h}${original ? '（原作）' : ''}`,
+  animSizeOption: (label: string, w: number, h: number, isDefault: boolean) =>
+    `${label} ${w} × ${h}${isDefault ? '（預設）' : ''}`,
   animFrames: (n: number) => `${n} 格、每格 0.09 秒（共 ${(n * 0.09).toFixed(2)} 秒）。`,
   gifColors: '色數',
-  gifColorOption: (n: number, original: boolean) => `${n} 色${original ? '（原作）' : ''}`,
+  gifColorOption: (n: number, isDefault: boolean) => `${n} 色${isDefault ? '（預設）' : ''}`,
   gifColorsHint: '色數越多越接近原本的畫面，檔案也越大。',
-  loopHint: '原作的 GIF 一律無限循環。',
+  loopHint: 'GIF 預設無限循環。',
   rendering: (i: number, n: number) => `畫第 ${i}／${n} 格`,
   encoding: '編碼中',
   colorsDetail: '色數',

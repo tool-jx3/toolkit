@@ -161,40 +161,48 @@ export const FX = {
   pause: { height: 0.045, at: 0.8, jitter: 0.012, rate: 10, tileRate: 20, scroll: 30, alpha: 0.85 },
   /** 閃爍：每 1/24 秒換一次，黑 rnd × 9% ×（0.5 ＋ 磨損） */
   flicker: { rate: 24, seed: 3, alpha: 0.09, base: 0.5 },
-  /** 開場：雪花（顆粒、藍灰、兩道慢慢往下的光）、上下捲動、頻道與收訊格、閃光 */
-  intro: {
-    snowRate: 23,
-    snowOffsetRate: 29,
-    snowCell: 520,
-    snowTint: [14, 20, 36, 0.45],
-    snowBand: { speed: 0.8, spread: 1.3, lead: 0.15, height: 0.24, alpha: 0.13 },
-    rollJitterRate: 31,
-    rollJitter: 0.035,
-    rollBand: 0.08,
-    rollBandAlpha: 0.92,
-    channel: {
-      size: 0.052,
-      pad: 0.08,
-      right: 0.09,
-      shadow: 0.06,
-      shadowColor: 'rgba(0,0,0,0.55)',
-      glow: 'rgba(110,255,150,0.7)',
-      glowBlur: 0.4,
-      color: '#86FFA6',
-      dim: 'rgba(134,255,166,0.22)',
-      bars: 8,
-      barWidth: 0.15,
-      barGap: 0.07,
-      barHeight: 0.12,
-      barTop: 1.3,
+  /** 開場的雪花：顆粒（每 1/23 秒換一張、起點每 1/29 秒換）、藍灰的一層、兩道往下的光（相位 0 與 0.5） */
+  snow: {
+    tileRate: 23,
+    offsetRate: 29,
+    cell: 520,
+    haze: { rgb: '14,20,36', alpha: 0.45 },
+    light: {
+      rgb: '200,215,255',
+      alpha: 0.13,
+      speed: 0.8,
+      phases: [0, 0.5],
+      travel: 1.3,
+      start: 0.15,
+      size: 0.24,
     },
-    flash: '235,242,255',
   },
-  /** 收尾：映像管關機 */
-  off: {
+  /** 開場的上下捲動：左右抖動（每 1/31 秒換、最多 3.5% 寬）、接縫的暗帶（高 8%、中間黑 92%） */
+  roll: { swayRate: 31, sway: 0.035, seam: 0.08, seamPeak: 0.92 },
+  /** 開場右上的頻道與收訊格（字級、位置、顏色；收訊格的大小以字級計） */
+  tuner: {
+    em: 0.052,
+    top: 0.08,
+    inset: 0.09,
+    drop: 0.06,
+    dropColor: 'rgba(0,0,0,0.55)',
+    glowColor: 'rgba(110,255,150,0.7)',
+    glowBlur: 0.4,
+    on: '#86FFA6',
+    off: 'rgba(134,255,166,0.22)',
+    cells: 8,
+    cellWidth: 0.15,
+    cellGap: 0.07,
+    cellHeight: 0.12,
+    below: 1.3,
+  },
+  /** 開場收到訊號時的閃光（濾色） */
+  flash: '235,242,255',
+  /** 收尾（關機）的顏色：底、光暈、變亮的那一層、橫線、亮點 */
+  shutdown: {
     base: '#030406',
-    glow: '205,225,255',
-    light: '235,242,255',
+    halo: '205,225,255',
+    glare: '235,242,255',
     line: '#F2F7FF',
     dot: '#F7FAFF',
   },
@@ -454,8 +462,143 @@ export function gradePixelsOps(px: Uint8ClampedArray | Uint8Array, ops: readonly
   }
 }
 
-/** easeInOut（三次） */
-const easeInOut = (q: number) => (q < 0.5 ? 4 * q * q * q : 1 - (-2 * q + 2) ** 3 / 2);
+/* ---------- 共用的小畫法 ---------- */
+
+const TAU = Math.PI * 2;
+/** 0～1 之間循環（負數也是） */
+const wrap01 = (v: number) => ((v % 1) + 1) % 1;
+/** 三次的慢進慢出 */
+const smoothInOut = (u: number) => (u < 0.5 ? 4 * u * u * u : 1 - (-2 * u + 2) ** 3 / 2);
+
+/** 圓角矩形的路徑（瀏覽器沒有 roundRect 時用直角） */
+function roundedPath(g: Ctx, left: number, top: number, w: number, h: number, r: number): void {
+  g.beginPath();
+  if (typeof g.roundRect === 'function') g.roundRect(left, top, w, h, r);
+  else g.rect(left, top, w, h);
+}
+
+/** 一條上下淡出的橫帶：從 top 往下 height，中間最濃（rgb 的不透明度 peak） */
+function softBand(
+  g: Ctx,
+  width: number,
+  top: number,
+  height: number,
+  rgb: string,
+  peak: number | string,
+): void {
+  const grad = g.createLinearGradient(0, top, 0, top + height);
+  grad.addColorStop(0, `rgba(${rgb},0)`);
+  grad.addColorStop(0.5, `rgba(${rgb},${peak})`);
+  grad.addColorStop(1, `rgba(${rgb},0)`);
+  g.fillStyle = grad;
+  g.fillRect(0, top, width, height);
+}
+
+/** 把一張顆粒從 (start, start) 起每 step 一張鋪滿 W × H */
+function tileAcross(
+  g: Ctx,
+  tile: AnyCanvas,
+  W: number,
+  H: number,
+  start: number,
+  step: number,
+): void {
+  for (let row = start; row < H; row += step)
+    for (let col = start; col < W; col += step) g.drawImage(tile, col, row, step, step);
+}
+
+/** 光暈的大小與濃度：以中心為準的橢圓（rx × ry） */
+interface Halo {
+  rx: number;
+  ry: number;
+  strength: number;
+}
+/** 光暈的漸層：中心 1 → 35% 處 0.4 → 外緣 0（乘上濃度） */
+const HALO_FALLOFF: readonly (readonly [number, number])[] = [
+  [0, 1],
+  [0.35, 0.4],
+  [1, 0],
+];
+
+/** 畫一團光暈（畫布沒有變換時用；以單位圓的放射漸層、拉成橢圓） */
+function paintHalo(g: Ctx, cx: number, cy: number, halo: Halo, rgb: string): void {
+  if (!(halo.strength > 0 && halo.rx > 0 && halo.ry > 0)) return;
+  g.save();
+  g.setTransform(halo.rx, 0, 0, halo.ry, cx, cy);
+  const grad = g.createRadialGradient(0, 0, 0, 0, 0, 1);
+  for (const [stop, k] of HALO_FALLOFF)
+    grad.addColorStop(stop, `rgba(${rgb},${(halo.strength * k).toFixed(3)})`);
+  g.fillStyle = grad;
+  g.beginPath();
+  g.arc(0, 0, 1, 0, TAU);
+  g.fill();
+  g.restore();
+}
+
+/**
+ * 關機的一格要畫什麼（W × H 的畫面中心為準）：
+ * screen＝壓扁的畫面（寬、高、蓋上去的亮度）、beam＝發光的橫線（寬、高）、spot＝亮點（半徑、不透明度），halo 一定有。
+ */
+interface ShutdownLook {
+  screen?: { w: number; h: number; glare: number };
+  beam?: { w: number; h: number };
+  spot?: { r: number; alpha: number };
+  halo: Halo;
+}
+
+/**
+ * 關機的三段（數值照原作）：from、span 是段落在 p（0～1）上的起點與長度，look 由段內的進度 u（0～1）算出要畫的東西。
+ * 壓扁：畫面變亮、寬度略增、高度縮成一條；橫線：一條發光的線從整個寬縮到很短；亮點：中間的點變小、淡掉。
+ */
+const SHUTDOWN_PHASES: readonly {
+  from: number;
+  span: number;
+  look: (u: number, W: number, H: number) => ShutdownLook;
+}[] = [
+  {
+    from: 0,
+    span: 0.42,
+    look: (u, W, H) => {
+      const w = W * (1 + 0.04 * u);
+      const h = Math.max(2, H * (1 - 0.988 * smoothInOut(u)));
+      return {
+        screen: { w, h, glare: 0.08 + 0.78 * u * u },
+        halo: { rx: w * 0.56, ry: h * 0.5 + H * 0.06 * u, strength: 0.35 * u },
+      };
+    },
+  },
+  {
+    from: 0.42,
+    span: 0.28,
+    look: (u, W, H) => {
+      const shrink = smoothInOut(u);
+      const w = Math.max(H * 0.03, W * (1.04 - shrink));
+      return {
+        beam: { w, h: Math.max(2, H * (0.012 - 0.006 * shrink)) },
+        halo: { rx: w * 0.62 + H * 0.03, ry: H * 0.07, strength: 0.5 },
+      };
+    },
+  },
+  {
+    from: 0.7,
+    span: 0.3,
+    look: (u, _W, H) => {
+      const fade = (1 - u) ** 1.3;
+      const r = H * (0.11 - 0.05 * u);
+      return {
+        spot: { r: H * 0.015 * (1 - 0.5 * u), alpha: fade },
+        halo: { rx: r, ry: r, strength: 0.6 * fade },
+      };
+    },
+  },
+];
+
+/** 關機進行到 p 時的那一段與段內的進度 */
+export function shutdownLook(p: number, W: number, H: number): ShutdownLook {
+  let phase = SHUTDOWN_PHASES[0];
+  for (const ph of SHUTDOWN_PHASES) if (p >= ph.from) phase = ph;
+  return phase.look(Math.min(1, (p - phase.from) / phase.span), W, H);
+}
 
 /* ---------- 一格的輸入 ---------- */
 
@@ -518,6 +661,15 @@ export class VhsRenderer {
       this.pool.set(id, c);
     }
     return c;
+  }
+
+  /** 整張複製到名叫 key 的暫存畫布（撕裂、追蹤條、開場的捲動、收尾都從複本取） */
+  private snapshot(key: string, src: AnyCanvas): AnyCanvas {
+    const copy = this.canvas(key, src.width, src.height);
+    const g = ctx2d(copy);
+    g.clearRect(0, 0, src.width, src.height);
+    g.drawImage(src, 0, 0);
+    return copy;
   }
 
   /**
@@ -653,10 +805,7 @@ export class VhsRenderer {
       const tr = FX.tear;
       const bands = fx.tear ? Math.floor(wear * tr.perWear) : 0;
       if (bands > 0) {
-        const tmp = this.canvas('tmp', W, H);
-        const tc = ctx2d(tmp);
-        tc.clearRect(0, 0, W, H);
-        tc.drawImage(sig, 0, 0);
+        const tmp = this.snapshot('tmp', sig);
         for (let i = 0; i < bands; i++) {
           const seed = Math.floor(t * tr.rate) * tr.seedStep + i * tr.seedLine;
           const by = Math.floor(rnd(seed) * (H - 4));
@@ -684,7 +833,7 @@ export class VhsRenderer {
     }
 
     /* 開場：畫面上下捲動（頻道還沒對準） */
-    if (intro && intro.roll > 0) this.roll(sig, x, W, H, t, intro);
+    if (intro && intro.roll > 0) this.rollSignal(sig, x, t, intro);
 
     /* 字幕、左上文字與時間碼（在訊號層裡） */
     drawCaption(x, W, H, p.caption, p.captionFull, {
@@ -692,9 +841,9 @@ export class VhsRenderer {
       osdOn: p.osd !== null || p.timecode !== null,
       stampOn: !!p.stamp,
     });
-    if (intro && intro.snow > 0) drawSnow(x, W, H, t, intro.snow);
+    if (intro && intro.snow > 0) paintSnow(x, W, H, t, intro.snow);
     drawOsd(x, W, H, p.osd, p.timecode, p.font, !!p.osdMotion && blinkOff(t));
-    if (intro) drawBigChannel(x, W, H, intro, p.font);
+    if (intro) paintTuner(x, W, H, intro, p.font);
     if (p.stamp && !intro) drawStamp(x, W, H, p.stamp, p.font);
 
     /* 追蹤條：從畫了文字之後的複本取帶子（暫停時沒有） */
@@ -704,10 +853,7 @@ export class VhsRenderer {
       const rawH = H * (tk.height + wear * tk.heightWear);
       const by = Math.max(0, Math.min(H - 2, Math.round(tb * H)));
       const bh = Math.max(1, Math.min(H - by, Math.round(rawH)));
-      const tmp2 = this.canvas('tb', W, H);
-      const t2 = ctx2d(tmp2);
-      t2.clearRect(0, 0, W, H);
-      t2.drawImage(sig, 0, 0);
+      const tmp2 = this.snapshot('tb', sig);
       x.drawImage(
         tmp2,
         0,
@@ -719,16 +865,11 @@ export class VhsRenderer {
         W,
         bh,
       );
-      const g = x.createLinearGradient(0, by, 0, by + bh);
-      g.addColorStop(0, 'rgba(255,255,255,0)');
-      g.addColorStop(0.5, `rgba(255,255,255,${tk.glow + wear * tk.glowWear})`);
-      g.addColorStop(1, 'rgba(255,255,255,0)');
-      x.fillStyle = g;
-      x.fillRect(0, by, W, bh);
+      softBand(x, W, by, bh, '255,255,255', tk.glow + wear * tk.glowWear);
     }
 
     /* 暫停的雜訊帶 */
-    if (paused) drawPauseBand(x, W, H, t);
+    if (paused) paintPauseBand(x, W, H, t);
 
     /* 雜訊 */
     const nz = FX.noise;
@@ -740,9 +881,7 @@ export class VhsRenderer {
       x.globalAlpha = nz.alpha + wear * nz.alphaWear;
       const off = -Math.floor(rnd(Math.floor(t * nz.offsetRate)) * nz.size);
       const sc = Math.max(1, Math.round(W / nz.cell));
-      for (let yy = off; yy < H; yy += nz.size * sc)
-        for (let xx = off; xx < W; xx += nz.size * sc)
-          x.drawImage(nt, xx, yy, nz.size * sc, nz.size * sc);
+      tileAcross(x, nt, W, H, off, nz.size * sc);
       x.restore();
     }
 
@@ -763,19 +902,14 @@ export class VhsRenderer {
     if (fx.hum) {
       const hm = FX.hum;
       const hy = (((t * hm.speed) % hm.cycle) - hm.lead) * H;
-      const hg = x.createLinearGradient(0, hy, 0, hy + H * hm.height);
-      hg.addColorStop(0, 'rgba(255,255,255,0)');
-      hg.addColorStop(0.5, `rgba(255,255,255,${hm.glow})`);
-      hg.addColorStop(1, 'rgba(255,255,255,0)');
-      x.fillStyle = hg;
-      x.fillRect(0, hy, W, H * hm.height);
+      softBand(x, W, hy, H * hm.height, '255,255,255', hm.glow);
     }
 
     /* 開場：收到訊號的那一下變亮 */
     if (intro && intro.flash > 0) {
       x.save();
       x.globalCompositeOperation = 'screen';
-      x.fillStyle = `rgba(${FX.intro.flash},${intro.flash.toFixed(3)})`;
+      x.fillStyle = `rgba(${FX.flash},${intro.flash.toFixed(3)})`;
       x.fillRect(0, 0, W, H);
       x.restore();
     }
@@ -815,12 +949,12 @@ export class VhsRenderer {
 
     /* 圓角：只留圓角矩形裡面 */
     const corners = p.corners ?? true;
-    if (corners) roundCorners(ctx, W, H);
+    if (corners) trimCorners(ctx, W, H);
 
     /* 收尾：映像管關機（整張重畫，圓角再裁一次） */
     if (p.off !== undefined && p.off !== null) {
-      this.powerOff(dst, p.off);
-      if (corners) roundCorners(ctx, W, H);
+      this.shutDown(dst, p.off);
+      if (corners) trimCorners(ctx, W, H);
     }
   }
 
@@ -868,84 +1002,62 @@ export class VhsRenderer {
     }
   }
 
-  /** 開場：訊號層往下捲 roll 個畫面高、左右抖，接縫是一條黑帶 */
-  private roll(sig: AnyCanvas, x: Ctx, W: number, H: number, t: number, intro: IntroFrame): void {
-    const it = FX.intro;
-    const tmp = this.canvas('roll', W, H);
-    const tc = ctx2d(tmp);
-    tc.clearRect(0, 0, W, H);
-    tc.drawImage(sig, 0, 0);
-    const dy = (((intro.roll % 1) + 1) % 1) * H;
-    const jx =
-      intro.rollJitter * (rnd(Math.floor(t * it.rollJitterRate)) - 0.5) * W * it.rollJitter;
-    x.fillStyle = '#000';
-    x.fillRect(0, 0, W, H);
-    x.drawImage(tmp, jx, dy - H);
-    x.drawImage(tmp, jx, dy);
-    const bh = H * it.rollBand;
-    const g = x.createLinearGradient(0, dy - bh / 2, 0, dy + bh / 2);
-    g.addColorStop(0, 'rgba(0,0,0,0)');
-    g.addColorStop(0.5, `rgba(0,0,0,${it.rollBandAlpha})`);
-    g.addColorStop(1, 'rgba(0,0,0,0)');
-    x.fillStyle = g;
-    x.fillRect(0, dy - bh / 2, W, bh);
+  /**
+   * 開場的上下捲動：訊號層的複本往下錯開（捲出去的部分從上面接回來）、整條左右晃，接縫上一條暗帶。
+   * 捲動量以畫面高為單位，只取小數部分。
+   */
+  private rollSignal(sig: AnyCanvas, g: Ctx, t: number, intro: IntroFrame): void {
+    const { width: W, height: H } = sig;
+    const r = FX.roll;
+    const copy = this.snapshot('roll', sig);
+    const down = wrap01(intro.roll) * H;
+    const sway = intro.rollJitter * (rnd(Math.floor(t * r.swayRate)) - 0.5) * W * r.sway;
+    g.fillStyle = '#000';
+    g.fillRect(0, 0, W, H);
+    for (const top of [down - H, down]) g.drawImage(copy, sway, top);
+    const seam = H * r.seam;
+    softBand(g, W, down - seam / 2, seam, '0,0,0', r.seamPeak);
   }
 
-  /**
-   * 收尾：映像管關機（p＝0～1）：畫面變亮、上下壓扁（～0.42）→ 一條發光的橫線縮短（～0.7）→ 中間一個亮點淡掉。
-   * 整張重畫（底是 #030406）。
-   */
-  private powerOff(dst: AnyCanvas, p: number): void {
-    const W = dst.width;
-    const H = dst.height;
-    const ctx = ctx2d(dst);
-    const o = FX.off;
-    const tmp = this.canvas('off', W, H);
-    const tc = ctx2d(tmp);
-    tc.clearRect(0, 0, W, H);
-    tc.drawImage(dst, 0, 0);
-    const cx = W / 2;
-    const cy = H / 2;
-    ctx.save();
-    ctx.globalCompositeOperation = 'source-over';
-    ctx.globalAlpha = 1;
-    ctx.fillStyle = o.base;
-    ctx.fillRect(0, 0, W, H);
-    ctx.globalCompositeOperation = 'lighter';
-    if (p < 0.42) {
-      const q = p / 0.42;
-      const e = easeInOut(q);
-      const w = W * (1 + 0.04 * q);
-      const h = Math.max(2, H * (1 - 0.988 * e));
-      ctx.globalCompositeOperation = 'source-over';
-      ctx.drawImage(tmp, cx - w / 2, cy - h / 2, w, h);
-      ctx.globalCompositeOperation = 'lighter';
-      ctx.fillStyle = `rgba(${o.light},${(0.08 + 0.78 * q * q).toFixed(3)})`;
-      ctx.fillRect(cx - w / 2, cy - h / 2, w, h);
-      glow(ctx, cx, cy, w * 0.56, h * 0.5 + H * 0.06 * q, o.glow, 0.35 * q);
-    } else if (p < 0.7) {
-      const q = (p - 0.42) / 0.28;
-      const e = easeInOut(q);
-      const lw = Math.max(H * 0.03, W * (1.04 - e));
-      const lh = Math.max(2, H * (0.012 - 0.006 * e));
-      glow(ctx, cx, cy, lw * 0.62 + H * 0.03, H * 0.07, o.glow, 0.5);
-      ctx.fillStyle = o.line;
-      ctx.beginPath();
-      if (ctx.roundRect) ctx.roundRect(cx - lw / 2, cy - lh / 2, lw, lh, lh / 2);
-      else ctx.rect(cx - lw / 2, cy - lh / 2, lw, lh);
-      ctx.fill();
-    } else {
-      const q = Math.min(1, (p - 0.7) / 0.3);
-      const fade = (1 - q) ** 1.3;
-      const rr = H * (0.11 - 0.05 * q);
-      glow(ctx, cx, cy, rr, rr, o.glow, 0.6 * fade);
-      ctx.globalAlpha = fade;
-      ctx.fillStyle = o.dot;
-      ctx.beginPath();
-      ctx.arc(cx, cy, H * 0.015 * (1 - 0.5 * q), 0, Math.PI * 2);
-      ctx.fill();
+  /** 收尾的關機（p＝0～1，三段見 SHUTDOWN_PHASES）：在 #030406 的底上以畫面中心重畫整張 */
+  private shutDown(dst: AnyCanvas, p: number): void {
+    const { width: W, height: H } = dst;
+    const g = ctx2d(dst);
+    const c = FX.shutdown;
+    const look = shutdownLook(p, W, H);
+    /* 壓扁的那一段要用這一格原本的畫面：塗底之前先複製 */
+    const before = look.screen ? this.snapshot('off', dst) : null;
+    const mid = { x: W / 2, y: H / 2 };
+    g.save();
+    g.globalCompositeOperation = 'source-over';
+    g.globalAlpha = 1;
+    g.fillStyle = c.base;
+    g.fillRect(0, 0, W, H);
+    if (look.screen && before) {
+      const { w, h, glare } = look.screen;
+      const left = mid.x - w / 2;
+      const top = mid.y - h / 2;
+      g.drawImage(before, left, top, w, h);
+      g.globalCompositeOperation = 'lighter';
+      g.fillStyle = `rgba(${c.glare},${glare.toFixed(3)})`;
+      g.fillRect(left, top, w, h);
     }
-    ctx.restore();
+    g.globalCompositeOperation = 'lighter';
+    paintHalo(g, mid.x, mid.y, look.halo, c.halo);
+    if (look.beam) {
+      const { w, h } = look.beam;
+      g.fillStyle = c.line;
+      roundedPath(g, mid.x - w / 2, mid.y - h / 2, w, h, h / 2);
+      g.fill();
+    }
+    if (look.spot) {
+      g.globalAlpha = look.spot.alpha;
+      g.fillStyle = c.dot;
+      g.beginPath();
+      g.arc(mid.x, mid.y, look.spot.r, 0, TAU);
+      g.fill();
+    }
+    g.restore();
   }
 }
 
@@ -954,127 +1066,109 @@ const DEFAULT_EFFECTS: Readonly<Effects> = Object.freeze(defaultEffects());
 /** 暗角（原本 0.72） */
 const DEFAULT_VIGNETTE = 0.72;
 
-/** 圓角：只留圓角矩形裡面（半徑 0.075 × 短邊） */
-function roundCorners(ctx: Ctx, W: number, H: number): void {
-  ctx.save();
-  ctx.globalCompositeOperation = 'destination-in';
-  ctx.fillStyle = '#fff';
-  const radius = Math.min(W, H) * FX.corner;
-  ctx.beginPath();
-  if (ctx.roundRect) ctx.roundRect(0, 0, W, H, radius);
-  else ctx.rect(0, 0, W, H);
-  ctx.fill();
-  ctx.restore();
+/** 圓角：以 destination-in 只留圓角矩形（半徑 0.075 × 短邊）裡面 */
+function trimCorners(g: Ctx, W: number, H: number): void {
+  g.save();
+  g.globalCompositeOperation = 'destination-in';
+  g.fillStyle = '#fff';
+  roundedPath(g, 0, 0, W, H, Math.min(W, H) * FX.corner);
+  g.fill();
+  g.restore();
 }
 
-/** 橢圓的光暈（中心 alpha → 0.35 處 alpha × 0.4 → 外緣 0） */
-function glow(
-  ctx: Ctx,
-  cx: number,
-  cy: number,
-  rx: number,
-  ry: number,
-  rgb: string,
-  alpha: number,
+/** 帶影子的字：先在 (px, py) 往右下 off 的地方畫影子，再畫字（對齊、字型由呼叫端設定） */
+function castText(
+  g: Ctx,
+  text: string,
+  px: number,
+  py: number,
+  off: number,
+  color: string,
+  shade: string = FX.osd.shadowColor,
 ): void {
-  if (alpha <= 0 || rx <= 0 || ry <= 0) return;
-  ctx.save();
-  ctx.translate(cx, cy);
-  ctx.scale(rx, ry);
-  const g = ctx.createRadialGradient(0, 0, 0, 0, 0, 1);
-  g.addColorStop(0, `rgba(${rgb},${alpha.toFixed(3)})`);
-  g.addColorStop(0.35, `rgba(${rgb},${(alpha * 0.4).toFixed(3)})`);
-  g.addColorStop(1, `rgba(${rgb},0)`);
-  ctx.fillStyle = g;
-  ctx.beginPath();
-  ctx.arc(0, 0, 1, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.restore();
+  g.fillStyle = shade;
+  g.fillText(text, px + off, py + off);
+  g.fillStyle = color;
+  g.fillText(text, px, py);
 }
 
 /** 「●」這時候是不是暗的（每 1/1.6 秒亮、暗輪流；t＝0 時亮） */
 export const blinkOff = (t: number): boolean => Math.floor(t * FX.blink) % 2 === 1;
 
-/** 暫停的雜訊帶：畫面下方一條上下抖動的雜訊（顆粒依畫面放大，同雜訊） */
-function drawPauseBand(x: Ctx, W: number, H: number, t: number): void {
+/** 暫停的雜訊帶：畫面下方一條上下抖動的帶子裡，雜訊顆粒（拉高兩倍、往上捲）以 85% 蓋上；顆粒依畫面放大，同雜訊 */
+function paintPauseBand(g: Ctx, W: number, H: number, t: number): void {
   const pz = FX.pause;
-  const N = FX.noise.size;
-  const m = Math.max(1, Math.round(W / FX.noise.cell));
-  const ph = Math.round(H * pz.height);
-  const py = Math.round(H * (pz.at + (rnd(Math.floor(t * pz.rate)) - 0.5) * pz.jitter));
-  const nt = noiseTiles()[Math.floor(t * pz.tileRate) % FX.noise.tiles];
-  x.save();
-  x.beginPath();
-  x.rect(0, py, W, ph);
-  x.clip();
-  x.globalAlpha = pz.alpha;
-  const oy = py - (Math.floor(t * pz.scroll) % N) * m;
-  for (let xx = 0; xx < W; xx += N * m) x.drawImage(nt, xx, oy, N * m, N * 2 * m);
-  x.restore();
+  const zoom = Math.max(1, Math.round(W / FX.noise.cell));
+  const cell = FX.noise.size * zoom;
+  const top = Math.round(H * (pz.at + (rnd(Math.floor(t * pz.rate)) - 0.5) * pz.jitter));
+  const lift = (Math.floor(t * pz.scroll) % FX.noise.size) * zoom;
+  const tile = noiseTiles()[Math.floor(t * pz.tileRate) % FX.noise.tiles];
+  g.save();
+  g.beginPath();
+  g.rect(0, top, W, Math.round(H * pz.height));
+  g.clip();
+  g.globalAlpha = pz.alpha;
+  for (let col = 0; col < W; col += cell) g.drawImage(tile, col, top - lift, cell, cell * 2);
+  g.restore();
 }
 
-/** 開場：滿畫面的雪花（細顆粒＋藍灰＋兩道慢慢往下的光），a＝濃度 */
-function drawSnow(x: Ctx, W: number, H: number, t: number, a0: number): void {
-  const it = FX.intro;
-  const N = FX.noise.size;
-  const a = Math.min(1, a0);
-  x.save();
-  x.globalAlpha = a;
-  const nt = noiseTiles()[Math.floor(t * it.snowRate) % FX.noise.tiles];
-  const sc = Math.max(1, Math.round(W / it.snowCell));
-  const off = -Math.floor(rnd(Math.floor(t * it.snowOffsetRate)) * N);
-  for (let yy = off; yy < H; yy += N * sc)
-    for (let xx = off; xx < W; xx += N * sc) x.drawImage(nt, xx, yy, N * sc, N * sc);
-  x.globalAlpha = 1;
-  const [r, g, b, ta] = it.snowTint;
-  x.fillStyle = `rgba(${r},${g},${b},${(ta * a).toFixed(3)})`;
-  x.fillRect(0, 0, W, H);
-  const sb = it.snowBand;
-  for (let i = 0; i < 2; i++) {
-    const by = ((t * sb.speed + i * 0.5) % 1) * H * sb.spread - H * sb.lead;
-    const bh = H * sb.height;
-    const gr = x.createLinearGradient(0, by, 0, by + bh);
-    gr.addColorStop(0, 'rgba(200,215,255,0)');
-    gr.addColorStop(0.5, `rgba(200,215,255,${(sb.alpha * a).toFixed(3)})`);
-    gr.addColorStop(1, 'rgba(200,215,255,0)');
-    x.fillStyle = gr;
-    x.fillRect(0, by, W, bh);
+/** 開場的雪花：濃度 a 的顆粒鋪滿 → 一層藍灰 → 兩道慢慢往下的淡光 */
+function paintSnow(g: Ctx, W: number, H: number, t: number, amount: number): void {
+  const sn = FX.snow;
+  const a = Math.min(1, amount);
+  const tile = noiseTiles()[Math.floor(t * sn.tileRate) % FX.noise.tiles];
+  const step = FX.noise.size * Math.max(1, Math.round(W / sn.cell));
+  const start = -Math.floor(rnd(Math.floor(t * sn.offsetRate)) * FX.noise.size);
+  /* 顆粒照濃度蓋上；藍灰與淡光以不透明度 1 畫（同一組 save／restore 裡：Chromium 對畫布狀態的先後很敏感，換順序會差幾階） */
+  g.save();
+  g.globalAlpha = a;
+  tileAcross(g, tile, W, H, start, step);
+  g.globalAlpha = 1;
+  g.fillStyle = `rgba(${sn.haze.rgb},${(sn.haze.alpha * a).toFixed(3)})`;
+  g.fillRect(0, 0, W, H);
+  const lt = sn.light;
+  for (const phase of lt.phases) {
+    const top = ((t * lt.speed + phase) % 1) * H * lt.travel - H * lt.start;
+    softBand(g, W, top, H * lt.size, lt.rgb, (lt.alpha * a).toFixed(3));
   }
-  x.restore();
+  g.restore();
 }
 
-/** 開場：右上的大頻道字（綠色、發光）與 8 格收訊格 */
-function drawBigChannel(x: Ctx, W: number, H: number, intro: IntroFrame, font: OsdFont): void {
-  const c = FX.intro.channel;
-  const size = Math.round(H * c.size * OSD_FONT_SPEC[font].scale);
-  const pad = Math.round(H * c.pad);
-  const rx = W - Math.round(W * c.right);
-  x.save();
-  x.globalAlpha = intro.channelAlpha;
-  x.font = osdFontCss(font, size);
-  x.textAlign = 'right';
-  x.textBaseline = 'top';
-  x.fillStyle = c.shadowColor;
-  x.fillText(intro.channel, rx + size * c.shadow, pad + size * c.shadow);
-  x.shadowColor = c.glow;
-  x.shadowBlur = size * c.glowBlur;
-  x.fillStyle = c.color;
-  x.fillText(intro.channel, rx, pad);
-  x.shadowBlur = 0;
-  const bw = size * c.barWidth;
-  const bg = size * c.barGap;
-  const bh = size * c.barHeight;
-  const lit = Math.round(intro.tune * c.bars);
-  const by = pad + size * c.barTop;
-  for (let i = 0; i < c.bars; i++) {
-    x.fillStyle = i < lit ? c.color : c.dim;
-    x.fillRect(rx - (c.bars - i) * (bw + bg) + bg, by, bw, bh);
+/** 開場右上的頻道：影子 → 發光的字，下面一排收訊格（左邊的先亮）；整組照頻道字的不透明度 */
+function paintTuner(g: Ctx, W: number, H: number, intro: IntroFrame, font: OsdFont): void {
+  const tu = FX.tuner;
+  const em = Math.round(H * tu.em * OSD_FONT_SPEC[font].scale);
+  const right = W - Math.round(W * tu.inset);
+  const top = Math.round(H * tu.top);
+  g.save();
+  g.globalAlpha = intro.channelAlpha;
+  g.font = osdFontCss(font, em);
+  g.textAlign = 'right';
+  g.textBaseline = 'top';
+  g.fillStyle = tu.dropColor;
+  g.fillText(intro.channel, right + em * tu.drop, top + em * tu.drop);
+  g.shadowColor = tu.glowColor;
+  g.shadowBlur = em * tu.glowBlur;
+  g.fillStyle = tu.on;
+  g.fillText(intro.channel, right, top);
+  g.shadowBlur = 0;
+  const cw = em * tu.cellWidth;
+  const gap = em * tu.cellGap;
+  const lit = Math.round(intro.tune * tu.cells);
+  for (let i = 0; i < tu.cells; i++) {
+    g.fillStyle = i < lit ? tu.on : tu.off;
+    g.fillRect(
+      right - (tu.cells - i) * (cw + gap) + gap,
+      top + em * tu.below,
+      cw,
+      em * tu.cellHeight,
+    );
   }
-  x.restore();
-  x.textAlign = 'left';
+  g.restore();
+  g.textAlign = 'left';
 }
 
-/** 日期戳記：左下或右下，時間在上、日期在下（最後一行的基線在 H − 0.075H），先畫影子再畫字 */
+/** 日期戳記：右下（或左下）靠邊，最後一行的基線在 H − 0.075H，往上一行一行排（最多兩行），帶影子 */
 function drawStamp(
   x: Ctx,
   W: number,
@@ -1082,22 +1176,27 @@ function drawStamp(
   stamp: NonNullable<FrameParams['stamp']>,
   font: OsdFont,
 ): void {
-  if (!stamp.lines.length) return;
+  const n = stamp.lines.length;
+  if (!n) return;
   const c = FX.stamp;
   const size = Math.round(H * c.size * OSD_FONT_SPEC[font].scale);
-  const pad = Math.round(H * c.pad);
-  const right = stamp.side === 'right';
-  const px = right ? W - pad : pad;
+  const inset = Math.round(H * c.pad);
+  const toRight = stamp.side === 'right';
+  const step = size * c.lineHeight;
   x.font = osdFontCss(font, size);
   x.textBaseline = 'alphabetic';
-  x.textAlign = right ? 'right' : 'left';
-  let y = H - pad - (stamp.lines.length - 1) * size * c.lineHeight;
+  x.textAlign = toRight ? 'right' : 'left';
+  let baseline = H - inset - (n - 1) * step;
   for (const ln of stamp.lines) {
-    x.fillStyle = FX.osd.shadowColor;
-    x.fillText(ln, px + size * FX.osd.shadow, y + size * FX.osd.shadow);
-    x.fillStyle = c.color[stamp.color];
-    x.fillText(ln, px, y);
-    y += size * c.lineHeight;
+    castText(
+      x,
+      ln,
+      toRight ? W - inset : inset,
+      baseline,
+      size * FX.osd.shadow,
+      c.color[stamp.color],
+    );
+    baseline += step;
   }
   x.textAlign = 'left';
 }
@@ -1175,15 +1274,18 @@ function drawCaption(
   if (style.look === 'box') {
     const padX = size * look.boxPadX;
     x.fillStyle = look.box;
-    lines.forEach((ln, i) => {
-      const w = x.measureText(ln).width;
+    /* 先把每一行的底都畫好，再畫字（下一行的底不會蓋到上一行的字）；行數最多 2 */
+    let baseline = y;
+    for (const ln of lines) {
+      const textW = x.measureText(ln).width;
       x.fillRect(
-        W / 2 - w / 2 - padX,
-        y + i * lh - size * look.boxTop,
-        w + padX * 2,
+        W / 2 - textW / 2 - padX,
+        baseline - size * look.boxTop,
+        textW + padX * 2,
         size * look.boxHeight,
       );
-    });
+      baseline += lh;
+    }
   }
   for (const ln of lines) {
     if (style.look !== 'box') {
@@ -1225,10 +1327,7 @@ function drawOsd(
   const pad = Math.round(H * o.pad);
   const put = (txt: string, px: number, align: CanvasTextAlign, color: string = o.fill) => {
     x.textAlign = align;
-    x.fillStyle = o.shadowColor;
-    x.fillText(txt, px + size * o.shadow, pad + size * o.shadow);
-    x.fillStyle = color;
-    x.fillText(txt, px, pad);
+    castText(x, txt, px, pad, size * o.shadow, color);
   };
   if (label) {
     const runs = osdRuns(label);

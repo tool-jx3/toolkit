@@ -526,11 +526,10 @@ export function timecodeText(tc: Timecode, t: number): string | null {
 export const CHANNEL_MAX = 4;
 /** 頻道欄：英數字（轉大寫，全形也可以）、最多 4 個字 */
 export const tidyChannel = (s: string): string =>
-  s
-    .normalize('NFKC')
-    .toUpperCase()
-    .replace(/[^0-9A-Z]/g, '')
-    .slice(0, CHANNEL_MAX);
+  Array.from(s.normalize('NFKC').toUpperCase())
+    .filter((ch) => (ch >= '0' && ch <= '9') || (ch >= 'A' && ch <= 'Z'))
+    .slice(0, CHANNEL_MAX)
+    .join('');
 
 /** 畫面上的頻道：數字 →「CH 03」；英文（例：AV）照寫；空白 →「CH --」 */
 export function channelText(ch: string): string {
@@ -726,25 +725,46 @@ export interface IntroFrame {
   channel: string;
 }
 
-const smooth = (q: number) => q * q * (3 - 2 * q);
-const easeOut = (q: number) => 1 - (1 - q) ** 3;
+/**
+ * 開場的時間表（q＝0～1；數值照原作）：每一項從 from 開始、經過 span 完成。
+ * 雪花滿到 0.38、0.75 時消失；捲動在 0.3～0.86 從 1.4 個畫面高慢下來停住；0.78 起閃一下（最亮 0.26）；
+ * 收訊格到 0.72 全亮；頻道字 0.8 起淡到 15%；頻道每 0.42 ÷ 3 轉一台、共 3 台。
+ */
+const INTRO_TIMING = {
+  snow: { from: 0.38, span: 0.37, until: 0.75 },
+  roll: { from: 0.3, span: 0.56, until: 0.86, turns: 1.4 },
+  flash: { from: 0.78, span: 0.22, peak: 0.26 },
+  tune: { span: 0.72 },
+  fade: { from: 0.8, span: 0.2, depth: 0.85 },
+  dial: { span: 0.42, stops: 3 },
+} as const;
+
+/** 進度 q 在 [from, from ＋ span] 裡的比例（不夾範圍） */
+const within = (q: number, from: number, span: number) => (q - from) / span;
+/** 平滑的 S 形（3u² − 2u³）與三次的慢出 */
+const sCurve = (u: number) => u * u * (3 - 2 * u);
+const slowOut = (u: number) => 1 - (1 - u) ** 3;
 
 export function introFrame(q: number, channel: string): IntroFrame {
-  let roll = 0;
-  let rollJitter = 0;
-  if (q >= 0.3 && q < 0.86) {
-    const r = 1 - easeOut((q - 0.3) / 0.56);
-    roll = r * 1.4;
-    rollJitter = r;
-  }
+  const T = INTRO_TIMING;
+  /* 捲動：還在捲的時候，剩下的量＝1 − 慢出的進度 */
+  const rolling = q >= T.roll.from && q < T.roll.until;
+  const left = rolling ? 1 - slowOut(within(q, T.roll.from, T.roll.span)) : 0;
+  let snow = 0;
+  if (q < T.snow.from) snow = 1;
+  else if (q < T.snow.until) snow = 1 - sCurve(within(q, T.snow.from, T.snow.span));
+  const dialStep = Math.min(T.dial.stops - 1, Math.floor((q / T.dial.span) * T.dial.stops));
   return {
-    snow: q < 0.38 ? 1 : q < 0.75 ? 1 - smooth((q - 0.38) / 0.37) : 0,
-    roll,
-    rollJitter,
-    flash: q >= 0.78 ? Math.sin(((q - 0.78) / 0.22) * Math.PI) * 0.26 : 0,
-    tune: Math.min(1, q / 0.72),
-    channelAlpha: q < 0.8 ? 1 : 1 - ((q - 0.8) / 0.2) * 0.85,
-    channel: introChannel(channel, Math.min(2, Math.floor((q / 0.42) * 3))),
+    snow,
+    roll: left * T.roll.turns,
+    rollJitter: left,
+    flash:
+      q >= T.flash.from
+        ? Math.sin(within(q, T.flash.from, T.flash.span) * Math.PI) * T.flash.peak
+        : 0,
+    tune: Math.min(1, q / T.tune.span),
+    channelAlpha: q < T.fade.from ? 1 : 1 - within(q, T.fade.from, T.fade.span) * T.fade.depth,
+    channel: introChannel(channel, dialStep),
   };
 }
 
@@ -773,21 +793,24 @@ export function animFrameInfo(
       intro: introFrame(f / plan.intro, s.channel),
       off: null,
     };
-  const n = Math.max(1, plan.scenes.length);
-  const m = Math.min(f - plan.intro, plan.main - 1);
-  const si = Math.min(n - 1, Math.floor(m / plan.per));
-  const lf = m - si * plan.per;
-  const full = plan.scenes[si] ?? [];
-  const total = full.reduce((k, l) => k + charCount(l), 0);
-  const span = (plan.per * TYPE_SPAN) / GIF_FRAMES;
-  const off = f >= plan.intro + plan.main ? (f - plan.intro - plan.main + 1) / plan.outro : null;
-  const chars =
-    s.anim.typing && total && off === null
-      ? Math.max(0, Math.min(total, Math.round(((lf - TYPE_DELAY) / span) * total)))
-      : null;
+  const count = Math.max(1, plan.scenes.length);
+  /* 場景部分的第幾格（收尾的那幾格停在最後一格）→ 第幾個場景、場景裡的第幾格 */
+  const pos = Math.min(f - plan.intro, plan.main - 1);
+  const scene = Math.min(count - 1, Math.floor(pos / plan.per));
+  const inScene = pos - scene * plan.per;
+  const full = plan.scenes[scene] ?? [];
+  const letters = full.reduce((k, l) => k + charCount(l), 0);
+  const afterMain = f - plan.intro - plan.main;
+  const off = afterMain >= 0 ? (afterMain + 1) / plan.outro : null;
+  let shown: number | null = null;
+  if (s.anim.typing && letters && off === null) {
+    const typeFrames = (plan.per * TYPE_SPAN) / GIF_FRAMES;
+    shown = Math.round(((inScene - TYPE_DELAY) / typeFrames) * letters);
+    shown = Math.max(0, Math.min(letters, shown));
+  }
   return {
-    scene: si,
-    caption: chars === null ? full : typedLines(full, chars),
+    scene,
+    caption: shown === null ? full : typedLines(full, shown),
     captionFull: full,
     intro: null,
     off,
