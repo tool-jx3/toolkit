@@ -54,6 +54,8 @@ export interface RenderSources {
   customFrameId?: string | null;
   /** 自訂遮罩（不透明度＝開口；拉伸到外框的範圍） */
   customMask?: Drawable | null;
+  /** 出框用的圖片（去光暈後；和 image 同樣大小）：沒有時出框直接用圖片層 */
+  popImage?: Drawable | null;
 }
 
 export interface RenderOptions {
@@ -193,6 +195,36 @@ function keepFrameOnly(lctx: Ctx2D, frame: AnyCanvas, hole: number | null, g: Ge
   lctx.globalCompositeOperation = 'source-over';
 }
 
+/** 兩色各取一半（token-workshop 的 mix：每個色版四捨五入） */
+function mixHalf(a: string, b: string): string {
+  const A = Number.parseInt(a.slice(1, 7), 16) || 0;
+  const B = Number.parseInt(b.slice(1, 7), 16) || 0;
+  return `#${[16, 8, 0]
+    .map((sh) => {
+      const x = (A >> sh) & 255;
+      return Math.round(x + (((B >> sh) & 255) - x) * 0.5)
+        .toString(16)
+        .padStart(2, '0');
+    })
+    .join('')}`;
+}
+
+/**
+ * 外框的漸層（起點色 → 終點色，角度依外觀）；色彩平衡不是 50% 時在那個位置多一個兩色各半的色標
+ * （token-workshop 的 gMid；50% 時和加這個功能之前完全相同）。
+ */
+function frameGradient(ctx: Ctx2D, look: Look, g: Geom): CanvasGradient {
+  const a = rad(look.gAngle);
+  const dx = Math.cos(a) * g.R;
+  const dy = Math.sin(a) * g.R;
+  const gr = ctx.createLinearGradient(g.c - dx, g.c - dy, g.c + dx, g.c + dy);
+  gr.addColorStop(0, look.g1);
+  if (look.gMid !== 50)
+    gr.addColorStop(clamp(look.gMid / 100, 0.05, 0.95), mixHalf(look.g1, look.g2));
+  gr.addColorStop(1, look.g2);
+  return gr;
+}
+
 function luminance(hex: string): number {
   const n = Number.parseInt(hex.slice(1, 7), 16) || 0;
   return 0.3 * ((n >> 16) & 255) + 0.59 * ((n >> 8) & 255) + 0.11 * (n & 255);
@@ -208,15 +240,7 @@ export function drawCustomFrame(ctx: Ctx2D, img: Drawable, look: Look, g: Geom):
   ctx.save();
   ctx.drawImage(img, x0, x0, size, size);
   ctx.globalCompositeOperation = 'multiply';
-  if (look.colorMode === 'gradient') {
-    const a = rad(look.gAngle);
-    const dx = Math.cos(a) * g.R;
-    const dy = Math.sin(a) * g.R;
-    const gr = ctx.createLinearGradient(g.c - dx, g.c - dy, g.c + dx, g.c + dy);
-    gr.addColorStop(0, look.g1);
-    gr.addColorStop(1, look.g2);
-    ctx.fillStyle = gr;
-  } else ctx.fillStyle = look.color;
+  ctx.fillStyle = look.colorMode === 'gradient' ? frameGradient(ctx, look, g) : look.color;
   ctx.fillRect(x0, x0, size, size);
   ctx.globalCompositeOperation = 'destination-in';
   ctx.drawImage(img, x0, x0, size, size);
@@ -244,13 +268,7 @@ export function drawFrameLayer(
   const hole = custom ? null : textureHole(def, g.R - w);
   if (gradient && !custom) {
     const { ctx: l, canvas } = scratch('grad', N);
-    const a = rad(look.gAngle);
-    const dx = Math.cos(a) * g.R;
-    const dy = Math.sin(a) * g.R;
-    const gr = l.createLinearGradient(g.c - dx, g.c - dy, g.c + dx, g.c + dy);
-    gr.addColorStop(0, look.g1);
-    gr.addColorStop(1, look.g2);
-    l.fillStyle = gr;
+    l.fillStyle = frameGradient(l, look, g);
     l.fillRect(0, 0, N, N);
     keepFrameOnly(l, target, hole, g);
     ctx.globalCompositeOperation = 'overlay';
@@ -344,6 +362,7 @@ function frameKey(look: Look, g: Geom, texReady: boolean, customId: string | nul
     look.g1,
     look.g2,
     look.gAngle,
+    look.gMid,
     look.accent,
     look.accentOn,
     look.lightAngle,
@@ -559,11 +578,11 @@ export function renderToken(ctx: Ctx2D, opts: RenderOptions, src: RenderSources)
   const t = src.image && size && token ? imageTransform(g, size, token.view) : null;
 
   /* U：圖片層（＋色彩調整、效果） */
-  let U: AnyCanvas | null = null;
-  if (t && src.image && size) {
-    const s = scratch('U', N);
+  const picture = (name: string, image: Drawable): AnyCanvas | null => {
+    if (!t || !size) return null;
+    const s = scratch(name, N);
     withImageTransform(s.ctx, t, size, () => {
-      s.ctx.drawImage(src.image as Drawable, 0, 0, size.width, size.height);
+      s.ctx.drawImage(image, 0, 0, size.width, size.height);
     });
     const adjust = token?.adjust && !isDefaultAdjust(token.adjust) ? token.adjust : null;
     const fxOn = portraitFxActive(look.fx);
@@ -576,8 +595,9 @@ export function renderToken(ctx: Ctx2D, opts: RenderOptions, src: RenderSources)
       }
       s.ctx.putImageData(px, 0, 0);
     }
-    U = s.canvas;
-  }
+    return s.canvas;
+  };
+  const U = src.image ? picture('U', src.image) : null;
 
   /* L：背景＋圖片，剪成開口 */
   const { ctx: l, canvas: L } = scratch('L', N);
@@ -604,12 +624,14 @@ export function renderToken(ctx: Ctx2D, opts: RenderOptions, src: RenderSources)
 
   /* P：出框（陰影只落在外框上，不會壓暗圖片或空白的地方） */
   if (U && t && size && token?.popOn && src.popMask) {
+    /* 去光暈時出框用扣掉背景色的那一份圖片（同樣的擺放、色彩調整與效果） */
+    const popU = src.popImage ? (picture('U2', src.popImage) ?? U) : U;
     const { ctx: p, canvas: P } = scratch('P', N);
     withImageTransform(p, t, size, () => {
       p.drawImage(src.popMask as Drawable, 0, 0, size.width, size.height);
     });
     p.globalCompositeOperation = 'source-in';
-    p.drawImage(U, 0, 0);
+    p.drawImage(popU, 0, 0);
     p.globalCompositeOperation = 'source-over';
     /* 暗角、掃描線也要蓋在出框的部分上，不然看起來像另外貼上去的 */
     overlayFx(p, look.fx, N, g.c, g.R);

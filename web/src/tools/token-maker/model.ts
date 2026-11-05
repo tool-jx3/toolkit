@@ -148,6 +148,8 @@ export interface Look {
   g2: string;
   /** 漸層角度（度） */
   gAngle: number;
+  /** 漸層的色彩平衡（%）：兩色交界的位置，50＝正中間（token-workshop ce4c62b 的 Colour balance） */
+  gMid: number;
   /** 第二色；霓虹與幾何的樣式要打開 accentOn 才畫配色細節 */
   accent: string;
   accentOn: boolean;
@@ -263,6 +265,7 @@ export const DEFAULT_LOOK: Readonly<Look> = Object.freeze({
   g1: '#ff8a1f',
   g2: '#7a0c10',
   gAngle: 45,
+  gMid: 50,
   accent: '#2b2d33',
   accentOn: false,
   lightAngle: 135,
@@ -306,6 +309,7 @@ export const RANGES = {
   width: { min: 2, max: 30, step: 1 },
   depth: { min: 0, max: 100, step: 1 },
   gAngle: { min: 0, max: 360, step: 1 },
+  gMid: { min: 10, max: 90, step: 1 },
   lightAngle: { min: 0, max: 360, step: 1 },
   lightStrength: { min: 0, max: 150, step: 1 },
   texAmount: { min: 5, max: 100, step: 1 },
@@ -330,6 +334,10 @@ export const RANGES = {
   scanAmt: { min: 0, max: 100, step: 1 },
   scanGap: { min: 2, max: 12, step: 1 },
   setCount: { min: 2, max: 99, step: 1 },
+  halo: { min: 0, max: 100, step: 1 },
+  gap: { min: 0, max: 40, step: 1 },
+  autoSens: { min: 0, max: 100, step: 1 },
+  autoShrink: { min: -10, max: 10, step: 1 },
 } as const;
 
 /* ---------- 棋子 ---------- */
@@ -371,6 +379,8 @@ export interface TokenItem {
   badge: string;
   /** 色彩調整（亮度、對比、飽和度 %，色相 度） */
   adjust: Adjust;
+  /** 去光暈（%）：出框半透明的邊緣扣掉背景色；沒有（或 0）＝關 */
+  halo?: number;
 }
 
 export interface Adjust {
@@ -726,6 +736,7 @@ export function normalizeLook(raw: unknown): Look {
     g1: color(d.g1, D.g1),
     g2: color(d.g2, D.g2),
     gAngle: ranged(d.gAngle, RANGES.gAngle, D.gAngle),
+    gMid: Math.round(ranged(d.gMid, RANGES.gMid, D.gMid)),
     accent: color(d.accent, D.accent),
     accentOn: typeof d.accentOn === 'boolean' ? d.accentOn : D.accentOn,
     lightAngle: ranged(d.lightAngle, RANGES.lightAngle, D.lightAngle),
@@ -818,15 +829,19 @@ export function normalizeToken(raw: unknown, used: Set<string>): TokenItem | nul
   }
   used.add(id);
   const image = normalizeImage(raw.image);
+  const mask = image ? normalizeMask(raw.mask) : null;
+  const halo = mask ? Math.round(ranged(raw.halo, RANGES.halo, 0)) : 0;
   return {
     id,
     image,
     view: normalizeView(raw.view),
-    mask: image ? normalizeMask(raw.mask) : null,
+    mask,
     popOn: typeof raw.popOn === 'boolean' ? raw.popOn : true,
     name: typeof raw.name === 'string' ? raw.name.slice(0, NAME_MAX) : '',
     badge: typeof raw.badge === 'string' ? raw.badge.slice(0, BADGE_MAX) : '',
     adjust: normalizeAdjust(raw.adjust),
+    /* 2026-11-05 加的欄位：關（0）時不寫，存檔和之前相同 */
+    ...(halo ? { halo } : {}),
   };
 }
 

@@ -2,7 +2,8 @@
  * 預覽上的提示層（只在預覽，不會匯出）：
  * - 魔術棒、筆刷工具時：外框開口外面被藏起來的圖片淡淡地顯示（看得出還有哪些部分可以出框）、選取範圍上淡紅色；
  * - 選取範圍的外框（黑白斜紋，可以關掉）；
- * - 筆刷的圓圈（畫是綠、擦是紅）、魔術棒上次點的位置；
+ * - 筆刷的圓圈（畫是綠、擦是紅）、魔術棒上次點的位置、正在圈的套索、鍵盤的游標（十字）；
+ * - 檢視遮罩：整個預覽換成黑底、遮罩畫成白色（半透明＝灰）；
  * - 參考輪廓（剪影剪在開口裡、參考圖整張）與輔助線；
  * - 拖曳名字、徽章時可以吸附的位置。
  */
@@ -24,13 +25,20 @@ export interface OverlayInput {
   image: Drawable | null;
   /** 選取範圍（遮罩 > 0 的地方不透明） */
   selection: Drawable | null;
-  tool: 'move' | 'wand' | 'brush';
+  tool: 'move' | 'wand' | 'lasso' | 'brush';
   showOutline: boolean;
   /** 魔術棒剛點過（淡紅色深一點） */
   wandActive: boolean;
   wandPoint: { x: number; y: number } | null;
   /** 筆刷的圓圈（棋子座標）；mode：畫或擦 */
   cursor: { x: number; y: number; r: number; erase: boolean } | null;
+  /** 正在圈的套索（棋子座標） */
+  lasso?: { pts: readonly { x: number; y: number }[]; erase: boolean } | null;
+  /** 鍵盤的游標（棋子座標；魔術棒時畫十字） */
+  keyCursor?: { x: number; y: number } | null;
+  /** 檢視遮罩：打開時（maskViewOn）黑底＋這張遮罩（白色＋不透明度，柔邊後；沒有遮罩時 null＝全黑） */
+  maskView?: Drawable | null;
+  maskViewOn?: boolean;
   /** 自訂遮罩（開口的形狀） */
   customMask?: Drawable | null;
   /** 參考輪廓與輔助線 */
@@ -86,7 +94,16 @@ export function drawOverlay(ctx: Ctx2D, o: OverlayInput): void {
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.clearRect(0, 0, N, N);
   const editing = o.tool !== 'move';
-  if (t && size && o.image && editing) {
+  if (o.maskViewOn) {
+    /* 檢視遮罩：黑底、白色的遮罩（看得出洞、雜點與半透明的邊） */
+    ctx.fillStyle = '#000000';
+    ctx.fillRect(0, 0, N, N);
+    if (t && size && o.maskView)
+      withImageTransform(ctx, t, size, () =>
+        ctx.drawImage(o.maskView as Drawable, 0, 0, size.width, size.height),
+      );
+  }
+  if (t && size && o.image && editing && !o.maskViewOn) {
     /* 被外框藏起來的部分：圖片淡淡地畫在開口外面 */
     const { ctx: g, canvas } = scratch('ghost', N);
     g.globalAlpha = 0.35;
@@ -123,7 +140,7 @@ export function drawOverlay(ctx: Ctx2D, o: OverlayInput): void {
       ctx.drawImage(canvas, 0, 0);
     }
   }
-  if (t && size && o.selection) {
+  if (t && size && o.selection && !o.maskViewOn) {
     if (editing) {
       const { ctx: s, canvas } = scratch('tint', N);
       withImageTransform(s, t, size, () =>
@@ -184,6 +201,43 @@ export function drawOverlay(ctx: Ctx2D, o: OverlayInput): void {
     ctx.arc(o.wandPoint.x, o.wandPoint.y, r * 0.3, 0, Math.PI * 2);
     ctx.fillStyle = '#ffffff';
     ctx.fill();
+  }
+  if (o.lasso && o.lasso.pts.length > 1 && o.tool === 'lasso') {
+    const L = o.lasso;
+    ctx.beginPath();
+    for (const [i, p] of L.pts.entries()) {
+      if (i) ctx.lineTo(p.x, p.y);
+      else ctx.moveTo(p.x, p.y);
+    }
+    ctx.closePath();
+    ctx.fillStyle = L.erase ? 'rgba(255,69,58,.18)' : 'rgba(48,209,88,.18)';
+    ctx.fill();
+    ctx.lineJoin = 'round';
+    ctx.lineWidth = Math.max(2, N / 340);
+    ctx.strokeStyle = 'rgba(0,0,0,.65)';
+    ctx.stroke();
+    ctx.lineWidth = Math.max(1, N / 730);
+    ctx.strokeStyle = '#ffffff';
+    ctx.stroke();
+  }
+  if (o.keyCursor && o.tool === 'wand') {
+    const k = o.keyCursor;
+    const r = N / 45;
+    ctx.lineCap = 'round';
+    for (const [w, col] of [
+      [Math.max(2.4, N / 320), 'rgba(0,0,0,.7)'],
+      [Math.max(1.2, N / 680), '#ffffff'],
+    ] as const) {
+      ctx.lineWidth = w;
+      ctx.strokeStyle = col;
+      ctx.beginPath();
+      ctx.moveTo(k.x - r, k.y);
+      ctx.lineTo(k.x + r, k.y);
+      ctx.moveTo(k.x, k.y - r);
+      ctx.lineTo(k.x, k.y + r);
+      ctx.stroke();
+    }
+    ctx.lineCap = 'butt';
   }
   if (o.cursor && o.tool === 'brush') {
     const c = o.cursor;
