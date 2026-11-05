@@ -6,7 +6,7 @@
  */
 import { type DragEvent, memo, useEffect, useMemo, useRef } from 'react';
 import { cn, Select, Tabs, TextInput } from '@/ui';
-import { drawAssetIcon, drawOpeningIcon, drawWallIcon } from '../draw/icons';
+import { drawAssetIcon, drawLineIcon, drawOpeningIcon, drawWallIcon } from '../draw/icons';
 import { THEMES } from '../draw/themes';
 import { ASSET_GROUPS, ASSETS, type AssetInfo, assetMatches } from '../model/assets';
 import {
@@ -17,8 +17,9 @@ import {
   WALL_KINDS,
 } from '../model/catalog';
 import { round2 } from '../model/geometry';
+import { LINE_KINDS } from '../model/lines';
 import { queryWords, type TagId, tagSuggestions, tagText } from '../model/tags';
-import type { OpeningKind, WallKind } from '../model/types';
+import type { LineKind, OpeningKind, WallKind } from '../model/types';
 import { S } from '../strings';
 import { toggleArmed } from './actions';
 import { editor } from './controller';
@@ -133,6 +134,7 @@ function RoomsTab() {
 
 const openingDraw = new Map<OpeningKind, (c: HTMLCanvasElement) => void>();
 const wallDraw = new Map<WallKind, (c: HTMLCanvasElement) => void>();
+const lineDraw = new Map<LineKind, (c: HTMLCanvasElement) => void>();
 const assetDraw = new Map<string, (c: HTMLCanvasElement) => void>();
 const memoDraw = <K,>(
   m: Map<K, (c: HTMLCanvasElement) => void>,
@@ -185,6 +187,25 @@ function WallCard({ kind }: { kind: WallKind }) {
   );
 }
 
+/** 自由線（2026-11-05，F285）：點一下拿起自由線工具（U） */
+function LineCard({ kind }: { kind: LineKind }) {
+  const active = useEditor(
+    (s) => s.tool === 'line' && s.armed?.kind === 'line' && s.armed.type === kind,
+  );
+  return (
+    <button
+      type="button"
+      className={cardClass(active)}
+      aria-pressed={active}
+      onClick={() => toggleArmed('line', { kind: 'line', type: kind })}
+      data-line={kind}
+    >
+      <Icon draw={memoDraw(lineDraw, kind, (c) => drawLineIcon(c, kind))} />
+      <span className="min-w-0 text-fg">{S.lines[kind]}</span>
+    </button>
+  );
+}
+
 function OpeningsTab() {
   return (
     <div className="flex flex-col gap-3 pt-3">
@@ -205,6 +226,13 @@ function OpeningsTab() {
       <div className="grid grid-cols-2 gap-1.5">
         {WALL_KINDS.map((w) => (
           <WallCard key={w.id} kind={w.id} />
+        ))}
+      </div>
+      <h3 className="m-0 text-xs font-semibold text-muted">{S.lib.lines}</h3>
+      <p className="m-0 text-xs text-muted">{S.lib.linesNote}</p>
+      <div className="grid grid-cols-2 gap-1.5" data-testid="line-cards">
+        {LINE_KINDS.map((k) => (
+          <LineCard key={k} kind={k} />
         ))}
       </div>
     </div>

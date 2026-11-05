@@ -695,6 +695,107 @@ const shipHatch: FurnDraw = (c, S, w, h) => {
   thin(c, S, 1.4, () => seg(c, w * 0.35, h * 0.78, w * 0.65, h * 0.78));
 };
 
+/* ---------- 2026-11-05（參考 KIIN v2.0 的船的素材，F280）：帆柱、艦砲、蒸汽機、絞盤、一捲纜繩（本站自己畫的） ---------- */
+
+/** 帆柱：中間的柱子（圓）＋橫跨的帆桁、兩端的索具；上面是捲起來的帆 */
+const mast: FurnDraw = (c, S, w, h) => {
+  const cy = h / 2;
+  const r = Math.min(w, h) * 0.22;
+  thin(c, S, 0.7, () => {
+    for (const x of [0.12, w - 0.12]) {
+      seg(c, x, cy, w / 2 - r * 0.6, cy - r * 0.9);
+      seg(c, x, cy, w / 2 - r * 0.6 + (x > w / 2 ? r * 1.2 : 0), cy + r * 0.9);
+    }
+  });
+  block(c, S, 0.05, cy - h * 0.13, w - 0.1, h * 0.26, h * 0.1, S.wood);
+  c.save();
+  c.fillStyle = S.cloth;
+  rrect(c, w * 0.12, cy - h * 0.34, w * 0.76, h * 0.18, h * 0.08);
+  paint(c, S.cloth);
+  thin(c, S, 0.6, () => {
+    for (let k = 1; k < 6; k++)
+      seg(c, w * (0.12 + 0.127 * k), cy - h * 0.34, w * (0.12 + 0.127 * k), cy - h * 0.16);
+  });
+  c.restore();
+  disc(c, S, w / 2, cy, r, S.wood);
+  disc(c, S, w / 2, cy, r * 0.45, S.shade);
+};
+
+/** 艦砲：砲口朝上（rot 0 時朝牆＝船舷），木製的砲架、兩對輪子、後面的繩環 */
+const shipCannon: FurnDraw = (c, S, w, h) => {
+  block(c, S, w * 0.14, h * 0.36, w * 0.72, h * 0.56, 0.08, S.wood);
+  for (const y of [h * 0.44, h * 0.82])
+    for (const x of [w * 0.08, w * 0.92])
+      block(c, S, x - w * 0.08, y - h * 0.06, w * 0.16, h * 0.12, 0.04, S.shade);
+  c.beginPath();
+  c.moveTo(w * 0.36, h * 0.84);
+  c.lineTo(w * 0.4, h * 0.06);
+  c.lineTo(w * 0.6, h * 0.06);
+  c.lineTo(w * 0.64, h * 0.84);
+  c.closePath();
+  paint(c, S.ink);
+  thin(c, S, 0.8, () => {
+    c.strokeStyle = S.faint;
+    for (const y of [0.3, 0.55]) seg(c, w * 0.38, h * y, w * 0.62, h * y);
+  });
+  disc(c, S, w / 2, h * 0.06, w * 0.11, S.shade);
+  disc(c, S, w / 2, h * 0.88, w * 0.12, S.tint);
+};
+
+/** 蒸汽機：鍋爐（圓筒）、兩個汽缸與活塞桿、飛輪；背面靠牆 */
+const steamEngine: FurnDraw = (c, S, w, h) => {
+  block(c, S, 0, 0, w, h, 0.1, S.tint);
+  block(c, S, w * 0.04, h * 0.08, w * 0.5, h * 0.5, h * 0.2, S.shade);
+  thin(c, S, 0.7, () => {
+    for (const x of [0.16, 0.3, 0.44]) seg(c, w * x, h * 0.08, w * x, h * 0.58);
+  });
+  disc(c, S, w * 0.1, h * 0.33, Math.min(w, h) * 0.06, S.fire);
+  for (const x of [0.6, 0.74]) block(c, S, w * x, h * 0.1, w * 0.1, h * 0.36, 0.04, S.paper);
+  thin(c, S, 1.6, () => {
+    seg(c, w * 0.65, h * 0.46, w * 0.84, h * 0.72);
+    seg(c, w * 0.79, h * 0.46, w * 0.84, h * 0.72);
+  });
+  c.save();
+  lw(c, S, 2.2);
+  ring(c, w * 0.84, h * 0.72, Math.min(w * 0.13, h * 0.24));
+  c.restore();
+  disc(c, S, w * 0.84, h * 0.72, Math.min(w, h) * 0.05, S.ink);
+  thin(c, S, 1.2, () => seg(c, w * 0.06, h * 0.86, w * 0.62, h * 0.86));
+};
+
+/** 絞盤：圓柱的頂面＋放射狀的推桿 */
+const capstan: FurnDraw = (c, S, w, h) => {
+  const R = Math.min(w, h) / 2;
+  thin(c, S, 1.8, () => {
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * TAU + 0.26;
+      seg(c, w / 2, h / 2, w / 2 + Math.cos(a) * R * 0.98, h / 2 + Math.sin(a) * R * 0.98);
+    }
+  });
+  disc(c, S, w / 2, h / 2, R * 0.5, S.wood);
+  thin(c, S, 0.6, () => ring(c, w / 2, h / 2, R * 0.34));
+  disc(c, S, w / 2, h / 2, R * 0.12, S.shade);
+};
+
+/** 一捲纜繩：一圈一圈的繩子（螺旋），繩頭拉出來 */
+const ropeCoil: FurnDraw = (c, S, w, h) => {
+  const R = Math.min(w, h) / 2 - 0.04;
+  disc(c, S, w / 2, h / 2, R, S.wood);
+  c.save();
+  lw(c, S, 0.8);
+  c.beginPath();
+  for (let t = 0; t <= 1; t += 1 / 96) {
+    const a = t * TAU * 4;
+    const r = R * (0.2 + 0.78 * t);
+    const x = w / 2 + Math.cos(a) * r;
+    const y = h / 2 + Math.sin(a) * r;
+    if (t === 0) c.moveTo(x, y);
+    else c.lineTo(x, y);
+  }
+  c.stroke();
+  c.restore();
+};
+
 export const TRANSIT: Record<string, FurnDraw> = {
   rail_track: railTrack,
   sleepers,
@@ -730,4 +831,9 @@ export const TRANSIT: Record<string, FurnDraw> = {
   chart_table: chartTable,
   ship_engine: shipEngine,
   ship_hatch: shipHatch,
+  mast,
+  ship_cannon: shipCannon,
+  steam_engine: steamEngine,
+  capstan,
+  rope_coil: ropeCoil,
 };

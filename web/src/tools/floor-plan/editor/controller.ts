@@ -9,12 +9,17 @@ import { drawFloor, drawItem, drawOpening, lineWidthFor } from '../draw/render';
 import { getTheme, roomFill } from '../draw/themes';
 import { ASSET } from '../model/assets';
 import { CELL_M, ROOM_PRESETS } from '../model/catalog';
+import { partialRingIds } from '../model/circle';
 import { coordGrid, coordLabels } from '../model/coords';
 import { type ExportSettings, wearSheet } from '../model/exportPlan';
 import { resizeWithFollow } from '../model/follow';
 import {
   clamp,
   floorBounds,
+  isRightAngle,
+  itemFootprint,
+  itemHasPoint,
+  itemLocalSize,
   metersText,
   meterText,
   openingRect,
@@ -27,7 +32,16 @@ import {
   unionRect,
   visibleFloor,
 } from '../model/geometry';
-import { type AnyObj, getObj, movable } from '../model/ops';
+import {
+  bendTo,
+  LINE_MIN_LEN,
+  lineBounds,
+  lineDistance,
+  lineLength,
+  lineMid,
+  lineSamples,
+} from '../model/lines';
+import { type AnyObj, getObj, movable, objList } from '../model/ops';
 import {
   cutHandlePoint,
   defaultCut,
@@ -52,6 +66,7 @@ import {
 } from '../model/snap';
 import {
   type Floor,
+  type FreeLine,
   type Item,
   OBJ_TYPES,
   type ObjType,
@@ -61,7 +76,6 @@ import {
   type Room,
   type SelRef,
   type TextLabel,
-  TYPE_KEY,
   type Wall,
 } from '../model/types';
 import { type WallRun, wallLines } from '../model/walls';
@@ -136,6 +150,8 @@ type Drag =
   | { mode: 'marquee'; start: P; add: boolean; base: SelRef[]; rect: Rect | null; moved: boolean }
   | { mode: 'room'; a: P; sx: number; sy: number; rect: Rect | null; moved: boolean }
   | { mode: 'wall'; a: P; b: P | null; moved: boolean }
+  /* 自由線（2026-11-05，F285）：拖曳畫一條線 */
+  | { mode: 'line'; a: P; b: P | null; moved: boolean }
   /* 門窗工具在牆上按下後拖曳：沿著牆決定長度（F223） */
   | {
       mode: 'openlen';
@@ -412,10 +428,13 @@ export class EditorController {
   }
 
   objBounds(type: ObjType, o: AnyObj): Rect {
-    if (type === 'room' || type === 'item') {
+    if (type === 'room') {
       const r = o as Room;
       return { x: r.x, y: r.y, w: r.w, h: r.h };
     }
+    /* 細角度的家具（2026-11-05，F277）：轉過的範圍 */
+    if (type === 'item') return itemFootprint(o as Item);
+    if (type === 'line') return lineBounds(o as FreeLine);
     if (type === 'opening') return openingRect(o as Opening, 0.3);
     if (type === 'wall') {
       const w = o as Wall;
@@ -473,12 +492,19 @@ export class EditorController {
       for (let i = list.length - 1; i >= 0; i--) {
         const it = list[i];
         const pad = Math.min(it.w, it.h) * this.view.zoom < 12 ? tol : 0;
-        if (inRect(it, pad)) return it;
+        /* 細角度的家具（F277）：點在轉過的長方形裡 */
+        if (isRightAngle(it.rot || 0) ? inRect(it, pad) : itemHasPoint(it, wx, wy, pad)) return it;
       }
       return null;
     };
     const onWall = hitItem(f.items.filter((i) => ASSET[i.t]?.wall));
     if (onWall) return { type: 'item', id: onWall.id };
+    /* 自由線（2026-11-05，F285）：畫在牆、門窗、家具的上面，先點到 */
+    const lines = f.lines ?? [];
+    for (let i = lines.length - 1; i >= 0; i--) {
+      const l = lines[i];
+      if (lineDistance(l, wx, wy) <= Math.max(0.25, tol)) return { type: 'line', id: l.id };
+    }
     for (let i = f.openings.length - 1; i >= 0; i--) {
       const o = f.openings[i];
       const along = (o.o === 'h' ? wx : wy) - (o.o === 'h' ? o.x : o.y);
@@ -579,6 +605,18 @@ export class EditorController {
         { id: 'a', x: a.x, y: a.y, cursor: 'move' },
         { id: 'b', x: b.x, y: b.y, cursor: 'move' },
       );
+    } else if (type === 'line') {
+      /* 自由線（F286）：兩端的圓點改位置、正中間的方塊改彎曲 */
+      const l = obj as FreeLine;
+      const a = this.toScreen(l.x1, l.y1);
+      const b = this.toScreen(l.x2, l.y2);
+      const m0 = lineMid(l);
+      const m = this.toScreen(m0.x, m0.y);
+      out.push(
+        { id: 'a', x: a.x, y: a.y, cursor: 'move', round: true },
+        { id: 'b', x: b.x, y: b.y, cursor: 'move', round: true },
+        { id: 'm', x: m.x, y: m.y, cursor: 'move' },
+      );
     }
     return out;
   }
@@ -641,6 +679,8 @@ export class EditorController {
           }
         : undefined,
       coords,
+      /* 夜的暗度（2026-11-05，F273） */
+      ...(p.night ? { night: p.night } : {}),
     });
     /* 紙的污漬與摺痕（F263）：匯出這一層時整張圖的範圍當一張紙（和匯出的圖同一個位置） */
     if (p.wear) {
@@ -654,6 +694,7 @@ export class EditorController {
       drawThemeEffect(c, theme, this.canvas.width, this.canvas.height, dpr);
       c.restore();
     }
+    this.drawUnderlay(c);
     this.drawOverlays(c);
     if (!ed.playerView) {
       c.save();
@@ -667,6 +708,27 @@ export class EditorController {
     }
     if (this.wrap) this.wrap.style.background = theme.bg;
     this.positionMiniBar();
+  }
+
+  /** 下繪圖（2026-11-05，F283）：疊在地圖上面（半透明），只在編輯畫面 */
+  private underlayImg: { src: string; img: HTMLImageElement } | null = null;
+
+  private drawUnderlay(c: CanvasRenderingContext2D): void {
+    const u = useEditor.getState().underlay;
+    if (!u?.visible || !u.src) return;
+    if (this.underlayImg?.src !== u.src) {
+      const img = new Image();
+      img.onload = () => this.requestRender();
+      img.src = u.src;
+      this.underlayImg = { src: u.src, img };
+    }
+    const img = this.underlayImg.img;
+    if (!img.complete || !img.naturalWidth) return;
+    const h = u.w * u.aspect;
+    c.save();
+    c.globalAlpha = clamp(u.opacity, 0.1, 0.9);
+    c.drawImage(img, u.x - u.w / 2, u.y - h / 2, u.w, h);
+    c.restore();
   }
 
   private outline(c: CanvasRenderingContext2D, r: Rect, width: number, dash = false): void {
@@ -704,6 +766,44 @@ export class EditorController {
       c.globalAlpha = 0.55;
       c.lineWidth = Math.max(0.3, (width + 5) * px);
       c.stroke();
+      c.restore();
+      return;
+    }
+    if (type === 'line') {
+      /* 自由線（F286）：沿著曲線描 */
+      const px = 1 / this.view.zoom;
+      const pts = lineSamples(obj as FreeLine);
+      c.save();
+      c.lineCap = 'round';
+      c.lineJoin = 'round';
+      c.beginPath();
+      c.moveTo(pts[0].x, pts[0].y);
+      for (const q of pts.slice(1)) c.lineTo(q.x, q.y);
+      c.strokeStyle = 'rgba(255,255,255,0.9)';
+      c.lineWidth = Math.max(0.36, (width + 8) * px);
+      c.stroke();
+      c.strokeStyle = SEL;
+      c.globalAlpha = 0.55;
+      c.lineWidth = Math.max(0.3, (width + 5) * px);
+      c.stroke();
+      c.restore();
+      return;
+    }
+    if (type === 'item' && !isRightAngle((obj as Item).rot || 0)) {
+      /* 細角度的家具（F277）：照轉過的長方形描 */
+      const it = obj as Item;
+      const px = 1 / this.view.zoom;
+      const loc = itemLocalSize(it);
+      c.save();
+      c.translate(it.x + it.w / 2, it.y + it.h / 2);
+      c.rotate(((it.rot || 0) * Math.PI) / 180);
+      c.lineWidth = (width + 2) * px;
+      c.strokeStyle = 'rgba(255,255,255,0.9)';
+      c.strokeRect(-loc.w / 2, -loc.h / 2, loc.w, loc.h);
+      c.lineWidth = width * px;
+      c.strokeStyle = SEL;
+      if (dash) c.setLineDash([4 * px, 3 * px]);
+      c.strokeRect(-loc.w / 2, -loc.h / 2, loc.w, loc.h);
       c.restore();
       return;
     }
@@ -921,6 +1021,34 @@ export class EditorController {
         sp.x,
         sp.y + 10,
       );
+    }
+    if (d?.mode === 'line' && d.b) {
+      c.save();
+      c.strokeStyle = SEL;
+      c.globalAlpha = 0.8;
+      c.lineCap = 'round';
+      c.lineWidth = 3 * px;
+      c.setLineDash([6 * px, 4 * px]);
+      c.beginPath();
+      c.moveTo(d.a.x, d.a.y);
+      c.lineTo(d.b.x, d.b.y);
+      c.stroke();
+      c.restore();
+      const sp = this.toScreen((d.a.x + d.b.x) / 2, (d.a.y + d.b.y) / 2);
+      this.screenLabel(
+        c,
+        `${meterText(Math.hypot(d.b.x - d.a.x, d.b.y - d.a.y))}m`,
+        sp.x,
+        sp.y + 10,
+      );
+    }
+    if (d?.mode === 'resize' && d.type === 'line') {
+      const l = getObj(f, 'line', d.id) as FreeLine | null;
+      if (l) {
+        const m = lineMid(l);
+        const sp = this.toScreen(m.x, m.y);
+        this.screenLabel(c, `${meterText(lineLength(l))}m`, sp.x, sp.y + 14);
+      }
     }
     if (d?.mode === 'marquee' && d.rect) {
       c.save();
@@ -1221,6 +1349,9 @@ export class EditorController {
       case 'wall':
         this.drag = { mode: 'wall', a: this.wallPoint(w), b: null, moved: false };
         return;
+      case 'line':
+        this.drag = { mode: 'line', a: this.linePoint(w, e.altKey), b: null, moved: false };
+        return;
       case 'door':
       case 'window': {
         const armed = ed.armed;
@@ -1306,6 +1437,11 @@ export class EditorController {
     }
   }
 
+  /** 自由線的點：對齊 0.25 格（Alt 不對齊，0.01 格） */
+  private linePoint(w: P, free: boolean): P {
+    return free ? { x: round2(w.x), y: round2(w.y) } : { x: snap(w.x, 0.25), y: snap(w.y, 0.25) };
+  }
+
   private wallPoint(w: P): P {
     return snapWallPoint(currentFloor(), w.x, w.y, Math.max(0.35, 8 / this.view.zoom));
   }
@@ -1389,7 +1525,7 @@ export class EditorController {
         const f = this.shownFloor();
         const found: SelRef[] = [];
         for (const type of OBJ_TYPES)
-          for (const o of f[TYPE_KEY[type]] as AnyObj[]) {
+          for (const o of objList(f as Floor, type)) {
             if (rectContains(d.rect, this.objBounds(type, o))) found.push({ type, id: o.id });
           }
         const merged = d.add
@@ -1416,6 +1552,10 @@ export class EditorController {
         d.b = e.shiftKey ? b : axisLock(d.a, b);
         break;
       }
+      case 'line':
+        d.moved = true;
+        d.b = this.linePoint(w, e.altKey);
+        break;
       case 'openlen':
         if (!d.moved && Math.hypot(sx - d.sx, sy - d.sy) < OPENLEN_DRAG_PX) return;
         d.moved = true;
@@ -1504,6 +1644,15 @@ export class EditorController {
           ww.x2 = round2(ow.x2 + dx);
           ww.y1 = round2(ow.y1 + dy);
           ww.y2 = round2(ow.y2 + dy);
+        } else if (e.type === 'line') {
+          const ol = e.orig as FreeLine;
+          const ll = o as FreeLine;
+          ll.x1 = round2(ol.x1 + dx);
+          ll.x2 = round2(ol.x2 + dx);
+          ll.cx = round2(ol.cx + dx);
+          ll.cy = round2(ol.cy + dy);
+          ll.y1 = round2(ol.y1 + dy);
+          ll.y2 = round2(ol.y2 + dy);
         } else {
           const oo = e.orig as Room;
           const pp = o as Room;
@@ -1580,6 +1729,28 @@ export class EditorController {
         if (op.o === 'h') op.x = na;
         else op.y = na;
         op.len = round2(nb - na);
+      } else if (d.type === 'line') {
+        /* 自由線（F286）：兩端（a、b）跟著游標、彎曲的程度不變；中間（m）改彎曲 */
+        const ol = d.orig as FreeLine;
+        const ll = o as FreeLine;
+        const pt = this.linePoint(w, e.altKey);
+        if (hd === 'm') {
+          const c0 = bendTo(ol, pt);
+          ll.cx = round2(c0.x);
+          ll.cy = round2(c0.y);
+        } else {
+          const mx = ol.cx - (ol.x1 + ol.x2) / 2;
+          const my = ol.cy - (ol.y1 + ol.y2) / 2;
+          if (hd === 'a') {
+            ll.x1 = pt.x;
+            ll.y1 = pt.y;
+          } else {
+            ll.x2 = pt.x;
+            ll.y2 = pt.y;
+          }
+          ll.cx = round2((ll.x1 + ll.x2) / 2 + mx);
+          ll.cy = round2((ll.y1 + ll.y2) / 2 + my);
+        }
       } else if (d.type === 'wall' && wallPt) {
         const wl = o as Wall;
         const other = hd === 'a' ? { x: wl.x2, y: wl.y2 } : { x: wl.x1, y: wl.y1 };
@@ -1642,6 +1813,23 @@ export class EditorController {
           setEditor({ sel: [{ type: 'wall', id: wall.id }] });
         }
         break;
+      case 'line':
+        if (d.b && Math.hypot(d.b.x - d.a.x, d.b.y - d.a.y) >= LINE_MIN_LEN) {
+          const kind = ed.armed?.kind === 'line' ? ed.armed.type : 'rail';
+          const line: FreeLine = {
+            id: uid('l'),
+            kind,
+            x1: d.a.x,
+            y1: d.a.y,
+            cx: round2((d.a.x + d.b.x) / 2),
+            cy: round2((d.a.y + d.b.y) / 2),
+            x2: d.b.x,
+            y2: d.b.y,
+          };
+          act.addObject('line', line);
+          setEditor({ sel: [{ type: 'line', id: line.id }] });
+        }
+        break;
       case 'marquee':
         break;
       case 'openlen':
@@ -1656,7 +1844,13 @@ export class EditorController {
             const hit = this.hitTest(w.x, w.y);
             if (hit) setEditor({ sel: [hit] });
           }
-        } else this.endEdit();
+        } else {
+          /* 圓形配置（F279）：單獨移動的那幾件離開一圈（同一個手勢） */
+          const moved = new Set(d.entries.filter((x) => x.type === 'item').map((x) => x.id));
+          if (moved.size && partialRingIds(currentFloor(), moved).length)
+            useProject.getState().update((p) => act.detachMovedRings(p.floors[p.active], moved));
+          this.endEdit();
+        }
         break;
       case 'resize':
         this.endEdit();

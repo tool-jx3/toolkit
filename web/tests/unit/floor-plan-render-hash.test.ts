@@ -8,10 +8,14 @@
  * 基準檔 `fixtures/floor-plan-render-hashes.json` 是 2026-11-05 跟進 KIIN v2.0 **之前**的程式（`05ed1f9`）產生的。
  * 要刻意改變畫法時，用 `UPDATE_GOLDEN=1 npx vitest run tests/unit/floor-plan-render-hash.test.ts` 重新產生並在規格寫明。
  */
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, describe, expect, it } from 'vitest';
 import { renderImage } from '@/tools/floor-plan/draw/export';
 import { THEME_IDS } from '@/tools/floor-plan/model/catalog';
-import { type ExportSettings, exportFloors, exportOptions } from '@/tools/floor-plan/model/exportPlan';
+import {
+  type ExportSettings,
+  exportFloors,
+  exportOptions,
+} from '@/tools/floor-plan/model/exportPlan';
 import { groundFloorIndex } from '@/tools/floor-plan/model/ops';
 import type { Project, ThemeId } from '@/tools/floor-plan/model/types';
 import { instantiateTemplate, TEMPLATES } from '@/tools/floor-plan/templates';
@@ -52,7 +56,10 @@ function project(id: string, clues = false, patch: Partial<Project> = {}): Proje
 }
 
 function hashOf(p: Project, exp: ExportSettings, theme: ThemeId): string {
-  const c = renderImage(exportFloors(p, exp.range), exportOptions(p, exp, theme, exp.px)) as unknown as RecordingCanvas;
+  const c = renderImage(
+    exportFloors(p, exp.range),
+    exportOptions(p, exp, theme, exp.px),
+  ) as unknown as RecordingCanvas;
   return `${c.width}x${c.height}:${c.hash}`;
 }
 
@@ -97,11 +104,6 @@ function cases(id: string): [string, () => string][] {
 }
 
 describe('沒有用到新功能時匯出的圖和改版前相同（D79、D84）', async () => {
-  let restore: () => void = () => {};
-  beforeAll(() => {
-    restore = installRecordingDocument();
-  });
-  afterAll(() => restore());
   const fs = await dyn<NodeFs>('node:fs');
   const update = !!env?.UPDATE_GOLDEN || !fs.existsSync(GOLDEN);
   const golden: Record<string, string> = update
@@ -125,8 +127,7 @@ describe('沒有用到新功能時匯出的圖和改版前相同（D79、D84）'
       }
     });
 
-  if (update)
-    afterAll(() => {
-      fs.writeFileSync(GOLDEN, `${JSON.stringify(golden, null, 1)}\n`);
-    });
+  afterAll(() => {
+    if (update) fs.writeFileSync(GOLDEN, `${JSON.stringify(golden, null, 2)}\n`);
+  });
 });

@@ -24,7 +24,9 @@ export class Hasher {
     this.b = b;
   }
   hex(): string {
-    return (this.a >>> 0).toString(16).padStart(8, '0') + (this.b >>> 0).toString(16).padStart(8, '0');
+    return (
+      (this.a >>> 0).toString(16).padStart(8, '0') + (this.b >>> 0).toString(16).padStart(8, '0')
+    );
   }
 }
 
@@ -175,10 +177,18 @@ export function recordingCanvas(width = 300, height = 150): RecordingCanvas {
       if (prop in methods) return methods[prop];
       if (prop in state) return state[prop];
       /* 沒列的方法（moveTo、arc、fill…）：照名稱與參數記錄 */
-      if (/^(globalAlpha|lineWidth|miterLimit|lineDashOffset|shadowBlur|shadowOffsetX|shadowOffsetY)$/.test(prop))
+      if (
+        /^(globalAlpha|lineWidth|miterLimit|lineDashOffset|shadowBlur|shadowOffsetX|shadowOffsetY)$/.test(
+          prop,
+        )
+      )
         return prop === 'globalAlpha' || prop === 'lineWidth' ? 1 : 0;
       if (/^(fillStyle|strokeStyle|shadowColor)$/.test(prop)) return '#000000';
-      if (/^(lineCap|lineJoin|textAlign|textBaseline|globalCompositeOperation|direction|filter|imageSmoothingQuality|fontKerning)$/.test(prop))
+      if (
+        /^(lineCap|lineJoin|textAlign|textBaseline|globalCompositeOperation|direction|filter|imageSmoothingQuality|fontKerning)$/.test(
+          prop,
+        )
+      )
         return '';
       if (prop === 'imageSmoothingEnabled') return true;
       return (...a: unknown[]) => {
