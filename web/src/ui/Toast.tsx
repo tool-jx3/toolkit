@@ -13,6 +13,8 @@
  * 用鍵盤關、而且還有別的通知時照 Radix 的做法留在通知區，可以繼續用 Tab 走到下一則。
  *
  * `toast()` 傳回一個關閉函式（height-board 修正時新增；不用它時行為不變）：呼叫就關掉那一則（已經關了就沒事）。
+ *
+ * 卸下：關掉的通知 300ms 後才從清單拿掉，這些計時器在 ToastProvider 卸下時一起清掉（見 close）。
  */
 import { CheckCircle2, Info, TriangleAlert, X, XCircle } from 'lucide-react';
 import { Toast as T } from 'radix-ui';
@@ -108,11 +110,27 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     }
     (active as HTMLElement).blur?.();
   }, []);
+  /**
+   * 關掉的通知等收起的動畫跑完（300ms）才從清單拿掉。卸下時一起清掉這些計時器，不在卸下之後更新狀態
+   * （main 的 CI 失敗時修正：測試檔跑完、jsdom 拆掉之後計時器才到，React 讀 window.event 就丟出錯誤）。
+   */
+  const removeTimers = useRef(new Set<ReturnType<typeof setTimeout>>());
+  useEffect(() => {
+    const timers = removeTimers.current;
+    return () => {
+      for (const t of timers) clearTimeout(t);
+      timers.clear();
+    };
+  }, []);
   const close = useCallback(
     (id: number) => {
       releaseFocus(id);
       setItems((list) => list.map((x) => (x.id === id ? { ...x, open: false } : x)));
-      setTimeout(() => setItems((list) => list.filter((x) => x.id !== id)), 300);
+      const t = setTimeout(() => {
+        removeTimers.current.delete(t);
+        setItems((list) => list.filter((x) => x.id !== id));
+      }, 300);
+      removeTimers.current.add(t);
     },
     [releaseFocus],
   );
