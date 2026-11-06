@@ -3,7 +3,7 @@
  * 遭遇與快速怪物可以一鍵送到先攻與戰鬥追蹤（`@/core/combat`）。規格：docs/refactor/specs/5e-calc.md。
  */
 import { Info, Redo2, Undo2 } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { downloadText } from '@/core/files';
 import { resetToolStore, serializeProject, useSaveStatus, useUndoRedo } from '@/core/storage';
 import {
@@ -20,7 +20,7 @@ import {
 } from '@/ui';
 import { AboutDialog } from './AboutDialog';
 import { EncounterTab } from './EncounterTab';
-import { MonsterTab, readCrFromUrl } from './MonsterTab';
+import { MonsterTab } from './MonsterTab';
 import { type CalcData, DATA_VERSION, sanitizeData, type Tab, TOOL_ID } from './model';
 import { PointBuyTab } from './PointBuyTab';
 import { useCalc, usePrefs } from './store';
@@ -69,28 +69,11 @@ function saveProjectNow() {
   }
 }
 
-/* 網址帶 ?cr= 時（原作的做法）：打開快速怪物數值的那一級（不列入復原） */
-let urlRead = false;
-function applyUrlCr() {
-  if (urlRead) return;
-  urlRead = true;
-  const cr = readCrFromUrl();
-  if (!cr) return;
-  const t = useCalc.temporal.getState();
-  t.pause();
-  useCalc.getState().update((d) => {
-    d.quick.cr = cr;
-  });
-  t.resume();
-  usePrefs.getState().patch({ tab: 'monster' });
-}
-
 export function App() {
   const tab = usePrefs((p) => p.data.tab);
   const savedAt = useSaveStatus(TOOL_ID);
   const { undo, redo, canUndo, canRedo } = useUndoRedo(useCalc);
   const [about, setAbout] = useState(false);
-  useEffect(applyUrlCr, []);
 
   const shortcuts = useMemo<Shortcut[]>(
     () => [

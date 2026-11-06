@@ -85,30 +85,59 @@ describe('同名多隻的字尾', () => {
       'AZ',
       'BA',
     ]);
-    expect(baseName('哥布林 C')).toBe('哥布林');
-    expect(baseName('哥布林')).toBe('哥布林');
+    expect(baseName('地精 C')).toBe('地精');
+    expect(baseName('地精')).toBe('地精');
     expect(baseName('Goblin AB')).toBe('Goblin');
     expect(baseName('A')).toBe('A');
   });
 
   it('原作的規則：一隻且沒有同名時不加；多隻或已有同名時接著編', () => {
-    expect(namesFor([], '哥布林', 1)).toEqual(['哥布林']);
-    expect(namesFor([], '哥布林', 3)).toEqual(['哥布林 A', '哥布林 B', '哥布林 C']);
-    expect(namesFor([{ name: '哥布林' }], '哥布林', 1)).toEqual(['哥布林 B']);
-    expect(namesFor([{ name: '哥布林 A' }, { name: '哥布林 B' }], '哥布林', 2)).toEqual([
-      '哥布林 C',
-      '哥布林 D',
+    expect(namesFor([], '地精', 1)).toEqual(['地精']);
+    expect(namesFor([], '地精', 3)).toEqual(['地精 A', '地精 B', '地精 C']);
+    expect(namesFor([{ name: '地精' }], '地精', 1)).toEqual(['地精 B']);
+    expect(namesFor([{ name: '地精 A' }, { name: '地精 B' }], '地精', 2)).toEqual([
+      '地精 C',
+      '地精 D',
     ]);
     /* 刪掉中間的也不會重複（原作會再用一次 C） */
-    expect(namesFor([{ name: '哥布林 A' }, { name: '哥布林 C' }], '哥布林', 1)).toEqual([
-      '哥布林 D',
-    ]);
+    expect(namesFor([{ name: '地精 A' }, { name: '地精 C' }], '地精', 1)).toEqual(['地精 D']);
     /* 開頭一樣但不同名的不算（原作用 startsWith） */
-    expect(namesFor([{ name: '哥布林王' }], '哥布林', 1)).toEqual(['哥布林']);
+    expect(namesFor([{ name: '地精王' }], '地精', 1)).toEqual(['地精']);
   });
 });
 
 describe('加入與排序', () => {
+  it('已經有一隻沒有字尾的同名者時，再加同名的：原本的補成 A、新的從 B 開始（D12）；已經有 A 時不改', () => {
+    const d = make((x) => {
+      x.settings.initDie = 'none';
+      add(x, '龍', 20);
+      add(x, '龍', 18);
+    });
+    expect(names(d)).toEqual(['龍 A', '龍 B']);
+    const many = make((x) => {
+      x.settings.initDie = 'none';
+      add(x, '龍', 20);
+      add(x, '龍', 18, { qty: 2 });
+      add(x, '狼', 5);
+    });
+    expect(names(many)).toEqual(['龍 A', '龍 B', '龍 C', '狼']);
+    /* 「龍」與「龍 A」都在（使用者自己改名的）：不改「龍」，新的接著編 */
+    const both = make((x) => {
+      x.settings.initDie = 'none';
+      add(x, '龍', 20);
+      add(x, '龍 A', 19);
+      add(x, '龍', 18);
+    });
+    expect(names(both)).toEqual(['龍', '龍 A', '龍 B']);
+    /* 送來的參戰者也一樣 */
+    const seeds = make((x) => {
+      x.settings.initDie = 'none';
+      add(x, '食人魔', 10);
+      addSeeds(x, [{ name: '食人魔', init: 9 }]);
+    });
+    expect(names(seeds)).toEqual(['食人魔 A', '食人魔 B']);
+  });
+
   it('依先攻由高到低、同分保持加入順序、沒有先攻值的排最後', () => {
     const d = make((x) => {
       x.settings.initDie = 'none';
@@ -237,7 +266,7 @@ describe('加入與排序', () => {
     ]);
   });
 
-  it('複製一份：加字尾、HP 回到上限、狀態清空', () => {
+  it('複製一份：加字尾（原本沒有字尾的補成 A）、HP 回到上限、狀態清空', () => {
     const d = make((x) => {
       x.settings.initDie = 'none';
       add(x, '食人魔', 8, { maxHp: 59 });
@@ -246,7 +275,7 @@ describe('加入與排序', () => {
       duplicateCombatant(x, x.list[0].id);
     });
     expect(d.list.map((c) => [c.name, c.hp, c.conds.length])).toEqual([
-      ['食人魔', 39, 1],
+      ['食人魔 A', 39, 1],
       ['食人魔 B', 59, 0],
     ]);
   });
@@ -508,7 +537,7 @@ describe('文字、玩家視圖、存讀', () => {
     make((x) => {
       x.settings.initDie = 'none';
       add(x, '艾琳', 17, { side: 'pc', maxHp: 24 });
-      add(x, '哥布林', 12, { qty: 2, maxHp: 7, ac: 15 });
+      add(x, '地精', 12, { qty: 2, maxHp: 7, ac: 15 });
       add(x, '伏兵', 5, { maxHp: 30 });
       x.list[3].hidden = true;
       x.list[1].hp = 0;
@@ -521,7 +550,7 @@ describe('文字、玩家視圖、存讀', () => {
 
   it('複製的文字：先攻、名字、倒下、目前的標記；隱藏的不列', () => {
     expect(orderText(party())).toBe(
-      ['**先攻順序**（第 1 輪）', '- 17：艾琳', '- 12：哥布林 A（倒下）', '- 12：哥布林 B ◀'].join(
+      ['**先攻順序**（第 1 輪）', '- 17：艾琳', '- 12：地精 A（倒下）', '- 12：地精 B ◀'].join(
         '\n',
       ),
     );
@@ -531,12 +560,12 @@ describe('文字、玩家視圖、存讀', () => {
     const d = party();
     const snap = playerSnapshot(d);
     expect(snap.round).toBe(1);
-    expect(snap.rows.map((r) => r.name)).toEqual(['艾琳', '哥布林 A', '哥布林 B']);
+    expect(snap.rows.map((r) => r.name)).toEqual(['艾琳', '地精 A', '地精 B']);
     expect(snap.rows[0].hp).toEqual({ kind: 'exact', hp: 24, max: 24, temp: 3 });
     expect(snap.rows[1]).toMatchObject({ status: 'down', hp: { kind: 'rough', level: 'down' } });
     expect(snap.rows[2]).toMatchObject({
       current: true,
-      /* 輪到哥布林 B（跳過倒下的 A）時持續回合減 1 */
+      /* 輪到地精 B（跳過倒下的 A）時持續回合減 1 */
       conds: [
         { label: '倒地', rounds: 1 },
         { label: '標記', rounds: null },
@@ -605,7 +634,7 @@ describe('文字、玩家視圖、存讀', () => {
     ]);
     const d = party();
     appendCombatants(d, list);
-    expect(names(d)).toEqual(['Wolf', '艾琳', 'Goblin A', '哥布林 A', '哥布林 B', '伏兵']);
+    expect(names(d)).toEqual(['Wolf', '艾琳', 'Goblin A', '地精 A', '地精 B', '伏兵']);
     expect(() => parseOriginalJson('{')).toThrow(OriginalJsonError);
     expect(() => parseOriginalJson('{"x":1}')).toThrow('combatants');
     expect(() =>
@@ -625,7 +654,7 @@ describe('文字、玩家視圖、存讀', () => {
       originalMonsterName: '艾琳',
       monsterSource: null,
     });
-    expect(out.combatants[2].originalMonsterName).toBe('哥布林');
+    expect(out.combatants[2].originalMonsterName).toBe('地精');
     /* 原作讀得進去：每一位都有 name、數字的 initiative、id */
     expect(parseOriginalJson(originalJson(party(), now))).toHaveLength(4);
     expect(originalJsonName(now)).toBe('combat_2026-11-06T04-05-06.json');

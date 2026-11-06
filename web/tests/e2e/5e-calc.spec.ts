@@ -233,6 +233,38 @@ test.describe('1280 寬', () => {
     expect(errors).toEqual([]);
   });
 
+  test('?cr=：用過這個工具（有存檔）之後再開別的 CR，網址的值優先（F22）；看不懂的不理', async ({
+    page,
+  }) => {
+    const errors = await open(page, `${URL}?cr=1/2`);
+    await expect(page.getByTestId('stat-hp')).toHaveText('22');
+    await page.waitForFunction(
+      (key) => JSON.parse(localStorage.getItem(key) ?? '{}')?.state?.data?.quick?.cr === '1/2',
+      KEY,
+    );
+    await page.goto(`${URL}?cr=3`);
+    await expect(tab(page, '快速怪物數值')).toHaveAttribute('aria-selected', 'true');
+    await expect(page.getByTestId('stat-hp')).toHaveText('65');
+    expect(new globalThis.URL(page.url()).searchParams.get('cr')).toBe('3');
+    await page.waitForFunction(
+      (key) => JSON.parse(localStorage.getItem(key) ?? '{}')?.state?.data?.quick?.cr === '3',
+      KEY,
+    );
+    /* 0.5 → 1/2（網址改成正規的寫法） */
+    await page.goto(`${URL}?cr=0.5`);
+    await expect(page.getByTestId('stat-hp')).toHaveText('22');
+    expect(new globalThis.URL(page.url()).searchParams.get('cr')).toBe('1/2');
+    /* 看不懂的：照存檔 */
+    await page.goto(`${URL}?cr=abc`);
+    await expect(page.getByTestId('stat-hp')).toHaveText('22');
+    /* 沒有 ?cr= 時照存檔與上次的分頁；不能用復原改回去（不列入復原） */
+    await page.goto(URL);
+    await expect(tab(page, '快速怪物數值')).toHaveAttribute('aria-selected', 'true');
+    await expect(page.getByTestId('stat-hp')).toHaveText('22');
+    await expect(page.getByRole('button', { name: /^復原/ })).toBeDisabled();
+    expect(errors).toEqual([]);
+  });
+
   test('點數購買：＋／－ 的限制、直接打的值、標準數組、背景與種族的加值、複製', async ({
     page,
     context,

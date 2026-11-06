@@ -1,11 +1,12 @@
 /**
  * 快速怪物數值：選挑戰等級 → AC／DC、HP（範圍）、熟練加值、每輪傷害、攻擊次數與每次傷害、範例怪物、經驗值；
- * 一行的數值卡（複製）、加進戰鬥追蹤（名字、數量）、全部挑戰等級的表、怪物的特色、狀態一覽。網址的 ?cr= 同步。
+ * 一行的數值卡（複製）、加進戰鬥追蹤（名字、數量）、全部挑戰等級的表、怪物的特色、狀態一覽。換 CR 時寫回網址的 ?cr=
+ * （開頁時讀網址在 main.tsx，store 的 applyCrFromUrl）。
  */
 import { ChevronLeft, ChevronRight, ClipboardCopy, Swords } from 'lucide-react';
 import { useEffect } from 'react';
 import { copyText } from '@/core/files';
-import { CR_VALUES, type Cr, crIndex, parseCr } from '@/core/srd5/cr';
+import { CR_VALUES, type Cr, crIndex } from '@/core/srd5/cr';
 import {
   diceText,
   MONSTER_FEATURES,
@@ -32,29 +33,9 @@ import { LIMITS, monsterSeeds } from './model';
 import { sendSeeds } from './send';
 import { calc, edit, step, useCalc } from './store';
 import { S } from './strings';
+import { writeCrToUrl } from './url';
 
 const CR_OPTIONS = CR_VALUES.map((v) => ({ value: v, label: `CR ${v}` }));
-
-/** 開頁時讀網址的 ?cr=（原作的做法）；之後換 CR 時改網址（不留歷史紀錄） */
-export function readCrFromUrl(): Cr | null {
-  try {
-    const v = new URLSearchParams(location.search).get('cr');
-    return v ? parseCr(v) : null;
-  } catch {
-    return null;
-  }
-}
-
-function writeCrToUrl(cr: Cr) {
-  try {
-    const url = new URL(location.href);
-    if (url.searchParams.get('cr') === cr) return;
-    url.searchParams.set('cr', cr);
-    history.replaceState(history.state, '', `${url.pathname}${url.search}${url.hash}`);
-  } catch {
-    /* 改不了網址就算了 */
-  }
-}
 
 function Stat({
   label,

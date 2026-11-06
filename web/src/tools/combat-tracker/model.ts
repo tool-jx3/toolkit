@@ -188,6 +188,21 @@ export function namesFor(
   return Array.from({ length: qty }, (_, i) => `${name} ${suffixLetters(max + 1 + i)}`);
 }
 
+/**
+ * 加了同名的（字尾從 B 開始）時，清單裡沒有字尾的那一位補成「 A」（本站加的，原作沒有；規格 D12）：
+ * 「龍」在清單裡時再加一隻「龍」→ 原本的變「龍 A」、新的是「龍 B」。清單裡已經有「龍 A」時不改（不會重複）。
+ */
+export function letterPlainName(
+  list: Pick<Combatant, 'name'>[],
+  name: string,
+  added: readonly string[],
+): void {
+  if (!added.length || added[0] === name) return;
+  if (list.some((c) => c.name === `${name} A`)) return;
+  const plain = list.find((c) => c.name === name);
+  if (plain) plain.name = `${name} A`;
+}
+
 /* ---------- 擲骰 ---------- */
 
 export function rollDie(die: InitDie, rng: Rng = Math.random): number {
@@ -362,6 +377,7 @@ export function addCombatants(d: CombatData, input: AddInput, rng: Rng = Math.ra
   const shared =
     input.init === null && die !== 'none' && d.settings.groupRoll ? rollInit(die, mod, rng) : null;
   const names = namesFor(d.list, name, qty);
+  letterPlainName(d.list, name, names);
   const ids: string[] = [];
   const maxHp = input.maxHp === null ? null : clampInt(input.maxHp, LIMITS.hp);
   for (const n of names) {
@@ -435,8 +451,10 @@ export function removeCombatants(d: CombatData, ids: readonly string[]): void {
 export function duplicateCombatant(d: CombatData, id: string): string | null {
   const src = d.list.find((c) => c.id === id);
   if (!src || d.list.length >= LIMITS.list) return null;
-  /* 清單裡一定有同名的（自己），所以一定加字尾 */
-  const [name] = namesFor(d.list, baseName(src.name), 1);
+  /* 清單裡一定有同名的（自己），所以一定加字尾；自己沒有字尾時補成 A */
+  const base = baseName(src.name);
+  const [name] = namesFor(d.list, base, 1);
+  letterPlainName(d.list, base, [name]);
   const c: Combatant = {
     /* Immer 的 draft 不能 structuredClone：走 JSON */
     ...(JSON.parse(JSON.stringify(src)) as Combatant),

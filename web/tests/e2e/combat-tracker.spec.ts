@@ -66,10 +66,10 @@ async function add(page: Page, name: string, o: AddOpts = {}) {
   await btn(page, '加入').click();
 }
 
-/** 艾琳（玩家角色 17、24 HP、AC 16）＋哥布林 ×3（加值 +2 → 13、7 HP、AC 15） */
+/** 艾琳（玩家角色 17、24 HP、AC 16）＋地精 ×3（加值 +2 → 13、7 HP、AC 15） */
 async function seedParty(page: Page) {
   await add(page, '艾琳', { side: '玩家角色', init: 17, hp: 24, ac: 16 });
-  await add(page, '哥布林', { side: '敵方', mod: 2, hp: 7, ac: 15, qty: 3 });
+  await add(page, '地精', { side: '敵方', mod: 2, hp: 7, ac: 15, qty: 3 });
   await expect(page.locator('[data-testid="combatant"]')).toHaveCount(4);
 }
 
@@ -148,6 +148,10 @@ test.describe('1280 寬', () => {
     await page.getByLabel('狼 C的先攻').fill('20');
     await page.getByLabel('狼 C的先攻').press('Enter');
     expect(await names(page)).toEqual(['狼 C', '艾琳', '狼 A', '狼 B']);
+    /* 已經有一隻沒有字尾的「龍」時再加同名的：原本的補成「龍 A」、新的是「龍 B」（D12） */
+    await add(page, '龍', { init: 1 });
+    await add(page, '龍', { init: 0 });
+    expect((await names(page)).slice(-2)).toEqual(['龍 A', '龍 B']);
     /* 沒填名字時提示 */
     await btn(page, '加入').click();
     await expect(page.getByText('請填名字')).toBeVisible();
@@ -157,26 +161,26 @@ test.describe('1280 寬', () => {
   test('回合：下一位（N）、繞回時輪數 +1、跳過倒下的敵方、上一位（Shift＋N）', async ({ page }) => {
     const errors = await open(page);
     await seedParty(page);
-    expect(await names(page)).toEqual(['艾琳', '哥布林 A', '哥布林 B', '哥布林 C']);
+    expect(await names(page)).toEqual(['艾琳', '地精 A', '地精 B', '地精 C']);
     await expect(row(page, '艾琳')).toHaveAttribute('data-current', 'true');
     await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
     await page.keyboard.press('n');
-    await expect(row(page, '哥布林 A')).toHaveAttribute('data-current', 'true');
-    await expect(page.getByTestId('current')).toContainText('哥布林 A');
-    /* 哥布林 B 打倒：輪到時跳過 */
-    await hp(page, '哥布林 B').fill('-7');
-    await hp(page, '哥布林 B').press('Enter');
-    await expect(row(page, '哥布林 B')).toHaveAttribute('data-status', 'down');
-    await expect(row(page, '哥布林 B').getByTestId('status')).toHaveText('倒下');
+    await expect(row(page, '地精 A')).toHaveAttribute('data-current', 'true');
+    await expect(page.getByTestId('current')).toContainText('地精 A');
+    /* 地精 B 打倒：輪到時跳過 */
+    await hp(page, '地精 B').fill('-7');
+    await hp(page, '地精 B').press('Enter');
+    await expect(row(page, '地精 B')).toHaveAttribute('data-status', 'down');
+    await expect(row(page, '地精 B').getByTestId('status')).toHaveText('倒下');
     await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
     await page.keyboard.press('n');
-    await expect(row(page, '哥布林 C')).toHaveAttribute('data-current', 'true');
+    await expect(row(page, '地精 C')).toHaveAttribute('data-current', 'true');
     await page.keyboard.press('n');
     await expect(row(page, '艾琳')).toHaveAttribute('data-current', 'true');
     await expect(page.getByTestId('round')).toHaveText('第 2 輪');
     await expect(page.getByText('第 2 輪', { exact: true }).last()).toBeVisible();
     await page.keyboard.press('Shift+N');
-    await expect(row(page, '哥布林 C')).toHaveAttribute('data-current', 'true');
+    await expect(row(page, '地精 C')).toHaveAttribute('data-current', 'true');
     await expect(page.getByTestId('round')).toHaveText('第 1 輪');
     /* 按鈕也可以 */
     await btn(page, '下一位').click();
@@ -205,10 +209,10 @@ test.describe('1280 寬', () => {
     await hp(page, '艾琳').press('Enter');
     await expect(hp(page, '艾琳')).toHaveValue('23');
 
-    /* 臨時 HP：勾選兩隻哥布林＋艾琳 → 給 5 → 傷害 7 */
+    /* 臨時 HP：勾選兩隻地精＋艾琳 → 給 5 → 傷害 7 */
     const panel = page.getByTestId('hp-panel');
     await page.getByRole('checkbox', { name: '勾選「艾琳」' }).click();
-    await page.getByRole('checkbox', { name: '勾選「哥布林 A」' }).click();
+    await page.getByRole('checkbox', { name: '勾選「地精 A」' }).click();
     await expect(panel).toContainText('套用到勾選的 2 位');
     await panel.getByRole('spinbutton').fill('5');
     await btn(panel, '給臨時 HP').click();
@@ -217,7 +221,7 @@ test.describe('1280 寬', () => {
     await btn(panel, '傷害').click();
     await expect(page.getByLabel('艾琳的臨時 HP')).toHaveValue('0');
     await expect(hp(page, '艾琳')).toHaveValue('21');
-    await expect(hp(page, '哥布林 A')).toHaveValue('5');
+    await expect(hp(page, '地精 A')).toHaveValue('5');
     await btn(panel, '取消勾選').click();
     await expect(panel).toContainText('套用到目前輪到的「艾琳」');
 
@@ -273,7 +277,7 @@ test.describe('1280 寬', () => {
   }) => {
     const errors = await open(page);
     await seedParty(page);
-    await page.getByRole('button', { name: '幫「哥布林 B」加狀態' }).click();
+    await page.getByRole('button', { name: '幫「地精 B」加狀態' }).click();
     const dlg = page.getByTestId('cond-dialog');
     await expect(dlg.getByRole('button', { name: /（/ })).toHaveCount(16);
     await dlg.getByRole('button', { name: '倒地（Prone）' }).click();
@@ -281,26 +285,26 @@ test.describe('1280 寬', () => {
     await page.getByRole('dialog').getByRole('radio', { name: '幾輪' }).click();
     await page.getByRole('dialog').getByRole('spinbutton', { name: '幾輪' }).fill('2');
     await page.getByRole('dialog').getByRole('button', { name: '加上', exact: true }).click();
-    const chip = row(page, '哥布林 B').locator('[data-cond="prone"]');
+    const chip = row(page, '地精 B').locator('[data-cond="prone"]');
     await expect(chip).toContainText('倒地2 輪');
     /* 自訂狀態 */
-    await page.getByRole('button', { name: '幫「哥布林 B」加狀態' }).click();
+    await page.getByRole('button', { name: '幫「地精 B」加狀態' }).click();
     await page.getByRole('dialog').getByLabel('自訂狀態').fill('被標記');
     await page.getByRole('dialog').getByLabel('自訂狀態').press('Enter');
-    await expect(row(page, '哥布林 B').locator('[data-cond="被標記"]')).toBeVisible();
-    /* 輪到哥布林 B 兩次 → 倒地拿掉 */
+    await expect(row(page, '地精 B').locator('[data-cond="被標記"]')).toBeVisible();
+    /* 輪到地精 B 兩次 → 倒地拿掉 */
     await btn(page, '下一位').click();
     await btn(page, '下一位').click();
     await expect(chip).toContainText('倒地1 輪');
     for (let i = 0; i < 4; i++) await btn(page, '下一位').click();
     await expect(chip).toHaveCount(0);
-    await expect(page.getByText('哥布林 B的「倒地」結束了').first()).toBeVisible();
+    await expect(page.getByText('地精 B的「倒地」結束了').first()).toBeVisible();
     /* 編輯：力竭 3 → 改成 4、拿掉 */
-    await page.getByRole('button', { name: '幫「哥布林 A」加狀態' }).click();
+    await page.getByRole('button', { name: '幫「地精 A」加狀態' }).click();
     await page.getByRole('dialog').getByRole('button', { name: '力竭（Exhaustion）' }).click();
     await page.getByRole('dialog').getByLabel('力竭等級').fill('3');
     await page.getByRole('dialog').getByRole('button', { name: '加上', exact: true }).click();
-    const ex = row(page, '哥布林 A').locator('[data-cond="exhaustion"]');
+    const ex = row(page, '地精 A').locator('[data-cond="exhaustion"]');
     await expect(ex).toContainText('力竭 3');
     await ex.getByRole('button').first().click();
     await page.getByRole('dialog').getByLabel('力竭等級').fill('4');
@@ -310,7 +314,7 @@ test.describe('1280 寬', () => {
     await expect(ex).toHaveCount(0);
     /* 關掉 5e 的狀態：只剩自訂 */
     await page.getByRole('switch', { name: '5e 的狀態（SRD 5.2.1）' }).click();
-    await page.getByRole('button', { name: '幫「哥布林 A」加狀態' }).click();
+    await page.getByRole('button', { name: '幫「地精 A」加狀態' }).click();
     await expect(
       page.getByRole('dialog').getByRole('button', { name: '倒地（Prone）' }),
     ).toHaveCount(0);
@@ -323,31 +327,31 @@ test.describe('1280 寬', () => {
     const errors = await open(page);
     await seedParty(page);
     await btn(page, '鎖定順序').click();
-    await page.getByLabel('哥布林 C的先攻').fill('25');
-    await page.getByLabel('哥布林 C的先攻').press('Enter');
-    expect(await names(page)).toEqual(['艾琳', '哥布林 A', '哥布林 B', '哥布林 C']);
+    await page.getByLabel('地精 C的先攻').fill('25');
+    await page.getByLabel('地精 C的先攻').press('Enter');
+    expect(await names(page)).toEqual(['艾琳', '地精 A', '地精 B', '地精 C']);
     await expect(btn(page, '依先攻排序')).toBeDisabled();
     await btn(page, '鎖定順序').click();
     await btn(page, '依先攻排序').click();
-    expect(await names(page)).toEqual(['哥布林 C', '艾琳', '哥布林 A', '哥布林 B']);
+    expect(await names(page)).toEqual(['地精 C', '艾琳', '地精 A', '地精 B']);
     /* 隱藏（伏兵）、改陣營 */
-    await page.getByRole('button', { name: '「哥布林 C」的更多操作' }).click();
+    await page.getByRole('button', { name: '「地精 C」的更多操作' }).click();
     await page.getByRole('menuitem', { name: '在玩家視圖隱藏（伏兵）' }).click();
-    await expect(row(page, '哥布林 C')).toContainText('隱藏中');
-    await page.getByRole('button', { name: '「哥布林 A」的更多操作' }).click();
+    await expect(row(page, '地精 C')).toContainText('隱藏中');
+    await page.getByRole('button', { name: '「地精 A」的更多操作' }).click();
     await page.getByRole('menuitem', { name: '陣營：友方' }).click();
-    await expect(row(page, '哥布林 A')).toContainText('友方');
+    await expect(row(page, '地精 A')).toContainText('友方');
     /* 複製文字：隱藏的不列 */
     await btn(page, '複製文字').click();
     await expect(page.getByText('已複製先攻順序').first()).toBeVisible();
     expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
-      ['**先攻順序**（第 1 輪）', '- 17：艾琳', '- 13：哥布林 A', '- 13：哥布林 B'].join('\n'),
+      ['**先攻順序**（第 1 輪）', '- 17：艾琳', '- 13：地精 A', '- 13：地精 B'].join('\n'),
     );
     /* 刪除（確認後；可以復原） */
-    await page.getByRole('button', { name: '「哥布林 B」的更多操作' }).click();
+    await page.getByRole('button', { name: '「地精 B」的更多操作' }).click();
     await page.getByTestId('row-remove').click();
     await page.getByRole('alertdialog').getByRole('button', { name: '刪除' }).click();
-    await expect(row(page, '哥布林 B')).toHaveCount(0);
+    await expect(row(page, '地精 B')).toHaveCount(0);
     /* 新的戰鬥：只留玩家角色 */
     await btn(page, '下一位').click();
     await btn(page, '新的戰鬥').click();
@@ -355,7 +359,7 @@ test.describe('1280 寬', () => {
     expect(await names(page)).toEqual(['艾琳']);
     await expect(row(page, '艾琳')).toHaveAttribute('data-current', 'true');
     await page.keyboard.press('Control+z');
-    expect(await names(page)).toEqual(['哥布林 C', '艾琳', '哥布林 A']);
+    expect(await names(page)).toEqual(['地精 C', '艾琳', '地精 A']);
     expect(errors).toEqual([]);
   });
 
@@ -365,13 +369,10 @@ test.describe('1280 寬', () => {
     const errors = await open(page);
     await seedParty(page);
     await btn(page, '下一位').click();
-    await page.waitForFunction(
-      (key) => (localStorage.getItem(key) ?? '').includes('哥布林 C'),
-      KEY,
-    );
+    await page.waitForFunction((key) => (localStorage.getItem(key) ?? '').includes('地精 C'), KEY);
     await page.reload();
-    expect(await names(page)).toEqual(['艾琳', '哥布林 A', '哥布林 B', '哥布林 C']);
-    await expect(row(page, '哥布林 A')).toHaveAttribute('data-current', 'true');
+    expect(await names(page)).toEqual(['艾琳', '地精 A', '地精 B', '地精 C']);
+    await expect(row(page, '地精 A')).toHaveAttribute('data-current', 'true');
 
     await btn(page, '專案').click();
     const [dl] = await Promise.all([
@@ -388,9 +389,9 @@ test.describe('1280 寬', () => {
     });
     expect(project.data.list.map((c: { name: string }) => c.name)).toEqual([
       '艾琳',
-      '哥布林 A',
-      '哥布林 B',
-      '哥布林 C',
+      '地精 A',
+      '地精 B',
+      '地精 C',
     ]);
     const [dl2] = await Promise.all([
       page.waitForEvent('download'),
@@ -412,7 +413,7 @@ test.describe('1280 寬', () => {
     ]);
     await chooser.setFiles(path);
     await page.getByRole('alertdialog').getByRole('button', { name: '開啟' }).click();
-    expect(await names(page)).toEqual(['艾琳', '哥布林 A', '哥布林 B', '哥布林 C']);
+    expect(await names(page)).toEqual(['艾琳', '地精 A', '地精 B', '地精 C']);
 
     /* 原作的 JSON：匯出（原作的欄位）→ 讀入（加在後面） */
     const [dl3] = await Promise.all([
@@ -444,7 +445,7 @@ test.describe('1280 寬', () => {
       ),
     });
     await expect(page.getByText('已讀入 1 位').first()).toBeVisible();
-    expect(await names(page)).toEqual(['Bandit', '艾琳', '哥布林 A', '哥布林 B', '哥布林 C']);
+    expect(await names(page)).toEqual(['Bandit', '艾琳', '地精 A', '地精 B', '地精 C']);
     await expect(hp(page, 'Bandit')).toHaveValue('4');
     const [chooser3] = await Promise.all([
       page.waitForEvent('filechooser'),
@@ -465,7 +466,7 @@ test.describe('1280 寬', () => {
   }) => {
     const errors = await open(page);
     await seedParty(page);
-    await page.getByRole('button', { name: '「哥布林 C」的更多操作' }).click();
+    await page.getByRole('button', { name: '「地精 C」的更多操作' }).click();
     await page.getByRole('menuitem', { name: '在玩家視圖隱藏（伏兵）' }).click();
     const [pv] = await Promise.all([
       context.waitForEvent('page'),
@@ -481,10 +482,10 @@ test.describe('1280 寬', () => {
     await expect(rows.nth(0)).toHaveAttribute('data-current', 'true');
     await expect(rows.nth(0).getByTestId('player-hp')).toHaveText('24／24');
     await expect(rows.nth(1).getByTestId('player-hp')).toHaveText('無傷');
-    await expect(pv.getByText('哥布林 C')).toHaveCount(0);
+    await expect(pv.getByText('地精 C')).toHaveCount(0);
     /* GM 這邊改：傷害、下一位、狀態 */
-    await hp(page, '哥布林 A').fill('-5');
-    await hp(page, '哥布林 A').press('Enter');
+    await hp(page, '地精 A').fill('-5');
+    await hp(page, '地精 A').press('Enter');
     await expect(rows.nth(1).getByTestId('player-hp')).toHaveText('重傷');
     await btn(page, '下一位').click();
     await expect(rows.nth(1)).toHaveAttribute('data-current', 'true');
@@ -528,20 +529,20 @@ test.describe('1280 寬', () => {
     /* 鍵盤：列有焦點時 Alt＋↓ 往下移 */
     await page.locator('ul[aria-label="參戰者"] > li').first().focus();
     await page.keyboard.press('Alt+ArrowDown');
-    expect(await names(page)).toEqual(['艾琳', '狼', '哥布林 A', '哥布林 B', '哥布林 C']);
+    expect(await names(page)).toEqual(['艾琳', '狼', '地精 A', '地精 B', '地精 C']);
     await btn(page, '鎖定順序').click();
     await page.locator('ul[aria-label="參戰者"] > li').nth(1).focus();
     await page.keyboard.press('Alt+ArrowDown');
-    expect(await names(page)).toEqual(['艾琳', '狼', '哥布林 A', '哥布林 B', '哥布林 C']);
+    expect(await names(page)).toEqual(['艾琳', '狼', '地精 A', '地精 B', '地精 C']);
     expect(errors).toEqual([]);
   });
 
   test('視覺回歸：1280 寬', async ({ page }) => {
     const errors = await open(page);
     await seedParty(page);
-    await hp(page, '哥布林 B').fill('-7');
-    await hp(page, '哥布林 B').press('Enter');
-    await page.getByRole('button', { name: '幫「哥布林 A」加狀態' }).click();
+    await hp(page, '地精 B').fill('-7');
+    await hp(page, '地精 B').press('Enter');
+    await page.getByRole('button', { name: '幫「地精 A」加狀態' }).click();
     await page.getByRole('dialog').getByRole('button', { name: '倒地（Prone）' }).click();
     await page.getByRole('dialog').getByRole('button', { name: '加上', exact: true }).click();
     await btn(page, '下一位').click();

@@ -81,7 +81,7 @@ export const STANDARD_ARRAY_BY_CLASS: readonly {
   { key: 'monk', name: '武僧', en: 'Monk', scores: [12, 15, 13, 10, 14, 8] },
   { key: 'paladin', name: '聖武士', en: 'Paladin', scores: [15, 10, 13, 8, 12, 14] },
   { key: 'ranger', name: '遊俠', en: 'Ranger', scores: [12, 15, 13, 8, 14, 10] },
-  { key: 'rogue', name: '遊蕩者', en: 'Rogue', scores: [12, 15, 13, 14, 10, 8] },
+  { key: 'rogue', name: '盜賊', en: 'Rogue', scores: [12, 15, 13, 14, 10, 8] },
   { key: 'sorcerer', name: '術士', en: 'Sorcerer', scores: [10, 13, 14, 8, 12, 15] },
   { key: 'warlock', name: '契術師', en: 'Warlock', scores: [8, 14, 13, 12, 10, 15] },
   { key: 'wizard', name: '法師', en: 'Wizard', scores: [8, 12, 13, 15, 14, 10] },

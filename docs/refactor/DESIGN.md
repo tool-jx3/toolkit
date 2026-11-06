@@ -927,7 +927,7 @@ loading-maker 預設（透明）、不透明背景＋預設的結尾動作（最
 ### 5e 的名詞（繁中＋英文）
 
 先攻與戰鬥追蹤、5e 速查計算（2026-11）用的 5e 名詞：介面上第一次出現或在說明裡寫「繁中（英文）」，按鈕與欄位只寫繁中。
-翻譯照台灣跑團圈常見的說法；有其他譯法的標「＊」，待主控確認（combat-tracker 規格 D10、5e-calc 規格 D8）。
+翻譯照台灣跑團圈常見的說法；主控 2026-11-06 裁定了兩個新工具統一的譯名（combat-tracker 規格 D10、5e-calc 規格 D8），還沒確認的標「待確認」。
 
 | 用這個 | 英文 | 備註 |
 |---|---|---|
@@ -945,9 +945,11 @@ loading-maker 預設（透明）、不透明背景＋預設的結尾動作（最
 | 力量、敏捷、體質、智力、感知、魅力 | Strength、Dexterity、Constitution、Intelligence、Wisdom、Charisma | 縮寫 STR、DEX… 照寫 |
 | 點數購買、標準數組 | Point Buy（Point Cost）、Standard Array | |
 | 背景：侍僧、罪犯、賢者、士兵 | Background：Acolyte、Criminal、Sage、Soldier | |
-| 種族：矮人（丘陵矮人）、精靈（高等精靈）、半身人（輕足半身人）、人類、龍裔、侏儒＊（岩侏儒）、半精靈、半獸人、提夫林 | Dwarf (Hill)、Elf (High)、Halfling (Lightfoot)、Human、Dragonborn、Gnome (Rock)、Half-Elf、Half-Orc、Tiefling | SRD 5.1 |
-| 職業：野蠻人、吟遊詩人、牧師、德魯伊、戰士、武僧、聖武士、遊俠、遊蕩者＊、術士、契術師＊、法師 | Barbarian … Wizard | 只用在依職業的標準數組 |
-| 狀態：目盲、魅惑＊、耳聾、力竭、恐懼、被擒抱、失能、隱形、麻痺、石化、中毒、倒地、束縛＊、震懾＊、昏迷 | Blinded、Charmed、Deafened、Exhaustion、Frightened、Grappled、Incapacitated、Invisible、Paralyzed、Petrified、Poisoned、Prone、Restrained、Stunned、Unconscious | 介面上「倒地（Prone）」 |
+| 種族：矮人（丘陵矮人）、精靈（高等精靈）、半身人（輕足半身人）、人類、龍裔、侏儒（岩侏儒）、半精靈、半獸人、提夫林 | Dwarf (Hill)、Elf (High)、Halfling (Lightfoot)、Human、Dragonborn、Gnome (Rock)、Half-Elf、Half-Orc、Tiefling | SRD 5.1 |
+| 職業：野蠻人、吟遊詩人、牧師、德魯伊、戰士、武僧、聖武士、遊俠、盜賊、術士、契術師、法師 | Barbarian、Bard、Cleric、Druid、Fighter、Monk、Paladin、Ranger、Rogue、Sorcerer、Warlock、Wizard | 只用在依職業的標準數組；Rogue＝盜賊（主控裁定，不用「遊蕩者」） |
+| 狀態：目盲、魅惑、耳聾、力竭、恐懼、被擒抱、失能、隱形、麻痺、石化、中毒、倒地、束縛、震懾、昏迷 | Blinded、Charmed、Deafened、Exhaustion、Frightened、Grappled、Incapacitated、Invisible、Paralyzed、Petrified、Poisoned、Prone、Restrained、Stunned、Unconscious | 介面上「倒地（Prone）」 |
 | 動作、附贈動作、反應；疾走、撤離、躲藏 | Action、Bonus Action、Reaction；Dash、Disengage、Hide | |
 | 傷害類型：強酸、寒冷、火焰、閃電、力場、毒素、心靈、黯蝕、光耀、雷鳴、鈍擊、穿刺、揮砍 | Acid … Slashing | |
 | 簡易遭遇基準 | Lazy Encounter Benchmark | LGMRD |
+| 怪物：地精、大地精、熊地精、風巨靈、火巨靈 | Goblin、Hobgoblin、Bugbear、Djinni、Efreeti | 主控 2026-11-06 裁定（不用「哥布林」「鎮尼」「伊夫利特」） |
+| 怪物（快速怪物數值的範例）：深獄魔、六臂蛇魔、炎魔、半巫妖、復仇魔、妖鬼、怨靈、雙足飛龍、梅杜莎、塔拉斯克、克拉肯、熾天使等 | Pit Fiend、Marilith、Balor、Demilich、Erinyes、Ghast、Specter、Wyvern、Medusa、Tarrasque、Kraken、Solar 等 | **待確認**（`@/core/srd5/lgmrd/monsters.ts`） |
