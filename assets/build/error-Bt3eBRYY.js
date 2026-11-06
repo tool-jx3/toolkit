@@ -1,0 +1,1 @@
+function e(e){if(e==null)return String(e);if(typeof e==`string`)return e;if(typeof e==`object`){let{name:t,message:n}=e,r=typeof t==`string`?t:``,i=typeof n==`string`?n:``;if(r||i)return r&&i?`${r}: ${i}`:r||i}try{return JSON.stringify(e)??String(e)}catch{return String(e)}}export{e as t};
