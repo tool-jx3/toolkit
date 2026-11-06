@@ -1035,7 +1035,7 @@ export const TOOLS: readonly ToolEntry[] = [
     summary:
       '跑 D&D 5e 等奇幻 TRPG 時臨時要的東西一鍵產生：NPC、委託、陷阱、地點與地名、地標、遺物、法術捲軸、法術書、獨特武器與護甲，以及依角色等級的寶藏（相容 SRD 5.1／5.2 與 Black Flag，名詞附英文原文）；可以只重抽或鎖定一欄、存成清單、複製成 CCFOLIA 的棋子，也能用自己寫的表做產生器。',
     group: 'G9',
-    status: 'next',
+    status: 'live',
     inspiration: {
       name: 'Sly Flourish／Lazy GM Tools',
       url: 'https://github.com/mshea/lazy_gm_tools',
