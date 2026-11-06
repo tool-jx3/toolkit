@@ -55,6 +55,7 @@
 
 | 併進 | 來源 | 授權 | 補什麼 | 工作量 |
 |---|---|---|---|---|
+| fantasy-gen | [Level Up Advanced 5e 的 A5ESRD](https://a5esrd.com/)（EN Publishing；lazy_gm_tools 也收了它的法術） | CC BY 4.0（要放 A5ESRD 的署名文） | 法術來源加「Level Up A5E」：遺物、法術捲軸、法術書、獨特武器與護甲可以選 A5E 的法術（約 370 個，名稱與環位要另外翻譯；fantasy-gen 規格 D2，主控 2026-11-06 記下） | 中 |
 | npc-names | 本站（主控 2026-10-29：D16 的副作用先接受） | — | 拉丁字母的地區（英國、美國、俄羅斯、北歐、奇幻、韓國）同一批可能有重複的姓或名（不重複只以全名判斷）；之後可以選擇像原站一樣把姓與名各自洗牌配對，同一批裡名與姓都不重複（要和鎖定、種子一起設計） | 小 |
 | npc-names | [弄墨 Inknomu《角色姓名產生器》](https://inknomu.com/namegen/) | 資料 CC BY 4.0；程式未授權 | 組合模式的收藏匣與合成（姓＋名拖曳組名、長度上限）、語音朗讀（瀏覽器內建的 speechSynthesis）；2026-10 導入語料時沒有做（規格 D12）。原站的資料包更新時用 `web/scripts/inknomu-names.mjs` 重跑（SHA-256 不同會停下來） | 小～中 |
 | log-converter | [Pumpkin-Duck/COC-TRPG-LOG-TOOL](https://github.com/Pumpkin-Duck/COC-TRPG-LOG-TOOL)（11-03 加了 4 個暗色主題、從 Discord HTML 自動偵測角色名字色、一鍵單色） | 未授權 | 匯入 Discord 日誌（DiscordChatExporter HTML）、KP／HO／PL 資訊區、目錄；作者寫繁中。另外兩個小功能：同一分頁多次匯出時自動合併重疊的部分（[yurisianne/ileelog-backup-trial](https://github.com/yurisianne/ileelog-backup-trial)）、列出疑似打錯的檢查清單（[Hoo21/ccfolia-log-converter](https://github.com/Hoo21/ccfolia-log-converter)），都未授權 | 中 |

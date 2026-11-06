@@ -22,6 +22,7 @@ import {
   type GenState,
   generateBatch,
   type HistoryEntry,
+  namelessFields,
   newCardId,
   newCustomId,
   optionsLabel,
@@ -80,6 +81,36 @@ async function ensureNames(def: GeneratorDef): Promise<boolean> {
     useStatus.setState({ loading: false, failed: true });
     return false;
   }
+}
+
+/**
+ * 補上名字：語料讀不到時產生的卡（名字是「（無名氏）」）在語料讀到之後只重抽名字那一欄（其他欄不變；算一步復原）。
+ * 開頁時與按「再試一次」時呼叫；讀不到時再提示一次。
+ */
+export async function fillMissingNames(): Promise<void> {
+  if (!namelessFields(currentState()).length) return;
+  if (!loadedCorpus('fantasy')) {
+    try {
+      await loadCorpus('fantasy');
+    } catch {
+      useStatus.setState({ failed: true });
+      return;
+    }
+  }
+  useStatus.setState({ failed: false });
+  await asStep(() => {
+    const state = currentState();
+    const env = envNow();
+    const fixed = new Map(
+      namelessFields(state).map(({ card, key, def }) => [
+        card.id,
+        rerollField(card, key, def, optionsOf(state, card.gen), env, freshRng()),
+      ]),
+    );
+    useGen.getState().update((d) => {
+      d.results = d.results.map((c) => fixed.get(c.id) ?? c);
+    });
+  });
 }
 
 async function generateNow(): Promise<void> {

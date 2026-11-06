@@ -929,6 +929,7 @@ D&D 5e（SRD 5.1／5.2）與相容系統（Black Flag 等）的規則名詞：�
 | 繁中 | 英文 | 備註 |
 |---|---|---|
 | 法術、戲法、N 環（環位） | Spell、Cantrip、Nth level（spell level） | BFRD 的 circle 也寫「環」 |
+| SRD 5.1、SRD 5.2（署名用 SRD 5.2.1） | System Reference Document | 署名文照各 PDF 的原文（含彎引號）；不另外寫 WotC 的其他標示 |
 | 法術捲軸 | Spell Scroll | 「捲軸」不寫「卷軸」（待確認） |
 | 法術書、法師 | Spellbook、Wizard | |
 | 豁免 DC、法術攻擊（加值） | save DC、spell attack (bonus) | 輸出寫「DC 15，法術攻擊 +7」 |
@@ -937,6 +938,9 @@ D&D 5e（SRD 5.1／5.2）與相容系統（Black Flag 等）的規則名詞：�
 | 銅幣、銀幣、金幣、白金幣 | CP、SP、GP、PP | 數量後面直接寫 CP／SP／GP／PP |
 | 寶藏、寶石、藝術品 | Treasure、Gemstone、Art Object | |
 | 武器、護甲、盾牌、彈藥 | Weapon、Armor、Shield、Ammunition | 各武器、護甲的名稱見 `web/src/tools/fantasy-gen/data/srd/gear.ts` |
-| 生物類型：異怪、野獸、天界生物、構裝體、龍、元素生物、精類、邪魔、巨人、類人生物、怪獸、泥怪、植物、不死生物 | Aberration, Beast, Celestial, Construct, Dragon, Elemental, Fey, Fiend, Giant, Humanoid, Monstrosity, Ooze, Plant, Undead | 待確認（精類、異怪、怪獸、泥怪） |
-| 人類、精靈、矮人、半身人、侏儒、龍裔、獸人、提夫林、歌利亞、神裔 | Human, Elf, Dwarf, Halfling, Gnome, Dragonborn, Orc, Tiefling, Goliath, Aasimar | Gnome＝侏儒（待確認） |
+| 生物類型：異怪、野獸、天界生物、構裝體、龍、元素生物、精類、邪魔、巨人、類人生物、怪獸、泥怪、植物、不死生物 | Aberration, Beast, Celestial, Construct, Dragon, Elemental, Fey, Fiend, Giant, Humanoid, Monstrosity, Ooze, Plant, Undead | Fey＝精類（主控 2026-11-06 裁定）；待確認：異怪、怪獸、泥怪 |
+| 人類、精靈、矮人、半身人、侏儒、龍裔、獸人、半獸人、提夫林、歌利亞、神裔 | Human, Elf, Dwarf, Halfling, Gnome, Dragonborn, Orc, Half-Orc, Tiefling, Goliath, Aasimar | Gnome＝侏儒（主控 2026-11-06 裁定） |
+| 地精、大地精、熊地精、狗頭人 | Goblin, Hobgoblin, Bugbear, Kobold | 「地精」系列（主控 2026-11-06 裁定；不寫「哥布林」）；Goblinoid＝類地精 |
+| 火巨靈、風巨靈 | Efreeti, Djinni | 例：火巨靈之瓶（Efreeti Bottle）、召喚風巨靈戒指（Ring of Djinni Summoning）（主控 2026-11-06 裁定） |
+| 盜賊 | Rogue | 職業名（主控 2026-11-06 裁定） |
 | 角色等級（1～4 級…） | character level（tier） | |

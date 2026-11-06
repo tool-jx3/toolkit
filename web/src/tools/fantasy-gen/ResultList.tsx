@@ -19,6 +19,9 @@ import type { GeneratorDef } from './generators';
 import { partLines, type ResultCard } from './logic';
 import { S } from './strings';
 
+/** 這個字數以下的一行結果，按鈕和字排在同一行 */
+const COMPACT_CHARS = 24;
+
 interface FieldTarget {
   card: ResultCard;
   key: string;
@@ -84,12 +87,19 @@ function CardView({
 }) {
   const lines = partLines(card.parts);
   const n = index + 1;
+  /* 一行的短結果（地名、地點）：按鈕排在同一行，卡片不必撐高 */
+  const compact =
+    !genLabel &&
+    lines.length === 1 &&
+    lines[0].reduce((len, p) => len + p.t.length, 0) <= COMPACT_CHARS;
   return (
     <li
       data-testid="result-card"
       data-locked={card.locked || undefined}
+      data-compact={compact || undefined}
       className={cn(
-        'flex min-w-0 flex-col gap-1 rounded-lg border bg-surface p-2',
+        'flex min-w-0 gap-1 rounded-lg border bg-surface p-2',
+        compact ? 'flex-row flex-wrap items-center' : 'flex-col',
         card.locked ? 'border-accent bg-accent-soft' : 'border-border',
       )}
     >
@@ -100,7 +110,10 @@ function CardView({
       ) : null}
       <div
         data-testid="result-text"
-        className="min-w-0 break-words px-1 text-base leading-relaxed text-fg"
+        className={cn(
+          'min-w-0 break-words px-1 text-base leading-relaxed text-fg',
+          compact && 'flex-1',
+        )}
       >
         {lines.map((line, li) => (
           // biome-ignore lint/suspicious/noArrayIndexKey: 一張卡裡的行不會重排
@@ -125,7 +138,7 @@ function CardView({
           </p>
         ))}
       </div>
-      <div className="flex flex-wrap items-center justify-end gap-1">
+      <div className={cn('flex flex-wrap items-center justify-end gap-1', compact && 'ml-auto')}>
         <IconButton
           label={S.card.copyLabel(n)}
           icon={<Copy />}

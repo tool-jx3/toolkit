@@ -153,6 +153,12 @@ describe('欄', () => {
     ]);
   });
 
+  it('範本最上層的 \\n 與 <br> 也換行（和展開時相同）', () => {
+    const tables = tablesFrom({ a: ['x'] });
+    const parts = rollTemplate('甲\\n乙<br>丙<BR />{@欄:a}\\n{a}', { tables, rng: () => 0 });
+    expect(partsText(parts)).toBe('甲\n乙\n丙\nx\nx');
+  });
+
   it('鎖定的欄（keep）不重抽；其他欄照舊抽', () => {
     const tables = tablesFrom({ a: ['1', '2'], b: ['x', 'y'] });
     const rolled = rollTemplate('{@A:a}{@B:b}', { tables, rng: () => 0.9 }, { keep: { A: '鎖' } });

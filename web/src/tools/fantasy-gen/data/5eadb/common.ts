@@ -93,7 +93,7 @@ export const ORIGINS: readonly WordRow[] = [
   ['ghoulish', '食屍鬼'],
   ['giant', '巨人'],
   ['gnomish', '侏儒'],
-  ['goblinoid', '類哥布林'],
+  ['goblinoid', '類地精'],
   ['halfling', '半身人'],
   ['human', '人類'],
   ['infernal', '煉獄'],

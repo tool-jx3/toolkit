@@ -15,7 +15,13 @@ import {
   Undo2,
 } from 'lucide-react';
 import { useEffect, useMemo, useRef } from 'react';
-import { historyGesture, resetToolStore, useSaveStatus, useUndoRedo } from '@/core/storage';
+import {
+  historyGesture,
+  ProjectFileError,
+  resetToolStore,
+  useSaveStatus,
+  useUndoRedo,
+} from '@/core/storage';
 import {
   Button,
   cn,
@@ -42,6 +48,7 @@ import {
   copyAll,
   exportCsv,
   exportTxt,
+  fillMissingNames,
   generate,
   setCopyNotifier,
   setCount,
@@ -384,6 +391,7 @@ function Results() {
         <Notice
           tone="danger"
           action={
+            /* 同一頁裡失敗過的動態載入，瀏覽器不會重新下載：整頁重新整理，開頁時補上「（無名氏）」的名字 */
             <Button size="sm" icon={<RotateCw />} onClick={() => window.location.reload()}>
               {S.list.reload}
             </Button>
@@ -416,9 +424,10 @@ export function App() {
   const { undo, redo, canUndo, canRedo } = useUndoRedo(useGen);
   const savedAt = useSaveStatus(TOOL_ID);
 
-  /* 第一次打開（還沒有結果）時產生一批 */
+  /* 第一次打開（還沒有結果）時產生一批；上次名字的語料讀不到的卡（「（無名氏）」）這次補上名字 */
   useEffect(() => {
     if (!sanitizeState(useGen.getState().data).results.length) void generate();
+    else void fillMissingNames();
   }, []);
 
   const shortcuts = useMemo<Shortcut[]>(
@@ -449,7 +458,8 @@ export function App() {
         toolId={TOOL_ID}
         version={DATA_VERSION}
         getData={() => sanitizeState(useGen.getState().data)}
-        onLoad={(data) => {
+        onLoad={(data, project) => {
+          if (project.version > DATA_VERSION) throw new ProjectFileError(S.project.newer);
           useGen.getState().replace(sanitizeState(data));
           return true;
         }}

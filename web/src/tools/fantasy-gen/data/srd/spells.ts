@@ -1,6 +1,9 @@
 /**
  * 法術名稱與環位（SRD 5.2、SRD 5.1、BFRD 1.0；CC BY 4.0，出處與署名見同資料夾的 LICENSE.txt）。中文是本站的翻譯。
- * 由 mshea/lazy_gm_tools 收的 SRD 資料整理（SRD 5.2 從規則文字的法術清單、SRD 5.1 與 BFRD 從產生器用的法術索引），不要手改格式。
+ * 由 mshea/lazy_gm_tools 收的 SRD 資料整理（SRD 5.2 從規則文字的法術清單〔SRD 5.2.1 的 PDF 核對過〕、SRD 5.1 與 BFRD 從產生器用的法術索引），不要手改格式。
+ *
+ * 原作 Black Flag 寶藏的法術清單裡有 4 個不在 BFRD 1.0（Circle of Stones、Fire under the Tongue、Pendulum、Tidal Wave；
+ * 其中兩個是 Deep Magic〔OGL〕的法術），不收。
  *
  * 每一列：[英文, 中文, SRD 5.2, SRD 5.1, BFRD]；後三欄是環位（0＝戲法），結尾的 w 表示在法師（Wizard）的法術列表裡，空字串＝那份 SRD 沒有。
  */
@@ -60,7 +63,6 @@ export const SPELLS: readonly SpellRow[] = [
   ["Chill Touch", "寒冷之觸", "0w", "0w", ""],
   ["Chromatic Orb", "繁彩球", "1w", "", ""],
   ["Circle of Death", "死亡法陣", "6w", "6w", "6"],
-  ["Circle Of Stones", "石之環", "", "", "2"],
   ["Clairvoyance", "千里眼", "3w", "3w", "3"],
   ["Clone", "複製術", "8w", "8w", "8"],
   ["Cloudkill", "死雲術", "5w", "5w", "5"],
@@ -147,7 +149,6 @@ export const SPELLS: readonly SpellRow[] = [
   ["Fire Bolt", "火焰箭", "0w", "0w", "0"],
   ["Fire Shield", "火焰護盾", "4w", "4w", ""],
   ["Fire Storm", "火焰風暴", "7", "7", "7"],
-  ["Fire Under The Tongue", "舌下之火", "", "", "1"],
   ["Fireball", "火球術", "3w", "3w", "3"],
   ["Flame Blade", "炎刃術", "2", "2", ""],
   ["Flame Strike", "焰擊術", "5", "5", ""],
@@ -256,7 +257,6 @@ export const SPELLS: readonly SpellRow[] = [
   ["Oculus Blossoms", "眼之花", "", "", "6"],
   ["Pass without Trace", "行跡無蹤", "2", "2", "2"],
   ["Passwall", "穿牆術", "5w", "5w", "5"],
-  ["Pendulum", "鐘擺術", "", "", "1"],
   ["Phantasmal Force", "幻象之力", "2w", "", ""],
   ["Phantasmal Killer", "魅影殺手", "4w", "4w", "4"],
   ["Phantom Steed", "魅影駒", "3w", "3w", "3"],
@@ -344,7 +344,6 @@ export const SPELLS: readonly SpellRow[] = [
   ["Teleportation Circle", "傳送法陣", "5w", "5w", "5"],
   ["Thaumaturgy", "奇術", "0", "0", "0"],
   ["Thunderwave", "雷鳴波", "1w", "1w", "1"],
-  ["Tidal Wave", "浪潮術", "", "", "8"],
   ["Time Stop", "時間停止", "9w", "9w", "9"],
   ["Tiny Hut", "小屋術", "3w", "3w", "3"],
   ["Tongues", "口譯術", "3w", "3w", "3"],

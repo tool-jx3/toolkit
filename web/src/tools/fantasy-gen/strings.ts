@@ -157,7 +157,8 @@ export const S = {
     generating: '產生中…',
     empty: '按「產生」開始。',
     aria: '產生的結果',
-    loadFailed: '名字的資料讀不到，請重新整理頁面再試一次。',
+    loadFailed:
+      '名字的資料讀不到，名字先寫成「（無名氏）」。網路恢復後按「重新整理」，會把沒有名字的補上（其他欄不變）。',
     reload: '重新整理',
     toSettings: '改條件',
     conditions: '條件',
@@ -276,7 +277,7 @@ export const S = {
     lead: '產生器的做法參考 Sly Flourish（Michael E. Shea）的 5e Artisanal Database 裡的隨機產生器（lazy_gm_tools，程式 CC0）。用到的規則名詞與物品、法術名稱來自下面以創用 CC 姓名標示 4.0 釋出的規則參考文件，中文是本站翻譯的，有修改；說明文字沒有收錄。',
     compat:
       '相容 5e（SRD 5.1／5.2）與 Black Flag Roleplaying。本站與 Wizards of the Coast、Kobold Press 沒有關係，也沒有得到它們的認可。',
-    own: '本站自己寫的：NPC 的個性、身分、特徵、穿著與目標，委託、陷阱、地標、藝術品的清單，寶石的分法，以及各產生器的中文句型。',
+    own: '本站自己寫的（分類與份量參考原作，內容、順序、分組與價值是本站的）：NPC 的種族、個性、身分、特徵、穿著與目標，委託、陷阱、地標的清單，寶藏的藝術品與寶石（分級與價值），以及各產生器的中文句型。',
     names:
       'NPC 與委託人的名字取自弄墨 Inknomu《角色姓名產生器》的奇幻語料（人類、精靈、矮人、獸人、半身人；CC BY 4.0）。',
     cc0: '地名的前半與後半照原作 location_names（程式與內容都是 CC0），中文是本站依字義譯的。',
@@ -297,6 +298,7 @@ export const S = {
   project: {
     opened: '已開啟專案檔',
     badFile: '這不是奇幻隨機產生器的專案檔。',
+    newer: '這個專案檔是用比較新的版本存的，請重新整理頁面後再開啟。',
   },
   keys: {
     group: '產生',

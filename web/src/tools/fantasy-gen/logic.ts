@@ -360,6 +360,19 @@ export function rerollField(
   return { ...card, parts };
 }
 
+/**
+ * 名字的語料讀不到時產生的卡（名字那一欄是「（無名氏）」）：回傳卡與那一欄的鍵。語料讀到之後用來補上名字。
+ */
+export function namelessFields(
+  state: GenState,
+): { card: ResultCard; key: string; def: GeneratorDef }[] {
+  return state.results.flatMap((card) => {
+    const def = findGenerator(state, card.gen);
+    const part = def?.titleField ? card.parts.find((p) => p.l === def.titleField) : undefined;
+    return def && part?.k && part.t === S.out.noName ? [{ card, key: part.k, def }] : [];
+  });
+}
+
 /* ---------- 文字 ---------- */
 
 /** 一批的文字：一行一筆；一大塊的（寶藏、法術書）之間空一行 */
@@ -519,7 +532,7 @@ export function sanitizeState(v: unknown): GenState {
       (Array.isArray(v.results) ? v.results : [])
         .map(sanitizeCard)
         .filter((c): c is ResultCard => c !== null)
-        .slice(0, COUNT_MAX * 2),
+        .slice(0, COUNT_MAX),
     ),
     saved: uniqueIds(
       (Array.isArray(v.saved) ? v.saved : [])

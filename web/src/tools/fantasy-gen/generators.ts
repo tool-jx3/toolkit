@@ -6,9 +6,8 @@
 import { CONDITIONS, ITEMS, LOCATIONS, MONSTER_TYPES, ORIGINS } from './data/5eadb/common';
 import { NAME_PREFIXES, NAME_SUFFIXES } from './data/location-names';
 import {
-  ART_FINE,
-  ART_SIMPLE,
-  GEMS,
+  artTier,
+  gemTier,
   MONUMENTS,
   type NamePack,
   NPC_DRESS,
@@ -341,13 +340,25 @@ const one = (template: string): TableEntry[] => [{ text: template, weight: 1 }];
 
 /* ---------- 寶藏 ---------- */
 
-const gemTable = (values: readonly (keyof typeof GEMS)[]) => values.flatMap((v) => GEMS[v]);
+/** 寶藏表裡出現的每顆寶石價值、藝術品價值（GP） */
+const GEM_VALUES = [10, 25, 50, 100, 250, 500, 1000, 5000] as const;
+const ART_VALUES = [25, 50, 250, 500, 750, 2500, 5000, 7500, 10000, 50000] as const;
 
-/** 藝術品前面加「狀態＋來源」（原作：每個藝術品前面加 {condition} {origin}） */
-const flavored = (list: readonly string[]) => list.map((a) => `{condition}{origin}${a}`);
-/** 藝術品的表：「狀態＋來源＋東西（價值）」 */
-const artTable = (list: readonly string[], value: string) =>
-  flavored(list).map((a) => `${a}（${value} GP）`);
+/**
+ * 依價值的寶石表 `gem_<價值>` 與藝術品表 `art_<價值>`：寶石與藝術品的分級是本站定的（data/own.ts 的 gemTier、artTier），
+ * 價值照原作的寶藏表。藝術品前面加「狀態＋來源」（原作：每個藝術品前面加 {condition} {origin}），後面寫價值；
+ * listed 時每一項前面寫「藝術品：」（個數不一定、一項一行的清單用）。
+ */
+function valueTables(listed: boolean): TableSource {
+  const out: Record<string, string[]> = {};
+  for (const v of GEM_VALUES) out[`gem_${v}`] = [...gemTier(v)];
+  for (const v of ART_VALUES)
+    out[`art_${v}`] = artTier(v).map(
+      (a) =>
+        `${listed ? '藝術品：' : ''}{condition}{origin}${a}（${v.toLocaleString('en-US')} GP）`,
+    );
+  return out;
+}
 
 const treasureWeapon = (flavored: boolean) =>
   TREASURE_WEAPONS.map(
@@ -363,32 +374,32 @@ const AMMO = AMMUNITION.map(([en, zh, w]) => [both(en, zh), w] as const);
 const LAZY_TIERS: Record<string, string> = {
   tier1: [
     '錢幣：{@錢幣:[[400-600]] CP、[[350-550]] SP、[[180-280]] GP}',
-    `寶石：{@寶石:{gem} ×[[5-9]]（${S.out.perGem('10')}）}`,
-    '藝術品：{@藝術品:{art}（50 GP）}',
+    `寶石：{@寶石:{gem_10} ×[[5-9]]（${S.out.perGem('10')}）}`,
+    '藝術品：{@藝術品:{art_50}}',
     '消耗品：{@消耗品:{uncommon_consumable}}',
     '消耗品：{@消耗品:{uncommon_consumable}}',
     '永久物品：{@永久物品:{uncommon_magic_item}}',
   ].join('\n'),
   tier2: [
     '錢幣：{@錢幣:[[400-600]] SP、[[2650-3650]] GP、[[75-125]] PP}',
-    `寶石：{@寶石:{gem} ×[[5-9]]（${S.out.perGem('50')}）}`,
-    '藝術品：{@藝術品:{art}（500 GP）}',
+    `寶石：{@寶石:{gem_50} ×[[5-9]]（${S.out.perGem('50')}）}`,
+    '藝術品：{@藝術品:{art_500}}',
     '消耗品：{@消耗品:{uncommon_consumable|rare_consumable}}',
     '消耗品：{@消耗品:{uncommon_consumable|rare_consumable}}',
     '永久物品：{@永久物品:{uncommon_magic_item|rare_magic_item}}',
   ].join('\n'),
   tier3: [
     '錢幣：{@錢幣:[[15750-25750]] GP、[[200-300]] PP}',
-    `寶石：{@寶石:{gem} ×[[5-9]]（${S.out.perGem('250')}）}`,
-    '藝術品：{@藝術品:{art_fine}（5,000 GP）}',
+    `寶石：{@寶石:{gem_250} ×[[5-9]]（${S.out.perGem('250')}）}`,
+    '藝術品：{@藝術品:{art_5000}}',
     '消耗品：{@消耗品:{uncommon_consumable|rare_consumable|very_rare_consumable}}',
     '消耗品：{@消耗品:{uncommon_consumable|rare_consumable|very_rare_consumable}}',
     '永久物品：{@永久物品:{uncommon_magic_item|rare_magic_item|very_rare_magic_item}}',
   ].join('\n'),
   tier4: [
     '錢幣：{@錢幣:[[45000-145000]] GP、[[15000-25000]] PP}',
-    `寶石：{@寶石:{gem} ×[[5-9]]（${S.out.perGem('5,000')}）}`,
-    '藝術品：{@藝術品:{art_fine}（50,000 GP）}',
+    `寶石：{@寶石:{gem_5000} ×[[5-9]]（${S.out.perGem('5,000')}）}`,
+    '藝術品：{@藝術品:{art_50000}}',
     '消耗品：{@消耗品:{rare_consumable|very_rare_consumable|legendary_consumable}}',
     '消耗品：{@消耗品:{rare_consumable|very_rare_consumable|legendary_consumable}}',
     '永久物品：{@永久物品:{rare_magic_item|very_rare_magic_item|legendary_magic_item}}',
@@ -839,9 +850,7 @@ export const GENERATORS: readonly GeneratorDef[] = [
       return {
         templates: one(LAZY_TIERS[tierOf(this, o)] + (relic ? '\n遺物：{@遺物:{relic}}' : '')),
         tables: tablesFrom(COMMON, LAZY_ITEMS, {
-          gem: gemTable([10, 50, 100, 500, 1000, 5000]),
-          art: flavored(ART_SIMPLE),
-          art_fine: flavored(ART_FINE),
+          ...valueTables(false),
           weapon: treasureWeapon(true),
           armor: treasureArmor(true),
           ammunition: AMMO,
@@ -864,8 +873,6 @@ export const GENERATORS: readonly GeneratorDef[] = [
       /* 個數不一定的清單（魔法物品、藝術品）：每一行前面都寫名稱 */
       const rarityLine = (r: string) =>
         `魔法物品：〔${S.out.rarityOf[r as keyof typeof S.out.rarityOf]}〕{${r}}`;
-      const listed = (list: readonly string[], value: string) =>
-        artTable(list, value).map((a) => `藝術品：${a}`);
       return {
         templates: SRD52_TIERS[tier].map((t) => ({
           text: `${t}\n{@魔法物品:{magic_item*${magic.count}}}`,
@@ -873,16 +880,7 @@ export const GENERATORS: readonly GeneratorDef[] = [
         })),
         tables: {
           ...tablesFrom(COMMON, {
-            gem_10: GEMS[10],
-            gem_50: GEMS[50],
-            gem_100: GEMS[100],
-            gem_1000: GEMS[1000],
-            gem_5000: GEMS[5000],
-            art_25: listed(ART_SIMPLE, '25'),
-            art_250: listed(ART_SIMPLE, '250'),
-            art_750: listed(ART_FINE, '750'),
-            art_2500: listed(ART_FINE, '2,500'),
-            art_7500: listed(ART_FINE, '7,500'),
+            ...valueTables(true),
             weapon: treasureWeapon(false),
             armor: treasureArmor(false),
             ammunition: AMMO,
@@ -904,16 +902,7 @@ export const GENERATORS: readonly GeneratorDef[] = [
       return {
         templates: one(BFRD_TIERS[tierOf(this, o)]),
         tables: tablesFrom(COMMON, BFRD_ITEMS, {
-          gem_25: GEMS[10],
-          gem_100: GEMS[100],
-          gem_500: GEMS[500],
-          gem_1000: GEMS[1000],
-          gem_5000: GEMS[5000],
-          art_50: artTable(ART_SIMPLE, '50'),
-          art_500: artTable(ART_SIMPLE, '500'),
-          art_2500: artTable(ART_FINE, '2,500'),
-          art_5000: artTable(ART_FINE, '5,000'),
-          art_10000: artTable(ART_FINE, '10,000'),
+          ...valueTables(false),
           weapon: treasureWeapon(true),
           weapon_plain: treasureWeapon(false),
           armor: treasureArmor(true),

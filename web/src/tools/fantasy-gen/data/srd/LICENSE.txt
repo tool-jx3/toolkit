@@ -2,21 +2,22 @@
 取自下列三份規則參考文件（System Reference Document），由本站翻成繁體中文並修改。表的分法、權重與產生寶藏的方法
 參考 mshea/lazy_gm_tools（程式 CC0 1.0，見工具目錄的 UPSTREAM_LICENSE），不在此列。
 
-一、原始資料與署名文（照原文）
+一、原始資料與署名文（照各文件 PDF 裡的原文）
 
   1. System Reference Document 5.1（SRD 5.1），Wizards of the Coast LLC
-     This work includes material taken from the System Reference Document 5.1 ("SRD 5.1") by Wizards of the
-     Coast LLC and available at https://dnd.wizards.com/resources/systems-reference-document. The SRD 5.1 is
-     licensed under the Creative Commons Attribution 4.0 International License available at
+     This work includes material taken from the System Reference Document 5.1 (“SRD 5.1”) by Wizards of
+     the Coast LLC and available at https://dnd.wizards.com/resources/systems-reference-document. The
+     SRD 5.1 is licensed under the Creative Commons Attribution 4.0 International License available at
      https://creativecommons.org/licenses/by/4.0/legalcode.
 
-  2. System Reference Document 5.2（SRD 5.2），Wizards of the Coast LLC
-     This work includes material from the System Reference Document 5.2 ("SRD 5.2") by Wizards of the Coast LLC,
-     available at https://www.dndbeyond.com/srd. The SRD 5.2 is licensed under the Creative Commons Attribution
-     4.0 International License, available at https://creativecommons.org/licenses/by/4.0/legalcode.
+  2. System Reference Document 5.2.1（SRD 5.2.1），Wizards of the Coast LLC
+     This work includes material from the System Reference Document 5.2.1 (“SRD 5.2.1”) by Wizards of the
+     Coast LLC, available at https://www.dndbeyond.com/srd. The SRD 5.2.1 is licensed under the Creative
+     Commons Attribution 4.0 International License, available at https://creativecommons.org/licenses/by/4.0/
+     legalcode.
 
   3. Black Flag Reference Document 1.0（BFRD 1.0），Kobold Press
-     This work includes material taken from the Black Flag Reference Document 1.0 ("BFRD 1.0") by Kobold Press
+     This work includes material taken from the Black Flag Reference Document 1.0 (“BFRD 1.0”) by Kobold Press
      and available at https://koboldpress.com/Black-Flag-Roleplaying. The BFRD 1.0 is licensed under the
      Creative Commons Attribution 4.0 International License available at
      https://creativecommons.org/licenses/by/4.0/legalcode.
@@ -24,7 +25,8 @@
   授權：創用 CC 姓名標示 4.0 國際（Creative Commons Attribution 4.0 International，CC BY 4.0）
         授權條款全文：https://creativecommons.org/licenses/by/4.0/legalcode
   整理：上面三份文件的法術、物品名稱由 mshea/lazy_gm_tools（5e Artisanal Database，commit 89290732）收錄的資料整理
-        （SRD 5.2 用它收的規則文字 rules_search/5.2_srd；SRD 5.1 與 BFRD 用它的產生器資料，再對照它附的 SRD 與 BFRD 的 PDF）。
+        （SRD 5.2 用它收的規則文字 rules_search/5.2_srd；SRD 5.1 與 BFRD 用它的產生器資料），再對照 SRD 5.1、
+        SRD 5.2.1、BFRD 1.0 的 PDF：只留 PDF 裡有的名稱。
 
 二、本站做的變更
 
@@ -33,6 +35,8 @@
   3. 寶藏的物品表：只留各文件裡有的物品；BFRD 的表拿掉 Kobold Press 其他書（Vault of Magic 等，OGL 1.0a）的物品；
      SRD 5.2 的物品依稀有度分表，同一種物品的不同稀有度（+1／+2／+3、各種巨人力量、艾恩石等）分開放，神器不放。
   4. 原作寶藏表裡的「布面甲（brigandine）」不在 SRD，拿掉。
+  5. 原作 Black Flag 寶藏的法術清單裡有 4 個不在 BFRD 1.0（Circle of Stones、Fire under the Tongue、Pendulum、
+     Tidal Wave；其中兩個是 Deep Magic〔OGL 1.0a〕的法術），拿掉。
 
   本站的翻譯與修改依 CC BY 4.0 提供，不另加限制。本站與 Wizards of the Coast、Kobold Press 沒有關係，
-  也沒有得到它們的認可；Dungeons & Dragons 是 Wizards of the Coast 的商標。
+  也沒有得到它們的認可。

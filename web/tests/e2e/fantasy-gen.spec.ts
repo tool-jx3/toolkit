@@ -80,7 +80,38 @@ test('開頁：沒有錯誤、靈感來源、自動產生 10 筆 NPC；名字的
   await btn(page, '關於規則內容與授權').click();
   await expect(page.getByTestId('attribution')).toHaveCount(4);
   await expect(page.getByTestId('about-rules')).toContainText(
-    'This work includes material from the System Reference Document 5.2 (“SRD 5.2”) by Wizards of the Coast LLC',
+    'This work includes material from the System Reference Document 5.2.1 (“SRD 5.2.1”) by Wizards of the Coast LLC',
+  );
+  expect(errors).toEqual([]);
+});
+
+test('名字的語料讀不到：先寫「（無名氏）」；重新整理讀到後只補上名字', async ({ page }) => {
+  const errors: string[] = [];
+  page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
+  await page.route(/fonts\.(googleapis|gstatic)\.com/, (route) =>
+    route.fulfill({ status: 200, contentType: 'text/css', body: '' }),
+  );
+  let block = true;
+  await page.route(/inknomu-fantasy-[\w-]+\.js$/, (route) =>
+    block ? route.abort() : route.continue(),
+  );
+  await page.goto(URL);
+  await expect(cards(page)).toHaveCount(10);
+  await expect(page.getByText(/名字的資料讀不到/)).toBeVisible();
+  const before = await texts(page);
+  expect(before.every((t) => t.startsWith('（無名氏）——'))).toBe(true);
+  /* 同一頁裡失敗過的動態載入不會重新下載（瀏覽器記住失敗），所以「重新整理」是整頁重新整理；開頁時補上名字 */
+  block = false;
+  await btn(page, '重新整理').click();
+  await expect(cards(page)).toHaveCount(10);
+  await expect
+    .poll(async () => (await texts(page)).some((t) => t.startsWith('（無名氏）')))
+    .toBe(false);
+  await expect(page.getByText(/名字的資料讀不到/)).toBeHidden();
+  /* 名字以外的欄不變 */
+  const after = await texts(page);
+  expect(after.map((t) => t.replace(/^.+?——/, ''))).toEqual(
+    before.map((t) => t.replace(/^.+?——/, '')),
   );
   expect(errors).toEqual([]);
 });
@@ -95,6 +126,8 @@ test('選產生器與條件：改了就換一批；數量；種子重現', async
   /* 地名：原作是 20 筆；英文的寫法 */
   await picker(page, '地名').click();
   await expect(cards(page)).toHaveCount(20);
+  /* 一行的短結果：按鈕和字排在同一行 */
+  await expect(cards(page).first()).toHaveAttribute('data-compact', 'true');
   await page.getByRole('radio', { name: '英文（原作）' }).click();
   await expect.poll(async () => (await texts(page))[0]).toMatch(/^[A-Z][a-z]+ [a-z]+$/);
 
@@ -310,6 +343,14 @@ test('自訂產生器：範例、檢查、產生；刪除', async ({ page }) => 
   await expect(page.getByRole('menuitem', { name: '重抽「顏色」' })).toBeVisible();
   await page.keyboard.press('Escape');
 
+  /* 範本最上層的 \n 換行 */
+  await text.fill('範本\n  第一行\\n第二行{@動物:{動物}}\n動物\n  貓\n');
+  await btn(page, '產生').click();
+  /* innerText 在兩個段落之間是兩個換行 */
+  await expect
+    .poll(async () => (await texts(page))[0].replace(/\n+/g, '\n'))
+    .toBe('第一行\n第二行貓');
+
   await btn(page, '刪除這個產生器').click();
   await page.getByRole('alertdialog').getByRole('button', { name: '刪除' }).click();
   await expect(picker(page, 'NPC')).toHaveAttribute('aria-pressed', 'true');
@@ -353,7 +394,7 @@ test('1280 寬：視覺基準（種子 shot 的一批固定）', async ({ page }
   await generate(page);
   /* 同一份資料、同一個種子，建置之間也不會變（資料或抽法改了才要更新） */
   expect((await texts(page))[0]).toBe(
-    'Marlow Coldwater——好奇心旺盛的人類賭徒，說話帶著濃重的口音，穿著一身黑衣，想要守住家傳的店。',
+    'Marlow Coldwater——慢條斯理的人類燒炭工，留著一條灰白的長辮子，穿著一件內外穿反的斗篷，想要保住村子的土地。',
   );
   await btn(page, '鎖定第 2 筆').click();
   await field(page, 0, '穿著').click();

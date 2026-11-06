@@ -24,6 +24,7 @@ import {
   generateBatch,
   HISTORY_MAX,
   initialState,
+  namelessFields,
   optionsLabel,
   partLines,
   pushHistory,
@@ -231,6 +232,31 @@ describe('存讀往返', () => {
     expect(sanitizeState(null)).toEqual(initialState);
   });
 
+  it('結果讀回時最多 50 筆', () => {
+    const many = Array.from({ length: 80 }, (_, i) => ({ ...state.results[1], id: `r${i}` }));
+    expect(sanitizeState({ ...state, results: many }).results).toHaveLength(50);
+  });
+
+  it('名字是「（無名氏）」的卡（語料讀不到時產生的）：找得到名字那一欄，補上之後就沒有了', () => {
+    const nameless = generateBatch({
+      def: npc,
+      options: {},
+      env: { names: null },
+      count: 3,
+      seed: 'n',
+    }).results;
+    const st = { ...initialState, results: nameless };
+    const found = namelessFields(st);
+    expect(found.map((f) => f.key)).toEqual(['名字', '名字', '名字']);
+    const fixed = found.map(({ card, key, def }) =>
+      rerollField(card, key, def, {}, env, seededRandom('fix')),
+    );
+    expect(namelessFields({ ...st, results: fixed })).toEqual([]);
+    expect(fixed.map((c) => partsText(c.parts).replace(/^.+?——/, ''))).toEqual(
+      nameless.map((c) => partsText(c.parts).replace(/^.+?——/, '')),
+    );
+  });
+
   it('紀錄：最多 20 批，讀回時整理', () => {
     let history = sanitizeHistory(undefined);
     for (let i = 0; i < 25; i++)
@@ -274,6 +300,17 @@ describe('自訂產生器', () => {
         seed: 'x',
       }).results[0].parts,
     ).toEqual([]);
+  });
+
+  it('範本最上層的 \\n 換行', () => {
+    const def = customGenerator({
+      id: 'c1',
+      name: '我的',
+      text: '範本\n  第一行\\n第二行<br>{@欄:x}\n',
+    });
+    expect(
+      partsText(generateBatch({ def, options: {}, env, count: 1, seed: 'x' }).results[0].parts),
+    ).toBe('第一行\n第二行\nx');
   });
 
   it('找不到的表在這一批的問題裡', () => {

@@ -331,6 +331,11 @@ function slotOf(inner: string, key: string): Slot {
   return { key, label: name, template: name };
 }
 
+/** `\n`（反斜線加 n）與 `<br>` 換成換行 */
+export function lineBreaks(text: string): string {
+  return text.replace(/\\n|<br\s*\/?>/gi, '\n');
+}
+
 /** 範本切成字與欄（只看最上層） */
 export function parseSlots(template: string): TemplatePart[] {
   const parts: TemplatePart[] = [];
@@ -338,7 +343,8 @@ export function parseSlots(template: string): TemplatePart[] {
   let anonymous = 0;
   let text = '';
   const flush = () => {
-    if (text) parts.push({ text });
+    /* 範本最上層的字也認 `\n` 與 `<br>`（和展開時相同） */
+    if (text) parts.push({ text: lineBreaks(text) });
     text = '';
   };
   const keyFor = (label: string | null) => {

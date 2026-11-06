@@ -6,7 +6,15 @@ import { describe, expect, it } from 'vitest';
 import { seededRandom } from '@/core/names';
 import type { CorpusData } from '@/core/names/corpus';
 import * as fantasyCorpus from '@/core/names/inknomu/inknomu-fantasy';
-import { NPC_SPECIES } from '@/tools/fantasy-gen/data/own';
+import {
+  ART_FINE,
+  ART_TREASURES,
+  ART_TRINKETS,
+  artTier,
+  GEM_TIERS,
+  gemTier,
+  NPC_SPECIES,
+} from '@/tools/fantasy-gen/data/own';
 import { SPELLS } from '@/tools/fantasy-gen/data/srd/spells';
 import { BFRD_ITEMS, LAZY_ITEMS, SRD52_ITEMS } from '@/tools/fantasy-gen/data/srd/treasure-items';
 import { partsText } from '@/tools/fantasy-gen/engine';
@@ -88,7 +96,7 @@ describe('同一個種子同一批', () => {
     const def = generatorById('npc')!;
     const [first] = generateBatch({ def, options: {}, env, count: 1, seed: 'shot' }).results;
     expect(partsText(first.parts)).toMatchInlineSnapshot(
-      `"Marlow Coldwater——好奇心旺盛的人類賭徒，說話帶著濃重的口音，穿著一身黑衣，想要守住家傳的店。"`,
+      `"Marlow Coldwater——慢條斯理的人類燒炭工，留著一條灰白的長辮子，穿著一件內外穿反的斗篷，想要保住村子的土地。"`,
     );
   });
 });
@@ -187,10 +195,13 @@ describe('法術', () => {
     );
   });
 
-  it('三份 SRD 的法術數（SRD 5.2：338、SRD 5.1：319、BFRD：308）；每個都有中文', () => {
+  it('三份 SRD 的法術數（SRD 5.2：338、SRD 5.1：319、BFRD：304）；每個都有中文', () => {
     expect(spellsOf('srd52')).toHaveLength(338);
     expect(spellsOf('srd51')).toHaveLength(319);
-    expect(spellsOf('bfrd')).toHaveLength(308);
+    expect(spellsOf('bfrd')).toHaveLength(304);
+    /* 原作 Black Flag 寶藏的法術裡不在 BFRD 的 PDF 的 4 個（2 個是 Deep Magic，OGL）不收 */
+    for (const en of ['Circle Of Stones', 'Fire Under The Tongue', 'Pendulum', 'Tidal Wave'])
+      expect(SPELLS.some((r) => r[0] === en)).toBe(false);
     for (const r of SPELLS) expect(r[1]).toMatch(/[一-鿿]/);
   });
 
@@ -246,6 +257,32 @@ describe('法術', () => {
 });
 
 describe('寶藏', () => {
+  it('寶石與藝術品依價值挑本站的分級（寶石 5 級、藝術品 3 級）', () => {
+    expect(gemTier(10)).toBe(GEM_TIERS[0][1]);
+    expect(gemTier(25)).toBe(GEM_TIERS[0][1]);
+    expect(gemTier(50)).toBe(GEM_TIERS[1][1]);
+    expect(gemTier(250)).toBe(GEM_TIERS[2][1]);
+    expect(gemTier(1000)).toBe(GEM_TIERS[3][1]);
+    expect(gemTier(5000)).toBe(GEM_TIERS[4][1]);
+    expect(artTier(50)).toBe(ART_TRINKETS);
+    expect(artTier(750)).toBe(ART_FINE);
+    expect(artTier(2500)).toBe(ART_TREASURES);
+    const def = generatorById('treasure')!;
+    for (let i = 0; i < 20; i++) {
+      const { parts } = rollCard({
+        def,
+        options: { tier: 'tier4' },
+        env,
+        rng: seededRandom(`g${i}`),
+      });
+      const gem = parts.find((p) => p.l === '寶石')!.t.split(' ×')[0];
+      expect(GEM_TIERS[4][1]).toContain(gem);
+      expect(ART_TREASURES.some((a) => parts.find((p) => p.l === '藝術品')!.t.includes(a))).toBe(
+        true,
+      );
+    }
+  });
+
   const coins = (text: string) => {
     const line = text.split('\n')[0];
     const out: Record<string, number> = {};

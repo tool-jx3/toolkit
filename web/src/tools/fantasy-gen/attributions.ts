@@ -1,5 +1,6 @@
 /**
- * 規則內容的出處與署名文（照原文，不翻譯）：畫面上的「關於規則內容與授權」與 data/ 底下各資料夾的 LICENSE.txt 寫的是同一份。
+ * 規則內容的出處與署名文（照原文，不翻譯；引號是原文的彎引號）：畫面上的「關於規則內容與授權」與 data/ 底下各資料夾的
+ * LICENSE.txt 寫的是同一份。SRD 5.2 用 SRD 5.2.1 的 PDF（本站核對用的版本）裡的署名文；SRD 5.1、BFRD 1.0 照各自 PDF 的署名文。
  */
 import type { SourceId } from './generators';
 
@@ -25,10 +26,10 @@ export const CC0 = {
 export const ATTRIBUTIONS: readonly Attribution[] = [
   {
     id: 'srd52',
-    name: 'System Reference Document 5.2（SRD 5.2）',
+    name: 'System Reference Document 5.2.1（SRD 5.2.1）',
     url: 'https://www.dndbeyond.com/srd',
     statement:
-      'This work includes material from the System Reference Document 5.2 (“SRD 5.2”) by Wizards of the Coast LLC, available at https://www.dndbeyond.com/srd. The SRD 5.2 is licensed under the Creative Commons Attribution 4.0 International License, available at https://creativecommons.org/licenses/by/4.0/legalcode.',
+      'This work includes material from the System Reference Document 5.2.1 (“SRD 5.2.1”) by Wizards of the Coast LLC, available at https://www.dndbeyond.com/srd. The SRD 5.2.1 is licensed under the Creative Commons Attribution 4.0 International License, available at https://creativecommons.org/licenses/by/4.0/legalcode.',
   },
   {
     id: 'srd51',
