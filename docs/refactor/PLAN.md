@@ -263,6 +263,7 @@ music-frame 的原作搬到 zZnaptime/MVmaker（功能沒變），連結已修�
 | ambience-mixer | 環境音混音器（2026-10-29 另外加入；程式合成的環境音 26 種、自己的音檔、各自的音量與參數、起伏、預設組合 12 個、隨機組合、我的組合、分享連結、定時停止、匯出可以無縫循環的 MP3（lamejs，LGPL-3.0）或 WAV；共用模組 core/audio/ambience、core/audio/mp3） | remvze/moodist（音效不收） | MIT | G8 | ✅ | ✅ | ✅ | ✅ |
 | world-map | 世界地圖產生器（2026-11-05 另外加入；分兩批：第一批＝地形〔方格／自由筆刷、六種地形與地表、山林的排法與交界、雪〕、國〔城牆與內城〕、川・街道・航路・國界線・城牆、32 種素材、地名・備註、主題・字型・格線・外框、PNG（公開用／GM 用）、專案檔與原作作業檔、自動產生與地名提案、範本、小地圖、送到地圖演出產生器；第二批＝旅程概算〔和原作並排比對〕、地圖尺寸 16:9／正方形／直式） | KIIN／ワールドマップ制作スタジオ（BOOTH 販售的工具，使用者上傳的 v1.0） | 未授權（條款禁止再散布程式與固有意匠） | G10 | ✅ | ✅ | ✅ | ✅ |
 | tile-map | 圖塊地圖編輯器（2026-11-05 另外加入；每格一張圖塊的戰鬥地圖：畫筆、橡皮擦、填滿、圖形 6 種、滴管、選取後跨圖層搬動與轉向、整張移動；圖層 12 層；內建簡易地形 16 種與 Kenney 兩包，匯入自己的圖塊表〔大圖塊〕；圖庫跨地圖共用與備份；PNG〔超過 iOS 上限時分段編碼〕、照實際尺寸分頁的列印 PDF、專案檔；送到地圖演出產生器） | deukrezia/trials（Trials — VTT Battlemap Maker） | 未授權（程式）；內建圖塊 Kenney 的 Scribble Dungeons、Tiny Dungeon 是 CC0 1.0 | G10 | ✅ | ✅ | ✅ | ✅ |
+| fantasy-gen | 奇幻隨機產生器（2026-11-05 另外加入，batch-lazygm；NPC、委託、陷阱、地點、地名、地標、遺物、法術捲軸、法術書、獨特武器與護甲、三種寶藏〔Lazy 5e、SRD 5.2、Black Flag〕與自訂產生器；隨機表引擎照原作 generator.js 的語法改寫；名詞「繁中（英文）」） | Sly Flourish／Lazy GM Tools（mshea/lazy_gm_tools 的 5e Artisanal Database，generators） | 程式 CC0；資料：SRD 5.1、SRD 5.2、BFRD 1.0 與 5e Artisanal Database 的共用詞 CC BY 4.0（翻譯、頁面內署名）、location_names CC0；其他清單沒有寫明授權（本站自己寫）；Kobold 的 OGL 內容不收 | G9（暫定，見規格 D1） | ✅ | ✅ | ⬜ | ⬜ |
 
 上游更新的跟進（已上線的工具加功能，照一般的規格修訂與驗證）：
 

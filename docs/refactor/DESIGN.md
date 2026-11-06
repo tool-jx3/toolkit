@@ -920,3 +920,23 @@ loading-maker 預設（透明）、不透明背景＋預設的結尾動作（最
 | 格局（地圖上房間、走道、洞穴怎麼排；battlemap 的「格局」選單、floor-plan 的格局檢查） | 生成法、佈局（2026-10-30 battlemap 驗證後登記） |
 
 標點用全形；英文與數字前後加半形空白。
+
+### 5e 的名詞（繁中＋英文）
+
+D&D 5e（SRD 5.1／5.2）與相容系統（Black Flag 等）的規則名詞：介面與輸出寫「繁中（英文原文）」，第一次出現或在表格裡附英文；
+以台灣跑團圈常見的說法為準，拿不準的標「待確認」（fantasy-gen 規格 D11）。工具名稱不用 D&D、Wizards of the Coast 的商標（寫「5e」「奇幻 TRPG」）。
+
+| 繁中 | 英文 | 備註 |
+|---|---|---|
+| 法術、戲法、N 環（環位） | Spell、Cantrip、Nth level（spell level） | BFRD 的 circle 也寫「環」 |
+| 法術捲軸 | Spell Scroll | 「捲軸」不寫「卷軸」（待確認） |
+| 法術書、法師 | Spellbook、Wizard | |
+| 豁免 DC、法術攻擊（加值） | save DC、spell attack (bonus) | 輸出寫「DC 15，法術攻擊 +7」 |
+| 稀有度：普通、非普通、珍稀、非常珍稀、傳說、神器 | Rarity: Common, Uncommon, Rare, Very Rare, Legendary, Artifact | 待確認 |
+| 魔法物品、消耗品、永久物品 | Magic Item、consumable、permanent | |
+| 銅幣、銀幣、金幣、白金幣 | CP、SP、GP、PP | 數量後面直接寫 CP／SP／GP／PP |
+| 寶藏、寶石、藝術品 | Treasure、Gemstone、Art Object | |
+| 武器、護甲、盾牌、彈藥 | Weapon、Armor、Shield、Ammunition | 各武器、護甲的名稱見 `web/src/tools/fantasy-gen/data/srd/gear.ts` |
+| 生物類型：異怪、野獸、天界生物、構裝體、龍、元素生物、精類、邪魔、巨人、類人生物、怪獸、泥怪、植物、不死生物 | Aberration, Beast, Celestial, Construct, Dragon, Elemental, Fey, Fiend, Giant, Humanoid, Monstrosity, Ooze, Plant, Undead | 待確認（精類、異怪、怪獸、泥怪） |
+| 人類、精靈、矮人、半身人、侏儒、龍裔、獸人、提夫林、歌利亞、神裔 | Human, Elf, Dwarf, Halfling, Gnome, Dragonborn, Orc, Tiefling, Goliath, Aasimar | Gnome＝侏儒（待確認） |
+| 角色等級（1～4 級…） | character level（tier） | |

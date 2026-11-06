@@ -88,6 +88,7 @@ import {
   Trophy,
   UserCog,
   Users,
+  WandSparkles,
   Waves,
   Wrench,
   Zap,
@@ -181,6 +182,7 @@ const ICONS: Record<string, LucideIcon> = {
   'house-rules': ListChecks,
   'coc-sheet': NotebookTabs,
   'npc-names': Contact,
+  'fantasy-gen': WandSparkles,
   'trpg-lab': FlaskConical,
   /* G10 地圖與網格 */
   battlemap: MapIcon,
