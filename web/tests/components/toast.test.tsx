@@ -5,10 +5,11 @@
  * dismissOnClick（bg-motion 修正時新增）：點通知本體立刻關閉；不給時點本體不會關（只有 ×）。
  * Esc（room-zip 修正時新增）：有對話框時 Esc 交給對話框（通知留著）；沒有對話框時照舊關閉通知。
  * 焦點（height-board 修正時新增）：按過動作鈕之後，之後的通知照常自己消失；toast() 傳回關閉函式。
+ * 卸下（main 的 CI 失敗時修正）：關閉通知之後 300ms 才從清單拿掉的計時器，在 ToastProvider 卸下時一起清掉。
  */
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { useRef, useState } from 'react';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { Dialog, UiProvider, useConfirm, useToast } from '@/ui';
 
 function Probe({ replace, dismissOnClick }: { replace?: boolean; dismissOnClick?: boolean }) {
@@ -469,5 +470,49 @@ describe('useToast：關掉焦點所在的通知', () => {
     await waitFor(() => expect(screen.queryByText('可收回', { selector: 'li *' })).toBeNull());
     fireEvent.click(screen.getByRole('button', { name: '收回' }));
     expect(screen.getByText('長通知')).toBeTruthy();
+  });
+});
+
+/* ---------- 卸下之後不留計時器（main 的 CI 失敗時修正） ---------- */
+
+describe('ToastProvider：卸下', () => {
+  it('關掉通知後馬上卸下：不留下計時器，測試環境拆掉（window 不在了）之後也不會再更新狀態', () => {
+    vi.useFakeTimers();
+    const win = globalThis.window;
+    try {
+      let dismiss = () => {};
+      function Once() {
+        const toast = useToast();
+        return (
+          <button
+            type="button"
+            onClick={() => {
+              dismiss = toast({ title: '可收回', duration: 60_000 });
+            }}
+          >
+            發
+          </button>
+        );
+      }
+      const { unmount } = render(
+        <UiProvider>
+          <Once />
+        </UiProvider>,
+      );
+      fireEvent.click(screen.getByRole('button', { name: '發' }));
+      act(() => dismiss());
+      unmount();
+      expect(vi.getTimerCount()).toBe(0);
+      /* CI 上是這樣壞的：測試檔跑完、jsdom 拆掉之後計時器才到，React 讀 window.event 就丟出錯誤 */
+      Object.defineProperty(globalThis, 'window', { value: undefined, configurable: true });
+      expect(() => vi.advanceTimersByTime(1000)).not.toThrow();
+    } finally {
+      Object.defineProperty(globalThis, 'window', {
+        value: win,
+        configurable: true,
+        writable: true,
+      });
+      vi.useRealTimers();
+    }
   });
 });
