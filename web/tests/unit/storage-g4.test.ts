@@ -18,6 +18,17 @@ describe('手勢：滑桿放開才記一步復原', () => {
   });
   afterEach(() => vi.useRealTimers());
 
+  it('coalesceMs: 0＝每個變更各一步：同一個毫秒裡的兩個變更也不合併（電腦快時原本會併成一步）', () => {
+    const s = createToolStore('g0', { a: 0, b: 0 }, { coalesceMs: 0 });
+    s.getState().patch({ a: 1 });
+    s.getState().patch({ b: 1 });
+    expect(s.temporal.getState().pastStates).toHaveLength(2);
+    s.temporal.getState().undo();
+    expect(s.getState().data).toEqual({ a: 1, b: 0 });
+    s.temporal.getState().undo();
+    expect(s.getState().data).toEqual({ a: 0, b: 0 });
+  });
+
   it('拖曳中的多次變更（間隔再久）都算一步；放開後的下一個變更是新的一步', async () => {
     const s = createToolStore('g1', { size: 10, on: false }, { coalesceMs: 0 });
     const g = historyGesture(s);

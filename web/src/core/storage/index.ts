@@ -250,7 +250,8 @@ export function createToolStore<T extends object>(
             return;
           }
           const now = Date.now();
-          if (now - last > coalesceMs) save(pastState, replace, currentState, deltaState);
+          /* coalesceMs 是 0（每個變更各一步）時一律記；不然同一個毫秒裡的兩個變更（0 > 0 不成立）會被併成一步 */
+          if (coalesceMs <= 0 || now - last > coalesceMs) save(pastState, replace, currentState, deltaState);
           last = now;
         };
       },
