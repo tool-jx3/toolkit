@@ -1,6 +1,6 @@
 /**
  * 舊網址的轉址頁（repo 的 tools/trpg-lab/，照原樣複製進網站）：每一頁都轉到改寫後的新工具，
- * 地圖編輯器的 ?id= 與網址的 #… 照樣帶過去；實驗室首頁轉到首頁的「CoC 跑團輔助」。
+ * 地圖編輯器的 ?id= 與網址的 #… 照樣帶過去；實驗室首頁轉到首頁的「跑團輔助」。
  */
 import { expect, test } from '@playwright/test';
 
@@ -34,7 +34,7 @@ test('地圖編輯器：?id= 與 # 照樣帶過去；找不到那張地圖時回
   await expect(page.getByText('找不到這張地圖').first()).toBeVisible();
 });
 
-test('實驗室首頁 → 首頁的「CoC 跑團輔助」；授權頁 → 網站的通知檔', async ({ page }) => {
+test('實驗室首頁 → 首頁的「跑團輔助」；授權頁 → 網站的通知檔', async ({ page }) => {
   await page.goto('/tools/trpg-lab/');
   await expect(page).toHaveURL((u) => u.pathname === '/' && u.hash === '#group-G9');
   await expect(page.locator('#group-G9')).toBeVisible();

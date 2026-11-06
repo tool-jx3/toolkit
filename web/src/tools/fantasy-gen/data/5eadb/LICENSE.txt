@@ -1,0 +1,25 @@
+本資料夾的 common.ts（狀態、來源、小東西、地點、生物類型的詞）取自下列資料，由本站翻成繁體中文並修改。
+奇幻隨機產生器（fantasy-gen）的地點、地標、遺物、獨特武器與護甲、寶藏用到這些詞。
+
+一、原始資料
+
+  名稱：5e Artisanal Database 的產生器共用資料（css_js/common_generator_data.js）
+  作者：Michael E. Shea（SlyFlourish.com）
+  網址：https://github.com/mshea/lazy_gm_tools（5e_artisanal_database/css_js/common_generator_data.js，commit 89290732，2026-10-08）
+  授權：創用 CC 姓名標示 4.0 國際（Creative Commons Attribution 4.0 International，CC BY 4.0）
+        https://creativecommons.org/licenses/by/4.0/
+        授權條款全文：https://creativecommons.org/licenses/by/4.0/legalcode
+  原檔要求的署名文（照原文）：
+        This work includes material taken from the 5e Artisanal Database by Michael E. Shea of SlyFlourish.com,
+        available under a Creative Commons Attribution 4.0 International License available at
+        https://creativecommons.org/licenses/by/4.0/
+
+二、本站做的變更
+
+  1. 翻譯：condition、species／origin（兩個表相同，只留一份）、item、location、monster_type 的每一個詞翻成繁體中文，
+     common.ts 每一列並列原文與譯文。
+  2. 修改：中文的語序改成「狀態＋來源＋東西」，狀態的詞改寫成帶「的」的形容（例：haunted → 鬧鬼的、glass → 玻璃做的），
+     來源的詞改成不帶「的」的名詞（例：dwarven → 矮人）。
+  3. 沒有使用 domain 表（本站的產生器用不到）。
+
+  本站的翻譯與修改依 CC BY 4.0 提供，不另加限制。

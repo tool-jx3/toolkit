@@ -41,7 +41,7 @@ export const GROUPS: Record<GroupId, { name: string }> = {
   G6: { name: '劇本與紀錄' },
   G7: { name: '介紹圖與宣傳' },
   G8: { name: '影像與動圖' },
-  G9: { name: 'CoC 跑團輔助' },
+  G9: { name: '跑團輔助' },
   G10: { name: '地圖與網格' },
   dev: { name: '開發用' },
 };
@@ -1046,6 +1046,18 @@ export const TOOLS: readonly ToolEntry[] = [
     name: '5e 速查計算',
     summary:
       '相容 5e（SRD 5.2.1）的 GM 速查：依隊伍人數與等級算遭遇的 XP 預算與難度、簡易遭遇基準，挑戰等級 0～30 的快速怪物數值與怪物特色，能力值的 27 點購買（2014 種族或 2024 背景的加值）；遭遇與怪物一鍵送進先攻與戰鬥追蹤。',
+    group: 'G9',
+    status: 'live',
+    inspiration: {
+      name: 'Sly Flourish／Lazy GM Tools',
+      url: 'https://github.com/mshea/lazy_gm_tools',
+    },
+  },
+  {
+    id: 'fantasy-gen',
+    name: '奇幻隨機產生器',
+    summary:
+      '跑 5e 等奇幻 TRPG 時臨時要的東西一鍵產生：NPC、委託、陷阱、地點與地名、地標、遺物、法術捲軸、法術書、獨特武器與護甲，以及依角色等級的寶藏（相容 SRD 5.1／5.2 與 Black Flag，名詞附英文原文）；可以只重抽或鎖定一欄、存成清單、複製成 CCFOLIA 的棋子，也能用自己寫的表做產生器。',
     group: 'G9',
     status: 'live',
     inspiration: {
