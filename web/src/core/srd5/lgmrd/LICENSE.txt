@@ -1,0 +1,42 @@
+本資料夾的 monsters.ts（依挑戰等級的怪物數值表、怪物的特色）與 benchmark.ts（簡易遭遇基準）取材自下列文件，
+由本站翻譯成繁體中文、有修改（下面「三」）。介面、說明文字與計算的程式是本站自己寫的，不在此列。
+
+一、原始資料
+
+  名稱：Lazy GM's 5e Monster Builder Resource Document（2024-01-18 更新版）
+  作者：Teos Abadía（https://alphastream.org）、Scott Fitzgerald Gray（https://insaneangel.com）、
+        Michael E. Shea（https://slyflourish.com）
+  著作權：copyright 2023 Scott Fitzgerald Gray, Teos Abadía, and Michael E. Shea
+  網址：https://slyflourish.com/lazy_5e_monster_building_resource_document.html
+  檔案：mshea/lazy_gm_tools 的 5e_artisanal_database/rules/md/Lazy GM Monster Docs/（commit 89290732，2026-10-08）的
+        「02 - Building a Quick Monster.md」（Monster Statistics by Challenge Rating）、
+        「05 - Lazy Tricks for Running Monsters.md」（Monster Features）、
+        「10 - The Lazy Encounter Benchmark.md」；另參考同一個 repo 的 tools/quick_monster_stats/index.html
+        （程式 CC0；資料照上面的文件，CR 25～29 的範例怪物照這個頁面）。
+
+  授權：創用 CC 姓名標示 4.0 國際（Creative Commons Attribution 4.0 International，CC BY 4.0）
+        https://creativecommons.org/licenses/by/4.0/
+        授權條款全文：https://creativecommons.org/licenses/by/4.0/legalcode
+
+  原文要求的署名（照原文；原文裡的連結寫在括號裡）：
+    This work includes material taken from the Lazy GM's 5e Monster Builder Resource Document
+    (https://slyflourish.com/lazy_5e_monster_building_resource_document.html) written by Teos Abadía of Alphastream.org
+    (https://alphastream.org), Scott Fitzgerald Gray of Insaneangel.com (https://insaneangel.com), and Michael E. Shea of
+    SlyFlourish.com (https://slyflourish.com), available under a Creative Commons Attribution 4.0 International License
+    (http://creativecommons.org/licenses/by/4.0/).
+
+  這份文件也用了 SRD 5.1（Wizards of the Coast LLC，CC BY 4.0），署名見 ../srd51/LICENSE.txt。
+
+二、沒有使用的部分
+
+  文件的其他章節（General-Use Combat Stat Blocks、Lightning Rods、Monster Roles、Bosses and Minions 等）、
+  簡易遭遇基準的「Alternative Benchmark」（乘以階段）沒有收錄。
+
+三、本站做的變更
+
+  1. 翻譯：欄位名稱、範例怪物的名稱、怪物特色的名稱與說明、簡易遭遇基準的說明翻成繁體中文（名詞附英文原文）。
+  2. 數值表改成程式可讀的格式：HP 的範圍、每次攻擊的平均傷害與骰子分開存；數值照原文。
+  3. 簡易遭遇基準改成計算：照原文的規則（1～4 級 1/4、5 級以上 1/2；選用的 11～16 級 3/4、17 級以上 1 倍；
+     單一怪物的 CR 上限），結果無條件捨去（原文「rounded down, as usual in the game」）。
+
+  本站的翻譯與改寫依 CC BY 4.0 提供，不另加限制。原文不提供任何擔保（CC BY 4.0 第 5 節）。

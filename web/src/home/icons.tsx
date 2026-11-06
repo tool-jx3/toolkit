@@ -5,6 +5,7 @@ import {
   BookOpen,
   Box,
   BrickWall,
+  Calculator,
   CalendarDays,
   Camera,
   CassetteTape,
@@ -81,6 +82,7 @@ import {
   SquareUser,
   Stamp,
   Subtitles,
+  Swords,
   Table,
   TextQuote,
   Ticket,
@@ -88,6 +90,7 @@ import {
   Trophy,
   UserCog,
   Users,
+  WandSparkles,
   Waves,
   Wrench,
   Zap,
@@ -175,12 +178,13 @@ const ICONS: Record<string, LucideIcon> = {
   'geo-bloom': Flower,
   'vhs-frame': CassetteTape,
   'ambience-mixer': Headphones,
-  /* G9 CoC 跑團輔助 */
+  /* G9 跑團輔助 */
   'coc-dice': Dices,
   'coc-npc': UserCog,
   'house-rules': ListChecks,
   'coc-sheet': NotebookTabs,
   'npc-names': Contact,
+  'fantasy-gen': WandSparkles,
   'trpg-lab': FlaskConical,
   /* G10 地圖與網格 */
   battlemap: MapIcon,
@@ -191,6 +195,8 @@ const ICONS: Record<string, LucideIcon> = {
   'map-fx': Route,
   'world-map': Compass,
   'tile-map': BrickWall,
+  'combat-tracker': Swords,
+  '5e-calc': Calculator,
   /* 其他網站 */
   jizura: MicVocal,
   'fantasy-map': Earth,

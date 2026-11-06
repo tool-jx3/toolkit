@@ -83,7 +83,7 @@ describe('sections', () => {
     ];
     expect(sections(list).map((s) => [s.group, s.title, s.entries.map((e) => e.id)])).toEqual([
       ['G2', '轉場與動態', ['d', 'f']],
-      ['G9', 'CoC 跑團輔助', ['e']],
+      ['G9', '跑團輔助', ['e']],
       ['G10', '地圖與網格', ['a']],
       ['dev', '開發用', ['b']],
       [null, '其他網站', ['c']],

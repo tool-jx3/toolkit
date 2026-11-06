@@ -126,6 +126,9 @@
 | `ambience-mixer` | 環境音混音器 | [remvze/moodist](https://github.com/remvze/moodist)（程式 MIT；音效的授權分不清，一個都沒收） | —（新收錄，沒有舊版） |
 | `world-map` | 世界地圖產生器 | [KIIN／ワールドマップ制作スタジオ](https://kiin.booth.pm/)（BOOTH 販售的工具，條款禁止再散布程式與工具固有的意匠，視同未授權） | —（新收錄，沒有舊版） |
 | `tile-map` | 圖塊地圖編輯器 | [deukrezia/trials](https://github.com/deukrezia/trials)（程式未授權；內建圖塊的 Kenney Scribble Dungeons、Tiny Dungeon 是 CC0 1.0） | —（新收錄，沒有舊版） |
+| `combat-tracker` | 先攻與戰鬥追蹤 | [Sly Flourish／Lazy GM Tools](https://github.com/mshea/lazy_gm_tools)（`5e_artisanal_database/tools/combat_tracker`，程式 CC0；規則 SRD 5.2.1，CC BY 4.0） | —（新收錄，沒有舊版） |
+| `5e-calc` | 5e 速查計算 | [Sly Flourish／Lazy GM Tools](https://github.com/mshea/lazy_gm_tools)（`encounter_calculator`、`point_buy_calculator` 程式 CC0，`quick_monster_stats` 只參考功能；規則與數值 SRD 5.2.1、SRD 5.1、Lazy GM's 5e Monster Builder Resource Document，CC BY 4.0） | —（新收錄，沒有舊版） |
+| `fantasy-gen` | 奇幻隨機產生器 | [Sly Flourish／Lazy GM Tools](https://github.com/mshea/lazy_gm_tools)（`generators`，引擎 CC0；名稱 SRD 5.1、SRD 5.2.1、BFRD 1.0、5e Artisanal Database 的共用詞，CC BY 4.0） | —（新收錄，沒有舊版） |
 | `anime-rig` | 2.5D 動態立繪 | [852wa/Anime2.5DRig](https://github.com/852wa/Anime2.5DRig)（MIT） | `6957b28` |
 
 `music-frame` 是照 [docs/refactor/PROCESS.md](docs/refactor/PROCESS.md) 第 6 節「新工具引入流程」直接在新框架做的工具，沒有收錄過原作的副本（原作 commit `0c24db2`）。原作未附授權條款，預設封面、預設文字與說明都由本站自做，只照原作的功能、版面與數值。
@@ -212,6 +215,8 @@
 
 `tile-map` 照新工具引入流程直接在新框架做：原作 deukrezia/trials（commit `dd4f118`，2026-11-05）的程式寫明「UNLICENSED」，視同未授權，不放 `UPSTREAM_LICENSE`；只參考功能、演算法與數值（填滿、圖形的格子、選取的轉向翻轉、圖塊表的切格與大圖塊、PNG 的上限、列印 PDF 的實際尺寸與分頁；和原作的純函式對照 0 不符），程式照本站的結構重寫（規格 D24，驗證時量過和原作相同的片段），介面文字、說明、範例地圖（虛構的「地下水道的岔路」）都由本站自做（繁中）。作者自己畫的預設圖塊沒有授權，不用；內建的簡易地形 16 種是本站用程式畫的。原作附的 Kenney「Scribble Dungeons」與「Tiny Dungeon」（https://kenney.nl ，CC0 1.0）收進本站：Tiny 的 `tilemap.png` 原樣、Scribble 的 136 張 PNG 排成一張無損 WebP（像素不變），授權與出處在 `web/src/tools/tile-map/` 的 Kenney 資料夾，建置時列進 THIRD_PARTY_NOTICES；分類與中文名稱由本站寫。原作的免費版限制、浮水印、廣告、贊助連結與桌面版都不做。
 
+`combat-tracker`、`5e-calc`、`fantasy-gen` 照新工具引入流程直接在新框架做，參考 Sly Flourish（Michael E. Shea）的 mshea/lazy_gm_tools 裡的 5e Artisanal Database（commit `89290732`）：戰鬥追蹤、遭遇計算、點數購買與產生器的程式檔頭寫明 CC0 1.0，照本站的結構改寫（CC0 的聲明在各工具的 `UPSTREAM_LICENSE`）；快速怪物數值的頁面沒有寫程式的授權，只參考功能。規則內容只用 CC BY 4.0 的參考文件——Wizards of the Coast 的 SRD 5.1 與 SRD 5.2.1、Kobold Press 的 Black Flag Reference Document 1.0、Sly Flourish 等人的 Lazy GM's 5e Monster Builder Resource Document 與 5e Artisanal Database 的共用詞——翻成繁中（「繁中（英文原文）」），署名文照原文放在各工具頁面裡的「關於規則內容」與 THIRD_PARTY_NOTICES（資料在 `web/src/core/srd5/` 與 `web/src/tools/fantasy-gen/data/`，附 meta.json 與 LICENSE.txt）；不收 2014 DMG、Kobold Press 的 OGL 內容（Tome of Beasts、Deep Magic 等）與原作的怪物資料庫，沒有逐檔寫明授權的產生器清單（NPC、委託、陷阱、地標、藝術品、寶石）由本站自己寫。工具名稱不用 D&D、Wizards of the Coast 的商標。原作的 Dyson 地圖是商用授權，不收。
+
 `log-converter` 的 EPUB 匯出（2026-10）參考 sotsotssi/CcfoliaLogConverter 的功能（原作沒有授權條款：只照功能與做法，程式、介面文字與版面都由本站自做）；原作在控制字元、`<wbr>`、`<font>` 與新格式的日誌會產生不合規的電子書或遺失內容，本站的輸出都通過 epubcheck。
 
 `anime-rig` 參考 852wa/Anime2.5DRig（MIT，原作 commit `7ddbd99`，授權全文在通知檔）的程式改寫：自動綁定、物理與繪製的演算法和數值照原作，舊版與新版拿同一個 PSD 綁定的結果相同（單元測試並排比對過）。原作的範例 PSD（圖畫權利屬於各自的作者）不收，測試用的 PSD 由程式自己畫；原作需要本機 Python 中繼伺服器的 OBS 連動不移植，改成綠幕背景與透明影片的說明。臉部追蹤用 npm 的 @mediapipe/tasks-vision（Apache-2.0）；特徵點模型 `face_landmarker.task`（Apache-2.0，約 3.8 MB）**不在本 repo**：使用者第一次開攝影機追蹤時，瀏覽器從 Google 的 MediaPipe 官方模型網址下載，驗證 SHA-256 後存在瀏覽器裡。2026-10 起相容 [shitagaki-lab/see-through](https://github.com/shitagaki-lab/see-through)（Apache-2.0）從單張插圖拆出來的 PSD：只照它的輸出格式（圖層名稱、左右分割、深度 PSD 與 `.psd.json`）對應，沒有使用它的程式或模型；測試用的 see-through 風格 PSD 由程式合成。
@@ -237,7 +242,7 @@
 | `grid_ruler.html`、`hex_ruler.html` | グリッド定規作成、ヘクス定規作成 | `range-ruler` |
 
 舊網址都留著轉址頁（`tools/trpg-lab/`）：各頁轉到對應的新工具（地圖編輯器的 `?id=` 照樣帶過去），實驗室首頁轉到合輯首頁的
-「CoC 跑團輔助」，授權頁轉到網站的通知檔。舊版存在這個瀏覽器裡的資料（同一個網域）由新版第一次開啟時讀進來（擲骰紀錄、NPC、角色卡、地圖）。
+「跑團輔助」（2026-11 以前叫「CoC 跑團輔助」），授權頁轉到網站的通知檔。舊版存在這個瀏覽器裡的資料（同一個網域）由新版第一次開啟時讀進來（擲骰紀錄、NPC、角色卡、地圖）。
 上游 repo 裡另有一個 `grid_paint.html`，站上沒有任何連結指向它（功能已由地圖編輯器取代），不收。
 
 ### 作者保留權利的素材不收

@@ -35,7 +35,7 @@
 [arcana-hanna](https://github.com/arcana-hanna) 與
 [CyberDelaai](https://github.com/CyberDelaai) 與
 [Sectr99](https://github.com/Sectr99) 與
-[SkyTNT](https://github.com/SkyTNT) 等人製作的網頁小工具與開源專案為靈感來源的 85 個 TRPG 工具合輯（NPC 名字產生器由本站原創；「文字演出產生器」以くま。的工具為靈感，由本 repo 以無塵室方式獨立撰寫；其中三個工具的作者不明），另外連到 JIZURA 字面與 Azgaar 的 Fantasy Map Generator 的原站。所有工具都由本站以共用的框架改寫，只有繁體中文介面。
+[SkyTNT](https://github.com/SkyTNT) 等人製作的網頁小工具與開源專案為靈感來源的 88 個 TRPG 工具合輯（NPC 名字產生器由本站原創；「文字演出產生器」以くま。的工具為靈感，由本 repo 以無塵室方式獨立撰寫；其中三個工具的作者不明），另外連到 JIZURA 字面與 Azgaar 的 Fantasy Map Generator 的原站。所有工具都由本站以共用的框架改寫，只有繁體中文介面。
 
 **https://tool-jx3.github.io/toolkit/**
 
@@ -102,6 +102,9 @@
 | [室內平面圖產生器](https://tool-jx3.github.io/toolkit/tools/floor-plan/) | 探索場景用的室內平面圖：從住宅、洋館、飯店、醫院、廢墟等範本開始擺房間（牆自動產生）、門窗與家具（可以一鍵套用書房、臥室等內裝），圓形、八角形、船體等曲線的房間與船的甲板，夜裡只有燭台與窗邊亮著的光源，GM 用、PL 用與揭露用分開匯出 PNG |
 | [世界地圖產生器](https://tool-jx3.github.io/toolkit/tools/world-map/) | 畫跑團用的奇幻世界地圖：陸地、森林、山脈、沙漠、雪原、濕地，圈出國家、畫川與街道、航路與城牆，擺上王都、港口、遺跡等 32 種素材與地名，也能一鍵自動產生整個世界；算得出街道與航路要走幾天，GM 專用的據點與路線不會出現在公開用的 PNG，還能直接送到地圖演出產生器 |
 | [圖塊地圖編輯器](https://tool-jx3.github.io/toolkit/tools/tile-map/) | 用圖塊一格一格拼戰鬥地圖（每格一張圖，和畫向量圖形的「地圖編輯器」不同）：畫筆、填滿、圖形、選取後搬動與轉向，地面、牆壁、物件分圖層；內建簡易地形與 Kenney 的地城圖塊，也能匯入自己的圖塊表；匯出 VTT 用的 PNG，或照實際格子尺寸分頁的列印 PDF |
+| [先攻與戰鬥追蹤](https://tool-jx3.github.io/toolkit/tools/combat-tracker/) | 跑團戰鬥時記先攻順序、輪數、HP 與狀態（CoC、5e、PF2e、DX3 等都能用）：同名的怪物自動編 A、B、C，HP 欄打「-8」就扣血、臨時 HP 先扣，狀態的持續回合自動倒數，5e 的死亡豁免與專注提醒可以關掉；另開視窗給玩家看（不顯示敵人的 HP） |
+| [5e 速查計算](https://tool-jx3.github.io/toolkit/tools/5e-calc/) | 相容 5e（SRD 5.2.1）的 GM 速查：遭遇的 XP 預算與難度、挑戰等級 0～30 的快速怪物數值、能力值的點數購買與標準數組；怪物與遭遇可以一鍵加進先攻與戰鬥追蹤 |
+| [奇幻隨機產生器](https://tool-jx3.github.io/toolkit/tools/fantasy-gen/) | 跑 5e 等奇幻 TRPG 時臨時要的東西一鍵產生：NPC、委託、陷阱、地點與地名、地標、遺物、法術捲軸、法術書、獨特武器與護甲、寶藏，可以鎖定某一欄重抽，也能自己寫產生器 |
 | [JIZURA 字面](https://tool-jx3.github.io/toolkit/tools/jizura/) | 貼上歌詞、點按拍點，自動排出文字 PV（歌詞動態影片）：一鍵換方案，版面、登場、特效等可以逐段替換，匯出 MP4、綠幕、黑幕或 PNG 序列（連到原作者網站的官方繁中版） |
 | [奇幻世界地圖產生器](https://azgaar.github.io/Fantasy-Map-Generator/) | 一鍵產生整片大陸的奇幻世界地圖：地形、氣候、河流、國家、城鎮、文化、宗教與道路都能逐項編輯，匯出 PNG、SVG 或存成地圖檔（連到 Azgaar 的 Fantasy Map Generator 原站，英文介面） |
 | [2.5D 動態立繪](https://tool-jx3.github.io/toolkit/tools/anime-rig/) | 拖進分好部件的 PSD 就自動綁定、當場動起來：眨眼、嘴型、頭髮物理（直接接受 [see-through](https://github.com/shitagaki-lab/see-through) 從單張插圖拆出來的 PSD，連深度 PSD 一起給時轉頭更立體），可以用攝影機（臉部追蹤，模型第一次使用時下載約 3.8 MB）或麥克風帶動，匯出透明 PNG 或影片 |
@@ -250,6 +253,9 @@ CI（GitHub Actions）在 pull request 與 main 上跑 `npm test`、lint、typec
 | `ambience-mixer` | [環境音混音器](https://tool-jx3.github.io/toolkit/tools/ambience-mixer/) | [remvze/moodist](https://github.com/remvze/moodist)（只參考程式，音效一個都沒收） |
 | `world-map` | [世界地圖產生器](https://tool-jx3.github.io/toolkit/tools/world-map/) | [KIIN／ワールドマップ制作スタジオ](https://kiin.booth.pm/) |
 | `tile-map` | [圖塊地圖編輯器](https://tool-jx3.github.io/toolkit/tools/tile-map/) | [deukrezia/trials](https://github.com/deukrezia/trials) |
+| `combat-tracker` | [先攻與戰鬥追蹤](https://tool-jx3.github.io/toolkit/tools/combat-tracker/) | [Sly Flourish／Lazy GM Tools](https://github.com/mshea/lazy_gm_tools) |
+| `5e-calc` | [5e 速查計算](https://tool-jx3.github.io/toolkit/tools/5e-calc/) | [Sly Flourish／Lazy GM Tools](https://github.com/mshea/lazy_gm_tools) |
+| `fantasy-gen` | [奇幻隨機產生器](https://tool-jx3.github.io/toolkit/tools/fantasy-gen/) | [Sly Flourish／Lazy GM Tools](https://github.com/mshea/lazy_gm_tools) |
 
 開發與建置見 [web/README.md](web/README.md)；流程與規格見 [docs/refactor/](docs/refactor/PLAN.md)。
 

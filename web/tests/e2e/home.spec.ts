@@ -87,7 +87,8 @@ test('搜尋：名稱、說明或分類符合每個詞的才列出，沒有結�
   await search(page).fill('立繪 ＯＢＳ');
   const both = expected('立繪 obs');
   expect(both.length).toBeGreaterThan(0);
-  expect((await names()).sort()).toEqual([...both].sort());
+  /* 打完字清單才更新：等到清單換成新的結果（直接讀會拿到上一個查詢的清單） */
+  await expect.poll(async () => (await names()).sort()).toEqual([...both].sort());
   await expect(page.getByRole('region', { name: /^OBS 疊加/ })).toBeVisible();
   await expect(page.getByRole('region', { name: /^文字演出/ })).toHaveCount(0);
 
