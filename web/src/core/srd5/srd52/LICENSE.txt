@@ -1,0 +1,42 @@
+本資料夾的 conditions.ts（狀態）、encounter.ts（遭遇難度的 XP 預算、挑戰等級的經驗值）、abilities.ts（能力值、點數購買、
+標準數組、背景的能力值）與 combat.ts（死亡豁免、臨時生命值、專注、先攻的規則）取材自下列文件，由本站翻譯成繁體中文、有修改
+（下面「三」）。介面、說明文字與計算的程式是本站自己寫的，不在此列。
+
+一、原始資料
+
+  名稱：System Reference Document 5.2.1（SRD 5.2.1）
+  著作權人：Wizards of the Coast LLC
+  網址：https://www.dndbeyond.com/srd
+  檔案：SRD_CC_v5.2.1.pdf（取自 mshea/lazy_gm_tools 的 5e_artisanal_database/srds/，commit 89290732，2026-10-08；
+        SHA-256 開頭 8974902d109d6e63）
+  用到的章節：Playing the Game（Initiative、Damage and Healing：Dropping to 0 Hit Points、Death Saving Throws、
+        Temporary Hit Points）、Character Creation（Step 3: Ability Scores：Point Cost、Standard Array、
+        Standard Array by Class）、Character Origins（Character Backgrounds）、
+        Rules Glossary（Blinded … Unconscious 15 個狀態、Concentration、Stable）、Gameplay Toolbox（Combat Encounters）、
+        Monsters（Experience Points by Challenge Rating）。
+
+  授權：創用 CC 姓名標示 4.0 國際（Creative Commons Attribution 4.0 International，CC BY 4.0）
+        https://creativecommons.org/licenses/by/4.0/
+        授權條款全文：https://creativecommons.org/licenses/by/4.0/legalcode
+
+  原文要求的署名（照原文）：
+    This work includes material from the System Reference Document 5.2.1 (“SRD 5.2.1”) by Wizards of the Coast LLC,
+    available at https://www.dndbeyond.com/srd. The SRD 5.2.1 is licensed under the Creative Commons Attribution 4.0
+    International License, available at https://creativecommons.org/licenses/by/4.0/legalcode.
+
+  SRD 5.2.1 的說明：除了上面的署名，不要另外標示 Wizards 或其關係企業；可以寫「相容第五版」或「5E compatible」。
+  本站的工具名稱與介面只寫「5e」「相容 SRD 5.2.1」，不用 Wizards of the Coast 的商標、標誌與插圖。
+
+二、沒有使用的部分
+
+  SRD 5.2.1 的其他內容（職業、法術、魔法物品、怪物的數值卡等）沒有收錄。
+
+三、本站做的變更
+
+  1. 翻譯：狀態的名稱與效果、遭遇難度的說明、背景名稱、能力值名稱、職業名稱（只用在「依職業的標準數組」）翻成繁體中文
+     （名詞附英文原文）。
+  2. 改寫與摘要：狀態的效果依原文逐條翻譯，用詞照本站的用詞表；遭遇難度與排除問題（Troubleshooting）只取幾句摘要。
+  3. 數值（XP 預算、挑戰等級的經驗值、點數購買的花費、標準數組、背景列的三個能力值、死亡豁免的門檻、專注的 DC）照原文，
+     改成程式可讀的表。挑戰等級 0 的經驗值原文是「0 或 10」，本站的計算用 10（介面上註明）。
+
+  本站的翻譯與改寫依 CC BY 4.0 提供，不另加限制。原文不提供任何擔保（CC BY 4.0 第 5 節）。
