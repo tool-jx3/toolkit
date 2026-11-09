@@ -27,6 +27,7 @@ type Hook = {
       start: { floor: string; room: string } | null;
       openRooms: string[];
       tool: string;
+      ready: boolean;
     };
   };
   usePrefs: { getState: () => { data: { view?: string } } };
@@ -184,6 +185,52 @@ test.describe('演出的開關與面板（F313、F325、F326）', () => {
     expect(errors).toEqual([]);
   });
 
+  test('演出的程式打開演出時才載入：地圖裡有演出也不載入；第一次打開時按鈕顯示載入中', async ({
+    page,
+  }) => {
+    const chunks: string[] = [];
+    page.on('request', (r) => {
+      if (/\/stageModule-[^/]*\.js$/.test(r.url())) chunks.push(r.url());
+    });
+    const errors = await open(page);
+    await clockshop(page);
+    /* 地圖裡有演出（專案檔讀進來的樣子），沒有打開演出 */
+    await hook(page, (h) => {
+      const p = structuredClone(h.useProject.getState().data);
+      const f = p.floors[1];
+      p.stage = { rooms: [{ floor: f.id, room: f.rooms[0].id }] };
+      h.useProject.getState().replace(p);
+    });
+    await expect.poll(async () => (await project(page)).stage?.rooms?.length).toBe(1);
+    await page.getByTestId('editor-bar').getByRole('radio', { name: 'PL 檢視' }).click();
+    await viewRadio(page, '樓層總覽').click();
+    await viewRadio(page, '平面編輯').click();
+    expect(chunks).toEqual([]);
+    expect(await hook(page, (h) => h.useStage.getState().ready)).toBe(false);
+    /* 第一次打開：載入完之前按鈕是「載入中」 */
+    let release = () => {};
+    const gate = new Promise<void>((r) => {
+      release = r;
+    });
+    await page.route(/\/stageModule-[^/]*\.js$/, async (route) => {
+      await gate;
+      await route.continue();
+    });
+    await page.getByTestId('stage-toggle').click();
+    await expect(page.getByTestId('stage-toggle')).toHaveAttribute('aria-busy', 'true');
+    await expect(page.getByTestId('stage-toggle')).toContainText('載入中');
+    release();
+    await expect(page.getByTestId('stage-panel')).toBeVisible();
+    await expect(page.getByTestId('stage-toggle')).toHaveAttribute('aria-pressed', 'true');
+    expect(chunks).toHaveLength(1);
+    /* 關掉再打開：不再載入 */
+    await page.getByTestId('stage-toggle').click();
+    await page.getByTestId('stage-toggle').click();
+    await expect(page.getByTestId('stage-panel')).toBeVisible();
+    expect(chunks).toHaveLength(1);
+    expect(errors).toEqual([]);
+  });
+
   for (const width of [390, 360, 320]) {
     test(`窄畫面 ${width}：沒有橫向捲動，面板與時間軸都在`, async ({ page }) => {
       await page.setViewportSize({ width, height: 800 });
@@ -257,6 +304,12 @@ test.describe('藏起來與公開（F314、F315）', () => {
     await clickStack(page, 19, 11, 2);
     await expect.poll(async () => (await stage(page)).openRooms).toEqual([keyOf(study)]);
     expect(await hiddenRooms(page)).toEqual([keyOf(study)]);
+    /* 切到 GM 檢視：暫時的公開清掉（再切回 PL 是開始前的樣子） */
+    await page.getByTestId('editor-bar').getByRole('radio', { name: 'GM 檢視' }).click();
+    await expect.poll(async () => (await stage(page)).openRooms).toEqual([]);
+    await page.getByTestId('editor-bar').getByRole('radio', { name: 'PL 檢視' }).click();
+    await clickStack(page, 19, 11, 2);
+    await expect.poll(async () => (await stage(page)).openRooms).toEqual([keyOf(study)]);
     /* 回到開頭：暫時的公開取消 */
     await page.keyboard.press('Home');
     await expect.poll(async () => (await stage(page)).openRooms).toEqual([]);
@@ -483,6 +536,9 @@ test.describe('匯出演出（F323）', () => {
     const webm = await exportAs('WebM');
     expect(webm.name).toBe('鐘錶行（地下室～2F）_演出.webm');
     expect(isWebm(webm.bytes)).toBe(true);
+    /* 畫面是不透明的：WebM 不帶透明度；FPS 的說明寫「照 1 倍速」（不重複寫 30 fps） */
+    await expect(dialog.getByTestId('export-result')).not.toContainText('透明度');
+    await expect(dialog).toContainText('照 1 倍速');
     /* MP4（瀏覽器能編 H.264 或 VP9 時；不能時即時錄影也是 MP4 或 WebM） */
     const mp4 = await exportAs('MP4');
     expect(mp4.name).toMatch(/^鐘錶行（地下室～2F）_演出\.(mp4|webm)$/);

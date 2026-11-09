@@ -22,7 +22,7 @@ import {
   routePolyline,
   splitRoomKey,
 } from '../model/route';
-import { roomMainRect, traceRoom } from '../model/shape';
+import { roomMainRect, roomPolygon, traceRoom } from '../model/shape';
 import {
   type BoardLayout,
   boardLayout,
@@ -43,7 +43,7 @@ import {
 } from '../model/stage';
 import type { Floor, Project, Rect, Room, SizeMode, StageRoute } from '../model/types';
 import { pointOwner } from '../model/walls';
-import { S } from '../strings';
+import { ST } from '../stageStrings';
 import { haloText, measureText } from './labels';
 import { drawFloor, lineWidthFor } from './render';
 import { drawBoard, drawStack, stackColors, stackLayoutFloors, tag } from './stack';
@@ -106,7 +106,7 @@ function hiddenRoomsOn(f: Floor, state: Pick<StageState, 'hidden' | 'hiddenFloor
 function veilTag(c: Ctx, room: Room, theme: FloorTheme): void {
   const m = roomMainRect(room);
   const fs = Math.max(0.32, Math.min(0.6, Math.min(m.w, m.h) * 0.2));
-  const text = S.stage.veil;
+  const text = ST.veil;
   const f = { weight: 800, size: fs, family: theme.font };
   const w = Math.min(
     Math.max(m.w - 0.3, fs * 2),
@@ -154,7 +154,7 @@ export function drawHiddenRooms(
 
 /** 公開時機的說明（GM 的標記、清單的小字） */
 export function revealText(w: RevealWhen | undefined): string {
-  const I = S.stage.info;
+  const I = ST.info;
   if (!w) return '';
   if (w.mode === 'manual') return I.manual;
   if (w.mode === 'route') return w.via === 'stairs' ? I.stairs(w.index + 1) : I.route(w.index + 1);
@@ -191,7 +191,7 @@ export function drawStageMarks(
   c.restore();
   for (const r of rooms) {
     const info = tl.info.get(roomKey(f.id, r.id));
-    const text = info ? `${S.stage.badgeHidden}・${revealText(info)}` : S.stage.badgeFloor;
+    const text = info ? `${ST.badgeHidden}・${revealText(info)}` : ST.badgeFloor;
     const m = roomMainRect(r);
     const fs = Math.max(0.26, Math.min(0.36, m.w * 0.06));
     const y = m.y + m.h / 2 + Math.min(m.h / 2 - fs, fs * 2.2);
@@ -380,7 +380,7 @@ export function routeMarker(
 
 /** 平面圖上路線的形狀（轉角的圓弧不比房間的外形近） */
 export function routeShape(r: StageRoute, f: Floor | undefined): Pt[] {
-  return routePolyline(r, r.pts && f ? f.rooms.map(polyOf) : []);
+  return routePolyline(r, r.pts && f ? f.rooms.map((x) => roomPolygon(x)) : []);
 }
 
 /** 路線在這個狀態看得到嗎（PL：藏起來的樓層、祕密樓層上的不畫） */
@@ -537,7 +537,7 @@ function drawStackMarks(
     for (const r of hiddenRoomsOn(f, state)) {
       const m = roomMainRect(r);
       const p = stackProject(L, m.x + m.w / 2, m.y + m.h / 2, level, 0.72);
-      tag(c, p.x, p.y, S.stage.veil, {
+      tag(c, p.x, p.y, ST.veil, {
         size: 0.42,
         weight: 800,
         font: theme.font,
@@ -575,25 +575,19 @@ function drawStackMarks(
     c.restore();
     const m = roomMainRect(r);
     const p = stackProject(L, m.x + m.w / 2, m.y + m.h / 2, level, 0.72);
-    tag(
-      c,
-      p.x,
-      p.y + 0.9,
-      info ? `${S.stage.badgeHidden}・${revealText(info)}` : S.stage.badgeFloor,
-      {
-        size: 0.32,
-        weight: 700,
-        font: theme.font,
-        fill: col.paper,
-        stroke: ROUTE_COLOR,
-        strokeW: 0.04,
-        color: ROUTE_COLOR,
-        minW: 2,
-        maxW: 6.4,
-        h: 0.64,
-        radius: 0.1,
-      },
-    );
+    tag(c, p.x, p.y + 0.9, info ? `${ST.badgeHidden}・${revealText(info)}` : ST.badgeFloor, {
+      size: 0.32,
+      weight: 700,
+      font: theme.font,
+      fill: col.paper,
+      stroke: ROUTE_COLOR,
+      strokeW: 0.04,
+      color: ROUTE_COLOR,
+      minW: 2,
+      maxW: 6.4,
+      h: 0.64,
+      radius: 0.1,
+    });
   }
 }
 
@@ -835,5 +829,5 @@ export function roomName(p: Project, key: string): { floor: string; name: string
   const { floor, room } = splitRoomKey(key);
   const f = p.floors.find((x) => x.id === floor);
   const r = f?.rooms.find((x) => x.id === room);
-  return { floor: f?.name || '—', name: r?.name || S.stage.unnamed };
+  return { floor: f?.name || '—', name: r?.name || ST.unnamed };
 }

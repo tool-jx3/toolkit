@@ -40,6 +40,7 @@ import {
   stepState,
 } from '../model/stage';
 import type { Project, Rect } from '../model/types';
+import { ST } from '../stageStrings';
 import { S } from '../strings';
 
 export interface StageExportInput {
@@ -141,7 +142,7 @@ const makeCanvas = (w: number, h: number) => {
   return c;
 };
 
-const T = S.stage.exp;
+const T = ST.exp;
 
 /** 演出的影片（WebM／MP4） */
 export async function exportStageVideo(
@@ -153,7 +154,10 @@ export async function exportStageVideo(
   if (tl.steps.length < 2) throw new Error(T.nothing);
   const sc = sceneOf(i);
   const size = stageVideoSize(i);
-  const mode = await detectVideoMode(size, STAGE_FPS, format === 'webm', ['avc1', 'vp09']);
+  /* 畫面是不透明的：WebM 也不帶透明度（VP9／VP8 一路） */
+  const mode = await detectVideoMode(size, STAGE_FPS, format === 'webm', ['avc1', 'vp09'], {
+    opaque: true,
+  });
   const theme = getTheme(i.project.theme);
   const base = fileBase(i.project.name);
   return encodeFxVideo(

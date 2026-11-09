@@ -35,8 +35,7 @@ import type { Opening, Room } from '../model/types';
 import { S } from '../strings';
 import * as act from './actions';
 import { editor } from './controller';
-import { StageToolStrip } from './StagePanel';
-import { useStage } from './stageStore';
+import { useStage, useStageModule } from './stageStore';
 import { currentFloor, type ToolId, useEditor, usePrefs, useProject } from './store';
 
 /** L 形房間的圖示（虛線的 L 形；和房間工具的虛線方框成對，2026-10-29） */
@@ -319,12 +318,12 @@ function Hint() {
     ? {
         text:
           preview || playerView
-            ? S.stage.hintPreview
+            ? S.stageEntry.hintPreview
             : tool === 'route'
-              ? S.stage.hintRoute
+              ? S.stageEntry.hintRoute
               : tool === 'hand'
                 ? S.hints.hand
-                : S.stage.hintHide,
+                : S.stageEntry.hintHide,
         warn: false,
       }
     : base;
@@ -390,6 +389,7 @@ export function CanvasArea() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const view = usePrefs((s) => s.data.view ?? 'plan');
   const stage = useStage((s) => s.on);
+  const M = useStageModule();
   useEffect(() => {
     const wrap = wrapRef.current;
     const canvas = canvasRef.current;
@@ -409,7 +409,7 @@ export function CanvasArea() {
         tabIndex={0}
         aria-label={
           stage
-            ? S.stage.canvas
+            ? S.stageEntry.canvas
             : view === 'stack'
               ? S.view3d.canvasStack
               : view === 'board'
@@ -421,7 +421,7 @@ export function CanvasArea() {
         data-view={view}
         data-stage={stage ? 'on' : undefined}
       />
-      {stage ? <StageToolStrip /> : view === 'plan' ? <ToolStrip /> : null}
+      {stage && M ? <M.StageToolStrip /> : view === 'plan' ? <ToolStrip /> : null}
       <ClueToggle />
       {view === 'plan' && !stage ? <MiniBar /> : null}
       <QuickSetup />

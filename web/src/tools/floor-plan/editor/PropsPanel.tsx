@@ -87,8 +87,7 @@ import type {
 import { isDeckCat } from '../model/walls';
 import { S } from '../strings';
 import * as act from './actions';
-import { StagePanel } from './StagePanel';
-import { useStage } from './stageStore';
+import { useStage, useStageModule } from './stageStore';
 import { currentFloor, useEditor, usePrefs, useProject } from './store';
 import { TokenGridSelect } from './TokenGridSelect';
 
@@ -1534,6 +1533,7 @@ export function PropsPanel() {
   const sel = useEditor((s) => s.sel);
   const view = usePrefs((s) => s.data.view ?? 'plan');
   const stage = useStage((s) => s.on);
+  const M = useStageModule();
   useProject((s) => s.data);
   const f = currentFloor();
   const objs = sel
@@ -1543,7 +1543,7 @@ export function PropsPanel() {
     }))
     .filter((s): s is typeof s & { obj: Record<string, unknown> } => !!s.obj);
   let body: ReactNode;
-  if (stage) body = <StagePanel />;
+  if (stage && M) body = <M.StagePanel />;
   else if (view !== 'plan') body = <StackPanel mode={view} />;
   else if (!objs.length) body = <MapProps />;
   else if (objs.length > 1) body = <MultiProps refs={objs} />;

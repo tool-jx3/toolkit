@@ -33,7 +33,7 @@ import { clamp, emptyFloor, normDeg, uid } from './geometry';
 import { isLineKind, LINE_W_MAX, LINE_W_MIN } from './lines';
 import { isCorner, validCut } from './shape';
 import { clampCamera, isDefaultCamera } from './stack';
-import { normalizeStage } from './stage';
+import { normalizeStage } from './stageData';
 import type {
   Floor,
   FreeLine,

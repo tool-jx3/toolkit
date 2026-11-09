@@ -107,7 +107,7 @@ import {
 } from '../model/walls';
 import { S } from '../strings';
 import * as act from './actions';
-import { StageCanvas } from './stageCanvas';
+import type { StageCanvas } from './stageCanvas';
 import { useStage } from './stageStore';
 import {
   currentFloor,
@@ -248,8 +248,8 @@ export class EditorController {
   /** 檢視方式（2026-11-09，F303）與平面編輯的視角（從立體圖回來時還原） */
   private mode: ViewMode = 'plan';
   private planView: { zoom: number; ox: number; oy: number } | null = null;
-  /** 演出（2026-11-09，F313～）：打開時重畫與指標交給這裡 */
-  readonly stage = new StageCanvas(this);
+  /** 演出（2026-11-09，F313～）：打開時重畫與指標交給這裡（第一次打開演出時才載入，D131） */
+  stage: StageCanvas | null = null;
 
   /* ---------- 掛上、拿掉 ---------- */
 
@@ -317,7 +317,7 @@ export class EditorController {
         }
       }),
     );
-    this.stage.attach();
+    this.stage?.attach();
     if (typeof ResizeObserver !== 'undefined') {
       this.ro = new ResizeObserver(() => this.resize());
       this.ro.observe(wrap);
@@ -326,8 +326,15 @@ export class EditorController {
     this.fitView();
   }
 
+  /** 演出的程式載入好了（stageModule.ts 的 install）：接上演出的畫布 */
+  attachStage(stage: StageCanvas): void {
+    this.stage = stage;
+    if (this.canvas) stage.attach();
+    this.requestRender();
+  }
+
   detach(): void {
-    this.stage.detach();
+    this.stage?.detach();
     for (const u of this.unsubs.splice(0)) u();
     this.ro?.disconnect();
     this.ro = null;
@@ -432,7 +439,7 @@ export class EditorController {
   fitView(): void {
     if (!this.view.w) return;
     /* 演出的畫面（2026-11-09）：這一步的全體 */
-    if (useStage.getState().on && this.stage.fit()) return;
+    if (useStage.getState().on && this.stage?.fit()) return;
     if (this.mode !== 'plan') {
       const s = this.scene3d();
       const b = s.board ? { x: 0, y: 0, w: s.board.width, h: s.board.height } : s.stack.bounds;
@@ -814,7 +821,7 @@ export class EditorController {
     c.setTransform(dpr * z, 0, 0, dpr * z, dpr * ox, dpr * oy);
     const viewRect = { x: -ox / z, y: -oy / z, w: this.view.w / z, h: this.view.h / z };
     /* 演出（2026-11-09，F313～）：準備（GM）與演出的畫面（PL）都交給 StageCanvas */
-    if (useStage.getState().on) {
+    if (useStage.getState().on && this.stage) {
       this.stage.render(c);
       if (this.wrap) this.wrap.style.background = theme.bg;
       this.positionMiniBar();
@@ -1395,7 +1402,7 @@ export class EditorController {
     const ed = useEditor.getState();
     const d = this.drag;
     let cursor = 'default';
-    if (useStage.getState().on) {
+    if (useStage.getState().on && this.stage) {
       cursor = this.pointer
         ? this.stage.cursor(this.pointer.sx, this.pointer.sy, this.spaceDown || d?.mode === 'pan')
         : 'default';
@@ -1481,7 +1488,8 @@ export class EditorController {
     if (this.pointers.size > 2) return;
     const w = this.toWorld(sx, sy);
     const ed = useEditor.getState();
-    const stageMode = useStage.getState().on;
+    const stageCanvas = useStage.getState().on ? this.stage : null;
+    const stageMode = !!stageCanvas;
     if (
       e.button === 1 ||
       e.button === 2 ||
@@ -1503,8 +1511,8 @@ export class EditorController {
     }
     if (e.button !== 0) return;
     /* 演出（2026-11-09）：點房間、畫箭頭、拖曳控制點、旋轉視角 */
-    if (stageMode) {
-      this.stage.down(e, sx, sy);
+    if (stageCanvas) {
+      stageCanvas.down(e, sx, sy);
       this.updateCursor();
       return;
     }
@@ -1759,7 +1767,7 @@ export class EditorController {
       this.requestRender();
       return;
     }
-    if (this.stage.drag) {
+    if (this.stage?.drag) {
       this.stage.move(e, sx, sy);
       this.updateCursor();
       return;
@@ -2088,7 +2096,7 @@ export class EditorController {
     } catch {
       /* 已經放開 */
     }
-    if (this.stage.drag) {
+    if (this.stage?.drag) {
       this.stage.up(e, sx, sy);
       this.updateCursor();
       return;
@@ -2193,7 +2201,7 @@ export class EditorController {
 
   /** 拖曳到一半取消（Esc、第二根手指）：資料回到拖曳前 */
   cancelDrag(): boolean {
-    if (this.stage.cancel()) return true;
+    if (this.stage?.cancel()) return true;
     const d = this.drag;
     if (!d) return false;
     this.drag = null;

@@ -25,10 +25,19 @@ import {
   toggleStageRoom,
 } from '../model/stage';
 import type { Project, Room, StageWhen } from '../model/types';
+import { ST } from '../stageStrings';
 import { S } from '../strings';
-import { flushNudge, notify, undo, updateHint, updateProject } from './actions';
-import { routeContextOf, type StageTool, setStage, timelineOf, useStage } from './stageStore';
-import { setEditor, usePrefs, useProject } from './store';
+import { notify, undo, updateProject } from './actions';
+import { routeContextOf, timelineOf } from './stageCache';
+import {
+  clearStart,
+  setStage,
+  setStageMode,
+  setStageTool,
+  stopPreview,
+  useStage,
+} from './stageStore';
+import { useEditor, usePrefs, useProject } from './store';
 
 /* ---------- 播放畫面與鏡頭（偏好，記在瀏覽器） ---------- */
 
@@ -52,40 +61,21 @@ export function setStageCameraMode(v: StageCamera): void {
 
 /* ---------- 開關、工具 ---------- */
 
-/** 演出的開關：打開時放下編輯的工具、清掉選取 */
-export function setStageMode(on: boolean): void {
-  if (useStage.getState().on === on) return;
-  flushNudge();
-  if (on) setEditor({ sel: [], tool: 'select', armed: null });
-  stopPreview();
-  setStage({ on, start: null, exportOpen: false });
-  updateHint(false);
-}
-
-export function setStageTool(tool: StageTool): void {
-  setStage({ tool, ...(tool !== 'route' ? { start: null } : {}) });
-  updateHint(false);
-}
-
-/** 回到準備的樣子（播放、暫時公開都取消） */
-export function stopPreview(): void {
-  const s = useStage.getState();
-  s.player?.reset();
-  setStage({
-    preview: false,
-    time: 0,
-    playing: false,
-    openRooms: [],
-    openFloors: [],
-    revealAll: false,
-  });
-}
+/* 開關、工具、回到準備（主程式裡的 stageStore.ts；這裡轉出去給測試的窗口用） */
+export { clearStart, setStageMode, setStageTool, stopPreview };
 
 /* 地圖的樓層或演出改了（編輯、復原）：演出的畫面回到準備的樣子 */
 useProject.subscribe((s, prev) => {
   const st = useStage.getState();
   if (!st.preview && !st.openRooms.length && !st.openFloors.length) return;
   if (s.data.floors !== prev.data.floors || s.data.stage !== prev.data.stage) stopPreview();
+});
+
+/* GM／PL 檢視切換：暫時公開的房間與樓層清掉（F322；切回 PL 時是開始前的樣子） */
+useEditor.subscribe((s, prev) => {
+  if (s.playerView === prev.playerView) return;
+  const st = useStage.getState();
+  if (st.openRooms.length || st.openFloors.length) setStage({ openRooms: [], openFloors: [] });
 });
 
 /** 改演出的資料（一步復原） */
@@ -97,7 +87,7 @@ function edit(fn: (p: Project) => void): void {
 }
 
 const floorName = (p: Project, id: string) => p.floors.find((f) => f.id === id)?.name || '—';
-const roomLabel = (r: Room) => r.name || S.stage.unnamed;
+const roomLabel = (r: Room) => r.name || ST.unnamed;
 
 /* ---------- 藏起來與公開 ---------- */
 
@@ -111,11 +101,11 @@ export function stageRoomClick(floor: string, room: Room): void {
 /** 可不可以藏（GM 專用的、地面不行）；不行時提醒 */
 function canHide(room: Room): boolean {
   if (room.gm) {
-    notify(S.stage.gmRoom, 'warning', { replace: true });
+    notify(ST.gmRoom, 'warning', { replace: true });
     return false;
   }
   if (GROUND_CATS.has(room.cat) || !isStageRoom(room)) {
-    notify(S.stage.groundRoom, 'warning', { replace: true });
+    notify(ST.groundRoom, 'warning', { replace: true });
     return false;
   }
   return true;
@@ -127,7 +117,7 @@ export function toggleHide(floor: string, room: Room): void {
   edit((p) => {
     hidden = toggleStageRoom(p, floor, room.id);
   });
-  notify(hidden ? S.stage.hidden(roomLabel(room)) : S.stage.shown(roomLabel(room)), 'info', {
+  notify(hidden ? ST.hidden(roomLabel(room)) : ST.shown(roomLabel(room)), 'info', {
     replace: true,
   });
 }
@@ -140,7 +130,7 @@ export function setHide(floor: string, room: Room, on: boolean): void {
 export function setFloorHidden(floor: string, on: boolean): void {
   const p = useProject.getState().data;
   edit((d) => setStageFloor(d, floor, on));
-  notify(on ? S.stage.floorHidden(floorName(p, floor)) : S.stage.floorShown(floorName(p, floor)));
+  notify(on ? ST.floorHidden(floorName(p, floor)) : ST.floorShown(floorName(p, floor)));
 }
 
 /** 這一層全部藏起來 */
@@ -152,31 +142,27 @@ export function hideFloor(floor?: string): void {
   edit((d) => {
     n = hideFloorRooms(d, id);
   });
-  notify(S.stage.hiddenFloorRooms(floorName(p, id), n));
+  notify(ST.hiddenFloorRooms(floorName(p, id), n));
 }
 
 export function clearHidden(): void {
   edit(clearStageHidden);
-  notify(S.stage.cleared);
+  notify(ST.cleared);
 }
 
 /* ---------- 移動路線 ---------- */
-
-export function clearStart(): void {
-  setStage({ start: null });
-}
 
 /** 移動路線工具點了一間房：出發地 → 下一間（連起來，經過門、走廊與樓梯） */
 export function routeClick(floor: string, room: Room): void {
   const { start } = useStage.getState();
   if (!start) {
     setStage({ start: { floor, room: room.id } });
-    notify(S.stage.startSet, 'info', { replace: true });
+    notify(ST.startSet, 'info', { replace: true });
     return;
   }
   if (start.floor === floor && start.room === room.id) {
     setStage({ start: null });
-    notify(S.stage.startCleared, 'info', { replace: true });
+    notify(ST.startCleared, 'info', { replace: true });
     return;
   }
   if (connectRooms(start, { floor, room: room.id })) setStage({ start: { floor, room: room.id } });
@@ -198,7 +184,7 @@ export function connectRooms(
     { level: ctx.levelOf(b.floor), room: rb },
   );
   if (!plan) {
-    notify(S.stage.noRoute, 'warning', { replace: true });
+    notify(ST.noRoute, 'warning', { replace: true });
     return false;
   }
   edit((d) =>
@@ -207,7 +193,7 @@ export function connectRooms(
       plan.legs.map((leg) => routeFromPath(uid('a'), ctx.floors[leg.level].id, leg.pts)),
     ),
   );
-  notify(S.stage.routeAdded(plan.legs.length), 'success', { replace: true });
+  notify(ST.routeAdded(plan.legs.length), 'success', { replace: true });
   return true;
 }
 
@@ -220,7 +206,7 @@ export function addFreeRoute(
   b: { x: number; y: number },
 ): boolean {
   if (Math.hypot(b.x - a.x, b.y - a.y) < ROUTE_MIN_LEN) {
-    notify(S.stage.tooShort, 'warning', { replace: true });
+    notify(ST.tooShort, 'warning', { replace: true });
     return false;
   }
   edit((p) =>
@@ -243,21 +229,21 @@ export function addFreeRoute(
     ? [...f.rooms].reverse().find((r) => roomHasPointClosed(r, b.x, b.y) && !GROUND_CATS.has(r.cat))
     : null;
   setStage({ start: end ? { floor, room: end.id } : null });
-  notify(S.stage.drawn(p.stage?.routes?.length ?? 0), 'success', { replace: true });
+  notify(ST.drawn(p.stage?.routes?.length ?? 0), 'success', { replace: true });
   return true;
 }
 
 export function undoRoute(): void {
   if (!useProject.getState().data.stage?.routes?.length) return;
   edit(removeLastStageRoute);
-  notify(S.stage.routeRemoved);
+  notify(ST.routeRemoved);
 }
 
 export function clearRoutes(): void {
   if (!useProject.getState().data.stage?.routes?.length) return;
   edit(clearStageRoutes);
   setStage({ start: null });
-  notify(S.stage.routesCleared);
+  notify(ST.routesCleared);
 }
 
 export function moveRoute(id: string, dir: -1 | 1): void {
@@ -324,7 +310,7 @@ export function dropRoom(key: string, target: StageDropTarget): void {
       });
     }
   });
-  notify(S.stage.moved, 'info', { replace: true });
+  notify(ST.moved, 'info', { replace: true });
 }
 
 /* ---------- 自動產生 ---------- */
@@ -333,7 +319,7 @@ export function autoGenerate(): void {
   const p = useProject.getState().data;
   const r = autoStage(p, routeContextOf(p));
   if (!r) {
-    notify(S.stage.autoNone, 'warning');
+    notify(ST.autoNone, 'warning');
     return;
   }
   const level = p.floors.findIndex((f) => f.id === r.start);
@@ -347,7 +333,7 @@ export function autoGenerate(): void {
     usePrefs.getState().update((d) => {
       d.view = 'board';
     });
-  notify(S.stage.autoDone(r.disconnected), 'success', {
+  notify(ST.autoDone(r.disconnected), 'success', {
     action: { label: S.undo, onClick: undo },
   });
 }
@@ -363,14 +349,14 @@ export function revealTemp(key: string): void {
   const p = useProject.getState().data;
   const { floor, room } = splitRoomKey(key);
   const r = p.floors.find((f) => f.id === floor)?.rooms.find((x) => x.id === room);
-  notify(S.stage.revealedTemp(r ? roomLabel(r) : S.stage.unnamed), 'info', { replace: true });
+  notify(ST.revealedTemp(r ? roomLabel(r) : ST.unnamed), 'info', { replace: true });
 }
 
 export function revealFloorTemp(id: string): void {
   const s = useStage.getState();
   if (s.openFloors.includes(id)) return;
   setStage({ openFloors: [...s.openFloors, id] });
-  notify(S.stage.revealedTemp(floorName(useProject.getState().data, id)), 'info', {
+  notify(ST.revealedTemp(floorName(useProject.getState().data, id)), 'info', {
     replace: true,
   });
 }

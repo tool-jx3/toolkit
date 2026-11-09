@@ -26,7 +26,7 @@ import { roomKey } from '../model/route';
 import { stackLevels } from '../model/stack';
 import { isFloorStageHidden, isStageRoom } from '../model/stage';
 import type { Room, StageWhen } from '../model/types';
-import { S } from '../strings';
+import { ST } from '../stageStrings';
 import { editor } from './controller';
 import {
   autoGenerate,
@@ -44,7 +44,8 @@ import {
   setWhen,
   undoRoute,
 } from './stageActions';
-import { type StageTool, setStage, timelineOf, useStage } from './stageStore';
+import { timelineOf } from './stageCache';
+import { type StageTool, setStage, useStage } from './stageStore';
 import { usePrefs, useProject } from './store';
 
 /** 房間的晶片拖曳時帶的資料型別（時間軸收） */
@@ -57,9 +58,9 @@ export function startRoomDrag(e: DragEvent, key: string): void {
 }
 
 const TOOLS: { id: StageTool; icon: React.ReactNode; label: string }[] = [
-  { id: 'hide', icon: <EyeOff />, label: S.stage.toolHide },
-  { id: 'route', icon: <Route />, label: S.stage.toolRoute },
-  { id: 'hand', icon: <Hand />, label: S.stage.toolHand },
+  { id: 'hide', icon: <EyeOff />, label: ST.toolHide },
+  { id: 'route', icon: <Route />, label: ST.toolRoute },
+  { id: 'hand', icon: <Hand />, label: ST.toolHand },
 ];
 
 /** 畫布左上的演出工具 */
@@ -69,7 +70,7 @@ export function StageToolStrip() {
     <div
       role="toolbar"
       aria-orientation="vertical"
-      aria-label={S.stage.tools}
+      aria-label={ST.tools}
       className="absolute top-2 left-2 z-10 flex flex-col gap-0.5 rounded-md border border-border bg-surface p-1 shadow-1"
       data-testid="stage-tools"
     >
@@ -109,14 +110,10 @@ function Step({
 
 /** 公開時機的選單的選項（「指定的路線不見了」也列出來） */
 export function whenOptions(routes: number, current: string) {
-  const opts: { value: string; label: string }[] = [{ value: 'auto', label: S.stage.whenAuto }];
-  for (let i = 0; i < routes; i++) opts.push({ value: `#${i}`, label: S.stage.whenRoute(i + 1) });
-  opts.push(
-    { value: 'after', label: S.stage.whenAfter },
-    { value: 'manual', label: S.stage.whenManual },
-  );
-  if (!opts.some((o) => o.value === current))
-    opts.push({ value: current, label: S.stage.info.missing });
+  const opts: { value: string; label: string }[] = [{ value: 'auto', label: ST.whenAuto }];
+  for (let i = 0; i < routes; i++) opts.push({ value: `#${i}`, label: ST.whenRoute(i + 1) });
+  opts.push({ value: 'after', label: ST.whenAfter }, { value: 'manual', label: ST.whenManual });
+  if (!opts.some((o) => o.value === current)) opts.push({ value: current, label: ST.info.missing });
   return opts;
 }
 
@@ -159,18 +156,18 @@ export function StagePanel() {
   return (
     <div className="flex flex-col gap-3" data-testid="stage-panel">
       <div className="min-w-0">
-        <p className="m-0 text-xs text-muted">{S.stage.kicker}</p>
+        <p className="m-0 text-xs text-muted">{ST.kicker}</p>
         <p className="m-0 text-base font-semibold" data-testid="props-title">
-          {S.stage.title}
+          {ST.title}
         </p>
       </div>
-      <p className="m-0 text-xs text-muted">{S.stage.lead}</p>
+      <p className="m-0 text-xs text-muted">{ST.lead}</p>
       <Button variant="primary" icon={<Sparkles />} onClick={autoGenerate} data-testid="stage-auto">
-        {S.stage.auto}
+        {ST.auto}
       </Button>
-      <p className="-mt-1 m-0 text-xs text-muted">{S.stage.autoHint}</p>
+      <p className="-mt-1 m-0 text-xs text-muted">{ST.autoHint}</p>
 
-      <Step title={S.stage.step1} hint={S.stage.step1Hint}>
+      <Step title={ST.step1} hint={ST.step1Hint}>
         <div className="flex flex-wrap gap-1.5">
           <Button
             size="sm"
@@ -180,10 +177,10 @@ export function StagePanel() {
             onClick={() => setStageTool('hide')}
             data-testid="stage-tool-hide"
           >
-            {S.stage.toolHide}
+            {ST.toolHide}
           </Button>
         </div>
-        <p className="m-0 text-xs font-semibold text-muted">{S.stage.floors}</p>
+        <p className="m-0 text-xs font-semibold text-muted">{ST.floors}</p>
         <div className="flex flex-wrap gap-1.5" data-testid="stage-floors">
           {[...levels].reverse().map(({ floor }) => {
             const on = isFloorStageHidden(p, floor.id);
@@ -194,7 +191,7 @@ export function StagePanel() {
                 variant={on ? 'primary' : 'secondary'}
                 icon={on ? <EyeOff /> : <Eye />}
                 aria-pressed={on}
-                aria-label={S.stage.floorToggle(floor.name || '—', on)}
+                aria-label={ST.floorToggle(floor.name || '—', on)}
                 onClick={() => setFloorHidden(floor.id, !on)}
                 data-stage-floor={floor.id}
               >
@@ -203,7 +200,7 @@ export function StagePanel() {
             );
           })}
         </div>
-        <p className="m-0 text-xs text-muted">{S.stage.floorsHint}</p>
+        <p className="m-0 text-xs text-muted">{ST.floorsHint}</p>
         <div className="flex flex-wrap gap-1.5">
           <Button
             size="sm"
@@ -211,15 +208,15 @@ export function StagePanel() {
             disabled={!active}
             data-testid="stage-hide-floor"
           >
-            {S.stage.hideFloor(active?.name || '—')}
+            {ST.hideFloor(active?.name || '—')}
           </Button>
           <Button size="sm" variant="ghost" onClick={clearHidden} data-testid="stage-clear-hidden">
-            {S.stage.clearHidden}
+            {ST.clearHidden}
           </Button>
         </div>
       </Step>
 
-      <Step title={S.stage.step2} hint={S.stage.step2Hint}>
+      <Step title={ST.step2} hint={ST.step2Hint}>
         <div className="flex flex-wrap gap-1.5">
           <Button
             size="sm"
@@ -229,7 +226,7 @@ export function StagePanel() {
             onClick={() => setStageTool('route')}
             data-testid="stage-tool-route"
           >
-            {S.stage.toolRoute}
+            {ST.toolRoute}
           </Button>
         </div>
         {startRoom ? (
@@ -239,19 +236,19 @@ export function StagePanel() {
           >
             <Flag aria-hidden className="size-3.5 shrink-0 text-accent" />
             <span className="min-w-0 flex-1">
-              {S.stage.start(startFloor?.name || '—', startRoom.name || S.stage.unnamed)}
+              {ST.start(startFloor?.name || '—', startRoom.name || ST.unnamed)}
             </span>
             <IconButton
               size="sm"
               variant="ghost"
               icon={<X />}
-              label={S.stage.clearStart}
+              label={ST.clearStart}
               onClick={clearStart}
             />
           </div>
         ) : null}
         <p className="m-0 text-xs text-muted" data-testid="stage-route-count">
-          {S.stage.routes(routes)}
+          {ST.routes(routes)}
         </p>
         <div className="flex flex-wrap gap-1.5">
           <Button
@@ -261,7 +258,7 @@ export function StagePanel() {
             disabled={!routes}
             data-testid="stage-undo-route"
           >
-            {S.stage.undoRoute}
+            {ST.undoRoute}
           </Button>
           <Button
             size="sm"
@@ -271,30 +268,30 @@ export function StagePanel() {
             disabled={!routes}
             data-testid="stage-clear-routes"
           >
-            {S.stage.clearRoutes}
+            {ST.clearRoutes}
           </Button>
         </div>
       </Step>
 
-      <Step title={S.stage.step3}>
-        <Field label={S.stage.playView}>
+      <Step title={ST.step3}>
+        <Field label={ST.playView}>
           <Select<StagePlayView>
             value={playView}
             onValueChange={setStagePlayView}
             options={(['board', 'stack', 'keep'] as const).map((v) => ({
               value: v,
-              label: S.stage.playViews[v],
+              label: ST.playViews[v],
             }))}
             data-testid="stage-play-view"
           />
         </Field>
-        <Field label={S.stage.camera}>
+        <Field label={ST.camera}>
           <Select<StageCamera>
             value={camera}
             onValueChange={setStageCameraMode}
             options={(['follow', 'fixed'] as const).map((v) => ({
               value: v,
-              label: S.stage.cameras[v],
+              label: ST.cameras[v],
             }))}
             data-testid="stage-camera"
           />
@@ -308,16 +305,16 @@ export function StagePanel() {
             onClick={() => player?.toggle()}
             data-testid="stage-play"
           >
-            {playing ? S.stage.pause : S.stage.play}
+            {playing ? ST.pause : ST.play}
           </Button>
           <Button
             size="sm"
             icon={<SkipForward />}
             disabled={!player}
             onClick={() => player?.next()}
-            title={S.stage.nextTip}
+            title={ST.nextTip}
           >
-            {S.stage.next}
+            {ST.next}
           </Button>
           <Button size="sm" variant="ghost" disabled={!player} onClick={() => player?.rewind()}>
             {REWIND_LABEL}
@@ -328,17 +325,17 @@ export function StagePanel() {
           onClick={() => setStage({ exportOpen: true })}
           data-testid="stage-export-open"
         >
-          {S.stage.exportOpen}
+          {ST.exportOpen}
         </Button>
       </Step>
 
-      <UsageSection title={S.stage.guideTitle} persistKey="floor-plan-stage">
+      <UsageSection title={ST.guideTitle} persistKey="floor-plan-stage">
         <ol>
-          {S.stage.guide.map((t) => (
+          {ST.guide.map((t) => (
             <li key={t}>{t}</li>
           ))}
         </ol>
-        <p className="mt-2 text-xs text-muted">{S.stage.guideNote}</p>
+        <p className="mt-2 text-xs text-muted">{ST.guideNote}</p>
       </UsageSection>
     </div>
   );
@@ -357,8 +354,8 @@ export function StageRooms() {
       data-testid="stage-rooms"
     >
       <div>
-        <p className="m-0 text-base font-semibold">{S.stage.listTitle}</p>
-        <p className="m-0 text-xs text-muted">{S.stage.listLead}</p>
+        <p className="m-0 text-base font-semibold">{ST.listTitle}</p>
+        <p className="m-0 text-xs text-muted">{ST.listLead}</p>
       </div>
       {levels.map(({ floor }) => {
         const rooms = floor.rooms.filter((r) => isStageRoom(r));
@@ -370,14 +367,12 @@ export function StageRooms() {
             data-stage-list-floor={floor.id}
           >
             <p className="m-0 flex flex-wrap items-center gap-1.5 text-xs font-semibold text-muted">
-              {S.stage.listFloor(floor.name || '—', hidden, rooms.length)}
+              {ST.listFloor(floor.name || '—', hidden, rooms.length)}
               {isFloorStageHidden(p, floor.id) ? (
-                <span className="rounded-sm bg-accent-soft px-1 text-accent">
-                  {S.stage.badgeFloor}
-                </span>
+                <span className="rounded-sm bg-accent-soft px-1 text-accent">{ST.badgeFloor}</span>
               ) : null}
               {floor.secret ? (
-                <span className="rounded-sm bg-surface-3 px-1">{S.stage.secretFloor}</span>
+                <span className="rounded-sm bg-surface-3 px-1">{ST.secretFloor}</span>
               ) : null}
             </p>
             {rooms.length ? (
@@ -393,7 +388,7 @@ export function StageRooms() {
                 ))}
               </ul>
             ) : (
-              <p className="m-0 text-xs text-muted">{S.stage.listNone}</p>
+              <p className="m-0 text-xs text-muted">{ST.listNone}</p>
             )}
           </section>
         );
@@ -418,7 +413,7 @@ function RoomRow({
   const key = roomKey(floorId, room.id);
   const info = tl.info.get(key);
   const entry = p.stage?.rooms?.find((e) => e.floor === floorId && e.room === room.id);
-  const name = room.name || S.stage.unnamed;
+  const name = room.name || ST.unnamed;
   const value = whenValue(entry?.when, routeIds);
   return (
     <li
@@ -428,7 +423,7 @@ function RoomRow({
       )}
       draggable
       onDragStart={(e) => startRoomDrag(e, key)}
-      title={S.stage.dragChip}
+      title={ST.dragChip}
       data-stage-room={key}
     >
       <div className="flex min-w-0 items-center gap-1.5">
@@ -445,14 +440,14 @@ function RoomRow({
           disabled={preview}
           data-testid="stage-room-toggle"
         >
-          {info ? S.stage.show : S.stage.hide}
+          {info ? ST.show : ST.hide}
         </Button>
         <IconButton
           size="sm"
           variant="ghost"
           icon={<ZoomIn />}
-          label={`${S.stage.focus}：${name}`}
-          onClick={() => editor.stage.focusRoom(floorId, room)}
+          label={`${ST.focus}：${name}`}
+          onClick={() => editor.stage?.focusRoom(floorId, room)}
         />
       </div>
       {info ? (
@@ -463,7 +458,7 @@ function RoomRow({
             value={value}
             onValueChange={(v) => setWhen(key, whenFrom(v, routeIds))}
             options={whenOptions(routeIds.length, value)}
-            aria-label={S.stage.whenOf(name)}
+            aria-label={ST.whenOf(name)}
             data-stage-when={key}
           />
         </>

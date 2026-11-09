@@ -18,14 +18,14 @@ import {
   type BridgeHop,
   planRoute,
   type RouteContext,
-  roomKey,
+  type RoutePlan,
   routeContext,
   routeFocusRect,
   routeFromPath,
   routeTouchesRoom,
-  splitRoomKey,
   stairBridge,
 } from './route';
+import { orderedStage, roomKey, splitRoomKey } from './stageData';
 import type {
   Floor,
   Project,
@@ -91,81 +91,9 @@ export function stageRoomEntry(
 export const isFloorStageHidden = (p: Pick<Project, 'stage'>, floor: string): boolean =>
   !!p.stage?.floors?.includes(floor);
 
-/* ---------- 整理（讀檔、自動儲存、分享連結） ---------- */
+/* ---------- 整理（讀檔、自動儲存、分享連結）：model/stageData.ts（主程式裡的輕的那一份） ---------- */
 
-const isObj = (v: unknown): v is Record<string, unknown> =>
-  typeof v === 'object' && v !== null && !Array.isArray(v);
-const fin = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
-const clampCoord = (v: number) => Math.round(Math.max(-4096, Math.min(4096, v)) * 1000) / 1000 + 0;
-
-/**
- * 演出的資料：房間、樓層要存在；路線的數字要是數字（範圍外的夾回來），折線 2～64 點；
- * 公開時機指到不存在的路線時改成「所有路線之後」（同原作：指定的路線不見了＝最後公開）。空的時候 undefined。
- */
-export function normalizeStage(raw: unknown, floors: readonly Floor[]): StagePlan | undefined {
-  if (!isObj(raw)) return undefined;
-  const byId = new Map(floors.map((f) => [f.id, f]));
-  const out: StagePlan = {};
-  const routes: StageRoute[] = [];
-  const seenRoute = new Set<string>();
-  if (Array.isArray(raw.routes))
-    for (const r of raw.routes) {
-      if (!isObj(r) || typeof r.floor !== 'string' || !byId.has(r.floor)) continue;
-      if (![r.x1, r.y1, r.x2, r.y2].every(fin)) continue;
-      const x1 = clampCoord(r.x1 as number);
-      const y1 = clampCoord(r.y1 as number);
-      const x2 = clampCoord(r.x2 as number);
-      const y2 = clampCoord(r.y2 as number);
-      let id = typeof r.id === 'string' && r.id ? r.id.slice(0, 80) : '';
-      if (!id || seenRoute.has(id)) id = uid('a');
-      seenRoute.add(id);
-      const route: StageRoute = {
-        id,
-        floor: r.floor,
-        x1,
-        y1,
-        cx: fin(r.cx) ? clampCoord(r.cx) : clampCoord((x1 + x2) / 2),
-        cy: fin(r.cy) ? clampCoord(r.cy) : clampCoord((y1 + y2) / 2),
-        x2,
-        y2,
-      };
-      if (Array.isArray(r.pts)) {
-        const pts = r.pts
-          .filter((q): q is [number, number] => Array.isArray(q) && fin(q[0]) && fin(q[1]))
-          .map(([x, y]) => [clampCoord(x), clampCoord(y)] as [number, number]);
-        if (pts.length >= 2 && pts.length <= 64 && pts.length === r.pts.length) route.pts = pts;
-      }
-      if (fin(r.w) && r.w !== 1) route.w = Math.round(Math.max(0.5, Math.min(3, r.w)) * 100) / 100;
-      routes.push(route);
-    }
-  if (routes.length) out.routes = routes;
-  const rooms: StageRoom[] = [];
-  const seenRoom = new Set<string>();
-  if (Array.isArray(raw.rooms))
-    for (const e of raw.rooms) {
-      if (!isObj(e) || typeof e.floor !== 'string' || typeof e.room !== 'string') continue;
-      const f = byId.get(e.floor);
-      if (!f?.rooms.some((r) => r.id === e.room)) continue;
-      const key = roomKey(e.floor, e.room);
-      if (seenRoom.has(key)) continue;
-      seenRoom.add(key);
-      const entry: StageRoom = { floor: e.floor, room: e.room };
-      const when = e.when;
-      if (when === 'after' || when === 'manual') entry.when = when;
-      else if (typeof when === 'string' && when.startsWith('route:'))
-        entry.when = routes.some((r) => `route:${r.id}` === when) ? (when as StageWhen) : 'after';
-      if (fin(e.order)) entry.order = Math.max(0, Math.min(9999, Math.round(e.order)));
-      rooms.push(entry);
-    }
-  if (rooms.length) out.rooms = rooms;
-  if (Array.isArray(raw.floors)) {
-    const list = [...new Set(raw.floors.filter((v): v is string => typeof v === 'string'))].filter(
-      (id) => byId.has(id),
-    );
-    if (list.length) out.floors = list;
-  }
-  return out.rooms || out.floors || out.routes ? out : undefined;
-}
+export { normalizeStage, orderedStage } from './stageData';
 
 /* ---------- 編輯（在地圖的草稿上改；一步復原由呼叫端決定） ---------- */
 
@@ -174,14 +102,11 @@ function plan(p: Project): StagePlan {
   return p.stage;
 }
 
-/** 空的欄位與空的演出拿掉（存檔不留空陣列） */
+/** 空的欄位與空的演出拿掉（存檔不留空陣列），鍵照固定的順序重排（存了再開的 JSON 字串相同） */
 export function tidyStage(p: Project): void {
-  const s = p.stage;
-  if (!s) return;
-  if (!s.rooms?.length) delete s.rooms;
-  if (!s.floors?.length) delete s.floors;
-  if (!s.routes?.length) delete s.routes;
-  if (!s.rooms && !s.floors && !s.routes) delete p.stage;
+  const s = orderedStage(p.stage);
+  if (s) p.stage = s;
+  else delete p.stage;
 }
 
 /** 藏起來／公開一間房（回傳之後是不是藏著） */
@@ -326,14 +251,18 @@ export function stageContext(p: Project, route: RouteContext = routeContext(p)):
   return { project: p, route, routes, hops, rooms, floorById, roomOf };
 }
 
-function stairBridgeFor(ctx: RouteContext, prev: StageRoute, next: StageRoute): BridgeHop[] {
+/** 前一條路線的終點到這一條的起點之間經過的樓梯（兩條有一條照門與走廊算的，走到樓梯的那一段也照門與走廊） */
+function stairBridgeFor(ctx: RouteContext, before: StageRoute, route: StageRoute): BridgeHop[] {
+  const end = { x: before.x2, y: before.y2 };
+  const start = { x: route.x1, y: route.y1 };
+  const structural = !!before.pts || !!route.pts;
   return stairBridge(
     ctx,
-    ctx.levelOf(prev.floor),
-    ctx.levelOf(next.floor),
-    { x: prev.x2, y: prev.y2 },
-    { x: next.x1, y: next.y1 },
-    !!(prev.pts || next.pts),
+    ctx.levelOf(before.floor),
+    ctx.levelOf(route.floor),
+    end,
+    start,
+    structural,
   );
 }
 
@@ -680,17 +609,12 @@ export function stageFrameAt(tl: StageTimeline, t: number, instant = false): Sta
 export type StageCameraMode = 'follow' | 'fixed';
 
 const ease = (x: number) => 1 - (1 - x) ** 3;
-export const lerpRect = (a: Rect, b: Rect, t: number): Rect =>
-  t >= 1
-    ? { ...b }
-    : t <= 0
-      ? { ...a }
-      : {
-          x: a.x + (b.x - a.x) * t,
-          y: a.y + (b.y - a.y) * t,
-          w: a.w + (b.w - a.w) * t,
-          h: a.h + (b.h - a.h) * t,
-        };
+export function lerpRect(a: Rect, b: Rect, t: number): Rect {
+  if (t >= 1) return { ...b };
+  if (t <= 0) return { ...a };
+  const mix = (key: keyof Rect) => a[key] + (b[key] - a[key]) * t;
+  return { x: mix('x'), y: mix('y'), w: mix('w'), h: mix('h') };
+}
 
 /**
  * t 秒時的鏡頭（畫面上要放進來的範圍）：`fixed`＝全體；`follow`＝每一步 0.48 秒移到那一步的範圍（緩停），走樓梯的過場時
@@ -760,82 +684,80 @@ export interface AutoStageResult {
  * 只有一間房時那一間藏起來、最後公開。
  */
 export function autoStage(p: Project, ctx: RouteContext = routeContext(p)): AutoStageResult | null {
-  const levels = ctx.floors
+  const usable = ctx.floors
     .map((f, level) => ({ f, level }))
     .filter(({ f }) => !f.secret && f.rooms.some(isAutoRoom));
-  if (!levels.length) return null;
-  const gi = levels.findIndex(({ f }) => /^1\s*F$|^1\s*樓$/i.test(f.name.trim()));
-  const start = levels[gi >= 0 ? gi : 0];
-  const ordered = [
-    start,
-    ...levels.filter((l) => l.level > start.level),
-    ...levels.filter((l) => l.level < start.level).reverse(),
+  if (!usable.length) return null;
+  const ground = usable.find(({ f }) => /^1\s*F$|^1\s*樓$/i.test(f.name.trim())) ?? usable[0];
+  const tour = [
+    ground,
+    ...usable.filter((l) => l.level > ground.level),
+    ...usable.filter((l) => l.level < ground.level).reverse(),
   ];
-  const old = stagePlanOf(p);
-  const rooms: StageRoom[] = [];
+  const hidden: StageRoom[] = [];
   const routes: StageRoute[] = [];
-  let order = 0;
-  let previous: { level: number; room: Room } | null = null;
-  let disconnected = 0;
-  const passed = new Set<string>();
-  const total = levels.reduce((n, { f }) => n + f.rooms.filter(isAutoRoom).length, 0);
-  for (const { f, level } of ordered) {
-    const remaining = f.rooms.filter(isAutoRoom);
+  const stairs = new Set<string>();
+  let seq = 0;
+  let unreachable = 0;
+  let at: { level: number; room: Room } | null = null;
+  const take = <T>(list: T[], x: T) => list.splice(list.indexOf(x), 1);
+  for (const { f, level } of tour) {
+    const pending = f.rooms.filter(isAutoRoom);
     const entries = new Map<string, StageRoom>();
-    for (const r of remaining) {
-      const e: StageRoom = { floor: f.id, room: r.id, order: order++ };
-      entries.set(r.id, e);
-      rooms.push(e);
+    for (const r of pending) entries.set(r.id, { floor: f.id, room: r.id, order: seq++ });
+    hidden.push(...entries.values());
+    let stops = 0;
+    if (!at) {
+      /* 出發的房間一開始就公開 */
+      const lobby = pending.find((r) => ENTRY_NAME.test(r.name)) ?? pending[0];
+      take(pending, lobby);
+      const shown = entries.get(lobby.id);
+      if (shown) take(hidden, shown);
+      at = { level, room: lobby };
+      stops = 1;
     }
-    let visits = 0;
-    if (!previous) {
-      const entry = remaining.find((r) => ENTRY_NAME.test(r.name)) ?? remaining[0];
-      remaining.splice(remaining.indexOf(entry), 1);
-      previous = { level, room: entry };
-      const e = entries.get(entry.id);
-      if (e) rooms.splice(rooms.indexOf(e), 1);
-      visits++;
-    }
-    while (remaining.length && visits < 3) {
-      let best: { room: Room; plan: NonNullable<ReturnType<typeof planRoute>> } | null = null;
-      for (const r of remaining) {
-        const cand = planRoute(ctx, previous, { level, room: r });
-        if (cand && (!best || cand.cost < best.plan.cost)) best = { room: r, plan: cand };
-      }
-      if (!best) {
-        disconnected += remaining.length;
+    for (; stops < 3 && pending.length; stops++) {
+      const from: { level: number; room: Room } = at;
+      const pick = pending.reduce<{ room: Room; plan: RoutePlan } | null>((best, room) => {
+        const plan = planRoute(ctx, from, { level, room });
+        return plan && (!best || plan.cost < best.plan.cost) ? { room, plan } : best;
+      }, null);
+      if (!pick) {
+        unreachable += pending.length;
         break;
       }
-      for (const leg of best.plan.legs)
+      for (const leg of pick.plan.legs)
         routes.push(routeFromPath(uid('a'), ctx.floors[leg.level].id, leg.pts));
-      for (const h of best.plan.hops) for (const k of h.rooms) passed.add(k);
-      previous = { level, room: best.room };
-      remaining.splice(remaining.indexOf(best.room), 1);
-      visits++;
+      for (const hop of pick.plan.hops) for (const key of hop.rooms) stairs.add(key);
+      at = { level, room: pick.room };
+      take(pending, pick.room);
     }
   }
   /* 自動產生的房間以外，使用者藏起來的（走廊、樓梯間、甲板…）照舊；路線經過的樓梯間改成自動公開（原作） */
-  const keep = (old.rooms ?? [])
+  const old = stagePlanOf(p);
+  const roomOf = (e: StageRoom) =>
+    p.floors.find((x) => x.id === e.floor)?.rooms.find((x) => x.id === e.room);
+  const kept = (old.rooms ?? [])
     .filter((e) => {
-      const r = p.floors.find((x) => x.id === e.floor)?.rooms.find((x) => x.id === e.room);
+      const r = roomOf(e);
       return !!r && isStageRoom(r) && !isAutoRoom(r);
     })
-    .map((e): StageRoom => {
-      if (!passed.has(roomKey(e.floor, e.room))) return e;
-      return { floor: e.floor, room: e.room };
-    });
-  const all: StageRoom[] = [...keep, ...rooms];
-  if (total === 1 && previous)
-    all.push({ floor: ctx.floors[previous.level].id, room: previous.room.id, when: 'after' });
-  const floors = (old.floors ?? []).filter((id) => id !== start.f.id);
-  const out: StagePlan = {};
-  if (all.length) out.rooms = all;
-  if (floors.length) out.floors = floors;
-  if (routes.length) out.routes = routes;
+    .map(
+      (e): StageRoom =>
+        stairs.has(roomKey(e.floor, e.room)) ? { floor: e.floor, room: e.room } : e,
+    );
+  const rooms = [...kept, ...hidden];
+  const count = usable.reduce((n, { f }) => n + f.rooms.filter(isAutoRoom).length, 0);
+  if (count === 1 && at)
+    rooms.push({ floor: ctx.floors[at.level].id, room: at.room.id, when: 'after' });
   return {
-    stage: out.rooms || out.floors || out.routes ? out : undefined,
-    disconnected,
-    start: start.f.id,
+    stage: orderedStage({
+      rooms,
+      floors: (old.floors ?? []).filter((id) => id !== ground.f.id),
+      routes,
+    }),
+    disconnected: unreachable,
+    start: ground.f.id,
   };
 }
 

@@ -5,7 +5,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   aacAudioSpecificConfig,
+  encodeAlphaWebm,
   encodeMovie,
+  findAlphaWebmPlan,
   findMoviePlan,
   type MoviePlan,
   movieLayout,
@@ -663,6 +665,44 @@ describe('encodeMovie（模擬的編碼器）', () => {
         signal: ctrl.signal,
       }),
     ).rejects.toMatchObject({ name: 'AbortError' });
+  });
+});
+
+describe('不透明的 WebM（findAlphaWebmPlan 的 opaque；2026-11-09 floor-plan 的演出影片加的選填）', () => {
+  /* 讀得到像素的假畫布（encodeAlphaWebm 用 getImageData 換成 I420） */
+  const canvas = {
+    width: 64,
+    height: 36,
+    getContext: () => ({ getImageData: () => ({ data: new Uint8ClampedArray(64 * 36 * 4) }) }),
+  } as unknown as HTMLCanvasElement;
+  const encode = (plan: NonNullable<Awaited<ReturnType<typeof findAlphaWebmPlan>>>) =>
+    encodeAlphaWebm({
+      plan,
+      width: 64,
+      height: 36,
+      fps: 10,
+      frameCount: 5,
+      renderFrame: () => canvas,
+      audio: null,
+      keyFrameInterval: 4,
+    });
+
+  it('不給 opaque 時照舊兩路（透明度那一路有設定）；opaque 時只有顏色那一路、檔案裡沒有 AlphaMode', async () => {
+    const { encodedFrames } = installCodecs({ vp9: true });
+    const withAlpha = await findAlphaWebmPlan({ width: 64, height: 36, fps: 10 });
+    expect(withAlpha?.alpha).not.toBeNull();
+    const opaque = await findAlphaWebmPlan({ width: 64, height: 36, fps: 10, opaque: true });
+    expect(opaque).toMatchObject({ codec: 'vp09', alpha: null });
+    const a = new Uint8Array(await (await encode(withAlpha!)).arrayBuffer());
+    expect(encodedFrames).toHaveLength(10);
+    const b = new Uint8Array(await (await encode(opaque!)).arrayBuffer());
+    expect(encodedFrames).toHaveLength(15);
+    /* AlphaMode（0x53C0，值 1）只在帶透明度的檔裡 */
+    const hasAlphaMode = (x: Uint8Array) =>
+      x.some((v, i) => v === 0x53 && x[i + 1] === 0xc0 && x[i + 2] === 0x81 && x[i + 3] === 1);
+    expect(hasAlphaMode(a)).toBe(true);
+    expect(hasAlphaMode(b)).toBe(false);
+    expect(b.length).toBeLessThan(a.length);
   });
 });
 

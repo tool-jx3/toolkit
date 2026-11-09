@@ -40,8 +40,10 @@ import {
   stageCameraAt,
   stageFrameAt,
   stepState,
+  tidyStage,
 } from '../model/stage';
 import type { Floor, Rect, Room, StageRoute } from '../model/types';
+import { ST } from '../stageStrings';
 import { S } from '../strings';
 import * as act from './actions';
 import {
@@ -52,7 +54,8 @@ import {
   stagePlayView,
   stageRoomClick,
 } from './stageActions';
-import { timelineOf, useStage } from './stageStore';
+import { timelineOf } from './stageCache';
+import { useStage } from './stageStore';
 import { useEditor, usePrefs, useProject } from './store';
 
 type P = { x: number; y: number };
@@ -262,11 +265,7 @@ export class StageCanvas {
       c.font = '800 15px system-ui, sans-serif';
       c.fillStyle = theme.label;
       const f = sc.view === 'plan' ? this.planFloor() : null;
-      c.fillText(
-        f ? `${S.stage.kicker}（PL）・${f.name || '—'}` : `${S.stage.kicker}（PL）`,
-        60,
-        12,
-      );
+      c.fillText(f ? `${ST.kicker}（PL）・${f.name || '—'}` : `${ST.kicker}（PL）`, 60, 12);
     } else {
       c.globalAlpha = 0.4;
       c.font = '900 24px system-ui, sans-serif';
@@ -469,8 +468,7 @@ export class StageCanvas {
       return;
     }
     if (!hit) {
-      if (useStage.getState().tool !== 'hand')
-        act.notify(S.stage.noRoom, 'info', { replace: true });
+      if (useStage.getState().tool !== 'hand') act.notify(ST.noRoom, 'info', { replace: true });
       return;
     }
     stageRoomClick(hit.floor.id, hit.room);
@@ -590,7 +588,9 @@ export class StageCanvas {
           return n;
         });
         useProject.getState().update((q) => {
-          if (q.stage) q.stage.routes = next;
+          if (!q.stage) return;
+          q.stage.routes = next;
+          tidyStage(q);
         });
         return;
       }

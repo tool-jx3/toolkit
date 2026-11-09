@@ -7,8 +7,7 @@ import { S } from '../strings';
 import * as act from './actions';
 import { editor } from './controller';
 import { openProjectFile, saveProjectFile } from './files';
-import { clearStart, setStageTool } from './stageActions';
-import { useStage } from './stageStore';
+import { clearStart, setStageTool, useStage } from './stageStore';
 import { setEditor, type ToolId, useEditor, usePrefs, useProject } from './store';
 
 const K = S.keys;

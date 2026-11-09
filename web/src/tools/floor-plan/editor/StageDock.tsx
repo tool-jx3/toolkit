@@ -20,7 +20,7 @@ import { roomKey } from '../model/route';
 import { roomHasPointClosed } from '../model/shape';
 import { isStageRoom, type StageStep, type StageTimeline, stepAt } from '../model/stage';
 import type { Project } from '../model/types';
-import { S } from '../strings';
+import { ST } from '../stageStrings';
 import { notify } from './actions';
 import { ROOM_DRAG_TYPE, startRoomDrag } from './StagePanel';
 import {
@@ -32,7 +32,8 @@ import {
   type StageDropTarget,
   stopPreview,
 } from './stageActions';
-import { type StagePlayer, setStage, timelineOf, useStage } from './stageStore';
+import { timelineOf } from './stageCache';
+import { type StagePlayer, setStage, useStage } from './stageStore';
 import { useProject } from './store';
 
 const EPS = 1e-4;
@@ -54,7 +55,7 @@ function endsOf(p: Project, tl: StageTimeline, s: StageStep): [string, string] {
   const at = (x: number, y: number) =>
     f ? [...f.rooms].reverse().find((q) => roomHasPointClosed(q, x, y))?.name : undefined;
   void tl;
-  return [(r && at(r.x1, r.y1)) || S.stage.somewhere, (r && at(r.x2, r.y2)) || S.stage.somewhere];
+  return [(r && at(r.x1, r.y1)) || ST.somewhere, (r && at(r.x2, r.y2)) || ST.somewhere];
 }
 
 const floorNameOf = (p: Project, id: string) => p.floors.find((f) => f.id === id)?.name || '—';
@@ -65,14 +66,14 @@ export function StageDock() {
   const closed = useStage((s) => s.dockClosed);
   return (
     <section
-      aria-label={S.stage.timeline}
+      aria-label={ST.timeline}
       className="flex min-w-0 flex-col gap-2 rounded-md border border-border bg-surface p-2"
       data-testid="stage-dock"
     >
       <StageTransport tl={tl} closed={closed} />
       {closed ? null : tl.steps.length < 2 && !tl.manual.length ? (
         <p className="m-0 h-[9.5rem] px-1 py-2 text-xs text-muted" data-testid="stage-empty">
-          {S.stage.emptyTimeline}
+          {ST.emptyTimeline}
         </p>
       ) : (
         <StageSteps p={p} tl={tl} />
@@ -134,19 +135,19 @@ function StageTransport({ tl, closed }: { tl: StageTimeline; closed: boolean }) 
       playback.time >= tlRef.current.total - EPS &&
       tlRef.current.total > 0
     )
-      notify(S.stage.finished, 'success', { replace: true });
+      notify(ST.finished, 'success', { replace: true });
     wasPlaying.current = playback.playing;
   }, [playback.time, playback.playing]);
 
   const ensure = useCallback((): boolean => {
     const t = tlRef.current;
     if (!t.playable) {
-      notify(S.stage.nothing, 'warning', { replace: true });
+      notify(ST.nothing, 'warning', { replace: true });
       return false;
     }
     if (t.steps.length < 2) {
       setStage({ preview: true, revealAll: false });
-      notify(S.stage.manualOnly, 'info', { replace: true });
+      notify(ST.manualOnly, 'info', { replace: true });
       return false;
     }
     return true;
@@ -188,7 +189,7 @@ function StageTransport({ tl, closed }: { tl: StageTimeline; closed: boolean }) 
         let k = stepAt(t, time);
         if (!st.preview || time >= stepEnd(t.steps[k]) - 0.01) k += 1;
         if (k >= t.steps.length) {
-          notify(S.stage.atEnd, 'info', { replace: true });
+          notify(ST.atEnd, 'info', { replace: true });
           return;
         }
         const s = t.steps[k];
@@ -198,7 +199,7 @@ function StageTransport({ tl, closed }: { tl: StageTimeline; closed: boolean }) 
         setStage({ preview: true, revealAll: false });
         stopAt.current = stepEnd(s);
         pb.current.play();
-        notify(S.stage.stepCount(k, t.steps.length - 1), 'info', { replace: true });
+        notify(ST.stepCount(k, t.steps.length - 1), 'info', { replace: true });
       },
       prev: () => {
         const t = tlRef.current;
@@ -235,7 +236,7 @@ function StageTransport({ tl, closed }: { tl: StageTimeline; closed: boolean }) 
       tl.steps.length > 1
         ? tl.steps.map((s, k) => ({
             id: `s${k}`,
-            label: k ? S.stage.stepN(k) : S.stage.startStep,
+            label: k ? ST.stepN(k) : ST.startStep,
             start: s.start,
             end: s.start + s.duration,
             color:
@@ -284,26 +285,26 @@ function StageTransport({ tl, closed }: { tl: StageTimeline; closed: boolean }) 
           size="sm"
           icon={<SkipForward />}
           onClick={player.next}
-          title={S.stage.nextTip}
+          title={ST.nextTip}
           data-testid="stage-next"
         >
-          {S.stage.next}
+          {ST.next}
         </Button>
         <Button
           size="sm"
           variant="ghost"
           icon={<Eye />}
           onClick={revealAll}
-          title={S.stage.revealAllTip}
+          title={ST.revealAllTip}
           data-testid="stage-reveal-all"
         >
-          {S.stage.revealAll}
+          {ST.revealAll}
         </Button>
         <IconButton
           size="sm"
           variant="ghost"
           icon={closed ? <ChevronUp /> : <ChevronDown />}
-          label={closed ? S.stage.expand : S.stage.collapse}
+          label={closed ? ST.expand : ST.collapse}
           onClick={() => setStage({ dockClosed: !closed })}
           aria-expanded={!closed}
         />
@@ -386,22 +387,22 @@ function StepCard({
           <span>{s.duration.toFixed(1)}s</span>
         </span>
         <span className="flex w-full justify-between font-semibold">
-          <span>{k ? S.stage.stepN(k) : S.stage.startStep}</span>
+          <span>{k ? ST.stepN(k) : ST.startStep}</span>
           <span className="text-muted">{k ? `${k}/${Math.max(1, n)}` : 'START'}</span>
         </span>
       </button>
       {s.kind === 'start' ? (
         <p className="m-0 px-1 text-muted">
-          {S.stage.startSummary(tl.ctx.rooms.length, plan?.floors?.length ?? 0)}
+          {ST.startSummary(tl.ctx.rooms.length, plan?.floors?.length ?? 0)}
         </p>
       ) : s.route ? (
         <RouteChip p={p} tl={tl} step={s} />
       ) : (
-        <p className="m-0 px-1 text-muted">{S.stage.noMove}</p>
+        <p className="m-0 px-1 text-muted">{ST.noMove}</p>
       )}
       {s.revealFloors.map((id) => (
         <span key={id} className="rounded-sm bg-success-soft px-1.5 py-0.5 text-success">
-          {S.stage.floorChip(floorNameOf(p, id))}
+          {ST.floorChip(floorNameOf(p, id))}
         </span>
       ))}
       {s.revealRooms.map((key) => (
@@ -415,7 +416,7 @@ function StepCard({
         />
       ))}
       {k > 0 && !s.revealRooms.length && !s.revealFloors.length ? (
-        <span className="px-1 text-muted">{S.stage.noReveal}</span>
+        <span className="px-1 text-muted">{ST.noReveal}</span>
       ) : null}
       {s.kind === 'route' && s.route ? <AddRoom p={p} tl={tl} step={s} /> : null}
     </li>
@@ -436,14 +437,14 @@ function RouteChip({ p, tl, step: s }: { p: Project; tl: StageTimeline; step: St
     >
       <div className="flex items-center justify-between gap-1">
         <span className="font-semibold text-danger">
-          {S.stage.routeChip(i + 1, floorNameOf(p, r.floor))}
+          {ST.routeChip(i + 1, floorNameOf(p, r.floor))}
         </span>
         <span className="flex">
           <IconButton
             size="sm"
             variant="ghost"
             icon={<ChevronLeft />}
-            label={S.stage.moveLeft}
+            label={ST.moveLeft}
             disabled={i <= 0}
             onClick={() => moveRoute(r.id, -1)}
           />
@@ -451,7 +452,7 @@ function RouteChip({ p, tl, step: s }: { p: Project; tl: StageTimeline; step: St
             size="sm"
             variant="ghost"
             icon={<ChevronRight />}
-            label={S.stage.moveRight}
+            label={ST.moveRight}
             disabled={i >= tl.ctx.routes.length - 1}
             onClick={() => moveRoute(r.id, 1)}
           />
@@ -459,21 +460,21 @@ function RouteChip({ p, tl, step: s }: { p: Project; tl: StageTimeline; step: St
             size="sm"
             variant="ghost"
             icon={<X />}
-            label={S.stage.deleteRoute}
+            label={ST.deleteRoute}
             onClick={() => deleteRoute(r.id)}
           />
         </span>
       </div>
       {hop && lastHop ? (
         <span className="text-muted" data-stage-stairs>
-          {S.stage.stairsTag(
-            S.stage.hopKinds[hop.link.kind],
+          {ST.stairsTag(
+            ST.hopKinds[hop.link.kind],
             tl.ctx.route.floors[hop.fromLevel]?.name || '—',
             tl.ctx.route.floors[lastHop.toLevel]?.name || '—',
           )}
         </span>
       ) : null}
-      <span className="truncate">{S.stage.routeFromTo(a, b)}</span>
+      <span className="truncate">{ST.routeFromTo(a, b)}</span>
     </div>
   );
 }
@@ -499,7 +500,7 @@ function RoomChip({
       className="flex flex-col gap-1 rounded-sm bg-surface px-1.5 py-0.5 shadow-1"
       draggable
       onDragStart={(e) => startRoomDrag(e, key)}
-      title={`${S.stage.dragChip}（${revealText(tl.info.get(key))}）`}
+      title={`${ST.dragChip}（${revealText(tl.info.get(key))}）`}
       data-stage-chip={key}
     >
       <div className="flex items-center justify-between gap-1">
@@ -512,7 +513,7 @@ function RoomChip({
               size="sm"
               variant="ghost"
               icon={<ChevronLeft />}
-              label={S.stage.orderUp}
+              label={ST.orderUp}
               disabled={order <= 0}
               onClick={() => moveAfter(key, -1)}
             />
@@ -520,7 +521,7 @@ function RoomChip({
               size="sm"
               variant="ghost"
               icon={<ChevronRight />}
-              label={S.stage.orderDown}
+              label={ST.orderDown}
               disabled={order >= last}
               onClick={() => moveAfter(key, 1)}
             />
@@ -542,7 +543,7 @@ function AddRoom({ p, tl, step: s }: { p: Project; tl: StageTimeline; step: Stag
       if (!isStageRoom(room) || s.revealRooms.includes(key)) continue;
       opts.push({
         value: key,
-        label: `［${f.name || '—'}］${room.name || S.stage.unnamed}${tl.info.has(key) ? '' : S.stage.addRoomHide}`,
+        label: `［${f.name || '—'}］${room.name || ST.unnamed}${tl.info.has(key) ? '' : ST.addRoomHide}`,
       });
     }
   if (!opts.length) return null;
@@ -551,12 +552,12 @@ function AddRoom({ p, tl, step: s }: { p: Project; tl: StageTimeline; step: Stag
     <Select
       size="sm"
       value=""
-      placeholder={S.stage.addRoom}
+      placeholder={ST.addRoom}
       onValueChange={(key) => {
         if (key) dropRoom(key, { kind: 'route', id: r.id });
       }}
       options={opts}
-      aria-label={S.stage.addRoomLabel}
+      aria-label={ST.addRoomLabel}
       data-stage-add={r.id}
     />
   );
@@ -574,8 +575,8 @@ function ManualCard({ p, tl }: { p: Project; tl: StageTimeline }) {
       data-stage-step="manual"
       {...drop.props}
     >
-      <p className="m-0 px-1 font-semibold">{S.stage.manualCol}</p>
-      <p className="m-0 px-1 text-muted">{S.stage.manualHint}</p>
+      <p className="m-0 px-1 font-semibold">{ST.manualCol}</p>
+      <p className="m-0 px-1 text-muted">{ST.manualHint}</p>
       {tl.manual.map((key) => (
         <RoomChip key={key} p={p} tl={tl} k={key} order={-1} last={0} />
       ))}

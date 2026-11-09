@@ -3,11 +3,17 @@
  * （`Project.stage`，useProject）；這裡是「現在是不是在演出」「用哪個工具」「出發地」「播放到幾秒」「暫時公開了哪些」。
  *
  * 播放到幾秒由下方的時間軸（StageDock 的 usePlayback）推進，寫進這裡給畫布（controller）與快捷鍵用。
+ *
+ * **用到時才載入**（D131）：這個檔在主程式裡（輕的：狀態、開關、工具）；演出的面板、時間軸、畫法、路線的計算在
+ * `stageModule.ts`，第一次按「演出」時才載入（載入中編輯列的按鈕轉圈）。地圖裡有演出、沒有打開演出時不載入。
  */
 import { create } from 'zustand';
-import { type RouteContext, routeContext } from '../model/route';
-import { buildTimeline, type StageTimeline, stageContext } from '../model/stage';
-import type { Floor, Project } from '../model/types';
+import { S } from '../strings';
+import { flushNudge, notify, updateHint } from './actions';
+import { setEditor } from './store';
+
+/** 打開演出時才載入的那一包（stageModule.ts；這裡只用型別，不會被打包進主程式） */
+export type StageModule = typeof import('./stageModule');
 
 export type StageTool = 'hide' | 'route' | 'hand';
 
@@ -49,6 +55,9 @@ export interface StageUi {
   /** 時間軸收起來了 */
   dockClosed: boolean;
   player: StagePlayer | null;
+  /** 演出的程式載入中、載入好了 */
+  loading: boolean;
+  ready: boolean;
 }
 
 export const useStage = create<StageUi>(() => ({
@@ -64,30 +73,100 @@ export const useStage = create<StageUi>(() => ({
   exportOpen: false,
   dockClosed: false,
   player: null,
+  loading: false,
+  ready: false,
 }));
 
 export const setStage = (patch: Partial<StageUi>): void => useStage.setState(patch);
 
 export const stageOn = (): boolean => useStage.getState().on;
 
-let cache: { p: Project; tl: StageTimeline } | null = null;
-let routeCache: { floors: Floor[]; ctx: RouteContext } | null = null;
+let loaded: StageModule | null = null;
+let pending: Promise<StageModule> | null = null;
 
-/**
- * 路線的計算（每一層的導航、上下樓層的連接）：樓層沒有改時用同一份（store 的地圖不會原地改；只改演出時 `floors`
- * 是同一個陣列），連續點房間、自動產生時不必每次重建導航（曲線多的地圖一層要 0.1～0.2 秒）。
- */
-export function routeContextOf(p: Project): RouteContext {
-  if (routeCache?.floors === p.floors) return routeCache.ctx;
-  const ctx = routeContext(p);
-  routeCache = { floors: p.floors, ctx };
-  return ctx;
+/** 載入好的演出程式（還沒載入時 null） */
+export const stageModule = (): StageModule | null => loaded;
+
+/** React 用：載入好之後重畫 */
+export function useStageModule(): StageModule | null {
+  useStage((s) => s.ready);
+  return loaded;
 }
 
-/** 目前的地圖的時間軸（地圖沒有改時用同一份） */
-export function timelineOf(p: Project): StageTimeline {
-  if (cache?.p === p) return cache.tl;
-  const tl = buildTimeline(p, stageContext(p, routeContextOf(p)));
-  cache = { p, tl };
-  return tl;
+/** 載入演出的程式（只載入一次；失敗時下次再試） */
+export function loadStage(): Promise<StageModule> {
+  if (loaded) return Promise.resolve(loaded);
+  pending ??= import('./stageModule').then(
+    (m) => {
+      m.install();
+      loaded = m;
+      setStage({ ready: true });
+      return m;
+    },
+    (err: unknown) => {
+      pending = null;
+      throw err;
+    },
+  );
+  return pending;
+}
+
+/* ---------- 開關、工具 ---------- */
+
+/** 演出的開關：打開時放下編輯的工具、清掉選取（程式要先載入好） */
+export function setStageMode(on: boolean): void {
+  if (useStage.getState().on === on || (on && !loaded)) return;
+  flushNudge();
+  if (on) setEditor({ sel: [], tool: 'select', armed: null });
+  stopPreview();
+  setStage({ on, start: null, exportOpen: false });
+  updateHint(false);
+}
+
+/** 編輯列的「演出」：第一次打開時先載入程式（載入中按鈕轉圈；失敗時通知） */
+export function toggleStage(): void {
+  const st = useStage.getState();
+  if (st.loading) return;
+  if (st.on) {
+    setStageMode(false);
+    return;
+  }
+  if (loaded) {
+    setStageMode(true);
+    return;
+  }
+  setStage({ loading: true });
+  loadStage().then(
+    () => {
+      setStage({ loading: false });
+      setStageMode(true);
+    },
+    () => {
+      setStage({ loading: false });
+      notify(S.stageEntry.loadFailed, 'danger');
+    },
+  );
+}
+
+export function setStageTool(tool: StageTool): void {
+  setStage({ tool, ...(tool !== 'route' ? { start: null } : {}) });
+  updateHint(false);
+}
+
+export function clearStart(): void {
+  setStage({ start: null });
+}
+
+/** 回到準備的樣子（播放、暫時公開都取消） */
+export function stopPreview(): void {
+  const s = useStage.getState();
+  s.player?.reset();
+  setStage({
+    preview: false,
+    time: 0,
+    playing: false,
+    openRooms: [],
+    openFloors: [],
+    revealAll: false,
+  });
 }

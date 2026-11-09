@@ -39,6 +39,7 @@ import {
   stageFrameAt,
   stepAt,
   stepState,
+  tidyStage,
   toggleStageRoom,
 } from '@/tools/floor-plan/model/stage';
 import type {
@@ -47,6 +48,7 @@ import type {
   Opening,
   Project,
   Room,
+  StageRoom,
   StageRoute,
 } from '@/tools/floor-plan/model/types';
 import { instantiateTemplate } from '@/tools/floor-plan/templates';
@@ -242,6 +244,52 @@ describe('專案檔與整理（版本 11、F327、D121）', () => {
     /* 空的演出不寫 */
     expect(normalizeStage({ rooms: [], floors: [], routes: [] }, floors)).toBeUndefined();
     expect(normalizeProject({ ...projectOf(floors), stage: 'x' }, isAsset)?.stage).toBeUndefined();
+  });
+
+  it('鍵的順序固定：編輯過的演出整理後和讀檔整理的 JSON 字串相同（存了再開不變）', () => {
+    const floors = twoFloors();
+    const g = floors[0];
+    const p = projectOf(floors);
+    /* 亂序的鍵（拖曳控制點、改公開時機之後會出現的順序） */
+    p.stage = {
+      routes: [
+        {
+          w: 1.15,
+          pts: [
+            [1, 1],
+            [3, 3],
+          ],
+          id: 'a1',
+          floor: g.id,
+          x1: 1,
+          y1: 1,
+          cx: 2,
+          cy: 2,
+          x2: 3,
+          y2: 3,
+        } as StageRoute,
+      ],
+      floors: [floors[1].id],
+      rooms: [{ order: 2, room: g.rooms[0].id, floor: g.id, when: 'after' } as StageRoom],
+    };
+    tidyStage(p);
+    expect(Object.keys(p.stage ?? {})).toEqual(['rooms', 'floors', 'routes']);
+    expect(Object.keys(p.stage?.rooms?.[0] ?? {})).toEqual(['floor', 'room', 'when', 'order']);
+    expect(Object.keys(p.stage?.routes?.[0] ?? {})).toEqual([
+      'id',
+      'floor',
+      'x1',
+      'y1',
+      'cx',
+      'cy',
+      'x2',
+      'y2',
+      'pts',
+      'w',
+    ]);
+    const saved = JSON.stringify(p.stage);
+    const reopened = normalizeProject(JSON.parse(JSON.stringify(p)), isAsset);
+    expect(JSON.stringify(reopened?.stage)).toBe(saved);
   });
 
   it('版本 10 的檔（沒有演出）照讀；專案檔往返演出不變；改演出不碰祕密樓層', () => {

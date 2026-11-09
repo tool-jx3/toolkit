@@ -16,10 +16,7 @@ import { handleEscapeCapture, handleKeyDown, handleKeyUp } from './keys';
 import { Library } from './Library';
 import { PropsPanel } from './PropsPanel';
 import { openSharedFromHash, ShareDialog } from './ShareDialog';
-import { StageDock } from './StageDock';
-import { StageExportDialog } from './StageExport';
-import { StageRooms } from './StagePanel';
-import { useStage } from './stageStore';
+import { useStage, useStageModule } from './stageStore';
 import { onPersistError } from './store';
 import { TemplateDialog } from './TemplateDialog';
 import { installTestHook } from './testHook';
@@ -28,7 +25,9 @@ export function Editor() {
   const toast = useToast();
   const confirm = useConfirm();
   const choose = useChoice();
+  /* 演出（2026-11-09）：面板與時間軸在打開演出時才載入（D131） */
   const stage = useStage((s) => s.on);
+  const M = useStageModule();
 
   useEffect(() => {
     bindUi(toast, confirm, choose);
@@ -73,14 +72,14 @@ export function Editor() {
           aria-label={S.lib.label}
           className="order-3 flex min-h-0 min-w-0 flex-col lg:order-1"
         >
-          {stage ? <StageRooms /> : <Library />}
+          {stage && M ? <M.StageRooms /> : <Library />}
         </section>
         <section
           aria-label="畫布"
           className="order-1 flex min-h-0 min-w-0 flex-col gap-2 lg:order-2"
         >
           <CanvasArea />
-          {stage ? <StageDock /> : null}
+          {stage && M ? <M.StageDock /> : null}
           <FloorBar />
         </section>
         <section
@@ -94,7 +93,7 @@ export function Editor() {
       <ExportDialog />
       <ImportReportDialog />
       <ShareDialog />
-      <StageExportDialog />
+      {stage && M ? <M.StageExportDialog /> : null}
     </div>
   );
 }

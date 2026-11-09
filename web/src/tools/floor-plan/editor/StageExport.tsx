@@ -6,13 +6,14 @@ import { useEffect, useMemo, useState } from 'react';
 import { Dialog, type ExportFormatOption, ExportPanel } from '@/ui';
 import type { StageView } from '../draw/stage';
 import { STAGE_FPS } from '../model/stage';
-import { S } from '../strings';
+import { ST } from '../stageStrings';
 import { editor } from './controller';
 import { stageCamera, stagePlayView } from './stageActions';
-import { setStage, timelineOf, useStage } from './stageStore';
+import { timelineOf } from './stageCache';
+import { setStage, useStage } from './stageStore';
 import { usePrefs, useProject } from './store';
 
-const T = S.stage.exp;
+const T = ST.exp;
 
 type Format = 'webm' | 'mp4' | 'zip' | 'png';
 
@@ -49,7 +50,7 @@ export function StageExportDialog() {
       if (!alive) return;
       setSize(s);
       const [webm, mp4] = await Promise.all([
-        fx.detectVideoMode(s, STAGE_FPS, true, ['avc1', 'vp09']),
+        fx.detectVideoMode(s, STAGE_FPS, true, ['avc1', 'vp09'], { opaque: true }),
         fx.detectVideoMode(s, STAGE_FPS, false, ['avc1', 'vp09']),
       ]);
       if (alive) setSupport({ webm: webm.kind !== 'none', mp4: mp4.kind !== 'none' });
@@ -97,7 +98,7 @@ export function StageExportDialog() {
         formats={formats}
         defaultSettings={{ format: steps < 2 ? 'png' : 'webm', fps: STAGE_FPS }}
         fixedFps={STAGE_FPS}
-        fixedFpsHint={`${STAGE_FPS} fps`}
+        fixedFpsHint={T.fpsHint}
         estimate={
           size && steps > 1
             ? {
@@ -117,11 +118,12 @@ export function StageExportDialog() {
           const v = editor.view;
           const box = { x: -v.ox / v.zoom, y: -v.oy / v.zoom, w: v.w / v.zoom, h: v.h / v.zoom };
           /* 現在的畫面：畫布上的檢視方式（準備時是檢視方式，演出的畫面是播放畫面） */
+          const sc = editor.stage;
           return m.exportStageCurrent(
-            { ...input, view: editor.stage.viewMode() },
-            editor.stage.frame(),
+            { ...input, view: sc?.viewMode() ?? input.view },
+            sc?.frame() ?? null,
             box,
-            editor.stage.planFloor()?.id ?? '',
+            sc?.planFloor()?.id ?? '',
           );
         }}
       />
