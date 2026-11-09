@@ -32,6 +32,7 @@ import { CURVE_MIN, hasRadius, isRoomShape, radiusMax } from './curve';
 import { clamp, emptyFloor, normDeg, uid } from './geometry';
 import { isLineKind, LINE_W_MAX, LINE_W_MIN } from './lines';
 import { isCorner, validCut } from './shape';
+import { clampCamera, isDefaultCamera } from './stack';
 import type {
   Floor,
   FreeLine,
@@ -43,6 +44,7 @@ import type {
   RoomCategory,
   RoomCut,
   RoomShape,
+  StackCamera,
   TextLabel,
   Wall,
   WallKind,
@@ -332,6 +334,8 @@ export function normalizeProject(
     if (f.showInside === true) floor.showInside = true;
     const inside = optStr(f.inside, 200);
     if (inside) floor.inside = inside;
+    /* 祕密樓層（2026-11-09，F307）：只在 true 時寫 */
+    if (f.secret === true) floor.secret = true;
     return floor;
   });
   ids(floors, 'f');
@@ -374,6 +378,11 @@ export function normalizeProject(
   /* 2026-11-05（參考 KIIN v2.0）：夜的暗度 5%～85%（0 以下＝白天，不寫） */
   if (isNum(p.night) && num(p.night) > 0)
     out.night = Math.round(clamp(num(p.night), NIGHT_MIN, NIGHT_MAX) * 100) / 100;
+  /* 2026-11-09（參考 KIIN 立体フロアガイド）：立體樓層圖的視角（範圍外的夾回來；和預設相同時不寫） */
+  if (p.stack && typeof p.stack === 'object') {
+    const cam = clampCamera(p.stack as Partial<StackCamera>);
+    if (!isDefaultCamera(cam)) out.stack = cam;
+  }
   return out;
 }
 

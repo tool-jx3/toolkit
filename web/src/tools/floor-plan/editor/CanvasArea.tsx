@@ -1,5 +1,6 @@
 /**
  * 畫布區：畫布本身、左側的工具列、右上的「隱藏線索」開關、跟著選取的迷你工具列、下方的提示與縮放。
+ * 2026-11-09：立體樓層圖、樓層總覽時沒有工具列與迷你工具列；空的樓層顯示「快速建立樓層」（F308）。
  */
 import {
   AppWindow,
@@ -26,8 +27,9 @@ import {
   Undo,
 } from 'lucide-react';
 import { useEffect, useRef } from 'react';
-import { cn, IconButton } from '@/ui';
+import { Button, cn, IconButton } from '@/ui';
 import { SWING_DOORS } from '../model/catalog';
+import { donorFloorIndex } from '../model/floorCopy';
 import { getObj } from '../model/ops';
 import type { Opening, Room } from '../model/types';
 import { S } from '../strings';
@@ -320,9 +322,51 @@ function Hint() {
   );
 }
 
+/**
+ * 快速建立樓層（2026-11-09 參考 KIIN 的 MULTI-FLOOR QUICK SETUP，F308）：平面編輯、GM 檢視、這一層沒有房間、
+ * 別一層有房間時，畫布上方顯示三種做法。選了「從空白開始畫」的樓層這一頁不再顯示。
+ */
+function QuickSetup() {
+  const p = useProject((s) => s.data);
+  const view = usePrefs((s) => s.data.view ?? 'plan');
+  const playerView = useEditor((s) => s.playerView);
+  const skip = useEditor((s) => s.quickSkip);
+  const f = p.floors[p.active];
+  if (view !== 'plan' || playerView || !f || f.rooms.length || skip.includes(f.id)) return null;
+  const donor = donorFloorIndex(p.floors, p.active);
+  if (donor < 0) return null;
+  const from = p.floors[donor].name || '—';
+  return (
+    <section
+      aria-label={S.quick.kicker}
+      className="absolute top-12 left-1/2 z-10 flex w-[min(26rem,calc(100%-6rem))] -translate-x-1/2 flex-col gap-2 rounded-lg border border-border bg-surface p-3 shadow-2"
+      data-testid="quick-setup"
+    >
+      <p className="m-0 text-xs font-semibold text-muted">{S.quick.kicker}</p>
+      <h3 className="m-0 text-base font-bold text-fg">{S.quick.title(f.name)}</h3>
+      <p className="m-0 text-xs text-muted">{S.quick.desc(from)}</p>
+      <Button
+        size="sm"
+        variant="primary"
+        onClick={() => act.quickFill('shell', donor)}
+        data-testid="quick-shell"
+      >
+        {S.quick.shell(from)}
+      </Button>
+      <Button size="sm" onClick={() => act.quickFill('full', donor)} data-testid="quick-full">
+        {S.quick.full(from)}
+      </Button>
+      <Button size="sm" variant="ghost" onClick={act.quickSkip} data-testid="quick-blank">
+        {S.quick.blank}
+      </Button>
+    </section>
+  );
+}
+
 export function CanvasArea() {
   const wrapRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const view = usePrefs((s) => s.data.view ?? 'plan');
   useEffect(() => {
     const wrap = wrapRef.current;
     const canvas = canvasRef.current;
@@ -340,13 +384,21 @@ export function CanvasArea() {
       <canvas
         ref={canvasRef}
         tabIndex={0}
-        aria-label={S.canvasLabel}
+        aria-label={
+          view === 'stack'
+            ? S.view3d.canvasStack
+            : view === 'board'
+              ? S.view3d.canvasBoard
+              : S.canvasLabel
+        }
         className="absolute inset-0 block size-full touch-none select-none outline-none focus-visible:ring-2 focus-visible:ring-focus"
         data-testid="map-canvas"
+        data-view={view}
       />
-      <ToolStrip />
+      {view === 'plan' ? <ToolStrip /> : null}
       <ClueToggle />
-      <MiniBar />
+      {view === 'plan' ? <MiniBar /> : null}
+      <QuickSetup />
       <Hint />
       <ZoomBox />
     </div>

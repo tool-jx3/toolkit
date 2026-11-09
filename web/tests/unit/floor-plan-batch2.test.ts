@@ -684,7 +684,7 @@ describe('畫法（3.10）', () => {
     expect(new Set(NEW_OPENINGS.map(sig)).size).toBe(NEW_OPENINGS.length);
   });
 
-  it('門窗：PL 檢視照樣畫（不是秘密）；設成只有 GM 看得到時 PL 檢視不畫', () => {
+  it('門窗：PL 檢視照樣畫（不是祕密）；設成只有 GM 看得到時 PL 檢視不畫', () => {
     for (const kind of NEW_OPENINGS) {
       const op: Opening = { id: 'x', kind, o: 'h', x: 0, y: 0, len: 2, side: 1, hinge: 0 };
       const a = recorder();

@@ -1,7 +1,8 @@
 /**
  * 樓層列：每層一個分頁（按兩下改名）、新增樓層、改名、複製、左右移動、刪除。
+ * 2026-11-09：祕密樓層的分頁有一個「藏起來」的小圖示（F307）。
  */
-import { ChevronLeft, ChevronRight, Copy, Pencil, Plus, Trash2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Copy, EyeOff, Pencil, Plus, Trash2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Button, cn, IconButton } from '@/ui';
 import { S } from '../strings';
@@ -79,8 +80,13 @@ export function FloorBar() {
               onClick={() => act.switchFloor(i)}
               onDoubleClick={() => setRenaming(i)}
               data-floor={i}
+              title={f.secret ? S.secret.tab : undefined}
             >
               {f.name || '—'}
+              {/* 祕密樓層（2026-11-09，F307） */}
+              {f.secret ? (
+                <EyeOff aria-hidden className="ml-1 inline size-3.5 align-[-2px] text-muted" />
+              ) : null}
             </button>
           ),
         )}

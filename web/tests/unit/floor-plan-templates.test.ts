@@ -348,6 +348,8 @@ describe('範本目錄', () => {
         'house',
         'sanheyuan',
         'japanese-house',
+        /* 2026-11-09：三層樓的範例（F312） */
+        'clockshop',
         'ruined-house',
         'crime',
       ],
@@ -370,6 +372,7 @@ describe('範本目錄', () => {
         'detective',
         'shopping-street',
         'night-market',
+        'clockshop',
         'gym',
         'parking',
       ],
@@ -421,9 +424,10 @@ describe('範本目錄', () => {
     const order = TEMPLATE_GROUPS.map((g) => g.id);
     const groups = TEMPLATES.map((t) => order.indexOf(t.group));
     expect(groups).toEqual([...groups].sort((a, b) => a - b));
-    expect(TEMPLATES).toHaveLength(58);
-    expect(new Set(TEMPLATES.map((t) => t.id)).size).toBe(58);
-    expect(new Set(TEMPLATES.map((t) => t.name)).size).toBe(58);
+    /* 2026-11-09：加了鐘錶行（三層樓的範例，F312）：58 → 59 */
+    expect(TEMPLATES).toHaveLength(59);
+    expect(new Set(TEMPLATES.map((t) => t.id)).size).toBe(59);
+    expect(new Set(TEMPLATES.map((t) => t.name)).size).toBe(59);
     /* 恐怖調查樣式：主要分類是廢墟的（命案現場除外）與地下教團據點 */
     expect(TEMPLATES.filter((t) => t.theme === 'horror').map((t) => t.id)).toEqual([
       'cult',

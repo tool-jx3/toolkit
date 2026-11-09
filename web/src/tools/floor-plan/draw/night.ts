@@ -57,7 +57,8 @@ export const glowAlpha = (glow: number, level: number): number =>
   Math.min(0.45, (glow * level) / 0.6);
 
 /**
- * 畫夜色與光源。`c` 的座標已經換算成「1 單位＝1 格」（只有縮放與平移）。level＝暗度（0.05～0.85）。
+ * 畫夜色與光源。`c` 的座標已經換算成「1 單位＝1 格」（縮放與平移；立體樓層圖的樓板另有旋轉與壓扁，2026-11-09）。
+ * level＝暗度（0.05～0.85）。
  */
 export function drawNight(c: Ctx, floor: ShownFloor, theme: FloorTheme, level: number): void {
   if (!(level > 0) || !floor.rooms.length) return;
@@ -75,10 +76,14 @@ export function drawNight(c: Ctx, floor: ShownFloor, theme: FloorTheme, level: n
     x1 = Math.max(x1, r.x + r.w);
     y1 = Math.max(y1, r.y + r.h);
   }
-  const px0 = Math.max(0, Math.floor(T.a * x0 + T.e));
-  const py0 = Math.max(0, Math.floor(T.d * y0 + T.f));
-  const px1 = Math.min(canvas.width, Math.ceil(T.a * x1 + T.e));
-  const py1 = Math.min(canvas.height, Math.ceil(T.d * y1 + T.f));
+  /* 立體樓層圖（2026-11-09）的樓板是轉過、壓扁過的：四個角換算之後取外接範圍（只有縮放與平移時和以前相同） */
+  const skew = T.b !== 0 || T.c !== 0;
+  const cx = skew ? [x0, x1, x1, x0].map((x, i) => T.a * x + T.c * [y0, y0, y1, y1][i] + T.e) : [];
+  const cy = skew ? [x0, x1, x1, x0].map((x, i) => T.b * x + T.d * [y0, y0, y1, y1][i] + T.f) : [];
+  const px0 = Math.max(0, Math.floor(skew ? Math.min(...cx) : T.a * x0 + T.e));
+  const py0 = Math.max(0, Math.floor(skew ? Math.min(...cy) : T.d * y0 + T.f));
+  const px1 = Math.min(canvas.width, Math.ceil(skew ? Math.max(...cx) : T.a * x1 + T.e));
+  const py1 = Math.min(canvas.height, Math.ceil(skew ? Math.max(...cy) : T.d * y1 + T.f));
   const pw = px1 - px0;
   const ph = py1 - py0;
   if (pw <= 0 || ph <= 0) return;
@@ -139,7 +144,8 @@ export function drawNight(c: Ctx, floor: ShownFloor, theme: FloorTheme, level: n
   l.globalCompositeOperation = 'source-over';
   l.globalAlpha = 1;
   l.clearRect(0, 0, lw, lh);
-  l.setTransform(T.a * k, 0, 0, T.d * k, (T.e - px0) * k, (T.f - py0) * k);
+  if (skew) l.setTransform(T.a * k, T.b * k, T.c * k, T.d * k, (T.e - px0) * k, (T.f - py0) * k);
+  else l.setTransform(T.a * k, 0, 0, T.d * k, (T.e - px0) * k, (T.f - py0) * k);
   l.fillStyle = NIGHT_INK;
   l.globalAlpha = level;
   l.beginPath();

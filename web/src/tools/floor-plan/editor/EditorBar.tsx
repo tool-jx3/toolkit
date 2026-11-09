@@ -1,17 +1,18 @@
 /**
- * 編輯列：範本、復原、重做、GM／PL 檢視、匯出圖片。
+ * 編輯列：範本、復原、重做、檢視方式（平面編輯／立體樓層圖／樓層總覽，2026-11-09）、GM／PL 檢視、匯出圖片。
  */
 import { Download, LayoutTemplate, Redo2, Undo2 } from 'lucide-react';
 import { useUndoRedo } from '@/core/storage';
 import { Button, IconButton, Segmented, withShortcut } from '@/ui';
 import { S } from '../strings';
-import { redo, setPlayerView, undo } from './actions';
-import { setEditor, useEditor, useProject } from './store';
+import { redo, setPlayerView, setViewMode, undo } from './actions';
+import { setEditor, useEditor, usePrefs, useProject, type ViewMode } from './store';
 
 export function EditorBar() {
   const { canUndo, canRedo } = useUndoRedo(useProject);
   const playerView = useEditor((s) => s.playerView);
   const name = useProject((s) => s.data.name);
+  const view = usePrefs((s) => s.data.view ?? 'plan');
   return (
     <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1.5" data-testid="editor-bar">
       <Button
@@ -47,6 +48,17 @@ export function EditorBar() {
           disabled={!canRedo}
           onClick={redo}
           data-testid="redo"
+        />
+        <Segmented<ViewMode>
+          size="sm"
+          aria-label={S.view3d.label}
+          value={view}
+          onValueChange={setViewMode}
+          options={[
+            { value: 'plan', label: S.view3d.plan },
+            { value: 'stack', label: S.view3d.stack },
+            { value: 'board', label: S.view3d.board },
+          ]}
         />
         <Segmented
           size="sm"

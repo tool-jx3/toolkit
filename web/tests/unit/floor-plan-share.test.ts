@@ -252,7 +252,15 @@ describe('PL 用連結（F216）', () => {
       { id: '密室', x: 4, y: 0, w: 4, h: 4, name: '', cat: 'living', gm: true },
     ]);
     /* 隱藏線索的個數和線索開關的通知同一個算法：一件小物＋說明算一個（7.7） */
-    expect(removed).toEqual({ gmRooms: 1, gmThings: 3, secretDoors: 1, clues: 1, notes: 2 });
+    /* 2026-11-09：多了祕密樓層的層數（F307；這張地圖沒有） */
+    expect(removed).toEqual({
+      gmRooms: 1,
+      gmThings: 3,
+      secretDoors: 1,
+      clues: 1,
+      notes: 2,
+      secretFloors: 0,
+    });
     expect(removed.clues).toBe(clueCount(p.floors));
     /* 原本的地圖不變 */
     expect(p.floors[0].rooms[0].plName).toBe('？？？');

@@ -6,6 +6,7 @@
 import { drawThemeEffect, drawWear } from '../draw/effects';
 import { labelLayout, textBox } from '../draw/labels';
 import { drawFloor, drawItem, drawOpening, lineWidthFor } from '../draw/render';
+import { drawBoard, drawStack } from '../draw/stack';
 import { getTheme, roomFill } from '../draw/themes';
 import { ASSET } from '../model/assets';
 import { CELL_M, ROOM_PRESETS } from '../model/catalog';
@@ -13,6 +14,7 @@ import { partialRingIds } from '../model/circle';
 import { coordGrid, coordLabels } from '../model/coords';
 import { CURVE_MIN } from '../model/curve';
 import { type ExportSettings, wearSheet } from '../model/exportPlan';
+import { donorFloorIndex } from '../model/floorCopy';
 import { resizeWithFollow } from '../model/follow';
 import {
   clamp,
@@ -42,7 +44,7 @@ import {
   lineMid,
   lineSamples,
 } from '../model/lines';
-import { type AnyObj, getObj, movable, objList } from '../model/ops';
+import { type AnyObj, getObj, movable, nextFloorName, objList } from '../model/ops';
 import {
   cutHandlePoint,
   defaultCut,
@@ -65,6 +67,23 @@ import {
   snapWallPoint,
   spansOnLine,
 } from '../model/snap';
+import {
+  type BoardLayout,
+  boardLayout,
+  inLevelContent,
+  levelAt,
+  ORBIT_DEG_PER_PX,
+  ORBIT_PITCH_PER_PX,
+  plateAt,
+  STACK_PITCH_DRAG_MAX,
+  STACK_PITCH_DRAG_MIN,
+  type StackLayout,
+  type StackLevel,
+  stackCamera,
+  stackLayout,
+  stackLevels,
+  wrapAngle,
+} from '../model/stack';
 import {
   type Floor,
   type FreeLine,
@@ -96,6 +115,8 @@ import {
   useEditor,
   usePrefs,
   useProject,
+  type ViewMode,
+  veiledLocked,
 } from './store';
 
 export const ZOOM_MIN = 3;
@@ -171,7 +192,21 @@ type Drag =
       moved: boolean;
       before: Project;
     }
-  | { mode: 'erase'; moved: boolean; before: Project };
+  | { mode: 'erase'; moved: boolean; before: Project }
+  /* 立體樓層圖、樓層總覽（2026-11-09，F304）：拖曳旋轉視角；沒拖＝點一下（切樓層、快速建立的「＋」） */
+  | { mode: 'orbit'; sx: number; sy: number; angle: number; pitch: number; moved: boolean };
+
+/** 立體樓層圖、樓層總覽的畫面（每次重畫、點一下時算） */
+interface Scene3d {
+  levels: StackLevel[];
+  floors: Floor[];
+  /** 目前的樓層是立體圖的第幾層（外觀層時 −1） */
+  active: number;
+  stack: StackLayout;
+  board: BoardLayout | null;
+  /** 快速建立的「＋」（GM 檢視） */
+  ghosts: { level: number; text: string }[];
+}
 
 const CURSORS: Record<string, string> = {
   nw: 'nwse-resize',
@@ -208,6 +243,9 @@ export class EditorController {
   private ro: ResizeObserver | null = null;
   /** 從素材面板拖過來的家具或房間 */
   dragAsset: { kind: 'item'; t: string } | { kind: 'room'; preset: string } | null = null;
+  /** 檢視方式（2026-11-09，F303）與平面編輯的視角（從立體圖回來時還原） */
+  private mode: ViewMode = 'plan';
+  private planView: { zoom: number; ox: number; oy: number } | null = null;
 
   /* ---------- 掛上、拿掉 ---------- */
 
@@ -249,7 +287,14 @@ export class EditorController {
     window.addEventListener('blur', blur);
     this.unsubs.push(() => window.removeEventListener('blur', blur));
     this.unsubs.push(useProject.subscribe(() => this.onDataChange()));
-    this.unsubs.push(usePrefs.subscribe(() => this.requestRender()));
+    this.mode = act.viewMode();
+    this.unsubs.push(
+      usePrefs.subscribe((s, prev) => {
+        if ((s.data.view ?? 'plan') !== (prev.data.view ?? 'plan'))
+          this.onModeChange(s.data.view ?? 'plan');
+        this.requestRender();
+      }),
+    );
     this.unsubs.push(
       useEditor.subscribe((s, prev) => {
         if (s.tool !== prev.tool || s.armed !== prev.armed) this.onToolChange();
@@ -316,9 +361,71 @@ export class EditorController {
     this.requestRender();
   }
 
+  /** 換檢視方式：平面編輯的視角留著，立體圖、總覽顯示全部（2026-11-09） */
+  private onModeChange(next: ViewMode): void {
+    if (this.mode === next) return;
+    this.cancelDrag();
+    if (this.mode === 'plan')
+      this.planView = { zoom: this.view.zoom, ox: this.view.ox, oy: this.view.oy };
+    this.mode = next;
+    this.hover = null;
+    this.ghostItem = null;
+    this.ghostOpening = null;
+    if (next === 'plan' && this.planView) {
+      Object.assign(this.view, this.planView);
+      this.syncZoom();
+    } else this.fitView();
+    this.updateCursor();
+    this.requestRender();
+  }
+
+  /** 立體樓層圖、樓層總覽的版面與「＋」（2026-11-09） */
+  scene3d(): Scene3d {
+    const p = useProject.getState().data;
+    const levels = stackLevels(p.floors);
+    const floors = levels.map((l) => l.floor);
+    const cam = stackCamera(p);
+    const ghosts: Scene3d['ghosts'] = [];
+    if (!useEditor.getState().playerView) {
+      levels.forEach((l, level) => {
+        if (l.floor.rooms.length) return;
+        const donor = donorFloorIndex(p.floors, l.index);
+        if (donor >= 0)
+          ghosts.push({ level, text: S.view3d.ghostFill(p.floors[donor].name || '—') });
+      });
+      if (levels.length === 1 && floors[0].rooms.length)
+        ghosts.push({
+          level: 1,
+          text: S.view3d.ghostAdd(nextFloorName(p.floors), floors[0].name || '—'),
+        });
+    }
+    const board = this.mode === 'board' ? boardLayout(floors, cam) : null;
+    return {
+      levels,
+      floors,
+      active: levels.findIndex((l) => l.index === p.active),
+      stack: board ? board.stack : stackLayout(floors, cam),
+      board,
+      ghosts,
+    };
+  }
+
   /** 所有樓層都放進畫面（換樓層時圖不會跳） */
   fitView(): void {
     if (!this.view.w) return;
+    if (this.mode !== 'plan') {
+      const s = this.scene3d();
+      const b = s.board ? { x: 0, y: 0, w: s.board.width, h: s.board.height } : s.stack.bounds;
+      const pad = 16;
+      const aw = Math.max(80, this.view.w - pad * 2);
+      const ah = Math.max(80, this.view.h - pad * 2 - 36);
+      this.view.zoom = clamp(Math.min(aw / b.w, ah / b.h), ZOOM_MIN, 64);
+      this.view.ox = pad + (aw - b.w * this.view.zoom) / 2 - b.x * this.view.zoom;
+      this.view.oy = pad + (ah - b.h * this.view.zoom) / 2 - b.y * this.view.zoom;
+      this.syncZoom();
+      this.requestRender();
+      return;
+    }
     const p = useProject.getState().data;
     let box: Rect | null = null;
     for (const f of p.floors) {
@@ -509,6 +616,8 @@ export class EditorController {
    * 很小的家具（畫面上不到 12 px）四周放寬幾 px。
    */
   hitTest(wx: number, wy: number, opts: { skipRooms?: boolean } = {}): SelRef | null {
+    /* PL 檢視的祕密樓層：什麼都點不到（2026-11-09 驗證後修訂） */
+    if (veiledLocked()) return null;
     const f = this.shownFloor();
     const tol = 5 / this.view.zoom;
     const inRect = (r: Rect, pad = 0) =>
@@ -684,6 +793,44 @@ export class EditorController {
     c.clearRect(0, 0, this.canvas.width, this.canvas.height);
     c.setTransform(dpr * z, 0, 0, dpr * z, dpr * ox, dpr * oy);
     const viewRect = { x: -ox / z, y: -oy / z, w: this.view.w / z, h: this.view.h / z };
+    /* 立體樓層圖、樓層總覽（2026-11-09，F303） */
+    if (this.mode !== 'plan') {
+      const s = this.scene3d();
+      c.fillStyle = theme.bg;
+      c.fillRect(viewRect.x, viewRect.y, viewRect.w, viewRect.h);
+      const opts = {
+        theme,
+        zoom: z,
+        showSize: p.showSize,
+        hideNames: p.showNames === false,
+        playerView: ed.playerView,
+        hideClues: !prefs.showClues,
+        activeLevel: s.active,
+        ghosts: s.ghosts,
+        ...(p.night ? { night: p.night } : {}),
+      };
+      if (s.board) drawBoard(c, s.board, s.floors, { ...opts, title: p.name });
+      else drawStack(c, s.stack, s.floors, opts);
+      if (theme.effect) {
+        c.save();
+        c.setTransform(1, 0, 0, 1, 0, 0);
+        drawThemeEffect(c, theme, this.canvas.width, this.canvas.height, dpr);
+        c.restore();
+      }
+      if (!ed.playerView) {
+        c.save();
+        c.setTransform(dpr, 0, 0, dpr, 0, 0);
+        c.globalAlpha = 0.4;
+        c.font = '900 24px system-ui, sans-serif';
+        c.textBaseline = 'top';
+        c.fillStyle = theme.gm;
+        c.fillText(S.badgeGm, 12, 12);
+        c.restore();
+      }
+      if (this.wrap) this.wrap.style.background = theme.bg;
+      this.positionMiniBar();
+      return;
+    }
     const ghost = prefs.ghost && p.active > 0 ? p.floors[p.active - 1] : null;
     const drawn = drawnFloor();
     /* 座標標示（2026-10-29，F264）：字寫在這一層看得到的東西的外面 */
@@ -739,6 +886,12 @@ export class EditorController {
       c.textBaseline = 'top';
       c.fillStyle = theme.gm;
       c.fillText(S.badgeGm, 60, 12);
+      /* 祕密樓層（2026-11-09，F307）：GM 檢視時在「GM 用」下面提醒 */
+      if (currentFloor().secret) {
+        c.globalAlpha = 0.7;
+        c.font = '700 13px system-ui, sans-serif';
+        c.fillText(S.secret.tab, 60, 42);
+      }
       c.restore();
     }
     if (this.wrap) this.wrap.style.background = theme.bg;
@@ -918,7 +1071,7 @@ export class EditorController {
       }
     /* 鎖定的房間：左上角一個鎖 */
     for (const room of f.rooms) {
-      if (!room.locked || (ed.playerView && room.gm)) continue;
+      if (!room.locked || (ed.playerView && (room.gm || f.secret))) continue;
       const r = roomMainRect(room);
       const s = Math.min(0.55, r.w * 0.2, r.h * 0.2);
       const x = r.x + 0.22;
@@ -1181,7 +1334,8 @@ export class EditorController {
     const el = this.miniBar;
     if (!el) return;
     const ed = useEditor.getState();
-    const show = ed.tool === 'select' && ed.sel.length > 0 && !this.drag?.moved;
+    const show =
+      this.mode === 'plan' && ed.tool === 'select' && ed.sel.length > 0 && !this.drag?.moved;
     const box = show ? this.selectionBounds() : null;
     if (!box) {
       el.hidden = true;
@@ -1214,6 +1368,18 @@ export class EditorController {
     const ed = useEditor.getState();
     const d = this.drag;
     let cursor = 'default';
+    if (this.mode !== 'plan') {
+      cursor =
+        d?.mode === 'pan' || (d?.mode === 'orbit' && d.moved)
+          ? 'grabbing'
+          : this.spaceDown
+            ? 'grab'
+            : this.stackHover
+              ? 'pointer'
+              : 'grab';
+      if (this.canvas.style.cursor !== cursor) this.canvas.style.cursor = cursor;
+      return;
+    }
     if (d?.mode === 'pan') cursor = 'grabbing';
     else if (this.spaceDown || ed.tool === 'hand') cursor = 'grab';
     else if (d?.mode === 'move') cursor = 'move';
@@ -1226,6 +1392,9 @@ export class EditorController {
     else cursor = 'crosshair';
     if (this.canvas.style.cursor !== cursor) this.canvas.style.cursor = cursor;
   }
+
+  /** 立體圖、總覽：游標下面是點得到的東西（樓層牌、樓板、卡片、「＋」） */
+  private stackHover = false;
 
   setSpace(down: boolean): void {
     if (this.spaceDown === down) return;
@@ -1292,6 +1461,23 @@ export class EditorController {
       return;
     }
     if (e.button !== 0) return;
+    /* 立體樓層圖、樓層總覽（2026-11-09，F304）：拖曳旋轉視角，沒拖＝點一下 */
+    if (this.mode !== 'plan') {
+      const cam = stackCamera(useProject.getState().data);
+      this.drag = { mode: 'orbit', sx, sy, angle: cam.angle, pitch: cam.pitch, moved: false };
+      this.updateCursor();
+      return;
+    }
+    /* PL 檢視的祕密樓層是唯讀的（2026-11-09 驗證後修訂）：選取工具什麼都選不到，其他工具提醒 */
+    if (veiledLocked()) {
+      if (ed.sel.length) setEditor({ sel: [] });
+      if (
+        ed.tool !== 'select' ||
+        this.shownFloor().rooms.some((r) => roomHasPointClosed(r, w.x, w.y))
+      )
+        act.blockVeiled();
+      return;
+    }
     switch (ed.tool) {
       case 'select': {
         const hd = this.handleAt(sx, sy);
@@ -1532,6 +1718,22 @@ export class EditorController {
     }
     const w = this.toWorld(sx, sy);
     switch (d.mode) {
+      case 'orbit': {
+        if (!d.moved && Math.hypot(sx - d.sx, sy - d.sy) < 4) return;
+        if (!d.moved) {
+          d.moved = true;
+          this.updateCursor();
+        }
+        act.setStackCamera({
+          angle: wrapAngle(d.angle + (sx - d.sx) * ORBIT_DEG_PER_PX),
+          pitch: clamp(
+            d.pitch + (sy - d.sy) * ORBIT_PITCH_PER_PX,
+            STACK_PITCH_DRAG_MIN,
+            STACK_PITCH_DRAG_MAX,
+          ),
+        });
+        return;
+      }
       case 'pan':
         if (Math.hypot(sx - d.sx, sy - d.sy) > 3) d.moved = true;
         this.view.ox = d.ox + (sx - d.sx);
@@ -1844,6 +2046,9 @@ export class EditorController {
     this.drag = null;
     const ed = useEditor.getState();
     switch (d.mode) {
+      case 'orbit':
+        if (!d.moved) this.clickStack(sx, sy);
+        break;
       case 'pan':
         /* 右鍵點一下（沒拖）＝放下目前的工具 */
         if (d.button === 2 && !d.moved && ed.tool !== 'select') act.setTool('select');
@@ -1954,6 +2159,14 @@ export class EditorController {
 
   /** 沒有按著時的指標：滑過的東西、門窗與家具的預覽、提示 */
   pointerHover(sx: number, sy: number, e: { altKey?: boolean } | null): void {
+    if (this.mode !== 'plan') {
+      const hit = this.stackHit(sx, sy) !== null;
+      if (hit !== this.stackHover) {
+        this.stackHover = hit;
+        this.updateCursor();
+      }
+      return;
+    }
     const w = this.toWorld(sx, sy);
     const ed = useEditor.getState();
     let handle: Handle | null = null;
@@ -2004,7 +2217,7 @@ export class EditorController {
   }
 
   private onDoubleClick(e: MouseEvent): void {
-    if (useEditor.getState().tool !== 'select') return;
+    if (this.mode !== 'plan' || useEditor.getState().tool !== 'select') return;
     const { sx, sy } = this.eventPos(e);
     const w = this.toWorld(sx, sy);
     const hit = this.hitTest(w.x, w.y);
@@ -2025,7 +2238,7 @@ export class EditorController {
 
   private onDragOver(e: DragEvent): void {
     const a = this.dragAsset;
-    if (!a) return;
+    if (!a || this.mode !== 'plan') return;
     e.preventDefault();
     if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
     if (this.wrap) this.wrap.dataset.dropping = 'true';
@@ -2039,7 +2252,7 @@ export class EditorController {
 
   private onDrop(e: DragEvent): void {
     const a = this.dragAsset;
-    if (!a) return;
+    if (!a || this.mode !== 'plan') return;
     e.preventDefault();
     if (this.wrap) this.wrap.dataset.dropping = 'false';
     this.ghostItem = null;
@@ -2047,6 +2260,46 @@ export class EditorController {
     this.dragAsset = null;
     act.dropAsset(a, w, e.altKey, this.wallLines());
     this.requestRender();
+  }
+
+  /**
+   * 立體圖、總覽上點到什麼（2026-11-09）：總覽的卡片 → 樓層牌 → 「＋」 → 樓板（上面的樓層先）。
+   * 回傳 { kind, level }，沒有時 null。
+   */
+  stackHit(
+    sx: number,
+    sy: number,
+  ): { kind: 'card' | 'plate' | 'ghost' | 'floor'; level: number } | null {
+    const s = this.scene3d();
+    const w = this.toWorld(sx, sy);
+    let X = w.x;
+    let Y = w.y;
+    if (s.board) {
+      const card = s.board.cards.find(
+        (c) => w.x >= c.x && w.x <= c.x + c.w && w.y >= c.y && w.y <= c.y + c.h,
+      );
+      if (card) return { kind: 'card', level: card.level };
+      X = (w.x - s.board.stackTx) / s.board.stackScale;
+      Y = (w.y - s.board.stackTy) / s.board.stackScale;
+    }
+    const plate = plateAt(s.stack, s.floors.length, X, Y);
+    if (plate >= 0) return { kind: 'plate', level: plate };
+    for (const g of s.ghosts)
+      if (inLevelContent(s.stack, g.level, X, Y)) return { kind: 'ghost', level: g.level };
+    const level = levelAt(s.stack, s.floors, X, Y);
+    return level >= 0 ? { kind: 'floor', level } : null;
+  }
+
+  private clickStack(sx: number, sy: number): void {
+    const hit = this.stackHit(sx, sy);
+    if (!hit) return;
+    if (hit.kind === 'ghost') {
+      act.stackGhostFill(hit.level);
+      return;
+    }
+    const s = this.scene3d();
+    const l = s.levels[hit.level];
+    if (l) act.jumpToFloor(l.index);
   }
 
   /** 外部（測試、對等驗證）用：畫面上看得到的樓層 */

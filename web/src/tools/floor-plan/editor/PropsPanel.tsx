@@ -4,6 +4,7 @@
  */
 import {
   CircleDot,
+  CopyPlus,
   FlipHorizontal2,
   FlipVertical2,
   ImagePlus,
@@ -11,6 +12,7 @@ import {
   ListOrdered,
   Lock,
   LockOpen,
+  RotateCcw,
   RotateCw,
   Shuffle,
   Sofa,
@@ -58,6 +60,20 @@ import { clamp, metersText, meterText, pingText, roomArea, round2 } from '../mod
 import { isLineKind, LINE_KINDS, LINE_W_MAX, LINE_W_MIN, lineLength } from '../model/lines';
 import { getObj, rotateItem } from '../model/ops';
 import { CORNERS, L_MIN } from '../model/shape';
+import {
+  isDefaultCamera,
+  pitchDegrees,
+  pitchFromDegrees,
+  STACK_ANGLE_MAX,
+  STACK_ANGLE_MIN,
+  STACK_GAP_MIN,
+  STACK_PITCH_MAX,
+  STACK_PITCH_MIN,
+  STACK_RISE_MAX,
+  STACK_RISE_MIN,
+  stackCamera,
+  stackLevels,
+} from '../model/stack';
 import type {
   FreeLine,
   Item,
@@ -734,20 +750,24 @@ function RoomWallField({ r }: { r: Room }) {
 
 const AUTO = 'auto';
 
-/** 這一層的設定：外觀層的「顯示內部」（F230；有兩層以上時才顯示） */
+/**
+ * 這一層的設定：外觀層的「顯示內部」（F230；有兩層以上時才顯示）、祕密樓層（F307）、把外框複製到上一層（F309）（2026-11-09）
+ */
 function FloorFields() {
   const p = useProject((s) => s.data);
   const f = p.floors[p.active];
+  if (!f) return null;
   const others = p.floors.filter((o) => o !== f);
-  if (!f || !others.length) return null;
   const inside = others.find((o) => o.id === f.inside) ?? others[0];
   return (
     <div className="flex flex-col gap-3 border-t border-border pt-3" data-testid="floor-fields">
       <p className="m-0 text-xs font-semibold text-muted">{S.props.floorTitle(f.name)}</p>
-      <Field label={S.props.showInside} layout="inline" hint={S.props.showInsideHint}>
-        <Toggle checked={!!f.showInside} onCheckedChange={act.setShowInside} />
-      </Field>
-      {f.showInside ? (
+      {others.length ? (
+        <Field label={S.props.showInside} layout="inline" hint={S.props.showInsideHint}>
+          <Toggle checked={!!f.showInside} onCheckedChange={act.setShowInside} />
+        </Field>
+      ) : null}
+      {f.showInside && inside ? (
         <Field label={S.props.insideFloor}>
           <Select
             value={inside.id}
@@ -757,7 +777,135 @@ function FloorFields() {
           />
         </Field>
       ) : null}
+      <Field label={S.secret.label} layout="inline" hint={S.secret.hint}>
+        <Toggle checked={!!f.secret} onCheckedChange={(v) => act.setFloorSecret(v)} />
+      </Field>
+      <div className="flex flex-col gap-1">
+        <Button
+          size="sm"
+          icon={<CopyPlus />}
+          className="self-start"
+          disabled={!f.rooms.length}
+          onClick={() => void act.copyShellUp()}
+          data-testid="copy-shell-up"
+        >
+          {S.quick.copyUp}
+        </Button>
+        <p className="m-0 text-xs text-muted">{S.quick.copyUpHint}</p>
+      </div>
     </div>
+  );
+}
+
+/**
+ * 立體樓層圖、樓層總覽的面板（2026-11-09，F304、F307）：視角（旋轉、俯視角度、樓層間距、樓梯高度、回到預設），
+ * 樓層（由上往下：切到平面編輯、祕密樓層）。
+ */
+function StackPanel({ mode }: { mode: 'stack' | 'board' }) {
+  const p = useProject((s) => s.data);
+  const cam = stackCamera(p);
+  const levels = stackLevels(p.floors);
+  return (
+    <>
+      <Head kicker={S.view3d.camera} title={mode === 'stack' ? S.view3d.stack : S.view3d.board} />
+      <Field label={S.view3d.rotate}>
+        <div className="flex min-w-0 items-center gap-1">
+          <IconButton
+            size="sm"
+            variant="ghost"
+            icon={<RotateCcw />}
+            label={S.view3d.left45}
+            onClick={() => act.rotateStack(-1)}
+            data-testid="stack-left"
+          />
+          <Slider
+            className="min-w-0 flex-1"
+            value={cam.angle}
+            min={STACK_ANGLE_MIN}
+            max={STACK_ANGLE_MAX}
+            step={1}
+            unit="°"
+            aria-label={S.view3d.rotate}
+            onChange={(v) => act.setStackCamera({ angle: v })}
+          />
+          <IconButton
+            size="sm"
+            variant="ghost"
+            icon={<RotateCw />}
+            label={S.view3d.right45}
+            onClick={() => act.rotateStack(1)}
+            data-testid="stack-right"
+          />
+        </div>
+      </Field>
+      <Field label={S.view3d.pitch}>
+        <Slider
+          value={pitchDegrees(cam.pitch)}
+          min={pitchDegrees(STACK_PITCH_MIN)}
+          max={pitchDegrees(STACK_PITCH_MAX)}
+          step={1}
+          unit="°"
+          aria-label={S.view3d.pitch}
+          onChange={(v) => act.setStackCamera({ pitch: pitchFromDegrees(v) })}
+        />
+      </Field>
+      <Field label={S.view3d.gap}>
+        <Slider
+          value={Math.round(cam.gap * 100)}
+          min={Math.round(STACK_GAP_MIN * 100)}
+          max={160}
+          step={5}
+          unit="%"
+          aria-label={S.view3d.gap}
+          onChange={(v) => act.setStackCamera({ gap: v / 100 })}
+        />
+      </Field>
+      <Field label={S.view3d.rise}>
+        <Slider
+          value={Math.round(cam.rise * 100)}
+          min={Math.round(STACK_RISE_MIN * 100)}
+          max={Math.round(STACK_RISE_MAX * 100)}
+          step={5}
+          unit="%"
+          aria-label={S.view3d.rise}
+          onChange={(v) => act.setStackCamera({ rise: v / 100 })}
+        />
+      </Field>
+      <Button
+        size="sm"
+        variant="ghost"
+        className="self-start"
+        disabled={isDefaultCamera(cam)}
+        onClick={act.resetStackCamera}
+        data-testid="stack-reset"
+      >
+        {S.view3d.reset}
+      </Button>
+      <p className="m-0 text-xs text-muted">{S.view3d.cameraHint}</p>
+      <div className="flex flex-col gap-2 border-t border-border pt-3" data-testid="stack-floors">
+        <p className="m-0 text-xs font-semibold text-muted">{S.view3d.floorsTitle}</p>
+        {[...levels].reverse().map(({ floor, index }) => (
+          <div key={floor.id} className="flex min-w-0 items-center gap-2">
+            <Button
+              size="sm"
+              variant={index === p.active ? 'secondary' : 'ghost'}
+              className="min-w-0 flex-1 justify-start"
+              onClick={() => act.jumpToFloor(index)}
+              data-stack-floor={index}
+            >
+              <span className="truncate">{floor.name || '—'}</span>
+            </Button>
+            <Toggle
+              checked={!!floor.secret}
+              onCheckedChange={(v) => act.setFloorSecret(v, index)}
+              aria-label={`${floor.name || '—'}：${S.secret.label}`}
+            />
+            <span className="text-xs text-muted">{S.view3d.secretTag}</span>
+          </div>
+        ))}
+        <p className="m-0 text-xs text-muted">{S.secret.hint}</p>
+      </div>
+    </>
   );
 }
 
@@ -1382,6 +1530,7 @@ function MultiProps({
 
 export function PropsPanel() {
   const sel = useEditor((s) => s.sel);
+  const view = usePrefs((s) => s.data.view ?? 'plan');
   useProject((s) => s.data);
   const f = currentFloor();
   const objs = sel
@@ -1391,7 +1540,8 @@ export function PropsPanel() {
     }))
     .filter((s): s is typeof s & { obj: Record<string, unknown> } => !!s.obj);
   let body: ReactNode;
-  if (!objs.length) body = <MapProps />;
+  if (view !== 'plan') body = <StackPanel mode={view} />;
+  else if (!objs.length) body = <MapProps />;
   else if (objs.length > 1) body = <MultiProps refs={objs} />;
   else {
     const { type, obj } = objs[0];

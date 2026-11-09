@@ -86,6 +86,8 @@ const BUILT_IN: Record<string, string[]> = {
   spaceship: ['1F/第 7 實驗艙'],
   tavern: ['2F/密室'],
   'wizard-tower': ['3F/召喚室'],
+  /* 2026-11-09：鐘錶行（三層樓的範例）工作室牆後的密室 */
+  clockshop: ['B1/密室'],
 };
 
 /**

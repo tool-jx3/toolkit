@@ -455,7 +455,7 @@ test('下繪圖（F283）：選圖片之後疊在畫面上；不存進專案檔�
   const saved = readFileSync((await dl.path()) as string, 'utf8');
   expect(saved).not.toContain('sketch');
   expect(saved).not.toContain('blob:');
-  expect(JSON.parse(saved).version).toBe(9);
+  expect(JSON.parse(saved).version).toBe(10);
   expect(errors).toEqual([]);
 });
 
@@ -471,7 +471,7 @@ test('揭露用的圖（F284）：檔名「揭露」、暗門畫成門、沒有 
   const dialog = page.getByTestId('export-dialog');
   const pl = await download(page);
   await dialog.getByRole('radio', { name: '揭露用' }).click();
-  await expect(page.getByTestId('export-reveal-note')).toContainText('揭露秘密時換上去的圖');
+  await expect(page.getByTestId('export-reveal-note')).toContainText('揭露祕密時換上去的圖');
   const rv = await download(page);
   expect(rv.name).toBe('測試_揭露.png');
   expect([rv.img.width, rv.img.height]).toEqual([pl.img.width, pl.img.height]);

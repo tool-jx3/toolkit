@@ -847,12 +847,13 @@ test('範本對話框：預設「全部」；空白地圖在每個分類（含�
   }
   for (const [tag, n] of [
     /* 2026-11-05 加了夜航蒸汽客輪（交通・運輸）：58 → 59、6 → 7 */
-    ['全部', 59],
-    ['住宅', 11],
+    /* 2026-11-09 加了鐘錶行（商店・辦公，也在住宅）：59 → 60、住宅 11 → 12、商店・辦公 9 → 10 */
+    ['全部', 60],
+    ['住宅', 12],
     ['住宿・餐飲', 7],
     ['醫療・研究', 6],
     ['公共場所', 9],
-    ['商店・辦公', 9],
+    ['商店・辦公', 10],
     ['娛樂・表演', 9],
     ['交通・運輸', 7],
     ['工業・設施', 7],
@@ -875,7 +876,7 @@ test('範本對話框的縮圖：捲到看得到的卡片才畫，畫過的留�
   await page.getByRole('button', { name: '範本' }).click();
   const dialog = page.getByTestId('template-dialog');
   const cards = dialog.getByRole('list').getByRole('button');
-  await expect(cards).toHaveCount(59);
+  await expect(cards).toHaveCount(60);
   /* 上面幾排先畫好；最後一個範本（魔法師之塔）捲到之前還沒畫 */
   await expect(cards.first().locator('img')).toHaveCount(1);
   /* 看得到的卡片一張一張畫，第一張畫好時其他的可能還在畫 */
@@ -933,7 +934,7 @@ for (const [width, height] of [
     await page.getByRole('button', { name: '範本' }).click();
     await expect(
       page.getByTestId('template-dialog').getByRole('list').getByRole('button'),
-    ).toHaveCount(59);
+    ).toHaveCount(60);
     /* 上下 300 px 內（少算 5 px，避開剛好壓在邊界上的小數位） */
     const undrawnNear = async () =>
       (await thumbGaps(page)).cards.filter((c) => c.gap <= 295 && !c.drawn).length;
@@ -1222,7 +1223,11 @@ test.describe('存檔', () => {
     /* 2026-10：圓標加了 texts[].badge（版本 2，D33）；棋子方格加了 tokenGrid（版本 3，D38）；
        第二批的新種類、房間的牆種類、顯示內部（版本 4，D45）；第三批的新家具（版本 5，D52）；
        2026-10-29 跟進原作 v1.15 的雙開拉門與新家具（版本 6，D63）；同日參考 KIIN 的 L 形房間等（版本 7，D79） */
-    expect(saved).toMatchObject({ format: 'trpg-toolkit-project', tool: 'floor-plan', version: 9 });
+    expect(saved).toMatchObject({
+      format: 'trpg-toolkit-project',
+      tool: 'floor-plan',
+      version: 10,
+    });
     expect(saved.data.floors[0].rooms).toHaveLength(6);
     await blank(page);
     /* 開啟（專案選單） */
@@ -1901,7 +1906,7 @@ test.describe('分享連結與房間編號（2026-10，參考 Maptsukuri）', ()
       page.keyboard.press('Control+s'),
     ]);
     const saved = JSON.parse(readFileSync((await save.path()) as string, 'utf8'));
-    expect(saved.version).toBe(9);
+    expect(saved.version).toBe(10);
     expect(
       saved.data.floors[0].texts.map((t: TextLabel) => [t.text, t.badge, t.gm ?? false]),
     ).toEqual([
@@ -2176,7 +2181,7 @@ test.describe('第一批跟進（2026-10，原作 v1.05～v1.14）', () => {
       page.keyboard.press('Control+s'),
     ]);
     const saved = JSON.parse(readFileSync((await dl.path()) as string, 'utf8'));
-    expect(saved).toMatchObject({ version: 9 });
+    expect(saved).toMatchObject({ version: 10 });
     expect([saved.data.tokenGrid, saved.data.tokenGridOpacity]).toEqual([3, 1]);
     expect(errors).toEqual([]);
   });
@@ -2694,7 +2699,7 @@ test.describe('第二批跟進（2026-10，原作 v1.05～v1.14）：新的門�
     await run(page, 'undo');
     expect((await floor(page)).openings[5].kind).toBe('sealed');
 
-    /* PL 檢視：新的門窗都照樣看得到（不是秘密） */
+    /* PL 檢視：新的門窗都照樣看得到（不是祕密） */
     await page.getByTestId('map-canvas').focus();
     await page.keyboard.press('p');
     expect((await shown(page)).openings).toBe(7);
@@ -2939,7 +2944,7 @@ test.describe('第二批跟進（2026-10，原作 v1.05～v1.14）：新的門�
       page.keyboard.press('Control+s'),
     ]);
     const saved = JSON.parse(readFileSync((await dl.path()) as string, 'utf8'));
-    expect(saved.version).toBe(9);
+    expect(saved.version).toBe(10);
     expect([saved.data.floors[1].showInside, saved.data.floors[1].inside]).toEqual([
       true,
       saved.data.floors[0].id,
@@ -3552,9 +3557,9 @@ test.describe('第三批跟進（2026-10，家具擴充、貼牆素材、標籤�
     const dialog = page.getByTestId('template-dialog');
     const tplCards = dialog.getByRole('list').getByRole('button');
     const box = dialog.getByRole('searchbox', { name: '搜尋範本' });
-    /* 2026-10 第三批後半：範本 56 個（#地下 21 個） */
+    /* 2026-10 第三批後半：範本 56 個（#地下 21 個）；2026-11-09 加了鐘錶行（B1）：22 個 */
     await box.fill('#地下');
-    await expect(tplCards).toHaveCount(21);
+    await expect(tplCards).toHaveCount(22);
     await expect(dialog.getByRole('button', { name: /^地下鐵車站/ })).toBeVisible();
     await dialog.getByRole('radio', { name: '交通・運輸' }).click();
     await expect(tplCards).toHaveCount(3);
@@ -4108,7 +4113,7 @@ test.describe('2026-10-29 跟進原作 v1.15（健身房範本、家具 8 種、
       page.keyboard.press('Control+s'),
     ]);
     const saved = JSON.parse(readFileSync((await dl.path()) as string, 'utf8'));
-    expect(saved.version).toBe(9);
+    expect(saved.version).toBe(10);
     expect(
       saved.data.floors[0].openings.filter((o: { kind: string }) => o.kind === 'slidingc'),
     ).toHaveLength(2);
