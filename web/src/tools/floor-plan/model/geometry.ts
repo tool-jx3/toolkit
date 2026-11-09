@@ -282,26 +282,30 @@ export type ShownFloor = Omit<Floor, 'rooms'> & { rooms: ShownRoom[]; veiled?: b
 /**
  * 祕密樓層的 PL 檢視（2026-11-09 參考 KIIN 的「PL秘密階」，F307）：每一間房只剩外形（位置、L 形的缺角、曲線的形狀、種類），
  * 名字、牆、門窗、家具、文字、自由線都拿掉。
+ * 驗證後修訂（2026-11-09）：GM 專用的房間與在它裡面的房間也拿掉（PL 看不到的東西不留外形，也不算進立體圖、總覽的範圍）。
  */
 export function veiledFloor(floor: Floor): ShownFloor {
+  const hidden = floor.rooms.filter((r) => r.gm);
   return {
     id: floor.id,
     name: floor.name,
-    rooms: floor.rooms.map(
-      (r): ShownRoom => ({
-        id: r.id,
-        x: r.x,
-        y: r.y,
-        w: r.w,
-        h: r.h,
-        cat: r.cat,
-        ...(r.cut ? { cut: { ...r.cut } } : {}),
-        ...(r.shape ? { shape: r.shape } : {}),
-        ...(r.radius ? { radius: r.radius } : {}),
-        name: '',
-        masked: true,
-      }),
-    ),
+    rooms: floor.rooms
+      .filter((r) => !r.gm && !hidden.some((g) => roomContainsRoom(g, r)))
+      .map(
+        (r): ShownRoom => ({
+          id: r.id,
+          x: r.x,
+          y: r.y,
+          w: r.w,
+          h: r.h,
+          cat: r.cat,
+          ...(r.cut ? { cut: { ...r.cut } } : {}),
+          ...(r.shape ? { shape: r.shape } : {}),
+          ...(r.radius ? { radius: r.radius } : {}),
+          name: '',
+          masked: true,
+        }),
+      ),
     walls: [],
     openings: [],
     items: [],

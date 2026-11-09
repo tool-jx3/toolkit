@@ -12,7 +12,7 @@ import { canvasToBlob } from '@/core/image';
 import { getTool, hrefToTool } from '@/registry';
 import { Button, Dialog, Field, IconButton, Notice, Segmented, Select, Toggle } from '@/ui';
 import { exportLayout, hasExportContent, renderImage } from '../draw/export';
-import { renderStackImage, stackImageLayout } from '../draw/stack';
+import { renderStackImage, stackFrameKey, stackImageLayout } from '../draw/stack';
 import { getTheme } from '../draw/themes';
 import {
   CELL_M,
@@ -99,7 +99,13 @@ export function ExportDialog() {
     if (empty) return null;
     if (stackMode) {
       const L = stackImageLayout(floors, stackExportOptions(project, e2, theme, e2.px));
-      return { pxWidth: L.pxWidth, pxHeight: L.pxHeight, scale: L.scale, tokenGrid: 0 };
+      return {
+        pxWidth: L.pxWidth,
+        pxHeight: L.pxHeight,
+        scale: L.scale,
+        tokenGrid: 0,
+        frameKey: stackFrameKey(L),
+      };
     }
     return exportLayout(floors, exportOptions(project, e2, theme, e2.px));
   }, [empty, floors, project, theme, e2, stackMode]);
@@ -123,9 +129,16 @@ export function ExportDialog() {
   const blocked = empty || !!tooLarge;
   /* 揭露用（F284）：GM 專用的東西在 PL 用的圖的範圍外面時，兩張圖的範圍不同，疊圖對不齊 */
   const revealFrameDiffers = useMemo(() => {
-    /* 立體樓層圖、總覽的版面不分 PL／GM／揭露用，三張對得齊 */
-    if (exp.view !== 'reveal' || !layout || !('frames' in layout)) return false;
+    if (exp.view !== 'reveal' || !layout) return false;
     if (!hasExportContent(floors, true, exp.clues === 'hide')) return true;
+    /* 立體樓層圖、總覽（驗證後修訂 2026-11-09）：PL 用的圖只算 PL 看得到的範圍，同樣比較 */
+    if ('frameKey' in layout) {
+      const pl = stackImageLayout(
+        floors,
+        stackExportOptions(project, { ...e2, view: 'pl' }, theme, e2.px),
+      );
+      return stackFrameKey(pl) !== layout.frameKey;
+    }
     const pl = exportLayout(floors, exportOptions(project, { ...e2, view: 'pl' }, theme, e2.px));
     return (
       pl.width !== layout.width ||
@@ -324,7 +337,7 @@ export function ExportDialog() {
             <Field label={S.exp.range}>
               <Segmented
                 size="sm"
-                columns={3}
+                fullWidth
                 value={exp.range}
                 onValueChange={(v) => setExp({ range: v })}
                 options={[

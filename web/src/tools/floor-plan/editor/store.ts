@@ -272,3 +272,10 @@ export const currentFloor = () => {
  */
 export const drawnFloor = () => composedFloor(currentFloor(), useProject.getState().data.floors);
 export const editableFloor = () => ownFloor(currentFloor(), useProject.getState().data.floors);
+
+/**
+ * PL 檢視的祕密樓層（2026-11-09 驗證後修訂，F307）：唯讀——什麼都選不到、不能畫、不能貼上或放素材
+ * （非祕密樓層的 GM 專用房間照舊：PL 檢視時選得到牆框）。
+ */
+export const veiledLocked = (): boolean =>
+  useEditor.getState().playerView && !!currentFloor().secret;

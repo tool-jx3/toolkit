@@ -264,7 +264,7 @@ describe('棋子方格：存檔欄位', () => {
     }
   });
 
-  it('分享連結：完整連結與 PL 用連結都帶著棋子方格（不是秘密），往返後相同', () => {
+  it('分享連結：完整連結與 PL 用連結都帶著棋子方格（不是祕密），往返後相同', () => {
     const p = project({ tokenGrid: 6, tokenGridColor: '#00aa55', tokenGridOpacity: 0.5 });
     const packed = packProject(p);
     expect([packed.tokenGrid, packed.tokenGridColor, packed.tokenGridOpacity]).toEqual([

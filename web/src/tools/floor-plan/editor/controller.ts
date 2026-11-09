@@ -116,6 +116,7 @@ import {
   usePrefs,
   useProject,
   type ViewMode,
+  veiledLocked,
 } from './store';
 
 export const ZOOM_MIN = 3;
@@ -615,6 +616,8 @@ export class EditorController {
    * 很小的家具（畫面上不到 12 px）四周放寬幾 px。
    */
   hitTest(wx: number, wy: number, opts: { skipRooms?: boolean } = {}): SelRef | null {
+    /* PL 檢視的祕密樓層：什麼都點不到（2026-11-09 驗證後修訂） */
+    if (veiledLocked()) return null;
     const f = this.shownFloor();
     const tol = 5 / this.view.zoom;
     const inRect = (r: Rect, pad = 0) =>
@@ -1068,7 +1071,7 @@ export class EditorController {
       }
     /* 鎖定的房間：左上角一個鎖 */
     for (const room of f.rooms) {
-      if (!room.locked || (ed.playerView && room.gm)) continue;
+      if (!room.locked || (ed.playerView && (room.gm || f.secret))) continue;
       const r = roomMainRect(room);
       const s = Math.min(0.55, r.w * 0.2, r.h * 0.2);
       const x = r.x + 0.22;
@@ -1463,6 +1466,16 @@ export class EditorController {
       const cam = stackCamera(useProject.getState().data);
       this.drag = { mode: 'orbit', sx, sy, angle: cam.angle, pitch: cam.pitch, moved: false };
       this.updateCursor();
+      return;
+    }
+    /* PL 檢視的祕密樓層是唯讀的（2026-11-09 驗證後修訂）：選取工具什麼都選不到，其他工具提醒 */
+    if (veiledLocked()) {
+      if (ed.sel.length) setEditor({ sel: [] });
+      if (
+        ed.tool !== 'select' ||
+        this.shownFloor().rooms.some((r) => roomHasPointClosed(r, w.x, w.y))
+      )
+        act.blockVeiled();
       return;
     }
     switch (ed.tool) {

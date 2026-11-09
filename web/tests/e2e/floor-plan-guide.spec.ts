@@ -27,6 +27,7 @@ type Hook = {
   stackLinks: () => { level: number; kind: string }[];
   stackExportSize: (range: 'stack' | 'board', px: number) => { width: number; height: number };
   shareHash: (mode: 'pl' | 'full') => string;
+  toClient: (x: number, y: number) => Pt;
 };
 
 const routeFonts = (p: Page) =>
@@ -309,6 +310,27 @@ test.describe('祕密樓層（F307）與匯出（F306）', () => {
     const shown = await hook(page, (h) => h.editor.debugShown());
     expect(shown.veiled).toBe(true);
     expect(shown.rooms.every((r) => r.name === '')).toBe(true);
+    /* 驗證後修訂（2026-11-09，L1）：PL 檢視的祕密樓層是唯讀的——點房間、Ctrl＋A 都選不到，屬性面板照樣是地圖設定 */
+    const r0 = (await project(page)).floors[2].rooms[0];
+    await hook(page, (h) => h.editor.fitView());
+    const at = await hook(page, (h, a) => h.toClient(...(a as [number, number])), [
+      r0.x + r0.w / 2,
+      r0.y + r0.h / 2,
+    ]);
+    await page.mouse.click(at.x, at.y);
+    await expect(
+      page.getByText('PL 檢視時祕密樓層不能編輯（切回 GM 檢視再改）', { exact: true }),
+    ).toBeVisible();
+    await page.keyboard.press('Control+a');
+    expect(await hook(page, (h) => h.useEditor.getState().sel)).toEqual([]);
+    await expect(page.getByTestId('floor-fields')).toBeVisible();
+    /* GM 檢視：照常選得到 */
+    await page.getByRole('radio', { name: 'GM 檢視' }).click();
+    await page.mouse.click(at.x, at.y);
+    expect((await hook(page, (h) => h.useEditor.getState().sel)).length).toBe(1);
+    await page.getByRole('radio', { name: 'PL 檢視' }).click();
+    /* 切到 PL 檢視時，祕密樓層上選取的東西取消選取 */
+    expect(await hook(page, (h) => h.useEditor.getState().sel)).toEqual([]);
     /* 復原：一步 */
     await page.getByTestId('map-canvas').focus();
     await page.keyboard.press('Control+z');
@@ -370,6 +392,56 @@ test.describe('祕密樓層（F307）與匯出（F306）', () => {
     expect(errors).toEqual([]);
   });
 
+  test('PL 用的立體圖與總覽：改祕密樓層的內容（遠處的文字、家具、GM 專用的房間）逐位元組相同；揭露用提示對不齊', {
+    tag: '@serial',
+  }, async ({ page }) => {
+    const errors = await open(page);
+    await loadTemplate(page, 'clockshop');
+    await page.getByTestId('export-open').click();
+    const dialog = page.getByTestId('export-dialog');
+    await dialog.getByRole('radio', { name: '24px' }).click();
+    const grab = async (range: string) => {
+      await dialog.getByRole('radio', { name: range, exact: true }).click();
+      await expect(page.getByTestId('export-preview')).toBeVisible();
+      const [dl] = await Promise.all([
+        page.waitForEvent('download'),
+        page.getByTestId('export-download').click(),
+      ]);
+      return readFileSync((await dl.path()) as string);
+    };
+    const before = [await grab('立體樓層圖'), await grab('樓層總覽')];
+    const sizes = [
+      await hook(page, (h) => h.stackExportSize('stack', 24)),
+      await hook(page, (h) => h.stackExportSize('board', 24)),
+    ];
+    await hook(page, (h) => {
+      const s = h.useProject.getState();
+      const p = structuredClone(s.data);
+      const b1 = p.floors.find((f) => f.secret) as Floor;
+      b1.texts.push({ id: 'far-t', x: 140, y: -70, text: '遠處的文字' });
+      b1.items.push({ id: 'far-i', t: 'bed_single', x: -60, y: 80, w: 2, h: 4, rot: 0 });
+      b1.rooms.push({
+        id: 'far-r',
+        x: 70,
+        y: 50,
+        w: 10,
+        h: 8,
+        name: '遠的密室',
+        cat: 'danger',
+        gm: true,
+      });
+      s.replace(p);
+    });
+    const after = [await grab('立體樓層圖'), await grab('樓層總覽')];
+    expect(Buffer.compare(before[0], after[0])).toBe(0);
+    expect(Buffer.compare(before[1], after[1])).toBe(0);
+    /* PL 用的圖的大小不變；揭露用（範圍＝GM 用）比較大，提示對不齊 */
+    expect(await hook(page, (h) => h.stackExportSize('stack', 24))).toEqual(sizes[0]);
+    await dialog.getByRole('radio', { name: '揭露用' }).click();
+    await expect(page.getByTestId('export-reveal-note')).toContainText('疊圖時對不齊');
+    expect(errors).toEqual([]);
+  });
+
   test('PL 用的分享連結：祕密樓層只剩輪廓（打開連結的人換到 GM 檢視也看不到）', async ({
     page,
     context,
@@ -388,7 +460,11 @@ test.describe('祕密樓層（F307）與匯出（F306）', () => {
     const p = await project(other);
     const b1 = p.floors.find((f: Floor) => f.name === 'B1') as Floor;
     expect(b1.secret).toBe(true);
-    expect(b1.rooms.every((r) => r.name === '' && r.gm)).toBe(true);
+    /* 驗證後修訂（2026-11-09）：種類換成中性的、不標 GM 專用（GM 專用的房間不留） */
+    expect(b1.rooms.length).toBeGreaterThan(0);
+    expect(b1.rooms.every((r) => r.name === '' && !r.gm && r.cat === 'living')).toBe(true);
+    const own = (await project(page)).floors.find((f: Floor) => f.name === 'B1') as Floor;
+    expect(b1.rooms.length).toBe(own.rooms.filter((r) => !r.gm).length);
     expect([b1.items, b1.openings, b1.texts]).toEqual([[], [], []]);
     expect(errors).toEqual([]);
     expect(errors2).toEqual([]);

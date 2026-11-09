@@ -45,20 +45,26 @@ const EMPTY_REMOVED: PlRemoved = {
   secretFloors: 0,
 };
 
+/** PL 用連結裡祕密樓層的房間的種類（中性：祕密樓層的 PL 畫法不看種類） */
+export const VEILED_CAT: Room['cat'] = 'living';
+
 /** PL 用的地圖：每一層照 PL 檢視＋藏起隱藏線索；原本的地圖不動 */
 export function playerProject(p: Project): { project: Project; removed: PlRemoved } {
   const removed = { ...EMPTY_REMOVED };
   const floors = p.floors.map((f): Floor => {
     const v = visibleFloor(f, true, true);
-    /* 祕密樓層（2026-11-09，F307）：房間只留輪廓（同 GM 專用房間的牆框），其他全部拿掉 */
+    /*
+     * 祕密樓層（2026-11-09，F307）：房間只留 PL 看得到的外形（GM 專用的房間與在它裡面的房間拿掉），其他全部拿掉。
+     * 驗證後修訂（2026-11-09）：種類換成中性的「客廳・起居室」（祕密樓層的 PL 畫法不看種類；原本的種類是劇透），
+     * 不標 GM 專用（PL 檢視的祕密樓層本來就不畫 GM 專用的房間）。
+     */
     if (v.veiled) {
       removed.secretFloors += 1;
       return {
         id: f.id,
         name: f.name,
         rooms: v.rooms.map((r): Room => {
-          const out: Room = { id: r.id, x: r.x, y: r.y, w: r.w, h: r.h, name: '', cat: r.cat };
-          out.gm = true;
+          const out: Room = { id: r.id, x: r.x, y: r.y, w: r.w, h: r.h, name: '', cat: VEILED_CAT };
           if (r.cut) out.cut = { ...r.cut };
           if (r.shape) out.shape = r.shape;
           if (r.radius) out.radius = r.radius;
@@ -115,7 +121,7 @@ export function playerProject(p: Project): { project: Project; removed: PlRemove
     };
     /* 自由線（2026-11-05）：GM 專用的已經拿掉 */
     if (v.lines?.length) out.lines = v.lines.map(({ gm: _g, ...l }) => l);
-    /* 外觀層的「顯示內部」不是秘密（疊上來的樓層本身也照 PL 檢視整理過） */
+    /* 外觀層的「顯示內部」不是祕密（疊上來的樓層本身也照 PL 檢視整理過） */
     if (f.showInside) out.showInside = true;
     if (f.inside) out.inside = f.inside;
     return out;
@@ -156,7 +162,7 @@ export function packProject(p: Project): Record<string, unknown> {
     showSize: p.showSize,
     showNames: p.showNames,
     active: p.active,
-    /* 棋子方格（不是秘密，PL 用連結也帶著；沒設定時不寫） */
+    /* 棋子方格（不是祕密，PL 用連結也帶著；沒設定時不寫） */
     ...(p.tokenGrid ? { tokenGrid: p.tokenGrid } : {}),
     ...(p.tokenGridColor ? { tokenGridColor: p.tokenGridColor } : {}),
     ...(p.tokenGridOpacity ? { tokenGridOpacity: p.tokenGridOpacity } : {}),
@@ -165,9 +171,9 @@ export function packProject(p: Project): Record<string, unknown> {
     ...(p.wearSeed !== undefined ? { wearSeed: p.wearSeed } : {}),
     ...(p.coords ? { coords: true } : {}),
     ...(p.fixedFurniture ? { fixedFurniture: true } : {}),
-    /* 2026-11-05（參考 KIIN v2.0）：夜的暗度（不是秘密；PL 用的連結也帶，光源已經照 PL 檢視整理過） */
+    /* 2026-11-05（參考 KIIN v2.0）：夜的暗度（不是祕密；PL 用的連結也帶，光源已經照 PL 檢視整理過） */
     ...(p.night ? { night: p.night } : {}),
-    /* 2026-11-09：立體樓層圖的視角（不是秘密；預設時不寫） */
+    /* 2026-11-09：立體樓層圖的視角（不是祕密；預設時不寫） */
     ...(p.stack ? { stack: p.stack } : {}),
     floors: p.floors.map((f) => {
       const out: Record<string, unknown> = {

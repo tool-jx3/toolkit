@@ -2699,7 +2699,7 @@ test.describe('第二批跟進（2026-10，原作 v1.05～v1.14）：新的門�
     await run(page, 'undo');
     expect((await floor(page)).openings[5].kind).toBe('sealed');
 
-    /* PL 檢視：新的門窗都照樣看得到（不是秘密） */
+    /* PL 檢視：新的門窗都照樣看得到（不是祕密） */
     await page.getByTestId('map-canvas').focus();
     await page.keyboard.press('p');
     expect((await shown(page)).openings).toBe(7);

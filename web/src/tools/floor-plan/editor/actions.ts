@@ -112,6 +112,7 @@ import {
   usePrefs,
   useProject,
   type ViewMode,
+  veiledLocked,
 } from './store';
 
 /* ---------- 通知與確認（App 設定） ---------- */
@@ -217,6 +218,10 @@ export const wallKindThickness = (armed: Armed | null): number =>
 export function dropMissingSelection(): void {
   const { sel, playerView } = useEditor.getState();
   if (!sel.length) return;
+  if (veiledLocked()) {
+    setEditor({ sel: [] });
+    return;
+  }
   const f = visibleFloor(editableFloor(), playerView, !usePrefs.getState().data.showClues);
   const next = sel.filter((s) => objList(f as Floor, s.type).some((o) => o.id === s.id));
   if (next.length !== sel.length) setEditor({ sel: next });
@@ -231,6 +236,13 @@ export function focusField(name: string): void {
     el.focus();
     if ('select' in el) el.select();
   });
+}
+
+/** PL 檢視的祕密樓層是唯讀的（2026-11-09 驗證後修訂）：要改時提醒、回傳 true */
+export function blockVeiled(): boolean {
+  if (!veiledLocked()) return false;
+  notify(S.secret.locked, 'warning');
+  return true;
 }
 
 /* ---------- 工具 ---------- */
@@ -333,6 +345,11 @@ function selected(): { type: ObjType; id: string; obj: AnyObj }[] {
 
 export function selectAll(): void {
   const { playerView } = useEditor.getState();
+  /* PL 檢視的祕密樓層：什麼都選不到（2026-11-09 驗證後修訂） */
+  if (veiledLocked()) {
+    setEditor({ sel: [] });
+    return;
+  }
   const f = visibleFloor(editableFloor(), playerView, !usePrefs.getState().data.showClues);
   const sel: SelRef[] = [];
   for (const type of OBJ_TYPES)
@@ -428,6 +445,7 @@ export function copySelection(cut: boolean): void {
 export function paste(): void {
   const cb = useEditor.getState().clipboard;
   if (!cb?.entries.length) return;
+  if (blockVeiled()) return;
   const f = currentFloor();
   const first = cb.entries[0];
   /* 同一層、原本的東西還在：每貼一次多錯開一次；別的樓層：貼在同樣的位置 */
@@ -1179,6 +1197,7 @@ export function isDisposableMap(p: Project = useProject.getState().data): boolea
  * 純數字的舊編號（包括拿掉的屋頂上看不到的）整批換成新的，不然關掉「顯示內部」時會冒出重複的舊號碼。
  */
 export function numberRoomsOnFloor(): void {
+  if (blockVeiled()) return;
   const r = numberRooms(editableFloor());
   if (!r) {
     notify(S.msg.noRoomsToNumber, 'warning');
@@ -1446,6 +1465,7 @@ export function dropAsset(
   alt: boolean,
   lines: readonly WallRun[],
 ): void {
+  if (blockVeiled()) return;
   if (a.kind === 'item' && ASSET[a.t]) {
     const g = itemGhost(lines, w.x, w.y, { t: a.t, rot: 0 }, alt);
     const item = {

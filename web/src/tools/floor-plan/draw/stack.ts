@@ -759,8 +759,9 @@ export function drawStack(
       if (o.playerView) drawSealed(c, L, level, f, col);
     }
     drawPlate(c, L, level, v, o, col);
-    if (!f.veiled) drawTags(c, L, level, v, o, col, links, floors.length);
     drawShafts(c, L, level, links, col);
+    /* 名牌畫在上下樓層的連接之後（驗證後修訂 2026-11-09：「▲▼ 樓梯」的牌子不被虛線與橢圓壓住） */
+    if (!f.veiled) drawTags(c, L, level, v, o, col, links, floors.length);
     const text = ghosts.get(level);
     if (text && !f.rooms.length) drawGhost(c, L, level, text, o, col);
   }
@@ -932,7 +933,7 @@ export interface StackImageOptions {
   playerView: boolean;
   hideClues: boolean;
   transparent: boolean;
-  /** GM 用的標示（右上角；null＝不加。立體圖、總覽的版面不因此改變，PL／GM／揭露用三張對得齊） */
+  /** GM 用的標示（右上角；null＝不加。立體圖、總覽的版面不因此改變，GM 用與揭露用對得齊） */
   gmBadge?: string | null;
   reveal?: boolean;
   night?: number;
@@ -951,10 +952,22 @@ export interface StackImageLayout {
   board: BoardLayout | null;
 }
 
+/**
+ * 看得到的樓層（版面用）：PL 用的圖只算 PL 看得到的東西（祕密樓層只有房間的外形、GM 專用的東西不算），
+ * GM 用、揭露用算全部（驗證後修訂 2026-11-09，同平面圖的匯出範圍）
+ */
+export function stackLayoutFloors(
+  floors: readonly Floor[],
+  o: Pick<StackDrawOptions, 'playerView' | 'hideClues' | 'reveal'>,
+): Floor[] {
+  return shownStackFloors(floors, o).map((v) => v.floor as Floor);
+}
+
 /** 匯出的版面（不畫）：立體圖的範圍或總覽的大小 × 每格 px，太大時自動縮小 */
 export function stackImageLayout(floors: readonly Floor[], o: StackImageOptions): StackImageLayout {
-  const stack = o.kind === 'stack' ? stackLayout(floors, o.cam) : null;
-  const board = o.kind === 'board' ? boardLayout(floors, o.cam) : null;
+  const shown = stackLayoutFloors(floors, o);
+  const stack = o.kind === 'stack' ? stackLayout(shown, o.cam) : null;
+  const board = o.kind === 'board' ? boardLayout(shown, o.cam) : null;
   const rect = stack ? stack.bounds : { x: 0, y: 0, w: board?.width ?? 1, h: board?.height ?? 1 };
   const scale = limitResolution(
     o.px,
@@ -969,6 +982,12 @@ export function stackImageLayout(floors: readonly Floor[], o: StackImageOptions)
     stack,
     board,
   };
+}
+
+/** 版面的位置（共同範圍與圖的大小）：兩張圖這個相同才疊得齊（揭露用與 PL 用的比較，2026-11-09） */
+export function stackFrameKey(L: StackImageLayout): string {
+  const s = L.stack ?? L.board?.stack;
+  return JSON.stringify([L.rect, s?.content, L.board?.shared ?? null]);
 }
 
 /** 立體圖或總覽畫成 canvas */

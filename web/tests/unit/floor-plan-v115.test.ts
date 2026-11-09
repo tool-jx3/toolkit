@@ -218,7 +218,7 @@ describe('雙開拉門（F243、3.13.1）', () => {
     expect(up.some((p) => p[0] > 5.1)).toBe(true);
   });
 
-  it('PL 檢視照畫（不是秘密）；設成只有 GM 看得到時 PL 檢視不畫；五種樣式都畫得出來', () => {
+  it('PL 檢視照畫（不是祕密）；設成只有 GM 看得到時 PL 檢視不畫；五種樣式都畫得出來', () => {
     const op = door('slidingc');
     expect(drawDoor(op, { playerView: true, editor: true }).ops.length).toBeGreaterThan(0);
     expect(drawDoor({ ...op, gm: true }, { playerView: true, editor: true }).ops).toEqual([]);

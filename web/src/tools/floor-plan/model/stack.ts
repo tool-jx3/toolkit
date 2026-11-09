@@ -130,7 +130,10 @@ export interface Projected {
 /** 沒有東西時的共同範圍（原作 20 × 14 m） */
 const EMPTY_CONTENT: Rect = { x: 0, y: 0, w: 40, h: 28 };
 
-/** 所有樓層的共同範圍（立體圖、總覽的版面用；PL／GM／揭露用都用同一個，三張圖的位置對得齊） */
+/**
+ * 所有樓層的共同範圍（立體圖、總覽的版面用）。匯出時傳進來的是看得到的樓層（PL 用的圖只算 PL 看得到的東西，驗證後修訂
+ * 2026-11-09）；GM 用與揭露用對得齊。編輯畫面用原本的樓層（切換 PL 檢視時圖不會跳）。
+ */
 export function stackContent(floors: readonly Floor[]): Rect {
   let box: Rect | null = null;
   for (const f of floors) {

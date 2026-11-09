@@ -6,7 +6,7 @@
 import { describe, expect, it } from 'vitest';
 import { createProjectFile, parseProject } from '@/core/storage';
 import { renderImage } from '@/tools/floor-plan/draw/export';
-import { renderStackImage, stackImageLayout } from '@/tools/floor-plan/draw/stack';
+import { renderStackImage, stackFrameKey, stackImageLayout } from '@/tools/floor-plan/draw/stack';
 import { DATA_VERSION } from '@/tools/floor-plan/editor/store';
 import { isAsset } from '@/tools/floor-plan/model/assets';
 import {
@@ -358,14 +358,20 @@ describe('祕密樓層（F307、3.18.5）', () => {
       texts: [{ id: 't', x: 5, y: 5, text: names[0] }],
     });
 
-  it('PL 檢視：只剩房間的輪廓（名字、門、家具、文字都拿掉）；GM 檢視照常', () => {
+  it('PL 檢視：只剩房間的輪廓（名字、門、家具、文字都拿掉；GM 專用的房間與在它裡面的房間也拿掉）；GM 檢視照常', () => {
     const v = visibleFloor(secretB1(['倉庫', '密室']), true);
     expect(v.veiled).toBe(true);
-    expect(v.rooms.map((r) => [r.name, r.masked])).toEqual([
-      ['', true],
-      ['', true],
-    ]);
+    expect(v.rooms.map((r) => [r.id, r.name, r.masked])).toEqual([['倉庫', '', true]]);
     expect([v.openings, v.items, v.texts, v.walls]).toEqual([[], [], [], []]);
+    /* 2026-11-09 驗證後修訂：GM 專用房間裡的房間也不留外形 */
+    const nested = visibleFloor(
+      {
+        ...secretB1(['倉庫', '密室']),
+        rooms: [...secretB1(['倉庫', '密室']).rooms, room('櫃', 11, 1, 2, 2)],
+      },
+      true,
+    );
+    expect(nested.rooms.map((r) => r.id)).toEqual(['倉庫']);
     const g = visibleFloor(secretB1(['倉庫', '密室']), false);
     expect(g.veiled).toBeUndefined();
     expect(g.rooms[0].name).toBe('倉庫');
@@ -389,6 +395,38 @@ describe('祕密樓層（F307、3.18.5）', () => {
         secretB1(['工房', '祭壇'], true),
         floorOf('1F', { rooms: [room('店', 0, 0, 16, 8)] }),
       ]);
+      /*
+       * 驗證後修訂（2026-11-09，M1）：祕密樓層的內容放到很遠的地方（文字、家具、樓梯、牆、門、GM 專用的房間與裡面的房間），
+       * PL 用的圖的範圍與內容都不變（逐指令相同、大小相同）；GM 用、揭露用的範圍變大
+       */
+      const far = (f: Floor): Floor => ({
+        ...f,
+        rooms: [
+          ...f.rooms,
+          room('遠的密室', 60, 40, 10, 8, { gm: true }),
+          room('密室裡的櫃', 62, 42, 3, 3),
+        ],
+        walls: [{ id: 'w', x1: -40, y1: -30, x2: -30, y2: -30, kind: 'int' }],
+        openings: [
+          ...f.openings,
+          { id: 'd2', kind: 'secret', o: 'h', x: 62, y: 40, len: 1.5, side: 1, hinge: 0 },
+        ],
+        items: [
+          ...f.items,
+          item('far', 'bed_single', -50, 70, 2, 4),
+          item('st2', 'stairs', 80, -40, 2, 5),
+        ],
+        texts: [
+          ...f.texts,
+          { id: 'far-t', x: 120, y: -60, text: '遠處的文字' },
+          { id: 'g', x: 90, y: 90, text: 'GM 的字', gm: true },
+        ],
+        lines: [{ id: 'l', kind: 'rail', x1: -70, y1: 0, cx: -65, cy: 5, x2: -60, y2: 10 }],
+      });
+      const c = projectOf([
+        far(secretB1(['工房', '祭壇'], true)),
+        floorOf('1F', { rooms: [room('店', 0, 0, 16, 8)] }),
+      ]);
       for (const range of ['current', 'all', 'stack', 'board'] as const) {
         const e = { ...EXP, range };
         const draw = (p: Project, view: ExportSettings['view']) => {
@@ -399,20 +437,48 @@ describe('祕密樓層（F307、3.18.5）', () => {
             : hashOf(renderImage(floors, exportOptions(p, ex, 'clean', 24)));
         };
         expect(draw(a, 'pl'), range).toBe(draw(b, 'pl'));
+        expect(draw(a, 'pl'), range).toBe(draw(c, 'pl'));
         expect(draw(a, 'gm'), range).not.toBe(draw(b, 'gm'));
         /* 全部公開的那一張：照一般的 PL 用的圖畫 */
         expect(draw(unveiledProject(a), 'pl'), range).not.toBe(draw(a, 'pl'));
+        if (range === 'stack' || range === 'board') {
+          const size = (p: Project, view: ExportSettings['view']) => {
+            const L = stackImageLayout(
+              exportFloors(p, range),
+              stackExportOptions(p, { ...e, view }, 'clean', 24),
+            );
+            return [L.pxWidth, L.pxHeight];
+          };
+          const pl = size(c, 'pl');
+          expect(pl, range).toEqual(size(a, 'pl'));
+          const gm = size(c, 'gm');
+          expect(gm[0] * gm[1], range).toBeGreaterThan(pl[0] * pl[1] * 4);
+          /* 揭露用與 GM 用同一個範圍；和 PL 用不同（匯出對話框提示對不齊） */
+          expect(size(c, 'reveal'), range).toEqual(gm);
+          const key = (p: Project, view: ExportSettings['view']) =>
+            stackFrameKey(
+              stackImageLayout(
+                exportFloors(p, range),
+                stackExportOptions(p, { ...e, view }, 'clean', 24),
+              ),
+            );
+          expect(key(c, 'reveal')).not.toBe(key(c, 'pl'));
+          expect(key(c, 'reveal')).toBe(key(c, 'gm'));
+          /* 祕密樓層的內容都在 PL 看得到的範圍裡（也沒有樓梯：樓梯會加高上下的留白）時，PL 用與揭露用對得齊 */
+          const d = projectOf([{ ...secretB1(['倉庫', '密室']), items: [] }, a.floors[1]]);
+          expect(key(d, 'reveal')).toBe(key(d, 'pl'));
+          expect(key(a, 'reveal')).not.toBe(key(a, 'pl'));
+        }
       }
     } finally {
       restore();
     }
   });
 
-  it('PL 用的分享連結：祕密樓層只留房間的輪廓（GM 專用的牆框）＋祕密的標記；完整連結全部帶著', () => {
-    const p = projectOf([
-      secretB1(['倉庫', '密室'], true),
-      floorOf('1F', { rooms: [room('店', 0, 0, 16, 8)] }),
-    ]);
+  it('PL 用的分享連結：祕密樓層只留 PL 看得到的房間的外形（種類換成中性的）＋祕密的標記；完整連結全部帶著', () => {
+    const b1 = secretB1(['倉庫', '密室'], true);
+    b1.rooms[0].cat = 'danger';
+    const p = projectOf([b1, floorOf('1F', { rooms: [room('店', 0, 0, 16, 8)] })]);
     const { project, removed } = playerProject(p);
     expect(removed.secretFloors).toBe(1);
     expect(project.floors[0]).toMatchObject({
@@ -422,15 +488,32 @@ describe('祕密樓層（F307、3.18.5）', () => {
       items: [],
       texts: [],
     });
+    /* 驗證後修訂（2026-11-09，M2）：種類是劇透 → 中性的「客廳・起居室」；GM 專用的房間不留 */
     expect(project.floors[0].rooms).toEqual([
-      { id: '倉庫', x: 0, y: 0, w: 10, h: 8, name: '', cat: 'living', gm: true },
-      { id: '密室', x: 10, y: 0, w: 6, h: 8, name: '', cat: 'living', gm: true },
+      { id: '倉庫', x: 0, y: 0, w: 10, h: 8, name: '', cat: 'living' },
     ]);
     const pl = readMapHash(encodeMapHash(p, 'pl').hash);
     expect(pl.kind).toBe('ok');
     const back = normalizeProject(pl.kind === 'ok' ? pl.raw : null, isAsset);
     expect(back?.floors[0].secret).toBe(true);
     expect(JSON.stringify(back)).not.toContain('倉庫');
+    expect(JSON.stringify(back)).not.toContain('danger');
+    /* 打開 PL 用的連結：PL 用的圖和原本的地圖的 PL 用的圖相同 */
+    const restore = installRecordingDocument();
+    try {
+      for (const range of ['all', 'stack', 'board'] as const) {
+        const e = { ...EXP, range };
+        const draw = (q: Project) => {
+          const floors = exportFloors(q, range);
+          return range === 'all'
+            ? hashOf(renderImage(floors, exportOptions(q, e, 'clean', 24)))
+            : hashOf(renderStackImage(floors, stackExportOptions(q, e, 'clean', 24)));
+        };
+        expect(draw(back as Project), range).toBe(draw(p));
+      }
+    } finally {
+      restore();
+    }
     const full = readMapHash(encodeMapHash(p, 'full').hash);
     const all = normalizeProject(full.kind === 'ok' ? full.raw : null, isAsset);
     expect(all?.floors[0].secret).toBe(true);
