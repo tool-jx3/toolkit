@@ -99,7 +99,7 @@
 | [網格產生器](https://tool-jx3.github.io/toolkit/tools/grid-maker/) | 產生透明背景的方格或六角格 PNG：格數、大小、線條與發光，可以加上 1-1、A1、流水號等座標；六角格能網格化成 CCFOLIA 對得齊的尺寸 |
 | [距離量尺產生器](https://tool-jx3.github.io/toolkit/tools/range-ruler/) | 以中心格為起點，把每一格的距離寫在格子上、依距離上色，做成可以疊在地圖上的方格或六角格量尺 PNG |
 | [地圖編輯器](https://tool-jx3.github.io/toolkit/tools/map-editor/) | 在方格或六角格上畫戰鬥地圖與平面圖：地面、牆壁、房間、家具與地圖符號、格子填色、手繪與文字，可以群組與布林運算；地圖自動存在瀏覽器，選範圍匯出 PNG、JPEG、SVG |
-| [室內平面圖產生器](https://tool-jx3.github.io/toolkit/tools/floor-plan/) | 探索場景用的室內平面圖：從住宅、洋館、飯店、醫院、廢墟等範本開始擺房間（牆自動產生）、門窗與家具（可以一鍵套用書房、臥室等內裝），圓形、八角形、船體等曲線的房間與船的甲板，夜裡只有燭台與窗邊亮著的光源，GM 用、PL 用與揭露用分開匯出 PNG |
+| [室內平面圖產生器](https://tool-jx3.github.io/toolkit/tools/floor-plan/) | 探索場景用的室內平面圖：從住宅、洋館、飯店、醫院、廢墟等範本開始擺房間（牆自動產生）、門窗與家具（可以一鍵套用書房、臥室等內裝），圓形、八角形、船體等曲線的房間與船的甲板，夜裡只有燭台與窗邊亮著的光源，所有樓層疊起來的立體樓層圖與樓層總覽、PL 看不到的祕密樓層，GM 用、PL 用與揭露用分開匯出 PNG |
 | [世界地圖產生器](https://tool-jx3.github.io/toolkit/tools/world-map/) | 畫跑團用的奇幻世界地圖：陸地、森林、山脈、沙漠、雪原、濕地，圈出國家、畫川與街道、航路與城牆，擺上王都、港口、遺跡等 32 種素材與地名，也能一鍵自動產生整個世界；算得出街道與航路要走幾天，GM 專用的據點與路線不會出現在公開用的 PNG，還能直接送到地圖演出產生器 |
 | [圖塊地圖編輯器](https://tool-jx3.github.io/toolkit/tools/tile-map/) | 用圖塊一格一格拼戰鬥地圖（每格一張圖，和畫向量圖形的「地圖編輯器」不同）：畫筆、填滿、圖形、選取後搬動與轉向，地面、牆壁、物件分圖層；內建簡易地形與 Kenney 的地城圖塊，也能匯入自己的圖塊表；匯出 VTT 用的 PNG，或照實際格子尺寸分頁的列印 PDF |
 | [先攻與戰鬥追蹤](https://tool-jx3.github.io/toolkit/tools/combat-tracker/) | 跑團戰鬥時記先攻順序、輪數、HP 與狀態（CoC、5e、PF2e、DX3 等都能用）：同名的怪物自動編 A、B、C，HP 欄打「-8」就扣血、臨時 HP 先扣，狀態的持續回合自動倒數，5e 的死亡豁免與專注提醒可以關掉；另開視窗給玩家看（不顯示敵人的 HP） |
@@ -228,7 +228,7 @@ CI（GitHub Actions）在 pull request 與 main 上跑 `npm test`、lint、typec
 | `scenario-text` | [劇本文字產生器](https://tool-jx3.github.io/toolkit/tools/scenario-text/) | [shiki365/scenario-text-maker](https://github.com/shiki365/scenario-text-maker) |
 | `house-rules` | [CoC 房規表產生器](https://tool-jx3.github.io/toolkit/tools/house-rules/) | [くま。／CoCハウスルール表メーカー](https://kumachansteps.github.io/trpg-web-tools/) |
 | `speech-bubble` | [動態對話泡泡產生器](https://tool-jx3.github.io/toolkit/tools/speech-bubble/) | [sotsotssi/TextBubbleMaker-preview](https://github.com/sotsotssi/TextBubbleMaker-preview)、[aokmri/dp-cardmaker](https://github.com/aokmri/dp-cardmaker)（對話卡片） |
-| `floor-plan` | [室內平面圖產生器](https://tool-jx3.github.io/toolkit/tools/floor-plan/) | [くま。／TRPG室内図メーカー](https://kumachansteps.github.io/trpg-web-tools/)、[GMW／Maptsukuri](https://maptsukuri.pages.dev/)（分享連結、房間編號）、[KIIN／マップ制作スタジオ](https://kiin.booth.pm/)（自動化、L 形房間、圖面風格與座標、VTT 匯出；v2.0 的夜的光源、內裝預設、自由線、曲線的房間與甲板等） |
+| `floor-plan` | [室內平面圖產生器](https://tool-jx3.github.io/toolkit/tools/floor-plan/) | [くま。／TRPG室内図メーカー](https://kumachansteps.github.io/trpg-web-tools/)、[GMW／Maptsukuri](https://maptsukuri.pages.dev/)（分享連結、房間編號）、[KIIN／マップ制作スタジオ](https://kiin.booth.pm/)（自動化、L 形房間、圖面風格與座標、VTT 匯出；v2.0 的夜的光源、內裝預設、自由線、曲線的房間與甲板等）、[KIIN／立体フロアガイド制作スタジオ](https://kiin-floor-guide.pages.dev/)（立體樓層圖、樓層總覽、快速建立樓層、祕密樓層） |
 | `rank-chart` | [排行榜產生器](https://tool-jx3.github.io/toolkit/tools/rank-chart/) | [sotsotssi/would-you-rank](https://github.com/sotsotssi/would-you-rank) |
 | `scratch-card` | [刮刮卡產生器](https://tool-jx3.github.io/toolkit/tools/scratch-card/) | [sotsotssi/Scratchcard](https://github.com/sotsotssi/Scratchcard) |
 | `clue-map` | [調查熱點圖](https://tool-jx3.github.io/toolkit/tools/clue-map/) | [momo102938/MUNgs_click](https://github.com/momo102938/MUNgs_click)（콕콕；本站自己的構想，只借「熱區＋解鎖」的想法） |
