@@ -318,9 +318,14 @@ test.describe('祕密樓層（F307）與匯出（F306）', () => {
       r0.y + r0.h / 2,
     ]);
     await page.mouse.click(at.x, at.y);
-    await expect(
-      page.getByText('PL 檢視時祕密樓層不能編輯（切回 GM 檢視再改）', { exact: true }),
-    ).toBeVisible();
+    const lockedNote = page.getByText('PL 檢視時祕密樓層不能編輯（切回 GM 檢視再改）', {
+      exact: true,
+    });
+    await expect(lockedNote).toBeVisible();
+    /* 複查 N2：連點時只留一則提醒 */
+    await page.mouse.click(at.x, at.y);
+    await page.mouse.click(at.x, at.y);
+    await expect(lockedNote).toHaveCount(1);
     await page.keyboard.press('Control+a');
     expect(await hook(page, (h) => h.useEditor.getState().sel)).toEqual([]);
     await expect(page.getByTestId('floor-fields')).toBeVisible();

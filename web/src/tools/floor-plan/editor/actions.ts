@@ -241,7 +241,8 @@ export function focusField(name: string): void {
 /** PL 檢視的祕密樓層是唯讀的（2026-11-09 驗證後修訂）：要改時提醒、回傳 true */
 export function blockVeiled(): boolean {
   if (!veiledLocked()) return false;
-  notify(S.secret.locked, 'warning');
+  /* 連點時只留一則（replace：取代之前同一句提醒；驗證後複查 N2） */
+  notify(S.secret.locked, 'warning', { replace: true });
   return true;
 }
 
