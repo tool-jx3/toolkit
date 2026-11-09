@@ -319,6 +319,52 @@ export interface StackCamera {
   rise: number;
 }
 
+/**
+ * 演出（2026-11-09 參考 KIIN「立体フロアガイド制作スタジオ」的「04 演出」，規格 F313～F328、3.19）：
+ * 一開始藏起來的房間與樓層、移動路線（箭頭）。**演出用的狀態**：只在演出的畫面（播放、逐步公開、演出的匯出）作用，
+ * 平面編輯、一般的 PL 檢視與匯出照舊（PL 永遠看不到的請用 GM 專用與祕密樓層）。model/stage.ts。
+ *
+ * 房間什麼時候公開（`when`）：沒有＝自動（第一條碰到這間房的路線、或經過這間房的樓梯的路線）；
+ * `route:<id>`＝和那一條路線同時；`after`＝所有路線之後依序（`order` 小的先）；`manual`＝播放時不公開，點一下才公開。
+ */
+export type StageWhen = 'after' | 'manual' | `route:${string}`;
+
+export interface StageRoom {
+  /** 樓層的 id */
+  floor: string;
+  /** 房間的 id */
+  room: string;
+  when?: StageWhen;
+  /** 「所有路線之後」的順序（小的先；沒有＝排在後面） */
+  order?: number;
+}
+
+/**
+ * 移動路線（箭頭）：一條在一層樓上（`floor`）。兩端 (x1, y1)、(x2, y2) 與控制點 (cx, cy)；
+ * `pts`＝照門、走廊、樓梯算出來的折線（點房間連起來的；沒有＝自由的二次曲線）。播放的順序＝陣列的順序。
+ */
+export interface StageRoute {
+  id: string;
+  floor: string;
+  x1: number;
+  y1: number;
+  cx: number;
+  cy: number;
+  x2: number;
+  y2: number;
+  pts?: [number, number][];
+  /** 線的粗細倍率（沒有＝1；點房間連起來的是 1.15） */
+  w?: number;
+}
+
+export interface StagePlan {
+  /** 一開始藏起來（「？？？」）的房間 */
+  rooms?: StageRoom[];
+  /** 一開始整層藏起來的樓層（id） */
+  floors?: string[];
+  routes?: StageRoute[];
+}
+
 /** 棋子方格的大小（格；1 格＝0.5 m）：0.5／1／1.5／2／3 m */
 export type TokenGridSize = 1 | 2 | 3 | 4 | 6;
 
@@ -354,6 +400,11 @@ export interface Project {
    * 改視角不算復原的步驟（同切換樓層）。
    */
   stack?: StackCamera;
+  /**
+   * 演出（2026-11-09，F313、F327；沒有或空的時候不寫）：藏起來的房間與樓層、移動路線。和祕密樓層（`floors[].secret`）分開存。
+   * 編輯演出算復原的步驟；播放時的公開是暫時的（不改這裡）。
+   */
+  stage?: StagePlan;
 }
 
 /** 可以選取的東西 */

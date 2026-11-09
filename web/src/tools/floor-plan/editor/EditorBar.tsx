@@ -1,11 +1,12 @@
 /**
  * 編輯列：範本、復原、重做、檢視方式（平面編輯／立體樓層圖／樓層總覽，2026-11-09）、GM／PL 檢視、匯出圖片。
  */
-import { Download, LayoutTemplate, Redo2, Undo2 } from 'lucide-react';
+import { Clapperboard, Download, LayoutTemplate, Redo2, Undo2 } from 'lucide-react';
 import { useUndoRedo } from '@/core/storage';
 import { Button, IconButton, Segmented, withShortcut } from '@/ui';
 import { S } from '../strings';
 import { redo, setPlayerView, setViewMode, undo } from './actions';
+import { toggleStage, useStage } from './stageStore';
 import { setEditor, useEditor, usePrefs, useProject, type ViewMode } from './store';
 
 export function EditorBar() {
@@ -13,6 +14,8 @@ export function EditorBar() {
   const playerView = useEditor((s) => s.playerView);
   const name = useProject((s) => s.data.name);
   const view = usePrefs((s) => s.data.view ?? 'plan');
+  const stage = useStage((s) => s.on);
+  const stageLoading = useStage((s) => s.loading);
   return (
     <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1.5" data-testid="editor-bar">
       <Button
@@ -60,6 +63,19 @@ export function EditorBar() {
             { value: 'board', label: S.view3d.board },
           ]}
         />
+        {/* 演出（2026-11-09，F313）：和檢視方式分開（演出時也可以換平面編輯／立體樓層圖／樓層總覽） */}
+        <Button
+          size="sm"
+          variant={stage ? 'primary' : 'secondary'}
+          icon={<Clapperboard />}
+          aria-pressed={stage}
+          title={S.stageEntry.toggleTip}
+          loading={stageLoading}
+          onClick={toggleStage}
+          data-testid="stage-toggle"
+        >
+          {stageLoading ? S.stageEntry.loading : S.stageEntry.toggle}
+        </Button>
         <Segmented
           size="sm"
           aria-label={S.bar.view}

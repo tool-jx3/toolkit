@@ -5,6 +5,7 @@
  *   只存變化的範圍；可以減成 256／128／64 色）。
  * - 影片：背景不透明時 MP4（core/video 的 findMoviePlan＋encodeMovie：H.264，沒有時 VP9），
  *   背景透明時透明的 WebM（findAlphaWebmPlan＋encodeAlphaWebm）；瀏覽器不能逐格編碼時改用即時錄影。
+ *   WebM 也可以不帶透明度（`detectVideoMode(…, true, codecs, { opaque: true })`，2026-11-09 floor-plan 的演出影片加的選填）。
  * - 運鏡（APNG、影片、連番 PNG）、逐步公開 PNG、圖層 4 張、連番 PNG（三種都是 ZIP，fflate，只打包不壓縮）。
  * 先等出處的字型載好再畫。工具用 createFxExporter(kit, 檔名前綴, 文字) 拿到這些函式。
  */
@@ -157,21 +158,28 @@ export function setForceRealtime(v: boolean): void {
 /** MP4 用哪些編碼（依序試）；預設 H.264，沒有時 VP9 */
 export type MovieCodecs = readonly ('avc1' | 'vp09')[];
 
-/** 這個瀏覽器能怎麼編影片（依尺寸、FPS、透明；結果快取） */
+/**
+ * 這個瀏覽器能怎麼編影片（依尺寸、FPS、透明；結果快取）。`alpha`＝WebM（透明背景）；`opaque`（選填，alpha 時）＝WebM 但
+ * 不帶透明度（畫面本來就不透明：只編顏色那一路、不寫 AlphaMode；即時錄影時透明的地方鋪 matte）。不給時和以前相同。
+ */
 export function detectVideoMode(
   size: Size,
   fps: number,
   alpha: boolean,
   codecs: MovieCodecs = ['avc1', 'vp09'],
+  { opaque = false }: { opaque?: boolean } = {},
 ): Promise<VideoMode> {
   const even = evenSize(size);
-  const key = `${even.width}x${even.height}|${fps}|${alpha}|${forceRealtime}|${codecs.join(',')}`;
+  const solid = alpha && opaque;
+  const key = `${even.width}x${even.height}|${fps}|${alpha}|${forceRealtime}|${codecs.join(',')}${solid ? '|opaque' : ''}`;
   let p = modeCache.get(key);
   if (!p) {
     p = (async (): Promise<VideoMode> => {
       if (!forceRealtime && typeof VideoEncoder !== 'undefined') {
         if (alpha) {
-          const plan = await findAlphaWebmPlan({ ...even, fps }).catch(() => null);
+          const plan = await findAlphaWebmPlan(
+            solid ? { ...even, fps, opaque: true } : { ...even, fps },
+          ).catch(() => null);
           if (plan) return { kind: 'webm', plan };
         } else {
           const plan = await findMoviePlan({
@@ -186,6 +194,12 @@ export function detectVideoMode(
         }
       }
       if (!canRecordCanvas()) return { kind: 'none', alpha };
+      if (solid) {
+        const f = recordingFormats().find((x) => x.extension === 'webm');
+        return f
+          ? { kind: 'realtime', mimeType: f.mimeType, alpha: false }
+          : { kind: 'none', alpha };
+      }
       if (alpha) {
         const f = recordingFormats().find((x) => x.alpha && x.extension === 'webm');
         return f ? { kind: 'realtime', mimeType: f.mimeType, alpha } : { kind: 'none', alpha };
@@ -229,8 +243,8 @@ export async function encodeFxVideo(
   const g = ctx2d(c, mode.kind === 'webm');
   const draw = (t: number) => {
     job.draw(g, t);
-    if (mode.kind === 'mp4') {
-      /* MP4 沒有透明度：透明的地方鋪底色（背景是模糊或單色時本來就不透明） */
+    if (mode.kind === 'mp4' || (mode.kind === 'webm' && !mode.plan.alpha)) {
+      /* MP4、不透明的 WebM 沒有透明度：透明的地方鋪底色（背景是模糊或單色時本來就不透明） */
       g.save();
       g.globalCompositeOperation = 'destination-over';
       g.fillStyle = job.matte ?? '#000';
@@ -288,7 +302,7 @@ export async function encodeFxVideo(
         details: [
           {
             label: text.detailCodec,
-            value: `${mode.plan.codec === 'vp09' ? 'VP9' : 'VP8'}＋透明度`,
+            value: `${mode.plan.codec === 'vp09' ? 'VP9' : 'VP8'}${mode.plan.alpha ? '＋透明度' : ''}`,
           },
           { label: text.detailFps, value: `${fps} fps` },
         ],

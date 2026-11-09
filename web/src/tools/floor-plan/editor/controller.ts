@@ -107,6 +107,8 @@ import {
 } from '../model/walls';
 import { S } from '../strings';
 import * as act from './actions';
+import type { StageCanvas } from './stageCanvas';
+import { useStage } from './stageStore';
 import {
   currentFloor,
   drawnFloor,
@@ -246,6 +248,8 @@ export class EditorController {
   /** 檢視方式（2026-11-09，F303）與平面編輯的視角（從立體圖回來時還原） */
   private mode: ViewMode = 'plan';
   private planView: { zoom: number; ox: number; oy: number } | null = null;
+  /** 演出（2026-11-09，F313～）：打開時重畫與指標交給這裡（第一次打開演出時才載入，D131） */
+  stage: StageCanvas | null = null;
 
   /* ---------- 掛上、拿掉 ---------- */
 
@@ -301,6 +305,19 @@ export class EditorController {
         this.requestRender();
       }),
     );
+    this.unsubs.push(
+      useStage.subscribe((s, prev) => {
+        if (s.on !== prev.on) {
+          this.cancelDrag();
+          this.hover = null;
+          this.updateCursor();
+          /* 時間軸出現、消失時畫布的大小變了：版面排好之後重新放進畫面 */
+          if (typeof requestAnimationFrame !== 'undefined')
+            requestAnimationFrame(() => requestAnimationFrame(() => this.fitView()));
+        }
+      }),
+    );
+    this.stage?.attach();
     if (typeof ResizeObserver !== 'undefined') {
       this.ro = new ResizeObserver(() => this.resize());
       this.ro.observe(wrap);
@@ -309,7 +326,15 @@ export class EditorController {
     this.fitView();
   }
 
+  /** 演出的程式載入好了（stageModule.ts 的 install）：接上演出的畫布 */
+  attachStage(stage: StageCanvas): void {
+    this.stage = stage;
+    if (this.canvas) stage.attach();
+    this.requestRender();
+  }
+
   detach(): void {
+    this.stage?.detach();
     for (const u of this.unsubs.splice(0)) u();
     this.ro?.disconnect();
     this.ro = null;
@@ -413,6 +438,8 @@ export class EditorController {
   /** 所有樓層都放進畫面（換樓層時圖不會跳） */
   fitView(): void {
     if (!this.view.w) return;
+    /* 演出的畫面（2026-11-09）：這一步的全體 */
+    if (useStage.getState().on && this.stage?.fit()) return;
     if (this.mode !== 'plan') {
       const s = this.scene3d();
       const b = s.board ? { x: 0, y: 0, w: s.board.width, h: s.board.height } : s.stack.bounds;
@@ -481,7 +508,7 @@ export class EditorController {
     this.zoomAt(this.view.w / 2, this.view.h / 2, factor);
   }
 
-  private syncZoom(): void {
+  syncZoom(): void {
     const pct = Math.round((this.view.zoom / ZOOM_BASE) * 100);
     if (useEditor.getState().zoomPct !== pct) setEditor({ zoomPct: pct });
   }
@@ -793,6 +820,13 @@ export class EditorController {
     c.clearRect(0, 0, this.canvas.width, this.canvas.height);
     c.setTransform(dpr * z, 0, 0, dpr * z, dpr * ox, dpr * oy);
     const viewRect = { x: -ox / z, y: -oy / z, w: this.view.w / z, h: this.view.h / z };
+    /* 演出（2026-11-09，F313～）：準備（GM）與演出的畫面（PL）都交給 StageCanvas */
+    if (useStage.getState().on && this.stage) {
+      this.stage.render(c);
+      if (this.wrap) this.wrap.style.background = theme.bg;
+      this.positionMiniBar();
+      return;
+    }
     /* 立體樓層圖、樓層總覽（2026-11-09，F303） */
     if (this.mode !== 'plan') {
       const s = this.scene3d();
@@ -1368,6 +1402,14 @@ export class EditorController {
     const ed = useEditor.getState();
     const d = this.drag;
     let cursor = 'default';
+    if (useStage.getState().on && this.stage) {
+      cursor = this.pointer
+        ? this.stage.cursor(this.pointer.sx, this.pointer.sy, this.spaceDown || d?.mode === 'pan')
+        : 'default';
+      if (d?.mode === 'pan') cursor = 'grabbing';
+      if (this.canvas.style.cursor !== cursor) this.canvas.style.cursor = cursor;
+      return;
+    }
     if (this.mode !== 'plan') {
       cursor =
         d?.mode === 'pan' || (d?.mode === 'orbit' && d.moved)
@@ -1446,7 +1488,14 @@ export class EditorController {
     if (this.pointers.size > 2) return;
     const w = this.toWorld(sx, sy);
     const ed = useEditor.getState();
-    if (e.button === 1 || e.button === 2 || this.spaceDown || ed.tool === 'hand') {
+    const stageCanvas = useStage.getState().on ? this.stage : null;
+    const stageMode = !!stageCanvas;
+    if (
+      e.button === 1 ||
+      e.button === 2 ||
+      this.spaceDown ||
+      (stageMode ? useStage.getState().tool === 'hand' : ed.tool === 'hand')
+    ) {
       e.preventDefault();
       this.drag = {
         mode: 'pan',
@@ -1461,6 +1510,12 @@ export class EditorController {
       return;
     }
     if (e.button !== 0) return;
+    /* 演出（2026-11-09）：點房間、畫箭頭、拖曳控制點、旋轉視角 */
+    if (stageCanvas) {
+      stageCanvas.down(e, sx, sy);
+      this.updateCursor();
+      return;
+    }
     /* 立體樓層圖、樓層總覽（2026-11-09，F304）：拖曳旋轉視角，沒拖＝點一下 */
     if (this.mode !== 'plan') {
       const cam = stackCamera(useProject.getState().data);
@@ -1710,6 +1765,11 @@ export class EditorController {
       this.view.oy = mid.sy - wy * zoom;
       this.syncZoom();
       this.requestRender();
+      return;
+    }
+    if (this.stage?.drag) {
+      this.stage.move(e, sx, sy);
+      this.updateCursor();
       return;
     }
     if (!d) {
@@ -2036,6 +2096,11 @@ export class EditorController {
     } catch {
       /* 已經放開 */
     }
+    if (this.stage?.drag) {
+      this.stage.up(e, sx, sy);
+      this.updateCursor();
+      return;
+    }
     const d = this.drag;
     if (!d) return;
     if (d.mode === 'pinch') {
@@ -2136,6 +2201,7 @@ export class EditorController {
 
   /** 拖曳到一半取消（Esc、第二根手指）：資料回到拖曳前 */
   cancelDrag(): boolean {
+    if (this.stage?.cancel()) return true;
     const d = this.drag;
     if (!d) return false;
     this.drag = null;
@@ -2159,6 +2225,10 @@ export class EditorController {
 
   /** 沒有按著時的指標：滑過的東西、門窗與家具的預覽、提示 */
   pointerHover(sx: number, sy: number, e: { altKey?: boolean } | null): void {
+    if (useStage.getState().on) {
+      this.updateCursor();
+      return;
+    }
     if (this.mode !== 'plan') {
       const hit = this.stackHit(sx, sy) !== null;
       if (hit !== this.stackHover) {
@@ -2217,7 +2287,8 @@ export class EditorController {
   }
 
   private onDoubleClick(e: MouseEvent): void {
-    if (this.mode !== 'plan' || useEditor.getState().tool !== 'select') return;
+    if (this.mode !== 'plan' || useEditor.getState().tool !== 'select' || useStage.getState().on)
+      return;
     const { sx, sy } = this.eventPos(e);
     const w = this.toWorld(sx, sy);
     const hit = this.hitTest(w.x, w.y);
@@ -2238,7 +2309,7 @@ export class EditorController {
 
   private onDragOver(e: DragEvent): void {
     const a = this.dragAsset;
-    if (!a || this.mode !== 'plan') return;
+    if (!a || this.mode !== 'plan' || useStage.getState().on) return;
     e.preventDefault();
     if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
     if (this.wrap) this.wrap.dataset.dropping = 'true';
@@ -2252,7 +2323,7 @@ export class EditorController {
 
   private onDrop(e: DragEvent): void {
     const a = this.dragAsset;
-    if (!a || this.mode !== 'plan') return;
+    if (!a || this.mode !== 'plan' || useStage.getState().on) return;
     e.preventDefault();
     if (this.wrap) this.wrap.dataset.dropping = 'false';
     this.ghostItem = null;

@@ -35,6 +35,7 @@ import type { Opening, Room } from '../model/types';
 import { S } from '../strings';
 import * as act from './actions';
 import { editor } from './controller';
+import { useStage, useStageModule } from './stageStore';
 import { currentFloor, type ToolId, useEditor, usePrefs, useProject } from './store';
 
 /** L 形房間的圖示（虛線的 L 形；和房間工具的虛線方框成對，2026-10-29） */
@@ -307,7 +308,25 @@ function ZoomBox() {
 }
 
 function Hint() {
-  const hint = useEditor((s) => s.hint);
+  const base = useEditor((s) => s.hint);
+  /* 演出（2026-11-09）：工具與演出的畫面的說明 */
+  const stage = useStage((s) => s.on);
+  const tool = useStage((s) => s.tool);
+  const preview = useStage((s) => s.preview);
+  const playerView = useEditor((s) => s.playerView);
+  const hint = stage
+    ? {
+        text:
+          preview || playerView
+            ? S.stageEntry.hintPreview
+            : tool === 'route'
+              ? S.stageEntry.hintRoute
+              : tool === 'hand'
+                ? S.hints.hand
+                : S.stageEntry.hintHide,
+        warn: false,
+      }
+    : base;
   return (
     <p
       aria-live="polite"
@@ -331,8 +350,10 @@ function QuickSetup() {
   const view = usePrefs((s) => s.data.view ?? 'plan');
   const playerView = useEditor((s) => s.playerView);
   const skip = useEditor((s) => s.quickSkip);
+  const stage = useStage((s) => s.on);
   const f = p.floors[p.active];
-  if (view !== 'plan' || playerView || !f || f.rooms.length || skip.includes(f.id)) return null;
+  if (stage || view !== 'plan' || playerView || !f || f.rooms.length || skip.includes(f.id))
+    return null;
   const donor = donorFloorIndex(p.floors, p.active);
   if (donor < 0) return null;
   const from = p.floors[donor].name || '—';
@@ -367,6 +388,8 @@ export function CanvasArea() {
   const wrapRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const view = usePrefs((s) => s.data.view ?? 'plan');
+  const stage = useStage((s) => s.on);
+  const M = useStageModule();
   useEffect(() => {
     const wrap = wrapRef.current;
     const canvas = canvasRef.current;
@@ -385,19 +408,22 @@ export function CanvasArea() {
         ref={canvasRef}
         tabIndex={0}
         aria-label={
-          view === 'stack'
-            ? S.view3d.canvasStack
-            : view === 'board'
-              ? S.view3d.canvasBoard
-              : S.canvasLabel
+          stage
+            ? S.stageEntry.canvas
+            : view === 'stack'
+              ? S.view3d.canvasStack
+              : view === 'board'
+                ? S.view3d.canvasBoard
+                : S.canvasLabel
         }
         className="absolute inset-0 block size-full touch-none select-none outline-none focus-visible:ring-2 focus-visible:ring-focus"
         data-testid="map-canvas"
         data-view={view}
+        data-stage={stage ? 'on' : undefined}
       />
-      {view === 'plan' ? <ToolStrip /> : null}
+      {stage && M ? <M.StageToolStrip /> : view === 'plan' ? <ToolStrip /> : null}
       <ClueToggle />
-      {view === 'plan' ? <MiniBar /> : null}
+      {view === 'plan' && !stage ? <MiniBar /> : null}
       <QuickSetup />
       <Hint />
       <ZoomBox />

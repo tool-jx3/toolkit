@@ -13,6 +13,9 @@
  * }
  * ```
  *
+ * **不透明的 WebM**（floor-plan 的演出影片加的選填，2026-11-09）：`findAlphaWebmPlan({ …, opaque: true })` 的 plan 沒有透明度那一路
+ * （`plan.alpha` 是 null），`encodeAlphaWebm` 只編顏色那一路、不寫 AlphaMode。不給 `opaque` 時和以前完全相同。
+ *
  * 每一格讀出未預乘的 RGBA（getImageData），自己換成 I420：顏色＝BT.709 有限範圍，色差以 2 × 2 的透明度加權平均
  * （透明的像素不把半透明的邊緣染黑；幾乎透明的像素的亮度用同一格的平均色）；透明度＝Y 直接是 A、U＝V＝128。
  */
@@ -35,8 +38,8 @@ export interface AlphaWebmPlan {
   codec: 'vp09' | 'vp8';
   /** 顏色那一路 */
   video: VideoEncoderConfig;
-  /** 透明度那一路 */
-  alpha: VideoEncoderConfig;
+  /** 透明度那一路（`opaque` 時 null：只有顏色、不寫 AlphaMode） */
+  alpha: VideoEncoderConfig | null;
   audio: MovieAudioPlan | null;
 }
 
@@ -48,6 +51,8 @@ export interface AlphaWebmPlanRequest {
   bitrate?: number;
   /** 要放聲音（Opus 48 kHz） */
   audio?: boolean;
+  /** 不要透明度（畫面本來就不透明時；檔案小一半、播放器不必處理透明度） */
+  opaque?: boolean;
 }
 
 /** 顏色那一路的位元率：min(4,000 萬, max(200 萬, 寬 × 高 × FPS × 0.15))；透明度那一路一半 */
@@ -80,8 +85,10 @@ export async function findAlphaWebmPlan(req: AlphaWebmPlanRequest): Promise<Alph
       bitrateMode: 'variable',
       latencyMode: 'quality',
     };
-    const alpha = { ...base, bitrate: Math.max(500_000, Math.round(bitrate / 2)) };
-    if ((await supported(base)) && (await supported(alpha)))
+    const alpha = req.opaque
+      ? null
+      : { ...base, bitrate: Math.max(500_000, Math.round(bitrate / 2)) };
+    if ((await supported(base)) && (!alpha || (await supported(alpha))))
       return { codec, video: base, alpha, audio };
   }
   return null;
@@ -230,9 +237,11 @@ export async function encodeAlphaWebm(o: AlphaWebmOptions): Promise<Blob> {
   const ayuv = new Uint8Array(width * height * 1.5);
   try {
     colorEnc = new VideoEncoder({ output: output(colorChunks), error: onError });
-    alphaEnc = new VideoEncoder({ output: output(alphaChunks), error: onError });
     colorEnc.configure(plan.video);
-    alphaEnc.configure(plan.alpha);
+    if (plan.alpha) {
+      alphaEnc = new VideoEncoder({ output: output(alphaChunks), error: onError });
+      alphaEnc.configure(plan.alpha);
+    }
     for (let i = 0; i < frameCount; i++) {
       if (failure) throw failure;
       const canvas = await frameOf(o, i);
@@ -254,15 +263,15 @@ export async function encodeAlphaWebm(o: AlphaWebmOptions): Promise<Blob> {
         colorSpace: COLOR_SPACE,
       };
       const cf = new VideoFrame(yuv, init);
-      const af = new VideoFrame(ayuv, init);
+      const af = alphaEnc ? new VideoFrame(ayuv, init) : null;
       try {
         colorEnc.encode(cf, { keyFrame });
-        alphaEnc.encode(af, { keyFrame });
+        if (alphaEnc && af) alphaEnc.encode(af, { keyFrame });
       } finally {
         cf.close();
-        af.close();
+        af?.close();
       }
-      while (colorEnc.encodeQueueSize > 3 || alphaEnc.encodeQueueSize > 3) {
+      while (colorEnc.encodeQueueSize > 3 || (alphaEnc?.encodeQueueSize ?? 0) > 3) {
         if (failure) throw failure;
         await nextTask();
       }
@@ -272,27 +281,28 @@ export async function encodeAlphaWebm(o: AlphaWebmOptions): Promise<Blob> {
       }
     }
     await flush(colorEnc, signal, () => failure);
-    await flush(alphaEnc, signal, () => failure);
+    if (alphaEnc) await flush(alphaEnc, signal, () => failure);
     if (failure) throw failure;
     if (signal?.aborted) throw abortError();
-    if (colorChunks.length !== frameCount || alphaChunks.length !== frameCount)
-      throw videoEncodeError(
-        'encoder',
-        `影格不完整 ${Math.min(colorChunks.length, alphaChunks.length)}／${frameCount}`,
-      );
-    const video: WebmVideoFrame[] = colorChunks.map((c, i) => ({
-      data: c.data,
-      alpha: alphaChunks[i].data,
-      /* 兩路都是關鍵影格才算（從這一格開始兩路都能解） */
-      key: c.key && alphaChunks[i].key,
-      timestampMs: Math.round((i * 1000) / fps),
-    }));
+    const done = alphaEnc ? Math.min(colorChunks.length, alphaChunks.length) : colorChunks.length;
+    if (done !== frameCount) throw videoEncodeError('encoder', `影格不完整 ${done}／${frameCount}`);
+    const video: WebmVideoFrame[] = colorChunks.map((c, i) =>
+      alphaEnc
+        ? {
+            data: c.data,
+            alpha: alphaChunks[i].data,
+            /* 兩路都是關鍵影格才算（從這一格開始兩路都能解） */
+            key: c.key && alphaChunks[i].key,
+            timestampMs: Math.round((i * 1000) / fps),
+          }
+        : { data: c.data, key: c.key, timestampMs: Math.round((i * 1000) / fps) },
+    );
     const parts = muxWebm({
       width,
       height,
       fps,
       codec: plan.codec === 'vp09' ? 'V_VP9' : 'V_VP8',
-      alpha: true,
+      alpha: !!plan.alpha,
       durationMs: (frameCount * 1000) / fps,
       video,
       audio:

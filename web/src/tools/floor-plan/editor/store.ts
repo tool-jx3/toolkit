@@ -30,9 +30,10 @@ export const TOOL_ID = 'floor-plan';
  * 與圓形配置的群組（`items[].ring`）、新的家具（2026-11-05 參考 KIIN v2.0；D88）。
  * 9：曲線的房間（`rooms[].shape`、`rooms[].radius`，2026-11-05 跟進 KIIN v2.0 第二批；D98）。
  * 10：立體樓層圖的視角（`stack`）、祕密樓層（`floors[].secret`）（2026-11-09 參考 KIIN 立体フロアガイド；D110）。
+ * 11：演出（`stage`：藏起來的房間與樓層、移動路線；2026-11-09 參考 KIIN 立体フロアガイド第二批；D121）。
  * 舊版本的存檔與專案檔不必轉換（少了欄位就是沒有圓標、沒有方格、牆照規則、不顯示內部、長方形的房間…），讀進來一律經過 normalizeProject。
  */
-export const DATA_VERSION = 10;
+export const DATA_VERSION = 11;
 
 /** 開頁第一次（沒有存檔）時的地圖：第一個範本 */
 export function starterProject(): Project {
@@ -114,7 +115,7 @@ export const useProject = createToolStore<Project>(TOOL_ID, starterProject(), {
   historyLimit: 120,
   coalesceMs: 0,
   storage: projectStorage,
-  /* 版本 1 → … → 10：欄位只多不少，整理一次就好 */
+  /* 版本 1 → … → 11：欄位只多不少，整理一次就好 */
   migrate: (persisted) => normalizeProject(persisted, isAsset) ?? starterProject(),
 });
 
@@ -135,6 +136,9 @@ export type ViewMode = 'plan' | 'stack' | 'board';
 export interface Prefs {
   /** 檢視方式（2026-11-09，F303；記在瀏覽器，不列入復原） */
   view?: ViewMode;
+  /** 演出的播放畫面、鏡頭（2026-11-09，F322；沒有＝樓層總覽、跟著放大） */
+  stageView?: 'board' | 'stack' | 'keep';
+  stageCamera?: 'follow' | 'fixed';
   grid: boolean;
   ghost: boolean;
   showClues: boolean;

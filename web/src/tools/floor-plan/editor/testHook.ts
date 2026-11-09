@@ -19,6 +19,7 @@ import { computeWalls } from '../model/walls';
 import { instantiateTemplate } from '../templates';
 import * as act from './actions';
 import { editor } from './controller';
+import { loadStage, type StageModule, stageModule, useStage } from './stageStore';
 import { useEditor, usePrefs, useProject } from './store';
 
 declare global {
@@ -27,11 +28,43 @@ declare global {
   }
 }
 
+/** 演出的程式載入好之後才有的窗口（stageAct、stageTimeline；D131） */
+function stageHooks(m: StageModule) {
+  return {
+    stageAct: m.stageAct,
+    stageTimeline: () => {
+      const tl = m.timelineOf(useProject.getState().data);
+      return {
+        total: tl.total,
+        playable: tl.playable,
+        manual: tl.manual,
+        steps: tl.steps.map((s) => ({
+          kind: s.kind,
+          floor: s.floor,
+          start: s.start,
+          duration: s.duration,
+          bridge: s.bridge,
+          revealRooms: s.revealRooms,
+          revealFloors: s.revealFloors,
+          hidden: [...s.hidden],
+        })),
+      };
+    },
+  };
+}
+
 export function installTestHook(): void {
-  window.__floorPlan = {
+  const loadedNow = stageModule();
+  const hook: Record<string, unknown> = {
     useProject,
     usePrefs,
     useEditor,
+    /** 演出（2026-11-09）：畫面狀態；`loadStage()` 載入演出的程式之後才有 stageAct、stageTimeline（打開演出時也會載入） */
+    useStage,
+    loadStage: async () => {
+      Object.assign(hook, stageHooks(await loadStage()));
+    },
+    ...(loadedNow ? stageHooks(loadedNow) : {}),
     editor,
     act,
     computeWalls,
@@ -109,4 +142,10 @@ export function installTestHook(): void {
       return { name: job.name, width: c.width, height: c.height, url: c.toDataURL('image/png') };
     },
   };
+  window.__floorPlan = hook;
+  /* 按「演出」載入之後也補上 */
+  useStage.subscribe((st, prev) => {
+    const m = stageModule();
+    if (st.ready && !prev.ready && m) Object.assign(hook, stageHooks(m));
+  });
 }

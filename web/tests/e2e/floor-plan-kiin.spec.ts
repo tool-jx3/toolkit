@@ -230,7 +230,7 @@ test.describe('L 形房間（F257～F260）', () => {
     expect(saved).toMatchObject({
       format: 'trpg-toolkit-project',
       tool: 'floor-plan',
-      version: 10,
+      version: 11,
     });
     expect(saved.data.floors[0].rooms[0].cut).toEqual({ c: 'ne', w: 4, h: 3 });
     expect(errors).toEqual([]);
