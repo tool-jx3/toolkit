@@ -1226,7 +1226,7 @@ test.describe('存檔', () => {
     expect(saved).toMatchObject({
       format: 'trpg-toolkit-project',
       tool: 'floor-plan',
-      version: 10,
+      version: 11,
     });
     expect(saved.data.floors[0].rooms).toHaveLength(6);
     await blank(page);
@@ -1906,7 +1906,7 @@ test.describe('分享連結與房間編號（2026-10，參考 Maptsukuri）', ()
       page.keyboard.press('Control+s'),
     ]);
     const saved = JSON.parse(readFileSync((await save.path()) as string, 'utf8'));
-    expect(saved.version).toBe(10);
+    expect(saved.version).toBe(11);
     expect(
       saved.data.floors[0].texts.map((t: TextLabel) => [t.text, t.badge, t.gm ?? false]),
     ).toEqual([
@@ -2181,7 +2181,7 @@ test.describe('第一批跟進（2026-10，原作 v1.05～v1.14）', () => {
       page.keyboard.press('Control+s'),
     ]);
     const saved = JSON.parse(readFileSync((await dl.path()) as string, 'utf8'));
-    expect(saved).toMatchObject({ version: 10 });
+    expect(saved).toMatchObject({ version: 11 });
     expect([saved.data.tokenGrid, saved.data.tokenGridOpacity]).toEqual([3, 1]);
     expect(errors).toEqual([]);
   });
@@ -2944,7 +2944,7 @@ test.describe('第二批跟進（2026-10，原作 v1.05～v1.14）：新的門�
       page.keyboard.press('Control+s'),
     ]);
     const saved = JSON.parse(readFileSync((await dl.path()) as string, 'utf8'));
-    expect(saved.version).toBe(10);
+    expect(saved.version).toBe(11);
     expect([saved.data.floors[1].showInside, saved.data.floors[1].inside]).toEqual([
       true,
       saved.data.floors[0].id,
@@ -4113,7 +4113,7 @@ test.describe('2026-10-29 跟進原作 v1.15（健身房範本、家具 8 種、
       page.keyboard.press('Control+s'),
     ]);
     const saved = JSON.parse(readFileSync((await dl.path()) as string, 'utf8'));
-    expect(saved.version).toBe(10);
+    expect(saved.version).toBe(11);
     expect(
       saved.data.floors[0].openings.filter((o: { kind: string }) => o.kind === 'slidingc'),
     ).toHaveLength(2);

@@ -19,6 +19,8 @@ import { computeWalls } from '../model/walls';
 import { instantiateTemplate } from '../templates';
 import * as act from './actions';
 import { editor } from './controller';
+import * as stageAct from './stageActions';
+import { timelineOf, useStage } from './stageStore';
 import { useEditor, usePrefs, useProject } from './store';
 
 declare global {
@@ -32,6 +34,27 @@ export function installTestHook(): void {
     useProject,
     usePrefs,
     useEditor,
+    /** 演出（2026-11-09）：畫面狀態與時間軸的摘要 */
+    useStage,
+    stageAct,
+    stageTimeline: () => {
+      const tl = timelineOf(useProject.getState().data);
+      return {
+        total: tl.total,
+        playable: tl.playable,
+        manual: tl.manual,
+        steps: tl.steps.map((s) => ({
+          kind: s.kind,
+          floor: s.floor,
+          start: s.start,
+          duration: s.duration,
+          bridge: s.bridge,
+          revealRooms: s.revealRooms,
+          revealFloors: s.revealFloors,
+          hidden: [...s.hidden],
+        })),
+      };
+    },
     editor,
     act,
     computeWalls,

@@ -165,8 +165,8 @@ function ellipse(
   c.restore();
 }
 
-/** 面向看的人的牌子（圓角長方形＋置中的字；字太寬時壓扁） */
-function tag(
+/** 面向看的人的牌子（圓角長方形＋置中的字；字太寬時壓扁；演出的「？？？」也用，draw/stage.ts） */
+export function tag(
   c: Ctx,
   x: number,
   y: number,
@@ -422,6 +422,12 @@ export interface StackDrawOptions {
    * text＝牌子上的字；沒有＝不畫。
    */
   ghosts?: { level: number; text: string }[];
+  /**
+   * 演出（2026-11-09，F313～；沒有＝不畫，輸出不變）：每一層的名牌之後（`levelOverlay`）、全部畫完之後（`overlay`）
+   * 再畫的東西（「？？？」的牌子、移動路線、走樓梯的線；draw/stage.ts）。
+   */
+  levelOverlay?: (c: Ctx, L: StackLayout, level: number) => void;
+  overlay?: (c: Ctx, L: StackLayout) => void;
 }
 
 /** 每一層要畫的東西：樓層（照檢視整理過）與名稱 */
@@ -762,9 +768,11 @@ export function drawStack(
     drawShafts(c, L, level, links, col);
     /* 名牌畫在上下樓層的連接之後（驗證後修訂 2026-11-09：「▲▼ 樓梯」的牌子不被虛線與橢圓壓住） */
     if (!f.veiled) drawTags(c, L, level, v, o, col, links, floors.length);
+    o.levelOverlay?.(c, L, level);
     const text = ghosts.get(level);
     if (text && !f.rooms.length) drawGhost(c, L, level, text, o, col);
   }
+  o.overlay?.(c, L);
 }
 
 /* ---------- 樓層總覽 ---------- */
@@ -774,6 +782,8 @@ export interface BoardDrawOptions extends StackDrawOptions {
   title: string;
   /** 透明背景（立體圖那一欄的底色、卡片的底照畫） */
   transparent?: boolean;
+  /** 演出（2026-11-09；沒有＝不畫）：每一張卡片的平面圖之後再畫（卡片的平面座標、剪在卡片裡） */
+  cardOverlay?: (c: Ctx, level: number, zoom: number) => void;
 }
 
 /** 總覽：左邊立體圖、右邊每一層的平面圖（原作「統合ボード」的排法） */
@@ -913,6 +923,7 @@ export function drawBoard(
       ...(o.night ? { night: o.night } : {}),
       ...(o.reveal ? { reveal: true } : {}),
     });
+    o.cardOverlay?.(c, card.level, o.zoom * B.scale);
     c.restore();
   }
 }

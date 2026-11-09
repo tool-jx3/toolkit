@@ -34,6 +34,8 @@ export interface PlRemoved {
   notes: number;
   /** 祕密樓層（2026-11-09，F307：整層只留房間的輪廓） */
   secretFloors: number;
+  /** 演出（2026-11-09，F327：藏起來的房間與樓層、移動路線；PL 用連結不帶，1＝有拿掉） */
+  stage: number;
 }
 
 const EMPTY_REMOVED: PlRemoved = {
@@ -43,6 +45,7 @@ const EMPTY_REMOVED: PlRemoved = {
   clues: 0,
   notes: 0,
   secretFloors: 0,
+  stage: 0,
 };
 
 /** PL 用連結裡祕密樓層的房間的種類（中性：祕密樓層的 PL 畫法不看種類） */
@@ -128,7 +131,10 @@ export function playerProject(p: Project): { project: Project; removed: PlRemove
   });
   /* 隱藏線索的個數＝線索開關的通知的算法（一件小物＋說明算一個；7.7）；祕密樓層的不另外算（整層都拿掉了） */
   removed.clues = clueCount(p.floors.filter((f) => !f.secret));
-  return { project: { ...p, floors }, removed };
+  /* 演出（2026-11-09，D122）：PL 用連結不帶（藏起來的房間、路線是之後才公開的東西） */
+  const { stage, ...rest } = p;
+  if (stage) removed.stage = 1;
+  return { project: { ...rest, floors }, removed };
 }
 
 const near = (a: number, b: number) => Math.abs(a - b) < 1e-9;
@@ -154,6 +160,72 @@ function packOpening({ id: _id, side, hinge, ...rest }: Opening): Record<string,
 
 const dropId = <T extends { id: string }>({ id: _id, ...rest }: T) => rest;
 
+/**
+ * 演出（2026-11-09，F327、D122）：id 不放進連結，房間寫成 [樓層的順序, 房間的順序, 時機?, 順序?]、樓層寫成順序、
+ * 路線的樓層寫成順序，「和路線 #n 同時」寫成 `route:<第幾條>`。指到不存在的東西的略過。
+ */
+function packStage(p: Project): { stage: Record<string, unknown> } | null {
+  const s = p.stage;
+  if (!s) return null;
+  const fi = (id: string) => p.floors.findIndex((f) => f.id === id);
+  const routes = (s.routes ?? []).filter((r) => fi(r.floor) >= 0);
+  const out: Record<string, unknown> = {};
+  const rooms = (s.rooms ?? []).flatMap((e) => {
+    const f = fi(e.floor);
+    const r = f >= 0 ? p.floors[f].rooms.findIndex((x) => x.id === e.room) : -1;
+    if (r < 0) return [];
+    let when: string | number = e.when ?? '';
+    if (typeof when === 'string' && when.startsWith('route:')) {
+      const i = routes.findIndex((x) => `route:${x.id}` === when);
+      when = i >= 0 ? `route:${i}` : 'after';
+    }
+    const row: unknown[] = [f, r];
+    if (when || e.order !== undefined) row.push(when);
+    if (e.order !== undefined) row.push(e.order);
+    return [row];
+  });
+  if (rooms.length) out.rooms = rooms;
+  const floors = (s.floors ?? []).map(fi).filter((i) => i >= 0);
+  if (floors.length) out.floors = floors;
+  if (routes.length)
+    out.routes = routes.map(({ id: _id, floor, ...r }) => ({ ...r, floor: fi(floor) }));
+  return Object.keys(out).length ? { stage: out } : null;
+}
+
+/** 連結裡的演出 → 存檔的形狀（樓層、房間、路線給 id；normalizeStage 再整理） */
+function unpackStage(
+  d: unknown,
+  floorId: (i: number) => string,
+  roomId: (f: number, r: number) => string,
+): unknown {
+  if (!isObj(d)) return undefined;
+  const routes = Array.isArray(d.routes)
+    ? d.routes.filter(isObj).map((r, i) => ({
+        ...r,
+        id: `sa${i}`,
+        floor: Number.isInteger(r.floor) ? floorId(r.floor as number) : '',
+      }))
+    : [];
+  const rooms = Array.isArray(d.rooms)
+    ? d.rooms.flatMap((row) => {
+        if (!Array.isArray(row) || !Number.isInteger(row[0]) || !Number.isInteger(row[1]))
+          return [];
+        const [f, r, when, order] = row as [number, number, unknown, unknown];
+        const e: Record<string, unknown> = { floor: floorId(f), room: roomId(f, r) };
+        if (typeof when === 'string' && when.startsWith('route:')) {
+          const i = Number(when.slice(6));
+          e.when = Number.isInteger(i) && routes[i] ? `route:${routes[i].id}` : 'after';
+        } else if (when) e.when = when;
+        if (order !== undefined) e.order = order;
+        return [e];
+      })
+    : [];
+  const floors = Array.isArray(d.floors)
+    ? d.floors.filter((i): i is number => Number.isInteger(i)).map(floorId)
+    : [];
+  return { rooms, floors, routes };
+}
+
 /** 連結裡的地圖（不放 id、省略預設值） */
 export function packProject(p: Project): Record<string, unknown> {
   return {
@@ -175,6 +247,8 @@ export function packProject(p: Project): Record<string, unknown> {
     ...(p.night ? { night: p.night } : {}),
     /* 2026-11-09：立體樓層圖的視角（不是祕密；預設時不寫） */
     ...(p.stack ? { stack: p.stack } : {}),
+    /* 2026-11-09：演出（完整連結才有；PL 用連結在 playerProject 拿掉了）：房間、樓層寫成順序 */
+    ...(packStage(p) ?? {}),
     floors: p.floors.map((f) => {
       const out: Record<string, unknown> = {
         name: f.name,
@@ -212,12 +286,37 @@ export function unpackProject(d: unknown): unknown {
   for (const f of floors)
     if (isObj(f) && Number.isInteger(f.inside) && isObj(floors[f.inside as number]))
       targets.add(f.inside as number);
+  /* 演出（2026-11-09）：指到的樓層、房間給 id（樓層 `s<順序>`、房間 `s<樓層>r<順序>`） */
+  const stageRooms = new Set<string>();
+  const stage = isObj(d.stage)
+    ? unpackStage(
+        d.stage,
+        (i) => {
+          if (isObj(floors[i])) targets.add(i);
+          return shareFloorId(i);
+        },
+        (f, r) => {
+          stageRooms.add(`${f}:${r}`);
+          return `${shareFloorId(f)}r${r}`;
+        },
+      )
+    : undefined;
   return {
     ...d,
+    ...(stage ? { stage } : {}),
     floors: floors.map((f0, index) => {
       if (!isObj(f0)) return f0;
       let f: Record<string, unknown> = f0;
       if (targets.has(index) && f.id === undefined) f = { ...f, id: shareFloorId(index) };
+      if (Array.isArray(f.rooms) && [...stageRooms].some((k) => k.startsWith(`${index}:`)))
+        f = {
+          ...f,
+          rooms: f.rooms.map((r, ri) =>
+            isObj(r) && r.id === undefined && stageRooms.has(`${index}:${ri}`)
+              ? { ...r, id: `${shareFloorId(index)}r${ri}` }
+              : r,
+          ),
+        };
       if (typeof f.inside === 'number')
         f = targets.has(f.inside)
           ? { ...f, inside: shareFloorId(f.inside) }

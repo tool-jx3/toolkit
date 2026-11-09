@@ -33,6 +33,7 @@ import { clamp, emptyFloor, normDeg, uid } from './geometry';
 import { isLineKind, LINE_W_MAX, LINE_W_MIN } from './lines';
 import { isCorner, validCut } from './shape';
 import { clampCamera, isDefaultCamera } from './stack';
+import { normalizeStage } from './stage';
 import type {
   Floor,
   FreeLine,
@@ -383,6 +384,9 @@ export function normalizeProject(
     const cam = clampCamera(p.stack as Partial<StackCamera>);
     if (!isDefaultCamera(cam)) out.stack = cam;
   }
+  /* 2026-11-09（參考 KIIN 立体フロアガイド的演出）：藏起來的房間與樓層、移動路線（指到的房間、樓層要存在；空的不寫） */
+  const stage = normalizeStage(p.stage, out.floors);
+  if (stage) out.stage = stage;
   return out;
 }
 

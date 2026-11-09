@@ -2,11 +2,13 @@
  * 鍵盤操作。說明表（SHORTCUT_HELP）交給共用外框顯示（按 ? 打開）；實際的處理在 handleKeyDown，
  * 因為有些按鍵要看狀態才攔（例如方向鍵、Ctrl＋C 只在有選取時才作用，否則交給瀏覽器）。
  */
-import { isEditableTarget, isFormControlTarget, type Shortcut } from '@/ui';
+import { isEditableTarget, isFormControlTarget, playbackShortcuts, type Shortcut } from '@/ui';
 import { S } from '../strings';
 import * as act from './actions';
 import { editor } from './controller';
 import { openProjectFile, saveProjectFile } from './files';
+import { clearStart, setStageTool } from './stageActions';
+import { useStage } from './stageStore';
 import { setEditor, type ToolId, useEditor, usePrefs, useProject } from './store';
 
 const K = S.keys;
@@ -49,7 +51,78 @@ export const SHORTCUT_HELP: Shortcut[] = [
   { keys: '-', label: K.zoomOut, group: K.view },
   { keys: '[', label: K.floorDown, group: K.view },
   { keys: ']', label: K.floorUp, group: K.view },
+  /* 演出（2026-11-09，F322）：空白鍵＝播放／暫停、Home＝回到開頭（共用的播放快捷鍵）；實際的處理在 handleStageKey */
+  ...playbackShortcuts({ toggle: () => {}, rewind: () => {}, group: K.stage }).map(
+    ({ handler: _h, ...rest }) => rest,
+  ),
+  { keys: ['arrowright', 'arrowleft'], label: K.stageStep, group: K.stage },
 ];
+
+/**
+ * 演出時的按鍵（2026-11-09）：空白鍵播放／暫停（演出時不是平移：平移用手形工具、右鍵或中鍵）、Home 回到開頭、
+ * →／← 下一步、上一步、Esc 取消拖曳→取消出發地→回到準備；編輯的工具鍵、選取的操作不作用（H＝平移畫面）。
+ * 處理了（或要擋下）回傳 true。
+ */
+function handleStageKey(e: KeyboardEvent): boolean {
+  const st = useStage.getState();
+  const target = e.target;
+  if (e.key === 'Escape') {
+    if (isEditableTarget(target)) return false;
+    e.preventDefault();
+    if (editor.cancelDrag()) return true;
+    if (st.start) clearStart();
+    else if (st.preview || st.openRooms.length || st.openFloors.length) st.player?.rewind();
+    return true;
+  }
+  if (isEditableTarget(target)) return false;
+  const mod = e.ctrlKey || e.metaKey;
+  if (mod) {
+    if (['KeyA', 'KeyD', 'KeyC', 'KeyX', 'KeyV'].includes(e.code)) {
+      e.preventDefault();
+      return true;
+    }
+    return false;
+  }
+  if (e.altKey) return false;
+  if (e.code === 'Space' || e.key === ' ') {
+    if (target instanceof HTMLElement && target !== document.body && target !== editor.canvas)
+      if (
+        target.closest(
+          'button,a,input,select,textarea,[role="slider"],[role="switch"],[role="radio"]',
+        )
+      )
+        return false;
+    e.preventDefault();
+    st.player?.toggle();
+    return true;
+  }
+  if (isFormControlTarget(target)) return false;
+  if (e.key === 'Home') {
+    e.preventDefault();
+    st.player?.rewind();
+    return true;
+  }
+  if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+    if (target instanceof Element && target.closest('[role="slider"]')) return false;
+    e.preventDefault();
+    if (e.key === 'ArrowRight') st.player?.next();
+    else st.player?.prev();
+    return true;
+  }
+  if (e.code === 'KeyH') {
+    e.preventDefault();
+    setStageTool(st.tool === 'hand' ? 'hide' : 'hand');
+    return true;
+  }
+  if (
+    TOOL_KEYS[e.code] ||
+    ['KeyR', 'KeyQ', 'KeyF', 'KeyL', 'KeyK', 'Delete', 'Backspace'].includes(e.code)
+  ) {
+    e.preventDefault();
+    return true;
+  }
+  return false;
+}
 
 const TOOL_KEYS: Record<string, ToolId> = {
   KeyV: 'select',
@@ -105,6 +178,7 @@ export function handleKeyDown(e: KeyboardEvent): void {
   )
     return;
   if (modalOpen()) return;
+  if (useStage.getState().on && handleStageKey(e)) return;
   const ed = useEditor.getState();
   if (e.key === 'Escape') {
     if (isEditableTarget(target)) return;

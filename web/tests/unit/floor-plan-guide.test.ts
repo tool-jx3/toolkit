@@ -595,7 +595,7 @@ describe('匯出的範圍與檔名（F306、3.2 修訂）', () => {
 
 describe('專案檔、分享連結（版本 10、3.5、3.7 修訂）', () => {
   it('版本 10；視角與祕密樓層照讀，範圍外夾回來、和預設相同時不寫；版本 9 的檔照讀', () => {
-    expect(DATA_VERSION).toBe(10);
+    expect(DATA_VERSION).toBe(11);
     const raw = {
       ...projectOf(threeFloors()),
       stack: { angle: 400, pitch: 0.1, gap: 1.2, rise: '2' },
@@ -626,7 +626,7 @@ describe('專案檔、分享連結（版本 10、3.5、3.7 修訂）', () => {
       JSON.stringify(createProjectFile('floor-plan', DATA_VERSION, p)),
       'floor-plan',
     );
-    expect(file.version).toBe(10);
+    expect(file.version).toBe(11);
     const back = normalizeProject(file.data, isAsset);
     expect(back).toEqual(p);
   });
