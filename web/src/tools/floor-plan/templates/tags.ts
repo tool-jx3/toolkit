@@ -67,6 +67,8 @@ export const TEMPLATE_TAGS: Readonly<Record<string, readonly TagId[]>> = {
   office: ['modern', 'indoor', 'office', 'rooftop', 'hidden', 'gm', 'multifloor', 'large'],
   konbini: ['modern', 'indoor', 'shop', 'outdoor'],
   detective: ['retro', 'indoor', 'office', 'shop', 'evidence', 'hidden', 'gm', 'multifloor'],
+  /* 2026-11-09：三層樓的範例（F312） */
+  clockshop: ['retro', 'indoor', 'shop', 'home', 'underground', 'hidden', 'gm', 'multifloor'],
   'shopping-street': ['historic', 'outdoor', 'shop', 'religious', 'hidden', 'gm'],
   'night-market': ['modern', 'outdoor', 'shop', 'leisure', 'religious', 'gm'],
   theatre: ['modern', 'indoor', 'leisure', 'underground', 'hidden', 'gm', 'multifloor', 'large'],

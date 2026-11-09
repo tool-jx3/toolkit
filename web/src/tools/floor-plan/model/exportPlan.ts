@@ -9,6 +9,7 @@ import {
   floorOffset,
   hasExportContent,
 } from '../draw/export';
+import type { StackImageOptions } from '../draw/stack';
 import { S } from '../strings';
 import {
   DEFAULT_CELL,
@@ -23,9 +24,17 @@ import { outlineOf } from './curve';
 import { floorHasClues } from './geometry';
 import { composedFloor } from './interior';
 import { cutRect, roomContainsRoom } from './shape';
+import { stackCamera, stackLevels } from './stack';
 import type { Floor, Project, Rect, Room, ThemeId } from './types';
 
-export type ExportRange = 'current' | 'all' | 'each';
+/**
+ * 範圍：這一層／所有樓層排成一張／每層各一張；2026-11-09 加立體樓層圖（stack）、樓層總覽（board）（F306）。
+ */
+export type ExportRange = 'current' | 'all' | 'each' | 'stack' | 'board';
+
+/** 立體樓層圖、樓層總覽的範圍（2026-11-09） */
+export const isStackRange = (r: ExportRange): r is 'stack' | 'board' =>
+  r === 'stack' || r === 'board';
 
 /** 匯出設定（記在瀏覽器裡） */
 export interface ExportSettings {
@@ -60,9 +69,59 @@ export function fileBase(name: string): string {
   return base.replace(BAD_FILE_CHARS, '_').slice(0, 60) || 'map';
 }
 
-/** 要畫的樓層（外觀層打開「顯示內部」時是疊好的樓層，2026-10 第二批） */
+/**
+ * 要畫的樓層（外觀層打開「顯示內部」時是疊好的樓層，2026-10 第二批）。立體樓層圖、樓層總覽（2026-11-09）是立體圖由下往上的樓層
+ * （外觀層不放，model/stack.ts 的 stackLevels）。
+ */
 export function exportFloors(p: Project, range: ExportRange): Floor[] {
+  if (isStackRange(range)) return stackLevels(p.floors).map((l) => l.floor);
   return (range === 'all' ? p.floors : [p.floors[p.active]]).map((f) => composedFloor(f, p.floors));
+}
+
+/** 立體樓層圖、樓層總覽的匯出選項（2026-11-09，F306；每格 px、透明背景、PL／GM／揭露用照平面圖的規則） */
+export function stackExportOptions(
+  p: Project,
+  exp: ExportSettings,
+  theme: ThemeId,
+  px: number,
+): StackImageOptions {
+  return {
+    kind: exp.range === 'board' ? 'board' : 'stack',
+    theme,
+    cam: stackCamera(p),
+    px,
+    title: p.name,
+    showSize: p.showSize,
+    hideNames: p.showNames === false,
+    playerView: exp.view === 'pl',
+    hideClues: exp.clues === 'hide',
+    transparent: exp.transparent,
+    gmBadge: exp.view === 'gm' ? S.badgeGm : null,
+    ...(exp.view === 'reveal' ? { reveal: true } : {}),
+    ...(p.night ? { night: p.night } : {}),
+    wear: p.wear ? { strength: p.wear, seed: p.wearSeed ?? 0 } : null,
+    noNoise: exp.noise === false,
+  };
+}
+
+/** 祕密樓層全部公開的地圖（匯出完成後「祕密樓層全部公開再存一張」，F307） */
+export function unveiledProject(p: Project): Project {
+  if (!p.floors.some((f) => f.secret)) return p;
+  return {
+    ...p,
+    floors: p.floors.map((f) => {
+      if (!f.secret) return f;
+      const { secret: _s, ...rest } = f;
+      return rest;
+    }),
+  };
+}
+
+/** 要匯出的樓層裡有沒有祕密樓層（PL 用的圖才有差） */
+export function exportHasSecret(p: Project, exp: ExportSettings): boolean {
+  if (exp.view !== 'pl') return false;
+  const range = p.floors.length > 1 ? exp.range : 'current';
+  return exportFloors(p, range).some((f) => f.secret);
 }
 
 /**
@@ -114,18 +173,25 @@ export function vttCells(L: Pick<ExportLayout, 'width' | 'height'>, cell: number
 export const vttTooLarge = (L: Pick<ExportLayout, 'pxWidth' | 'pxHeight'>): boolean =>
   L.pxWidth > VTT_MAX_SIDE || L.pxHeight > VTT_MAX_SIDE || L.pxWidth * L.pxHeight > VTT_MAX_PIXELS;
 
-/** 匯出的檔名：地圖名稱[_樓層]_PL／GM[_無線索][_橫x縱（VTT）].png */
+/**
+ * 匯出的檔名：地圖名稱[_樓層]_PL／GM[_無線索][_橫x縱（VTT）].png。
+ * 2026-11-09：立體樓層圖、樓層總覽在地圖名稱後面加「立體」「總覽」（不加樓層名）；祕密樓層全部公開的那一張最後加「全部公開」（F306、F307）。
+ */
 export function exportFileName(
   p: Project,
   exp: ExportSettings,
   floor: Floor | null,
   cells?: { x: number; y: number } | null,
+  unveiled = false,
 ): string {
   const parts = [fileBase(p.name)];
-  if (floor) parts.push(String(floor.name || '').replace(/[\\/:*?"<>|\s]+/g, '_'));
+  if (exp.range === 'stack' || exp.range === 'board')
+    parts.push(exp.range === 'stack' ? S.exp.stackSuffix : S.exp.boardSuffix);
+  else if (floor) parts.push(String(floor.name || '').replace(/[\\/:*?"<>|\s]+/g, '_'));
   parts.push(exp.view === 'pl' ? 'PL' : exp.view === 'reveal' ? S.exp.revealSuffix : 'GM');
   if (exp.clues === 'hide' && p.floors.some(floorHasClues)) parts.push(S.exp.noClueSuffix);
   if (cells) parts.push(`${cells.x}x${cells.y}`);
+  if (unveiled) parts.push(S.exp.unveiledSuffix);
   return `${parts.filter(Boolean).join('_')}.png`;
 }
 
@@ -134,8 +200,16 @@ export interface ExportJob {
   name: string;
 }
 
-export function exportJobs(p: Project, exp: ExportSettings): ExportJob[] {
+export function exportJobs(p: Project, exp: ExportSettings, unveiled = false): ExportJob[] {
   const multi = p.floors.length > 1;
+  /* 立體樓層圖、樓層總覽（2026-11-09）：一張（對話框只在兩層以上時能選，F306） */
+  if (isStackRange(exp.range))
+    return [
+      {
+        floors: exportFloors(p, exp.range),
+        name: exportFileName(p, { ...exp, mode: 'image' }, null, null, unveiled),
+      },
+    ];
   /* VTT 用：檔名加上格數（每一張各自算） */
   const cells = (floors: Floor[]) =>
     isVtt(exp)
@@ -144,7 +218,7 @@ export function exportJobs(p: Project, exp: ExportSettings): ExportJob[] {
   if (exp.range === 'each' && multi)
     return p.floors.map((f) => {
       const floors = [composedFloor(f, p.floors)];
-      return { floors, name: exportFileName(p, exp, f, cells(floors)) };
+      return { floors, name: exportFileName(p, exp, f, cells(floors), unveiled) };
     });
   const floors = exportFloors(p, exp.range);
   return [
@@ -155,6 +229,7 @@ export function exportJobs(p: Project, exp: ExportSettings): ExportJob[] {
         exp,
         exp.range === 'all' && multi ? null : multi ? p.floors[p.active] : null,
         cells(floors),
+        unveiled,
       ),
     },
   ];

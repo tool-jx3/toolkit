@@ -35,9 +35,18 @@ import type {
   Wall,
 } from '../model/types';
 import { type CurveRun, computeWalls, type OpeningPose, type WallRun } from '../model/walls';
+import { S } from '../strings';
 import { FURNITURE_DRAW, type FurnStyle } from './furniture';
 import { seeded } from './furniture/kit';
-import { badgeLabel, badgeSize, haloText, labelLayout, textFont, verticalText } from './labels';
+import {
+  badgeLabel,
+  badgeSize,
+  haloText,
+  labelLayout,
+  measureText,
+  textFont,
+  verticalText,
+} from './labels';
 import { drawNight } from './night';
 import { type FloorTheme, floorFill, getTheme } from './themes';
 
@@ -2082,6 +2091,83 @@ export interface DrawFloorOptions {
    * （`revealFloor`：GM 專用的房間、牆、門窗、家具、文字、自由線和一般的畫出來一樣）。
    */
   reveal?: boolean;
+  /**
+   * 畫在立體樓層圖、樓層總覽裡（2026-11-09，F303）：stack＝立體圖的樓板（房間名字、文字、座標、祕密樓層的「？？？」不畫，
+   * 由立體圖另外畫成面向看的人的名牌）；card＝總覽的平面圖卡片（照一般的畫，祕密樓層的「？？？」照畫）。
+   */
+  stacked?: 'stack' | 'card';
+}
+
+/**
+ * 祕密樓層在 PL 檢視裡（2026-11-09 參考 KIIN 的「PL秘密階」，F307）：每一間房蓋灰（同 GM 專用的房間）、虛線的輪廓，
+ * 正中間一塊「名稱・未探索　？？？」的牌子（`plate` false 時不畫：立體圖另外畫）。
+ */
+export function drawVeiled(
+  c: Ctx,
+  floor: ShownFloor,
+  theme: FloorTheme,
+  lw: number,
+  plate: boolean,
+): void {
+  for (const room of floor.rooms) {
+    c.beginPath();
+    traceRoom(c, room);
+    c.fillStyle = theme.defaultFill;
+    c.fill();
+    c.save();
+    c.globalAlpha = 0.38;
+    c.fillStyle = theme.arc;
+    c.fill();
+    c.restore();
+  }
+  c.save();
+  c.strokeStyle = theme.wall;
+  c.lineWidth = lw * 1.6;
+  c.setLineDash([0.48, 0.28]);
+  for (const room of floor.rooms) {
+    c.beginPath();
+    traceRoom(c, room);
+    c.stroke();
+  }
+  c.restore();
+  if (!plate || !floor.rooms.length) return;
+  let x0 = Number.POSITIVE_INFINITY;
+  let y0 = Number.POSITIVE_INFINITY;
+  let x1 = Number.NEGATIVE_INFINITY;
+  let y1 = Number.NEGATIVE_INFINITY;
+  for (const r of floor.rooms) {
+    x0 = Math.min(x0, r.x);
+    y0 = Math.min(y0, r.y);
+    x1 = Math.max(x1, r.x + r.w);
+    y1 = Math.max(y1, r.y + r.h);
+  }
+  drawVeilPlate(c, (x0 + x1) / 2, (y0 + y1) / 2, S.secret.veil(floor.name), theme, 0.6);
+}
+
+/** 「？？？」的牌子（中心 (x, y)、字級 fs 格；平面圖與立體圖共用） */
+export function drawVeilPlate(
+  c: Ctx,
+  x: number,
+  y: number,
+  text: string,
+  theme: FloorTheme,
+  fs: number,
+): void {
+  const f = { weight: 800, size: fs, family: theme.font };
+  const w = Math.max(fs * 16, measureText(c, text, f) + fs * 2.6);
+  const h = fs * 3.2;
+  c.save();
+  c.beginPath();
+  c.roundRect(x - w / 2, y - h / 2, w, h, fs * 0.4);
+  c.fillStyle = theme.bg === 'transparent' ? theme.defaultFill : theme.bg;
+  c.fill();
+  c.strokeStyle = theme.wall;
+  c.lineWidth = fs * 0.15;
+  c.stroke();
+  c.textAlign = 'center';
+  c.textBaseline = 'middle';
+  haloText(c, text, x, y + fs * 0.06, f, theme.label, null, 0);
+  c.restore();
 }
 
 export function drawFloor(c: Ctx, floorIn: Floor, opts: DrawFloorOptions): ShownFloor {
@@ -2098,6 +2184,11 @@ export function drawFloor(c: Ctx, floorIn: Floor, opts: DrawFloorOptions): Shown
     c.fillRect(opts.viewRect.x, opts.viewRect.y, opts.viewRect.w, opts.viewRect.h);
   }
   if (opts.grid && opts.viewRect) drawGrid(c, opts.viewRect, theme, opts.zoom);
+  /* 祕密樓層的 PL 檢視（2026-11-09，F307）：輪廓＋「？？？」 */
+  if (floor.veiled) {
+    drawVeiled(c, floor, theme, lw, opts.stacked !== 'stack');
+    return floor;
+  }
 
   /* 長方形的房間照舊用 fillRect（輸出逐位元組不變）；L 形房間（2026-10-29）填多邊形 */
   const fillRoom = (room: ShownRoom) => {
@@ -2124,7 +2215,8 @@ export function drawFloor(c: Ctx, floorIn: Floor, opts: DrawFloorOptions): Shown
     drawPattern(c, room, theme, lw);
   }
 
-  if (opts.ghost) {
+  /* 下一層是祕密樓層（2026-11-09，F307）：PL 檢視不畫它的影子 */
+  if (opts.ghost && !(opts.playerView && opts.ghost.secret)) {
     const ghost = visibleFloor(opts.ghost, opts.playerView);
     const g = computeWalls(ghost, { playerView: opts.playerView });
     const tinted = { ...theme, wall: theme.gm, rail: theme.gm };
@@ -2185,6 +2277,8 @@ export function drawFloor(c: Ctx, floorIn: Floor, opts: DrawFloorOptions): Shown
   if (opts.tokenGrid && (!opts.editor || opts.tokenGrid.size * opts.zoom >= 4))
     drawTokenGrid(c, theme, opts.zoom, opts.tokenGrid);
 
+  /* 立體圖的樓板（2026-11-09）：名字、文字另外畫成名牌 */
+  if (opts.stacked === 'stack') return floor;
   for (const room of floor.rooms) if (!room.masked) drawRoomLabel(c, room, theme, opts);
   for (const t of floor.texts) drawText(c, t, theme, opts);
   if (opts.coords) drawCoordLabels(c, opts.coords, theme, opts.zoom);

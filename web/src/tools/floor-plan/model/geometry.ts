@@ -274,7 +274,42 @@ export const CURVE_SUFFIX = '（曲線）';
 
 /** 畫面／匯出用的房間（PL 檢視的 GM 房間只剩框：masked） */
 export type ShownRoom = Room & { masked?: boolean };
-export type ShownFloor = Omit<Floor, 'rooms'> & { rooms: ShownRoom[] };
+/**
+ * veiled：祕密樓層在 PL 檢視裡（2026-11-09，F307）——只剩房間的輪廓（masked），畫成虛線的輪廓＋「？？？」（drawFloor）。
+ */
+export type ShownFloor = Omit<Floor, 'rooms'> & { rooms: ShownRoom[]; veiled?: boolean };
+
+/**
+ * 祕密樓層的 PL 檢視（2026-11-09 參考 KIIN 的「PL秘密階」，F307）：每一間房只剩外形（位置、L 形的缺角、曲線的形狀、種類），
+ * 名字、牆、門窗、家具、文字、自由線都拿掉。
+ */
+export function veiledFloor(floor: Floor): ShownFloor {
+  return {
+    id: floor.id,
+    name: floor.name,
+    rooms: floor.rooms.map(
+      (r): ShownRoom => ({
+        id: r.id,
+        x: r.x,
+        y: r.y,
+        w: r.w,
+        h: r.h,
+        cat: r.cat,
+        ...(r.cut ? { cut: { ...r.cut } } : {}),
+        ...(r.shape ? { shape: r.shape } : {}),
+        ...(r.radius ? { radius: r.radius } : {}),
+        name: '',
+        masked: true,
+      }),
+    ),
+    walls: [],
+    openings: [],
+    items: [],
+    texts: [],
+    secret: true,
+    veiled: true,
+  };
+}
 
 /** 拿掉隱藏線索（clue）的家具與文字 */
 export function withoutClues<F extends ShownFloor>(floor: F): F {
@@ -293,6 +328,8 @@ export function withoutClues<F extends ShownFloor>(floor: F): F {
  *   巢狀的房間、內側的門窗都拿掉（房間邊上的門窗留著）；其他 GM 專用的東西與暗門也拿掉。
  */
 export function visibleFloor(floor: Floor, playerView: boolean, hideClues = false): ShownFloor {
+  /* 祕密樓層（2026-11-09，F307）：PL 檢視整層只剩輪廓 */
+  if (playerView && floor.secret) return veiledFloor(floor);
   const f: ShownFloor = hideClues ? withoutClues(floor) : floor;
   if (!playerView) return f;
   const hidden = f.rooms.filter((r) => r.gm);
@@ -341,11 +378,13 @@ export function visibleFloor(floor: Floor, playerView: boolean, hideClues = fals
 /**
  * 揭露用的圖（2026-11-05，F284；驗證後修訂：原本 GM 專用的文字照樣是 GM 色）：GM 專用的東西都照一般的畫——
  * 房間、手畫的牆、門窗、家具、文字、自由線的「只有 GM 看得到」都拿掉，暗門換成單開門。GM 專用與一般的同一張地圖畫出來一樣。
+ * 2026-11-09：祕密樓層也公開（F307）。
  */
 export function revealFloor(floor: Floor): Floor {
   const plain = <T extends { gm?: boolean }>(x: T): T => (x.gm ? { ...x, gm: false } : x);
+  const { secret: _s, ...rest } = floor;
   return {
-    ...floor,
+    ...rest,
     rooms: floor.rooms.map(plain),
     walls: floor.walls.map(plain),
     openings: floor.openings.map((o) => {

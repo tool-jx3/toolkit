@@ -12,6 +12,7 @@ import { canvasToBlob } from '@/core/image';
 import { getTool, hrefToTool } from '@/registry';
 import { Button, Dialog, Field, IconButton, Notice, Segmented, Select, Toggle } from '@/ui';
 import { exportLayout, hasExportContent, renderImage } from '../draw/export';
+import { renderStackImage, stackImageLayout } from '../draw/stack';
 import { getTheme } from '../draw/themes';
 import {
   CELL_M,
@@ -24,18 +25,22 @@ import {
 } from '../model/catalog';
 import {
   exportFloors,
+  exportHasSecret,
   exportJobs,
   exportOptions,
   handoffRoomsOf,
+  isStackRange,
   isVtt,
+  stackExportOptions,
   tokenGridPx,
+  unveiledProject,
   vttCell,
   vttCells,
   vttPxOf,
   vttTooLarge,
 } from '../model/exportPlan';
 import { floorHasClues } from '../model/geometry';
-import type { ThemeId } from '../model/types';
+import type { Project, ThemeId } from '../model/types';
 import { S } from '../strings';
 import { notify } from './actions';
 import { type Prefs, setEditor, useEditor, usePrefs, useProject } from './store';
@@ -62,25 +67,43 @@ export function ExportDialog() {
   const [theme, setTheme] = useState<ThemeId>(project.theme);
   const [preview, setPreview] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  /* 下載完成之後（PL 用的圖裡有祕密樓層時）顯示「祕密樓層全部公開再存一張」（2026-11-09，F307） */
+  const [unveilKey, setUnveilKey] = useState<string | null>(null);
 
   /* 打開時：樣式＝地圖的樣式（這一頁選過就沿用）、隱藏線索＝畫面上目前的狀態 */
   useEffect(() => {
     if (!open) return;
     setTheme(sessionTheme ?? useProject.getState().data.theme);
     setExp({ clues: usePrefs.getState().data.showClues ? 'show' : 'hide' });
+    /* 在立體樓層圖、樓層總覽打開時，範圍跟著換成那一種（2026-11-09，原作同） */
+    const view = usePrefs.getState().data.view;
+    if ((view === 'stack' || view === 'board') && useProject.getState().data.floors.length > 1)
+      setExp({ range: view });
+    setUnveilKey(null);
   }, [open]);
 
   const multi = project.floors.length > 1;
   const range = multi ? exp.range : 'current';
-  const e2 = useMemo(() => ({ ...exp, range }), [exp, range]);
+  /* 立體樓層圖、樓層總覽（2026-11-09，F306）：VTT 用、格線、棋子方格不適用 */
+  const stackMode = isStackRange(range);
+  const e2 = useMemo(
+    () => ({ ...exp, range, ...(stackMode ? { mode: 'image' as const } : {}) }),
+    [exp, range, stackMode],
+  );
+  /* 下載之後範圍或對象改了就收起來 */
+  const unveilReady = unveilKey === `${range}|${exp.view}`;
   const hasClues = project.floors.some(floorHasClues);
   const floors = useMemo(() => exportFloors(project, range), [project, range]);
   const empty = !hasExportContent(floors, exp.view === 'pl', exp.clues === 'hide');
-  const layout = useMemo(
-    () => (empty ? null : exportLayout(floors, exportOptions(project, e2, theme, e2.px))),
-    [empty, floors, project, theme, e2],
-  );
-  const vtt = isVtt(exp);
+  const layout = useMemo(() => {
+    if (empty) return null;
+    if (stackMode) {
+      const L = stackImageLayout(floors, stackExportOptions(project, e2, theme, e2.px));
+      return { pxWidth: L.pxWidth, pxHeight: L.pxHeight, scale: L.scale, tokenGrid: 0 };
+    }
+    return exportLayout(floors, exportOptions(project, e2, theme, e2.px));
+  }, [empty, floors, project, theme, e2, stackMode]);
+  const vtt = isVtt(exp) && !stackMode;
   const cell = vttCell(project);
   /* VTT 用：每一張都要在上限裡（每層各一張時每張各自算，F266） */
   const vttLayouts = useMemo(() => {
@@ -90,7 +113,7 @@ export function ExportDialog() {
       .map((j) => exportLayout(j.floors, exportOptions(project, e2, theme, e2.px)));
   }, [vtt, empty, project, e2, theme]);
   const tooLarge = vttLayouts.find(vttTooLarge) ?? null;
-  const cells = vtt && layout ? vttCells(layout, cell) : null;
+  const cells = vtt && layout && 'width' in layout ? vttCells(layout, cell) : null;
   const vttLine =
     vtt && layout && cells
       ? `${S.exp.vttInfo(cells.x, cells.y, layout.pxWidth, layout.pxHeight)}${
@@ -100,7 +123,8 @@ export function ExportDialog() {
   const blocked = empty || !!tooLarge;
   /* 揭露用（F284）：GM 專用的東西在 PL 用的圖的範圍外面時，兩張圖的範圍不同，疊圖對不齊 */
   const revealFrameDiffers = useMemo(() => {
-    if (exp.view !== 'reveal' || !layout) return false;
+    /* 立體樓層圖、總覽的版面不分 PL／GM／揭露用，三張對得齊 */
+    if (exp.view !== 'reveal' || !layout || !('frames' in layout)) return false;
     if (!hasExportContent(floors, true, exp.clues === 'hide')) return true;
     const pl = exportLayout(floors, exportOptions(project, { ...e2, view: 'pl' }, theme, e2.px));
     return (
@@ -118,34 +142,42 @@ export function ExportDialog() {
     }
     const t = setTimeout(() => {
       try {
-        const c = renderImage(floors, exportOptions(project, e2, theme, Math.min(e2.px, 16), true));
+        const c = stackMode
+          ? renderStackImage(floors, stackExportOptions(project, e2, theme, Math.min(e2.px, 16)))
+          : renderImage(floors, exportOptions(project, e2, theme, Math.min(e2.px, 16), true));
         setPreview(c.toDataURL('image/png'));
       } catch {
         setPreview(null);
       }
     }, 30);
     return () => clearTimeout(t);
-  }, [open, empty, floors, project, theme, e2]);
+  }, [open, empty, floors, project, theme, e2, stackMode]);
 
-  const download = async () => {
+  /** 下載（unveiled：祕密樓層全部公開的那一張，F307） */
+  const download = async (unveiled = false) => {
     setBusy(true);
     try {
-      const jobs = exportJobs(project, e2).filter((j) =>
+      const src: Project = unveiled ? unveiledProject(project) : project;
+      const jobs = exportJobs(src, e2, unveiled).filter((j) =>
         hasExportContent(j.floors, exp.view === 'pl', exp.clues === 'hide'),
       );
-      const opts = exportOptions(project, e2, theme, exp.px);
+      const render = (fl: typeof floors) =>
+        stackMode
+          ? renderStackImage(fl, stackExportOptions(src, e2, theme, exp.px))
+          : renderImage(fl, exportOptions(src, e2, theme, exp.px));
       if (jobs.length === 1) {
-        const blob = await canvasToBlob(renderImage(jobs[0].floors, opts), 'image/png');
+        const blob = await canvasToBlob(render(jobs[0].floors), 'image/png');
         downloadBlob(blob, jobs[0].name);
       } else
         await downloadSequentially(
           jobs.map((j) => ({
             name: j.name,
-            blob: () => canvasToBlob(renderImage(j.floors, opts), 'image/png'),
+            blob: () => canvasToBlob(render(j.floors), 'image/png'),
           })),
           { intervalMs: 300 },
         );
-      notify(S.exp.saved(jobs.length), 'success');
+      notify(unveiled ? S.exp.unveiled : S.exp.saved(jobs.length), 'success');
+      if (!unveiled && exportHasSecret(project, e2)) setUnveilKey(`${range}|${exp.view}`);
     } catch {
       notify(S.exp.failed, 'danger');
     } finally {
@@ -219,7 +251,9 @@ export function ExportDialog() {
   const copy = async () => {
     let canvas: HTMLCanvasElement;
     try {
-      canvas = renderImage(floors, exportOptions(project, e2, theme, exp.px));
+      canvas = stackMode
+        ? renderStackImage(floors, stackExportOptions(project, e2, theme, exp.px))
+        : renderImage(floors, exportOptions(project, e2, theme, exp.px));
     } catch {
       notify(S.exp.failed, 'danger');
       return;
@@ -246,7 +280,7 @@ export function ExportDialog() {
         <>
           <Button
             icon={<Film />}
-            disabled={blocked || busy}
+            disabled={blocked || busy || stackMode}
             onClick={sendToFx}
             title={S.exp.sendFxHint}
             data-testid="export-send-fx"
@@ -278,7 +312,7 @@ export function ExportDialog() {
           <Field label={S.exp.mode}>
             <Segmented
               size="sm"
-              value={vtt ? 'vtt' : 'image'}
+              value={isVtt(exp) ? 'vtt' : 'image'}
               onValueChange={(v) => setExp({ mode: v })}
               options={[
                 { value: 'image', label: S.exp.modeImage },
@@ -290,15 +324,26 @@ export function ExportDialog() {
             <Field label={S.exp.range}>
               <Segmented
                 size="sm"
+                columns={3}
                 value={exp.range}
                 onValueChange={(v) => setExp({ range: v })}
                 options={[
                   { value: 'current', label: S.exp.current },
                   { value: 'all', label: S.exp.all },
                   { value: 'each', label: S.exp.each },
+                  { value: 'stack', label: S.exp.stack },
+                  { value: 'board', label: S.exp.board },
                 ]}
               />
             </Field>
+          ) : null}
+          {stackMode ? (
+            <div className="flex flex-col gap-1" data-testid="export-stack-note">
+              <p className="m-0 text-xs text-muted">
+                {range === 'stack' ? S.exp.stackNote : S.exp.boardNote}
+              </p>
+              {isVtt(exp) ? <Notice tone="warning">{S.exp.stackVtt}</Notice> : null}
+            </div>
           ) : null}
           <Field label={S.exp.view}>
             <Segmented
@@ -346,7 +391,16 @@ export function ExportDialog() {
               <Toggle checked={exp.noise !== false} onCheckedChange={(v) => setExp({ noise: v })} />
             </Field>
           ) : null}
-          {vtt ? (
+          {stackMode ? (
+            <Field label={S.exp.px} hint={S.exp.pxNote}>
+              <Segmented
+                size="sm"
+                value={String(exp.px)}
+                onValueChange={(v) => setExp({ px: Number(v) as ExportPx })}
+                options={EXPORT_PX.map((v) => ({ value: String(v), label: `${v}px` }))}
+              />
+            </Field>
+          ) : vtt ? (
             <>
               <Field label={S.exp.vttCell} hint={S.exp.vttCellHint}>
                 <TokenGridSelect testId="export-token-grid" offLabel={S.exp.vttCellOff} />
@@ -375,9 +429,11 @@ export function ExportDialog() {
               </Field>
             </>
           )}
-          <Field label={S.exp.grid} layout="inline">
-            <Toggle checked={exp.grid} onCheckedChange={(v) => setExp({ grid: v })} />
-          </Field>
+          {stackMode ? null : (
+            <Field label={S.exp.grid} layout="inline">
+              <Toggle checked={exp.grid} onCheckedChange={(v) => setExp({ grid: v })} />
+            </Field>
+          )}
           <Field label={S.exp.transparent} layout="inline">
             <Toggle checked={exp.transparent} onCheckedChange={(v) => setExp({ transparent: v })} />
           </Field>
@@ -426,6 +482,24 @@ export function ExportDialog() {
             </div>
           ) : null}
           {shrunk ? <Notice tone="warning">{S.exp.tooLarge}</Notice> : null}
+          {unveilReady ? (
+            <div
+              className="flex flex-col gap-1.5 border-t border-border pt-3"
+              data-testid="export-unveil"
+            >
+              <p className="m-0 text-xs font-semibold text-muted">{S.exp.unveilTitle}</p>
+              <p className="m-0 text-xs text-muted">{S.exp.unveilNote}</p>
+              <Button
+                size="sm"
+                className="self-start"
+                disabled={busy}
+                onClick={() => void download(true)}
+                data-testid="export-unveil-download"
+              >
+                {S.exp.unveil}
+              </Button>
+            </div>
+          ) : null}
         </div>
         <div className="flex min-h-48 min-w-0 items-center justify-center rounded-md border border-border bg-surface-2 p-2">
           {empty ? (

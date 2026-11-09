@@ -9,6 +9,7 @@ import { FloorBuilder, type TplFloor, toFloor } from './builder';
 import { hospital, hotel } from './buildings';
 import { castle } from './castle';
 import { clubBuilding, funeralHome, museum } from './civic';
+import { clockshop } from './clockshop';
 import { addClues, type ClueSpec } from './clues';
 import { detective, konbini, nightMarket, office, shoppingStreet } from './commerce';
 import { decay } from './decay';
@@ -558,6 +559,22 @@ export const TEMPLATES: readonly FloorTemplate[] = [
       C('1F', '射氣球攤', 'idol', '獎品架上的/舊娃娃'),
       C('1F', '蚵仔煎攤', 'phone', '一直響的/失物手機'),
       C('1F', '土地公廟', 'key', '供桌下的/鐵皮鑰匙'),
+    ],
+  },
+  {
+    /* 2026-11-09：立體樓層圖、樓層總覽、祕密樓層的三層樓範例（本站自己設計，F312） */
+    id: 'clockshop',
+    group: 'commerce',
+    also: ['home'],
+    name: '鐘錶行（地下室～2F）',
+    description:
+      '老街轉角的三層樓：1F 店面與修理工房、2F 店主一家的住處、B1 零件倉庫與地下工作室；三層的樓梯在同一個位置，適合用「立體樓層圖」「樓層總覽」看。B1 預設是祕密樓層（PL 看到「？？？」），工作室牆後的密室是 GM 專用。',
+    build: clockshop,
+    clues: [
+      C('1F', '店面', 'photo', '展示櫃裡/褪色的合照'),
+      C('1F', '修理工房', 'memo', '修理單上/潦草的地址'),
+      C('2F', '書房', 'diary', '店主的/工作日誌'),
+      C('B1', '地下工作室', 'key', '刻著 13 的/小鑰匙'),
     ],
   },
   {

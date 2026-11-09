@@ -2,11 +2,19 @@
  * 測試與對等驗證用的窗口：`window.__floorPlan`（狀態、視角、匯出）。
  */
 import { exportLayout, renderImage } from '../draw/export';
+import { stackImageLayout } from '../draw/stack';
 import { isAsset } from '../model/assets';
-import { exportJobs, exportOptions } from '../model/exportPlan';
+import {
+  type ExportSettings,
+  exportFloors,
+  exportJobs,
+  exportOptions,
+  stackExportOptions,
+} from '../model/exportPlan';
 import { floorBounds, sizeText, visibleFloor } from '../model/geometry';
 import { normalizeProject } from '../model/normalize';
 import { encodeMapHash, type ShareMode } from '../model/share';
+import { plateRect, stackProject, verticalLinks } from '../model/stack';
 import { computeWalls } from '../model/walls';
 import { instantiateTemplate } from '../templates';
 import * as act from './actions';
@@ -45,6 +53,53 @@ export function installTestHook(): void {
       return { x: (r?.left ?? 0) + p.x, y: (r?.top ?? 0) + p.y };
     },
     view: () => ({ ...editor.view }),
+    /**
+     * 立體樓層圖、樓層總覽（2026-11-09）：平面上的 (x, y) 在立體圖第 level 層的頁面座標；樓層牌、總覽卡片的中心；上下樓層的連接
+     */
+    stackClient: (x: number, y: number, level: number) => {
+      const s = editor.scene3d();
+      let p = stackProject(s.stack, x, y, level);
+      if (s.board)
+        p = {
+          ...p,
+          x: s.board.stackTx + p.x * s.board.stackScale,
+          y: s.board.stackTy + p.y * s.board.stackScale,
+        };
+      const r = editor.canvas?.getBoundingClientRect();
+      const q = editor.toScreen(p.x, p.y);
+      return { x: (r?.left ?? 0) + q.x, y: (r?.top ?? 0) + q.y };
+    },
+    plateClient: (level: number) => {
+      const s = editor.scene3d();
+      const b = plateRect(s.stack, level);
+      let x = b.x + b.w / 2;
+      let y = b.y + b.h / 2;
+      if (s.board) {
+        x = s.board.stackTx + x * s.board.stackScale;
+        y = s.board.stackTy + y * s.board.stackScale;
+      }
+      const r = editor.canvas?.getBoundingClientRect();
+      const q = editor.toScreen(x, y);
+      return { x: (r?.left ?? 0) + q.x, y: (r?.top ?? 0) + q.y };
+    },
+    cardClient: (level: number) => {
+      const card = editor.scene3d().board?.cards.find((c) => c.level === level);
+      if (!card) return null;
+      const r = editor.canvas?.getBoundingClientRect();
+      const q = editor.toScreen(card.x + card.w / 2, card.y + card.h / 2);
+      return { x: (r?.left ?? 0) + q.x, y: (r?.top ?? 0) + q.y };
+    },
+    /** 立體樓層圖、樓層總覽的匯出尺寸（目前的地圖與匯出設定，換範圍與每格 px） */
+    stackExportSize: (range: 'stack' | 'board', px: number) => {
+      const p = useProject.getState().data;
+      const exp: ExportSettings = { ...usePrefs.getState().data.exp, range };
+      const L = stackImageLayout(exportFloors(p, range), stackExportOptions(p, exp, p.theme, px));
+      return { width: L.pxWidth, height: L.pxHeight };
+    },
+    stackLinks: () => {
+      const s = editor.scene3d();
+      return verticalLinks(s.floors).map((l) => ({ level: l.level, kind: l.kind }));
+    },
     /** 照匯出對話框目前的設定畫出第一張圖（data URL 與尺寸） */
     exportPng: () => {
       const p = useProject.getState().data;

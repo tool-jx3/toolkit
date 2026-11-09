@@ -19,6 +19,14 @@ import { arrangeRing, flipRing, partialRingIds, ringMembers } from '../model/cir
 import { compatCounts, hasCompatNotes } from '../model/compat';
 import { connectRooms } from '../model/connect';
 import { CURVE_MIN, hasRadius, radiusMax } from '../model/curve';
+import {
+  donorFloorIndex,
+  type FloorCopyMode,
+  floorCopy,
+  floorShell,
+  isBlankFloor,
+  pasteFloorContent,
+} from '../model/floorCopy';
 import { resizeWithFollow } from '../model/follow';
 import { FURNISH_PRESET, type FurnishPresetId, furnishRoom } from '../model/furnish';
 import {
@@ -62,6 +70,15 @@ import {
 } from '../model/ops';
 import { defaultCut, fitCut, L_MIN, roomHasPointClosed } from '../model/shape';
 import { itemGhost } from '../model/snap';
+import {
+  clampCamera,
+  isDefaultCamera,
+  STACK_DEFAULT,
+  STACK_ROTATE_STEP,
+  stackCamera,
+  stackLevels,
+  wrapAngle,
+} from '../model/stack';
 import { restingOn, SURFACES } from '../model/tabletop';
 import { type MapTransform, transformProject } from '../model/transform';
 import {
@@ -76,6 +93,7 @@ import {
   type Room,
   type RoomShape,
   type SelRef,
+  type StackCamera,
   TYPE_KEY,
 } from '../model/types';
 import { isDeckCat, type WallRun } from '../model/walls';
@@ -93,6 +111,7 @@ import {
   useEditor,
   usePrefs,
   useProject,
+  type ViewMode,
 } from './store';
 
 /* ---------- 通知與確認（App 設定） ---------- */
@@ -217,6 +236,8 @@ export function focusField(name: string): void {
 /* ---------- 工具 ---------- */
 
 export function setTool(tool: ToolId, armed?: Armed | null): void {
+  /* 立體樓層圖、樓層總覽（2026-11-09）：拿起工具＝回到平面編輯（選取工具除外） */
+  if (tool !== 'select' && viewMode() !== 'plan') setViewMode('plan');
   let a: Armed | null = armed ?? null;
   if (armed === undefined) {
     const prev = useEditor.getState().armed;
@@ -243,7 +264,9 @@ export function armedName(a: Armed | null): string {
 export function updateHint(warn: boolean): void {
   const { tool, armed, hint } = useEditor.getState();
   let text: string;
-  if ((tool === 'room' || tool === 'lroom') && armed?.kind === 'room') {
+  const mode = viewMode();
+  if (mode !== 'plan') text = mode === 'stack' ? S.view3d.hintStack : S.view3d.hintBoard;
+  else if ((tool === 'room' || tool === 'lroom') && armed?.kind === 'room') {
     const p = ROOM_PRESETS[armed.preset];
     const size = `${round2(p.w / 2)}×${round2(p.h / 2)}m`;
     text =
@@ -1447,6 +1470,204 @@ export function dropAsset(
     setTool('select');
     setEditor({ sel: [{ type: 'room', id: room.id }] });
   }
+}
+
+/* ---------- 2026-11-09（參考 KIIN「立体フロアガイド制作スタジオ」）：檢視方式、立體視角、祕密樓層、快速建立 ---------- */
+
+/** 目前的檢視方式（F303） */
+export const viewMode = (): ViewMode => usePrefs.getState().data.view ?? 'plan';
+
+/**
+ * 換檢視方式（F303）：記在瀏覽器（不算復原）。離開平面編輯時清掉選取、放下工具（立體圖不能編輯）；
+ * 畫布的視角由 controller 跟著換（立體圖、總覽各自顯示全部，回到平面編輯時回到原本的視角）。
+ */
+export function setViewMode(mode: ViewMode): void {
+  if (viewMode() === mode) return;
+  flushNudge();
+  if (mode !== 'plan') setEditor({ sel: [], tool: 'select', armed: null });
+  usePrefs.getState().update((d) => {
+    d.view = mode;
+  });
+  updateHint(false);
+}
+
+/** 改立體視角（F304）：存在地圖裡，但不算一步復原（同切換樓層）；和預設相同時拿掉欄位 */
+export function setStackCamera(patch: Partial<StackCamera>): void {
+  const p = useProject.getState().data;
+  const next = clampCamera({ ...stackCamera(p), ...patch });
+  const prev = p.stack ?? STACK_DEFAULT;
+  if (
+    next.angle === prev.angle &&
+    next.pitch === prev.pitch &&
+    next.gap === prev.gap &&
+    next.rise === prev.rise
+  )
+    return;
+  useProject.temporal.getState().pause();
+  useProject.getState().update((d) => {
+    if (isDefaultCamera(next)) delete d.stack;
+    else d.stack = next;
+  });
+  useProject.temporal.getState().resume();
+}
+
+/** 左轉／右轉 45°（−180～180 繞回來） */
+export function rotateStack(dir: 1 | -1): void {
+  const cam = stackCamera(useProject.getState().data);
+  setStackCamera({ angle: wrapAngle(cam.angle + dir * STACK_ROTATE_STEP) });
+  viewFns?.fit();
+}
+
+export function resetStackCamera(): void {
+  setStackCamera({ ...STACK_DEFAULT });
+  viewFns?.fit();
+}
+
+/** 從立體圖、總覽點樓層：切到那一層的平面編輯（F303） */
+export function jumpToFloor(index: number): void {
+  const p = useProject.getState().data;
+  if (!p.floors[index]) return;
+  switchFloor(index);
+  setViewMode('plan');
+  notify(S.view3d.switched(p.floors[index].name || '—'));
+}
+
+/** 祕密樓層（F307）：這一層的開關，一步復原 */
+export function setFloorSecret(on: boolean, index?: number): void {
+  const p = useProject.getState().data;
+  const i = index ?? p.active;
+  const f = p.floors[i];
+  if (!f || !!f.secret === on) return;
+  update((d) => {
+    if (on) d.floors[i].secret = true;
+    else delete d.floors[i].secret;
+  });
+  dropMissingSelection();
+  notify(on ? S.secret.on(f.name || '—') : S.secret.off(f.name || '—'));
+}
+
+/** 快速建立（F308）：目前的樓層從哪一層抄（沒有時 −1） */
+export function quickDonor(): number {
+  const p = useProject.getState().data;
+  return donorFloorIndex(p.floors, p.active);
+}
+
+/** 快速建立：把別一層的外框與樓梯（或整層）抄進目前的樓層（原本的東西留著）；一步復原 */
+export function quickFill(mode: FloorCopyMode, donor = quickDonor(), target?: number): boolean {
+  const p = useProject.getState().data;
+  const to = target ?? p.active;
+  const src = p.floors[donor];
+  if (!src || !p.floors[to] || donor === to) return false;
+  if (!src.rooms.length) {
+    notify(S.quick.noRooms, 'warning');
+    return false;
+  }
+  update((d) => {
+    pasteFloorContent(d.floors[to], floorCopy(d.floors[donor], mode));
+  });
+  setEditor({ sel: [] });
+  const done = mode === 'shell' ? S.quick.doneShell : S.quick.doneFull;
+  notify(done(src.name || '—', p.floors[to].name || '—'), 'success', { action: undoAction() });
+  return true;
+}
+
+/** 快速建立的「從空白開始畫」：這一層不再顯示快速建立，打開「下一層」的淡影 */
+export function quickSkip(): void {
+  const f = currentFloor();
+  setEditor({ quickSkip: [...useEditor.getState().quickSkip, f.id] });
+  if (!usePrefs.getState().data.ghost)
+    usePrefs.getState().update((d) => {
+      d.ghost = true;
+    });
+}
+
+/**
+ * 把外框複製到上一層（F309）：上一層（右邊）是空的就抄進去；有東西時先問（取代，可以復原）；沒有上一層時在右邊新增一層。
+ * 抄完切到那一層（平面編輯）。
+ */
+export async function copyShellUp(): Promise<void> {
+  const p = useProject.getState().data;
+  const from = p.active;
+  const src = p.floors[from];
+  if (!src?.rooms.length) {
+    notify(S.quick.noRooms, 'warning');
+    return;
+  }
+  const above = p.floors[from + 1];
+  if (above && !isBlankFloor(above)) {
+    const ok = confirmFn
+      ? await confirmFn({
+          title: S.quick.copyUpTitle(above.name || '—'),
+          description: S.quick.copyUpText(above.name || '—'),
+          confirmLabel: S.quick.copyUpConfirm,
+          danger: true,
+        })
+      : true;
+    if (!ok) return;
+  }
+  let name = '';
+  update((d) => {
+    let target = d.floors[from + 1];
+    const replace = !!target && !isBlankFloor(target);
+    if (!target) {
+      pinInside(d);
+      target = {
+        id: uid('f'),
+        name: nextFloorName(d.floors),
+        rooms: [],
+        walls: [],
+        openings: [],
+        items: [],
+        texts: [],
+      };
+      d.floors.splice(from + 1, 0, target);
+    }
+    pasteFloorContent(target, floorShell(d.floors[from]), replace);
+    name = target.name;
+    d.active = from + 1;
+  });
+  setEditor({ sel: [] });
+  setViewMode('plan');
+  notify(S.quick.doneShell(src.name || '—', name || '—'), 'success', { action: undoAction() });
+}
+
+/**
+ * 立體圖上的「＋」（F308）：立體圖的第 level 層是空的就沿用最近的有房間的樓層的外框與樓梯；
+ * 比最上面還高（只有一層時的「增建」）就在最上面那一層的右邊新增一層。檢視方式不變。
+ */
+export function stackGhostFill(level: number): void {
+  const p = useProject.getState().data;
+  const levels = stackLevels(p.floors);
+  if (level < levels.length) {
+    const target = levels[level].index;
+    const donor = donorFloorIndex(p.floors, target);
+    if (donor < 0) return;
+    quickFill('shell', donor, target);
+    return;
+  }
+  const top = levels[levels.length - 1];
+  if (!top?.floor.rooms.length) return;
+  let name = '';
+  update((d) => {
+    pinInside(d);
+    const target: Floor = {
+      id: uid('f'),
+      name: nextFloorName(d.floors),
+      rooms: [],
+      walls: [],
+      openings: [],
+      items: [],
+      texts: [],
+    };
+    pasteFloorContent(target, floorShell(d.floors[top.index]));
+    d.floors.splice(top.index + 1, 0, target);
+    d.active = top.index + 1;
+    name = target.name;
+  });
+  setEditor({ sel: [] });
+  notify(S.quick.doneShell(top.floor.name || '—', name || '—'), 'success', {
+    action: undoAction(),
+  });
 }
 
 export { fileBase } from '../model/exportPlan';

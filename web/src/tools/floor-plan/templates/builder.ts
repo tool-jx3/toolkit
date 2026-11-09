@@ -29,6 +29,8 @@ export interface TplFloor {
   openings: NoId<Opening>[];
   items: NoId<Item>[];
   texts: NoId<TextLabel>[];
+  /** 祕密樓層（2026-11-09，F307；鐘錶行的 B1） */
+  secret?: boolean;
 }
 
 /** 房間的其他設定；`cut`＝L 形房間的缺角（2026-10-29，範本的轉角走廊；規格 D81）；`shape`＝曲線的房間（2026-11-05） */
@@ -271,6 +273,7 @@ export function toFloor(t: TplFloor): Floor {
   f.openings = t.openings.map((o) => ({ ...o, id: uid('o') }));
   f.items = t.items.filter((i) => ASSET[i.t]).map((i) => ({ ...i, id: uid('i') }));
   f.texts = t.texts.map((x) => ({ ...x, id: uid('t') }));
+  if (t.secret) f.secret = true;
   return f;
 }
 

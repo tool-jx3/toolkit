@@ -32,15 +32,45 @@ export interface PlRemoved {
   clues: number;
   /** GM 筆記 */
   notes: number;
+  /** 祕密樓層（2026-11-09，F307：整層只留房間的輪廓） */
+  secretFloors: number;
 }
 
-const EMPTY_REMOVED: PlRemoved = { gmRooms: 0, gmThings: 0, secretDoors: 0, clues: 0, notes: 0 };
+const EMPTY_REMOVED: PlRemoved = {
+  gmRooms: 0,
+  gmThings: 0,
+  secretDoors: 0,
+  clues: 0,
+  notes: 0,
+  secretFloors: 0,
+};
 
 /** PL 用的地圖：每一層照 PL 檢視＋藏起隱藏線索；原本的地圖不動 */
 export function playerProject(p: Project): { project: Project; removed: PlRemoved } {
   const removed = { ...EMPTY_REMOVED };
   const floors = p.floors.map((f): Floor => {
     const v = visibleFloor(f, true, true);
+    /* 祕密樓層（2026-11-09，F307）：房間只留輪廓（同 GM 專用房間的牆框），其他全部拿掉 */
+    if (v.veiled) {
+      removed.secretFloors += 1;
+      return {
+        id: f.id,
+        name: f.name,
+        rooms: v.rooms.map((r): Room => {
+          const out: Room = { id: r.id, x: r.x, y: r.y, w: r.w, h: r.h, name: '', cat: r.cat };
+          out.gm = true;
+          if (r.cut) out.cut = { ...r.cut };
+          if (r.shape) out.shape = r.shape;
+          if (r.radius) out.radius = r.radius;
+          return out;
+        }),
+        walls: [],
+        openings: [],
+        items: [],
+        texts: [],
+        secret: true,
+      };
+    }
     const clueItems = f.items.filter((i) => i.clue).length;
     const clueTexts = f.texts.filter((t) => t.clue).length;
     const secrets = f.openings.filter((o) => o.kind === 'secret').length;
@@ -90,8 +120,8 @@ export function playerProject(p: Project): { project: Project; removed: PlRemove
     if (f.inside) out.inside = f.inside;
     return out;
   });
-  /* 隱藏線索的個數＝線索開關的通知的算法（一件小物＋說明算一個；7.7） */
-  removed.clues = clueCount(p.floors);
+  /* 隱藏線索的個數＝線索開關的通知的算法（一件小物＋說明算一個；7.7）；祕密樓層的不另外算（整層都拿掉了） */
+  removed.clues = clueCount(p.floors.filter((f) => !f.secret));
   return { project: { ...p, floors }, removed };
 }
 
@@ -137,6 +167,8 @@ export function packProject(p: Project): Record<string, unknown> {
     ...(p.fixedFurniture ? { fixedFurniture: true } : {}),
     /* 2026-11-05（參考 KIIN v2.0）：夜的暗度（不是秘密；PL 用的連結也帶，光源已經照 PL 檢視整理過） */
     ...(p.night ? { night: p.night } : {}),
+    /* 2026-11-09：立體樓層圖的視角（不是秘密；預設時不寫） */
+    ...(p.stack ? { stack: p.stack } : {}),
     floors: p.floors.map((f) => {
       const out: Record<string, unknown> = {
         name: f.name,
@@ -150,6 +182,8 @@ export function packProject(p: Project): Record<string, unknown> {
       if (f.lines?.length) out.lines = f.lines.map(dropId);
       /* 外觀層的「顯示內部」（2026-10 第二批）：疊上來的樓層寫成順序 */
       if (f.showInside) out.showInside = true;
+      /* 祕密樓層（2026-11-09；PL 用連結裡內容已經拿掉，只剩輪廓） */
+      if (f.secret) out.secret = true;
       const inside = f.inside ? p.floors.findIndex((o) => o !== f && o.id === f.inside) : -1;
       if (inside >= 0) out.inside = inside;
       return out;

@@ -300,6 +300,23 @@ export interface Floor {
   showInside?: boolean;
   /** 疊上來的樓層的 id（沒有或找不到時用第一個別的樓層） */
   inside?: string;
+  /**
+   * 祕密樓層（2026-11-09 參考 KIIN「立体フロアガイド制作スタジオ」的「PL秘密階」，規格 F307）：PL 檢視、PL 用的圖與連結裡
+   * 整層只剩房間的輪廓與「？？？」。GM 檢視、GM 用與揭露用的圖照常。只在 true 時寫。
+   */
+  secret?: boolean;
+}
+
+/**
+ * 立體樓層圖的視角（2026-11-09 參考 KIIN「立体フロアガイド制作スタジオ」，規格 F304、3.18）：
+ * angle＝水平旋轉（度，−180～180）、pitch＝俯視的壓扁比例（0.35～0.82，畫面上的縱向＝sin(俯角)）、
+ * gap＝樓層間距的倍率（0.65～1.8）、rise＝樓梯段高的倍率（0.5～2.2）。model/stack.ts。
+ */
+export interface StackCamera {
+  angle: number;
+  pitch: number;
+  gap: number;
+  rise: number;
 }
 
 /** 棋子方格的大小（格；1 格＝0.5 m）：0.5／1／1.5／2／3 m */
@@ -332,6 +349,11 @@ export interface Project {
    * 燭台、壁爐、魔法陣、螢幕、窗…是光源，照亮所在的房間。
    */
   night?: number;
+  /**
+   * 立體樓層圖與樓層總覽的視角（2026-11-09，F304；沒有＝預設的視角，和預設相同時不寫）。
+   * 改視角不算復原的步驟（同切換樓層）。
+   */
+  stack?: StackCamera;
 }
 
 /** 可以選取的東西 */

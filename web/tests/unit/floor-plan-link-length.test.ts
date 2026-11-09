@@ -49,10 +49,12 @@ interface Row {
 }
 
 const rows: Row[] = [];
-/** 2026-11-05 的客輪範本（曲線的房間）另外量，不改 57 個範本的數字 */
+/** 2026-11-05 的客輪範本（曲線的房間）另外量，不改 57 個範本的數字；2026-11-09 的鐘錶行（F312）也另外量 */
 const LINER = 'steamliner';
-const OLD = TEMPLATES.filter((t) => t.id !== LINER);
+const CLOCK = 'clockshop';
+const OLD = TEMPLATES.filter((t) => t.id !== LINER && t.id !== CLOCK);
 let liner: Row | null = null;
+let clock: Row | null = null;
 
 beforeAll(() => {
   act.bindUi(
@@ -76,6 +78,7 @@ beforeAll(() => {
       plNumbered: length('pl'),
     };
     if (t.id === LINER) liner = row;
+    else if (t.id === CLOCK) clock = row;
     else rows.push(row);
   }
 });
@@ -89,6 +92,19 @@ describe('客輪範本（2026-11-05，曲線的房間）的分享連結', () => 
       expect(v).toBeLessThan(8000);
     }
     console.info('steamliner link length', JSON.stringify(r));
+  });
+});
+
+describe('鐘錶行（2026-11-09，祕密樓層）的分享連結', () => {
+  it('完整、PL 用、放入隱藏線索並編號都在 8,000 字以內；PL 用連結比完整短（B1 只剩房間的輪廓）', () => {
+    expect(clock).toBeTruthy();
+    const r = clock as unknown as Row;
+    for (const v of [r.full, r.pl, r.fullClues, r.fullNumbered, r.plNumbered]) {
+      expect(v).toBeGreaterThan(500);
+      expect(v).toBeLessThan(8000);
+    }
+    expect(r.pl).toBeLessThan(r.full);
+    console.info('clockshop link length', JSON.stringify(r));
   });
 });
 
