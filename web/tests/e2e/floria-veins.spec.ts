@@ -449,7 +449,7 @@ test.describe('1280 寬', () => {
     });
     await page.getByRole('alertdialog').getByRole('button', { name: '開啟' }).click();
     await expect(
-      page.getByText('這個專案檔是用較新版本的工具存的，請重新整理頁面後再開啟。'),
+      page.getByText('這個專案檔是用較新版本的工具存的，請重新整理頁面後再開啟。', { exact: true }),
     ).toBeVisible();
     expect((await active(page)).lines).toHaveLength(1);
     /* 讀入原作的資料（貼上） */
