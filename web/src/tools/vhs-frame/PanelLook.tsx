@@ -312,7 +312,7 @@ export function DigitalSection() {
               {slider('lens', S.lens)}
               {slider('denoise', S.denoise)}
               {slider('tint', S.tint, { hint: S.tintHint })}
-              {slider('deblock', S.deblock)}
+              {slider('blockSmooth', S.blockSmooth)}
             </>
           ) : null}
         </>

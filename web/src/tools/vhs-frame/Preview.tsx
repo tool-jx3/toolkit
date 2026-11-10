@@ -43,9 +43,11 @@ import {
   masterFor as composeMaster,
   type ExportJob,
   type FrameSource,
+  nextTask,
   outputSize,
   renderAnimFrame,
   renderInto,
+  renderSteps,
   runExport,
 } from './exporter';
 import { fontLoads, useEnsureFonts, useFontTick } from './fonts';
@@ -163,6 +165,9 @@ function Screen({ mode, ref }: { mode: PreviewMode; ref: Ref<ScreenHandle> }) {
   useEnsureFonts(loads);
   const tick = useFontTick();
   const renderer = useMemo(() => new VhsRenderer(), []);
+  /* 分段畫（暫停時的 Screen Loop）用另一組中間畫布：分段之間別的畫圖不會蓋到它的 */
+  const jobRenderer = useMemo(() => new VhsRenderer(), []);
+  const lastFrame = useRef<HTMLCanvasElement | null>(null);
 
   /* 舞台上的大小（內容座標）：錄影帶＝畫面（1280 寬）、GIF 動畫＝動畫的大小；暫停的錄影帶以 PNG 的大小畫 */
   const size = mode === 'tape' ? screenSize(s.aspect) : animSize(s.aspect, animIndex);
@@ -304,17 +309,60 @@ function Screen({ mode, ref }: { mode: PreviewMode; ref: Ref<ScreenHandle> }) {
       photo: bitmap,
       res: masterRes,
       master: (t) => masterFor(masterRes, t),
-      draft: live,
+      /* 播放中、操作中：簡化的預覽（NTSC 以一半的解析度、Screen Loop 最多 3 層）；停下來之後照設定畫 */
+      draft: live || (mode === 'gif' && moving),
     };
+    const loopOn = s.loop.on && !!bitmap && !!s.photo;
+    /* 畫好之後：比較原圖（只在預覽上，匯出不經過這裡）、記下畫了哪一格；Screen Loop 時留一份（換大小時先拿它蓋上） */
+    const done = () => {
+      if (compare && bitmap && s.photo) paintOriginal(c, bitmap, s, compareAt);
+      drawn.current++;
+      c.dataset.frame = String(frameKey);
+      c.dataset.busy = 'false';
+      if (loopOn) keepFrame(lastFrame, c);
+    };
+    if (loopOn && !src.draft) {
+      /*
+       * Screen Loop 照設定的層數（暫停、停止操作之後）：一格要好幾百毫秒，在另一張畫布上分段畫、每一段之間讓出主執行緒，
+       * 畫好才換上（先把上一張放大蓋上：換大小時畫布會被清空）。改了設定、時間就取消重畫。
+       */
+      const g = c.getContext('2d');
+      if (g && lastFrame.current) g.drawImage(lastFrame.current, 0, 0, c.width, c.height);
+      const off = document.createElement('canvas');
+      off.width = c.width;
+      off.height = c.height;
+      const steps = renderSteps(
+        jobRenderer,
+        off,
+        s,
+        src,
+        frameKey,
+        mode === 'gif' ? frameKey : undefined,
+      );
+      let cancelled = false;
+      c.dataset.busy = 'true';
+      void (async () => {
+        for (;;) {
+          if (cancelled) return;
+          if (steps.next().done) break;
+          await nextTask();
+        }
+        if (cancelled || !g) return;
+        g.clearRect(0, 0, c.width, c.height);
+        g.drawImage(off, 0, 0);
+        nextAllowed.current = 0;
+        done();
+      })();
+      return () => {
+        cancelled = true;
+      };
+    }
     if (mode === 'tape') renderInto(renderer, c, s, src, frameKey);
     else renderAnimFrame(renderer, c, s, src, plan, frameKey);
-    /* 比較原圖：右邊畫上沒有效果的照片（只在預覽上，匯出不經過這裡） */
-    if (compare && bitmap && s.photo) paintOriginal(c, bitmap, s, compareAt);
     const end = performance.now();
     const cost = end - start;
     nextAllowed.current = cost > FRAME_MS ? end + cost : 0;
-    drawn.current++;
-    c.dataset.frame = String(frameKey);
+    done();
   }, [
     mode,
     frameKey,
@@ -327,6 +375,7 @@ function Screen({ mode, ref }: { mode: PreviewMode; ref: Ref<ScreenHandle> }) {
     masterRes,
     moving,
     renderer,
+    jobRenderer,
     compare,
     compareAt,
   ]);
@@ -551,7 +600,7 @@ function Screen({ mode, ref }: { mode: PreviewMode; ref: Ref<ScreenHandle> }) {
             data-live={live ? 'true' : 'false'}
           />
           {compare && s.photo ? <CompareLine at={compareAt} surface={surface} /> : null}
-          {s.loop.on && s.photo ? <VanishDot surface={surface} /> : null}
+          {s.loop.on && s.photo ? <VanishDot surface={surface} onActive={poke} /> : null}
         </div>
       </Stage>
       {mode === 'tape' ? (
@@ -588,6 +637,23 @@ function Screen({ mode, ref }: { mode: PreviewMode; ref: Ref<ScreenHandle> }) {
       )}
     </>
   );
+}
+
+/** 把畫好的這一格複製到 keep（沒有就建一張） */
+function keepFrame(keep: { current: HTMLCanvasElement | null }, c: HTMLCanvasElement): void {
+  let k = keep.current;
+  if (!k) {
+    k = document.createElement('canvas');
+    keep.current = k;
+  }
+  if (k.width !== c.width || k.height !== c.height) {
+    k.width = c.width;
+    k.height = c.height;
+  }
+  const g = k.getContext('2d');
+  if (!g) return;
+  g.clearRect(0, 0, k.width, k.height);
+  g.drawImage(c, 0, 0);
 }
 
 /** 比較原圖：canvas 的右邊（從 at 起）畫上照片的原樣（依位置、左右反轉，沒有任何效果） */
@@ -708,8 +774,17 @@ function CompareLine({
   );
 }
 
-/** Screen Loop 的消失點：拖曳或方向鍵移動（1%，Shift 5%）；拖曳一次算一步復原 */
-function VanishDot({ surface }: { surface: React.RefObject<HTMLDivElement | null> }) {
+/**
+ * Screen Loop 的消失點：拖曳或方向鍵移動（1%，Shift 5%）；拖曳一次算一步復原。
+ * 拖曳、按鍵算「操作中」（onActive：預覽以顯示的大小、最多 3 層畫，停下來之後照設定畫）。
+ */
+function VanishDot({
+  surface,
+  onActive,
+}: {
+  surface: React.RefObject<HTMLDivElement | null>;
+  onActive: (hold?: boolean) => void;
+}) {
   const loop = useDoc((st) => st.data.loop);
   const R = { min: -45, max: 45 };
   const clampV = (v: number) => Math.min(R.max, Math.max(R.min, Math.round(v)));
@@ -722,6 +797,7 @@ function VanishDot({ surface }: { surface: React.RefObject<HTMLDivElement | null
     e.stopPropagation();
     e.preventDefault();
     e.currentTarget.setPointerCapture?.(e.pointerId);
+    onActive(true);
     gesture.begin();
   };
   const onPointerMove = (e: PointerEvent<HTMLButtonElement>) => {
@@ -733,6 +809,7 @@ function VanishDot({ surface }: { surface: React.RefObject<HTMLDivElement | null
     if (e.currentTarget.hasPointerCapture?.(e.pointerId))
       e.currentTarget.releasePointerCapture?.(e.pointerId);
     gesture.commit();
+    onActive();
   };
   const onKeyDown = (e: KeyboardEvent<HTMLButtonElement>) => {
     const step = e.shiftKey ? 5 : 1;
@@ -746,6 +823,7 @@ function VanishDot({ surface }: { surface: React.RefObject<HTMLDivElement | null
     if (!m) return;
     e.preventDefault();
     e.stopPropagation();
+    onActive();
     put(loop.cx + m[0], loop.cy + m[1]);
   };
   return (

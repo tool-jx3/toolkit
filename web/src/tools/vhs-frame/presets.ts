@@ -50,7 +50,7 @@ export const LOOK_PRESETS: Record<LookPresetId, LookPreset> = {
       glowSize: 40,
     },
   },
-  /* 網路攝影機的影片轉錄到 VHS：方塊雜訊、偏冷的雜訊，再過一次 SP 的錄影帶 */
+  /* 網路攝影機的影片轉錄到 VHS：昏暗房間的網路攝影機（方塊雜訊、藍綠的雜訊），再過一次 SP 的錄影帶 */
   webcam: {
     wear: 30,
     effects: { chroma: false },
@@ -63,7 +63,7 @@ export const LOOK_PRESETS: Record<LookPresetId, LookPreset> = {
     effects: { chroma: false, tear: false },
     ntsc: { on: true, tape: 'lp', smear: 60, bleed: 3, noise: 35, snow: 25, wave: 25, loss: 20 },
   },
-  /* 滑板影片：MiniDV 的硬銳利化與鋸齒，播在槽孔的映像管上 */
+  /* 家庭錄影：家用 DV 拍的白天戶外（乾淨、偏冷），播在槽孔的映像管上 */
   minidv: {
     wear: 15,
     effects: { tear: false, dropout: false },

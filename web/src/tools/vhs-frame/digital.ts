@@ -4,11 +4,13 @@
  * - 相機（不隨時間變，算一次）：鋸齒（最近點取樣混進平滑取樣、紅藍錯開半格）、鏡頭柔焦、交錯（一個圖場、每列重複）、
  *   曝光（各色版各自截斷）、色溫與色調、飽和度、黑位、銳利化（反銳利遮罩）、降噪；
  * - 每一格：感光雜訊（色度比亮度多）→ YCbCr、色度次取樣（4:4:4／4:2:2／4:2:0／4:1:1）→ 8 × 8 DCT 量化（JPEG 的量化表、品質換算）；
- *   關鍵影格之間是預測影格（殘差以較細的量化補上，所以畫面在關鍵影格之間越來越細、到下一個關鍵影格又變粗）；
+ *   關鍵影格之間是預測影格（第 j 個預測影格的殘差以關鍵影格的 max(0.2, 0.7^j) 倍的量化補上：畫面在關鍵影格之後的幾格裡越來越細、
+ *   到下一個關鍵影格又變粗）；
  *   資料遺失：一段一段的巨集區塊（16 × 16）沒收到——關鍵影格時拿錯位的內容補（閃一下就消失），預測影格時留著舊的、錯到下一個關鍵影格；
  *   datamosh：關鍵影格被丟掉時，之後的影格只剩移動、沒有殘差，舊的畫面被一片慢慢變化的移動場拖著糊開，直到下一個留下來的關鍵影格
- *   （靜態照片沒有真的移動，移動場是本站造的，D35）；解碼後可以柔化區塊的邊。
+ *   （靜態照片沒有真的移動，移動場是本站造的，D35）；解碼後可以柔化方塊的邊。
  * 決定性：同樣的照片、設定與影格號碼，結果永遠相同（雜訊、遺失、丟關鍵影格都由影格號碼的雜湊決定）。
+ * 移動場的雜訊用 ntsc.ts 的 simplex（改寫自 ntsc-rs 的 noise/，其本身改寫自 Clatter，https://github.com/Ralith/clatter，MIT／Apache-2.0／zlib）。
  */
 import { CHROMA_SUBSAMPLING, type Digital } from './look';
 import { simplex2 } from './ntsc';
@@ -317,11 +319,17 @@ function codePlane(
 
 /* ---------- 一格的編碼、解碼 ---------- */
 
+/** 預測影格越來越細：第 j 個（從 1 起）的量化表＝關鍵影格的 max(REFINE_FLOOR, REFINE_STEP^j) 倍 */
+const REFINE_STEP = 0.7;
+const REFINE_FLOOR = 0.2;
+/** 第幾個預測影格之後量化表就不再變細 */
+const REFINE_STEPS = Math.ceil(Math.log(REFINE_FLOOR) / Math.log(REFINE_STEP));
+
 /** 每一格的編碼設定（由 Digital 算出） */
 export interface CodecSettings {
-  /** 量化表：關鍵影格（亮度、色度）、預測影格（較細） */
+  /** 量化表：關鍵影格（亮度、色度）；預測影格（第 j 個用 refine[min(j, 長度) − 1]，越後面越細） */
   intra: [Float32Array, Float32Array];
-  inter: [Float32Array, Float32Array];
+  refine: [Float32Array, Float32Array][];
   /** 關鍵影格的間隔（格；0＝每一格都是關鍵影格） */
   gop: number;
   /** 感光雜訊（亮度的標準差，0～255 的單位） */
@@ -330,7 +338,8 @@ export interface CodecSettings {
   loss: number;
   /** 關鍵影格被丟掉的機率 */
   mosh: number;
-  deblock: number;
+  /** 解碼後柔化方塊的邊（0～1） */
+  smoothing: number;
 }
 
 export function codecSettings(d: Digital): CodecSettings {
@@ -338,19 +347,22 @@ export function codecSettings(d: Digital): CodecSettings {
     quantTable(Q_LUMA, d.quality),
     quantTable(Q_CHROMA, d.quality),
   ];
-  /* 預測影格的殘差量化得比較細（關鍵影格之間畫面慢慢變細） */
-  const inter = intra.map((t) => t.map((v) => Math.max(1, v * 0.7))) as [
-    Float32Array,
-    Float32Array,
-  ];
+  /* 預測影格的殘差一格比一格量化得細（關鍵影格之後畫面慢慢變細） */
+  const refine = Array.from(
+    { length: REFINE_STEPS },
+    (_, k) =>
+      intra.map((t) =>
+        t.map((v) => Math.max(1, v * Math.max(REFINE_FLOOR, REFINE_STEP ** (k + 1)))),
+      ) as [Float32Array, Float32Array],
+  );
   return {
     intra,
-    inter,
+    refine,
     gop: Math.round((d.keyframe / 10) * d.fps),
     noise: (d.noise / 100) * 14 * (1 - 0.6 * (d.denoise / 100)),
     loss: (d.loss / 100) * 0.35,
     mosh: d.mosh / 100,
-    deblock: d.deblock / 100,
+    smoothing: d.blockSmooth / 100,
   };
 }
 
@@ -369,7 +381,7 @@ function sourceFrame(base: Planes, c: CodecSettings, n: number): Planes {
 }
 
 /** 第 n 格遺失的巨集區塊（16 × 16）：每一列以 loss 的機率從隨機的位置開始掉 2～8 個 */
-function lostBlocks(p: Planes, c: CodecSettings, n: number): Uint8Array {
+function dropBlocks(p: Planes, c: CodecSettings, n: number): Uint8Array {
   const mw = p.w / 16;
   const mh = p.h / 16;
   const lost = new Uint8Array(mw * mh);
@@ -439,12 +451,13 @@ function intraFrame(src: Planes, c: CodecSettings): Planes {
   return out;
 }
 
-/** 預測影格：以 ref 為預測、殘差量化後加回 */
-function interFrame(src: Planes, ref: Planes, c: CodecSettings): Planes {
+/** 關鍵影格之後的第 j 個預測影格：以 ref 為預測、殘差量化後加回 */
+function interFrame(src: Planes, ref: Planes, c: CodecSettings, j: number): Planes {
+  const [ty, tc] = c.refine[Math.max(0, Math.min(c.refine.length, j) - 1)];
   const out = clonePlanes(src);
-  codePlane(src.y, ref.y, out.y, src.w, src.h, c.inter[0]);
-  codePlane(src.cb, ref.cb, out.cb, src.cw, src.ch, c.inter[1]);
-  codePlane(src.cr, ref.cr, out.cr, src.cw, src.ch, c.inter[1]);
+  codePlane(src.y, ref.y, out.y, src.w, src.h, ty);
+  codePlane(src.cb, ref.cb, out.cb, src.cw, src.ch, tc);
+  codePlane(src.cr, ref.cr, out.cr, src.cw, src.ch, tc);
   return out;
 }
 
@@ -474,8 +487,8 @@ function dragFrame(p: Planes, flow: Float32Array): Planes {
   return out;
 }
 
-/** 解碼後柔化區塊的邊（8 px 的格線兩側往中間靠） */
-function deblockPlanes(p: Planes, amount: number): void {
+/** 解碼後柔化方塊的邊（8 px 的格線兩側往中間靠） */
+function smoothBlockEdges(p: Planes, amount: number): void {
   if (!(amount > 0)) return;
   const a = amount * 0.5;
   for (const k of ['y', 'cb', 'cr'] as const) {
@@ -511,7 +524,7 @@ export const keyframeKept = (g: number, mosh: number): boolean =>
  * 一台數位攝影機的編碼器＋解碼器：記著上一次解到哪一格（依序往後要時接著算，播放、匯出動畫不必從頭算）。
  * decode(n) 回傳第 n 格解碼後的畫面。
  */
-export class DigitalCodec {
+export class BlockCodec {
   private readonly base: Planes;
   private readonly c: CodecSettings;
   /** 依序算的狀態：從哪一個留下來的關鍵影格開始、算到第幾格、編碼器與解碼器各自的參考畫面、是不是已經在 datamosh */
@@ -537,7 +550,7 @@ export class DigitalCodec {
     const enc = intraFrame(src, this.c);
     const dec = clonePlanes(enc);
     /* 關鍵影格的遺失：拿錯位的內容補（閃一下，下一格就沒了） */
-    eachMacroblock(enc, lostBlocks(enc, this.c, n), (plane, x, y, bw, bh, m) => {
+    eachMacroblock(enc, dropBlocks(enc, this.c, n), (plane, x, y, bw, bh, m) => {
       const g = cell(enc, plane);
       const dx = Math.round((hash01(n, m, 31) - 0.5) * 48) / g.x;
       const dy = Math.round((hash01(n, m, 32) - 0.5) * 32) / g.y;
@@ -568,7 +581,7 @@ export class DigitalCodec {
           ch.dec = dragFrame(ch.dec, moshFlow(ch.dec, this.c, m, 7));
           continue;
         }
-        const enc = interFrame(sourceFrame(this.base, this.c, m), ch.enc, this.c);
+        const enc = interFrame(sourceFrame(this.base, this.c, m), ch.enc, this.c, m % K);
         const dec = clonePlanes(enc);
         /* 解碼器的參考和編碼器不同的地方（之前遺失的）照樣錯下去：殘差加在解碼器自己的參考上 */
         for (const k of ['y', 'cb', 'cr'] as const) {
@@ -579,7 +592,7 @@ export class DigitalCodec {
           for (let i = 0; i < d.length; i++) d[i] = rd[i] + (e[i] - re[i]);
         }
         const ref = ch.dec;
-        eachMacroblock(enc, lostBlocks(enc, this.c, m), (plane, x, y, bw, bh) =>
+        eachMacroblock(enc, dropBlocks(enc, this.c, m), (plane, x, y, bw, bh) =>
           copyBlock(ref, dec, plane, x, y, bw, bh, 0, 0),
         );
         ch.enc = enc;
@@ -589,9 +602,9 @@ export class DigitalCodec {
       this.chain = ch;
       out = ch.dec;
     }
-    if (this.c.deblock > 0) {
+    if (this.c.smoothing > 0) {
       out = clonePlanes(out);
-      deblockPlanes(out, this.c.deblock);
+      smoothBlockEdges(out, this.c.smoothing);
     }
     return out;
   }

@@ -129,8 +129,8 @@ export interface Digital {
   quality: number;
   /** 關鍵影格的間隔（0.1 秒；0＝每一格都是完整的一張） */
   keyframe: number;
-  /** 解碼時柔化區塊的邊（%） */
-  deblock: number;
+  /** 解碼時柔化方塊的邊（%） */
+  blockSmooth: number;
   /** 資料遺失（%）、datamosh（%：丟掉關鍵影格的機率） */
   loss: number;
   mosh: number;
@@ -151,123 +151,132 @@ export const DIGITAL_RANGES = {
   chroma: { min: 0, max: 3 },
   quality: { min: 1, max: 100 },
   keyframe: { min: 0, max: 50 },
-  deblock: { min: 0, max: 100 },
+  blockSmooth: { min: 0, max: 100 },
   loss: { min: 0, max: 100 },
   mosh: { min: 0, max: 100 },
 } as const;
 
 type DigitalValues = Omit<Digital, 'on' | 'format'>;
-/** 各格式的值（本站自己調） */
+/**
+ * 各格式的值。擷取的大小、格數、色彩取樣、交錯、是不是每一格各自壓縮是那種格式的規格（出處寫在規格 D35）；
+ * 其他（曝光、色溫、雜訊、畫質、關鍵影格的間隔、遺失…）是本站照想要的樣子自己調的（種類參考 NTSCRT 的功能）。
+ */
 export const DIGITAL_PRESETS: Record<DigitalFormat, DigitalValues> = {
-  /* 2005 年前後的網路攝影機：320 寬、雜訊多、偏冷、每一格各自壓縮 */
+  /* 網路攝影機：USB 1.1 的 QVGA（320 × 240、15 格、YUY2 的 4:2:2、每一格各自壓縮）；
+     樣子：昏暗的房間裡增益拉滿——偏暗、日光燈的藍綠、雜訊很多、黑色浮起變灰、鏡頭糊、顏色淡 */
   webcam: {
     width: 320,
     fps: 15,
     interlace: false,
-    lens: 30,
-    alias: 20,
-    noise: 45,
-    denoise: 40,
-    exposure: 30,
-    warmth: -20,
-    tint: 5,
-    saturation: 80,
-    black: 5,
-    sharpen: 20,
-    chroma: 2,
-    quality: 25,
+    lens: 55,
+    alias: 0,
+    noise: 75,
+    denoise: 15,
+    exposure: -60,
+    warmth: -45,
+    tint: -25,
+    saturation: 60,
+    black: 12,
+    sharpen: 0,
+    chroma: 1,
+    quality: 35,
     keyframe: 0,
-    deblock: 0,
+    blockSmooth: 0,
     loss: 0,
     mosh: 0,
   },
-  /* 視訊通話：位元率很低、降噪很重、偶爾掉封包（糊到下一個關鍵影格） */
+  /* 視訊通話：H.261／H.263 的 CIF（352 × 288、4:2:0）；樣子：臉打太亮的過曝、白熾燈的暖色、降噪抹成塑膠臉、
+     每秒 10 格的頓挫、方塊很粗、常常掉封包（糊到下一個關鍵影格） */
   call: {
-    width: 320,
-    fps: 12,
+    width: 352,
+    fps: 10,
     interlace: false,
-    lens: 25,
-    alias: 0,
-    noise: 25,
-    denoise: 70,
-    exposure: 15,
-    warmth: 0,
+    lens: 10,
+    alias: 30,
+    noise: 10,
+    denoise: 90,
+    exposure: 70,
+    warmth: 35,
     tint: 0,
-    saturation: 90,
-    black: 2,
-    sharpen: 10,
+    saturation: 110,
+    black: 0,
+    sharpen: 35,
     chroma: 2,
-    quality: 18,
-    keyframe: 30,
-    deblock: 60,
-    loss: 12,
+    quality: 12,
+    keyframe: 20,
+    blockSmooth: 0,
+    loss: 30,
     mosh: 0,
   },
-  /* MiniDV（滑板影片的樣子）：一個圖場、硬銳利化、鋸齒與彩虹邊、過曝、暖色、灰黑、4:1:1 */
+  /* MiniDV：DV（IEC 61834）的 525/60——720 × 480、29.97 格、4:1:1、交錯、每一格各自壓縮；
+     樣子：家用 DV 拍白天戶外——乾淨偏冷、畫質高、細紋有一點摩爾紋、黑色純、偶爾磁帶掉訊的方塊 */
   minidv: {
     width: 720,
     fps: 30,
     interlace: true,
-    lens: 20,
-    alias: 55,
-    noise: 10,
-    denoise: 0,
-    exposure: 35,
-    warmth: 35,
-    tint: 15,
-    saturation: 120,
-    black: 8,
-    sharpen: 65,
+    lens: 0,
+    alias: 30,
+    noise: 20,
+    denoise: 25,
+    exposure: -20,
+    warmth: -25,
+    tint: -10,
+    saturation: 95,
+    black: 0,
+    sharpen: 30,
     chroma: 3,
-    quality: 75,
+    quality: 90,
     keyframe: 0,
-    deblock: 0,
-    loss: 0,
+    blockSmooth: 0,
+    loss: 6,
     mosh: 0,
   },
-  /* 早期網路影片：位元很少、方塊很粗、關鍵影格之間會「呼吸」 */
+  /* 早期網路影片：Flash Video（Sorenson Spark／H.263）常見的 320 × 240、15 格、4:2:0；
+     樣子：位元很少的串流——縮小過所以糊、編碼前先降噪、顏色淡、黑色微浮、一點雜訊讓方塊在平坦處爬動、
+     方塊與色帶很明顯、解碼器把方塊的邊抹開、關鍵影格之後幾格慢慢補細節 */
   web: {
     width: 320,
     fps: 15,
     interlace: false,
-    lens: 10,
+    lens: 25,
     alias: 0,
-    noise: 0,
-    denoise: 0,
+    noise: 8,
+    denoise: 40,
     exposure: 0,
     warmth: 0,
     tint: 0,
-    saturation: 100,
-    black: 0,
+    saturation: 85,
+    black: 3,
     sharpen: 0,
     chroma: 2,
-    quality: 10,
-    keyframe: 50,
-    deblock: 0,
+    quality: 6,
+    keyframe: 30,
+    blockSmooth: 30,
     loss: 0,
     mosh: 0,
   },
-  /* datamosh：丟掉關鍵影格，畫面被移動拖著糊開 */
+  /* datamosh：不是一種格式（MPEG-4 Part 2 的 AVI〔4:2:0〕最常拿來做）；樣子：亮一點、鮮豔、邊緣脆（拖起來的顏色才明顯）、
+     25 格、2 秒一個關鍵影格、大多數被丟掉，顏色被拖著流開 */
   mosh: {
-    width: 480,
-    fps: 24,
+    width: 400,
+    fps: 25,
     interlace: false,
     lens: 0,
-    alias: 0,
-    noise: 0,
+    alias: 20,
+    noise: 5,
     denoise: 0,
-    exposure: 0,
+    exposure: 20,
     warmth: 0,
     tint: 0,
-    saturation: 100,
+    saturation: 120,
     black: 0,
-    sharpen: 0,
+    sharpen: 15,
     chroma: 2,
-    quality: 40,
-    keyframe: 10,
-    deblock: 0,
+    quality: 55,
+    keyframe: 20,
+    blockSmooth: 0,
     loss: 0,
-    mosh: 100,
+    mosh: 80,
   },
 };
 export const defaultDigital = (): Digital => ({
@@ -422,8 +431,8 @@ export const defaultLoop = (): Loop => ({
   shake: 30,
   push: 0,
   spin: 0,
-  soft: 20,
-  color: -30,
+  soft: 15,
+  color: -20,
   gain: 100,
   key: 0,
   seamless: true,

@@ -8,8 +8,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import { boostOf, maskMean, maskPitch, maskTile } from '@/tools/vhs-frame/crt';
 import {
+  BlockCodec,
   codecSettings,
-  DigitalCodec,
   digitalFrameAt,
   fromPlanes,
   keyframeKept,
@@ -201,6 +201,7 @@ const digital = (patch: Partial<Digital>): Digital => ({
   ...defaultDigital(),
   ...DIGITAL_PRESETS.web,
   on: true,
+  blockSmooth: 0,
   ...patch,
 });
 
@@ -230,44 +231,41 @@ describe('數位攝影：區塊壓縮', () => {
     const base = toPlanes(testRgb(), 64, 48, 0);
     const err = (q: number) =>
       meanDiff(
-        new DigitalCodec(base, codecSettings(digital({ quality: q, keyframe: 0 }))).decode(0).y,
+        new BlockCodec(base, codecSettings(digital({ quality: q, keyframe: 0 }))).decode(0).y,
         base.y,
       );
     expect(err(95)).toBeLessThan(err(40));
     expect(err(40)).toBeLessThan(err(5));
     /* 品質 1：每個 8 × 8 只剩直流（區塊裡的值都一樣） */
-    const y = new DigitalCodec(base, codecSettings(digital({ quality: 1, keyframe: 0 }))).decode(
-      0,
-    ).y;
+    const y = new BlockCodec(base, codecSettings(digital({ quality: 1, keyframe: 0 }))).decode(0).y;
     const block = (bx: number, by: number) =>
       Array.from({ length: 64 }, (_, k) => y[(by + Math.floor(k / 8)) * base.w + bx + (k % 8)]);
     const b = block(0, 0);
     expect(Math.max(...b) - Math.min(...b)).toBeLessThan(1e-3);
   });
 
-  it('關鍵影格之間越來越細，下一個關鍵影格又變粗；依序算與跳著算結果相同', () => {
+  it('關鍵影格之後一格比一格細（靜態照片也是），下一個關鍵影格又變粗；依序算與跳著算結果相同', () => {
     const base = toPlanes(testRgb(), 64, 48, 2);
     const d = digital({ quality: 20, keyframe: 10, fps: 10 });
-    const c = new DigitalCodec(base, codecSettings(d));
+    const c = new BlockCodec(base, codecSettings(d));
     expect(codecSettings(d).gop).toBe(10);
-    const e0 = meanDiff(c.decode(0).y, base.y);
-    const e5 = meanDiff(c.decode(5).y, base.y);
+    const err = [0, 1, 2, 3, 5].map((n) => meanDiff(c.decode(n).y, base.y));
+    for (let k = 1; k < err.length; k++) expect(err[k]).toBeLessThan(err[k - 1]);
     const e10 = meanDiff(c.decode(10).y, base.y);
-    expect(e5).toBeLessThan(e0);
-    expect(e10).toBeCloseTo(e0, 6);
-    const fresh = new DigitalCodec(base, codecSettings(d)).decode(7);
-    const seq = new DigitalCodec(base, codecSettings(d));
+    expect(e10).toBeCloseTo(err[0], 6);
+    const fresh = new BlockCodec(base, codecSettings(d)).decode(7);
+    const seq = new BlockCodec(base, codecSettings(d));
     seq.decode(3);
     expect(maxDiff(seq.decode(7).y, fresh.y)).toBe(0);
   });
 
   it('資料遺失：預測影格掉的方塊一直錯到下一個關鍵影格；每一格各自壓縮時閃一下就消失', () => {
     const base = toPlanes(testRgb(), 64, 48, 2);
-    const clean = new DigitalCodec(
+    const clean = new BlockCodec(
       base,
       codecSettings(digital({ quality: 50, keyframe: 20, fps: 10 })),
     );
-    const lossy = new DigitalCodec(
+    const lossy = new BlockCodec(
       base,
       codecSettings(digital({ quality: 50, keyframe: 20, fps: 10, loss: 100 })),
     );
@@ -282,8 +280,8 @@ describe('數位攝影：區塊壓縮', () => {
     expect([1, 2, 4, 5].every((g) => keyframeKept(g, 0))).toBe(true);
     const base = toPlanes(testRgb(), 64, 48, 2);
     const d = digital({ quality: 60, keyframe: 10, fps: 10, mosh: 100 });
-    const mosh = new DigitalCodec(base, codecSettings(d));
-    const clean = new DigitalCodec(base, codecSettings({ ...d, mosh: 0 }));
+    const mosh = new BlockCodec(base, codecSettings(d));
+    const clean = new BlockCodec(base, codecSettings({ ...d, mosh: 0 }));
     const at = (n: number) => meanDiff(mosh.decode(n).y, clean.decode(n).y);
     expect(at(9)).toBe(0);
     expect(at(12)).toBeGreaterThan(0);
@@ -299,8 +297,8 @@ describe('數位攝影：區塊壓縮', () => {
   it('同樣的設定與格數，兩台各自算的結果相同（決定性）', () => {
     const base: Planes = toPlanes(testRgb(), 64, 48, 2);
     const d = digital({ noise: 80, loss: 50, keyframe: 0 });
-    const a = new DigitalCodec(base, codecSettings(d)).decode(4);
-    const b = new DigitalCodec(base, codecSettings(d)).decode(4);
+    const a = new BlockCodec(base, codecSettings(d)).decode(4);
+    const b = new BlockCodec(base, codecSettings(d)).decode(4);
     expect(maxDiff(a.y, b.y)).toBe(0);
     expect(maxDiff(a.cb, b.cb)).toBe(0);
   });
@@ -453,7 +451,7 @@ describe.runIf(!!nc)('畫出來的像素（node-canvas）', async () => {
       d.loop = { ...d.loop, on: true, depth: 4, shake: 0, cx: 0, cy: 0, key: 0, soft: 0, color: 0 };
     });
     const r = new VhsRenderer();
-    const spy = vi.spyOn(r, 'frame');
+    const spy = vi.spyOn(r, 'frameSteps');
     const out = nc?.createCanvas(320, 240) as C;
     renderInto(r, out as never, s, frameSource(r, s, photo() as never, 720), 0.5, 3);
     expect(spy).toHaveBeenCalledTimes(5);
@@ -469,7 +467,7 @@ describe.runIf(!!nc)('畫出來的像素（node-canvas）', async () => {
     /* 沒有照片：Screen Loop 不作用 */
     const none = { ...s, photo: null };
     const r2 = new VhsRenderer();
-    const spy2 = vi.spyOn(r2, 'frame');
+    const spy2 = vi.spyOn(r2, 'frameSteps');
     renderInto(
       r2,
       nc?.createCanvas(320, 240) as never,

@@ -11,6 +11,8 @@
  * 色相誤差、色彩延遲、VHS 磁帶（邊緣波動、依磁帶速度的頻寬、色彩脫落、銳利化）與輸出的色度低通；兩個圖場（偶數列、奇數列）分開算。
  * 數值與 ntsc-rs 相同；單元測試 `tests/unit/vhs-frame-ntsc.test.ts` 對照 ntsc-rs 本身跑出來的結果（`fixtures/vhs-frame-ntsc-oracle.json`）。
  * ntsc-rs 以 f32 計算，這裡以 JS 的倍精度計算、平面存成 Float32Array，差異在 1e-4 以內。
+ * 雜訊（simplex、fBm、雜湊）改寫自 ntsc-rs 的 noise/（其本身改寫自 Clatter，https://github.com/Ralith/clatter，MIT／Apache-2.0／zlib）。
+ * 畫布上用時每一列左邊先補 32 個取樣（複製最左邊那一點）再算、算完丟掉：ntsc-rs 的濾波器從 0 起算，最左邊會有一道亮線（D37）。
  */
 
 /* ---------- 設定（ntsc-rs 的 NtscEffect，本站用到的部分） ---------- */
@@ -893,7 +895,8 @@ const buffersOf = (n: number): Float32Array[] => {
 
 /**
  * 一張圖套上效果，就地改：px 每個像素 stride 個數（RGB 或 RGBA，前三個是紅綠藍），讀進來乘 inScale、寫回去乘 outScale。
- * frame＝影格號碼（雜訊每格不同）。
+ * frame＝影格號碼（雜訊每格不同）。pad＞0 時每一列左邊先補 pad 個「最左邊那一點」再算、算完丟掉
+ * （ntsc-rs 的濾波器從 0 起算，最左邊幾個取樣會有一道亮線；補邊之後亮線落在丟掉的那段裡）。
  */
 function process(
   px: Float32Array | Uint8ClampedArray,
@@ -904,6 +907,7 @@ function process(
   height: number,
   p: NtscParams,
   frame: number,
+  pad = 0,
 ): void {
   /* 交錯：偶數列（影格 2f）、奇數列（影格 2f ＋ 1）各是一個圖場 */
   const groups = (
@@ -921,14 +925,17 @@ function process(
     vs: p.scale,
   };
   const passes = PASSES.filter((s) => s.when(p));
-  const line = new Float32Array(width);
+  /* 圖場的一列＝左邊補的 pad 個＋原本的 width 個 */
+  const fw = width + pad;
+  const line = new Float32Array(fw);
   for (const g of groups) {
-    const [y, i, q, scratch] = buffersOf(g.rows * width);
-    const f: Field = { y, i, q, width, rows: g.rows, frame: g.frame, scratch, line };
+    const [y, i, q, scratch] = buffersOf(g.rows * fw);
+    const f: Field = { y, i, q, width: fw, rows: g.rows, frame: g.frame, scratch, line };
     for (let r = 0; r < g.rows; r++) {
-      let s = (g.first + r * g.step) * width * stride;
-      let d = r * width;
-      for (let x = 0; x < width; x++, s += stride, d++) {
+      const row = (g.first + r * g.step) * width * stride;
+      let d = r * fw;
+      for (let x = -pad; x < width; x++, d++) {
+        const s = row + Math.max(0, x) * stride;
         const R = px[s] * inScale;
         const G = px[s + 1] * inScale;
         const B = px[s + 2] * inScale;
@@ -940,7 +947,7 @@ function process(
     for (const step of passes) step.run(run, f);
     for (let r = 0; r < g.rows; r++) {
       let d = (g.first + r * g.step) * width * stride;
-      let s = r * width;
+      let s = r * fw + pad;
       for (let x = 0; x < width; x++, s++, d += stride) {
         const Y = y[s];
         const I = i[s];
@@ -953,20 +960,25 @@ function process(
   }
 }
 
-/** 一張 RGB 平面圖（每個像素 3 個 0～1 的數；可以超出範圍）套上效果，就地改 */
+/** 一張 RGB 平面圖（每個像素 3 個 0～1 的數；可以超出範圍）套上效果，就地改；pad 見 process */
 export const applyNtscRgb = (
   rgb: Float32Array,
   width: number,
   height: number,
   p: NtscParams,
   frame: number,
-): void => process(rgb, 3, 1, 1, width, height, p, frame);
+  pad = 0,
+): void => process(rgb, 3, 1, 1, width, height, p, frame, pad);
 
-/** 畫布的 RGBA（0～255）套上效果（透明度不變、結果夾在 0～255） */
+/** 左邊補幾個取樣（畫布上用；ntsc-rs 的對照不補） */
+export const NTSC_PAD = 32;
+
+/** 畫布的 RGBA（0～255）套上效果（透明度不變、結果夾在 0～255）；左邊補 pad 個取樣再丟掉（預設 NTSC_PAD） */
 export const applyNtscRgba = (
   rgba: Uint8ClampedArray,
   width: number,
   height: number,
   p: NtscParams,
   frame: number,
-): void => process(rgba, 4, 1 / 255, 255, width, height, p, frame);
+  pad = NTSC_PAD,
+): void => process(rgba, 4, 1 / 255, 255, width, height, p, frame, pad);

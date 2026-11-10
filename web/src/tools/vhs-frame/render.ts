@@ -14,9 +14,9 @@ import { canvasFilterSupported } from '@/core/scene';
 import { createRandom } from '@/core/timeline';
 import { type CanvasPool, glowSource, paintGlow, paintMask } from './crt';
 import {
+  BlockCodec,
   cameraBase,
   codecSettings,
-  DigitalCodec,
   digitalFrameAt,
   fromPlanes,
   toPlanes,
@@ -827,6 +827,15 @@ export class VhsRenderer implements CanvasPool {
 
   /** 一格（規格 3.3）：畫到 dst（整張換掉；四角透明） */
   frame(dst: AnyCanvas, p: FrameParams): void {
+    const steps = this.frameSteps(dst, p);
+    while (!steps.next().done);
+  }
+
+  /**
+   * 同 frame，分段畫：NTSC 訊號的前後各停一下（yield），匯出時呼叫端可以在這裡讓出主執行緒（一格不會變成一個很長的工作）。
+   * 沒有 NTSC 時一次畫完；畫出來的和 frame 完全相同。
+   */
+  *frameSteps(dst: AnyCanvas, p: FrameParams): Generator<void, void, void> {
     const W = dst.width;
     const H = dst.height;
     const ctx = ctx2d(dst);
@@ -938,7 +947,11 @@ export class VhsRenderer implements CanvasPool {
     if (paused) paintPauseBand(x, W, H, t);
 
     /* NTSC 訊號（2026-11-10）：訊號層縮成 720 × 480（或一半）跑 ntsc-rs 的模擬，再放大回來 */
-    if (p.ntsc) this.ntscPass(sig, x, p.ntsc.params, p.ntsc.frame, !!p.ntsc.draft);
+    if (p.ntsc) {
+      yield;
+      this.ntscPass(sig, x, p.ntsc.params, p.ntsc.frame, !!p.ntsc.draft);
+      yield;
+    }
 
     /* 雜訊 */
     const nz = FX.noise;
@@ -1064,7 +1077,7 @@ export class VhsRenderer implements CanvasPool {
 
   /* ---------- 數位攝影（2026-11-10） ---------- */
 
-  private camera: { key: string; photo: CanvasImageSource; codec: DigitalCodec } | null = null;
+  private camera: { key: string; photo: CanvasImageSource; codec: BlockCodec } | null = null;
 
   /**
    * 數位攝影拍的第 t 秒那一格（擷取的大小；照片已依位置畫好、可以左右反轉）：相機的固定部分與編碼器依「照片、位置、比例、設定」留著，
@@ -1098,7 +1111,7 @@ export class VhsRenderer implements CanvasPool {
       this.camera = {
         key,
         photo,
-        codec: new DigitalCodec(toPlanes(base, cw, ch, d.chroma), codecSettings(d)),
+        codec: new BlockCodec(toPlanes(base, cw, ch, d.chroma), codecSettings(d)),
       };
     }
     const planes = this.camera.codec.decode(digitalFrameAt(t, d.fps));

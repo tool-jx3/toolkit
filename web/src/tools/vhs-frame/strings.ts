@@ -268,15 +268,15 @@ export const S = {
     clean: '乾淨的 CRT',
     webcam: '網路攝影機轉錄',
     ntsc: 'NTSC 錄影帶',
-    minidv: '滑板影片（MiniDV）',
+    minidv: '家庭錄影（MiniDV）',
     loop: 'Screen Loop',
   } satisfies Record<LookPresetId, string>,
   lookDesc: {
     plain: '映像管、數位攝影、NTSC 訊號、Screen Loop 都關掉，磨損度與效果回到預設。',
     clean: '幾乎沒有磨損的訊號，近看看得到映像管的光柵與光暈。',
-    webcam: '2005 年前後的網路攝影機影片（方塊雜訊、偏冷），再轉錄到錄影帶。',
+    webcam: '昏暗房間裡的網路攝影機（偏暗、藍綠、雜訊多），再轉錄到錄影帶。',
     ntsc: '顏色滲開、雪花、邊緣波動與色彩脫落的類比訊號。',
-    minidv: 'MiniDV 的硬銳利化、鋸齒與暖色，播在槽孔的映像管上。',
+    minidv: '家用 DV 拍的白天戶外（乾淨、偏冷、細紋有摩爾紋），播在槽孔的映像管上。',
     loop: '攝影機拍著播放自己畫面的電視，一層一層縮進去的隧道。',
   } satisfies Record<LookPresetId, string>,
 
@@ -318,11 +318,12 @@ export const S = {
     mosh: 'Datamosh',
   } satisfies Record<DigitalFormat, string>,
   digitalFormatDesc: {
-    webcam: '2005 年前後的網路攝影機：320 寬、雜訊多、偏冷，每一格各自壓縮。',
-    call: '視訊通話：位元率很低、降噪很重，偶爾掉資料，糊到下一個關鍵影格。',
-    minidv: 'MiniDV：一個圖場、硬銳利化、鋸齒與彩虹邊、過曝、暖色、4:1:1。',
-    web: '早期網路影片：方塊很粗，關鍵影格之間越來越細、到下一個又變粗。',
-    mosh: 'Datamosh：丟掉關鍵影格，畫面被移動拖著糊開。',
+    webcam: '網路攝影機（320 × 240）：昏暗的房間裡增益拉滿——偏暗、藍綠、雜訊很多、黑色變灰。',
+    call: '視訊通話（352 × 288、每秒 10 格）：臉打太亮、偏暖、降噪抹成塑膠臉，常常掉資料。',
+    minidv:
+      'MiniDV（720 × 480、4:1:1、交錯）：家用 DV 拍白天戶外——乾淨偏冷、畫質高，偶爾磁帶掉訊的方塊。',
+    web: '早期網路影片（320 × 240）：位元很少，方塊與色帶很明顯；關鍵影格之後幾格慢慢補上細節。',
+    mosh: 'Datamosh：大多數關鍵影格被丟掉，鮮豔的顏色被拖著流開。',
   } satisfies Record<DigitalFormat, string>,
   digitalCamera: '相機',
   digitalCompress: '壓縮',
@@ -343,7 +344,7 @@ export const S = {
   keyframe: '關鍵影格間隔',
   keyframeUnit: ' 秒',
   keyframeHint:
-    '0＝每一格都是完整的一張；大於 0 時中間的影格只記變化，資料遺失與 datamosh 會一直留到下一個關鍵影格。',
+    '0＝每一格都是完整的一張；大於 0 時中間的影格只記變化（關鍵影格之後幾格慢慢變細），資料遺失與 datamosh 會一直留到下一個關鍵影格。',
   loss: '資料遺失',
   lossHint: '一段一段的方塊沒收到，拿錯的內容補上。',
   mosh: 'Datamosh',
@@ -361,7 +362,7 @@ export const S = {
   denoise: '降噪',
   tint: '色調',
   tintHint: '＋偏洋紅、－偏綠。',
-  deblock: '柔化方塊的邊',
+  blockSmooth: '柔化方塊的邊',
   advanced: '更多設定',
 
   /* NTSC 訊號 */
@@ -395,7 +396,8 @@ export const S = {
   loopOnHint:
     '攝影機對著播放自己畫面的電視拍：畫面裡一層一層縮進去，每一層多套一次整個效果。在預覽上拖曳綠點移動消失點。',
   loopNeedsPhoto: '要先放照片。',
-  loopCost: (n: number) => `每一格要畫 ${n + 1} 次，層數越多越慢。`,
+  loopCost: (n: number) =>
+    `每一格要畫 ${n + 1} 次，層數越多越慢。播放中與拖曳消失點時是簡化的預覽（最多 3 層），停下來之後與匯出照設定的層數。`,
   depth: '層數',
   loopZoom: '每一層的大小',
   vanish: '消失點',

@@ -4,8 +4,9 @@
  *   第 0 層＝照片照常畫一格；第 i 層＝「攝影機拍到的畫面」：照片（房間）上面，以消失點為中心縮小 zoom、轉 roll 的電視
  *   （畫著第 i − 1 層的輸出，柔化、偏色、乘亮度），亮度鍵打開時照片亮的地方蓋回最上面——再把這張當成照片，照常畫一格
  *   （每一層都再套一次整個效果：雜訊、色差、色調與映像管累積）。最外面一層是輸出。
- * 動作：推進、旋轉在動畫的長度裡做完（無縫循環時出去再回來）；手持晃動是三個正弦的和（無縫循環時頻率取動畫長度的整數倍）；
- * 每往裡一層，時間往前 0.09 秒（隧道慢一拍跟著晃；早於 0 秒的從動畫的最後接回來）。NTSC 訊號只套在最外面一層（每層都跑太慢，D38）。
+ * 動作：推進、旋轉在動畫的長度裡做完（無縫循環時出去再回來）；手持晃動是三層搖晃的和（無縫循環時每一層在一個動畫長度裡晃整數次）；
+ * 每往裡一層，時間往前 0.09 秒（隧道慢一拍跟著晃；早於 0 秒的從動畫的最後接回來）。NTSC 訊號只套在最外面一層（每層都跑太慢，D38）；
+ * 預覽播放中、拖曳消失點時最多畫 LOOP_DRAFT_DEPTH 層（暫停與匯出照設定）。
  */
 
 import type { Loop } from './look';
@@ -21,11 +22,14 @@ const ctx2d = (c: AnyCanvas): Ctx => {
 /** 每往裡一層，時間往前幾秒 */
 export const LOOP_DELAY = 0.09;
 
-/** 手持晃動：三個正弦（Hz）、振幅、相位（每一軸不同） */
-const SHAKE_WAVES = [
-  { hz: 0.37, amp: 0.6 },
-  { hz: 0.83, amp: 0.3 },
-  { hz: 1.9, amp: 0.1 },
+/**
+ * 手持晃動：三層搖晃（振幅、每秒幾次；無縫循環時改成「一個動畫長度裡晃幾次」的整數，晃動就照動畫的長度重複）、
+ * 每一軸（左右、上下、角度）各自的起始相位。
+ */
+const SHAKE_LAYERS = [
+  { amp: 0.6, perSecond: 0.37, perLoop: 1 },
+  { amp: 0.3, perSecond: 0.83, perLoop: 2 },
+  { amp: 0.1, perSecond: 1.9, perLoop: 5 },
 ] as const;
 const SHAKE_PHASE = [
   [0.3, 2.1, 4.4],
@@ -44,12 +48,15 @@ export interface LoopPose {
 /** 時間 t 的姿勢；period＝動畫的長度（秒：推進、旋轉在這段時間裡做完） */
 export function loopPose(l: Loop, t: number, period: number): LoopPose {
   const L = Math.max(0.09, period);
+  /* 動畫裡走到哪裡（0～1） */
   const u = (((t % L) + L) % L) / L;
-  const move = l.seamless ? (1 - Math.cos(2 * Math.PI * u)) / 2 : u;
+  /* 推進、旋轉的進度：無縫循環時是個鐘形（0 → 1 → 0，頭尾的速度都是 0），否則從頭走到尾 */
+  const move = l.seamless ? Math.sin(Math.PI * u) ** 2 : u;
+  /* 搖晃的角度（弧度）：無縫循環時以動畫裡的位置算，否則以秒算 */
   const wobble = (axis: number) =>
-    SHAKE_WAVES.reduce((sum, w, k) => {
-      const hz = l.seamless ? Math.max(1, Math.round(w.hz * L)) / L : w.hz;
-      return sum + w.amp * Math.sin(2 * Math.PI * hz * t + SHAKE_PHASE[axis][k]);
+    SHAKE_LAYERS.reduce((sum, w, k) => {
+      const turns = l.seamless ? w.perLoop * u : w.perSecond * t;
+      return sum + w.amp * Math.sin(turns * 2 * Math.PI + SHAKE_PHASE[axis][k]);
     }, 0);
   const shake = l.shake / 100;
   return {
@@ -82,9 +89,11 @@ export interface LoopInput {
   inner: (t: number) => Master;
 }
 
+/** 播放中、拖曳消失點時預覽最多畫幾層（暫停與匯出照設定的層數） */
+export const LOOP_DRAFT_DEPTH = 3;
+
 /**
- * 畫一格 Screen Loop 到 out。t＝這一格的時間、period＝動畫的長度。
- * 回傳畫了幾層（測試用）。
+ * 畫一格 Screen Loop 到 out。t＝這一格的時間、period＝動畫的長度。回傳畫了幾層（測試用）。
  */
 export function paintLoop(
   r: VhsRenderer,
@@ -94,6 +103,25 @@ export function paintLoop(
   period: number,
   input: LoopInput,
 ): number {
+  const steps = loopSteps(r, out, l, t, period, input);
+  for (;;) {
+    const s = steps.next();
+    if (s.done) return s.value;
+  }
+}
+
+/**
+ * 同 paintLoop，分段畫：每畫完一個步驟（一層的照片層、一層的一格，NTSC 的前後）停一下（yield），
+ * 匯出時呼叫端在這裡讓出主執行緒。
+ */
+export function* loopSteps(
+  r: VhsRenderer,
+  out: AnyCanvas,
+  l: Loop,
+  t: number,
+  period: number,
+  input: LoopInput,
+): Generator<void, number, void> {
   const W = out.width;
   const H = out.height;
   const depth = Math.max(1, Math.round(l.depth));
@@ -110,7 +138,8 @@ export function paintLoop(
     return ti >= 0 ? ti : ((ti % L) + L) % L;
   };
   let prev: AnyCanvas = bufs[0];
-  r.frame(prev, input.params(timeOf(0), input.inner(timeOf(0)), false));
+  yield* r.frameSteps(prev, input.params(timeOf(0), input.inner(timeOf(0)), false));
+  yield;
   const cam = r.canvas('loop-cam', camW, camH);
   const tv = r.canvas('loop-tv', camW, camH);
   const sceneData = l.key > 0 ? ctx2d(scene).getImageData(0, 0, camW, camH).data : null;
@@ -179,8 +208,10 @@ export function paintLoop(
       ...input.look,
       flip: false,
     });
+    yield;
     const target = i === depth ? out : bufs[i % 2];
-    r.frame(target, input.params(ti, master, i === depth));
+    yield* r.frameSteps(target, input.params(ti, master, i === depth));
+    if (i < depth) yield;
     prev = target;
   }
   return depth;

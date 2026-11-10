@@ -376,9 +376,26 @@ test('Screen Loop 的 GIF：24 格；PNG 和沒有 Screen Loop 時不同', { tag
   const plain = await exportFile(page, 'PNG');
   await looks(page).getByRole('button', { name: 'Screen Loop' }).click();
   await seek(page, 1);
-  expect(same(await exportFile(page, 'PNG'), plain)).toBe(false);
+  /* 暫停的預覽分段畫完（data-busy false）之後＝匯出的 PNG（照設定的 6 層） */
+  await expect(canvas(page)).toHaveAttribute('data-busy', 'false');
+  const shown = await canvas(page).evaluate((el) =>
+    Array.from(
+      (el as HTMLCanvasElement)
+        .getContext('2d')
+        ?.getImageData(0, 0, (el as HTMLCanvasElement).width, (el as HTMLCanvasElement).height)
+        .data ?? [],
+    ),
+  );
+  const png = await exportFile(page, 'PNG');
+  expect(same(png, plain)).toBe(false);
+  const img = readPng(png);
+  expect(shown.length).toBe(img.data.length);
+  expect(shown.every((v, i) => v === img.data[i])).toBe(true);
   const gif = parseGif(await exportFile(page, 'GIF'));
   expect(gif.frames.length).toBe(24);
+  /* 設定欄註明播放中是簡化的預覽 */
+  await openSection(page, 'Screen Loop');
+  await expect(page.getByText(/播放中與拖曳消失點時是簡化的預覽（最多 3 層）/)).toBeVisible();
   expect(errors).toEqual([]);
 });
 

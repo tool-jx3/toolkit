@@ -165,6 +165,56 @@ describe('ntsc-rs 的對照', () => {
   });
 });
 
+describe('左邊補邊（畫布上用）', () => {
+  it('補 pad 個再丟掉＝把補好的圖照 ntsc-rs 算、再裁掉左邊（逐值相同）', () => {
+    const P = 32;
+    const img = image();
+    const padded = new Float32Array((W + P) * H * 3);
+    for (let y = 0; y < H; y++)
+      for (let x = -P; x < W; x++)
+        for (let c = 0; c < 3; c++)
+          padded[(y * (W + P) + x + P) * 3 + c] = img[(y * W + Math.max(0, x)) * 3 + c];
+    applyNtscRgb(padded, W + P, H, D, 3);
+    const out = image();
+    applyNtscRgb(out, W, H, D, 3, P);
+    let max = 0;
+    for (let y = 0; y < H; y++)
+      for (let x = 0; x < W; x++)
+        for (let c = 0; c < 3; c++)
+          max = Math.max(
+            max,
+            Math.abs(out[(y * W + x) * 3 + c] - padded[(y * (W + P) + x + P) * 3 + c]),
+          );
+    expect(max).toBe(0);
+  });
+
+  it('一片灰：不補邊時最左邊有一道亮線，補了之後和中間差不多', () => {
+    const w = 96;
+    const h = 4;
+    const flat = () => new Float32Array(w * h * 3).fill(0.5);
+    const quiet: NtscParams = {
+      ...D,
+      compositeNoise: null,
+      lumaNoise: null,
+      chromaNoise: null,
+      snow: 0,
+      chromaPhaseNoise: 0,
+      headSwitching: null,
+      trackingNoise: null,
+      vhs: { ...DEF_VHS, edgeWave: null, chromaLoss: 0 },
+    };
+    const edge = (pad: number) => {
+      const a = flat();
+      applyNtscRgb(a, w, h, quiet, 0, pad);
+      let m = 0;
+      for (let x = 0; x < 8; x++) m = Math.max(m, Math.abs(a[x * 3] - a[60 * 3]));
+      return m;
+    };
+    expect(edge(0)).toBeGreaterThan(0.05);
+    expect(edge(32)).toBeLessThan(0.01);
+  });
+});
+
 describe('小函式', () => {
   it('SplitMix：同樣的種子與混法得到同樣的數列，混進不同的數就不同', () => {
     const a = SplitMix.of(7).mix(3);
