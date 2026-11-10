@@ -1065,6 +1065,18 @@ export const TOOLS: readonly ToolEntry[] = [
       url: 'https://github.com/mshea/lazy_gm_tools',
     },
   },
+  {
+    id: 'floria-veins',
+    name: '魔法脈繪製工具（翠緑のフローリア）',
+    summary:
+      '同人 TRPG『翠緑のフローリア』用的魔法脈繪圖板：在 11×11（隨從 6×6）的方格上畫直線與多角形、把線圍出來的範圍塗色、標出傷害格，好幾張畫布一起管理，全員一覽、匯出 PNG；也能讀原作的資料。只有繪圖功能，不含規則書的內容。',
+    group: 'G9',
+    status: 'next',
+    inspiration: {
+      name: 'Nuts-ABCd／floria_canvas',
+      url: 'https://github.com/Nuts-ABCd/floria_canvas',
+    },
+  },
 ];
 
 export function getTool(id: string): ToolEntry | undefined {
