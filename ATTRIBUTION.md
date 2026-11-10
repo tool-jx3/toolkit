@@ -129,6 +129,7 @@
 | `combat-tracker` | 先攻與戰鬥追蹤 | [Sly Flourish／Lazy GM Tools](https://github.com/mshea/lazy_gm_tools)（`5e_artisanal_database/tools/combat_tracker`，程式 CC0；規則 SRD 5.2.1，CC BY 4.0） | —（新收錄，沒有舊版） |
 | `5e-calc` | 5e 速查計算 | [Sly Flourish／Lazy GM Tools](https://github.com/mshea/lazy_gm_tools)（`encounter_calculator`、`point_buy_calculator` 程式 CC0，`quick_monster_stats` 只參考功能；規則與數值 SRD 5.2.1、SRD 5.1、Lazy GM's 5e Monster Builder Resource Document，CC BY 4.0） | —（新收錄，沒有舊版） |
 | `fantasy-gen` | 奇幻隨機產生器 | [Sly Flourish／Lazy GM Tools](https://github.com/mshea/lazy_gm_tools)（`generators`，引擎 CC0；名稱 SRD 5.1、SRD 5.2.1、BFRD 1.0、5e Artisanal Database 的共用詞，CC BY 4.0） | —（新收錄，沒有舊版） |
+| `floria-veins` | 魔法脈繪製工具（翠緑のフローリア） | [Nuts-ABCd／floria_canvas](https://github.com/Nuts-ABCd/floria_canvas)（MIT；作品『翠緑のフローリア』的權利屬於猫憑／六畳間幻想空間） | —（新收錄，沒有舊版） |
 | `anime-rig` | 2.5D 動態立繪 | [852wa/Anime2.5DRig](https://github.com/852wa/Anime2.5DRig)（MIT） | `6957b28` |
 
 `music-frame` 是照 [docs/refactor/PROCESS.md](docs/refactor/PROCESS.md) 第 6 節「新工具引入流程」直接在新框架做的工具，沒有收錄過原作的副本（原作 commit `0c24db2`）。原作未附授權條款，預設封面、預設文字與說明都由本站自做，只照原作的功能、版面與數值。
@@ -216,6 +217,8 @@
 `tile-map` 照新工具引入流程直接在新框架做：原作 deukrezia/trials（commit `dd4f118`，2026-11-05）的程式寫明「UNLICENSED」，視同未授權，不放 `UPSTREAM_LICENSE`；只參考功能、演算法與數值（填滿、圖形的格子、選取的轉向翻轉、圖塊表的切格與大圖塊、PNG 的上限、列印 PDF 的實際尺寸與分頁；和原作的純函式對照 0 不符），程式照本站的結構重寫（規格 D24，驗證時量過和原作相同的片段），介面文字、說明、範例地圖（虛構的「地下水道的岔路」）都由本站自做（繁中）。作者自己畫的預設圖塊沒有授權，不用；內建的簡易地形 16 種是本站用程式畫的。原作附的 Kenney「Scribble Dungeons」與「Tiny Dungeon」（https://kenney.nl ，CC0 1.0）收進本站：Tiny 的 `tilemap.png` 原樣、Scribble 的 136 張 PNG 排成一張無損 WebP（像素不變），授權與出處在 `web/src/tools/tile-map/` 的 Kenney 資料夾，建置時列進 THIRD_PARTY_NOTICES；分類與中文名稱由本站寫。原作的免費版限制、浮水印、廣告、贊助連結與桌面版都不做。
 
 `combat-tracker`、`5e-calc`、`fantasy-gen` 照新工具引入流程直接在新框架做，參考 Sly Flourish（Michael E. Shea）的 mshea/lazy_gm_tools 裡的 5e Artisanal Database（commit `89290732`）：戰鬥追蹤、遭遇計算、點數購買與產生器的程式檔頭寫明 CC0 1.0，照本站的結構改寫（CC0 的聲明在各工具的 `UPSTREAM_LICENSE`）；快速怪物數值的頁面沒有寫程式的授權，只參考功能。規則內容只用 CC BY 4.0 的參考文件——Wizards of the Coast 的 SRD 5.1 與 SRD 5.2.1、Kobold Press 的 Black Flag Reference Document 1.0、Sly Flourish 等人的 Lazy GM's 5e Monster Builder Resource Document 與 5e Artisanal Database 的共用詞——翻成繁中（「繁中（英文原文）」），署名文照原文放在各工具頁面裡的「關於規則內容」與 THIRD_PARTY_NOTICES（資料在 `web/src/core/srd5/` 與 `web/src/tools/fantasy-gen/data/`，附 meta.json 與 LICENSE.txt）；不收 2014 DMG、Kobold Press 的 OGL 內容（Tome of Beasts、Deep Magic 等）與原作的怪物資料庫，沒有逐檔寫明授權的產生器清單（NPC、委託、陷阱、地標、藝術品、寶石）由本站自己寫。工具名稱不用 D&D、Wizards of the Coast 的商標。原作的 Dyson 地圖是商用授權，不收。
+
+`floria-veins` 照新工具引入流程直接在新框架做：參考 Nuts-ABCd/floria_canvas（commit `5a9a582`，2026-09-12；MIT，授權全文在 `web/src/tools/floria-veins/UPSTREAM_LICENSE`，併入通知檔）的程式改寫成本站的結構（線的交點、吸附、移動・反轉・旋轉的算法和原作在瀏覽器裡比對過相同），原作附的範例資料沿用（MIT，翻成繁中）；可以讀寫原作的資料格式。原作是同人 TRPG『翠緑のフローリア』（權利屬於猫憑／六畳間幻想空間）的二次創作工具；權利人的二次創作規定在這個環境讀不到，所以只做繪圖功能、不收規則書的內容（魔法植物、規則說明、數值表），工具頁面裡註明權利人與「愛好者製作的非官方工具」，頁尾只放靈感來源（使用者 2026-11-10 決定收錄）。
 
 `log-converter` 的 EPUB 匯出（2026-10）參考 sotsotssi/CcfoliaLogConverter 的功能（原作沒有授權條款：只照功能與做法，程式、介面文字與版面都由本站自做）；原作在控制字元、`<wbr>`、`<font>` 與新格式的日誌會產生不合規的電子書或遺失內容，本站的輸出都通過 epubcheck。
 

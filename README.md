@@ -35,7 +35,7 @@
 [arcana-hanna](https://github.com/arcana-hanna) 與
 [CyberDelaai](https://github.com/CyberDelaai) 與
 [Sectr99](https://github.com/Sectr99) 與
-[SkyTNT](https://github.com/SkyTNT) 等人製作的網頁小工具與開源專案為靈感來源的 88 個 TRPG 工具合輯（NPC 名字產生器由本站原創；「文字演出產生器」以くま。的工具為靈感，由本 repo 以無塵室方式獨立撰寫；其中三個工具的作者不明），另外連到 JIZURA 字面與 Azgaar 的 Fantasy Map Generator 的原站。所有工具都由本站以共用的框架改寫，只有繁體中文介面。
+[SkyTNT](https://github.com/SkyTNT) 等人製作的網頁小工具與開源專案為靈感來源的 89 個 TRPG 工具合輯（NPC 名字產生器由本站原創；「文字演出產生器」以くま。的工具為靈感，由本 repo 以無塵室方式獨立撰寫；其中三個工具的作者不明），另外連到 JIZURA 字面與 Azgaar 的 Fantasy Map Generator 的原站。所有工具都由本站以共用的框架改寫，只有繁體中文介面。
 
 **https://tool-jx3.github.io/toolkit/**
 
@@ -105,6 +105,7 @@
 | [先攻與戰鬥追蹤](https://tool-jx3.github.io/toolkit/tools/combat-tracker/) | 跑團戰鬥時記先攻順序、輪數、HP 與狀態（CoC、5e、PF2e、DX3 等都能用）：同名的怪物自動編 A、B、C，HP 欄打「-8」就扣血、臨時 HP 先扣，狀態的持續回合自動倒數，5e 的死亡豁免與專注提醒可以關掉；另開視窗給玩家看（不顯示敵人的 HP） |
 | [5e 速查計算](https://tool-jx3.github.io/toolkit/tools/5e-calc/) | 相容 5e（SRD 5.2.1）的 GM 速查：遭遇的 XP 預算與難度、挑戰等級 0～30 的快速怪物數值、能力值的點數購買與標準數組；怪物與遭遇可以一鍵加進先攻與戰鬥追蹤 |
 | [奇幻隨機產生器](https://tool-jx3.github.io/toolkit/tools/fantasy-gen/) | 跑 5e 等奇幻 TRPG 時臨時要的東西一鍵產生：NPC、委託、陷阱、地點與地名、地標、遺物、法術捲軸、法術書、獨特武器與護甲、寶藏，可以鎖定某一欄重抽，也能自己寫產生器 |
+| [魔法脈繪製工具（翠緑のフローリア）](https://tool-jx3.github.io/toolkit/tools/floria-veins/) | 同人 TRPG『翠緑のフローリア』用的魔法脈繪圖板：在方格上畫直線與多角形、把線圍出來的範圍塗色、標傷害格，PC、BOSS、隨從好幾張畫布一起管理、全員一覽、匯出 PNG，也能讀寫原作工具的資料（只有繪圖功能，不含規則書的內容） |
 | [JIZURA 字面](https://tool-jx3.github.io/toolkit/tools/jizura/) | 貼上歌詞、點按拍點，自動排出文字 PV（歌詞動態影片）：一鍵換方案，版面、登場、特效等可以逐段替換，匯出 MP4、綠幕、黑幕或 PNG 序列（連到原作者網站的官方繁中版） |
 | [奇幻世界地圖產生器](https://azgaar.github.io/Fantasy-Map-Generator/) | 一鍵產生整片大陸的奇幻世界地圖：地形、氣候、河流、國家、城鎮、文化、宗教與道路都能逐項編輯，匯出 PNG、SVG 或存成地圖檔（連到 Azgaar 的 Fantasy Map Generator 原站，英文介面） |
 | [2.5D 動態立繪](https://tool-jx3.github.io/toolkit/tools/anime-rig/) | 拖進分好部件的 PSD 就自動綁定、當場動起來：眨眼、嘴型、頭髮物理（直接接受 [see-through](https://github.com/shitagaki-lab/see-through) 從單張插圖拆出來的 PSD，連深度 PSD 一起給時轉頭更立體），可以用攝影機（臉部追蹤，模型第一次使用時下載約 3.8 MB）或麥克風帶動，匯出透明 PNG 或影片 |
@@ -256,6 +257,7 @@ CI（GitHub Actions）在 pull request 與 main 上跑 `npm test`、lint、typec
 | `combat-tracker` | [先攻與戰鬥追蹤](https://tool-jx3.github.io/toolkit/tools/combat-tracker/) | [Sly Flourish／Lazy GM Tools](https://github.com/mshea/lazy_gm_tools) |
 | `5e-calc` | [5e 速查計算](https://tool-jx3.github.io/toolkit/tools/5e-calc/) | [Sly Flourish／Lazy GM Tools](https://github.com/mshea/lazy_gm_tools) |
 | `fantasy-gen` | [奇幻隨機產生器](https://tool-jx3.github.io/toolkit/tools/fantasy-gen/) | [Sly Flourish／Lazy GM Tools](https://github.com/mshea/lazy_gm_tools) |
+| `floria-veins` | [魔法脈繪製工具（翠緑のフローリア）](https://tool-jx3.github.io/toolkit/tools/floria-veins/) | [Nuts-ABCd／floria_canvas](https://github.com/Nuts-ABCd/floria_canvas) |
 
 開發與建置見 [web/README.md](web/README.md)；流程與規格見 [docs/refactor/](docs/refactor/PLAN.md)。
 
