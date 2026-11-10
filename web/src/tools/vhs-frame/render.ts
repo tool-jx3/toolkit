@@ -12,7 +12,17 @@
 import { makeCanvas } from '@/core/image';
 import { canvasFilterSupported } from '@/core/scene';
 import { createRandom } from '@/core/timeline';
+import { type CanvasPool, glowSource, paintGlow, paintMask } from './crt';
+import {
+  BlockCodec,
+  cameraBase,
+  codecSettings,
+  digitalFrameAt,
+  fromPlanes,
+  toPlanes,
+} from './digital';
 import { captionFont, NO_SIGNAL, OSD_FONT_SPEC, osdFontCss } from './fonts';
+import type { Crt, Digital } from './look';
 import {
   type Aspect,
   type CaptionStyle,
@@ -33,6 +43,7 @@ import {
   type Tone,
   viewRect,
 } from './model';
+import { applyNtscRgba, type NtscParams } from './ntsc';
 
 export type Ctx = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
 export type AnyCanvas = HTMLCanvasElement | OffscreenCanvas;
@@ -600,6 +611,34 @@ export function shutdownLook(p: number, W: number, H: number): ShutdownLook {
   return phase.look(Math.min(1, (p - phase.from) / phase.span), W, H);
 }
 
+/**
+ * 照片依位置畫到 res 寬的畫布上（反轉時以照片的範圍左右鏡射；縮放的品質照畫布目前的設定）。
+ * 數位攝影的擷取、比較分割的原圖、Screen Loop 的場景用（照片層的合成另外寫在 compose 裡，指令和加入之前相同）。
+ */
+export function placePhoto(
+  g: Ctx,
+  photo: CanvasImageSource,
+  img: Size,
+  view: PhotoView,
+  aspect: Aspect,
+  res: number,
+  flip: boolean,
+): void {
+  const f = res / SCREEN_W;
+  const r = viewRect(img, screenSize(aspect), view);
+  const w = r.width * f;
+  const h = r.height * f;
+  if (!flip) {
+    g.drawImage(photo, r.x * f, r.y * f, w, h);
+    return;
+  }
+  g.save();
+  g.translate(r.x * f + w, r.y * f);
+  g.scale(-1, 1);
+  g.drawImage(photo, 0, 0, w, h);
+  g.restore();
+}
+
 /* ---------- 一格的輸入 ---------- */
 
 /** 照片層：紅綠藍三張色版 */
@@ -645,15 +684,31 @@ export interface FrameParams {
   intro?: IntroFrame | null;
   /** 收尾：關機進行到哪裡（0～1） */
   off?: number | null;
+
+  /* ---- 2026-11-10（不給＝原本的畫法） ---- */
+  /** NTSC 訊號（ntsc-rs）：設定與影格號碼；draft＝預覽播放中（一律以一半的解析度算） */
+  ntsc?: { params: NtscParams; frame: number; draft?: boolean } | null;
+  /** 映像管的螢光粉遮罩與光暈 */
+  crt?: Crt | null;
 }
+
+/**
+ * NTSC 訊號模擬的解析度：720 × 480（兩種比例都是 480 條掃描線、每條 720 個取樣），算完再縮放回畫面。
+ * 畫面不到 400 高（動畫的小、中）與預覽播放中時以一半（360 × 240、頻寬比例 0.5）算：看起來差不多、快 4 倍（D37）。
+ */
+export const ntscSignal = (height: number): { width: number; height: number; scale: number } =>
+  height < 400 ? { width: 360, height: 240, scale: 0.5 } : { width: 720, height: 480, scale: 1 };
+
+/** 時間 t（秒）→ NTSC 的影格號碼（每秒 30 格） */
+export const ntscFrameAt = (t: number): number => Math.floor(t * 30 + 1e-6);
 
 /* ---------- 畫圖 ---------- */
 
-export class VhsRenderer {
+export class VhsRenderer implements CanvasPool {
   private readonly pool = new Map<string, AnyCanvas>();
 
   /** 依名稱與大小留著的中間畫布 */
-  private canvas(key: string, w: number, h: number): AnyCanvas {
+  canvas(key: string, w: number, h: number): AnyCanvas {
     const id = `${key}${w}x${h}`;
     let c = this.pool.get(id);
     if (!c) {
@@ -664,7 +719,7 @@ export class VhsRenderer {
   }
 
   /** 整張複製到名叫 key 的暫存畫布（撕裂、追蹤條、開場的捲動、收尾都從複本取） */
-  private snapshot(key: string, src: AnyCanvas): AnyCanvas {
+  snapshot(key: string, src: AnyCanvas): AnyCanvas {
     const copy = this.canvas(key, src.width, src.height);
     const g = ctx2d(copy);
     g.clearRect(0, 0, src.width, src.height);
@@ -675,6 +730,7 @@ export class VhsRenderer {
   /**
    * 照片層（規格 3.2）：寬 res、高依比例；照片依位置畫上（高品質縮放；可以左右反轉）＋調色 →〔夜視：相乘綠色〕
    * → 相加疊上暗部浮起 → 拆成三張色版。look 不給（或是預設）時和加入色調之前的畫法相同。
+   * 2026-11-10：shot（數位攝影拍好的那一格，已經依位置畫好、蓋滿畫面）給了時，畫它來代替照片。
    */
   compose(
     photo: CanvasImageSource,
@@ -683,6 +739,7 @@ export class VhsRenderer {
     aspect: Aspect,
     res: number,
     look: Readonly<ComposeLook> = DEFAULT_LOOK,
+    shot?: AnyCanvas | null,
   ): Master {
     const W = res;
     const H = heightFor(res, aspect);
@@ -696,6 +753,15 @@ export class VhsRenderer {
     const tone = TONE_SPEC[look.tone];
     /* 照片畫到畫布上（反轉時以照片的範圍左右鏡射） */
     const put = (x: Ctx) => {
+      if (shot) {
+        /* 先以最近點放大兩倍（方塊的邊留著），再平滑放大到照片層 */
+        const big = this.canvas('shot2x', shot.width * 2, shot.height * 2);
+        const bg = ctx2d(big);
+        bg.imageSmoothingEnabled = false;
+        bg.drawImage(shot, 0, 0, big.width, big.height);
+        x.drawImage(big, 0, 0, W, H);
+        return;
+      }
       if (!look.flip) {
         x.drawImage(photo, r.x * f, r.y * f, img.width * s, img.height * s);
         return;
@@ -761,6 +827,15 @@ export class VhsRenderer {
 
   /** 一格（規格 3.3）：畫到 dst（整張換掉；四角透明） */
   frame(dst: AnyCanvas, p: FrameParams): void {
+    const steps = this.frameSteps(dst, p);
+    while (!steps.next().done);
+  }
+
+  /**
+   * 同 frame，分段畫：NTSC 訊號的前後各停一下（yield），匯出時呼叫端可以在這裡讓出主執行緒（一格不會變成一個很長的工作）。
+   * 沒有 NTSC 時一次畫完；畫出來的和 frame 完全相同。
+   */
+  *frameSteps(dst: AnyCanvas, p: FrameParams): Generator<void, void, void> {
     const W = dst.width;
     const H = dst.height;
     const ctx = ctx2d(dst);
@@ -871,6 +946,13 @@ export class VhsRenderer {
     /* 暫停的雜訊帶 */
     if (paused) paintPauseBand(x, W, H, t);
 
+    /* NTSC 訊號（2026-11-10）：訊號層縮成 720 × 480（或一半）跑 ntsc-rs 的模擬，再放大回來 */
+    if (p.ntsc) {
+      yield;
+      this.ntscPass(sig, x, p.ntsc.params, p.ntsc.frame, !!p.ntsc.draft);
+      yield;
+    }
+
     /* 雜訊 */
     const nz = FX.noise;
     if (fx.noise) {
@@ -924,6 +1006,13 @@ export class VhsRenderer {
     /* 映像管的弧面 */
     this.barrel(sig, dst, p.curve ?? FX.barrel.amount);
 
+    /* 螢光粉遮罩與光暈（2026-11-10）：光暈從畫遮罩之前的畫面取，遮罩之後疊回去 */
+    if (p.crt) {
+      const glow = p.crt.glow > 0 ? glowSource(this, dst, p.crt) : null;
+      paintMask(this, ctx, dst, p.crt, k);
+      if (glow) paintGlow(ctx, glow, W, H, p.crt);
+    }
+
     /* 暗角與玻璃反光 */
     const vig = p.vignette ?? DEFAULT_VIGNETTE;
     if (vig > 0) {
@@ -956,6 +1045,82 @@ export class VhsRenderer {
       this.shutDown(dst, p.off);
       if (corners) trimCorners(ctx, W, H);
     }
+  }
+
+  /** NTSC 訊號：訊號層縮成 720 × 480（高品質；小的畫面 360 × 240）→ 套 ntsc-rs 的模擬 → 放大畫回訊號層 */
+  private ntscPass(
+    sig: AnyCanvas,
+    x: Ctx,
+    params: NtscParams,
+    frame: number,
+    draft: boolean,
+  ): void {
+    const { width: SW, height: SH, scale } = ntscSignal(draft ? 0 : sig.height);
+    const c = this.canvas('ntsc', SW, SH);
+    const g = ctx2d(c);
+    g.globalCompositeOperation = 'source-over';
+    g.imageSmoothingEnabled = true;
+    g.imageSmoothingQuality = 'high';
+    g.clearRect(0, 0, SW, SH);
+    g.drawImage(sig, 0, 0, SW, SH);
+    const img = g.getImageData(0, 0, SW, SH);
+    applyNtscRgba(img.data, SW, SH, scale === 1 ? params : { ...params, scale }, frame);
+    g.putImageData(img, 0, 0);
+    x.save();
+    x.globalCompositeOperation = 'source-over';
+    x.globalAlpha = 1;
+    x.imageSmoothingEnabled = true;
+    x.imageSmoothingQuality = 'high';
+    x.drawImage(c, 0, 0, sig.width, sig.height);
+    x.restore();
+  }
+
+  /* ---------- 數位攝影（2026-11-10） ---------- */
+
+  private camera: { key: string; photo: CanvasImageSource; codec: BlockCodec } | null = null;
+
+  /**
+   * 數位攝影拍的第 t 秒那一格（擷取的大小；照片已依位置畫好、可以左右反轉）：相機的固定部分與編碼器依「照片、位置、比例、設定」留著，
+   * 依序往後要的影格接著算。回傳的畫布每次都會被下一格蓋掉。
+   */
+  digitalShot(
+    photo: CanvasImageSource,
+    img: Size,
+    view: PhotoView,
+    aspect: Aspect,
+    flip: boolean,
+    d: Digital,
+    t: number,
+  ): AnyCanvas {
+    const cw = d.width;
+    const ch = heightFor(cw, aspect);
+    const key = JSON.stringify([img.width, img.height, view, aspect, flip, d]);
+    if (!this.camera || this.camera.key !== key || this.camera.photo !== photo) {
+      const grab = (smooth: boolean) => {
+        const c = this.canvas(smooth ? 'cam-s' : 'cam-n', cw, ch);
+        const g = ctx2d(c);
+        g.globalCompositeOperation = 'source-over';
+        g.fillStyle = '#000';
+        g.fillRect(0, 0, cw, ch);
+        g.imageSmoothingEnabled = smooth;
+        if (smooth) g.imageSmoothingQuality = 'high';
+        placePhoto(g, photo, img, view, aspect, cw, flip);
+        return g.getImageData(0, 0, cw, ch).data;
+      };
+      const base = cameraBase(grab(true), d.alias > 0 ? grab(false) : null, cw, ch, d);
+      this.camera = {
+        key,
+        photo,
+        codec: new BlockCodec(toPlanes(base, cw, ch, d.chroma), codecSettings(d)),
+      };
+    }
+    const planes = this.camera.codec.decode(digitalFrameAt(t, d.fps));
+    const out = this.canvas('cam-out', cw, ch);
+    const g = ctx2d(out);
+    const data = g.createImageData(cw, ch);
+    fromPlanes(planes, cw, ch, data.data);
+    g.putImageData(data, 0, 0);
+    return out;
   }
 
   /** 掃描線的一組：寬 1、高 per，上面 round(per ÷ 2) px 黑色 */

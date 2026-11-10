@@ -2,9 +2,19 @@
  * 錄影帶畫面產生器的資料與規則（純函式，不依賴 React 與畫布；規格 docs/refactor/specs/vhs-frame.md）：
  * 狀態與預設值、整理存檔（含第 1 版的搬移）、畫面與動畫的大小、照片的位置（拖曳、縮放、夾回範圍）、字幕的場景與逐字打出、
  * 時間碼與頻道、日期戳記、動畫的影格（長度、場景、開場、收尾）、檔名。
+ * 2026-11-10 的映像管、數位攝影、NTSC 訊號、Screen Loop 的設定在 look.ts。
  *
  * 座標：照片的位置以「畫面」計（寬 1280；4:3 高 960、16:9 高 720），和輸出的大小無關。
  */
+
+import {
+  type Crt,
+  type Digital,
+  defaultLook2611,
+  type Loop,
+  type Ntsc,
+  normalizeLook2611,
+} from './look';
 
 /* ---------- 尺寸 ---------- */
 
@@ -255,6 +265,15 @@ export interface VhsState {
   picture: Picture;
   effects: Effects;
   anim: Anim;
+  /* ---- 2026-11-10（look.ts；預設全關） ---- */
+  /** 映像管：螢光粉遮罩、光暈 */
+  crt: Crt;
+  /** 數位攝影（類比效果之前的一段） */
+  digital: Digital;
+  /** NTSC 訊號（ntsc-rs） */
+  ntsc: Ntsc;
+  /** Screen Loop（攝影機拍電視的畫面隧道） */
+  loop: Loop;
 }
 
 export const DEFAULT_OSD = '▶ PLAY';
@@ -315,6 +334,7 @@ export const initialState = (): VhsState => ({
   picture: defaultPicture(),
   effects: defaultEffects(),
   anim: defaultAnim(),
+  ...defaultLook2611(),
 });
 
 /** 左上文字的常用按鈕（2026-11-05 加了倒帶、快轉、停止） */
@@ -1056,6 +1076,7 @@ export function normalizeState(raw: unknown): VhsState {
       intro: an.intro === true,
       outro: an.outro === true,
     },
+    ...normalizeLook2611(o),
   };
 }
 

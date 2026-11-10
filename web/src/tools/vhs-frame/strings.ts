@@ -1,4 +1,6 @@
 /** 錄影帶畫面產生器的介面文字 */
+
+import type { DigitalFormat, MaskKind } from './look';
 import type {
   Aspect,
   CaptionFont,
@@ -13,6 +15,8 @@ import type {
   TimecodeMode,
   Tone,
 } from './model';
+import type { TapeSpeed } from './ntsc';
+import type { LookPresetId } from './presets';
 import type { PreviewMode } from './store';
 
 export const S = {
@@ -255,11 +259,190 @@ export const S = {
   resetTitle: '重設？',
   resetDesc: '照片、文字與設定都回到預設（可以復原）。',
 
+  /* 樣子（2026-11-10） */
+  sectionLooks: '樣子',
+  looksHint:
+    '一鍵套用本站調好的樣子：磨損度、效果、映像管、數位攝影、NTSC 訊號與 Screen Loop 一起換（照片、文字、色調與動畫不變，可以復原）。',
+  lookNames: {
+    plain: '原本的錄影帶',
+    clean: '乾淨的 CRT',
+    webcam: '網路攝影機轉錄',
+    ntsc: 'NTSC 錄影帶',
+    minidv: '家庭錄影（MiniDV）',
+    loop: 'Screen Loop',
+  } satisfies Record<LookPresetId, string>,
+  lookDesc: {
+    plain: '映像管、數位攝影、NTSC 訊號、Screen Loop 都關掉，磨損度與效果回到預設。',
+    clean: '幾乎沒有磨損的訊號，近看看得到映像管的光柵與光暈。',
+    webcam: '昏暗房間裡的網路攝影機（偏暗、藍綠、雜訊多），再轉錄到錄影帶。',
+    ntsc: '顏色滲開、雪花、邊緣波動與色彩脫落的類比訊號。',
+    minidv: '家用 DV 拍的白天戶外（乾淨、偏冷、細紋有摩爾紋），播在槽孔的映像管上。',
+    loop: '攝影機拍著播放自己畫面的電視，一層一層縮進去的隧道。',
+  } satisfies Record<LookPresetId, string>,
+
+  /* 映像管 */
+  sectionCrt: '映像管',
+  mask: '螢光粉遮罩',
+  maskKinds: { none: '無', aperture: '光柵', slot: '槽孔', shadow: '點狀' } satisfies Record<
+    MaskKind,
+    string
+  >,
+  maskAria: {
+    none: '沒有遮罩',
+    aperture: '光柵（直條）',
+    slot: '槽孔（直條分格）',
+    shadow: '點狀（蔭罩）',
+  } satisfies Record<MaskKind, string>,
+  maskHint:
+    '近看映像管時的紅綠藍小格子。PNG 1280 寬時最清楚；畫面小的時候一組至少 3 px，看起來比較粗。',
+  maskStrength: '遮罩的強度',
+  maskSize: '遮罩的大小',
+  maskSizeHint: '一組紅綠藍的寬（以 1280 寬的畫面計）。',
+  maskBoost: '亮度補償',
+  maskBoostHint: '把遮罩變暗的部分補回來（亮的地方會飽和成白）。',
+  glow: '光暈',
+  glowHint: '亮的地方在映像管的玻璃上暈開。',
+  glowSize: '光暈的範圍',
+
+  /* 數位攝影 */
+  sectionDigital: '數位攝影',
+  digitalOn: '先用數位攝影機拍',
+  digitalHint:
+    '照片先被數位攝影機拍下、壓縮成方塊（像網路攝影機的影片），再錄上錄影帶。靜態照片沒有動作，datamosh 的移動是畫面自己造的。',
+  digitalFormat: '格式',
+  digitalFormats: {
+    webcam: '網路攝影機',
+    call: '視訊通話',
+    minidv: 'MiniDV',
+    web: '早期網路影片',
+    mosh: 'Datamosh',
+  } satisfies Record<DigitalFormat, string>,
+  digitalFormatDesc: {
+    webcam: '網路攝影機（320 × 240）：昏暗的房間裡增益拉滿——偏暗、藍綠、雜訊很多、黑色變灰。',
+    call: '視訊通話（352 × 288、每秒 10 格）：臉打太亮、偏暖、降噪抹成塑膠臉，常常掉資料。',
+    minidv:
+      'MiniDV（720 × 480、4:1:1、交錯）：家用 DV 拍白天戶外——乾淨偏冷、畫質高，偶爾磁帶掉訊的方塊。',
+    web: '早期網路影片（320 × 240）：位元很少，方塊與色帶很明顯；關鍵影格之後幾格慢慢補上細節。',
+    mosh: 'Datamosh：大多數關鍵影格被丟掉，鮮豔的顏色被拖著流開。',
+  } satisfies Record<DigitalFormat, string>,
+  digitalCamera: '相機',
+  digitalCompress: '壓縮',
+  interlace: '交錯（只用一個圖場）',
+  alias: '鋸齒',
+  aliasHint: '沒有先模糊就取樣：細紋變成摩爾紋與彩虹邊。',
+  exposure: '曝光',
+  exposureUnit: ' 級',
+  warmth: '色溫',
+  warmthHint: '＋偏暖、－偏冷。',
+  digitalSaturation: '飽和度',
+  black: '黑位',
+  blackHint: '黑色浮起來變灰。',
+  sharpen: '銳利化',
+  sensorNoise: '感光雜訊',
+  quality: '畫質',
+  qualityHint: '越低方塊越明顯，邊緣有蚊狀雜訊。',
+  keyframe: '關鍵影格間隔',
+  keyframeUnit: ' 秒',
+  keyframeHint:
+    '0＝每一格都是完整的一張；大於 0 時中間的影格只記變化（關鍵影格之後幾格慢慢變細），資料遺失與 datamosh 會一直留到下一個關鍵影格。',
+  loss: '資料遺失',
+  lossHint: '一段一段的方塊沒收到，拿錯的內容補上。',
+  mosh: 'Datamosh',
+  moshHint: '關鍵影格被丟掉的機率（關鍵影格間隔要大於 0）。',
+  captureWidth: '擷取寬度',
+  fps: '每秒格數',
+  chromaSub: '色彩取樣',
+  chromaSubs: [
+    '4:4:4（完整）',
+    '4:2:2（橫向一半）',
+    '4:2:0（四分之一）',
+    '4:1:1（DV，橫向四分之一）',
+  ],
+  lens: '鏡頭柔焦',
+  denoise: '降噪',
+  tint: '色調',
+  tintHint: '＋偏洋紅、－偏綠。',
+  blockSmooth: '柔化方塊的邊',
+  advanced: '更多設定',
+
+  /* NTSC 訊號 */
+  sectionNtsc: 'NTSC 訊號',
+  ntscOn: '模擬 NTSC 訊號',
+  ntscHint:
+    '照 ntsc-rs 的做法模擬類比的複合訊號：顏色滲開、細節變糊、雜訊、雪花與磁頭切換。以 720 × 480 計算，比較慢。',
+  tape: '磁帶速度',
+  tapes: {
+    none: '不模擬磁帶',
+    sp: 'SP（標準）',
+    lp: 'LP（2 倍）',
+    ep: 'EP（3 倍）',
+  } satisfies Record<TapeSpeed, string>,
+  tapeHint: '錄得越久的速度，畫面越糊、顏色越晚出現。',
+  smear: '亮度拖影',
+  bleed: '色彩錯位',
+  bleedHint: '顏色往右（負數往左）偏幾個取樣。',
+  signalNoise: '訊號雜訊',
+  snow: '雪花',
+  wave: '邊緣波動',
+  chromaLoss: '色彩脫落',
+  chromaLossHint: '隨機幾條掃描線沒有顏色。',
+  headSwitch: '磁頭切換雜訊（畫面最下面）',
+  tracking: '追蹤雜訊（畫面最下面）',
+  ringing: '振鈴（邊緣旁的波紋）',
+
+  /* Screen Loop */
+  sectionLoop: 'Screen Loop',
+  loopOn: '攝影機拍電視（畫面隧道）',
+  loopOnHint:
+    '攝影機對著播放自己畫面的電視拍：畫面裡一層一層縮進去，每一層多套一次整個效果。在預覽上拖曳綠點移動消失點。',
+  loopNeedsPhoto: '要先放照片。',
+  loopCost: (n: number) =>
+    `每一格要畫 ${n + 1} 次，層數越多越慢。播放中與拖曳消失點時是簡化的預覽（最多 3 層），停下來之後與匯出照設定的層數。`,
+  depth: '層數',
+  loopZoom: '每一層的大小',
+  vanish: '消失點',
+  vanishReset: '回到中間',
+  vanishText: (x: number, y: number) => {
+    const part = (v: number, neg: string, pos: string) =>
+      v === 0 ? '' : `${v < 0 ? neg : pos} ${Math.abs(v)}%`;
+    const t = [part(x, '左', '右'), part(y, '上', '下')].filter(Boolean).join('、');
+    return t || '正中間';
+  },
+  vanishHandle: (text: string) => `Screen Loop 的消失點：${text}（方向鍵移動，Shift 移動得多）`,
+  roll: '角度',
+  rollHint: '電視相對攝影機轉了幾度；每一層再轉一次，隧道變成螺旋。',
+  shake: '手持晃動',
+  push: '推進',
+  pushHint: '動畫裡從設定的大小往前推（＋）或往後拉（－）。',
+  spin: '旋轉',
+  spinHint: '動畫裡攝影機轉多少度。',
+  soft: '柔化',
+  loopColor: '色彩',
+  loopColorHint: '＋偏暖、－偏冷，每一層累積。',
+  gain: '亮度',
+  gainHint: '每一層乘一次：低於 100% 越裡面越暗、高於越亮。',
+  key: '亮度鍵',
+  keyHint: '照片亮的地方蓋在隧道上面，主體保持實心。',
+  seamless: '無縫循環',
+  seamlessHint: '動作出去再回來、晃動照動畫的長度重複，GIF 接回開頭時不會跳。',
+
+  /* 比較原圖 */
+  compare: '比較原圖',
+  compareAria: '比較原圖：預覽左邊是效果、右邊是原圖',
+  compareHint: '預覽的左邊是效果、右邊是原圖（拖曳分割線調整；只影響預覽，不影響匯出）。',
+  compareNeedsPhoto: '放了照片之後才能比較。',
+  compareLine: '比較的分割線（左右方向鍵移動）',
+  compareLeft: '效果',
+  compareRight: '原圖',
+
+  degree: '°',
+
   /* 使用方式 */
   usage: [
     '放一張照片（選檔、拖到視窗裡、或直接貼上），在預覽上拖曳移動、滾輪或兩指縮放，調整要拍到的範圍。',
     '寫下字幕（每個場景最多兩行，空一行換下一個場景）與左上角的文字；右上角可以是播放時間、監視器的日期時間或頻道，也可以加上攝影機的日期戳記。',
     '「磨損度」決定畫面壞得多嚴重：越高色差、撕裂、掉訊與雜訊越多；色調、弧面、暗角與各種效果也可以調。',
+    '「樣子」一鍵換一組本站調好的效果；「映像管」加上螢光粉遮罩與光暈，「數位攝影」先用網路攝影機、MiniDV 這類數位攝影機拍（方塊雜訊、datamosh），「NTSC 訊號」模擬類比訊號的滲色與雜訊，「Screen Loop」是攝影機拍電視的畫面隧道。預覽上方的「比較原圖」可以左右對照。',
     '預覽「錄影帶」一直在播，PNG 存的是目前這一格（暫停就能挑一格）；「GIF 動畫」是匯出 GIF、APNG、WebP 的影格：場景依序換、字幕一個字一個字打出來，可以加上轉台的開場與關機的收尾。',
     '照片與設定會自動儲存在這個瀏覽器；也可以從「專案」選單存成專案檔，帶到別台電腦。',
   ],

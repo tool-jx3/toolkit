@@ -31,17 +31,23 @@ import {
   Segmented,
   Select,
   Stage,
+  Toggle,
   Transport,
   usePlayback,
   useStageView,
   useWebpSupport,
 } from '@/ui';
+import { digitalFrameAt } from './digital';
 import {
   composeLook,
+  masterFor as composeMaster,
   type ExportJob,
+  type FrameSource,
+  nextTask,
   outputSize,
   renderAnimFrame,
   renderInto,
+  renderSteps,
   runExport,
 } from './exporter';
 import { fontLoads, useEnsureFonts, useFontTick } from './fonts';
@@ -73,11 +79,13 @@ import {
   wheelPixels,
   zoomViewAt,
 } from './model';
-import { type Master, VhsRenderer } from './render';
+import { type Master, placePhoto, VhsRenderer } from './render';
 import {
   assets,
+  COMPARE_RANGE,
   docNow,
   dropMissingPhoto,
+  edit,
   gesture,
   type PreviewMode,
   prefsNow,
@@ -148,6 +156,8 @@ function Screen({ mode, ref }: { mode: PreviewMode; ref: Ref<ScreenHandle> }) {
   const animIndex = usePrefs((p) => p.data.animSize);
   const pngIndex = usePrefs((p) => p.data.pngSize);
   const tapePaused = usePrefs((p) => p.data.tapePaused);
+  const compare = usePrefs((p) => p.data.compare);
+  const compareAt = usePrefs((p) => p.data.compareAt);
   /* 動畫的安排（長度、場景、開場、收尾） */
   const plan = useMemo(() => animPlan(s), [s]);
   const photo = useAssetImage(assets, s.photo?.id);
@@ -155,6 +165,9 @@ function Screen({ mode, ref }: { mode: PreviewMode; ref: Ref<ScreenHandle> }) {
   useEnsureFonts(loads);
   const tick = useFontTick();
   const renderer = useMemo(() => new VhsRenderer(), []);
+  /* 分段畫（暫停時的 Screen Loop）用另一組中間畫布：分段之間別的畫圖不會蓋到它的 */
+  const jobRenderer = useMemo(() => new VhsRenderer(), []);
+  const lastFrame = useRef<HTMLCanvasElement | null>(null);
 
   /* 舞台上的大小（內容座標）：錄影帶＝畫面（1280 寬）、GIF 動畫＝動畫的大小；暫停的錄影帶以 PNG 的大小畫 */
   const size = mode === 'tape' ? screenSize(s.aspect) : animSize(s.aspect, animIndex);
@@ -202,14 +215,20 @@ function Screen({ mode, ref }: { mode: PreviewMode; ref: Ref<ScreenHandle> }) {
   /* 暫停的錄影帶＝PNG：照片層以 PNG 的寬合成 */
   const masterRes = mode === 'tape' && !live ? png.width : masterWidthFor(target.width);
 
-  /* 照片層的快取（照片、位置、比例、寬度、調色與反轉；最近 MASTER_CACHE 份） */
+  /*
+   * 照片層的快取（照片、位置、比例、寬度、調色與反轉；最近 MASTER_CACHE 份）。
+   * 數位攝影開著時，照片層每一格不同：鍵加上數位攝影的設定與第幾格。
+   */
   const masters = useRef(new Map<string, Master>());
   const composed = useRef(0);
-  const masterFor = (res: number): Master | null => {
+  const masterFor = (res: number, t: number): Master | null => {
     if (!bitmap || !s.photo) return null;
     const v = s.view;
     const look = composeLook(s);
-    const key = `${s.photo.id}|${s.aspect}|${v.zoom}|${v.x}|${v.y}|${res}|${look.tone}|${look.brightness}|${look.saturation}|${look.flip}`;
+    const dg = s.digital.on
+      ? `|${JSON.stringify(s.digital)}|${digitalFrameAt(t, s.digital.fps)}`
+      : '';
+    const key = `${s.photo.id}|${s.aspect}|${v.zoom}|${v.x}|${v.y}|${res}|${look.tone}|${look.brightness}|${look.saturation}|${look.flip}${dg}`;
     const cache = masters.current;
     const hit = cache.get(key);
     if (hit) {
@@ -217,7 +236,8 @@ function Screen({ mode, ref }: { mode: PreviewMode; ref: Ref<ScreenHandle> }) {
       cache.set(key, hit);
       return hit;
     }
-    const m = renderer.compose(bitmap, s.photo, v, s.aspect, res, look);
+    const m = composeMaster(renderer, s, bitmap, res, t);
+    if (!m) return null;
     composed.current++;
     cache.set(key, m);
     while (cache.size > MASTER_CACHE) cache.delete(cache.keys().next().value as string);
@@ -285,14 +305,64 @@ function Screen({ mode, ref }: { mode: PreviewMode; ref: Ref<ScreenHandle> }) {
     if (!c) return;
     if (moving && performance.now() < nextAllowed.current) return;
     const start = performance.now();
-    const master = masterFor(masterRes);
-    if (mode === 'tape') renderInto(renderer, c, s, master, frameKey);
-    else renderAnimFrame(renderer, c, s, master, plan, frameKey);
+    const src: FrameSource = {
+      photo: bitmap,
+      res: masterRes,
+      master: (t) => masterFor(masterRes, t),
+      /* 播放中、操作中：簡化的預覽（NTSC 以一半的解析度、Screen Loop 最多 3 層）；停下來之後照設定畫 */
+      draft: live || (mode === 'gif' && moving),
+    };
+    const loopOn = s.loop.on && !!bitmap && !!s.photo;
+    /* 畫好之後：比較原圖（只在預覽上，匯出不經過這裡）、記下畫了哪一格；Screen Loop 時留一份（換大小時先拿它蓋上） */
+    const done = () => {
+      if (compare && bitmap && s.photo) paintOriginal(c, bitmap, s, compareAt);
+      drawn.current++;
+      c.dataset.frame = String(frameKey);
+      c.dataset.busy = 'false';
+      if (loopOn) keepFrame(lastFrame, c);
+    };
+    if (loopOn && !src.draft) {
+      /*
+       * Screen Loop 照設定的層數（暫停、停止操作之後）：一格要好幾百毫秒，在另一張畫布上分段畫、每一段之間讓出主執行緒，
+       * 畫好才換上（先把上一張放大蓋上：換大小時畫布會被清空）。改了設定、時間就取消重畫。
+       */
+      const g = c.getContext('2d');
+      if (g && lastFrame.current) g.drawImage(lastFrame.current, 0, 0, c.width, c.height);
+      const off = document.createElement('canvas');
+      off.width = c.width;
+      off.height = c.height;
+      const steps = renderSteps(
+        jobRenderer,
+        off,
+        s,
+        src,
+        frameKey,
+        mode === 'gif' ? frameKey : undefined,
+      );
+      let cancelled = false;
+      c.dataset.busy = 'true';
+      void (async () => {
+        for (;;) {
+          if (cancelled) return;
+          if (steps.next().done) break;
+          await nextTask();
+        }
+        if (cancelled || !g) return;
+        g.clearRect(0, 0, c.width, c.height);
+        g.drawImage(off, 0, 0);
+        nextAllowed.current = 0;
+        done();
+      })();
+      return () => {
+        cancelled = true;
+      };
+    }
+    if (mode === 'tape') renderInto(renderer, c, s, src, frameKey);
+    else renderAnimFrame(renderer, c, s, src, plan, frameKey);
     const end = performance.now();
     const cost = end - start;
     nextAllowed.current = cost > FRAME_MS ? end + cost : 0;
-    drawn.current++;
-    c.dataset.frame = String(frameKey);
+    done();
   }, [
     mode,
     frameKey,
@@ -305,6 +375,9 @@ function Screen({ mode, ref }: { mode: PreviewMode; ref: Ref<ScreenHandle> }) {
     masterRes,
     moving,
     renderer,
+    jobRenderer,
+    compare,
+    compareAt,
   ]);
 
   /* 暫停並停在某個時間（錄影帶的暫停與時間一併記進 prefs） */
@@ -526,6 +599,8 @@ function Screen({ mode, ref }: { mode: PreviewMode; ref: Ref<ScreenHandle> }) {
             data-size={`${size.width}x${size.height}`}
             data-live={live ? 'true' : 'false'}
           />
+          {compare && s.photo ? <CompareLine at={compareAt} surface={surface} /> : null}
+          {s.loop.on && s.photo ? <VanishDot surface={surface} onActive={poke} /> : null}
         </div>
       </Stage>
       {mode === 'tape' ? (
@@ -561,6 +636,219 @@ function Screen({ mode, ref }: { mode: PreviewMode; ref: Ref<ScreenHandle> }) {
         />
       )}
     </>
+  );
+}
+
+/** 把畫好的這一格複製到 keep（沒有就建一張） */
+function keepFrame(keep: { current: HTMLCanvasElement | null }, c: HTMLCanvasElement): void {
+  let k = keep.current;
+  if (!k) {
+    k = document.createElement('canvas');
+    keep.current = k;
+  }
+  if (k.width !== c.width || k.height !== c.height) {
+    k.width = c.width;
+    k.height = c.height;
+  }
+  const g = k.getContext('2d');
+  if (!g) return;
+  g.clearRect(0, 0, k.width, k.height);
+  g.drawImage(c, 0, 0);
+}
+
+/** 比較原圖：canvas 的右邊（從 at 起）畫上照片的原樣（依位置、左右反轉，沒有任何效果） */
+function paintOriginal(
+  c: HTMLCanvasElement,
+  photo: CanvasImageSource,
+  s: ReturnType<typeof docNow>,
+  at: number,
+): void {
+  const g = c.getContext('2d');
+  if (!g || !s.photo) return;
+  const x = Math.round(c.width * at);
+  g.save();
+  g.beginPath();
+  g.rect(x, 0, c.width - x, c.height);
+  g.clip();
+  g.globalCompositeOperation = 'source-over';
+  g.globalAlpha = 1;
+  g.fillStyle = '#000';
+  g.fillRect(x, 0, c.width - x, c.height);
+  g.imageSmoothingEnabled = true;
+  g.imageSmoothingQuality = 'high';
+  placePhoto(g, photo, s.photo, s.view, s.aspect, c.width, s.flip);
+  g.restore();
+}
+
+/** 指標在畫面上的位置（0～1） */
+function pointerAt(el: HTMLElement | null, clientX: number, clientY: number) {
+  const r = el?.getBoundingClientRect();
+  if (!r?.width || !r.height) return { x: 0.5, y: 0.5 };
+  return { x: (clientX - r.left) / r.width, y: (clientY - r.top) / r.height };
+}
+
+/** 舞台縮放下維持固定的螢幕大小（px） */
+const screenPx = (px: number) => `calc(${px}px / var(--stage-scale, 1))`;
+
+/** 比較原圖的分割線：拖曳或左右方向鍵移動（Shift 移動得多、Home／End 到兩端）；記在瀏覽器（不列入復原） */
+function CompareLine({
+  at,
+  surface,
+}: {
+  at: number;
+  surface: React.RefObject<HTMLDivElement | null>;
+}) {
+  const clampAt = (v: number) => Math.min(COMPARE_RANGE.max, Math.max(COMPARE_RANGE.min, v));
+  const move = (v: number) => setPrefs({ compareAt: Math.round(clampAt(v) * 1000) / 1000 });
+  const onPointerDown = (e: PointerEvent<HTMLDivElement>) => {
+    e.stopPropagation();
+    e.preventDefault();
+    e.currentTarget.setPointerCapture?.(e.pointerId);
+  };
+  const onPointerMove = (e: PointerEvent<HTMLDivElement>) => {
+    if (!e.currentTarget.hasPointerCapture?.(e.pointerId)) return;
+    move(pointerAt(surface.current, e.clientX, e.clientY).x);
+  };
+  const onKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+    const step = e.shiftKey ? 0.1 : 0.02;
+    const next: Record<string, number> = {
+      ArrowLeft: at - step,
+      ArrowRight: at + step,
+      Home: COMPARE_RANGE.min,
+      End: COMPARE_RANGE.max,
+    };
+    if (!(e.key in next)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    move(next[e.key]);
+  };
+  const pct = Math.round(at * 100);
+  return (
+    <>
+      <span
+        aria-hidden
+        className="pointer-events-none absolute top-0 rounded-sm bg-[rgba(0,0,0,0.6)] text-white"
+        style={{
+          right: `${100 - pct}%`,
+          margin: screenPx(6),
+          padding: `${screenPx(1)} ${screenPx(6)}`,
+          fontSize: screenPx(12),
+        }}
+      >
+        {S.compareLeft}
+      </span>
+      <span
+        aria-hidden
+        className="pointer-events-none absolute top-0 rounded-sm bg-[rgba(0,0,0,0.6)] text-white"
+        style={{
+          left: `${pct}%`,
+          margin: screenPx(6),
+          padding: `${screenPx(1)} ${screenPx(6)}`,
+          fontSize: screenPx(12),
+        }}
+      >
+        {S.compareRight}
+      </span>
+      <div
+        role="slider"
+        tabIndex={0}
+        aria-label={S.compareLine}
+        aria-valuemin={Math.round(COMPARE_RANGE.min * 100)}
+        aria-valuemax={Math.round(COMPARE_RANGE.max * 100)}
+        aria-valuenow={pct}
+        aria-valuetext={`${pct}%`}
+        data-testid="compare-line"
+        className="absolute top-0 bottom-0 flex cursor-ew-resize touch-none justify-center outline-none focus-visible:[outline:calc(2px/var(--stage-scale,1))_solid_var(--focus)]"
+        style={{ left: `${at * 100}%`, width: screenPx(24), marginLeft: screenPx(-12) }}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onKeyDown={onKeyDown}
+      >
+        <span
+          aria-hidden
+          className="h-full bg-white shadow-[0_0_0_1px_rgba(0,0,0,0.5)]"
+          style={{ width: screenPx(2) }}
+        />
+      </div>
+    </>
+  );
+}
+
+/**
+ * Screen Loop 的消失點：拖曳或方向鍵移動（1%，Shift 5%）；拖曳一次算一步復原。
+ * 拖曳、按鍵算「操作中」（onActive：預覽以顯示的大小、最多 3 層畫，停下來之後照設定畫）。
+ */
+function VanishDot({
+  surface,
+  onActive,
+}: {
+  surface: React.RefObject<HTMLDivElement | null>;
+  onActive: (hold?: boolean) => void;
+}) {
+  const loop = useDoc((st) => st.data.loop);
+  const R = { min: -45, max: 45 };
+  const clampV = (v: number) => Math.min(R.max, Math.max(R.min, Math.round(v)));
+  const put = (cx: number, cy: number) =>
+    edit((d) => {
+      d.loop.cx = clampV(cx);
+      d.loop.cy = clampV(cy);
+    });
+  const onPointerDown = (e: PointerEvent<HTMLButtonElement>) => {
+    e.stopPropagation();
+    e.preventDefault();
+    e.currentTarget.setPointerCapture?.(e.pointerId);
+    onActive(true);
+    gesture.begin();
+  };
+  const onPointerMove = (e: PointerEvent<HTMLButtonElement>) => {
+    if (!e.currentTarget.hasPointerCapture?.(e.pointerId)) return;
+    const p = pointerAt(surface.current, e.clientX, e.clientY);
+    put((p.x - 0.5) * 100, (p.y - 0.5) * 100);
+  };
+  const onPointerUp = (e: PointerEvent<HTMLButtonElement>) => {
+    if (e.currentTarget.hasPointerCapture?.(e.pointerId))
+      e.currentTarget.releasePointerCapture?.(e.pointerId);
+    gesture.commit();
+    onActive();
+  };
+  const onKeyDown = (e: KeyboardEvent<HTMLButtonElement>) => {
+    const step = e.shiftKey ? 5 : 1;
+    const mv: Record<string, [number, number]> = {
+      ArrowLeft: [-step, 0],
+      ArrowRight: [step, 0],
+      ArrowUp: [0, -step],
+      ArrowDown: [0, step],
+    };
+    const m = mv[e.key];
+    if (!m) return;
+    e.preventDefault();
+    e.stopPropagation();
+    onActive();
+    put(loop.cx + m[0], loop.cy + m[1]);
+  };
+  return (
+    <button
+      type="button"
+      aria-label={S.vanishHandle(S.vanishText(loop.cx, loop.cy))}
+      data-testid="vanish-dot"
+      data-at={`${loop.cx},${loop.cy}`}
+      className="absolute cursor-move touch-none rounded-full border-white bg-success outline-none focus-visible:[outline:calc(2px/var(--stage-scale,1))_solid_var(--focus)]"
+      style={{
+        left: `${50 + loop.cx}%`,
+        top: `${50 + loop.cy}%`,
+        width: screenPx(18),
+        height: screenPx(18),
+        marginLeft: screenPx(-9),
+        marginTop: screenPx(-9),
+        borderWidth: screenPx(2),
+        boxShadow: `0 0 0 ${screenPx(1)} rgba(0,0,0,0.6)`,
+      }}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      onPointerCancel={onPointerUp}
+      onKeyDown={onKeyDown}
+    />
   );
 }
 
@@ -681,6 +969,16 @@ export function Preview({
         />
       </div>
       <Screen mode={prefs.preview} ref={handle} />
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        <Toggle
+          label={S.compare}
+          aria-label={S.compareAria}
+          checked={prefs.compare && hasPhoto}
+          disabled={!hasPhoto}
+          onCheckedChange={(v) => setPrefs({ compare: v })}
+        />
+        <span className="text-xs text-muted">{hasPhoto ? S.compareHint : S.compareNeedsPhoto}</span>
+      </div>
       <p className="m-0 px-1 text-xs text-muted" data-testid="preview-hint">
         {hasPhoto ? S.hintPhoto : S.hintNoPhoto}{' '}
         {prefs.preview === 'tape' ? S.hintTape : S.hintGif(frames)}

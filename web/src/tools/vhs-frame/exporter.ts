@@ -7,6 +7,8 @@ import { createEncoder, type EncoderSpec } from '@/core/encode';
 import { canvasToBlob, makeCanvas } from '@/core/image';
 import type { ExportOutput } from '@/ui';
 import { waitFonts } from './fonts';
+import { crtActive, ntscParams } from './look';
+import { LOOP_DRAFT_DEPTH, loopSteps } from './loop';
 import {
   type AnimFrameInfo,
   type AnimPlan,
@@ -22,6 +24,7 @@ import {
   GIF_DELAY_CS,
   GIF_STEP,
   gifFrameTime,
+  heightFor,
   masterWidthFor,
   pngSize,
   type Size,
@@ -34,6 +37,8 @@ import {
   type Ctx,
   type FrameParams,
   type Master,
+  ntscFrameAt,
+  placePhoto,
   VhsRenderer,
 } from './render';
 import { S } from './strings';
@@ -102,18 +107,40 @@ export const composeLook = (s: VhsState): ComposeLook => ({
   flip: s.flip,
 });
 
-/** 照片層（沒有照片時 null）；res＝合成寬度 */
+/**
+ * 照片層（沒有照片時 null）；res＝合成寬度。t＝時間（數位攝影開著時，每一格的照片層不同；關著時和時間無關）。
+ */
 export function masterFor(
   r: VhsRenderer,
   s: VhsState,
   photo: CanvasImageSource | null,
   res: number,
+  t = 0,
 ): Master | null {
   if (!photo || !s.photo) return null;
-  return r.compose(photo, s.photo, s.view, s.aspect, res, composeLook(s));
+  const shot = s.digital.on
+    ? r.digitalShot(photo, s.photo, s.view, s.aspect, s.flip, s.digital, t)
+    : null;
+  return r.compose(photo, s.photo, s.view, s.aspect, res, composeLook(s), shot);
 }
 
-/** 一格的畫法裡不隨時間變的設定（字幕的樣子、效果、弧面、暗角、圓角、日期戳記…） */
+/** 一格要用的照片：原檔與合成寬度；master(t) 回傳那個時間的照片層（預覽另外有快取） */
+export interface FrameSource {
+  photo: CanvasImageSource | null;
+  res: number;
+  master: (t: number) => Master | null;
+  /** 預覽播放中（NTSC 訊號以一半的解析度算；暫停的預覽、匯出不用） */
+  draft?: boolean;
+}
+
+export const frameSource = (
+  r: VhsRenderer,
+  s: VhsState,
+  photo: CanvasImageSource | null,
+  res: number,
+): FrameSource => ({ photo, res, master: (t) => masterFor(r, s, photo, res, t) });
+
+/** 一格的畫法裡不隨時間變的設定（字幕的樣子、效果、弧面、暗角、圓角、日期戳記、映像管…） */
 function lookParams(s: VhsState) {
   return {
     font: s.osdFont,
@@ -130,7 +157,124 @@ function lookParams(s: VhsState) {
     curve: s.picture.curve / 1000,
     vignette: s.picture.vignette / 100,
     corners: s.picture.corners,
+    crt: crtActive(s.crt) ? s.crt : null,
   } satisfies Partial<FrameParams>;
+}
+
+/** NTSC 訊號（開著時）的設定與影格號碼 */
+const ntscOf = (s: VhsState, t: number, draft = false): FrameParams['ntsc'] =>
+  s.ntsc.on ? { params: ntscParams(s.ntsc), frame: ntscFrameAt(t), draft } : null;
+
+/**
+ * 一格：Screen Loop 開著（而且有照片）時畫隧道，否則照常畫。text(t) 是某個時間的文字與開場、收尾；
+ * Screen Loop 的每一層用自己的時間（裡面的層比較早），NTSC 訊號只套在最外面一層；預覽播放中（draft）最多畫 3 層。
+ * 分段畫（generator）：匯出時在每一段之間讓出主執行緒，預覽、測試入口一次畫完（drain）。
+ */
+function* frameSteps(
+  r: VhsRenderer,
+  out: AnyCanvas,
+  s: VhsState,
+  src: FrameSource,
+  t: number,
+  text: (t: number) => Partial<FrameParams>,
+): Generator<void, void, void> {
+  const base = (tt: number, master: Master | null, outer: boolean): FrameParams => ({
+    t: tt,
+    wear: s.wear / 100,
+    master,
+    caption: [],
+    captionFull: [],
+    osd: null,
+    timecode: null,
+    ...text(tt),
+    ...lookParams(s),
+    ...(outer && s.ntsc.on ? { ntsc: ntscOf(s, tt, !!src.draft) } : {}),
+  });
+  if (!(s.loop.on && src.photo && s.photo)) {
+    yield* r.frameSteps(out, base(t, src.master(t), true));
+    return;
+  }
+  const res = src.res;
+  const sceneH = heightFor(res, s.aspect);
+  const scene = r.canvas('loop-scene', res, sceneH);
+  const g = ctx2d(scene);
+  g.globalCompositeOperation = 'source-over';
+  g.globalAlpha = 1;
+  g.fillStyle = '#000';
+  g.fillRect(0, 0, res, sceneH);
+  g.imageSmoothingEnabled = true;
+  g.imageSmoothingQuality = 'high';
+  if (s.digital.on) {
+    const shot = r.digitalShot(src.photo, s.photo, s.view, s.aspect, s.flip, s.digital, t);
+    g.drawImage(shot, 0, 0, res, sceneH);
+  } else placePhoto(g, src.photo, s.photo, s.view, s.aspect, res, s.flip);
+  const loop = src.draft ? { ...s.loop, depth: Math.min(s.loop.depth, LOOP_DRAFT_DEPTH) } : s.loop;
+  yield;
+  yield* loopSteps(r, out, loop, t, animPlan(s).total * GIF_STEP, {
+    scene,
+    aspect: s.aspect,
+    res,
+    look: composeLook(s),
+    params: (tt, master, outer) => base(tt, master, outer),
+    inner: (tt) => src.master(tt) as Master,
+  });
+}
+
+/** 一次畫完 */
+function drain(steps: Generator<void, unknown, void>): void {
+  while (!steps.next().done);
+}
+
+/** 讓出主執行緒（一個新的工作；不像 setTimeout 連續呼叫時會被拉長到 4 ms） */
+export const nextTask = (): Promise<void> =>
+  new Promise((resolve) => {
+    const ch = new MessageChannel();
+    ch.port1.onmessage = () => {
+      ch.port1.close();
+      resolve();
+    };
+    ch.port2.postMessage(null);
+  });
+
+/** 分段畫、每一段之間讓出主執行緒（匯出用；取消時在段與段之間停下來） */
+async function drainAsync(
+  steps: Generator<void, unknown, void>,
+  signal: AbortSignal,
+): Promise<void> {
+  for (;;) {
+    if (signal.aborted) throw aborted();
+    if (steps.next().done) return;
+    await nextTask();
+  }
+}
+
+/** 某個時間的文字（錄影帶）、動畫的第 f 格的文字與開場、收尾 */
+const tapeText = (s: VhsState) => (tt: number) => frameText(s, tt);
+const animTextOf = (s: VhsState, info: AnimFrameInfo) => (tt: number) => ({
+  ...animText(s, info, tt),
+  intro: info.intro,
+  off: info.off,
+});
+
+/** 同 renderInto，分段畫（generator；預覽暫停時的 Screen Loop 在段與段之間讓出主執行緒） */
+export function renderSteps(
+  r: VhsRenderer,
+  out: AnyCanvas,
+  s: VhsState,
+  src: FrameSource,
+  t: number,
+  gifFrame?: number,
+): Generator<void, void, void> {
+  if (gifFrame === undefined) return frameSteps(r, out, s, src, t, tapeText(s));
+  const plan = animPlan(s);
+  return frameSteps(
+    r,
+    out,
+    s,
+    src,
+    gifFrameTime(gifFrame),
+    animTextOf(s, animFrameInfo(s, plan, gifFrame)),
+  );
 }
 
 /** 畫一格到 out（測試入口與匯出共用）；gifFrame 給了就是動畫的第幾格（場景、字幕逐字打出、開場、收尾） */
@@ -138,15 +282,15 @@ export function renderInto(
   r: VhsRenderer,
   out: AnyCanvas,
   s: VhsState,
-  master: Master | null,
+  src: FrameSource,
   t: number,
   gifFrame?: number,
 ): void {
   if (gifFrame !== undefined) {
-    renderAnimFrame(r, out, s, master, animPlan(s), gifFrame);
+    renderAnimFrame(r, out, s, src, animPlan(s), gifFrame);
     return;
   }
-  r.frame(out, { t, wear: s.wear / 100, master, ...frameText(s, t), ...lookParams(s) });
+  drain(frameSteps(r, out, s, src, t, tapeText(s)));
 }
 
 /** 動畫的第 f 格（t＝f × 0.09） */
@@ -154,21 +298,12 @@ export function renderAnimFrame(
   r: VhsRenderer,
   out: AnyCanvas,
   s: VhsState,
-  master: Master | null,
+  src: FrameSource,
   plan: AnimPlan,
   f: number,
   info: AnimFrameInfo = animFrameInfo(s, plan, f),
 ): void {
-  const t = gifFrameTime(f);
-  r.frame(out, {
-    t,
-    wear: s.wear / 100,
-    master,
-    ...animText(s, info, t),
-    ...lookParams(s),
-    intro: info.intro,
-    off: info.off,
-  });
+  drain(frameSteps(r, out, s, src, gifFrameTime(f), animTextOf(s, info)));
 }
 
 /** GIF：鋪黑底（四角的透明變成黑色，同原作） */
@@ -218,8 +353,10 @@ export async function runExport(
   const out = makeCanvas(size.width, size.height);
   if (job.format === 'png') {
     /* 照片層以 PNG 的寬合成 */
-    const master = masterFor(r, s, photo, size.width);
-    renderInto(r, out, s, master, job.tapeTime);
+    await drainAsync(
+      frameSteps(r, out, s, frameSource(r, s, photo, size.width), job.tapeTime, tapeText(s)),
+      signal,
+    );
     const blob = await canvasToBlob(out, 'image/png');
     return {
       blob,
@@ -229,7 +366,12 @@ export async function runExport(
       details: [{ label: S.frameDetail, value: S.frameAt(S.seconds(job.tapeTime)) }],
     };
   }
-  const master = masterFor(r, s, photo, masterWidthFor(size.width));
+  /* 照片層：數位攝影關著時整段共用一張（和時間無關） */
+  const res = masterWidthFor(size.width);
+  const still = s.digital.on ? null : masterFor(r, s, photo, res);
+  const src: FrameSource = s.digital.on
+    ? frameSource(r, s, photo, res)
+    : { photo, res, master: () => still };
   const ctx = ctx2d(out);
   const plan = animPlan(s);
   const enc = createEncoder(encoderSpec(job.format, size, job));
@@ -238,7 +380,11 @@ export async function runExport(
   try {
     for (let f = 0; f < plan.total; f++) {
       if (signal.aborted) throw aborted();
-      renderAnimFrame(r, out, s, master, plan, f);
+      const t = gifFrameTime(f);
+      await drainAsync(
+        frameSteps(r, out, s, src, t, animTextOf(s, animFrameInfo(s, plan, f))),
+        signal,
+      );
       if (job.format === 'gif') fillBlack(out);
       const px = ctx.getImageData(0, 0, size.width, size.height).data;
       await abortable(enc.addFrame(px, GIF_DELAY_CS), signal);
