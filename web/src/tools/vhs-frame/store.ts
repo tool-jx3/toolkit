@@ -1,8 +1,9 @@
 /**
  * 狀態與動作：
- * - useDoc：照片（id）與位置、字幕（場景）與樣子、左上文字、字型、時間碼與頻道、日期戳記、磨損度、比例、色調與效果、動畫的演出
+ * - useDoc：照片（id）與位置、字幕（場景）與樣子、左上文字、字型、時間碼與頻道、日期戳記、磨損度、比例、色調與效果、動畫的演出、
+ *   映像管、數位攝影、NTSC 訊號、Screen Loop
  *   （自動儲存、可以復原；滑桿放開、文字欄離開、拖曳放開才記一步，滾輪與按鍵 0.4 秒內連續的算一步）；
- * - usePrefs：預覽模式、匯出的設定（格式、PNG 與動畫的大小、GIF 色數、播放次數）、「錄影帶」的時間與暫停（自動儲存，不列入復原）；
+ * - usePrefs：預覽模式、匯出的設定（格式、PNG 與動畫的大小、GIF 色數、播放次數）、「錄影帶」的時間與暫停、比較原圖（自動儲存，不列入復原）；
  * - 照片原檔存在 IndexedDB 的資產庫（core/assets），狀態只記 id。
  */
 import { create } from 'zustand';
@@ -31,9 +32,10 @@ import {
 export const TOOL_ID = 'vhs-frame';
 /**
  * 專案檔與自動儲存的資料版本：
- * 1（2026-10-19）；2（2026-11-05：字幕分場景，加了樣子、日期戳記、頻道、色調、效果的開關、動畫的演出——第 1 版照讀，見 migrateV1）。
+ * 1（2026-10-19）；2（2026-11-05：字幕分場景，加了樣子、日期戳記、頻道、色調、效果的開關、動畫的演出——第 1 版照讀，見 migrateV1）；
+ * 3（2026-11-10：映像管、數位攝影、NTSC 訊號、Screen Loop——第 2 版照讀，新的設定用預設〔全關〕）。
  */
-export const DATA_VERSION = 2;
+export const DATA_VERSION = 3;
 
 /** 讀回來的資料（自動儲存、專案檔）→ 目前的狀態 */
 export const upgradeState = (raw: unknown, fromVersion: number): VhsState =>
@@ -94,7 +96,13 @@ export interface Prefs {
   /** 「錄影帶」暫停時的時間（秒） */
   tapeTime: number;
   tapePaused: boolean;
+  /** 比較原圖（2026-11-10：預覽左邊效果、右邊原圖；不影響匯出）與分割線的位置（0～1） */
+  compare: boolean;
+  compareAt: number;
 }
+
+/** 比較的分割線的範圍 */
+export const COMPARE_RANGE = { min: 0.05, max: 0.95 } as const;
 
 export const initialPrefs = (): Prefs => ({
   preview: 'tape',
@@ -106,6 +114,8 @@ export const initialPrefs = (): Prefs => ({
   quantize: false,
   tapeTime: 0,
   tapePaused: false,
+  compare: false,
+  compareAt: 0.5,
 });
 
 export const usePrefs = createPreviewStore<Prefs>(TOOL_ID, initialPrefs());
@@ -125,6 +135,8 @@ export const usePrefs = createPreviewStore<Prefs>(TOOL_ID, initialPrefs());
     quantize: p.quantize === true,
     tapeTime: n(p.tapeTime, 0, TAPE_LOOP, 0),
     tapePaused: p.tapePaused === true,
+    compare: p.compare === true,
+    compareAt: n(p.compareAt, COMPARE_RANGE.min, COMPARE_RANGE.max, 0.5),
   };
   if (JSON.stringify(fixed) !== JSON.stringify(p)) usePrefs.getState().replace(fixed);
 }

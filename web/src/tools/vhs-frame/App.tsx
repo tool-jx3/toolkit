@@ -18,7 +18,7 @@ import {
   WindowDrop,
   withShortcut,
 } from '@/ui';
-import { masterFor, renderInto } from './exporter';
+import { frameSource, renderInto } from './exporter';
 import { type BatchNotice, loadPhotoFiles } from './media';
 import { animSize, gifFrameTime, initialState, masterWidthFor, pngSize } from './model';
 import {
@@ -30,6 +30,7 @@ import {
   ScreenSection,
   StampSection,
 } from './Panel';
+import { CrtSection, DigitalSection, LooksSection, LoopSection, NtscSection } from './PanelLook';
 import { Preview, type ScreenHandle } from './Preview';
 import { importProject, projectAssetIds } from './project';
 import { VhsRenderer } from './render';
@@ -81,10 +82,15 @@ function Settings({ onResetView }: { onResetView: () => void }) {
     <div className="flex min-w-0 flex-col gap-3">
       <SaveErrorNotice />
       <PhotoSection onFiles={load} onResetView={onResetView} />
+      <LooksSection />
       <CaptionSection />
       <OsdSection />
       <StampSection />
       <ScreenSection />
+      <CrtSection />
+      <DigitalSection />
+      <NtscSection />
+      <LoopSection />
       <AnimSection />
       {/* 整個視窗都可以拖放照片 */}
       <WindowDrop label={S.windowDrop} hint={S.windowDropHint} onDrop={(files) => load(files)} />
@@ -176,7 +182,7 @@ function useTestHook(screen: React.RefObject<ScreenHandle | null>) {
             ? pngSize(s.aspect, prefsNow().pngSize)
             : animSize(s.aspect, prefsNow().animSize);
         const r = new VhsRenderer();
-        const master = masterFor(
+        const src = frameSource(
           r,
           s,
           bmp ?? null,
@@ -185,8 +191,8 @@ function useTestHook(screen: React.RefObject<ScreenHandle | null>) {
         const c = document.createElement('canvas');
         c.width = size.width;
         c.height = size.height;
-        if (kind === 'png') renderInto(r, c, s, master, at);
-        else renderInto(r, c, s, master, gifFrameTime(at), at);
+        if (kind === 'png') renderInto(r, c, s, src, at);
+        else renderInto(r, c, s, src, gifFrameTime(at), at);
         return c.toDataURL('image/png');
       },
     };

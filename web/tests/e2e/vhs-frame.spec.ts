@@ -1371,7 +1371,7 @@ test('第 1 版的自動儲存與專案檔：字幕照以前的畫法搬移、�
           STORAGE_KEY,
         ),
     )
-    .toBe(2);
+    .toBe(3);
   /* 第 1 版的專案檔 */
   const project = {
     format: 'trpg-toolkit-project',
@@ -1395,7 +1395,7 @@ test('第 1 版的自動儲存與專案檔：字幕照以前的畫法搬移、�
   );
   await expect(toast(page, '已開啟專案檔。')).toBeVisible();
   expect((await state(page)).caption).toBe('第二行');
-  /* 存成專案檔：第 2 版 */
+  /* 存成專案檔：第 3 版（2026-11-10） */
   await page.getByRole('button', { name: '專案' }).click();
   const [dl] = await Promise.all([
     page.waitForEvent('download'),
@@ -1404,7 +1404,7 @@ test('第 1 版的自動儲存與專案檔：字幕照以前的畫法搬移、�
   const saved = JSON.parse(
     strFromU8(unzipSync(new Uint8Array(readFileSync((await dl.path()) as string)))['project.json']),
   );
-  expect(saved.version).toBe(2);
+  expect(saved.version).toBe(3);
   expect(saved.data.anim).toEqual({ length: 1, typing: true, intro: false, outro: false });
   expect(errors).toEqual([]);
 });

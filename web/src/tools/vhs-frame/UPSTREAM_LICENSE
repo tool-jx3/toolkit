@@ -1,0 +1,18 @@
+這份是 ntsc-rs 的授權，只適用於錄影帶畫面產生器（vhs-frame）裡參考 ntsc-rs 改寫的部分：
+NTSC／VHS 訊號模擬 `ntsc.ts`（演算法與數值參考 ntsc-rs 的 crates/ntscrs/src：ntsc.rs、filter.rs、noise.rs、
+noise/simplex.rs、noise/grid.rs、noise/hash.rs、random.rs、shift.rs、yiq_fielding.rs、settings/standard.rs 的預設值），
+以及 `digital.ts` 借用的 simplex 雜訊。
+ntsc-rs：https://github.com/ntsc-rs/ntsc-rs（commit 8cfc510，2026-10-14）。crates/ntscrs 以 MIT、ISC、Apache-2.0
+三選一授權，本站採用 MIT（下面是 ntsc-rs 的 LICENSE-MIT 全文）。ntsc-rs 的 crates/gui（GPL-3.0）沒有參考。
+ntsc-rs 的雜訊（noise/）是改寫自 Clatter（https://github.com/Ralith/clatter，MIT／Apache-2.0／zlib）。
+vhs-frame 其他的部分（原作 dearmysn1p3r/VHS_Maker 沒有授權；功能參考 finnmckenty/NTSCRT 沒有授權）不適用這份授權。
+
+This license applies to all source files except those under /crates/gui.
+
+Copyright © valadaptive
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the “Software”), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.

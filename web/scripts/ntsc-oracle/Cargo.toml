@@ -1,0 +1,14 @@
+# 錄影帶畫面產生器的 NTSC 訊號（web/src/tools/vhs-frame/ntsc.ts）和 ntsc-rs 本身的對照：
+# 產生 web/tests/unit/fixtures/vhs-frame-ntsc-oracle.json 的原始資料（float RGB，之後取到小數 4 位）。
+#   cargo run --release > /tmp/ntsc-oracle.json
+# 再照 vhs-frame-ntsc.test.ts 檔頭的說明轉成基準檔。ntsc-rs 的 crates/ntscrs 是 MIT／ISC／Apache-2.0（本站採用 MIT）。
+[package]
+name = "ntsc-oracle"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+ntsc-rs = { git = "https://github.com/ntsc-rs/ntsc-rs", rev = "8cfc51014092a6dc1da5eb0217bb9ae6516b124e" }
+
+[workspace]
