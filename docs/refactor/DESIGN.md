@@ -147,7 +147,7 @@ import { ImageFxPreview } from '@/ui/imagefx'; // 一組一起用的元件（4.1
 | `ModelDownload` | `ModelDownloadPanel`、`useModelCache` | anime-rig、bg-remover | 9.7 | 9.0 | 4.1 | `@/core/models` |
 | `OptionalNumberInput` | `OptionalNumberInput`、`parseOptionalNumber` | coc-sheet、pdf-compress、relation-chart、scenario-editor、speech-bubble | 5.9 | 2.2 | 1.2 | — |
 | `PagedViewport` | `PagedViewport` | coc-sheet、coc-typesetter、scenario-editor | 9.1 | 3.7 | 1.6 | — |
-| `PanZoomViewport` | `PanZoomViewport` | height-board、magic-circle、tile-map | 28.8 | 10.5 | 4.1 | — |
+| `PanZoomViewport` | `PanZoomViewport` | height-board、magic-circle、tile-map、floria-veins（2026-11-10 加） | 28.8 | 10.5 | 4.1 | — |
 | `PartPicker`、`SelectableCardList` | `PartPicker`、`SelectableCardList` | emotion-maker | 14.4 | 7.9 | 3.2 | `@/core/sheet` |
 | `PathPad` | `PathPad` | text-path | 6.9 | 3.0 | 1.6 | — |
 | `PostEditor` | `PostEditor` | session-report | 11.3 | 6.7 | 3.2 | `@/core/social` |
@@ -836,6 +836,11 @@ loading-maker 預設（透明）、不透明背景＋預設的結尾動作（最
   MediaPipe tasks-vision（FaceLandmarker）的載入方式可以照抄：`faceLandmarker.ts` 以 `import()` 載入（獨立的 chunk），
   WebAssembly 的 loader 與 wasm 以 `?url` 打包進 `assets/build/`（只有建立偵測器時才下載），模型用 `@/core/models` 下載與驗證後以 `modelAssetBuffer` 交給它。
   `@mediapipe/tasks-vision` 的 npm 套件沒有附授權檔，Apache-2.0 全文補在 `web/build/licenses/@mediapipe__tasks-vision.txt`。
+- G9 floria-veins（魔法脈繪製工具，2026-11-10）：沒有新增共用元件。編輯畫面是 `PanZoomViewport`（`baseScale="fit"`、`pinch`；世界座標＝格）＋工具自己的 canvas 繪圖
+  （匯出、一覽與編輯畫面共用 `web/src/tools/floria-veins/render.ts`）；按下就回傳拖曳處理（觸控時「按著看吸附的位置、放開才加點」），格子外按下＝平移。
+  草稿放在 `createToolStore` 的資料裡（`coalesceMs: 0`，每一點一步復原；傷害格的拖曳用 `beginGesture`／`endGesture` 合成一步），復原後依資料的差異切回改到的畫布與畫法。
+  沒有共用的：格點與交點的吸附、整數的線段交點、以格為單位的移動／反轉／旋轉（`model/geometry.ts`）、草稿的規則（`model/draft.ts`）、原作的字串格式（`model/legacy.ts`）、
+  好幾張畫布排成一張（`render.ts` 的 `tileCanvases`）——別的工具要「在方格上點格點畫線、吸附交點」時可以搬進 `core/grid`。
 - G7 magic-circle（向量編輯器）沒有用 Konva：編輯畫面是 `PanZoomViewport`（`baseScale={1}`，倍率＝每畫布單位幾個螢幕 px）＋工具自己的 canvas 繪圖，
   每次以螢幕解析度重畫（作品用與匯出相同的 `render.ts`，控制點、輔助線另外畫在同一張 canvas 上）；點選、拖曳、控制點由 `onPointerDown` 回傳的拖曳處理負責。
   沒有共用的：貝茲路徑的折線化與截斷、對稱複本的轉換、吸附、對齊與分佈（`web/src/tools/magic-circle/geometry.ts`、`layout.ts`）、多軌動態長條的時間軸
@@ -968,3 +973,17 @@ loading-maker 預設（透明）、不透明背景＋預設的結尾動作（最
 | 生物類型：異怪、野獸、天界生物、構裝體、龍、元素生物、精類、邪魔、巨人、類人生物、怪獸、泥怪、植物、不死生物 | Aberration, Beast, Celestial, Construct, Dragon, Elemental, Fey, Fiend, Giant, Humanoid, Monstrosity, Ooze, Plant, Undead | Fey＝精類（主控 2026-11-06 裁定）；待確認：異怪、怪獸、泥怪 |
 | 人類、精靈、矮人、半身人、侏儒、龍裔、獸人、半獸人、提夫林、歌利亞、神裔 | Human, Elf, Dwarf, Halfling, Gnome, Dragonborn, Orc, Half-Orc, Tiefling, Goliath, Aasimar | Gnome＝侏儒（主控 2026-11-06 裁定） |
 | 角色等級（1～4 級…） | character level（tier） | |
+
+### 『翠緑のフローリア』的名詞（2026-11-10，魔法脈繪製工具）
+
+作品名不翻譯（寫原文『翠緑のフローリア』）；遊戲用語照下表，只用在 floria-veins。規則書的內容不收（floria-veins 規格 7.1）。
+
+| 用這個 | 原文 | 備註 |
+|---|---|---|
+| 魔法脈 | 魔法脈 | |
+| 隨從 | お供 | 不用「僕從」 |
+| 全員（一覽） | 全員 | |
+| 傷害格 | ダメージ | 不用「受傷格」 |
+| 塗色 | 塗潰し | |
+| 魔法植物 | 魔法植物 | 只出現在「沒有收錄」的說明 |
+

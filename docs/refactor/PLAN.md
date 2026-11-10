@@ -66,6 +66,7 @@
 | combat-tracker | 先攻與戰鬥追蹤（2026-11 新收錄；系統通用，5e 的死亡豁免與狀態可以關掉） | Sly Flourish／Lazy GM Tools（mshea/lazy_gm_tools 的 combat_tracker） | 程式 CC0；狀態等規則 SRD 5.2.1（CC BY 4.0，本站翻譯、頁面內署名） | G9 |
 | 5e-calc | 5e 速查計算（2026-11 新收錄；遭遇預算、快速怪物數值、能力值點數購買） | Sly Flourish／Lazy GM Tools（encounter_calculator、quick_monster_stats、point_buy_calculator） | 程式 CC0（quick_monster_stats 沒寫，只參考功能）；規則與數值 SRD 5.2.1、SRD 5.1、Lazy GM's 5e Monster Builder Resource Document（都是 CC BY 4.0，本站翻譯、頁面內署名） | G9 |
 | fantasy-gen | 奇幻隨機產生器（2026-11 新收錄；NPC、委託、陷阱、地點、地名、地標、遺物、法術捲軸、法術書、武器、護甲、寶藏、自訂產生器） | Sly Flourish／Lazy GM Tools（generators） | 引擎 CC0；名稱 SRD 5.1、SRD 5.2.1、BFRD 1.0、5e Artisanal Database 的共用詞（都是 CC BY 4.0，本站翻譯、頁面內署名）；其餘清單本站自己寫 | G9 |
+| floria-veins | 魔法脈繪製工具（翠緑のフローリア）（2026-11-10 新收錄；同人 TRPG『翠緑のフローリア』的魔法脈繪圖板：直線、多角形、塗色、傷害格，好幾張畫布、全員一覽、PNG、讀寫原作的資料；只有繪圖功能，不含規則書的內容） | Nuts-ABCd／floria_canvas | MIT（作品的權利屬於猫憑／六畳間幻想空間，二次創作規定未讀：只做繪圖、頁面內註明非官方） | G9 |
 
 ## 3. 群組（共用引擎＋同一套外框）
 
@@ -82,7 +83,7 @@
 | G6 劇本與紀錄 | 富文本與分頁排版、列印／PDF、紀錄資料庫 | scenario-editor、coc-typesetter、session-log、session-report、handout-maker、session-calendar（2026-10-27 另外加入）、pdf-compress（2026-10-28 另外加入） |
 | G7 介紹圖與宣傳 | 版型畫布（Konva）、3D（three.js） | pair-maker、character-select、magic-circle、acrylic-goods |
 | G8 影像與動圖 | 影片解碼、動圖編碼、程序生成 | video-anim、gif-combiner、music-frame |
-| G9 跑團輔助（2026-11-06 由「CoC 跑團輔助」改名：收錄不限 CoC） | CoC 規則（骰子算式、成功等級、DB／體格、衍生值）、5e 的規則資料（`core/srd5`）、戰鬥追蹤 | coc-dice、coc-npc、coc-sheet（由 trpg-lab 拆出）；combat-tracker、5e-calc、fantasy-gen（2026-11 另外加入；系統通用的先攻追蹤、5e 的速查與奇幻隨機產生器，共用 `core/srd5`、`core/combat`、`core/mirror`） |
+| G9 跑團輔助（2026-11-06 由「CoC 跑團輔助」改名：收錄不限 CoC） | CoC 規則（骰子算式、成功等級、DB／體格、衍生值）、5e 的規則資料（`core/srd5`）、戰鬥追蹤 | coc-dice、coc-npc、coc-sheet（由 trpg-lab 拆出）；combat-tracker、5e-calc、fantasy-gen（2026-11 另外加入；系統通用的先攻追蹤、5e 的速查與奇幻隨機產生器，共用 `core/srd5`、`core/combat`、`core/mirror`）；floria-veins（2026-11-10 另外加入；『翠緑のフローリア』的魔法脈繪圖板，用共用的 PanZoomViewport 盤面） |
 | G10 地圖與網格 | 格子幾何（方格／六角格、座標、距離）、地圖畫布（Fabric） | map-editor、grid-maker、range-ruler（由 trpg-lab 拆出）、battlemap（從 G8 移來）、map-fx（2026-10-25 另外加入；和 screenshot-fx 共用 core/imagefx，進階 3D 用 three.js）；tile-map（2026-11-05 另外加入；點陣圖塊編輯器，共用 PanZoomViewport 盤面與 core/grid，不用 Fabric） |
 
 G9 的決定（2026-10-08，使用者裁定）：trpg-lab 拆成 6 個工具（擲骰＋傷害計算合成 coc-dice、方格＋六角格合成 grid-maker、兩個量尺合成 range-ruler）、
@@ -269,6 +270,7 @@ music-frame 的原作搬到 zZnaptime/MVmaker（功能沒變），連結已修�
 | combat-tracker | 先攻與戰鬥追蹤（2026-11 另外加入；系統通用：先攻、輪數、HP 與臨時 HP、狀態與持續回合〔5e 的 SRD 5.2.1 狀態可以關〕、5e 的死亡豁免、拖曳與鎖定順序、玩家視圖〔另開視窗，共用 core/mirror〕、原作的 JSON、專案檔；5e 速查計算送來的怪物〔共用 core/combat〕） | Sly Flourish／Lazy GM Tools | 程式 CC0；規則 SRD 5.2.1（CC BY 4.0） | G9 | ✅ | ✅ | ✅ | ✅ |
 | 5e-calc | 5e 速查計算（2026-11 另外加入；遭遇預算〔SRD 5.2.1 的 XP 預算＋簡易遭遇基準〕、快速怪物數值〔CR 0～30、怪物的特色〕、能力值點數購買〔2024 背景／2014 種族〕；一鍵加進戰鬥追蹤；共用 core/srd5） | Sly Flourish／Lazy GM Tools | 程式 CC0；資料 SRD 5.2.1、SRD 5.1、LGMRD（CC BY 4.0） | G9 | ✅ | ✅ | ✅ | ✅ |
 | fantasy-gen | 奇幻隨機產生器（2026-11-05 另外加入，batch-lazygm；NPC、委託、陷阱、地點、地名、地標、遺物、法術捲軸、法術書、獨特武器與護甲、三種寶藏〔Lazy 5e、SRD 5.2、Black Flag〕與自訂產生器；隨機表引擎照原作 generator.js 的語法改寫；名詞「繁中（英文）」） | Sly Flourish／Lazy GM Tools（mshea/lazy_gm_tools 的 5e Artisanal Database，generators） | 程式 CC0；資料：SRD 5.1、SRD 5.2、BFRD 1.0 與 5e Artisanal Database 的共用詞 CC BY 4.0（翻譯、頁面內署名）、location_names CC0；其他清單沒有寫明授權（本站自己寫）；Kobold 的 OGL 內容不收 | G9 | ✅ | ✅ | ✅ | ✅ |
+| floria-veins | 魔法脈繪製工具（翠緑のフローリア）（2026-11-10 另外加入；直線、多角形、塗色〔吸附線的交點〕、傷害格；好幾張畫布〔角色 11×11、隨從 6×6〕與全員一覽；草稿的每一點都能復原、右鍵退一點、移動與反轉旋轉、我的圖形；PNG〔這張、全部排成一張、各一張〕；讀寫原作的資料；觸控；魔法植物等規則書的內容不收） | Nuts-ABCd／floria_canvas | MIT（作品：猫憑／六畳間幻想空間，頁面內註明非官方） | G9 | ✅ | ✅ | ✅ | ✅ |
 
 上游更新的跟進（已上線的工具加功能，照一般的規格修訂與驗證）：
 
