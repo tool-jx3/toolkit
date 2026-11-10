@@ -79,6 +79,7 @@ import {
   Smile,
   Sparkles,
   Spline,
+  Sprout,
   SquareUser,
   Stamp,
   Subtitles,
@@ -185,6 +186,7 @@ const ICONS: Record<string, LucideIcon> = {
   'coc-sheet': NotebookTabs,
   'npc-names': Contact,
   'fantasy-gen': WandSparkles,
+  'floria-veins': Sprout,
   'trpg-lab': FlaskConical,
   /* G10 地圖與網格 */
   battlemap: MapIcon,
