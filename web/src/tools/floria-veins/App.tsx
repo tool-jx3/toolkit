@@ -216,7 +216,9 @@ export function App() {
         version={DATA_VERSION}
         getData={() => projectData(docNow())}
         saveFileName={fileName}
-        onLoad={(raw) => {
+        onLoad={(raw, file) => {
+          /* 較新版本的工具存的檔：不開（驗證後補） */
+          if ((file.version ?? 0) > DATA_VERSION) throw new Error(S.project.newer);
           const d = sanitizeDoc(raw);
           if (!d) return false;
           replaceDoc(d, { clearHistory: true });

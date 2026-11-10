@@ -270,7 +270,7 @@ music-frame 的原作搬到 zZnaptime/MVmaker（功能沒變），連結已修�
 | combat-tracker | 先攻與戰鬥追蹤（2026-11 另外加入；系統通用：先攻、輪數、HP 與臨時 HP、狀態與持續回合〔5e 的 SRD 5.2.1 狀態可以關〕、5e 的死亡豁免、拖曳與鎖定順序、玩家視圖〔另開視窗，共用 core/mirror〕、原作的 JSON、專案檔；5e 速查計算送來的怪物〔共用 core/combat〕） | Sly Flourish／Lazy GM Tools | 程式 CC0；規則 SRD 5.2.1（CC BY 4.0） | G9 | ✅ | ✅ | ✅ | ✅ |
 | 5e-calc | 5e 速查計算（2026-11 另外加入；遭遇預算〔SRD 5.2.1 的 XP 預算＋簡易遭遇基準〕、快速怪物數值〔CR 0～30、怪物的特色〕、能力值點數購買〔2024 背景／2014 種族〕；一鍵加進戰鬥追蹤；共用 core/srd5） | Sly Flourish／Lazy GM Tools | 程式 CC0；資料 SRD 5.2.1、SRD 5.1、LGMRD（CC BY 4.0） | G9 | ✅ | ✅ | ✅ | ✅ |
 | fantasy-gen | 奇幻隨機產生器（2026-11-05 另外加入，batch-lazygm；NPC、委託、陷阱、地點、地名、地標、遺物、法術捲軸、法術書、獨特武器與護甲、三種寶藏〔Lazy 5e、SRD 5.2、Black Flag〕與自訂產生器；隨機表引擎照原作 generator.js 的語法改寫；名詞「繁中（英文）」） | Sly Flourish／Lazy GM Tools（mshea/lazy_gm_tools 的 5e Artisanal Database，generators） | 程式 CC0；資料：SRD 5.1、SRD 5.2、BFRD 1.0 與 5e Artisanal Database 的共用詞 CC BY 4.0（翻譯、頁面內署名）、location_names CC0；其他清單沒有寫明授權（本站自己寫）；Kobold 的 OGL 內容不收 | G9 | ✅ | ✅ | ✅ | ✅ |
-| floria-veins | 魔法脈繪製工具（翠緑のフローリア）（2026-11-10 另外加入；直線、多角形、塗色〔吸附線的交點〕、傷害格；好幾張畫布〔角色 11×11、隨從 6×6〕與全員一覽；草稿的每一點都能復原、右鍵退一點、移動與反轉旋轉、我的圖形；PNG〔這張、全部排成一張、各一張〕；讀寫原作的資料；觸控；魔法植物等規則書的內容不收） | Nuts-ABCd／floria_canvas | MIT（作品：猫憑／六畳間幻想空間，頁面內註明非官方） | G9 | ✅ | ✅ | ⬜ | ⬜ |
+| floria-veins | 魔法脈繪製工具（翠緑のフローリア）（2026-11-10 另外加入；直線、多角形、塗色〔吸附線的交點〕、傷害格；好幾張畫布〔角色 11×11、隨從 6×6〕與全員一覽；草稿的每一點都能復原、右鍵退一點、移動與反轉旋轉、我的圖形；PNG〔這張、全部排成一張、各一張〕；讀寫原作的資料；觸控；魔法植物等規則書的內容不收） | Nuts-ABCd／floria_canvas | MIT（作品：猫憑／六畳間幻想空間，頁面內註明非官方） | G9 | ✅ | ✅ | ✅ | ✅ |
 
 上游更新的跟進（已上線的工具加功能，照一般的規格修訂與驗證）：
 

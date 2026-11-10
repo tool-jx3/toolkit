@@ -435,6 +435,23 @@ test.describe('1280 寬', () => {
     await chooser.setFiles(path);
     await page.getByRole('alertdialog').getByRole('button', { name: '開啟' }).click();
     expect((await active(page)).lines).toHaveLength(1);
+    /* 較新版本的工具存的檔：不開、提示（驗證後補） */
+    const newer = JSON.parse(readFileSync(path, 'utf8'));
+    newer.version = 2;
+    await btn(page, '專案').click();
+    const chooser2 = await waitForFileChooser(page, () =>
+      page.getByRole('menuitem', { name: '開啟專案檔…' }).click(),
+    );
+    await chooser2.setFiles({
+      name: 'newer.json',
+      mimeType: 'application/json',
+      buffer: Buffer.from(JSON.stringify(newer)),
+    });
+    await page.getByRole('alertdialog').getByRole('button', { name: '開啟' }).click();
+    await expect(
+      page.getByText('這個專案檔是用較新版本的工具存的，請重新整理頁面後再開啟。'),
+    ).toBeVisible();
+    expect((await active(page)).lines).toHaveLength(1);
     /* 讀入原作的資料（貼上） */
     await btn(page, '專案').click();
     await page.getByRole('menuitem', { name: '讀入原作的資料…' }).click();
