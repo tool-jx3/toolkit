@@ -101,6 +101,8 @@ export const S = {
   fEnd: '結束',
   fLane: '泳道',
   fPlace: '地點',
+  fPlaceTestimony: '地點（證詞）',
+  placeTestimonyHint: '這裡寫 PL 聽到的地點；實際的地點寫在下面的真相。',
   fPeople: '相關角色',
   peopleHint: '以「、」分隔；點下面的名字加入。',
   fCategory: '分類',
@@ -275,6 +277,7 @@ export const S = {
     countdown: 'T-0＝開始時刻＋時間幅；之前寫「T-01:30」、之後寫「T+00:15」（也可以輸入 T-90m）。',
     phase: '階段 1＝開始時刻起的第一段，每段的長度在下面設；輸入「階段 2」「階段 2 +15 分」。',
   } as Record<string, string>,
+  scheduleDayHint: '第 N 天從 06:00 換日，00:00～06:00 算前一天的夜。',
   fSessionStart: '開始時刻',
   sessionStartHint: '第 1 天的幾點開始（HH:MM）。',
   sessionStartBad: '開始時刻要寫成 HH:MM（00:00～23:59），沒有套用。',
@@ -430,6 +433,8 @@ export const S = {
   csvImport: '讀入 CSV…',
   csvPaste: '貼上表格…',
   csvExported: (name: string) => `已匯出「${name}」`,
+  plFullData: 'PL 檢視時匯出 CSV、存成專案檔也是完整的資料，含 GM 的內容與真相；不要直接交給玩家。',
+  plSavedFull: '存的是完整的資料（含 GM 的內容與真相）',
   visTitle: 'vis-timeline 的資料',
   visHint:
     '讀入 vis-timeline 的 items、groups（DataSet 匯出的 JSON 陣列，或 { items, groups }）：content 當標題、title 當說明、group 當泳道、className 當分類；HTML 轉成純文字。',
@@ -516,7 +521,7 @@ export const S = {
   exampleLoaded: '已載入範例',
   loadMystery: '載入推理劇本的範例',
   mysteryConfirmTitle: '載入推理劇本的範例？',
-  mysteryLoaded: '已載入推理劇本的範例（山茶花莊的停電之夜）',
+  mysteryLoaded: '已載入推理劇本的範例（紅幕劇場的首演之夜）',
 
   /* 篩選（F91） */
   filterShort: '篩選',

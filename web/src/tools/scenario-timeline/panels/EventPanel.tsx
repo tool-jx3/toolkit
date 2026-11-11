@@ -334,7 +334,10 @@ function EventEditor({ ev, pl, vdoc }: { ev: TimelineEvent; pl: boolean; vdoc: V
           options={laneOptions}
         />
       </Field>
-      <Field label={S.fPlace}>
+      <Field
+        label={ev.scope ? S.fPlaceTestimony : S.fPlace}
+        hint={ev.scope ? S.placeTestimonyHint : undefined}
+      >
         <TextInput
           value={ev.place}
           list={placesId}

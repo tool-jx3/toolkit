@@ -253,7 +253,21 @@ function SessionFields({ pl }: { pl: boolean }) {
   const style = session?.style ?? DAY_STYLE;
   return (
     <>
-      <Field label={S.fSession} hint={S.sessionHints[style as SessionStyle | '__day']}>
+      <Field
+        label={S.fSession}
+        hint={
+          style === 'schedule' ? (
+            <>
+              <span className="block">{S.sessionHints.schedule}</span>
+              <span className="block" data-testid="schedule-day-hint">
+                {S.scheduleDayHint}
+              </span>
+            </>
+          ) : (
+            S.sessionHints[style as SessionStyle | '__day']
+          )
+        }
+      >
         <Select
           value={style}
           disabled={pl}

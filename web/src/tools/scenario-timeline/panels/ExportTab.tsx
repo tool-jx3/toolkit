@@ -555,7 +555,12 @@ function CsvSection() {
             const d = docNow();
             const name = `${fileBase(d)}_${S.fileName.csv}.csv`;
             downloadText(eventsToCsv(d), name, 'text/csv;charset=utf-8');
-            notify({ title: S.csvExported(name), tone: 'success' });
+            /* PL 檢視時也是完整的資料（F64）：提醒一句 */
+            notify(
+              prefsNow().viewMode === 'pl'
+                ? { title: S.csvExported(name), description: S.plFullData, tone: 'warning' }
+                : { title: S.csvExported(name), tone: 'success' },
+            );
           }}
         >
           {S.csvExport}
@@ -579,6 +584,11 @@ function CsvSection() {
           {S.csvPaste}
         </Button>
       </div>
+      {pl ? (
+        <p className="m-0 text-xs text-warning" data-testid="csv-pl-note">
+          {S.plFullData}
+        </p>
+      ) : null}
     </Section>
   );
 }

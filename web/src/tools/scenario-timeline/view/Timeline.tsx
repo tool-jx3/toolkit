@@ -432,7 +432,11 @@ export function Timeline() {
   const flags = useMemo(
     () =>
       placeFlags(
-        collectFlags(vdoc, { progress: S.progress, now: S.now }, showNow ? now : null),
+        collectFlags(
+          vdoc,
+          { progress: S.progress, now: S.now, exit: S.exitDefault, untitled: S.untitled },
+          showNow ? now : null,
+        ),
         xOf,
         flagMeasure,
       ),
@@ -1023,7 +1027,7 @@ export function Timeline() {
   const onFlagPointerDown = (e: ReactPointerEvent<HTMLElement>, f: Flag) => {
     if (e.button !== 0) return;
     e.stopPropagation();
-    if (isPl() || f.kind === 'now') return;
+    if (isPl() || f.kind === 'now' || f.kind === 'exit') return;
     const doc = docNow();
     const time =
       f.kind === 'progress'
@@ -1191,7 +1195,7 @@ export function Timeline() {
 
   const onFlagKeyDown = (e: ReactKeyboardEvent<HTMLElement>, f: Flag) => {
     if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
-    if (e.altKey || e.ctrlKey || e.metaKey || f.kind === 'now') return;
+    if (e.altKey || e.ctrlKey || e.metaKey || f.kind === 'now' || f.kind === 'exit') return;
     e.preventDefault();
     e.stopPropagation();
     if (!guard()) return;
@@ -1324,7 +1328,7 @@ export function Timeline() {
                 x={xOf(f.v)}
                 top={AXIS_ROW * 2 + FLAG_GAP + f.level * (FLAG_H + FLAG_GAP)}
                 gm={!pl}
-                editable={!pl && f.kind !== 'now'}
+                editable={!pl && f.kind !== 'now' && f.kind !== 'exit'}
                 onPointerDown={onFlagPointerDown}
                 onKeyDown={onFlagKeyDown}
               />
@@ -1413,21 +1417,23 @@ export function Timeline() {
                 />
               );
             })}
-            {flags.flags.map((f) => (
-              <div
-                key={`l${f.id}`}
-                aria-hidden
-                data-flag-line={f.kind}
-                className="pointer-events-none absolute top-0 bottom-0 z-[2]"
-                style={{
-                  left: Math.round(xOf(f.v)),
-                  borderLeft:
-                    f.kind === 'marker'
-                      ? `1.5px dashed ${!pl && f.secret ? GM_COLOR : f.color}`
-                      : `2px solid ${f.kind === 'progress' ? 'var(--accent)' : f.color}`,
-                }}
-              />
-            ))}
+            {flags.flags
+              .filter((f) => f.kind !== 'exit')
+              .map((f) => (
+                <div
+                  key={`l${f.id}`}
+                  aria-hidden
+                  data-flag-line={f.kind}
+                  className="pointer-events-none absolute top-0 bottom-0 z-[2]"
+                  style={{
+                    left: Math.round(xOf(f.v)),
+                    borderLeft:
+                      f.kind === 'marker'
+                        ? `1.5px dashed ${!pl && f.secret ? GM_COLOR : f.color}`
+                        : `2px solid ${f.kind === 'progress' ? 'var(--accent)' : f.color}`,
+                  }}
+                />
+              ))}
             {layout.rows.map((row) => {
               const ex = row.lane?.exit;
               if (!ex || row.key !== row.lane?.id) return null;
@@ -1443,7 +1449,6 @@ export function Timeline() {
                   top={row.y}
                   height={row.height - 1}
                   width={width}
-                  label={ex.label.trim() || S.exitDefault}
                   title={S.exitTitle(
                     row.lane?.name.trim() || S.untitled,
                     formatLong(mode, t, vdoc),
@@ -1909,7 +1914,15 @@ const Item = memo(function Item({
     'data-masked': masked || undefined,
     'data-face': (!truth && e.scope) || undefined,
     'data-dim': dim || undefined,
-    onKeyDown: (ev: ReactKeyboardEvent<HTMLElement>) => onKeyDown(ev, owner),
+    onKeyDown: (ev: ReactKeyboardEvent<HTMLElement>) => {
+      /* 真相那一筆按 Enter：焦點到「真相的行動」（和雙擊一樣，F116） */
+      if (truth && ev.key === 'Enter') {
+        ev.preventDefault();
+        editEvent(owner, 'truth');
+        return;
+      }
+      onKeyDown(ev, owner);
+    },
     /* 鍵盤（Tab）移到事件上＝選取 */
     onFocus: () => selectOnFocus(owner),
   };
@@ -2106,14 +2119,13 @@ function FaceBadges({ e, gm }: { e: VisibleEvent; gm: boolean }) {
   );
 }
 
-/** 泳道的退場時刻之後（F121）：灰色斜線、紅色虛線與標籤（不擋點選） */
+/** 泳道的退場時刻之後（F121）：灰色斜線、紅色虛線（不擋點選；標籤是標記列的旗子，不會壓到事件） */
 function ExitBand({
   laneId,
   x,
   top,
   height,
   width,
-  label,
   title,
 }: {
   laneId: string;
@@ -2121,7 +2133,6 @@ function ExitBand({
   top: number;
   height: number;
   width: number;
-  label: string;
   title: string;
 }) {
   const left = Math.max(-2, x);
@@ -2141,16 +2152,7 @@ function ExitBand({
         backgroundColor: 'rgb(107 114 128 / 0.08)',
         borderLeft: x >= -2 ? '1.5px dashed var(--danger)' : undefined,
       }}
-    >
-      {x >= -2 ? (
-        <span
-          className="absolute bottom-[3px] left-[3px] rounded-[3px] border border-danger bg-bg px-1 text-[10px] leading-[12px] font-bold whitespace-nowrap text-danger"
-          data-exit-label
-        >
-          {label}
-        </span>
-      ) : null}
-    </div>
+    />
   );
 }
 

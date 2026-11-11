@@ -306,7 +306,11 @@ export function buildPicture(input: PictureInput): Picture {
   });
   const ticks = axisTicks(vdoc.mode, range.a, range.b, k, M.small, vdoc);
   const flags = placeFlags(
-    collectFlags(vdoc, { progress: S.progress, now: S.now }, input.nowV),
+    collectFlags(
+      vdoc,
+      { progress: S.progress, now: S.now, exit: S.exit, untitled: S.untitled },
+      input.nowV,
+    ),
     xOf,
     M.small,
   );
@@ -527,7 +531,7 @@ export function buildPicture(input: PictureInput): Picture {
         fill: pal.muted,
       });
   }
-  /* 退場時刻之後（F121）：灰色斜線、紅色虛線、標籤（在事件的下面） */
+  /* 退場時刻之後（F121）：灰色斜線、紅色虛線（在事件的下面；標籤是標記列的旗子） */
   for (const row of layout.rows) {
     const ex = row.lane?.exit;
     if (!ex || row.key !== row.lane?.id) continue;
@@ -549,33 +553,11 @@ export function buildPicture(input: PictureInput): Picture {
         sw: 1.5,
         dash: [4, 3],
       });
-      const label = ex.label.trim() || S.exit || '';
-      if (label) {
-        const lw = M.small(label) + 10;
-        track.push({
-          t: 'rect',
-          x: x + 3,
-          y: y + row.height - 17,
-          w: lw,
-          h: 14,
-          r: 3,
-          fill: pal.bg,
-          stroke: exitInk(theme),
-          sw: 1,
-        });
-        track.push({
-          t: 'text',
-          x: x + 8,
-          y: y + row.height - 6,
-          text: label,
-          size: 10,
-          weight: 700,
-          fill: exitInk(theme),
-        });
-      }
     }
   }
   for (const f of flags.flags) {
+    /* 退場的線只畫在那一列（上面） */
+    if (f.kind === 'exit') continue;
     const x = xOf(f.v);
     const color = f.kind === 'progress' ? pal.accent : f.color;
     track.push({

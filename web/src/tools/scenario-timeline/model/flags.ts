@@ -4,10 +4,11 @@
  */
 import { stackLevels } from './layout';
 import { readTime } from './time';
-import { NOW_COLOR } from './types';
+import { EXIT_COLOR, NOW_COLOR } from './types';
 import { progressValue, type VisibleDoc } from './visible';
 
-export type FlagKind = 'marker' | 'progress' | 'now';
+/** exit：泳道的退場時刻（F121；旗子寫「<泳道> <寫法>」，不畫貫穿全部泳道的線、不能拖） */
+export type FlagKind = 'marker' | 'progress' | 'now' | 'exit';
 
 export interface Flag {
   id: string;
@@ -38,7 +39,7 @@ export const flagRowHeight = (levels: number) =>
 /** 要畫的旗子（標記、目前進度、現在時刻） */
 export function collectFlags(
   vdoc: VisibleDoc,
-  labels: { progress: string; now: string },
+  labels: { progress: string; now: string; exit?: string; untitled?: string },
   nowV: number | null,
 ): Flag[] {
   const out: Flag[] = [];
@@ -76,8 +77,27 @@ export function collectFlags(
       secret: false,
       gm: false,
     });
+  /* 退場時刻（F121）：標籤放在標記列，不會壓到泳道裡的事件 */
+  for (const l of vdoc.lanes) {
+    if (!l.exit) continue;
+    const t = readTime(vdoc.mode, l.exit.time, vdoc);
+    if (!t) continue;
+    const name = l.name.trim() || labels.untitled || '';
+    out.push({
+      id: `${EXIT_FLAG}${l.id}`,
+      kind: 'exit',
+      v: t.v,
+      label: `${name} ${l.exit.label.trim() || labels.exit || '退場'}`,
+      color: EXIT_COLOR,
+      secret: false,
+      gm: false,
+    });
+  }
   return out;
 }
+
+/** 退場的旗子的 id：前面加這個 */
+export const EXIT_FLAG = '__exit:';
 
 /** 旗子的位置：從線往右畫，重疊時往下一層（最多 3 層，再多就疊在第 3 層） */
 export function placeFlags(

@@ -7,7 +7,7 @@
  * 版面：共用外框；設定欄四個分頁（事件、泳道、專案、匯出）；預覽欄是工具列＋時間軸或年表。
  */
 import { Redo2, Undo2 } from 'lucide-react';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { decodeText } from '@/core/files';
 import { clearPrintFrames } from '@/core/paged';
 import { useSaveError, useSaveStatus, useUndoRedo } from '@/core/storage';
@@ -157,6 +157,11 @@ function Project() {
       resetDisabled={pl}
       savedAt={savedAt}
       statusText={saveError ? S.saveFailed : undefined}
+      onSaved={() => {
+        /* PL 檢視時存的也是完整的資料（F64）：提醒一句 */
+        if (prefsNow().viewMode === 'pl')
+          notify({ title: S.plSavedFull, description: S.plFullData, tone: 'warning' });
+      }}
       extraItems={
         <>
           <ProjectMenuItem
@@ -217,15 +222,19 @@ function Glue() {
     if (rest.length !== selectedIds.length) selectMany(rest, useUi.getState().selectedId);
   }, [events, selectedIds]);
   /*
-   * 切到 PL 檢視時拿掉 GM 檢視印過的列印文件（共用的列印把 iframe 留到下一次列印，它的 srcdoc 屬性有 GM 用的年表；
-   * PL 檢視的頁面不能有 GM 專用的內容，F61）
+   * 換檢視時拿掉印過的列印文件（共用的列印把 iframe 留到下一次列印，它的 srcdoc 屬性是印過的年表）：
+   * PL 檢視的頁面不能有 GM 專用的內容（F61）、人物別換人時不能留著別人的真相（F118）；
+   * PL 檢視切回 GM 檢視、任何視角的切換也一樣拿掉（印過的不是目前看到的）
    */
   const viewMode = usePrefs((s) => s.data.viewMode);
-  /* 人物別換人時也拿掉（印過的是別人的真相，F118） */
   const pov = usePrefs((s) => s.data.pov ?? '');
+  const viewKey = `${viewMode}\u0000${viewMode === 'pl' ? pov : ''}`;
+  const lastView = useRef(viewKey);
   useEffect(() => {
-    if (viewMode === 'pl' && pov !== null) clearPrintFrames();
-  }, [viewMode, pov]);
+    if (lastView.current === viewKey) return;
+    lastView.current = viewKey;
+    clearPrintFrames();
+  }, [viewKey]);
   return (
     <>
       <NotifyBridge />

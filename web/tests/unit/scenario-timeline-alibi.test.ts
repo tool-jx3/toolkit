@@ -463,7 +463,8 @@ describe('年表、進行表、圖片（F122、F123）', () => {
     const gm = pictureToSvg(pic('gm'));
     expect(gm).toContain('>真相甲潛入金庫<');
     expect(gm).toContain('>證詞<');
-    expect(gm).toContain('>失蹤<');
+    /* 退場的標籤在標記列（旗子），不壓到泳道裡的事件 */
+    expect(gm).toContain('>人物乙 失蹤<');
     const pl = pictureToSvg(pic('pl'));
     expect(pl).toContain(`>${REDACTED}<`);
     /* 證詞的小標只有知道真相的（調查後公開的乙）才有 */
@@ -888,21 +889,26 @@ describe('CSV（F75 的公開範圍欄）', () => {
 });
 
 describe('推理劇本的範例（F130）', () => {
-  it('五個人物、一個地點；偽裝、伏字、完全保密、調查後公開、退場、時刻的標示都有用到', () => {
+  it('五個人物、一個地點；偽裝、伏字、完全保密、調查後公開、退場、時刻的標示、背景都有用到', () => {
     const d = normalizeDoc(mysteryDoc()) as TimelineDoc;
-    expect(d.session?.style).toBe('clock');
+    expect(d.title).toBe('紅幕劇場的首演之夜');
+    expect(d.session).toEqual({ style: 'clock', start: 1080, length: 300, phase: 60 });
     expect(d.lanes.filter((l) => l.kind !== 'place')).toHaveLength(5);
-    expect(d.lanes.find((l) => l.exit)?.exit).toEqual({ time: t('21:15'), label: '死亡' });
+    expect(d.lanes.find((l) => l.exit)?.exit).toEqual({ time: t('21:47'), label: '死亡' });
     const faces = new Set(d.events.map(faceOf));
     expect([...faces].sort()).toEqual(['alibi', 'public', 'redacted', 'secret']);
     expect(d.events.some((e) => e.revealed)).toBe(true);
+    expect(d.events.filter((e) => e.kind === 'background')).toHaveLength(3);
+    expect(d.links.some((k) => k.gm && !k.revealed)).toBe(true);
+    expect(d.links.some((k) => k.gm && k.revealed)).toBe(true);
     /* 偽裝的真相時間、地點和證詞不同 */
-    const ye = d.events.find((e) => e.id === 'mx-ye-room');
-    expect(ye?.truth?.place).not.toBe(ye?.place);
-    expect(ye?.truth?.start).not.toBe(ye?.start);
-    /* PL 版看不到醫師的真相；醫師的人物別看得到 */
-    expect(JSON.stringify(visibleDoc(d, 'pl'))).not.toContain('下藥');
-    expect(JSON.stringify(visibleDoc(d, 'pl', 'mx-ye'))).toContain('下藥');
-    expect(readTime('day', d.events[0].start, d)?.v).toBe(18 * 60 + 30);
+    const alibi = d.events.find((e) => e.id === 'mx-jiang-room');
+    expect(alibi?.truth?.place).not.toBe(alibi?.place);
+    expect(alibi?.truth?.start).not.toBe(alibi?.start);
+    /* PL 版看不到服裝師的真相；服裝師的人物別看得到 */
+    const truth = '解開沙袋配重的繩結';
+    expect(JSON.stringify(visibleDoc(d, 'pl'))).not.toContain(truth);
+    expect(JSON.stringify(visibleDoc(d, 'pl', 'mx-jiang'))).toContain(truth);
+    expect(readTime('day', d.events[0].start, d)?.v).toBe(19 * 60 + 30);
   });
 });
