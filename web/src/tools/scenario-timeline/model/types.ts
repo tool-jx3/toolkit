@@ -4,6 +4,7 @@
  */
 import { type Calendar, emptyCalendar, normalizeCalendar } from './calendar';
 import { LINK_LIMITS, type Link, normalizeLinks } from './links';
+import { normalizeSession, type Session } from './session';
 import {
   afterUnit,
   canonical,
@@ -25,6 +26,30 @@ export interface Lane {
   /** 上層泳道（只有一層）；空字串＝最上層 */
   parentId: string;
   gm: boolean;
+  /** 退場時刻（F121：死亡、失蹤…；之後畫成灰色斜線；只有設了時才有這個欄位） */
+  exit?: LaneExit;
+}
+
+/** 泳道的退場（F121） */
+export interface LaneExit {
+  time: string;
+  /** 退場的寫法（「死亡」「失蹤」…；空白＝「退場」） */
+  label: string;
+}
+
+/**
+ * 事件的公開範圍（F116、F117）：偽裝（PL 看到證詞，真相另外寫）、伏字（PL 看到「？？？」）。
+ * 沒有＝公開；完全保密是 GM 專用（gm）。
+ */
+export type EventScope = 'alibi' | 'redacted';
+export const EVENT_SCOPES: readonly EventScope[] = ['alibi', 'redacted'];
+
+/** 真相（F116）：時間、地點可以和證詞不同；開始、結束空白＝和證詞相同 */
+export interface Truth {
+  title: string;
+  start: string;
+  end: string;
+  place: string;
 }
 
 export interface Category {
@@ -51,6 +76,12 @@ export interface TimelineEvent {
   gm: boolean;
   description: string;
   gmNote: string;
+  /** 公開範圍（F116；沒有＝公開，gm＝完全保密；以下三個欄位只有用了才有） */
+  scope?: EventScope;
+  /** 真相（偽裝、伏字的時候用） */
+  truth?: Truth;
+  /** 調查後公開（F119）：PL 也看得到真相（完全保密的整個事件也看得到） */
+  revealed?: boolean;
 }
 
 export interface Marker {
@@ -59,6 +90,8 @@ export interface Marker {
   time: string;
   color: string;
   gm: boolean;
+  /** 調查後公開（F119：GM 專用的標記 PL 也看得到） */
+  revealed?: boolean;
 }
 
 export interface Progress {
@@ -87,7 +120,14 @@ export interface TimelineDoc {
   calendar: Calendar;
   /** 事件之間的關聯線（F93） */
   links: Link[];
+  /** 第 N 天的標示（F124：時刻、日程、倒數、階段；只有第 N 天、設了時才有） */
+  session?: Session;
+  /** 固定的吸附（F128：15、30、60 分；日期時間、第 N 天；沒有＝依刻度） */
+  snap?: number;
 }
+
+/** 固定吸附的選項（分） */
+export const SNAP_CHOICES = [15, 30, 60] as const;
 
 export const LIMITS = {
   events: 3000,
@@ -103,6 +143,7 @@ export const LIMITS = {
   text: 4000,
   label: 60,
   links: LINK_LIMITS.links,
+  exitLabel: 12,
 } as const;
 
 /** 預設色（規格 3.6） */
@@ -119,6 +160,9 @@ export const PALETTE = [
 ] as const;
 export const DEFAULT_EVENT_COLOR = '#4f7cff';
 export const GM_COLOR = '#d99a1e';
+/** 真相（F116）的紅色、退場（F121）的深紅 */
+export const TRUTH_COLOR = '#c2410c';
+export const EXIT_COLOR = '#b42318';
 export const NOW_COLOR = '#e5484d';
 
 export const LANE_KINDS: readonly LaneKind[] = ['character', 'npc', 'place', 'faction', 'other'];
@@ -275,8 +319,14 @@ export function normalizeDoc(raw: unknown, report?: NormalizeReport): TimelineDo
   if (r.mode !== undefined && r.mode !== mode) rep.unknownMode = String(r.mode).slice(0, 20);
   const eraName = str(r.era, ERA_MAX);
   const calendar = normalizeCalendar(r.calendar);
-  /* 時間的脈絡：曆名＋架空曆（只有架空年用得到月份） */
-  const era: EraArg = { era: eraName, calendar };
+  /* 第 N 天的標示（F124）與固定的吸附（F128） */
+  const session = mode === 'day' ? normalizeSession(r.session) : null;
+  const snap =
+    mode !== 'year' && SNAP_CHOICES.includes(r.snap as (typeof SNAP_CHOICES)[number])
+      ? (r.snap as number)
+      : 0;
+  /* 時間的脈絡：曆名＋架空曆（只有架空年用得到月份）＋標示（只影響讀寫的寬鬆程度，存檔是標準寫法） */
+  const era: EraArg = { era: eraName, calendar, session };
   const used = new Set<string>();
   const uid = (v: unknown, prefix: string) => {
     let id = typeof v === 'string' && v && v.length <= 64 ? v : newId(prefix);
@@ -297,6 +347,7 @@ export function normalizeDoc(raw: unknown, report?: NormalizeReport): TimelineDo
       color: color(l.color, PALETTE[i % PALETTE.length]),
       parentId: typeof l.parentId === 'string' ? l.parentId : '',
       gm: bool(l.gm),
+      ...laneExit(mode, l.exit, era),
     }));
   const laneIds = new Set(lanes.map((l) => l.id));
   /* 上層：要存在、不是自己、本身是最上層（只有一層） */
@@ -364,6 +415,7 @@ export function normalizeDoc(raw: unknown, report?: NormalizeReport): TimelineDo
       gm: bool(o.gm),
       description: str(o.description, LIMITS.text),
       gmNote: str(o.gmNote, LIMITS.text),
+      ...eventFace(mode, o, era),
     });
   }
 
@@ -390,6 +442,7 @@ export function normalizeDoc(raw: unknown, report?: NormalizeReport): TimelineDo
       time,
       color: color(o.color, '#8a63d2'),
       gm: bool(o.gm),
+      ...(o.revealed === true ? { revealed: true } : {}),
     });
   }
 
@@ -417,7 +470,44 @@ export function normalizeDoc(raw: unknown, report?: NormalizeReport): TimelineDo
     sample: bool(r.sample),
     calendar,
     links: linked.links,
+    ...(session ? { session } : {}),
+    ...(snap ? { snap } : {}),
   };
+}
+
+/** 退場（F121）：時間看得懂時才有 */
+function laneExit(mode: TimeMode, raw: unknown, era: EraArg): { exit?: LaneExit } {
+  if (!raw || typeof raw !== 'object') return {};
+  const o = raw as Record<string, unknown>;
+  const time = cleanTime(mode, o.time, era);
+  if (!time) return {};
+  return { exit: { time, label: str(o.label, LIMITS.exitLabel) } };
+}
+
+/** 真相有沒有內容 */
+export const truthUsed = (t: Truth | undefined): t is Truth =>
+  !!t && !!(t.title.trim() || t.start || t.end || t.place.trim());
+
+/** 公開範圍、真相、調查後公開（F116～F119）：用了才有欄位（沒用的事件和第三批的資料逐欄位相同） */
+function eventFace(
+  mode: TimeMode,
+  o: Record<string, unknown>,
+  era: EraArg,
+): Pick<TimelineEvent, 'scope' | 'truth' | 'revealed'> {
+  const out: Pick<TimelineEvent, 'scope' | 'truth' | 'revealed'> = {};
+  if (EVENT_SCOPES.includes(o.scope as EventScope)) out.scope = o.scope as EventScope;
+  if (o.truth && typeof o.truth === 'object') {
+    const t = o.truth as Record<string, unknown>;
+    const truth: Truth = {
+      title: str(t.title, LIMITS.eventTitle),
+      start: cleanTime(mode, t.start, era) ?? '',
+      end: cleanTime(mode, t.end, era) ?? '',
+      place: str(t.place, LIMITS.place),
+    };
+    if (truthUsed(truth)) out.truth = truth;
+  }
+  if (o.revealed === true) out.revealed = true;
+  return out;
 }
 
 /* ---------- 查詢 ---------- */

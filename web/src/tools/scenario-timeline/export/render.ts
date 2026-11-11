@@ -46,12 +46,36 @@ export function fileBase(doc: Pick<TimelineDoc, 'title'>): string {
   return safeFileName(doc.title.trim() || S.toolName, { fallback: S.toolName, maxLength: 60 });
 }
 
-export function imageFileName(doc: TimelineDoc, audience: Audience, ext: 'png' | 'svg'): string {
-  return `${fileBase(doc)}_${S.fileName.image}${audience === 'gm' ? `_${S.fileName.gm}` : ''}.${ext}`;
+/** 對象的檔名尾巴：GM 用「_GM」、人物別「_<名稱>」（F118）、PL 用沒有 */
+function audienceTail(doc: TimelineDoc, audience: Audience, pov = ''): string {
+  if (audience === 'gm') return `_${S.fileName.gm}`;
+  const lane = pov ? doc.lanes.find((l) => l.id === pov) : undefined;
+  if (!lane) return '';
+  const name = safeFileName(lane.name.trim() || S.untitled, {
+    fallback: S.untitled,
+    maxLength: 40,
+  });
+  return `_${name}`;
 }
 
-export function textFileName(doc: TimelineDoc, audience: Audience, ext: 'txt' | 'md'): string {
-  return `${fileBase(doc)}_${S.fileName.text}${audience === 'gm' ? `_${S.fileName.gm}` : ''}.${ext}`;
+export function imageFileName(
+  doc: TimelineDoc,
+  audience: Audience,
+  ext: 'png' | 'svg',
+  pov = '',
+): string {
+  return `${fileBase(doc)}_${S.fileName.image}${audienceTail(doc, audience, pov)}.${ext}`;
+}
+
+/** 文字的檔名：年表（時間順）或進行表（人物・地點別，F122） */
+export function textFileName(
+  doc: TimelineDoc,
+  audience: Audience,
+  ext: 'txt' | 'md',
+  pov = '',
+  byLane = false,
+): string {
+  return `${fileBase(doc)}_${byLane ? S.fileName.lanes : S.fileName.text}${audienceTail(doc, audience, pov)}.${ext}`;
 }
 
 /** 範圍的文字寫到哪裡：日期時間、第 N 天寫到分；架空年寫到年（有月份時寫到日；寫到時刻時到分，F110） */
@@ -62,9 +86,16 @@ function rangeTv(doc: TimelineDoc, v: number): Tv {
   return { v: Math.round(v), p: 'year' };
 }
 
-/** 給某個對象的資料；filter 給了時只留符合篩選的事件（「只匯出篩選的結果」，F91） */
-export function exportDoc(doc: TimelineDoc, audience: Audience, filter: FilterState | null) {
-  const vdoc = visibleDoc(doc, audience);
+/**
+ * 給某個對象的資料；filter 給了時只留符合篩選的事件（「只匯出篩選的結果」，F91）。pov：人物別（PL 用時，F118）
+ */
+export function exportDoc(
+  doc: TimelineDoc,
+  audience: Audience,
+  filter: FilterState | null,
+  pov = '',
+) {
+  const vdoc = visibleDoc(doc, audience, pov);
   return filter ? filteredDoc(vdoc, matchingIds(vdoc, filter)) : vdoc;
 }
 
@@ -76,8 +107,9 @@ export function planPicture(
   collapsed: Readonly<Record<string, boolean>>,
   nowV: number | null = nowValue(),
   filter: FilterState | null = null,
+  pov = ex.audience === 'pl' && ex.pov !== POV_ALL ? (ex.pov ?? '') : '',
 ): PlanResult {
-  const vdoc = exportDoc(doc, ex.audience, filter);
+  const vdoc = exportDoc(doc, ex.audience, filter, pov);
   let range: Span | null = null;
   let rangeText = '';
   if (ex.range === 'all') {
@@ -129,11 +161,23 @@ export function planPicture(
       progress: S.progress,
       now: S.now,
       rangeText,
+      ...(vdoc.pov ? { pov: S.povUse(laneName(doc, vdoc.pov)) } : {}),
+      truth: S.tagTruth,
+      alibi: S.tagAlibi,
+      redacted: S.tagRedacted,
+      opened: S.tagOpened,
+      exit: S.exitDefault,
     },
     nowV,
   });
   return { ok: true, pic, range };
 }
+
+/** 「人物別：全部各一張」（F118） */
+export const POV_ALL = '*';
+
+const laneName = (doc: TimelineDoc, id: string) =>
+  doc.lanes.find((l) => l.id === id)?.name.trim() || S.untitled;
 
 /** 載入畫圖要用的字（PNG） */
 async function ensurePictureFonts(pic: Picture): Promise<void> {

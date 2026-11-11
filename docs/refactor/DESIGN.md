@@ -889,6 +889,11 @@ loading-maker 預設（透明）、不透明背景＋預設的結尾動作（最
   第三批（2026-10-30）也沒有改共用層：架空曆寫到時刻（`calendar.ts` 的 `clock`、`CAL_DAY_MINUTES`、`minuteOfValue`／`valueOfMinute`：位置換回時刻一律經過「第幾分」的整數；
   `axis.ts` 的分、時階梯，`window.ts` 的最短 60 分）、年表列出關聯線（`chronicle.ts` 的 `ChronLink`、`linkText`、`chroniclePrintCss`）。
   有 GM／PL 檢視又會列印的工具注意：`@/core/paged` 的 `printPages` 把 iframe 留到下一次列印（`srcdoc` 是印過的內容），切到 PL 檢視時用 `clearPrintFrames()` 拿掉。
+  第四批（2026-11-11，參考 KIIN「事件タイムライン・アリバイ図面スタジオ」）也沒有改共用層：公開範圍與人物別在 `visible.ts`（`visibleDoc(doc, audience, pov?)`：
+  PL 版的偽裝把公開範圍的欄位整個拿掉、伏字只留時間與泳道；看得到的真相另外放在 `truths`，排版、畫圖、時間軸畫它，選取、篩選的 id 不算它）、
+  第 N 天的標示（時刻、日程、倒數、階段）的讀寫在 `session.ts`（存檔照舊是第 N 天；`time.ts` 的脈絡多 `session`、`snap`，`SnapUnit` 的分多一個起點 `o`）、
+  時間的插入與縮短在 `shift.ts`、人物・地點別的進行表在 `chronicle.ts`（`laneReport`）、推理劇本的範例在 `exampleMystery.ts`。
+  別的工具要「GM 版／PL 版／某個角色看到的版本」時可以參考 `visibleDoc` 的做法（PL 版的資料不留藏起來的欄位，連空字串也不留）。
 
 - G10 battlemap（戰鬥地圖產生器，2026-10-30 加 ondras/rot.js 的生成法與地圖尺寸）：沒有改共用層（大地圖的 Worker 用 `@/core/worker`，種子亂數用 `@/core/timeline` 的 `createRandom`）。
   沒有共用的：格局的生成法（`web/src/tools/battlemap/gen/`：房間＋走道、挖掘式〔rot.js Digger〕、均勻房間〔Uniform〕、格狀房間〔Rogue〕、天然洞窟〔Cellular〕、迷宮〔分割法、Eller、蜿蜒〕、
@@ -934,6 +939,8 @@ loading-maker 預設（透明）、不透明背景＋預設的結尾動作（最
 | NTSC 訊號（磁帶速度 SP／LP／EP、亮度拖影、色彩錯位、訊號雜訊、雪花、邊緣波動、色彩脫落、磁頭切換雜訊、追蹤雜訊、振鈴） | NTSC 信號、色度滲漏 |
 | Screen Loop 照寫英文（開關「攝影機拍電視（畫面隧道）」；層數、每一層的大小、消失點、角度、手持晃動、推進、旋轉、柔化、色彩、亮度、亮度鍵、無縫循環） | 視訊回授、Howlaround、Luma key |
 | 樣子（一鍵套用的一組效果；vhs-frame 的「樣子」區塊，和「字幕的樣子」一致） | 預設風格、Look、風格包 |
+| 推理劇本（謀殺之謎）的公開範圍（scenario-timeline 2026-11-11 登記）：證詞、真相、公開範圍（公開／偽裝／伏字／完全保密）、調查後公開（小標「查明」）、人物別（「<人物> 視角」「全體公開」）、退場時刻、進行表（時間順／人物・地點別） | 表の証言／裏の真相、偽裝不在場證明（說明裡可以並用）、伏せ字、完全秘匿、判明済み、POV、個別視點、死亡・退場、HO 文字 |
+| 時間的標示（scenario-timeline）：標示（第 N 天／時刻／日程／倒數／階段）、日程寫「第 1 天 早・午・晚・夜」、倒數寫「T-01:30」、階段寫「階段 2」、開始時刻、時間幅、吸附（依刻度／15 分…）、插入與縮短（往後挪、往前縮）、基準時間 | 時間模式、Day1 朝、カウントダウン、Phase（輸入時照樣接受）、グリッド、網格對齊 |
 
 標點用全形；英文與數字前後加半形空白。
 

@@ -12,11 +12,13 @@
  */
 import { type Calendar, calInfo, calParts, calValue } from './calendar';
 import { afterUnit, canonical, formatLong, readTime, type TimeCtx, type Tv } from './time';
-import type { Marker, TimelineDoc, TimelineEvent } from './types';
+import type { Lane, Marker, TimelineDoc, TimelineEvent } from './types';
 
 export interface CalendarPlan {
   events: TimelineEvent[];
   markers: Marker[];
+  /** 泳道的退場時刻（F121）也跟著換 */
+  lanes: Lane[];
   progressTime: string;
   /** 寫法改了但意思相同（月份排序） */
   renumbered: number;
@@ -71,6 +73,7 @@ export function planCalendar(doc: TimelineDoc, next: Calendar, untitled: string)
   const plan: CalendarPlan = {
     events: doc.events,
     markers: doc.markers,
+    lanes: doc.lanes,
     progressTime: doc.progress.time,
     renumbered: 0,
     adjusted: 0,
@@ -103,8 +106,16 @@ export function planCalendar(doc: TimelineDoc, next: Calendar, untitled: string)
       end = canonical('year', { v: a.tv.v, p }, newCtx);
       adjusted = true;
     }
-    const lossy = a.lossy || !!b?.lossy;
-    const same = a.text === e.start && end === e.end;
+    /* 真相的時間（F116）一起換（調整、失去精度算進這個事件） */
+    const tr = e.truth;
+    const ts = tr?.start ? remap(tr.start, oldCtx, newCtx) : null;
+    const te = tr?.end ? remap(tr.end, oldCtx, newCtx) : null;
+    if (ts?.adjusted || te?.adjusted) adjusted = true;
+    const truth =
+      tr && (ts || te) ? { ...tr, start: ts ? ts.text : tr.start, end: te ? te.text : tr.end } : tr;
+    const truthSame = !tr || (truth?.start === tr.start && truth?.end === tr.end);
+    const lossy = a.lossy || !!b?.lossy || !!ts?.lossy || !!te?.lossy;
+    const same = a.text === e.start && end === e.end && truthSame;
     /* 寫法沒變但意思變了（刪掉的月份換成同一個位置的月份）也算調整 */
     if (same && !adjusted && !lossy) return e;
     if (lossy) plan.lossy++;
@@ -116,7 +127,18 @@ export function planCalendar(doc: TimelineDoc, next: Calendar, untitled: string)
         b ? [e.start, e.end] : [e.start],
         b ? [a.text, end] : [a.text],
       );
-    return same ? e : { ...e, start: a.text, end };
+    if (same) return e;
+    return truthSame ? { ...e, start: a.text, end } : { ...e, start: a.text, end, truth };
+  });
+  plan.lanes = doc.lanes.map((l) => {
+    if (!l.exit) return l;
+    const r = remap(l.exit.time, oldCtx, newCtx);
+    if (r.text === l.exit.time && !r.adjusted && !r.lossy) return l;
+    if (r.lossy) plan.lossy++;
+    else if (r.adjusted) plan.adjusted++;
+    else plan.renumbered++;
+    if (r.lossy || r.adjusted) note(l.name.trim() || untitled, [l.exit.time], [r.text]);
+    return r.text === l.exit.time ? l : { ...l, exit: { ...l.exit, time: r.text } };
   });
   plan.markers = doc.markers.map((m) => {
     const r = remap(m.time, oldCtx, newCtx);

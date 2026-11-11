@@ -2,9 +2,10 @@
  * 預覽欄的工具列（規格 F15、F30、F32、F50、F61、F91）：時間軸／年表、GM／PL、縮小、放大、全覽、篩選、＋事件。
  */
 import { Funnel, Maximize2, Plus, ZoomIn, ZoomOut } from 'lucide-react';
-import { Button, IconButton, Segmented, useMediaQuery, withShortcut } from '@/ui';
+import { useMemo } from 'react';
+import { Button, IconButton, Segmented, Select, useMediaQuery, withShortcut } from '@/ui';
 import { effectiveFilter, filterCount } from '../model/filter';
-import type { Audience } from '../model/visible';
+import { type Audience, povLanes } from '../model/visible';
 import { BUTTON_STEP, zoomState } from '../model/window';
 import { setPrefs, useDoc, usePrefs, useUi, type ViewKind } from '../store';
 import { S } from '../strings';
@@ -17,6 +18,31 @@ export function useEffectiveView(): ViewKind {
   const view = usePrefs((s) => s.data.view);
   const wide = useMediaQuery('(min-width: 640px)', true);
   return view ?? (wide ? 'timeline' : 'chronicle');
+}
+
+const ALL = '__all';
+
+/** PL 檢視的人物別（F118）：全體公開，或某個人物看到的（他自己的偽裝與伏字的真相） */
+function PovSelect() {
+  const doc = useDoc((s) => s.data);
+  const pov = usePrefs((s) => s.data.pov ?? '');
+  const people = useMemo(() => povLanes(doc), [doc]);
+  if (!people.length) return null;
+  const value = people.some((l) => l.id === pov) ? pov : ALL;
+  return (
+    <Select
+      size="sm"
+      aria-label={S.povSelect}
+      value={value}
+      className="w-auto max-w-[11rem]"
+      data-testid="pov-select"
+      onValueChange={(v) => setPrefs({ pov: v === ALL ? '' : v })}
+      options={[
+        { value: ALL, label: S.povAll },
+        ...people.map((l) => ({ value: l.id, label: S.povOption(l.name.trim() || S.untitled) })),
+      ]}
+    />
+  );
 }
 
 export function Toolbar() {
@@ -58,6 +84,7 @@ export function Toolbar() {
           { value: 'pl', label: 'PL', ariaLabel: S.viewPl },
         ]}
       />
+      {pl ? <PovSelect /> : null}
       {view === 'timeline' ? (
         <div className="flex items-center gap-0.5">
           <IconButton

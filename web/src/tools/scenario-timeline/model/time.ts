@@ -26,6 +26,7 @@ import {
   valueOfMinute,
   weekdayOfDay,
 } from './calendar';
+import { parseSession, type Session, sessionText } from './session';
 
 export type TimeMode = 'date' | 'day' | 'year';
 export type Precision = 'year' | 'month' | 'day' | 'minute';
@@ -53,6 +54,10 @@ const WEEKDAYS = ['日', '一', '二', '三', '四', '五', '六'];
 export interface TimeCtx {
   era: string;
   calendar?: Calendar | null;
+  /** 第 N 天的標示（時刻、日程、倒數、階段；F124；專案資料本身就有） */
+  session?: Session | null;
+  /** 固定的吸附（分；F128；日期時間、第 N 天） */
+  snap?: number;
 }
 /** 字串＝只有曆名 */
 export type EraArg = string | TimeCtx;
@@ -61,6 +66,11 @@ export type EraArg = string | TimeCtx;
 export function ctxParts(a: EraArg | undefined): { era: string; info: CalInfo | null } {
   if (a === undefined || typeof a === 'string') return { era: a ?? '', info: null };
   return { era: a.era ?? '', info: calInfo(a.calendar) };
+}
+
+/** 第 N 天的標示（沒有＝第 N 天；字串的脈絡沒有） */
+export function sessionOf(a: EraArg | undefined): Session | null {
+  return a !== undefined && typeof a !== 'string' ? (a.session ?? null) : null;
 }
 
 /* ---------- 公曆的日序（Howard Hinnant 的 days_from_civil／civil_from_days；0 ＝ 1970-01-01） ---------- */
@@ -360,7 +370,18 @@ function finishCalendar(
 export function parseTime(mode: TimeMode, text: string, era: EraArg = ''): ParseResult {
   const s = normalizeInput(text).replace(/：/g, ':');
   if (mode === 'date') return parseDate(s);
-  if (mode === 'day') return parseDay(s);
+  if (mode === 'day') {
+    /* 標示的寫法（F125：18:00、第 1 天 晚、T-01:30、階段 2）；不是的話照第 N 天 */
+    const ses = sessionOf(era);
+    const r = ses ? parseSession(ses, s) : null;
+    if (r && !r.ok) return fail(r.error);
+    if (r?.ok) {
+      const b = valueBounds('day');
+      if (r.v < b.min || r.v >= b.max) return fail(`天數要在 ${DAY_MIN}～${DAY_MAX} 之間`);
+      return { ok: true, tv: { v: r.v, p: 'minute' } };
+    }
+    return parseDay(s);
+  }
   const c = ctxParts(era);
   return parseYear(s, c.era, c.info);
 }
@@ -443,6 +464,9 @@ export function formatLong(mode: TimeMode, tv: Tv, era: EraArg = ''): string {
   }
   if (mode === 'day') {
     const n = dayNumber(tv.v);
+    const ses = tv.p === 'minute' ? sessionOf(era) : null;
+    const styled = ses ? sessionText(ses, tv.v) : null;
+    if (styled) return styled;
     return tv.p === 'minute' ? `第 ${n} 天 ${clockText(tv.v)}` : `第 ${n} 天`;
   }
   const d = dateParts(tv.v);
@@ -450,6 +474,18 @@ export function formatLong(mode: TimeMode, tv: Tv, era: EraArg = ''): string {
   if (tv.p === 'month') return `${d.y}年${d.m}月`;
   if (tv.p === 'day') return dateLabel(tv.v);
   return `${dateLabel(tv.v)}${clockText(tv.v)}`;
+}
+
+/**
+ * 時間欄裡的寫法：標準寫法；第 N 天有標示（F124）時是標示的寫法（不失去精度：讀回來是同一個時間）。
+ */
+export function inputText(mode: TimeMode, stored: string, era: EraArg = ''): string {
+  if (mode !== 'day' || !stored) return stored;
+  const ses = sessionOf(era);
+  if (!ses) return stored;
+  const tv = readTime(mode, stored, era);
+  if (tv?.p !== 'minute') return stored;
+  return sessionText(ses, tv.v) ?? stored;
 }
 
 /* ---------- 期間 ---------- */
@@ -501,7 +537,8 @@ export function endFromExclusive(
 
 /** 吸附單位；day 是架空曆的日（日期時間的日寫成 1440 分）；架空曆寫到時刻時 min 是分（F110） */
 export type SnapUnit =
-  | { kind: 'min'; n: number }
+  /** o：對齊的起點（分；日程、階段的段從 06:00、開始時刻數，F126；沒有＝從 0 數） */
+  | { kind: 'min'; n: number; o?: number }
   | { kind: 'day'; n: number }
   | { kind: 'month'; n: number }
   | { kind: 'year'; n: number };
@@ -565,6 +602,8 @@ export function snapValue(mode: TimeMode, v: number, u: SnapUnit, era?: EraArg):
   }
   if (u.kind === 'min' || mode === 'year') {
     const n = Math.max(1, u.n);
+    const o = u.kind === 'min' ? (u.o ?? 0) : 0;
+    if (o) return Math.round((v - o) / n) * n + o;
     return Math.round(v / n) * n;
   }
   if (u.kind === 'month') {

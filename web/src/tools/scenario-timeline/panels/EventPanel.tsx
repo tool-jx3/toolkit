@@ -31,8 +31,9 @@ import {
   PALETTE,
   splitPeople,
   type TimelineEvent,
+  type Truth,
 } from '../model/types';
-import { usedCategories, type VisibleDoc } from '../model/visible';
+import { faceOf, usedCategories, type VisibleDoc } from '../model/visible';
 import {
   deleteEvent,
   displayOrder,
@@ -118,7 +119,10 @@ export function EventPanel() {
   const selectedId = useUi((s) => s.selectedId);
   const selectedIds = useUi((s) => s.selectedIds);
   const doc = useDoc((s) => s.data);
-  const ev = selectedId ? doc.events.find((e) => e.id === selectedId) : undefined;
+  /* PL 檢視：PL 看到的那一筆（偽裝只有證詞、伏字是「？？？」；真相只有看得到時才有，F116） */
+  const ev = selectedId
+    ? (pl ? vdoc.events : doc.events).find((e) => e.id === selectedId)
+    : undefined;
   const visible = ev && vdoc.events.some((e) => e.id === ev.id);
   /* 多選：PL 檢視只算 PL 看得到的 */
   const many = useMemo(() => {
@@ -195,7 +199,11 @@ function EventEditor({ ev, pl, vdoc }: { ev: TimelineEvent; pl: boolean; vdoc: V
   useEffect(() => {
     if (focusTitle.id !== id || focusTitle.n === handledFocus) return;
     handledFocus = focusTitle.n;
-    const el = titleRef.current;
+    /* 雙擊真相那一筆：焦點到「真相的行動」（F116） */
+    const el =
+      (focusTitle.field === 'truth'
+        ? rootRef.current?.querySelector<HTMLInputElement>('[data-field="truth-title"]')
+        : null) ?? titleRef.current;
     if (!el) return;
     if (!window.matchMedia?.('(min-width: 1024px)').matches)
       rootRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' });
@@ -326,7 +334,10 @@ function EventEditor({ ev, pl, vdoc }: { ev: TimelineEvent; pl: boolean; vdoc: V
           options={laneOptions}
         />
       </Field>
-      <Field label={S.fPlace}>
+      <Field
+        label={ev.scope ? S.fPlaceTestimony : S.fPlace}
+        hint={ev.scope ? S.placeTestimonyHint : undefined}
+      >
         <TextInput
           value={ev.place}
           list={placesId}
@@ -386,18 +397,25 @@ function EventEditor({ ev, pl, vdoc }: { ev: TimelineEvent; pl: boolean; vdoc: V
           />
         </Field>
       ) : null}
-      {pl ? null : (
-        <Field label={S.fGm} layout="inline" hint={S.gmHint}>
+      {pl ? null : <ScopeField ev={ev} />}
+      {ev.scope && (!pl || ev.truth) ? <TruthFields ev={ev} pl={pl} placesId={placesId} /> : null}
+      {!pl && faceOf(ev) !== 'public' ? (
+        <Field
+          label={S.fRevealed}
+          layout="inline"
+          hint={faceOf(ev) === 'secret' ? S.revealedHintSecret : S.revealedHint}
+        >
           <Toggle
-            checked={ev.gm}
+            checked={!!ev.revealed}
             onCheckedChange={(v) =>
               step((x) => {
-                x.gm = v;
+                if (v) x.revealed = true;
+                else delete x.revealed;
               })
             }
           />
         </Field>
-      )}
+      ) : null}
       <Field label={S.fDescription}>
         <TextArea
           value={ev.description}
@@ -451,6 +469,121 @@ function EventEditor({ ev, pl, vdoc }: { ev: TimelineEvent; pl: boolean; vdoc: V
       </div>
       <LinksSection id={id} vdoc={vdoc} pl={pl} />
     </div>
+  );
+}
+
+type Face = 'public' | 'alibi' | 'redacted' | 'secret';
+
+/**
+ * 公開範圍（F116、F117；GM 檢視才有）：公開／偽裝（證詞與真相）／伏字／完全保密（GM 專用）。
+ * 完全保密就是以前的「GM 專用」；換成完全保密時偽裝、伏字的設定留著（換回來時還在）。
+ */
+function ScopeField({ ev }: { ev: TimelineEvent }) {
+  const face = faceOf(ev);
+  return (
+    <Field label={S.fScope} hint={S.scopeHints[face]}>
+      <Select<Face>
+        value={face}
+        data-field="scope"
+        onValueChange={(v) =>
+          updateEvent(ev.id, (x) => {
+            x.gm = v === 'secret';
+            if (v === 'alibi' || v === 'redacted') x.scope = v;
+            else if (v === 'public') delete x.scope;
+            if (v === 'public') delete x.revealed;
+          })
+        }
+        options={(['public', 'alibi', 'redacted', 'secret'] as const).map((f) => ({
+          value: f,
+          label: S.scopes[f],
+        }))}
+      />
+    </Field>
+  );
+}
+
+const emptyTruth = (): Truth => ({ title: '', start: '', end: '', place: '' });
+
+/**
+ * 真相（F116）：真相的行動、開始、結束（空白＝和證詞相同）、地點。PL 檢視只有看得到真相時（人物別的本人、調查後公開）才有，停用。
+ */
+function TruthFields({ ev, pl, placesId }: { ev: TimelineEvent; pl: boolean; placesId: string }) {
+  const doc = useDoc((s) => s.data);
+  const t = ev.truth ?? emptyTruth();
+  const setTruth = (patch: Partial<Truth>, stepIt = true) =>
+    updateEvent(
+      ev.id,
+      (x) => {
+        const next = { ...(x.truth ?? emptyTruth()), ...patch };
+        if (next.title || next.start || next.end || next.place) x.truth = next;
+        else delete x.truth;
+      },
+      stepIt,
+    );
+  const validateEnd = (text: string) => {
+    const a = readTime(doc.mode, t.start || ev.start, doc);
+    const b = readTime(doc.mode, text, doc);
+    if (!a || !b) return null;
+    return afterUnit(doc.mode, b, doc) > a.v ? null : S.endAfter;
+  };
+  return (
+    <fieldset
+      className="m-0 flex flex-col gap-2 rounded-md border border-border p-2"
+      data-testid="truth-fields"
+    >
+      <legend className="px-1 text-xs font-semibold text-danger">{S.truthTitle}</legend>
+      <Field
+        label={S.fTruthTitle}
+        hint={ev.scope === 'alibi' ? S.truthAlibiHint : S.truthRedactedHint}
+      >
+        <TextInput
+          value={t.title}
+          maxLength={LIMITS.eventTitle}
+          disabled={pl}
+          data-field="truth-title"
+          onFocus={g.begin}
+          onBlur={g.commit}
+          onChange={(e) => setTruth({ title: e.target.value }, false)}
+        />
+      </Field>
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+        <TimeField
+          label={S.fTruthStart}
+          value={t.start}
+          mode={doc.mode}
+          era={doc}
+          disabled={pl}
+          allowEmpty
+          hint={S.truthSameTime}
+          data-field="truth-start"
+          onCommit={(v) => setTruth({ start: v })}
+        />
+        <TimeField
+          label={S.fTruthEnd}
+          value={t.end}
+          mode={doc.mode}
+          era={doc}
+          disabled={pl}
+          allowEmpty
+          hint={S.truthSameTime}
+          validate={validateEnd}
+          data-field="truth-end"
+          onCommit={(v) => setTruth({ end: v })}
+        />
+      </div>
+      <Field label={S.fTruthPlace}>
+        <TextInput
+          value={t.place}
+          list={placesId}
+          maxLength={LIMITS.place}
+          disabled={pl}
+          data-field="truth-place"
+          onFocus={g.begin}
+          onBlur={g.commit}
+          onChange={(e) => setTruth({ place: e.target.value }, false)}
+        />
+      </Field>
+    </fieldset>
   );
 }
 

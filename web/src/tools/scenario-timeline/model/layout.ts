@@ -228,7 +228,9 @@ export function layoutTimeline(vdoc: VisibleDoc, o: LayoutOptions): TimelineLayo
   const rowKeys = new Set(rowIndex.keys());
   const spans = new Map<string, Span>();
   let origin = Number.POSITIVE_INFINITY;
-  for (const e of vdoc.events) {
+  /* 真相（F116）排在事件後面：同一列、同樣的開始時堆在證詞的下面 */
+  const all = drawnEvents(vdoc);
+  for (const e of all) {
     const s = eventSpan(vdoc.mode, e, vdoc);
     if (!s) continue;
     spans.set(e.id, s);
@@ -246,7 +248,7 @@ export function layoutTimeline(vdoc: VisibleDoc, o: LayoutOptions): TimelineLayo
     bg?: { row: number | null };
   }
   const perRow: Entry[][] = base.map(() => []);
-  for (const e of vdoc.events) {
+  for (const e of all) {
     const s = spans.get(e.id);
     if (!s) continue;
     const key = displayRowKey(vdoc, e.laneId, rowKeys);
@@ -280,7 +282,9 @@ export function layoutTimeline(vdoc: VisibleDoc, o: LayoutOptions): TimelineLayo
           BG_LABEL_PAD;
         return { index, x1, x2, left: x1, right: x1 + w, inside: false };
       }
-      return { index, x1, x2, ...itemExtent(it.e.kind, x1, x2, it.labelW) };
+      const ext = itemExtent(it.e.kind, x1, x2, it.labelW);
+      /* 真相（F116）：同樣的開始時排在證詞後面（證詞在上、真相在下；只影響排序，不影響位置） */
+      return { index, x1, x2, ...ext, left: it.e.truthOf ? ext.left + 1e-6 : ext.left };
     });
     const { levels, count } = stackLevels(geo);
     const height = rowHeight(count);
@@ -320,11 +324,16 @@ export function layoutTimeline(vdoc: VisibleDoc, o: LayoutOptions): TimelineLayo
   return { rows, items, backgrounds, height: y, origin };
 }
 
+/** 要畫的事件：事件＋看得到的真相（F116；沒有真相時就是 events 本身） */
+export function drawnEvents(vdoc: Pick<VisibleDoc, 'events' | 'truths'>): readonly VisibleEvent[] {
+  return vdoc.truths?.length ? [...vdoc.events, ...vdoc.truths] : vdoc.events;
+}
+
 /** 所有看得到的東西的時間範圍（全覽用；沒有時 null） */
 export function contentRange(vdoc: VisibleDoc, extra: readonly number[] = []): Span | null {
   let a = Number.POSITIVE_INFINITY;
   let b = Number.NEGATIVE_INFINITY;
-  for (const e of vdoc.events) {
+  for (const e of drawnEvents(vdoc)) {
     const s = eventSpan(vdoc.mode, e, vdoc);
     if (!s) continue;
     a = Math.min(a, s.a);
@@ -345,7 +354,7 @@ export function contentRange(vdoc: VisibleDoc, extra: readonly number[] = []): S
 
 /** 範圍 [a, b] 裡有沒有看得到的東西：和範圍重疊的事件、範圍裡的標記與 extra（目前進度） */
 export function hasContentIn(vdoc: VisibleDoc, span: Span, extra: readonly number[] = []): boolean {
-  for (const e of vdoc.events) {
+  for (const e of drawnEvents(vdoc)) {
     const s = eventSpan(vdoc.mode, e, vdoc);
     if (s && s.a <= span.b && s.b >= span.a) return true;
   }

@@ -14,6 +14,8 @@ export interface Link {
   note: string;
   /** GM 專用（PL 檢視、PL 用的輸出不畫） */
   gm: boolean;
+  /** 調查後公開（F119：GM 專用的線 PL 也看得到；只有打開時才有這個欄位） */
+  revealed?: boolean;
 }
 
 export const LINK_LIMITS = { links: 3000, note: 200 } as const;
@@ -87,6 +89,7 @@ export function normalizeLinks(
       kind,
       note: typeof o.note === 'string' ? o.note.slice(0, LINK_LIMITS.note) : '',
       gm: o.gm === true,
+      ...(o.revealed === true ? { revealed: true } : {}),
     });
   }
   return { links: out, skipped, over };

@@ -14,7 +14,11 @@ import {
   chronicleHtml,
   chroniclePrintCss,
   chronicleText,
+  exitText,
+  FACE_TAG,
   linkText,
+  OPENED_TAG,
+  truthLine,
 } from '../model/chronicle';
 import { filteredDoc, matchingIds } from '../model/filter';
 import { GM_COLOR } from '../model/types';
@@ -113,6 +117,11 @@ export function Chronicle() {
         <div className="min-w-0">
           <h2 className="m-0 text-lg font-bold break-words text-fg" data-testid="chronicle-title">
             {ch.title}
+            {ch.povName ? (
+              <span className="ml-2 text-sm font-semibold text-accent">
+                {S.povOption(ch.povName)}
+              </span>
+            ) : null}
           </h2>
           {ch.range ? <p className="m-0 text-xs text-muted">{ch.range}</p> : null}
         </div>
@@ -149,9 +158,11 @@ export function Chronicle() {
       ) : (
         ch.sections.map((s) => (
           <div key={s.key} className="flex flex-col gap-1" data-section={s.heading}>
-            <h3 className="m-0 border-b border-border pb-1 text-sm font-bold text-fg">
-              {s.heading}
-            </h3>
+            {s.heading ? (
+              <h3 className="m-0 border-b border-border pb-1 text-sm font-bold text-fg">
+                {s.heading}
+              </h3>
+            ) : null}
             <ol className="m-0 flex list-none flex-col p-0">
               {s.rows.map((r) => (
                 <Row
@@ -206,6 +217,10 @@ const Row = memo(function Row({
             <span aria-hidden className="text-xs" style={{ color: r.color }}>
               ◆
             </span>
+          ) : r.kind === 'exit' ? (
+            <span aria-hidden className="text-xs text-danger">
+              ◇
+            </span>
           ) : (
             <i
               aria-hidden
@@ -213,10 +228,16 @@ const Row = memo(function Row({
               style={{ background: r.color }}
             />
           )}
-          <span className="text-sm font-semibold break-words text-fg" data-chron-title>
-            {r.title}
+          <span
+            className={cn(
+              'text-sm font-semibold break-words',
+              r.kind === 'exit' ? 'text-danger' : 'text-fg',
+            )}
+            data-chron-title
+          >
+            {r.kind === 'exit' ? exitText(r) : r.title}
           </span>
-          {r.laneName ? (
+          {r.laneName && r.kind !== 'exit' ? (
             <span className="inline-flex items-center gap-1 rounded-sm border border-border px-1 text-[11px] text-muted">
               <i
                 aria-hidden
@@ -242,6 +263,24 @@ const Row = memo(function Row({
             </span>
           ) : null}
           {gm && r.gm ? <GmBadge /> : null}
+          {r.face ? (
+            <span
+              className="rounded-sm px-1 text-[11px] font-semibold text-white"
+              style={{ background: '#475569' }}
+              data-chron-face={r.face}
+            >
+              {FACE_TAG[r.face]}
+            </span>
+          ) : null}
+          {r.opened ? (
+            <span
+              className="rounded-sm px-1 text-[11px] font-semibold text-white"
+              style={{ background: '#2563eb' }}
+              data-chron-opened
+            >
+              {OPENED_TAG}
+            </span>
+          ) : null}
         </span>
         {r.place || r.people.length ? (
           <span className="block text-xs text-muted">
@@ -256,6 +295,14 @@ const Row = memo(function Row({
         {r.description.trim() ? (
           <span className="block text-sm whitespace-pre-wrap break-words text-fg">
             {r.description.trim()}
+          </span>
+        ) : null}
+        {r.truth ? (
+          <span
+            className="mt-0.5 block border-l-[3px] border-danger pl-2 text-xs break-words text-danger"
+            data-chron-truth
+          >
+            {truthLine(r.truth)}
           </span>
         ) : null}
         {r.links.length ? (

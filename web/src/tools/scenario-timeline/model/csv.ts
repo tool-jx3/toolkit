@@ -17,6 +17,7 @@ import {
   splitPeople,
   type TimelineDoc,
   type TimelineEvent,
+  truthUsed,
 } from './types';
 
 export const CSV_HEADERS = [
@@ -34,6 +35,30 @@ export const CSV_HEADERS = [
   'GM 筆記',
 ] as const;
 
+/**
+ * 公開範圍與真相的欄（F116～F119）：專案裡有事件用到時才加在最後面（沒用時 CSV 和以前逐位元組相同）。
+ * 「GM 專用」欄仍是完全保密。
+ */
+export const CSV_FACE_HEADERS = [
+  '公開範圍',
+  '真相',
+  '真相開始',
+  '真相結束',
+  '真相地點',
+  '調查後公開',
+] as const;
+
+const SCOPE_LABEL = { alibi: '偽裝', redacted: '伏字' } as const;
+
+/** 公開範圍的文字 → 公開範圍（公開、空白＝null；看不懂＝bad） */
+export function parseScope(text: string): 'alibi' | 'redacted' | null | 'bad' {
+  const k = key(text);
+  if (!k || ['公開', 'public', '否'].includes(k)) return null;
+  if (['偽裝', '證詞', 'alibi'].includes(k)) return 'alibi';
+  if (['伏字', 'redacted', '???', '？？？'].includes(k)) return 'redacted';
+  return 'bad';
+}
+
 type Field =
   | 'title'
   | 'kind'
@@ -46,7 +71,13 @@ type Field =
   | 'color'
   | 'gm'
   | 'description'
-  | 'gmNote';
+  | 'gmNote'
+  | 'scope'
+  | 'truth'
+  | 'truthStart'
+  | 'truthEnd'
+  | 'truthPlace'
+  | 'revealed';
 
 const key = (s: string) =>
   s
@@ -67,6 +98,12 @@ const ALIASES: Record<Field, string[]> = {
   gm: ['GM 專用', 'GM', 'gm only', 'gmonly'],
   description: ['說明', '描述', '內容', 'description', 'note'],
   gmNote: ['GM 筆記', 'gm note', 'gmnote'],
+  scope: ['公開範圍', 'scope'],
+  truth: ['真相', '真相的行動', 'truth'],
+  truthStart: ['真相開始', '真相的開始', 'truth start'],
+  truthEnd: ['真相結束', '真相的結束', 'truth end'],
+  truthPlace: ['真相地點', '真相的地點', 'truth place'],
+  revealed: ['調查後公開', 'revealed'],
 };
 
 const ALIAS_MAP = new Map<string, Field>();
@@ -93,8 +130,16 @@ export function parseGm(text: string): boolean {
   return ['是', 'y', 'yes', 'true', '1', '✓', '✔', 'v', 'o', '○', 'gm', '有'].includes(key(text));
 }
 
-/** 時間欄（開始、結束）：不防公式注入（負的年份、架空年才不會被改） */
-const TIME_COLUMNS = new Set([CSV_HEADERS.indexOf('開始'), CSV_HEADERS.indexOf('結束')]);
+/** 時間欄（開始、結束、真相的開始與結束）：不防公式注入（負的年份、架空年才不會被改） */
+const TIME_COLUMNS = new Set([
+  CSV_HEADERS.indexOf('開始'),
+  CSV_HEADERS.indexOf('結束'),
+  CSV_HEADERS.length + CSV_FACE_HEADERS.indexOf('真相開始'),
+  CSV_HEADERS.length + CSV_FACE_HEADERS.indexOf('真相結束'),
+]);
+
+/** 有沒有事件用到公開範圍、真相、調查後公開（CSV 要不要加那幾欄） */
+const usesFace = (doc: TimelineDoc) => doc.events.some((e) => e.scope || e.truth || e.revealed);
 
 /** 事件表（CSV；UTF-8 BOM、CRLF）：依時間排；時間以外的欄防公式注入 */
 export function eventsToCsv(doc: TimelineDoc): string {
@@ -103,9 +148,10 @@ export function eventsToCsv(doc: TimelineDoc): string {
   const order = doc.events
     .map((e, i) => ({ e, i, v: readTime(doc.mode, e.start, doc)?.v ?? 0 }))
     .sort((p, q) => p.v - q.v || p.i - q.i);
-  const rows: string[][] = [[...CSV_HEADERS]];
-  for (const { e } of order)
-    rows.push([
+  const face = usesFace(doc);
+  const rows: string[][] = [face ? [...CSV_HEADERS, ...CSV_FACE_HEADERS] : [...CSV_HEADERS]];
+  for (const { e } of order) {
+    const row = [
       e.title,
       KIND_LABEL[e.kind],
       e.start,
@@ -118,7 +164,18 @@ export function eventsToCsv(doc: TimelineDoc): string {
       e.gm ? '是' : '否',
       e.description,
       e.gmNote,
-    ]);
+    ];
+    if (face)
+      row.push(
+        e.scope ? SCOPE_LABEL[e.scope] : '公開',
+        e.truth?.title ?? '',
+        e.truth?.start ?? '',
+        e.truth?.end ?? '',
+        e.truth?.place ?? '',
+        e.revealed ? '是' : '否',
+      );
+    rows.push(row);
+  }
   return toCsv(rows, { bom: true, guard: (c) => !TIME_COLUMNS.has(c) });
 }
 
@@ -159,7 +216,9 @@ export function parseEventsTable(
   const col = (row: string[], f: Field) => {
     const i = header.indexOf(f);
     const text = i >= 0 ? (row[i] ?? '').trim() : '';
-    return f === 'start' || f === 'end' ? text : unguardFormula(text);
+    return f === 'start' || f === 'end' || f === 'truthStart' || f === 'truthEnd'
+      ? text
+      : unguardFormula(text);
   };
   const lanes: Lane[] = [];
   const categories: Category[] = [];
@@ -242,8 +301,40 @@ export function parseEventsTable(
       }
     }
     const hex = col(row, 'color') ? normalizeHex(col(row, 'color'), '', false) : '';
+    /* 公開範圍與真相（F116～F119；有這幾欄時） */
+    const scope = parseScope(col(row, 'scope'));
+    if (scope === 'bad') {
+      errors.push({ row: rowNo, message: `看不懂公開範圍「${col(row, 'scope')}」` });
+      return;
+    }
+    const tTime = (f: 'truthStart' | 'truthEnd', label: string): string | null => {
+      const text = col(row, f);
+      if (!text) return '';
+      const r = parseTime(doc.mode, text, doc);
+      if (!r.ok) {
+        errors.push({ row: rowNo, message: `${label}：${r.error}` });
+        return null;
+      }
+      return canonical(doc.mode, r.tv, doc);
+    };
+    const ts = tTime('truthStart', '真相開始');
+    if (ts === null) return;
+    const te = tTime('truthEnd', '真相結束');
+    if (te === null) return;
+    const truth = {
+      title: col(row, 'truth').slice(0, LIMITS.eventTitle),
+      start: ts,
+      end: te,
+      place: col(row, 'truthPlace').slice(0, LIMITS.place),
+    };
+    const face: Partial<TimelineEvent> = {
+      ...(scope ? { scope } : {}),
+      ...(truthUsed(truth) ? { truth } : {}),
+      ...(parseGm(col(row, 'revealed')) ? { revealed: true } : {}),
+    };
     events.push(
       newEvent({
+        ...face,
         title: col(row, 'title').slice(0, LIMITS.eventTitle),
         kind,
         start: canonical(doc.mode, start.tv, doc),
