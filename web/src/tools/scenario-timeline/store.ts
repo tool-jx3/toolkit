@@ -11,8 +11,10 @@ import { createPreviewStore, createToolStore } from '@/core/storage';
 import type { Calendar } from './model/calendar';
 import { planCalendar } from './model/calendarEdit';
 import { exampleDoc } from './model/example';
+import { mysteryDoc } from './model/exampleMystery';
 import { emptyFilter, type FilterState, normalizeFilter } from './model/filter';
 import { LINK_LIMITS, type Link, type LinkKind, linkId } from './model/links';
+import { planShift } from './model/shift';
 import {
   afterUnit,
   canonical,
@@ -48,10 +50,11 @@ import { S } from './strings';
 
 export const TOOL_ID = 'scenario-timeline';
 /**
- * 資料的版本：2＝第二批（架空曆的月份、關聯線）；3＝第三批（架空曆寫到時刻：calendar.clock、`302-03-05 14:00`）。
- * 1、2 的專案檔、自動存檔照讀
+ * 資料的版本：2＝第二批（架空曆的月份、關聯線）；3＝第三批（架空曆寫到時刻：calendar.clock、`302-03-05 14:00`）；
+ * 4＝第四批（公開範圍、真相、調查後公開、退場時刻、第 N 天的標示、固定的吸附；參考 KIIN 的第一批）。
+ * 1～3 的專案檔、自動存檔照讀（沒用新功能時整理後的資料和以前逐欄位相同）
  */
-export const DATA_VERSION = 3;
+export const DATA_VERSION = 4;
 
 function local(): Storage | null {
   try {
@@ -123,6 +126,8 @@ export interface ExportPrefs {
   scale: number;
   /** 只匯出篩選的結果（F91；預設全部） */
   filtered?: boolean;
+  /** 人物別（F118：泳道 id；「*」＝全部各一張；沒有＝全體公開）；audience 是 pl 時才用 */
+  pov?: string;
 }
 
 export interface Prefs {
@@ -134,8 +139,20 @@ export interface Prefs {
   windows: Partial<Record<TimeMode, Win>>;
   collapsed: Record<string, boolean>;
   export: ExportPrefs;
-  /** 年表文字的匯出；links＝列出關聯線（F111；沒有值＝列出） */
-  text: { format: 'text' | 'md'; audience: Audience; filtered?: boolean; links?: boolean };
+  /**
+   * 年表文字的匯出；links＝列出關聯線（F111；沒有值＝列出）；pov＝人物別（F118）；
+   * byLane＝人物・地點別的進行表（F122；沒有值＝時間順）
+   */
+  text: {
+    format: 'text' | 'md';
+    audience: Audience;
+    filtered?: boolean;
+    links?: boolean;
+    pov?: string;
+    byLane?: boolean;
+  };
+  /** PL 檢視的人物別（F118：泳道 id；沒有＝全體公開） */
+  pov?: string;
   /** 年表檢視（含列印、複製成文字）列出關聯線（F111；沒有值＝列出） */
   chronicleLinks?: boolean;
   /** 篩選（F91）：GM 檢視與 PL 檢視各一份（PL 檢視的不會含 GM 專用的值） */
@@ -209,8 +226,8 @@ export interface UiState {
   win: Win | null;
   /** win 是哪一種寫法的範圍 */
   winMode: TimeMode | null;
-  /** 要求把焦點放到「事件」分頁的標題欄（n 每次加 1；id＝哪個事件） */
-  focusTitle: { n: number; id: string | null };
+  /** 要求把焦點放到「事件」分頁的標題欄（n 每次加 1；id＝哪個事件；field＝truth 時是真相的行動，F116） */
+  focusTitle: { n: number; id: string | null; field?: 'truth' };
   /** 拖曳中的事件（畫在新的位置；放開才寫進資料；多選時好幾個一起） */
   drag: DragPreview[] | null;
   /** 拖曳中的標記、目前進度 */
@@ -279,11 +296,11 @@ export function setWin(win: Win): void {
   }, 400);
 }
 
-export function editEvent(id: string): void {
+export function editEvent(id: string, field?: 'truth'): void {
   useUi.setState((s) => ({
     selectedId: id,
     selectedIds: [id],
-    focusTitle: { n: s.focusTitle.n + 1, id },
+    focusTitle: field ? { n: s.focusTitle.n + 1, id, field } : { n: s.focusTitle.n + 1, id },
   }));
   setPrefs({ tab: 'event' });
 }
@@ -642,7 +659,28 @@ export function applyCalendar(next: Calendar) {
     d.calendar = next;
     d.events = plan.events;
     d.markers = plan.markers;
+    d.lanes = plan.lanes;
     d.progress.time = plan.progressTime;
+  });
+  return plan;
+}
+
+/* ---------- 時間的插入與縮短（F129） ---------- */
+
+/**
+ * 從 from（位置）起之後的東西整段移動 delta（正＝插入、往後挪；負＝縮短、往前縮）；一步復原。
+ * 回傳計畫（移動的數目等；沒有東西可以移動時 moved 是 0、不記復原步驟）。
+ */
+export function shiftTimes(from: number, delta: number) {
+  if (!guard()) return null;
+  const plan = planShift(docNow(), from, delta);
+  if (!plan.moved && plan.sessionLength === null) return plan;
+  commit((d) => {
+    d.events = plan.events;
+    d.markers = plan.markers;
+    d.lanes = plan.lanes;
+    d.progress.time = plan.progressTime;
+    if (plan.sessionLength !== null && d.session) d.session.length = plan.sessionLength;
   });
   return plan;
 }
@@ -781,14 +819,27 @@ export function planConvert(to: TimeMode, dayOneText: string): ConvertPlan | nul
     }
     return { start: s, end: e };
   };
-  const events = doc.events.map((e) => ({
-    ...e,
-    ...conv(e.title.trim() || S.untitled, e.start, e.end),
-  }));
+  const events = doc.events.map((e) => {
+    const out = { ...e, ...conv(e.title.trim() || S.untitled, e.start, e.end) };
+    /* 真相的時間（F116）一起換：開始、結束各自換（空白＝和證詞相同） */
+    const tr = e.truth;
+    if (tr && (tr.start || tr.end)) {
+      const name = `${e.title.trim() || S.untitled}（${S.truthWord}）`;
+      const st = tr.start ? conv(name, tr.start).start : '';
+      const en = tr.end ? conv(name, tr.end).start : '';
+      out.truth = { ...tr, start: st, end: en };
+    }
+    return out;
+  });
   const markers = doc.markers.map((m) => ({
     ...m,
     time: conv(m.label.trim() || S.markerDefault, m.time).start,
   }));
+  const lanes = doc.lanes.map((l) =>
+    l.exit
+      ? { ...l, exit: { ...l.exit, time: conv(l.name.trim() || S.untitled, l.exit.time).start } }
+      : l,
+  );
   const progressTime = conv(S.progressTitle, doc.progress.time).start;
   return {
     bad,
@@ -800,8 +851,12 @@ export function planConvert(to: TimeMode, dayOneText: string): ConvertPlan | nul
         d.mode = to;
         d.events = events;
         d.markers = markers;
+        d.lanes = lanes;
         d.progress.time = progressTime;
         if (needsDay && dayOneText) d.dayOne = canonical('date', { v: dayOne ?? 0, p: 'day' });
+        /* 第 N 天的標示只有第 N 天用；固定的吸附只有日期時間、第 N 天用（F124、F128） */
+        if (to !== 'day') delete d.session;
+        if (to === 'year') delete d.snap;
       });
       requestFit();
     },
@@ -853,6 +908,9 @@ export function applyImport(
 /** 換成另一份資料（開啟專案檔、載入範例、重設）；可以復原 */
 export function replaceDoc(next: TimelineDoc): void {
   commit((d) => {
+    /* 新的資料沒有的欄位（第 N 天的標示、固定的吸附）拿掉 */
+    for (const k of Object.keys(d))
+      if (!(k in next)) delete (d as unknown as Record<string, unknown>)[k];
     Object.assign(d, next);
   });
   useUi.setState({ selectedId: null, selectedIds: [], drag: null, flagDrag: null });
@@ -861,6 +919,8 @@ export function replaceDoc(next: TimelineDoc): void {
 
 export const resetBlank = (): void => replaceDoc(blankDoc());
 export const loadExample = (): void => replaceDoc(exampleDoc());
+/** 推理劇本的範例（F130：證詞與真相、退場、時刻的標示） */
+export const loadMysteryExample = (): void => replaceDoc(mysteryDoc());
 
 /* ---------- 復原 ---------- */
 

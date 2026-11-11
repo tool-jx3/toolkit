@@ -2,7 +2,7 @@
  * 「事件」分頁的關聯線（規格 F93）：選取的事件連出、連進的線（種類、說明、GM 專用、對調方向、刪除），
  * 以及「加上關聯線」（找事件）。PL 檢視只列 PL 看得到的線（停用），不能新增。
  */
-import { ArrowLeftRight, Trash2 } from 'lucide-react';
+import { ArrowLeftRight, Eye, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { historyGesture } from '@/core/storage';
 import { Field, IconButton, Section, Select, TextInput } from '@/ui';
@@ -115,10 +115,27 @@ export function LinksSection({ id, vdoc, pl }: { id: string; vdoc: VisibleDoc; p
                         onClick={() =>
                           updateLink(k.id, (x) => {
                             x.gm = !x.gm;
+                            if (!x.gm) delete x.revealed;
                           })
                         }
                       />
                     )}
+                    {!pl && k.gm ? (
+                      <IconButton
+                        size="sm"
+                        variant="secondary"
+                        label={S.linkRevealed}
+                        icon={<Eye />}
+                        pressed={!!k.revealed}
+                        data-link-revealed={k.id}
+                        onClick={() =>
+                          updateLink(k.id, (x) => {
+                            if (x.revealed) delete x.revealed;
+                            else x.revealed = true;
+                          })
+                        }
+                      />
+                    ) : null}
                     <IconButton
                       size="sm"
                       variant="ghost"

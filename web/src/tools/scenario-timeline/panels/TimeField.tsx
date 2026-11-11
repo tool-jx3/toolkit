@@ -7,7 +7,16 @@
 import { useEffect, useRef, useState } from 'react';
 import { Field, TextInput } from '@/ui';
 import { calInfo, monthName } from '../model/calendar';
-import { canonical, type EraArg, formatLong, parseTime, type TimeMode } from '../model/time';
+import { sessionPlaceholder } from '../model/session';
+import {
+  canonical,
+  type EraArg,
+  formatLong,
+  inputText,
+  parseTime,
+  sessionOf,
+  type TimeMode,
+} from '../model/time';
 import { notify } from '../notify';
 import { S } from '../strings';
 
@@ -80,6 +89,9 @@ function check(
 
 /** 例子：架空曆有月份時「302 年 1 月 5 日」（寫到時刻時「302 年 1 月 5 日 14:00」） */
 function placeholderFor(mode: TimeMode, era: EraArg): string {
+  /* 第 N 天的標示（F124）：18:00、第 1 天 晚、T-01:30、階段 2 */
+  const ses = mode === 'day' ? sessionOf(era) : null;
+  if (ses) return sessionPlaceholder(ses);
   const info = mode === 'year' && typeof era !== 'string' ? calInfo(era.calendar) : null;
   if (!info) return PLACEHOLDER[mode];
   return `302 年 ${monthName(info, 0)} 5 日${info.clock ? ' 14:00' : ''}`;
@@ -87,11 +99,13 @@ function placeholderFor(mode: TimeMode, era: EraArg): string {
 
 export function TimeField(props: TimeFieldProps) {
   const { label, value, mode, onCommit, disabled, placeholder, hint } = props;
-  const [draft, setDraft] = useState(value);
+  /* 欄位裡的寫法：標準寫法；第 N 天有標示時是標示的寫法（F124；不失去精度，讀回來是同一個時間） */
+  const shown = inputText(mode, value, props.era);
+  const [draft, setDraft] = useState(shown);
   const [editing, setEditing] = useState(false);
   useEffect(() => {
-    if (!editing) setDraft(value);
-  }, [value, editing]);
+    if (!editing) setDraft(shown);
+  }, [shown, editing]);
 
   const result = check(draft, props);
   /* 聚焦時的 onCommit 與最新的狀態（卸載時套用用） */
@@ -125,8 +139,8 @@ export function TimeField(props: TimeFieldProps) {
   };
   const apply = (leaving: boolean) => {
     const out = applyDraft(draft, value, props, leaving);
-    if (out !== null) setDraft(out);
-    else if (leaving) setDraft(value);
+    if (out !== null) setDraft(inputText(mode, out, props.era));
+    else if (leaving) setDraft(shown);
   };
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: 卸載時（例如換了選取的事件）套用輸入中的內容
@@ -166,7 +180,7 @@ export function TimeField(props: TimeFieldProps) {
           } else if (e.key === 'Escape') {
             e.preventDefault();
             e.stopPropagation();
-            setDraft(value);
+            setDraft(shown);
           }
         }}
       />

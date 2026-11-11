@@ -81,6 +81,8 @@ export function filterOptions(vdoc: VisibleDoc, untitled: string): FilterOptions
     if (e.place.trim()) places.add(e.place.trim());
     for (const p of e.people) people.add(p);
   }
+  /* 看得到的真相的地點（F116） */
+  for (const t of vdoc.truths ?? []) if (t.place.trim()) places.add(t.place.trim());
   for (const l of vdoc.lanes)
     if ((l.kind === 'character' || l.kind === 'npc') && l.name.trim()) people.add(l.name.trim());
   const collator = new Intl.Collator('zh-Hant');
@@ -110,6 +112,7 @@ function optionKeys(vdoc: VisibleDoc) {
     if (e.place.trim()) places.add(e.place.trim());
     for (const p of e.people) people.add(p);
   }
+  for (const t of vdoc.truths ?? []) if (t.place.trim()) places.add(t.place.trim());
   for (const l of vdoc.lanes)
     if ((l.kind === 'character' || l.kind === 'npc') && l.name.trim()) people.add(l.name.trim());
   return { lanes, categories, places, people };
@@ -173,13 +176,22 @@ export function eventMatcher(vdoc: VisibleDoc, f: FilterState): (e: VisibleEvent
       if (!lanes.has(lane) && !(parent && laneIds.has(parent) && lanes.has(parent))) return false;
     }
     if (cats.size && !cats.has(e.categoryId)) return false;
-    if (places.size && !places.has(e.place.trim())) return false;
+    /* 看得到真相時（e.truth 只有知道真相的檢視才有）真相的地點也算 */
+    if (places.size && !places.has(e.place.trim()) && !places.has(e.truth?.place.trim() ?? ''))
+      return false;
     if (people.size && !e.people.some((p) => people.has(p))) return false;
     if (f.gm === 'only' && !e.gm) return false;
     if (f.gm === 'none' && e.gm) return false;
     if (terms.length) {
       const hay = normText(
-        [e.title, e.description, e.place, e.people.join(' '), gmView ? e.gmNote : ''].join('\n'),
+        [
+          e.title,
+          e.description,
+          e.place,
+          e.people.join(' '),
+          gmView ? e.gmNote : '',
+          ...(e.truth ? [e.truth.title, e.truth.place] : []),
+        ].join('\n'),
       );
       if (!terms.every((t) => hay.includes(t))) return false;
     }
@@ -202,5 +214,6 @@ export function filteredDoc(vdoc: VisibleDoc, ids: ReadonlySet<string> | null): 
     ...vdoc,
     events: vdoc.events.filter((e) => ids.has(e.id)),
     links: vdoc.links.filter((k) => ids.has(k.from) && ids.has(k.to)),
+    ...(vdoc.truths ? { truths: vdoc.truths.filter((t) => ids.has(t.truthOf ?? '')) } : {}),
   };
 }

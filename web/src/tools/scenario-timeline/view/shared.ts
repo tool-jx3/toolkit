@@ -27,6 +27,7 @@ import {
   type Precision,
   precisionUnit,
   type SnapUnit,
+  sessionOf,
   snapValue,
   type TimeMode,
   type Tv,
@@ -43,16 +44,21 @@ export const axisMajorMeasure = createMeasure(11, 600);
 export const flagMeasure = createMeasure(11, 600);
 export const laneMeasure = createMeasure(12, 600);
 
-/** 目前的檢視看到的資料（GM／PL） */
+/** 目前的檢視看到的資料（GM／PL；PL 檢視可以是人物別，F118） */
 export function useVisibleDoc(audience?: Audience): VisibleDoc {
   const doc = useDoc((s) => s.data);
   const viewMode = usePrefs((s) => s.data.viewMode);
+  const pov = usePrefs((s) => s.data.pov ?? '');
   const who = audience ?? viewMode;
-  return useMemo(() => visibleDoc(doc, who), [doc, who]);
+  const p = who === 'pl' ? pov : '';
+  return useMemo(() => visibleDoc(doc, who, p), [doc, who, p]);
 }
 
-export const visibleNow = (audience?: Audience) =>
-  visibleDoc(docNow(), audience ?? prefsNow().viewMode);
+export const visibleNow = (audience?: Audience) => {
+  const p = prefsNow();
+  const who = audience ?? p.viewMode;
+  return visibleDoc(docNow(), who, who === 'pl' ? (p.pov ?? '') : '');
+};
 
 /** 全覽的畫面範圍（時間軸寬 width px；右邊留最後面的標題的位置） */
 export function fitFor(vdoc: VisibleDoc, width = 800): Win {
@@ -63,6 +69,18 @@ export function fitFor(vdoc: VisibleDoc, width = 800): Win {
 export function currentWin(): Win {
   const ui = useUi.getState();
   return ui.win && ui.winMode === docNow().mode ? ui.win : fitFor(visibleNow());
+}
+
+/** 畫面範圍中間的時間（新標記、打開目前進度、新的退場時刻、插入的基準用；標準寫法） */
+export function centerTime(): string {
+  const doc = docNow();
+  const win = currentWin();
+  return newEventStart(
+    doc.mode,
+    (win.start + win.end) / 2,
+    snapForWidth(doc.mode, win, 800, doc),
+    doc,
+  );
 }
 
 /** 某個寬度下的吸附單位 */
@@ -87,7 +105,9 @@ export function precisionForSnap(mode: TimeMode, u: SnapUnit): Precision {
 /** 新事件的開始（標準寫法） */
 export function newEventStart(mode: TimeMode, v: number, u: SnapUnit, ctx?: EraArg): string {
   const info = mode === 'year' ? ctxParts(ctx).info : null;
-  const p = mode === 'year' && !info ? 'year' : precisionForSnap(mode, u);
+  /* 第 N 天有標示時（F124）一律寫到分（日程、倒數、階段沒有「整天」的寫法） */
+  const styled = mode === 'day' && !!sessionOf(ctx);
+  const p = mode === 'year' && !info ? 'year' : styled ? 'minute' : precisionForSnap(mode, u);
   const unit = coarser(mode, u, precisionUnit(mode, p), ctx);
   let s = snapValue(mode, v, unit, ctx);
   if (mode !== 'year' && p === 'day') s = Math.floor(s / MINUTES_PER_DAY) * MINUTES_PER_DAY;

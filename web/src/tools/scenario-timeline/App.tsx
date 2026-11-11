@@ -37,6 +37,7 @@ import {
   deleteEvents,
   docNow,
   loadExample,
+  loadMysteryExample,
   prefsNow,
   redo,
   replaceDoc,
@@ -157,24 +158,44 @@ function Project() {
       savedAt={savedAt}
       statusText={saveError ? S.saveFailed : undefined}
       extraItems={
-        <ProjectMenuItem
-          disabled={pl}
-          onSelect={async () => {
-            if (prefsNow().viewMode === 'pl') return;
-            if (
-              await confirm({
-                title: S.exampleConfirmTitle,
-                description: S.exampleConfirmDesc,
-                confirmLabel: S.loadExample,
-              })
-            ) {
-              loadExample();
-              notify({ title: S.exampleLoaded, tone: 'success' });
-            }
-          }}
-        >
-          {S.loadExample}
-        </ProjectMenuItem>
+        <>
+          <ProjectMenuItem
+            disabled={pl}
+            onSelect={async () => {
+              if (prefsNow().viewMode === 'pl') return;
+              if (
+                await confirm({
+                  title: S.exampleConfirmTitle,
+                  description: S.exampleConfirmDesc,
+                  confirmLabel: S.loadExample,
+                })
+              ) {
+                loadExample();
+                notify({ title: S.exampleLoaded, tone: 'success' });
+              }
+            }}
+          >
+            {S.loadExample}
+          </ProjectMenuItem>
+          <ProjectMenuItem
+            disabled={pl}
+            onSelect={async () => {
+              if (prefsNow().viewMode === 'pl') return;
+              if (
+                await confirm({
+                  title: S.mysteryConfirmTitle,
+                  description: S.exampleConfirmDesc,
+                  confirmLabel: S.loadMystery,
+                })
+              ) {
+                loadMysteryExample();
+                notify({ title: S.mysteryLoaded, tone: 'success' });
+              }
+            }}
+          >
+            {S.loadMystery}
+          </ProjectMenuItem>
+        </>
       }
     />
   );
@@ -200,9 +221,11 @@ function Glue() {
    * PL 檢視的頁面不能有 GM 專用的內容，F61）
    */
   const viewMode = usePrefs((s) => s.data.viewMode);
+  /* 人物別換人時也拿掉（印過的是別人的真相，F118） */
+  const pov = usePrefs((s) => s.data.pov ?? '');
   useEffect(() => {
-    if (viewMode === 'pl') clearPrintFrames();
-  }, [viewMode]);
+    if (viewMode === 'pl' && pov !== null) clearPrintFrames();
+  }, [viewMode, pov]);
   return (
     <>
       <NotifyBridge />

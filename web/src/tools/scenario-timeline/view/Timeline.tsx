@@ -81,8 +81,8 @@ import {
   snapValue,
   type TimeMode,
 } from '../model/time';
-import { eventColor, GM_COLOR, nowValue } from '../model/types';
-import type { VisibleDoc, VisibleEvent, VisibleLink } from '../model/visible';
+import { eventColor, GM_COLOR, nowValue, TRUTH_COLOR } from '../model/types';
+import { ownerId, type VisibleDoc, type VisibleEvent, type VisibleLink } from '../model/visible';
 import { panWindow, revealWindow, type Win, wheelZoomFactor, zoomWindow } from '../model/window';
 import {
   addEvent,
@@ -150,13 +150,24 @@ let pointerSelecting = false;
 /** 拖曳中的事件換成預覽的時間與泳道 */
 function withPreview(vdoc: VisibleDoc, drag: readonly DragPreview[] | null): VisibleDoc {
   if (!drag?.length) return vdoc;
-  const by = new Map(drag.map((d) => [d.id, d]));
+  /* 真相（F116）的時間空白（和證詞相同）時跟著拖；泳道跟著證詞 */
+  const owners = new Map(vdoc.events.map((e) => [e.id, e]));
+  const byId = new Map(drag.map((d) => [d.id, d]));
+  const truths = vdoc.truths?.map((t) => {
+    const d = byId.get(t.truthOf ?? '');
+    const o = owners.get(t.truthOf ?? '');
+    if (!d || !o?.truth) return t;
+    const start = o.truth.start || d.start;
+    const end = o.truth.end || (o.truth.start ? '' : t.kind === 'point' ? '' : d.end);
+    return { ...t, start, end, laneId: d.laneId };
+  });
   return {
     ...vdoc,
     events: vdoc.events.map((e) => {
-      const d = by.get(e.id);
+      const d = byId.get(e.id);
       return d ? { ...e, start: d.start, end: d.end, laneId: d.laneId } : e;
     }),
+    ...(truths ? { truths } : {}),
   };
 }
 
@@ -436,13 +447,19 @@ export function Timeline() {
         title: eventTitleText(vdocBase, e, e.laneId ? (laneNames.get(e.laneId) ?? S.main) : S.main),
         color: eventColor(vdocBase, e),
       });
+    /* 真相（F116）：提示的開頭寫「真相：」 */
+    for (const t of vdocBase.truths ?? [])
+      out.set(t.id, {
+        title: `${S.truthWord}：${eventTitleText(vdocBase, t, t.laneId ? (laneNames.get(t.laneId) ?? S.main) : S.main)}`,
+        color: eventColor(vdocBase, t),
+      });
     return out;
   }, [vdocBase]);
   const selected = useMemo(() => new Set(selectedIds), [selectedIds]);
   const dragging = useMemo(() => new Set((drag ?? []).map((d) => d.id)), [drag]);
   /** 淡化的事件（篩選中、沒符合，淡化模式） */
   const dimOf = useCallback(
-    (id: string) => !filterHide && !!matches && !matches.has(id),
+    (id: string) => !filterHide && !!matches && !matches.has(ownerId(id)),
     [filterHide, matches],
   );
   const flagH = flagRowHeight(flags.levels);
@@ -500,7 +517,7 @@ export function Timeline() {
         const W = trackRef.current?.clientWidth || 800;
         const ids: string[] = [];
         for (const it of cur.layout.items) {
-          if (cur.dimOf(it.id)) continue;
+          if (it.event.truthOf || cur.dimOf(it.id)) continue;
           const b = itemBox(it, cur.xOf);
           if (b.right >= 0 && b.left <= W) ids.push(it.id);
         }
@@ -916,6 +933,20 @@ export function Timeline() {
       });
       return;
     }
+    /* 真相那一筆（F116）：選取它的事件；按住拖曳＝平移（真相的時間在「事件」分頁改） */
+    const truthEl = e.button === 0 ? target.closest<HTMLElement>('[data-truth-of]') : null;
+    if (truthEl && !e.shiftKey) {
+      const id = truthEl.dataset.truthOf as string;
+      pointerSelecting = true;
+      const touch = e.pointerType === 'touch';
+      let click = clickSelect(id, ctrl, false);
+      if (!click && !useUi.getState().selectedIds.includes(id)) {
+        if (touch) click = () => select(id);
+        else select(id);
+      }
+      begin(e, panStart(e, click));
+      return;
+    }
     const itemEl = e.button === 0 ? target.closest<HTMLElement>('[data-event-id]') : null;
     /*
      * Shift＋拖曳：框選（從事件上開始也是，事件多、找不到空白處時也能框；Ctrl 也按著時加進原本的選取）；
@@ -1013,6 +1044,11 @@ export function Timeline() {
     if (e.shiftKey || e.ctrlKey || e.metaKey) return;
     const target = e.target as HTMLElement;
     if (target.closest('[data-link-handle]')) return;
+    const truthEl = target.closest<HTMLElement>('[data-truth-of]');
+    if (truthEl) {
+      editEvent(truthEl.dataset.truthOf as string, 'truth');
+      return;
+    }
     const itemEl = target.closest<HTMLElement>('[data-event-id]');
     if (itemEl) {
       editEvent(itemEl.dataset.eventId as string);
@@ -1392,6 +1428,30 @@ export function Timeline() {
                 }}
               />
             ))}
+            {layout.rows.map((row) => {
+              const ex = row.lane?.exit;
+              if (!ex || row.key !== row.lane?.id) return null;
+              const t = readTime(mode, ex.time, vdoc);
+              if (!t) return null;
+              const x = xOf(t.v);
+              if (x > width + 4) return null;
+              return (
+                <ExitBand
+                  key={`x${row.key}`}
+                  laneId={row.key}
+                  x={x}
+                  top={row.y}
+                  height={row.height - 1}
+                  width={width}
+                  label={ex.label.trim() || S.exitDefault}
+                  title={S.exitTitle(
+                    row.lane?.name.trim() || S.untitled,
+                    formatLong(mode, t, vdoc),
+                    ex.label.trim(),
+                  )}
+                />
+              );
+            })}
             {shownLinks.length || linkDraft ? (
               <LinkLayer
                 links={shownLinks}
@@ -1413,10 +1473,10 @@ export function Timeline() {
                 x2={xOf(it.b)}
                 width={width}
                 color={looks.get(it.id)?.color ?? ''}
-                selected={selected.has(it.id)}
-                dragging={dragging.has(it.id)}
+                selected={selected.has(ownerId(it.id))}
+                dragging={dragging.has(ownerId(it.id))}
                 gm={!pl}
-                editable={!pl}
+                editable={!pl && !it.event.truthOf}
                 dim={dimOf(it.id)}
                 title={looks.get(it.id)?.title ?? ''}
                 onKeyDown={onItemKeyDown}
@@ -1469,7 +1529,11 @@ export function Timeline() {
           className="pointer-events-none absolute right-3 bottom-3 z-30 rounded-full border border-border bg-surface px-2.5 py-1 text-xs font-semibold text-muted shadow-1"
           data-testid="pl-badge"
         >
-          {S.plBadge}
+          {vdocAll.pov
+            ? S.plBadgePov(
+                vdocAll.lanes.find((l) => l.id === vdocAll.pov)?.name.trim() || S.untitled,
+              )
+            : S.plBadge}
         </span>
       ) : null}
       {tip ? <DragTip tip={tip} root={rootRef.current} /> : null}
@@ -1824,26 +1888,100 @@ const Item = memo(function Item({
   onKeyDown,
 }: ItemProps) {
   const e = it.event;
-  const note = gm && !!e.gmNote.trim();
-  const stripes: CSSProperties = gm && e.secret ? { backgroundImage: GM_STRIPES } : {};
+  /* 真相那一筆（F116）、伏字（F117）：虛線框、淡色的底 */
+  const truth = !!e.truthOf;
+  const masked = !!e.masked;
+  const note = gm && !!e.gmNote.trim() && !truth;
+  const stripes: CSSProperties = gm && e.secret && !truth ? { backgroundImage: GM_STRIPES } : {};
+  const owner = e.truthOf ?? it.id;
   const common = {
     type: 'button' as const,
     title,
     'aria-label': title.split('\n').slice(0, 3).join('，'),
     'aria-pressed': selected,
-    'data-event-id': it.id,
+    /* 真相那一筆不是事件本身：點了選取它的事件（不能拖、不在 Tab 的順序裡） */
+    ...(truth ? { 'data-truth-of': owner, tabIndex: -1 } : { 'data-event-id': it.id }),
     'data-kind': e.kind,
     'data-level': it.level,
     'data-row': it.row,
     'data-selected': selected || undefined,
-    'data-secret': (gm && e.secret) || undefined,
+    'data-secret': (gm && e.secret && !truth) || undefined,
+    'data-masked': masked || undefined,
+    'data-face': (!truth && e.scope) || undefined,
     'data-dim': dim || undefined,
-    onKeyDown: (ev: ReactKeyboardEvent<HTMLElement>) => onKeyDown(ev, it.id),
+    onKeyDown: (ev: ReactKeyboardEvent<HTMLElement>) => onKeyDown(ev, owner),
     /* 鍵盤（Tab）移到事件上＝選取 */
-    onFocus: () => selectOnFocus(it.id),
+    onFocus: () => selectOnFocus(owner),
   };
   const ring = selected ? 'ring-2 ring-focus' : 'focus-visible:ring-2 focus-visible:ring-focus';
   const fade = dim && !selected ? 'opacity-25' : undefined;
+  const badges = <FaceBadges e={e} gm={gm} />;
+  if (truth || masked) {
+    const stroke = truth ? 'var(--danger)' : 'var(--text-muted)';
+    const textColor = truth ? 'var(--danger)' : 'var(--text-muted)';
+    if (e.kind === 'point')
+      return (
+        <button
+          {...common}
+          className={cn(
+            'absolute z-[3] flex cursor-pointer items-center rounded-[4px] pr-1 outline-none',
+            ring,
+            fade,
+          )}
+          style={{ left: x1 - POINT_R - 2, top: it.y, height: ITEM_H }}
+        >
+          <span
+            aria-hidden
+            className="ml-0.5 size-2.5 shrink-0 rounded-full bg-bg"
+            style={{ boxShadow: `0 0 0 2px ${stroke}` }}
+          />
+          <span
+            className="ml-[5px] text-[12px] font-medium whitespace-nowrap"
+            style={{ color: textColor }}
+            data-item-label
+          >
+            {it.label}
+          </span>
+          {badges}
+        </button>
+      );
+    const realW = Math.max(MIN_BAR, x2 - x1);
+    const barL = Math.max(x1, -6);
+    const barR = Math.min(x1 + realW, width + 6);
+    const shown = barR > barL;
+    const left = shown ? barL : x1 + realW;
+    const w = shown ? barR - barL : 0;
+    const label = it.inside ? ellipsize(it.label, w - INSIDE_PAD * 2, itemMeasure) : it.label;
+    const outside = x1 + realW + LABEL_GAP - left;
+    return (
+      <button
+        {...common}
+        className={cn('absolute z-[3] cursor-pointer rounded-[4px] outline-none', ring, fade)}
+        style={{ left, top: it.y, width: w, height: ITEM_H }}
+      >
+        <span
+          aria-hidden
+          className="pointer-events-none absolute inset-0 rounded-[4px] border-[1.5px] border-dashed"
+          style={{
+            borderColor: stroke,
+            background: truth
+              ? `color-mix(in srgb, ${color} 18%, transparent)`
+              : 'color-mix(in srgb, var(--text-muted) 14%, transparent)',
+          }}
+        />
+        <span
+          className="absolute top-0 flex h-full items-center text-[12px] font-medium whitespace-nowrap"
+          style={
+            it.inside ? { left: INSIDE_PAD, color: textColor } : { left: outside, color: textColor }
+          }
+          data-item-label
+        >
+          {label}
+        </span>
+        {badges}
+      </button>
+    );
+  }
   if (e.kind === 'point') {
     return (
       <button
@@ -1868,6 +2006,7 @@ const Item = memo(function Item({
           {it.label}
         </span>
         {gm && e.gm ? <GmBadge className="absolute -top-[7px] left-0" /> : null}
+        {badges}
         {note ? <NoteMark /> : null}
       </button>
     );
@@ -1923,6 +2062,7 @@ const Item = memo(function Item({
         />
       ) : null}
       {gm && e.gm ? <GmBadge className="absolute -top-[7px] left-0" /> : null}
+      {badges}
       {note ? (
         <span
           aria-hidden
@@ -1935,6 +2075,84 @@ const Item = memo(function Item({
     </button>
   );
 });
+
+/** 證詞、伏字（知道真相的檢視）、查明（調查後公開）、真相的小標（F116～F119；GM 小標的右邊） */
+function FaceBadges({ e, gm }: { e: VisibleEvent; gm: boolean }) {
+  const tags: { text: string; color: string }[] = [];
+  if (e.truthOf) tags.push({ text: S.tagTruth, color: TRUTH_COLOR });
+  else {
+    if (e.scope === 'alibi') tags.push({ text: S.tagAlibi, color: '#475569' });
+    if (e.scope === 'redacted') tags.push({ text: S.tagRedacted, color: '#475569' });
+    if (e.opened) tags.push({ text: S.tagOpened, color: '#2563eb' });
+  }
+  if (!tags.length) return null;
+  return (
+    <span
+      aria-hidden
+      className="pointer-events-none absolute -top-[7px] flex gap-0.5 whitespace-nowrap"
+      style={{ left: gm && e.gm ? 22 : 0 }}
+      data-face-badges
+    >
+      {tags.map((t) => (
+        <span
+          key={t.text}
+          className="shrink-0 rounded-[3px] px-[3px] text-[8px] leading-[12px] font-bold whitespace-nowrap text-white"
+          style={{ background: t.color }}
+        >
+          {t.text}
+        </span>
+      ))}
+    </span>
+  );
+}
+
+/** 泳道的退場時刻之後（F121）：灰色斜線、紅色虛線與標籤（不擋點選） */
+function ExitBand({
+  laneId,
+  x,
+  top,
+  height,
+  width,
+  label,
+  title,
+}: {
+  laneId: string;
+  x: number;
+  top: number;
+  height: number;
+  width: number;
+  label: string;
+  title: string;
+}) {
+  const left = Math.max(-2, x);
+  return (
+    <div
+      aria-hidden
+      data-exit-band={laneId}
+      title={title}
+      className="pointer-events-none absolute z-[1]"
+      style={{
+        left,
+        top,
+        width: Math.max(0, width + 4 - left),
+        height,
+        backgroundImage:
+          'repeating-linear-gradient(135deg, rgb(107 114 128 / 0.2) 0 2px, transparent 2px 9px)',
+        backgroundColor: 'rgb(107 114 128 / 0.08)',
+        borderLeft: x >= -2 ? '1.5px dashed var(--danger)' : undefined,
+      }}
+    >
+      {x >= -2 ? (
+        <span
+          className="absolute bottom-[3px] left-[3px] rounded-[3px] border border-danger bg-bg px-1 text-[10px] leading-[12px] font-bold whitespace-nowrap text-danger"
+          data-exit-label
+        >
+          {label}
+        </span>
+      ) : null}
+    </div>
+  );
+}
 
 function NoteMark() {
   return (

@@ -2,12 +2,13 @@
  * 「泳道」分頁（規格 1.3）：泳道清單（拖曳排序、顏色、名稱、種類、上層、GM 專用、刪除）與分類清單。
  * PL 檢視：只列 PL 看得到的泳道與看得到的事件用到的分類（停用）。
  */
-import { GripVertical, Plus, Trash2 } from 'lucide-react';
+import { GripVertical, Plus, Trash2, UserX, X } from 'lucide-react';
 import { useRef } from 'react';
 import { historyGesture } from '@/core/storage';
 import {
   Button,
   ColorField,
+  Field,
   IconButton,
   Section,
   Select,
@@ -37,8 +38,9 @@ import {
   useDoc,
 } from '../store';
 import { S } from '../strings';
-import { useVisibleDoc } from '../view/shared';
+import { centerTime, useVisibleDoc } from '../view/shared';
 import { PlLock } from './EventPanel';
+import { TimeField } from './TimeField';
 
 const g = historyGesture(useDoc);
 const TOP = '__top';
@@ -263,6 +265,82 @@ function LaneRow({
           onClick={() =>
             updateLane(lane.id, (l) => {
               l.gm = !l.gm;
+            })
+          }
+        />
+        <IconButton
+          size="sm"
+          variant="secondary"
+          label={`${S.laneExitToggle}：${name}`}
+          icon={<UserX />}
+          pressed={!!lane.exit}
+          disabled={pl}
+          data-lane-exit={lane.id}
+          onClick={() =>
+            updateLane(lane.id, (l) => {
+              if (l.exit) delete l.exit;
+              else l.exit = { time: centerTime(), label: '' };
+            })
+          }
+        />
+      </div>
+      {lane.exit ? <ExitRow lane={lane} pl={pl} name={name} /> : null}
+    </div>
+  );
+}
+
+/** 退場時刻（F121）：時間與寫法（死亡、失蹤…；空白＝退場） */
+function ExitRow({ lane, pl, name }: { lane: Lane; pl: boolean; name: string }) {
+  const doc = useDoc((s) => s.data);
+  const exit = lane.exit;
+  if (!exit) return null;
+  return (
+    <div className="flex min-w-0 flex-wrap items-start gap-1.5 pl-7" data-exit-row={lane.id}>
+      <div className="min-w-0 flex-1 basis-40">
+        <TimeField
+          label={S.laneExitTime}
+          value={exit.time}
+          mode={doc.mode}
+          era={doc}
+          disabled={pl}
+          data-field="lane-exit-time"
+          onCommit={(t) =>
+            updateLane(lane.id, (l) => {
+              if (l.exit) l.exit.time = t;
+            })
+          }
+        />
+      </div>
+      <div className="flex min-w-0 basis-28 items-end gap-1">
+        <Field label={S.laneExitLabel} className="min-w-0 flex-1">
+          <TextInput
+            value={exit.label}
+            maxLength={LIMITS.exitLabel}
+            disabled={pl}
+            placeholder={S.exitDefault}
+            data-field="lane-exit-label"
+            onFocus={g.begin}
+            onBlur={g.commit}
+            onChange={(e) =>
+              updateLane(
+                lane.id,
+                (l) => {
+                  if (l.exit) l.exit.label = e.target.value;
+                },
+                false,
+              )
+            }
+          />
+        </Field>
+        <IconButton
+          size="sm"
+          variant="ghost"
+          label={`${S.laneExitRemove}：${name}`}
+          icon={<X />}
+          disabled={pl}
+          onClick={() =>
+            updateLane(lane.id, (l) => {
+              delete l.exit;
             })
           }
         />

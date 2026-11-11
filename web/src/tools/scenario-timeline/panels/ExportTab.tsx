@@ -7,11 +7,13 @@ import { downloadText } from '@/core/files';
 import {
   Button,
   type ExportFormatOption,
+  type ExportOutput,
   ExportPanel,
   Field,
   NumberInput,
   Section,
   Segmented,
+  Select,
   TextOutputPanel,
   Toggle,
 } from '@/ui';
@@ -19,15 +21,25 @@ import {
   exportDoc,
   fileBase,
   imageFileName,
+  type PlanResult,
+  POV_ALL,
   planPicture,
   renderPng,
   renderSvg,
   textFileName,
 } from '../export/render';
-import { chronicle, chronicleMarkdown, chronicleText } from '../model/chronicle';
+import {
+  chronicle,
+  chronicleMarkdown,
+  chronicleText,
+  laneReport,
+  laneReportMarkdown,
+  laneReportText,
+} from '../model/chronicle';
 import { eventsToCsv } from '../model/csv';
 import { effectiveFilter, type FilterState, isFiltering, matchingIds } from '../model/filter';
-import { type Audience, hasSecrets, visibleDoc } from '../model/visible';
+import type { TimelineDoc } from '../model/types';
+import { type Audience, hasSecrets, povLanes, visibleDoc } from '../model/visible';
 import { notify } from '../notify';
 import {
   docNow,
@@ -54,29 +66,61 @@ const FORMATS: ExportFormatOption[] = [
 ];
 const SCALES = [1, 2] as const;
 
-/** 匯出的對象：PL 檢視時固定 PL 用（畫面上不出現 GM 用的內容） */
-function useAudience(chosen: Audience): Audience {
-  const pl = usePrefs((s) => s.data.viewMode) === 'pl';
-  return pl ? 'pl' : chosen;
+/** 匯出的對象（F63、F118）：GM 用、PL 用（pov 空字串＝全體公開；泳道 id＝人物別；「*」＝人物別全部各一張） */
+export interface Viewer {
+  audience: Audience;
+  pov: string;
+}
+
+/**
+ * 實際的對象：PL 檢視時固定是目前的 PL 檢視（全體公開或那個人物；畫面上不出現 GM 用的內容）；
+ * 人物別指到 PL 看不到、已經刪掉的泳道時＝全體公開；allowAll：可以「全部各一張」（圖片）。
+ */
+export function viewerOf(
+  doc: TimelineDoc,
+  p: Pick<Prefs, 'viewMode' | 'pov'>,
+  chosen: { audience: Audience; pov?: string },
+  allowAll: boolean,
+): Viewer {
+  if (p.viewMode === 'pl') {
+    const cur = p.pov ?? '';
+    return { audience: 'pl', pov: povLanes(doc).some((l) => l.id === cur) ? cur : '' };
+  }
+  if (chosen.audience === 'gm') return { audience: 'gm', pov: '' };
+  const want = chosen.pov ?? '';
+  if (want === POV_ALL) return { audience: 'pl', pov: allowAll ? POV_ALL : '' };
+  return { audience: 'pl', pov: povLanes(doc).some((l) => l.id === want) ? want : '' };
+}
+
+function useViewer(chosen: { audience: Audience; pov?: string }, allowAll: boolean): Viewer {
+  const doc = useDoc((s) => s.data);
+  const viewMode = usePrefs((s) => s.data.viewMode);
+  const pov = usePrefs((s) => s.data.pov);
+  return useMemo(
+    () => viewerOf(doc, { viewMode, pov }, chosen, allowAll),
+    [doc, viewMode, pov, chosen, allowAll],
+  );
 }
 
 /** 「只匯出篩選的結果」要用的篩選：開著而且目前的檢視有篩選時（沒有時 null＝全部） */
 function exportFilter(p: Prefs, on: boolean | undefined): FilterState | null {
   if (!on) return null;
   const f = filterOf(p);
-  return isFiltering(effectiveFilter(visibleDoc(docNow(), p.viewMode), f)) ? f : null;
+  const cur = visibleDoc(docNow(), p.viewMode, p.viewMode === 'pl' ? (p.pov ?? '') : '');
+  return isFiltering(effectiveFilter(cur, f)) ? f : null;
 }
 
 /** 目前的檢視有沒有篩選、符合幾個（匯出的說明用） */
 function useFilterInfo(): { active: boolean; count: number } {
   const doc = useDoc((s) => s.data);
   const viewMode = usePrefs((s) => s.data.viewMode);
+  const pov = usePrefs((s) => s.data.pov ?? '');
   const filter = usePrefs((s) => s.data.filter);
   return useMemo(() => {
-    const vdoc = visibleDoc(doc, viewMode);
+    const vdoc = visibleDoc(doc, viewMode, viewMode === 'pl' ? pov : '');
     const ids = matchingIds(vdoc, filterOf({ filter } as Prefs, viewMode));
     return { active: !!ids, count: ids?.size ?? vdoc.events.length };
-  }, [doc, viewMode, filter]);
+  }, [doc, viewMode, pov, filter]);
 }
 
 function FilteredField({
@@ -98,40 +142,127 @@ function FilteredField({
   );
 }
 
+type AudienceChoice = 'pl' | 'pov' | 'gm';
+
+/**
+ * 對象（F63、F118）：PL 用（全體公開）／人物別（選一個人物；圖片可以選「全部各一張」）／GM 用。
+ * 專案裡沒有可以選的人物時只有 PL 用、GM 用（和以前相同）。PL 檢視時固定是目前的 PL 檢視。
+ */
 function AudienceField({
-  value,
+  viewer,
   onChange,
   secrets,
+  allowAll,
+  testId,
 }: {
-  value: Audience;
-  onChange: (v: Audience) => void;
+  viewer: Viewer;
+  onChange: (v: { audience: Audience; pov?: string }) => void;
   secrets: boolean;
+  allowAll: boolean;
+  testId: string;
 }) {
   const pl = usePrefs((s) => s.data.viewMode) === 'pl';
+  const doc = useDoc((s) => s.data);
+  const people = useMemo(() => povLanes(doc), [doc]);
+  const choice: AudienceChoice = viewer.audience === 'gm' ? 'gm' : viewer.pov ? 'pov' : 'pl';
+  const options: { value: AudienceChoice; label: string }[] = [
+    { value: 'pl', label: S.audiencePl },
+    ...(people.length || choice === 'pov' ? [{ value: 'pov' as const, label: S.audiencePov }] : []),
+    { value: 'gm', label: S.audienceGm },
+  ];
+  const hint = pl
+    ? S.audiencePlView
+    : choice === 'pov'
+      ? viewer.pov === POV_ALL
+        ? S.audiencePovAllHint(people.length)
+        : S.audiencePovHint
+      : secrets
+        ? S.audienceHint
+        : S.audienceSame;
   return (
-    <Field
-      label={S.audience}
-      hint={pl ? S.audiencePlView : secrets ? S.audienceHint : S.audienceSame}
-    >
-      <Segmented<Audience>
-        value={pl ? 'pl' : value}
-        fullWidth
-        disabled={pl}
-        onValueChange={onChange}
-        options={[
-          { value: 'pl', label: S.audiencePl },
-          { value: 'gm', label: S.audienceGm },
-        ]}
-      />
-    </Field>
+    <>
+      <Field label={S.audience} hint={hint}>
+        <div data-testid={testId}>
+          <Segmented<AudienceChoice>
+            value={choice}
+            fullWidth
+            disabled={pl}
+            onValueChange={(v) => {
+              if (v === 'gm') onChange({ audience: 'gm' });
+              else if (v === 'pl') onChange({ audience: 'pl', pov: '' });
+              else onChange({ audience: 'pl', pov: people[0]?.id ?? '' });
+            }}
+            options={options}
+          />
+        </div>
+      </Field>
+      {choice === 'pov' ? (
+        <Field label={S.audiencePerson}>
+          <Select
+            value={viewer.pov}
+            disabled={pl}
+            data-field={`${testId}-person`}
+            onValueChange={(v) => onChange({ audience: 'pl', pov: v })}
+            options={[
+              ...people.map((l) => ({ value: l.id, label: l.name.trim() || S.untitled })),
+              ...(allowAll && people.length > 1
+                ? [{ value: POV_ALL, label: S.audiencePovAll }]
+                : []),
+            ]}
+          />
+        </Field>
+      ) : null}
+    </>
   );
+}
+
+/** 匯出一張圖（PNG、SVG） */
+async function renderOne(
+  d: TimelineDoc,
+  r: Extract<PlanResult, { ok: true }>,
+  format: string,
+  scale: number,
+  viewer: Viewer,
+): Promise<ExportOutput> {
+  if (format === 'svg') {
+    const out = await renderSvg(r.pic);
+    return {
+      blob: out.blob,
+      fileName: imageFileName(d, viewer.audience, 'svg', viewer.pov),
+      width: r.pic.width,
+      height: r.pic.height,
+      details: [
+        {
+          label: S.svgFont,
+          value: out.fontEmbedded ? S.svgFontEmbedded : S.svgFontMissing,
+        },
+      ],
+    };
+  }
+  const out = await renderPng(r.pic, scale);
+  return {
+    blob: out.blob,
+    fileName: imageFileName(d, viewer.audience, 'png', viewer.pov),
+    width: out.width,
+    height: out.height,
+    details:
+      out.scale < scale - 1e-9 ? [{ label: '倍率', value: S.scaleCapped(out.scale) }] : undefined,
+  };
 }
 
 export function ExportTab() {
   const doc = useDoc((s) => s.data);
   const exPrefs = usePrefs((s) => s.data.export);
-  const audience = useAudience(exPrefs.audience);
-  const ex = useMemo(() => ({ ...exPrefs, audience }), [exPrefs, audience]);
+  const viewer = useViewer(exPrefs, true);
+  const ex = useMemo(
+    () => ({ ...exPrefs, audience: viewer.audience, pov: viewer.pov }),
+    [exPrefs, viewer],
+  );
+  /* 人物別「全部各一張」：預覽的尺寸用第一個人物的 */
+  const previewPov = useMemo(
+    () => (viewer.pov === POV_ALL ? (povLanes(doc)[0]?.id ?? '') : viewer.pov),
+    [viewer.pov, doc],
+  );
   const collapsed = usePrefs((s) => s.data.collapsed);
   const win = useUi((s) => s.win);
   const winMode = useUi((s) => s.winMode);
@@ -152,8 +283,9 @@ export function ExportTab() {
         collapsed,
         null,
         exportFilter({ ...prefsNow(), filter: filterPrefs }, ex.filtered),
+        ex.audience === 'pl' ? previewPov : '',
       ),
-    [doc, ex, view, collapsed, filterPrefs],
+    [doc, ex, view, collapsed, filterPrefs, previewPov],
   );
   const resetKey = useMemo(
     () => ({ doc, ex, view, collapsed, filterPrefs }),
@@ -203,9 +335,11 @@ export function ExportTab() {
           </div>
         ) : null}
         <AudienceField
-          value={ex.audience}
+          viewer={viewer}
           secrets={secrets}
-          onChange={(v) => setExportPrefs({ audience: v })}
+          allowAll
+          testId="export-audience"
+          onChange={(v) => setExportPrefs({ audience: v.audience, pov: v.pov ?? '' })}
         />
         <FilteredField value={ex.filtered} onChange={(v) => setExportPrefs({ filtered: v })} />
         <Field label={S.exWidth} hint={S.exWidthHint}>
@@ -254,46 +388,33 @@ export function ExportTab() {
         onExport={async (settings) => {
           const d = docNow();
           const p = prefsNow();
-          const exNow: ExportPrefs = {
-            ...p.export,
-            audience: p.viewMode === 'pl' ? 'pl' : p.export.audience,
-          };
+          const v = viewerOf(d, p, p.export, true);
+          const exNow: ExportPrefs = { ...p.export, audience: v.audience, pov: v.pov };
           const ui = useUi.getState();
-          const r = planPicture(
-            d,
-            exNow,
-            ui.win && ui.winMode === d.mode ? ui.win : currentWin(),
-            p.collapsed,
-            undefined,
-            exportFilter(p, p.export.filtered),
-          );
-          if (!r.ok) throw new Error(r.error);
-          if (settings.format === 'svg') {
-            const out = await renderSvg(r.pic);
+          const view = ui.win && ui.winMode === d.mode ? ui.win : currentWin();
+          const filter = exportFilter(p, p.export.filtered);
+          if (v.pov === POV_ALL) {
+            /* 人物別全部各一張（F118）：每個人物一個檔案（結果卡可以打包成 ZIP） */
+            const files: ExportOutput[] = [];
+            for (const lane of povLanes(d)) {
+              const r = planPicture(d, exNow, view, p.collapsed, undefined, filter, lane.id);
+              if (!r.ok) continue;
+              files.push(
+                await renderOne(d, r, settings.format, p.export.scale, {
+                  audience: 'pl',
+                  pov: lane.id,
+                }),
+              );
+            }
+            if (!files.length) throw new Error(S.exEmpty);
             return {
-              blob: out.blob,
-              fileName: imageFileName(d, exNow.audience, 'svg'),
-              width: r.pic.width,
-              height: r.pic.height,
-              details: [
-                {
-                  label: S.svgFont,
-                  value: out.fontEmbedded ? S.svgFontEmbedded : S.svgFontMissing,
-                },
-              ],
+              files,
+              zipName: `${fileBase(d)}_${S.fileName.image}_${S.fileName.povAll}`,
             };
           }
-          const out = await renderPng(r.pic, p.export.scale);
-          return {
-            blob: out.blob,
-            fileName: imageFileName(d, exNow.audience, 'png'),
-            width: out.width,
-            height: out.height,
-            details:
-              out.scale < p.export.scale - 1e-9
-                ? [{ label: '倍率', value: S.scaleCapped(out.scale) }]
-                : undefined,
-          };
+          const r = planPicture(d, exNow, view, p.collapsed, undefined, filter, v.pov);
+          if (!r.ok) throw new Error(r.error);
+          return renderOne(d, r, settings.format, p.export.scale, v);
         }}
       />
       <TextSection />
@@ -303,30 +424,67 @@ export function ExportTab() {
   );
 }
 
+/** 年表文字（時間順）或進行表（人物・地點別，F122）的內容 */
+export function exportText(
+  doc: TimelineDoc,
+  viewer: Viewer,
+  opts: { format: 'text' | 'md'; byLane?: boolean; links: boolean; filter: FilterState | null },
+): string {
+  const vdoc = exportDoc(doc, viewer.audience, opts.filter, viewer.pov);
+  const ch = chronicle(vdoc, S.untitled, S.toolName, { links: opts.links });
+  if (opts.byLane) {
+    const rep = laneReport(ch, vdoc, S.main, S.untitled);
+    return opts.format === 'md'
+      ? laneReportMarkdown(rep, viewer.audience)
+      : laneReportText(rep, viewer.audience);
+  }
+  return opts.format === 'md'
+    ? chronicleMarkdown(ch, viewer.audience)
+    : chronicleText(ch, viewer.audience);
+}
+
 function TextSection() {
   const doc = useDoc((s) => s.data);
   const tPrefs = usePrefs((s) => s.data.text);
   const viewMode = usePrefs((s) => s.data.viewMode);
-  const audience = useAudience(tPrefs.audience);
-  const t = useMemo(() => ({ ...tPrefs, audience }), [tPrefs, audience]);
+  const curPov = usePrefs((s) => s.data.pov ?? '');
+  const viewer = useViewer(tPrefs, false);
+  const t = useMemo(() => ({ ...tPrefs, audience: viewer.audience }), [tPrefs, viewer]);
   const secrets = useMemo(() => hasSecrets(doc), [doc]);
   /* 目前的檢視看得到關聯線時才有「列出關聯線」（PL 檢視只算 PL 看得到的線） */
-  const hasLinks = useMemo(() => visibleDoc(doc, viewMode).links.length > 0, [doc, viewMode]);
+  const hasLinks = useMemo(
+    () => visibleDoc(doc, viewMode, viewMode === 'pl' ? curPov : '').links.length > 0,
+    [doc, viewMode, curPov],
+  );
   const linksOn = t.links !== false;
   const filterPrefs = usePrefs((s) => s.data.filter);
-  const text = useMemo(() => {
-    const ch = chronicle(
-      exportDoc(doc, t.audience, exportFilter({ ...prefsNow(), filter: filterPrefs }, t.filtered)),
-      S.untitled,
-      S.toolName,
-      { links: linksOn },
-    );
-    return t.format === 'md' ? chronicleMarkdown(ch, t.audience) : chronicleText(ch, t.audience);
-  }, [doc, t, filterPrefs, linksOn]);
+  const text = useMemo(
+    () =>
+      exportText(doc, viewer, {
+        format: t.format,
+        byLane: t.byLane,
+        links: linksOn,
+        filter: exportFilter({ ...prefsNow(), filter: filterPrefs }, t.filtered),
+      }),
+    [doc, t, viewer, filterPrefs, linksOn],
+  );
   const setText = (patch: Partial<typeof t>) =>
     setPrefs({ text: { ...prefsNow().text, ...patch } });
   return (
     <Section title={S.textTitle} persistKey="scenario-timeline:export-text">
+      <Field label={S.textArrange} hint={t.byLane ? S.textByLaneHint : S.textByTimeHint}>
+        <div data-testid="text-arrange">
+          <Segmented<'time' | 'lane'>
+            value={t.byLane ? 'lane' : 'time'}
+            fullWidth
+            onValueChange={(v) => setText({ byLane: v === 'lane' })}
+            options={[
+              { value: 'time', label: S.textByTime },
+              { value: 'lane', label: S.textByLane },
+            ]}
+          />
+        </div>
+      </Field>
       <Field label={S.textFormat}>
         <Segmented<'text' | 'md'>
           value={t.format}
@@ -339,9 +497,11 @@ function TextSection() {
         />
       </Field>
       <AudienceField
-        value={t.audience}
+        viewer={viewer}
         secrets={secrets}
-        onChange={(v) => setText({ audience: v })}
+        allowAll={false}
+        testId="text-audience"
+        onChange={(v) => setText({ audience: v.audience, pov: v.pov ?? '' })}
       />
       <FilteredField value={t.filtered} onChange={(v) => setText({ filtered: v })} />
       {hasLinks ? (
@@ -359,7 +519,13 @@ function TextSection() {
             icon={<Download />}
             data-testid="text-download"
             onClick={() => {
-              const name = textFileName(docNow(), t.audience, t.format === 'md' ? 'md' : 'txt');
+              const name = textFileName(
+                docNow(),
+                viewer.audience,
+                t.format === 'md' ? 'md' : 'txt',
+                viewer.pov,
+                !!t.byLane,
+              );
               downloadText(
                 text,
                 name,

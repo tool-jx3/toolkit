@@ -53,6 +53,8 @@ export function boxHits(
 ): string[] {
   const out: string[] = [];
   for (const it of layout.items) {
+    /* 真相那一筆（F116）不是事件本身：不選 */
+    if (it.event.truthOf) continue;
     if (eligible && !eligible(it.id)) continue;
     if (overlaps(itemBox(it, xOf), rect)) out.push(it.id);
   }
@@ -85,6 +87,7 @@ export function rangeHits(
   const out = new Set<string>([anchorId, clickedId]);
   for (const it of layout.items) {
     if (it.row < r0 || it.row > r1) continue;
+    if (it.event.truthOf) continue;
     if (eligible && !eligible(it.id)) continue;
     if (it.a >= lo && it.b <= hi) out.add(it.id);
   }

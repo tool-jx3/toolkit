@@ -2,8 +2,8 @@
  * 「專案」分頁（規格 1.1、F36～F38、F80）：專案名稱、時間寫法（換算的對話框）、曆名、標記、目前進度、現在時刻。
  * PL 檢視：只列 PL 看得到的標記（停用）。
  */
-import { Plus, Trash2 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { ChevronsLeft, ChevronsRight, Eye, Plus, Trash2 } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
 import { historyGesture } from '@/core/storage';
 import {
   Button,
@@ -13,45 +13,49 @@ import {
   Field,
   IconButton,
   Notice,
+  NumberInput,
   Section,
   Segmented,
+  Select,
   TextInput,
   Toggle,
 } from '@/ui';
-import { dateLabel, dayOneValue, ERA_MAX, type TimeMode } from '../model/time';
-import { LIMITS, type Marker, PALETTE } from '../model/types';
+import {
+  defaultSession,
+  SESSION_LIMITS,
+  type Session,
+  type SessionStyle,
+  sessionStartText,
+  zeroOf,
+} from '../model/session';
+import { shiftCount, shiftUnits } from '../model/shift';
+import { dateLabel, dayOneValue, ERA_MAX, readTime, type TimeMode } from '../model/time';
+import { LIMITS, type Marker, PALETTE, SNAP_CHOICES } from '../model/types';
 import { notify } from '../notify';
 import {
   addMarker,
+  commit,
   defaultDayOne,
   deleteMarker,
   docNow,
+  findEvent,
+  guard,
   patchDoc,
   planConvert,
   requestFit,
+  shiftTimes,
+  undo,
   updateMarker,
   useDoc,
   useUi,
 } from '../store';
 import { S } from '../strings';
-import { currentWin, newEventStart, snapForWidth, useVisibleDoc } from '../view/shared';
+import { centerTime, useVisibleDoc } from '../view/shared';
 import { CalendarSection } from './CalendarSection';
 import { PlLock } from './EventPanel';
 import { TimeField } from './TimeField';
 
 const g = historyGesture(useDoc);
-
-/** 畫面範圍中間的時間（新標記、打開目前進度用） */
-function centerTime(): string {
-  const doc = docNow();
-  const win = currentWin();
-  return newEventStart(
-    doc.mode,
-    (win.start + win.end) / 2,
-    snapForWidth(doc.mode, win, 800, doc),
-    doc,
-  );
-}
 
 export function ProjectPanel() {
   const doc = useDoc((s) => s.data);
@@ -100,6 +104,29 @@ export function ProjectPanel() {
             ]}
           />
         </Field>
+        {doc.mode === 'day' ? <SessionFields pl={pl} /> : null}
+        {doc.mode !== 'year' ? (
+          <Field label={S.fSnap} hint={S.snapHint}>
+            <div data-testid="snap-choice">
+              <Segmented<string>
+                value={String(doc.snap ?? 0)}
+                fullWidth
+                disabled={pl}
+                onValueChange={(v) =>
+                  commitPatch((d) => {
+                    const n = Number(v);
+                    if (n) d.snap = n;
+                    else delete d.snap;
+                  })
+                }
+                options={[
+                  { value: '0', label: S.snapAuto },
+                  ...SNAP_CHOICES.map((n) => ({ value: String(n), label: S.snapMinutes(n) })),
+                ]}
+              />
+            </div>
+          </Field>
+        ) : null}
         {doc.mode === 'year' ? (
           <Field label={S.fEra} hint={S.eraHint}>
             <TextInput
@@ -116,6 +143,8 @@ export function ProjectPanel() {
       </Section>
 
       {doc.mode === 'year' ? <CalendarSection pl={pl} /> : null}
+
+      <ShiftSection pl={pl} />
 
       <Section title={S.progressTitle} fixed description={S.progressHint}>
         <Field label={S.progressOn} layout="inline">
@@ -202,6 +231,237 @@ export function ProjectPanel() {
   );
 }
 
+/** 改資料（PL 檢視時不作用；一步復原） */
+function commitPatch(recipe: Parameters<typeof commit>[0]): void {
+  if (!guard()) return;
+  commit(recipe);
+}
+
+const DAY_STYLE = '__day';
+
+/**
+ * 第 N 天的標示（F124）：第 N 天／時刻／日程／倒數／階段；開始時刻、時間幅（倒數）、每個階段的長度。
+ * 換標示不換算存檔的時間（只改顯示與輸入的寫法）。
+ */
+function SessionFields({ pl }: { pl: boolean }) {
+  const session = useDoc((s) => s.data.session);
+  const setSession = (next: Session | null) =>
+    commitPatch((d) => {
+      if (next) d.session = next;
+      else delete d.session;
+    });
+  const style = session?.style ?? DAY_STYLE;
+  return (
+    <>
+      <Field label={S.fSession} hint={S.sessionHints[style as SessionStyle | '__day']}>
+        <Select
+          value={style}
+          disabled={pl}
+          data-field="session-style"
+          onValueChange={(v) =>
+            setSession(
+              v === DAY_STYLE
+                ? null
+                : { ...(session ?? defaultSession(v as SessionStyle)), style: v as SessionStyle },
+            )
+          }
+          options={[
+            { value: DAY_STYLE, label: S.sessions.__day },
+            ...(['clock', 'schedule', 'countdown', 'phase'] as const).map((k) => ({
+              value: k,
+              label: S.sessions[k],
+            })),
+          ]}
+        />
+      </Field>
+      {session && session.style !== 'schedule' ? (
+        <StartField session={session} pl={pl} onChange={setSession} />
+      ) : null}
+      {session?.style === 'countdown' ? (
+        <Field
+          label={S.fSessionLength}
+          hint={S.sessionZero(
+            sessionStartText({ start: zeroOf(session) % 1440 }),
+            zeroOf(session) >= 1440,
+          )}
+        >
+          <NumberInput
+            value={session.length}
+            min={SESSION_LIMITS.length[0]}
+            max={SESSION_LIMITS.length[1]}
+            step={15}
+            unit="分"
+            disabled={pl}
+            onChange={(v) => setSession({ ...session, length: Math.round(v) })}
+          />
+        </Field>
+      ) : null}
+      {session?.style === 'phase' ? (
+        <Field label={S.fSessionPhase} hint={S.sessionPhaseHint}>
+          <NumberInput
+            value={session.phase}
+            min={SESSION_LIMITS.phase[0]}
+            max={SESSION_LIMITS.phase[1]}
+            step={5}
+            unit="分"
+            disabled={pl}
+            onChange={(v) => setSession({ ...session, phase: Math.round(v) })}
+          />
+        </Field>
+      ) : null}
+    </>
+  );
+}
+
+/** 開始時刻（HH:MM；離開欄位或 Enter 時套用，看不懂時還原） */
+function StartField({
+  session,
+  pl,
+  onChange,
+}: {
+  session: Session;
+  pl: boolean;
+  onChange: (s: Session) => void;
+}) {
+  const text = sessionStartText(session);
+  const [draft, setDraft] = useState(text);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => setDraft(text), [text]);
+  const apply = () => {
+    const m = /^(\d{1,2})[:：](\d{2})$/.exec(draft.normalize('NFKC').trim());
+    const v = m ? Number(m[1]) * 60 + Number(m[2]) : -1;
+    if (!m || Number(m[1]) > 23 || Number(m[2]) > 59) {
+      setError(S.sessionStartBad);
+      setDraft(text);
+      return;
+    }
+    setError(null);
+    if (v !== session.start) onChange({ ...session, start: v });
+  };
+  return (
+    <Field
+      label={S.fSessionStart}
+      hint={error ? undefined : S.sessionStartHint}
+      error={error ?? undefined}
+    >
+      <TextInput
+        value={draft}
+        disabled={pl}
+        data-field="session-start"
+        placeholder="18:00"
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={apply}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
+            e.preventDefault();
+            apply();
+          }
+        }}
+      />
+    </Field>
+  );
+}
+
+/**
+ * 時間的插入與縮短（F129）：從基準時間起，之後開始的事件、標記、目前進度、退場時刻整段往後挪或往前縮（一步復原）。
+ */
+function ShiftSection({ pl }: { pl: boolean }) {
+  const doc = useDoc((s) => s.data);
+  const units = useMemo(() => shiftUnits(doc), [doc]);
+  const selectedId = useUi((s) => s.selectedId);
+  const [from, setFrom] = useState('');
+  const [amount, setAmount] = useState(30);
+  const [unitId, setUnitId] = useState<string>(units[0]?.id ?? 'min');
+  const unit = units.find((u) => u.id === unitId) ?? units[0];
+  /* 基準時間的預設：選取中的事件的開始，沒有時畫面範圍的中間 */
+  const fromText = from || findEvent(selectedId)?.start || '';
+  const fromTv = fromText ? readTime(doc.mode, fromText, doc) : null;
+  const count = fromTv ? shiftCount(doc, fromTv.v) : 0;
+  const run = (dir: 1 | -1) => {
+    const base = fromText || centerTime();
+    const tv = readTime(doc.mode, base, doc);
+    if (!tv || !unit) return;
+    const plan = shiftTimes(tv.v, dir * amount * unit.v);
+    if (!plan) return;
+    if (!plan.moved && plan.sessionLength === null) {
+      notify({ title: S.shiftNothing, tone: 'info' });
+      return;
+    }
+    notify({
+      title: S.shiftDone(dir > 0, `${amount} ${unit.label}`, plan.moved),
+      description: [
+        plan.aligned ? S.shiftAligned(plan.aligned) : '',
+        plan.blocked ? S.shiftBlocked(plan.blocked) : '',
+      ]
+        .filter(Boolean)
+        .join(''),
+      tone: 'success',
+      action: { label: S.undoAction, onClick: () => undo() },
+    });
+  };
+  return (
+    <Section title={S.shiftTitle} persistKey="scenario-timeline:shift" description={S.shiftHint}>
+      <TimeField
+        label={S.shiftFrom}
+        value={fromText}
+        mode={doc.mode}
+        era={doc}
+        disabled={pl}
+        allowEmpty
+        hint={S.shiftFromHint}
+        data-field="shift-from"
+        onCommit={(t) => setFrom(t)}
+      />
+      {fromText ? (
+        <p className="m-0 text-xs text-muted" data-testid="shift-count">
+          {S.shiftCount(count)}
+        </p>
+      ) : null}
+      <div className="flex min-w-0 items-end gap-2">
+        <Field label={S.shiftAmount} className="min-w-0 flex-1">
+          <NumberInput
+            value={amount}
+            min={1}
+            max={100000}
+            step={unit?.id === 'min' ? 5 : 1}
+            disabled={pl}
+            onChange={(v) => setAmount(Math.max(1, Math.round(v)))}
+          />
+        </Field>
+        <Field label={S.shiftUnit} className="w-24 shrink-0">
+          <Select
+            value={unit?.id ?? 'min'}
+            disabled={pl}
+            data-field="shift-unit"
+            onValueChange={setUnitId}
+            options={units.map((u) => ({ value: u.id, label: u.label }))}
+          />
+        </Field>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <Button
+          size="sm"
+          icon={<ChevronsRight />}
+          disabled={pl}
+          data-testid="shift-insert"
+          onClick={() => run(1)}
+        >
+          {S.shiftInsert}
+        </Button>
+        <Button
+          size="sm"
+          icon={<ChevronsLeft />}
+          disabled={pl}
+          data-testid="shift-shrink"
+          onClick={() => run(-1)}
+        >
+          {S.shiftShrink}
+        </Button>
+      </div>
+    </Section>
+  );
+}
+
 function MarkerRow({ m, pl }: { m: Marker; pl: boolean }) {
   const doc = useDoc((s) => s.data);
   const name = m.label.trim() || S.markerDefault;
@@ -253,9 +513,26 @@ function MarkerRow({ m, pl }: { m: Marker; pl: boolean }) {
           onClick={() =>
             updateMarker(m.id, (x) => {
               x.gm = !x.gm;
+              if (!x.gm) delete x.revealed;
             })
           }
         />
+        {!pl && m.gm ? (
+          <IconButton
+            size="sm"
+            variant="secondary"
+            label={`${S.markerRevealed}：${name}`}
+            icon={<Eye />}
+            pressed={!!m.revealed}
+            data-marker-revealed={m.id}
+            onClick={() =>
+              updateMarker(m.id, (x) => {
+                if (x.revealed) delete x.revealed;
+                else x.revealed = true;
+              })
+            }
+          />
+        ) : null}
         <IconButton
           size="sm"
           variant="ghost"

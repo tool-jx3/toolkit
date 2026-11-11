@@ -3,7 +3,7 @@
  * 範圍 { start, end }：時間軸左右兩邊的時間（分鐘或年）。
  * ctx（曆名與架空曆）：架空年有月份時可以放大到看得到日（最短 3 日）；打開「寫到時刻」時最短 60 分（F110）。
  */
-import { contentRange, eventSpan, LABEL_GAP, POINT_R, type Span } from './layout';
+import { contentRange, drawnEvents, eventSpan, LABEL_GAP, POINT_R, type Span } from './layout';
 import { ctxParts, type EraArg, MINUTES_PER_DAY, type TimeMode, valueBounds } from './time';
 import { progressValue, type VisibleDoc } from './visible';
 
@@ -130,7 +130,7 @@ export function fitWithLabels(
 ): Win {
   const p = progressValue(vdoc);
   let w = fitWindow(vdoc.mode, contentRange(vdoc, p === null ? [] : [p]), today, pad, vdoc);
-  const spans = vdoc.events
+  const spans = drawnEvents(vdoc)
     .filter((e) => e.kind !== 'background')
     .map((e) => ({ s: eventSpan(vdoc.mode, e, vdoc), px: measure(e.title.trim() || '　') }));
   const W = Math.max(1, width);

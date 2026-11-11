@@ -24,7 +24,8 @@ import {
 } from '../model/layout';
 import { LINK_STYLES, linkGeometry } from '../model/links';
 import { ellipsize, type TextMeasure } from '../model/measure';
-import { eventColor, GM_COLOR } from '../model/types';
+import { readTime } from '../model/time';
+import { EXIT_COLOR, eventColor, GM_COLOR, TRUTH_COLOR } from '../model/types';
 import { usedCategories, type VisibleDoc } from '../model/visible';
 
 export type Prim =
@@ -150,6 +151,14 @@ export interface PictureInput {
     progress: string;
     now: string;
     rangeText: string;
+    /** 人物別的標（「霧島醫師 視角」；F118） */
+    pov?: string;
+    /** 真相、證詞、伏字、查明、退場的小標（F116～F121） */
+    truth?: string;
+    alibi?: string;
+    redacted?: string;
+    opened?: string;
+    exit?: string;
   };
   nowV: number | null;
 }
@@ -211,6 +220,47 @@ function gmBadge(x: number, y: number): Prim[] {
   ];
 }
 
+/** 小標（真相、證詞、伏字、查明；GM 小標同一個位置） */
+function tagBadge(x: number, y: number, text: string, fill: string): Prim[] {
+  const w = 6 + text.length * 8;
+  return [
+    { t: 'rect', x, y, w, h: 12, r: 3, fill },
+    {
+      t: 'text',
+      x: x + w / 2,
+      y: y + 9.5,
+      text,
+      size: 8,
+      weight: 700,
+      fill: '#ffffff',
+      anchor: 'middle',
+    },
+  ];
+}
+const tagWidth = (text: string) => 6 + text.length * 8;
+export const FACE_FILL = '#475569';
+/** 真相、退場的字與線（深色配色用亮一點的，對比才夠） */
+const truthInk = (theme: Theme) => (theme === 'dark' ? '#fb923c' : TRUTH_COLOR);
+const exitInk = (theme: Theme) => (theme === 'dark' ? '#f87171' : EXIT_COLOR);
+export const OPENED_FILL = '#2563eb';
+
+/** 退場之後的斜線（灰色，135°、每 9 px 一條） */
+function exitStripes(x: number, y: number, w: number, h: number): Prim {
+  const lines: Prim[] = [];
+  for (let s = -h; s < w + h; s += 9)
+    lines.push({
+      t: 'line',
+      x1: x + s,
+      y1: y + h,
+      x2: x + s + h,
+      y2: y,
+      stroke: '#6b7280',
+      sw: 2,
+      opacity: 0.2,
+    });
+  return { t: 'clip', x, y, w, h, children: lines };
+}
+
 function noteMark(x: number, y: number): Prim {
   return {
     t: 'poly',
@@ -227,12 +277,14 @@ function noteMark(x: number, y: number): Prim {
 export function buildPicture(input: PictureInput): Picture {
   const { range, measures: M, strings: S, theme } = input;
   /* 只畫範圍裡的事件（堆疊與圖例也只算它們） */
+  const inRange = (e: VisibleDoc['events'][number]) => {
+    const s = eventSpan(input.vdoc.mode, e, input.vdoc);
+    return !!s && s.b >= range.a && s.a <= range.b;
+  };
   const vdoc: VisibleDoc = {
     ...input.vdoc,
-    events: input.vdoc.events.filter((e) => {
-      const s = eventSpan(input.vdoc.mode, e, input.vdoc);
-      return !!s && s.b >= range.a && s.a <= range.b;
-    }),
+    events: input.vdoc.events.filter(inRange),
+    ...(input.vdoc.truths?.length ? { truths: input.vdoc.truths.filter(inRange) } : {}),
   };
   const pal = PALETTES[theme];
   const gm = vdoc.audience === 'gm';
@@ -294,9 +346,24 @@ export function buildPicture(input: PictureInput): Picture {
   if (input.title) {
     const title = vdoc.title.trim() || S.fallbackTitle;
     let tx = 16;
-    const titleText = ellipsize(title, W - 32 - (gm ? 60 : 0), M.title);
+    const povW = !gm && vdoc.pov && S.pov ? M.small(S.pov) + 28 : 0;
+    const titleText = ellipsize(title, W - 32 - (gm ? 60 : 0) - povW, M.title);
     prims.push({ t: 'text', x: tx, y: 26, text: titleText, size: 18, weight: 700, fill: pal.text });
     tx += M.title(titleText) + 10;
+    if (!gm && vdoc.pov && S.pov) {
+      const pw = M.small(S.pov) + 18;
+      prims.push({ t: 'rect', x: tx, y: 12, w: pw, h: 18, r: 9, fill: pal.accent });
+      prims.push({
+        t: 'text',
+        x: tx + pw / 2,
+        y: 25,
+        text: S.pov,
+        size: 11,
+        weight: 700,
+        fill: barTextColor(pal.accent),
+        anchor: 'middle',
+      });
+    }
     if (gm) {
       prims.push({ t: 'rect', x: tx, y: 12, w: 46, h: 18, r: 9, fill: GM_COLOR });
       prims.push({
@@ -460,6 +527,54 @@ export function buildPicture(input: PictureInput): Picture {
         fill: pal.muted,
       });
   }
+  /* 退場時刻之後（F121）：灰色斜線、紅色虛線、標籤（在事件的下面） */
+  for (const row of layout.rows) {
+    const ex = row.lane?.exit;
+    if (!ex || row.key !== row.lane?.id) continue;
+    const t = readTime(vdoc.mode, ex.time, vdoc);
+    if (!t || t.v > range.b) continue;
+    const x = Math.max(xOf(t.v), LW - 2);
+    const y = lanesTop + row.y;
+    const w = Math.max(0, W + 2 - x);
+    track.push({ t: 'rect', x, y, w, h: row.height, fill: '#6b7280', opacity: 0.08 });
+    track.push(exitStripes(x, y, w, row.height));
+    if (t.v >= range.a) {
+      track.push({
+        t: 'line',
+        x1: x,
+        y1: y,
+        x2: x,
+        y2: y + row.height,
+        stroke: exitInk(theme),
+        sw: 1.5,
+        dash: [4, 3],
+      });
+      const label = ex.label.trim() || S.exit || '';
+      if (label) {
+        const lw = M.small(label) + 10;
+        track.push({
+          t: 'rect',
+          x: x + 3,
+          y: y + row.height - 17,
+          w: lw,
+          h: 14,
+          r: 3,
+          fill: pal.bg,
+          stroke: exitInk(theme),
+          sw: 1,
+        });
+        track.push({
+          t: 'text',
+          x: x + 8,
+          y: y + row.height - 6,
+          text: label,
+          size: 10,
+          weight: 700,
+          fill: exitInk(theme),
+        });
+      }
+    }
+  }
   for (const f of flags.flags) {
     const x = xOf(f.v);
     const color = f.kind === 'progress' ? pal.accent : f.color;
@@ -522,11 +637,94 @@ export function buildPicture(input: PictureInput): Picture {
       }
     }
   }
+  /** 證詞、伏字、查明的小標（GM 小標的右邊） */
+  const faceBadges = (e: (typeof layout.items)[number]['event'], x: number, y: number) => {
+    const out: Prim[] = [];
+    let bx = x + (gm && e.gm ? 22 : 0);
+    const add = (text: string | undefined, fill: string) => {
+      if (!text) return;
+      out.push(...tagBadge(bx, y, text, fill));
+      bx += tagWidth(text) + 2;
+    };
+    if (e.truthOf) add(S.truth, TRUTH_COLOR);
+    else {
+      if (e.scope === 'alibi') add(S.alibi, FACE_FILL);
+      if (e.scope === 'redacted') add(S.redacted, FACE_FILL);
+      if (e.opened) add(S.opened, OPENED_FILL);
+    }
+    return out;
+  };
   for (const it of layout.items) {
     const e = it.event;
-    const color = eventColor(vdoc, e);
     const x1 = xOf(it.a);
     const y = lanesTop + it.y;
+    /* 真相（F116）：淡色的底、紅色虛線框；伏字（F117）：灰色虛線框、標題「？？？」 */
+    if (e.truthOf || e.masked) {
+      const stroke = e.truthOf ? truthInk(theme) : pal.muted;
+      const base = e.truthOf ? eventColor(vdoc, e) : pal.muted;
+      if (e.kind === 'point') {
+        track.push({
+          t: 'circle',
+          cx: x1,
+          cy: y + ITEM_H / 2,
+          r: POINT_R,
+          fill: pal.bg,
+          stroke,
+          sw: 2,
+        });
+        track.push({
+          t: 'text',
+          x: x1 + POINT_R + LABEL_GAP,
+          y: y + 15,
+          text: it.label,
+          size: 12,
+          weight: 500,
+          fill: e.truthOf ? truthInk(theme) : pal.muted,
+        });
+        track.push(...faceBadges(e, x1 - POINT_R - 2, y - 7));
+        continue;
+      }
+      const w = Math.max(MIN_BAR, (it.b - it.a) * k);
+      track.push({ t: 'rect', x: x1, y, w, h: ITEM_H, r: 4, fill: base, opacity: 0.18 });
+      track.push({
+        t: 'rect',
+        x: x1 + 0.75,
+        y: y + 0.75,
+        w: Math.max(1, w - 1.5),
+        h: ITEM_H - 1.5,
+        r: 4,
+        stroke,
+        sw: 1.5,
+        dash: [4, 3],
+      });
+      const fill = e.truthOf ? truthInk(theme) : pal.muted;
+      if (it.inside) {
+        const visL = Math.max(x1, LW);
+        const label = ellipsize(it.label, x1 + w - visL - INSIDE_PAD * 2, M.item);
+        if (label)
+          track.push({
+            t: 'text',
+            x: visL + INSIDE_PAD,
+            y: y + 15,
+            text: label,
+            size: 12,
+            weight: 500,
+            fill,
+          });
+      } else
+        track.push({
+          t: 'text',
+          x: x1 + w + LABEL_GAP,
+          y: y + 15,
+          text: it.label,
+          size: 12,
+          weight: 500,
+          fill,
+        });
+      track.push(...faceBadges(e, x1, y - 7));
+      continue;
+    }
+    const color = eventColor(vdoc, e);
     if (e.kind === 'point') {
       const extentW = POINT_R * 2 + LABEL_GAP + it.labelW + 4;
       if (gm && e.secret) track.push(stripes(x1 - POINT_R - 2, y, extentW, ITEM_H, 4));
@@ -549,6 +747,7 @@ export function buildPicture(input: PictureInput): Picture {
         fill: pal.text,
       });
       if (gm && e.gm) track.push(...gmBadge(x1 - POINT_R - 2, y - 7));
+      track.push(...faceBadges(e, x1 - POINT_R - 2, y - 7));
       if (gm && e.gmNote.trim()) track.push(noteMark(x1 + POINT_R + LABEL_GAP + it.labelW + 6, y));
       continue;
     }
@@ -581,6 +780,7 @@ export function buildPicture(input: PictureInput): Picture {
         fill: pal.text,
       });
     if (gm && e.gm) track.push(...gmBadge(x1, y - 7));
+    track.push(...faceBadges(e, x1, y - 7));
     if (gm && e.gmNote.trim())
       track.push(noteMark(it.inside ? x1 + w : x1 + w + LABEL_GAP + it.labelW + 6, y));
   }

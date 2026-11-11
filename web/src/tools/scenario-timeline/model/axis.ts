@@ -20,6 +20,18 @@ import {
   weekdayOfDay,
 } from './calendar';
 import {
+  countdownDays,
+  countdownText,
+  phaseLabel,
+  phaseOf,
+  type Session,
+  SLOT_MINUTES,
+  SLOT_ORIGIN,
+  slotName,
+  slotOf,
+  zeroOf,
+} from './session';
+import {
   addMonths,
   clockText,
   ctxParts,
@@ -32,10 +44,12 @@ import {
   MINUTES_PER_DAY,
   mod,
   type SnapUnit,
+  sessionOf,
   type TimeMode,
 } from './time';
 
-export type StepUnit = 'minute' | 'hour' | 'day' | 'month' | 'year';
+/** slot：日程的一段（6 小時，F126）；phase：階段（F126） */
+export type StepUnit = 'minute' | 'hour' | 'day' | 'month' | 'year' | 'slot' | 'phase';
 
 export interface Step {
   unit: StepUnit;
@@ -94,6 +108,76 @@ const CAL_CLOCK_STEPS: Step[] = [...MIN_STEPS, ...HOUR_STEPS, ...CAL_STEPS];
 const calOf = (mode: TimeMode, ctx?: EraArg): CalInfo | null =>
   mode === 'year' ? ctxParts(ctx).info : null;
 
+/* ---------- 第 N 天的標示（F126：日程、倒數、階段的刻度；時刻和第 N 天相同） ---------- */
+
+const BIG_DAYS = [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000];
+
+/** 有作用的標示（時刻的刻度和第 N 天相同，不算） */
+function styledOf(mode: TimeMode, ctx?: EraArg): Session | null {
+  if (mode !== 'day') return null;
+  const ses = sessionOf(ctx);
+  return ses && ses.style !== 'clock' ? ses : null;
+}
+
+const SCHEDULE_STEPS: Step[] = [
+  ...MIN_STEPS,
+  ...[1, 2, 3].map((n): Step => ({ unit: 'hour', n })),
+  ...[1, 2].map((n): Step => ({ unit: 'slot', n })),
+  ...BIG_DAYS.map((n): Step => ({ unit: 'day', n })),
+];
+const COUNTDOWN_STEPS: Step[] = [
+  ...MIN_STEPS,
+  ...HOUR_STEPS,
+  ...BIG_DAYS.map((n): Step => ({ unit: 'day', n })),
+];
+const PHASE_STEPS: Step[] = [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000].map((n) => ({
+  unit: 'phase',
+  n,
+}));
+
+/** 標示的刻度的起點（分）：日程從 06:00、倒數從 T-0、階段從開始時刻數 */
+function styledOrigin(ses: Session, s: Step): number {
+  if (ses.style === 'schedule') return s.unit === 'minute' || s.unit === 'hour' ? 0 : SLOT_ORIGIN;
+  if (ses.style === 'countdown') return zeroOf(ses);
+  return ses.start;
+}
+
+/** 標示的一格是幾分 */
+function styledMinutes(ses: Session, s: Step): number {
+  if (s.unit === 'slot') return s.n * SLOT_MINUTES;
+  if (s.unit === 'phase') return s.n * ses.phase;
+  if (s.unit === 'day') return s.n * MINUTES_PER_DAY;
+  return stepMinutes(s);
+}
+
+function styledLabel(ses: Session, s: Step, v: number): string {
+  if (ses.style === 'countdown')
+    return s.unit === 'day' ? countdownDays(zeroOf(ses) - v) : countdownText(zeroOf(ses) - v);
+  if (ses.style === 'phase') return phaseLabel(phaseOf(ses, v).n);
+  if (s.unit === 'slot') return slotName(slotOf(v).slot);
+  if (s.unit === 'day') return `第 ${slotOf(v).day} 天`;
+  return clockText(v);
+}
+
+function styledSample(ses: Session, s: Step, from: number, to: number): string {
+  if (ses.style === 'countdown') {
+    const big = Math.max(Math.abs(zeroOf(ses) - from), Math.abs(zeroOf(ses) - to));
+    if (s.unit === 'day')
+      return `T-${'8'.repeat(String(Math.round(big / MINUTES_PER_DAY)).length)} 天`;
+    return `T-${'8'.repeat(Math.max(2, String(Math.floor(big / 60)).length))}:88`;
+  }
+  if (ses.style === 'phase') {
+    const big = Math.max(Math.abs(phaseOf(ses, from).n), Math.abs(phaseOf(ses, to).n));
+    return phaseLabel(Number('8'.repeat(String(big).length)));
+  }
+  if (s.unit === 'slot') return '晚';
+  if (s.unit === 'day') {
+    const big = Math.max(Math.abs(slotOf(from).day), Math.abs(slotOf(to).day));
+    return `第 ${'8'.repeat(String(big).length)} 天`;
+  }
+  return '00:00';
+}
+
 const isClockUnit = (s: Step) => s.unit === 'minute' || s.unit === 'hour';
 /** 間隔是幾分（分、時） */
 const stepMinutes = (s: Step) => s.n * (s.unit === 'hour' ? 60 : 1);
@@ -101,6 +185,13 @@ const stepMinutes = (s: Step) => s.n * (s.unit === 'hour' ? 60 : 1);
 export function stepLadder(mode: TimeMode, ctx?: EraArg): Step[] {
   const info = calOf(mode, ctx);
   if (info) return info.clock ? CAL_CLOCK_STEPS : CAL_STEPS;
+  const ses = styledOf(mode, ctx);
+  if (ses)
+    return ses.style === 'schedule'
+      ? SCHEDULE_STEPS
+      : ses.style === 'countdown'
+        ? COUNTDOWN_STEPS
+        : PHASE_STEPS;
   return mode === 'date' ? DATE_STEPS : mode === 'day' ? DAY_STEPS : YEAR_STEPS;
 }
 
@@ -113,6 +204,8 @@ export function stepSize(mode: TimeMode, s: Step, ctx?: EraArg): number {
     if (info && isClockUnit(s)) return stepMinutes(s) / (info.D * CAL_DAY_MINUTES);
     return s.n;
   }
+  const ses = styledOf(mode, ctx);
+  if (ses) return styledMinutes(ses, s);
   switch (s.unit) {
     case 'minute':
       return s.n;
@@ -131,6 +224,8 @@ export type Measure = (text: string) => number;
 
 /** 量標籤寬度用的樣本（最寬的寫法） */
 function sampleLabel(mode: TimeMode, s: Step, from: number, to: number, ctx?: EraArg): string {
+  const ses = styledOf(mode, ctx);
+  if (ses) return styledSample(ses, s, from, to);
   const info = calOf(mode, ctx);
   if (info && s.unit === 'day')
     return '8'.repeat(String(Math.max(...info.months.map((m) => m.days))).length);
@@ -182,6 +277,8 @@ export function pickStep(
 const MAX_TICKS = 4000;
 
 function minorLabel(mode: TimeMode, s: Step, v: number, ctx?: EraArg): string {
+  const ses = styledOf(mode, ctx);
+  if (ses) return styledLabel(ses, s, v);
   const info = calOf(mode, ctx);
   if (info && (s.unit === 'day' || s.unit === 'month')) {
     const c = calParts(info, v);
@@ -254,6 +351,15 @@ export function minorValues(
   };
   const info = calOf(mode, ctx);
   if (info && (s.unit === 'day' || s.unit === 'month')) return calMinorValues(info, s, from, to);
+  const ses = styledOf(mode, ctx);
+  if (ses) {
+    /* 標示：從起點（06:00、T-0、開始時刻）數的每一格 */
+    const n = styledMinutes(ses, s);
+    const o = styledOrigin(ses, s);
+    for (let v = Math.floor((from - o) / n) * n + o; v <= to && out.length < MAX_TICKS; v += n)
+      push(v);
+    return out;
+  }
   if (info && isClockUnit(s)) {
     /* 架空曆的分、時（F110）：每天從 0:00 數（間隔都是 1440 的因數） */
     const n = stepMinutes(s);
@@ -328,6 +434,24 @@ export function majorTicks(
   ctx?: EraArg,
 ): Tick[] {
   const out: Tick[] = [];
+  const ses = styledOf(mode, ctx);
+  if (ses) {
+    /* 倒數：T-0 一條（在範圍裡時）；日程：分、時、段的上排是「第 N 天」（06:00 換日）；階段：沒有上排 */
+    if (ses.style === 'countdown') {
+      const z = zeroOf(ses);
+      return z >= from && z <= to ? [{ v: z, label: 'T-0' }] : [];
+    }
+    if (ses.style === 'phase' || s.unit === 'day') return [];
+    for (
+      let v = Math.floor((from - SLOT_ORIGIN) / MINUTES_PER_DAY) * MINUTES_PER_DAY + SLOT_ORIGIN;
+      v <= to && out.length < MAX_TICKS;
+      v += MINUTES_PER_DAY
+    ) {
+      const d = slotOf(v).day;
+      out.push({ v, label: `第 ${d} 天`, short: [`${d}`] });
+    }
+    return out;
+  }
   const info = calOf(mode, ctx);
   if (info && isClockUnit(s)) {
     /* 架空曆的分、時（F110）：每天一格「302 年 霜月 5 日（月曜）」 */
@@ -434,6 +558,28 @@ export function placeMajor(
 const MIN_SNAPS = [1, 5, 10, 15, 30, 60, 120, 180, 360, 720, 1440];
 
 export function snapUnitFor(mode: TimeMode, s: Step, ctx?: EraArg): SnapUnit {
+  /* 固定的吸附（F128：15、30、60 分；日期時間、第 N 天） */
+  const fixed = mode !== 'year' && ctx !== undefined && typeof ctx !== 'string' ? ctx.snap : 0;
+  if (fixed) return { kind: 'min', n: fixed };
+  const ses = styledOf(mode, ctx);
+  if (ses) {
+    /* 標示（F126）：日程的段與天吸附到段（2 天以上到天，06:00 換日）；倒數從 T-0 數；階段吸附到階段（一格一個階段時到 1/4） */
+    if (ses.style === 'schedule' && (s.unit === 'slot' || s.unit === 'day'))
+      return s.unit === 'day' && s.n >= 2
+        ? { kind: 'min', n: MINUTES_PER_DAY, o: SLOT_ORIGIN }
+        : { kind: 'min', n: SLOT_MINUTES, o: SLOT_ORIGIN };
+    if (ses.style === 'phase') {
+      const q = s.n === 1 && ses.phase % 4 === 0 ? ses.phase / 4 : ses.phase;
+      return { kind: 'min', n: q, o: ses.start };
+    }
+    if (ses.style === 'countdown') {
+      const m = styledMinutes(ses, s);
+      let best = 1;
+      for (const c of MIN_SNAPS) if (c <= m / 2) best = c;
+      if (s.unit === 'day') best = s.n === 1 ? 720 : MINUTES_PER_DAY;
+      return { kind: 'min', n: best, o: zeroOf(ses) };
+    }
+  }
   if (calOf(mode, ctx)) {
     /* 架空曆：日、月的間隔吸附到日；1、2 年的間隔吸附到月；再大照架空年（分、時照日期時間，F110） */
     if (s.unit === 'day' || s.unit === 'month') return { kind: 'day', n: 1 };
