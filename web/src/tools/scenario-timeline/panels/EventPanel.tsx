@@ -490,7 +490,10 @@ function ScopeField({ ev }: { ev: TimelineEvent }) {
             x.gm = v === 'secret';
             if (v === 'alibi' || v === 'redacted') x.scope = v;
             else if (v === 'public') delete x.scope;
-            if (v === 'public') delete x.revealed;
+            if (v === 'public') {
+              delete x.revealed;
+              delete x.unlocked;
+            }
           })
         }
         options={(['public', 'alibi', 'redacted', 'secret'] as const).map((f) => ({

@@ -1,7 +1,7 @@
 /**
  * 「匯出」分頁（規格 1.8）：圖片（PNG、SVG；範圍、對象、寬度、標題列、圖例、配色）、年表文字（純文字／Markdown）、CSV。
  */
-import { ClipboardPaste, Download, FileDown, FileUp } from 'lucide-react';
+import { ClipboardPaste, Download, FileDown, FileUp, Shuffle } from 'lucide-react';
 import { useMemo } from 'react';
 import { downloadText } from '@/core/files';
 import {
@@ -14,20 +14,32 @@ import {
   Section,
   Segmented,
   Select,
+  Slider,
   TextOutputPanel,
   Toggle,
 } from '@/ui';
 import {
+  PAPER_STYLES,
+  type PanelKind,
+  type PaperStyle,
+  TITLE_FONTS,
+  type TitleFont,
+} from '../export/paper';
+import type { Picture } from '../export/picture';
+import {
+  DEFAULT_AGE,
   exportDoc,
+  type FocusContext,
   fileBase,
   imageFileName,
-  type PlanResult,
   POV_ALL,
   planPicture,
+  planPicturePages,
   renderPng,
   renderSvg,
   textFileName,
 } from '../export/render';
+import { gapsSupported } from '../model/alibi';
 import {
   chronicle,
   chronicleMarkdown,
@@ -38,10 +50,13 @@ import {
 } from '../model/chronicle';
 import { eventsToCsv } from '../model/csv';
 import { effectiveFilter, type FilterState, isFiltering, matchingIds } from '../model/filter';
+import { PAGE_SIZES, pageScale } from '../model/paging';
 import type { TimelineDoc } from '../model/types';
 import { type Audience, hasSecrets, povLanes, visibleDoc } from '../model/visible';
+import type { Win } from '../model/window';
 import { notify } from '../notify';
 import {
+  analysisOf,
   docNow,
   type ExportPrefs,
   filterOf,
@@ -50,6 +65,7 @@ import {
   type RangeKind,
   setExportPrefs,
   setPrefs,
+  spotOf,
   useDoc,
   usePrefs,
   useUi,
@@ -216,13 +232,24 @@ function AudienceField({
   );
 }
 
-/** 匯出一張圖（PNG、SVG） */
+/** 時間軸那邊的聚光與時間切片（F134）：匯出的「照時間軸的聚光與時間切片」與時間切片的調書用 */
+export function focusContext(p: Prefs): FocusContext {
+  const a = analysisOf(p);
+  return { spot: spotOf(p), sliceTime: a.slice?.on ? a.slice.time || null : null };
+}
+
+/** A4 自動分頁（F141）：PNG、選了 A4 自動分頁時 */
+const paging = (ex: ExportPrefs, format: string) => format === 'png' && ex.paging === 'a4';
+
+/** 匯出一張圖（PNG、SVG）；page：分頁的第幾頁（PNG 的長邊照每頁的長邊） */
 async function renderOne(
   d: TimelineDoc,
-  r: Extract<PlanResult, { ok: true }>,
+  r: { pic: Picture },
   format: string,
   scale: number,
   viewer: Viewer,
+  page = 0,
+  pageSize = 0,
 ): Promise<ExportOutput> {
   if (format === 'svg') {
     const out = await renderSvg(r.pic);
@@ -239,16 +266,54 @@ async function renderOne(
       ],
     };
   }
-  const out = await renderPng(r.pic, scale);
+  const s = pageSize ? pageScale(r.pic.width, r.pic.height, pageSize) : scale;
+  const out = await renderPng(r.pic, s);
   return {
     blob: out.blob,
-    fileName: imageFileName(d, viewer.audience, 'png', viewer.pov),
+    fileName: imageFileName(d, viewer.audience, 'png', viewer.pov, page),
     width: out.width,
     height: out.height,
     details:
-      out.scale < scale - 1e-9 ? [{ label: '倍率', value: S.scaleCapped(out.scale) }] : undefined,
+      out.scale < s - 1e-9 ? [{ label: '倍率', value: S.scaleCapped(out.scale) }] : undefined,
   };
 }
+
+/** 一個對象的圖：分頁時每頁一個檔案 */
+async function renderViewer(
+  d: TimelineDoc,
+  ex: ExportPrefs,
+  view: Win | null,
+  p: Prefs,
+  format: string,
+  viewer: Viewer,
+  filter: FilterState | null,
+): Promise<ExportOutput[] | string> {
+  const ctx = focusContext(p);
+  if (paging(ex, format)) {
+    const r = planPicturePages(d, ex, view, p.collapsed, undefined, filter, viewer.pov, ctx);
+    if (!r.ok) return r.error;
+    const many = r.pages.length > 1;
+    const out: ExportOutput[] = [];
+    for (const [i, pg] of r.pages.entries())
+      out.push(
+        await renderOne(
+          d,
+          pg,
+          format,
+          1,
+          viewer,
+          many ? i + 1 : 0,
+          ex.pageSize ?? PAGE_SIZE_DEFAULT,
+        ),
+      );
+    return out;
+  }
+  const r = planPicture(d, ex, view, p.collapsed, undefined, filter, viewer.pov, ctx);
+  if (!r.ok) return r.error;
+  return [await renderOne(d, r, format, p.export.scale, viewer)];
+}
+
+const PAGE_SIZE_DEFAULT = 2400;
 
 export function ExportTab() {
   const doc = useDoc((s) => s.data);
@@ -274,6 +339,12 @@ export function ExportTab() {
   );
   const secrets = useMemo(() => hasSecrets(doc), [doc]);
   const filterPrefs = usePrefs((s) => s.data.filter);
+  const analysis = usePrefs((s) => s.data.analysis);
+  const viewMode = usePrefs((s) => s.data.viewMode);
+  const ctx = useMemo(
+    () => focusContext({ ...prefsNow(), analysis, viewMode }),
+    [analysis, viewMode],
+  );
   const plan = useMemo(
     () =>
       planPicture(
@@ -284,12 +355,28 @@ export function ExportTab() {
         null,
         exportFilter({ ...prefsNow(), filter: filterPrefs }, ex.filtered),
         ex.audience === 'pl' ? previewPov : '',
+        ctx,
       ),
-    [doc, ex, view, collapsed, filterPrefs, previewPov],
+    [doc, ex, view, collapsed, filterPrefs, previewPov, ctx],
   );
+  /* A4 自動分頁（F141）：幾頁（說明用；PNG 才分頁） */
+  const pageCount = useMemo(() => {
+    if (ex.paging !== 'a4' || !plan.ok) return 0;
+    const r = planPicturePages(
+      doc,
+      ex,
+      view,
+      collapsed,
+      null,
+      exportFilter({ ...prefsNow(), filter: filterPrefs }, ex.filtered),
+      ex.audience === 'pl' ? previewPov : '',
+      ctx,
+    );
+    return r.ok ? r.pages.length : 0;
+  }, [doc, ex, view, collapsed, filterPrefs, previewPov, ctx, plan.ok]);
   const resetKey = useMemo(
-    () => ({ doc, ex, view, collapsed, filterPrefs }),
-    [doc, ex, view, collapsed, filterPrefs],
+    () => ({ doc, ex, view, collapsed, filterPrefs, ctx }),
+    [doc, ex, view, collapsed, filterPrefs, ctx],
   );
   const formats = FORMATS.map((f) => ({
     ...f,
@@ -358,10 +445,11 @@ export function ExportTab() {
         <Field label={S.exLegend} layout="inline">
           <Toggle checked={ex.legend} onCheckedChange={(v) => setExportPrefs({ legend: v })} />
         </Field>
-        <Field label={S.exTheme}>
+        <Field label={S.exTheme} hint={ex.paper && ex.paper !== 'none' ? S.exPaperHint : undefined}>
           <Segmented<ExportPrefs['theme']>
             value={ex.theme}
             fullWidth
+            disabled={!!ex.paper && ex.paper !== 'none'}
             onValueChange={(v) => setExportPrefs({ theme: v })}
             options={[
               { value: 'light', label: S.themeLight },
@@ -370,10 +458,16 @@ export function ExportTab() {
           />
         </Field>
       </Section>
+      <StyleSection ex={ex} sliceOn={!!analysis?.slice?.on} mode={doc.mode} />
+      <PagingSection ex={ex} pages={pageCount} />
       <ExportPanel
         title={S.exportPanelTitle}
         formats={formats}
-        baseSize={plan.ok ? { width: plan.pic.width, height: plan.pic.height } : undefined}
+        baseSize={
+          plan.ok && !paging(ex, ex.format)
+            ? { width: plan.pic.width, height: plan.pic.height }
+            : undefined
+        }
         scaleOptions={SCALES}
         settings={{ format: ex.format, fps: 30, plays: 0, scale: ex.scale, quantize: false }}
         onSettingsChange={(s) => {
@@ -394,17 +488,19 @@ export function ExportTab() {
           const view = ui.win && ui.winMode === d.mode ? ui.win : currentWin();
           const filter = exportFilter(p, p.export.filtered);
           if (v.pov === POV_ALL) {
-            /* 人物別全部各一張（F118）：每個人物一個檔案（結果卡可以打包成 ZIP） */
+            /* 人物別全部各一張（F118）：每個人物一個檔案（結果卡可以打包成 ZIP；分頁時每個人物每頁一個） */
             const files: ExportOutput[] = [];
             for (const lane of povLanes(d)) {
-              const r = planPicture(d, exNow, view, p.collapsed, undefined, filter, lane.id);
-              if (!r.ok) continue;
-              files.push(
-                await renderOne(d, r, settings.format, p.export.scale, {
-                  audience: 'pl',
-                  pov: lane.id,
-                }),
+              const out = await renderViewer(
+                d,
+                exNow,
+                view,
+                p,
+                settings.format,
+                { audience: 'pl', pov: lane.id },
+                filter,
               );
+              if (typeof out !== 'string') files.push(...out);
             }
             if (!files.length) throw new Error(S.exEmpty);
             return {
@@ -412,9 +508,13 @@ export function ExportTab() {
               zipName: `${fileBase(d)}_${S.fileName.image}_${S.fileName.povAll}`,
             };
           }
-          const r = planPicture(d, exNow, view, p.collapsed, undefined, filter, v.pov);
-          if (!r.ok) throw new Error(r.error);
-          return renderOne(d, r, settings.format, p.export.scale, v);
+          const out = await renderViewer(d, exNow, view, p, settings.format, v, filter);
+          if (typeof out === 'string') throw new Error(out);
+          if (out.length === 1) return out[0];
+          return {
+            files: out,
+            zipName: `${fileBase(d)}_${S.fileName.image}_${S.exPagesZip}`,
+          };
         }}
       />
       <TextSection />
@@ -617,6 +717,173 @@ function VisSection() {
         >
           {S.visPaste}
         </Button>
+      </div>
+    </Section>
+  );
+}
+
+/** 圖面的樣式（第五批，F136～F140）：紙、老舊、翻角、字體、圖框、格線、記號、空白、調書、聚光 */
+function StyleSection({
+  ex,
+  sliceOn,
+  mode,
+}: {
+  ex: ExportPrefs;
+  sliceOn: boolean;
+  mode: TimelineDoc['mode'];
+}) {
+  const paper: PaperStyle = ex.paper ?? 'none';
+  const hasPaper = paper !== 'none';
+  const panel: PanelKind = ex.panel ?? 'none';
+  return (
+    <Section title={S.exStyleTitle} persistKey="scenario-timeline:export-style" defaultOpen={false}>
+      <div className="flex flex-col gap-3" data-testid="export-style">
+        <Field label={S.exPaper}>
+          <Select<PaperStyle>
+            value={paper}
+            data-field="export-paper"
+            onValueChange={(v) => setExportPrefs({ paper: v })}
+            options={PAPER_STYLES.map((p) => ({ value: p, label: S.papers[p] }))}
+          />
+        </Field>
+        {hasPaper ? (
+          <>
+            <Field label={S.exAge} hint={S.exAgeHint}>
+              <div className="flex min-w-0 flex-wrap items-center gap-2">
+                <Slider
+                  value={ex.age ?? DEFAULT_AGE}
+                  min={0}
+                  max={100}
+                  step={5}
+                  unit="%"
+                  className="min-w-0 flex-1"
+                  onChange={(v) => setExportPrefs({ age: v })}
+                />
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  icon={<Shuffle />}
+                  data-testid="export-reseed"
+                  onClick={() => setExportPrefs({ seed: 1 + Math.floor(Math.random() * 999999) })}
+                >
+                  {S.exReseed}
+                </Button>
+              </div>
+            </Field>
+            <Field label={S.exCurl} layout="inline">
+              <Toggle
+                checked={ex.curl !== false}
+                onCheckedChange={(v) => setExportPrefs({ curl: v })}
+              />
+            </Field>
+            {ex.curl !== false ? (
+              <Field label={S.exTransparent} layout="inline" hint={S.exTransparentHint}>
+                <Toggle
+                  checked={ex.transparent !== false}
+                  onCheckedChange={(v) => setExportPrefs({ transparent: v })}
+                />
+              </Field>
+            ) : null}
+          </>
+        ) : null}
+        <Field label={S.exTitleFont}>
+          <Select<TitleFont>
+            value={ex.titleFont ?? 'sans'}
+            disabled={!ex.title}
+            data-field="export-title-font"
+            onValueChange={(v) => setExportPrefs({ titleFont: v })}
+            options={TITLE_FONTS.map((f) => ({ value: f, label: S.titleFonts[f] }))}
+          />
+        </Field>
+        <Field label={S.exFrame} layout="inline">
+          <Toggle checked={!!ex.frame} onCheckedChange={(v) => setExportPrefs({ frame: v })} />
+        </Field>
+        <Field label={S.exGrid} layout="inline">
+          <Toggle
+            checked={ex.grid !== false}
+            onCheckedChange={(v) => setExportPrefs({ grid: v })}
+          />
+        </Field>
+        <Field label={S.exMarks} layout="inline" hint={S.exMarksHint}>
+          <Toggle checked={!!ex.marks} onCheckedChange={(v) => setExportPrefs({ marks: v })} />
+        </Field>
+        <Field
+          label={S.exGapsShow}
+          layout="inline"
+          hint={gapsSupported(mode) ? undefined : S.anGapsYear}
+        >
+          <Toggle
+            checked={!!ex.gaps && gapsSupported(mode)}
+            disabled={!gapsSupported(mode)}
+            onCheckedChange={(v) => setExportPrefs({ gaps: v })}
+          />
+        </Field>
+        <Field
+          label={S.exPanel}
+          hint={panel === 'slice' && !sliceOn ? S.exPanelSliceOff : undefined}
+        >
+          <Select<PanelKind>
+            value={panel}
+            data-field="export-panel"
+            onValueChange={(v) => setExportPrefs({ panel: v })}
+            options={(['none', 'report', 'slice'] as const).map((k) => ({
+              value: k,
+              label: S.panels[k],
+            }))}
+          />
+        </Field>
+        <Field label={S.exFocus} layout="inline" hint={S.exFocusHint}>
+          <Toggle checked={!!ex.focus} onCheckedChange={(v) => setExportPrefs({ focus: v })} />
+        </Field>
+      </div>
+    </Section>
+  );
+}
+
+/** 分頁（第五批，F141）：一張／A4 自動分頁、頁碼、每頁的長邊（PNG） */
+function PagingSection({ ex, pages }: { ex: ExportPrefs; pages: number }) {
+  const a4 = ex.paging === 'a4';
+  return (
+    <Section
+      title={S.exPagingTitle}
+      persistKey="scenario-timeline:export-paging"
+      defaultOpen={false}
+    >
+      <div className="flex flex-col gap-3" data-testid="export-paging">
+        <Field
+          label={S.exPaging}
+          hint={
+            a4 ? `${S.exPagingHint(pages)}${ex.format === 'svg' ? S.exPagingSvg : ''}` : undefined
+          }
+        >
+          <Segmented<'single' | 'a4'>
+            value={a4 ? 'a4' : 'single'}
+            fullWidth
+            onValueChange={(v) => setExportPrefs({ paging: v })}
+            options={[
+              { value: 'single', label: S.pagings.single },
+              { value: 'a4', label: S.pagings.a4 },
+            ]}
+          />
+        </Field>
+        {a4 ? (
+          <>
+            <Field label={S.exPageNum} layout="inline">
+              <Toggle
+                checked={ex.pageNum !== false}
+                onCheckedChange={(v) => setExportPrefs({ pageNum: v })}
+              />
+            </Field>
+            <Field label={S.exPageSize}>
+              <Segmented<string>
+                value={String(ex.pageSize ?? PAGE_SIZE_DEFAULT)}
+                fullWidth
+                onValueChange={(v) => setExportPrefs({ pageSize: Number(v) })}
+                options={PAGE_SIZES.map((n) => ({ value: String(n), label: `${n} px` }))}
+              />
+            </Field>
+          </>
+        ) : null}
       </div>
     </Section>
   );

@@ -532,7 +532,7 @@ test('專案檔：版本 4，新的欄位存了再開逐欄位相同', async ({ 
     page.getByRole('menuitem', { name: /存成專案檔/ }).click(),
   ]);
   const saved = JSON.parse(readFileSync(await file.path(), 'utf8'));
-  expect(saved.version).toBe(4);
+  expect(saved.version).toBe(5);
   expect(saved.data.session).toEqual({ style: 'clock', start: 1080, length: 300, phase: 60 });
   expect(saved.data.lanes[0].exit).toEqual({ time: '第 1 天 21:47', label: '死亡' });
   expect(saved.data.events.find((e: Ev) => e.id === 'mx-jiang-room').truth.place).toBe(

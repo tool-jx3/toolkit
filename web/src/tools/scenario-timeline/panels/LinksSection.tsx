@@ -115,7 +115,10 @@ export function LinksSection({ id, vdoc, pl }: { id: string; vdoc: VisibleDoc; p
                         onClick={() =>
                           updateLink(k.id, (x) => {
                             x.gm = !x.gm;
-                            if (!x.gm) delete x.revealed;
+                            if (!x.gm) {
+                              delete x.revealed;
+                              delete x.unlocked;
+                            }
                           })
                         }
                       />
