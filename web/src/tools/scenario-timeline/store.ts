@@ -8,6 +8,7 @@
 import { create } from 'zustand';
 import type { StateStorage } from 'zustand/middleware';
 import { createPreviewStore, createToolStore } from '@/core/storage';
+import type { PanelKind, PaperStyle, TitleFont } from './export/paper';
 import type { Calendar } from './model/calendar';
 import { planCalendar } from './model/calendarEdit';
 import { exampleDoc } from './model/example';
@@ -15,6 +16,7 @@ import { mysteryDoc } from './model/exampleMystery';
 import { emptyFilter, type FilterState, normalizeFilter } from './model/filter';
 import { LINK_LIMITS, type Link, type LinkKind, linkId } from './model/links';
 import { planShift } from './model/shift';
+import { clearUnlocks, type LockKind, setUnlocked, unlockCount } from './model/stage';
 import {
   afterUnit,
   canonical,
@@ -51,10 +53,11 @@ import { S } from './strings';
 export const TOOL_ID = 'scenario-timeline';
 /**
  * 資料的版本：2＝第二批（架空曆的月份、關聯線）；3＝第三批（架空曆寫到時刻：calendar.clock、`302-03-05 14:00`）；
- * 4＝第四批（公開範圍、真相、調查後公開、退場時刻、第 N 天的標示、固定的吸附；參考 KIIN 的第一批）。
- * 1～3 的專案檔、自動存檔照讀（沒用新功能時整理後的資料和以前逐欄位相同）
+ * 4＝第四批（公開範圍、真相、調查後公開、退場時刻、第 N 天的標示、固定的吸附；參考 KIIN 的第一批）；
+ * 5＝第五批（遊戲中的段階公開：事件、標記、關聯線的 unlocked；參考 KIIN 的第二批）。
+ * 1～4 的專案檔、自動存檔照讀（沒用新功能時整理後的資料和以前逐欄位相同）
  */
-export const DATA_VERSION = 4;
+export const DATA_VERSION = 5;
 
 function local(): Storage | null {
   try {
@@ -109,7 +112,7 @@ export const docNow = (): TimelineDoc => useDoc.getState().data;
 
 /* ---------- 這台裝置的畫面設定 ---------- */
 
-export type SettingsTab = 'event' | 'lanes' | 'project' | 'export';
+export type SettingsTab = 'event' | 'lanes' | 'project' | 'analysis' | 'export';
 export type ViewKind = 'timeline' | 'chronicle';
 export type RangeKind = 'all' | 'view' | 'custom';
 
@@ -128,6 +131,33 @@ export interface ExportPrefs {
   filtered?: boolean;
   /** 人物別（F118：泳道 id；「*」＝全部各一張；沒有＝全體公開）；audience 是 pl 時才用 */
   pov?: string;
+  /*
+   * 第五批（F136～F141；以下都是選填，沒有值＝改版前的樣子）：
+   * 紙的樣式、紙的老舊（0～100）與污漬的種子、紙翻角與落影、外側透明、標題的字體、圖框、時間格線、記號的說明、
+   * 不在場證明空白、圖下方的調書、照時間軸的聚光與時間切片、分頁（一張／A4 自動分頁）、頁碼、每頁的長邊
+   */
+  paper?: PaperStyle;
+  age?: number;
+  seed?: number;
+  curl?: boolean;
+  transparent?: boolean;
+  titleFont?: TitleFont;
+  frame?: boolean;
+  grid?: boolean;
+  marks?: boolean;
+  gaps?: boolean;
+  panel?: PanelKind;
+  focus?: boolean;
+  paging?: 'single' | 'a4';
+  pageNum?: boolean;
+  pageSize?: number;
+}
+
+/** 推理分頁（第五批，F131～F135）的畫面設定：時間軸標出空白、時間切片、聚光（GM 檢視與 PL 檢視各一份） */
+export interface AnalysisPrefs {
+  gaps?: boolean;
+  slice?: { on: boolean; time: string };
+  spot?: { gm?: string; pl?: string };
 }
 
 export interface Prefs {
@@ -161,6 +191,8 @@ export interface Prefs {
   filterOpen: boolean;
   /** 沒符合的事件：false＝淡化（時間軸）、true＝藏起來 */
   filterHide: boolean;
+  /** 推理分頁（第五批） */
+  analysis?: AnalysisPrefs;
 }
 
 export const usePrefs = createPreviewStore<Prefs>(TOOL_ID, {
@@ -207,6 +239,24 @@ export const setExportPrefs = (patch: Partial<ExportPrefs>): void =>
     Object.assign(d.export, patch);
   });
 export const isPl = (): boolean => prefsNow().viewMode === 'pl';
+
+/** 推理分頁的設定（F131、F133、F134） */
+export const analysisOf = (p: Pick<Prefs, 'analysis'>): AnalysisPrefs => p.analysis ?? {};
+export const setAnalysis = (patch: Partial<AnalysisPrefs>): void =>
+  usePrefs.getState().update((d) => {
+    d.analysis = { ...(d.analysis ?? {}), ...patch };
+  });
+/** 目前檢視的聚光（GM 檢視與 PL 檢視各一份；PL 檢視不會留著 GM 選的值） */
+export function spotOf(
+  p: Pick<Prefs, 'analysis' | 'viewMode'>,
+  audience: Audience = p.viewMode,
+): string {
+  return analysisOf(p).spot?.[audience] ?? '';
+}
+export function setSpot(value: string): void {
+  const p = prefsNow();
+  setAnalysis({ spot: { ...(analysisOf(p).spot ?? {}), [p.viewMode]: value } });
+}
 
 /* ---------- 畫面狀態 ---------- */
 
@@ -683,6 +733,31 @@ export function shiftTimes(from: number, delta: number) {
     if (plan.sessionLength !== null && d.session) d.session.length = plan.sessionLength;
   });
   return plan;
+}
+
+/* ---------- 遊戲中的段階公開（F135） ---------- */
+
+/** 公開或收回一個（一步復原；PL 檢視時不作用） */
+export function setUnlock(kind: LockKind, id: string, on: boolean): void {
+  if (!guard()) return;
+  const d0 = docNow();
+  const list: { id: string; unlocked?: boolean }[] =
+    kind === 'event' ? d0.events : kind === 'link' ? d0.links : d0.markers;
+  if (!!list.find((x) => x.id === id)?.unlocked === on) return;
+  commit((d) => {
+    setUnlocked(d, kind, id, on);
+  });
+}
+
+/** 全部回到初始（清掉進行中的公開；一步復原）；回傳清掉幾個 */
+export function resetUnlocks(): number {
+  if (!guard()) return 0;
+  const n = unlockCount(docNow());
+  if (!n) return 0;
+  commit((d) => {
+    clearUnlocks(d);
+  });
+  return n;
 }
 
 /* ---------- 分類 ---------- */

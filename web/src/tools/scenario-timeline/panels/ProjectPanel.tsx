@@ -527,7 +527,10 @@ function MarkerRow({ m, pl }: { m: Marker; pl: boolean }) {
           onClick={() =>
             updateMarker(m.id, (x) => {
               x.gm = !x.gm;
-              if (!x.gm) delete x.revealed;
+              if (!x.gm) {
+                delete x.revealed;
+                delete x.unlocked;
+              }
             })
           }
         />

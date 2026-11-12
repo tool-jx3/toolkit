@@ -909,6 +909,9 @@ describe('推理劇本的範例（F130）', () => {
     const truth = '解開沙袋配重的繩結';
     expect(JSON.stringify(visibleDoc(d, 'pl'))).not.toContain(truth);
     expect(JSON.stringify(visibleDoc(d, 'pl', 'mx-jiang'))).toContain(truth);
+    /* 主演的 GM 筆記（小魏拜託他作證；第五批補的同席，2026-11-12）PL 看不到 */
+    for (const pov of ['', 'mx-xu', 'mx-wei'])
+      expect(JSON.stringify(visibleDoc(d, 'pl', pov))).not.toContain('一直看到自己在下舞台');
     expect(readTime('day', d.events[0].start, d)?.v).toBe(19 * 60 + 30);
   });
 });

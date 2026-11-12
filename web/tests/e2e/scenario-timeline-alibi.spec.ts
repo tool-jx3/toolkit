@@ -107,7 +107,7 @@ const JIANG_TRUTH = '從燈光控制室旁的維修通道上天橋，解開沙�
 const XU_TRUTH = '受江曉雯之託，把一張「想私下談談劇評」的字條送到劇評家的包廂';
 const XU_SURFACE = '中場休息時離開化妝間';
 const LOG_SECRET = '把演出事故紀錄的時間改早十分鐘';
-const GM_NOTES = ['戲服設計是抄來的', '紅鯡魚'];
+const GM_NOTES = ['戲服設計是抄來的', '紅鯡魚', '一直看到自己在下舞台'];
 const GM_LINKS = ['沙袋落下', '收到字條才離開包廂'];
 /* 調查後公開的（PL 看得到） */
 const WEI_TRUTH = '溜到後門抽菸，回來時看到維修通道的門半開著';
@@ -532,7 +532,7 @@ test('專案檔：版本 4，新的欄位存了再開逐欄位相同', async ({ 
     page.getByRole('menuitem', { name: /存成專案檔/ }).click(),
   ]);
   const saved = JSON.parse(readFileSync(await file.path(), 'utf8'));
-  expect(saved.version).toBe(4);
+  expect(saved.version).toBe(5);
   expect(saved.data.session).toEqual({ style: 'clock', start: 1080, length: 300, phase: 60 });
   expect(saved.data.lanes[0].exit).toEqual({ time: '第 1 天 21:47', label: '死亡' });
   expect(saved.data.events.find((e: Ev) => e.id === 'mx-jiang-room').truth.place).toBe(

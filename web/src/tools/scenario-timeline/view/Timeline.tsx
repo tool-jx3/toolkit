@@ -23,6 +23,7 @@ import {
 } from 'react';
 import { cn, createPointerGesture, useMediaQuery } from '@/ui';
 import { barTextColor } from '../export/picture';
+import { type AlibiGap, alibiGaps, durationText, gapsSupported, spanText } from '../model/alibi';
 import { axisTicks, placeMajor, type Tick } from '../model/axis';
 import { filteredDoc, matchingIds, normalizeFilter } from '../model/filter';
 import {
@@ -42,6 +43,7 @@ import {
   INSIDE_PAD,
   ITEM_H,
   type ItemLayout,
+  itemExtent,
   LABEL_GAP,
   layoutTimeline,
   MIN_BAR,
@@ -65,6 +67,7 @@ import {
   type Rect,
   rangeHits,
 } from '../model/selection';
+import { litIds, spotLanes } from '../model/spotlight';
 import {
   afterUnit,
   canonical,
@@ -99,6 +102,7 @@ import {
   prefsNow,
   select,
   selectMany,
+  setAnalysis,
   setPrefs,
   setWin,
   toggleSelected,
@@ -330,6 +334,7 @@ export function Timeline() {
   const drag = useUi((s) => s.drag);
   const flagDrag = useUi((s) => s.flagDrag);
   const fitRequest = useUi((s) => s.fitRequest);
+  const analysis = usePrefs((s) => s.data.analysis);
   const mode = vdocAll.mode;
   const wide = useMediaQuery('(min-width: 640px)', true);
   const labelW = wide ? 144 : 96;
@@ -429,6 +434,23 @@ export function Timeline() {
     () => axisTicks(mode, w.start, w.end, k, axisMeasure, vdocBase),
     [mode, w.start, w.end, k, vdocBase],
   );
+  /* 時間切片（第五批，F133）：那一刻（關著時 null）；標籤是標記列的旗子（和其他旗子錯開，不壓到事件的標題） */
+  const sliceTime = analysis?.slice?.on ? (analysis.slice.time ?? '') : '';
+  const sliceV = useMemo(
+    () => (sliceTime ? (readTime(mode, sliceTime, vdocAll)?.v ?? null) : null),
+    [sliceTime, mode, vdocAll],
+  );
+  const sliceFlag = useMemo(
+    () =>
+      sliceV === null
+        ? null
+        : {
+            v: sliceV,
+            label: S.anSliceTag(spanText(vdocAll, sliceV, sliceV)),
+            color: 'var(--accent)',
+          },
+    [sliceV, vdocAll],
+  );
   const flags = useMemo(
     () =>
       placeFlags(
@@ -436,11 +458,12 @@ export function Timeline() {
           vdoc,
           { progress: S.progress, now: S.now, exit: S.exitDefault, untitled: S.untitled },
           showNow ? now : null,
+          sliceFlag,
         ),
         xOf,
         flagMeasure,
       ),
-    [vdoc, xOf, showNow, now],
+    [vdoc, xOf, showNow, now, sliceFlag],
   );
   /* 提示與顏色只跟著資料變（縮放、平移時不重算） */
   const looks = useMemo(() => {
@@ -466,6 +489,22 @@ export function Timeline() {
     (id: string) => !filterHide && !!matches && !matches.has(ownerId(id)),
     [filterHide, matches],
   );
+  /*
+   * 推理分頁（第五批）：聚光與時間切片——強調的以外淡化（只是畫法，選取、框選照篩選的規則）；
+   * 不在場證明空白畫在那一列。都只用這個檢視看得到的資料（vdocAll）。
+   */
+  const spotRaw = analysis?.spot?.[vdocAll.audience] ?? '';
+  const lit = useMemo(() => litIds(vdocAll, spotRaw, sliceV), [vdocAll, spotRaw, sliceV]);
+  const litLanes = useMemo(() => spotLanes(vdocAll, spotRaw), [vdocAll, spotRaw]);
+  const fadeOf = useCallback((id: string) => dimOf(id) || (!!lit && !lit.has(id)), [dimOf, lit]);
+  const linkFade = useCallback(
+    (k: { from: string; to: string }) => !!lit && !lit.has(k.from) && !lit.has(k.to),
+    [lit],
+  );
+  const gaps = useMemo(
+    () => (analysis?.gaps && gapsSupported(mode) ? alibiGaps(vdocAll) : []),
+    [analysis?.gaps, mode, vdocAll],
+  );
   const flagH = flagRowHeight(flags.levels);
   const headerH = AXIS_ROW * 2 + flagH;
   const bodyH = Math.max(layout.height, viewH - headerH - 2);
@@ -485,6 +524,19 @@ export function Timeline() {
       : { kind: 'year', n: 1 };
   };
   const snapUnit = (alt: boolean): SnapUnit => (alt ? altUnit() : live.current.ticks.snap);
+
+  /* ---------- 時間切片（第五批，F133）：點刻度選那一刻；再點同一個位置關掉 ---------- */
+
+  const onAxisClick = (e: ReactMouseEvent<HTMLDivElement>) => {
+    if ((e.target as HTMLElement).closest('[data-flag]')) return;
+    const r = e.currentTarget.getBoundingClientRect();
+    const cur = live.current;
+    const x = Math.min(r.width, Math.max(0, e.clientX - r.left));
+    const t = newEventStart(mode, cur.w.start + x / cur.k, cur.ticks.snap, cur.vdoc);
+    const a = prefsNow().analysis;
+    if (a?.slice?.on && a.slice.time === t) setAnalysis({ slice: { on: false, time: t } });
+    else setAnalysis({ slice: { on: true, time: t } });
+  };
 
   /* ---------- 縮放、平移 ---------- */
 
@@ -1319,7 +1371,14 @@ export function Timeline() {
               </span>
             ) : null}
           </div>
-          <div className="relative min-w-0 flex-1 overflow-hidden" data-testid="axis">
+          {/* biome-ignore lint/a11y/useKeyWithClickEvents: 點刻度＝時間切片的捷徑；鍵盤用「推理」分頁的時刻欄 */}
+          {/* biome-ignore lint/a11y/noStaticElementInteractions: 同上（刻度本身不是控制項，旗子是按鈕） */}
+          <div
+            className="relative min-w-0 flex-1 cursor-pointer overflow-hidden"
+            data-testid="axis"
+            title={S.axisSliceTitle}
+            onClick={onAxisClick}
+          >
             <AxisLabels major={ticks.major} minor={ticks.minor} xOf={xOf} width={width} />
             {flags.flags.map((f) => (
               <FlagView
@@ -1328,7 +1387,7 @@ export function Timeline() {
                 x={xOf(f.v)}
                 top={AXIS_ROW * 2 + FLAG_GAP + f.level * (FLAG_H + FLAG_GAP)}
                 gm={!pl}
-                editable={!pl && f.kind !== 'now' && f.kind !== 'exit'}
+                editable={!pl && f.kind !== 'now' && f.kind !== 'exit' && f.kind !== 'slice'}
                 onPointerDown={onFlagPointerDown}
                 onKeyDown={onFlagKeyDown}
               />
@@ -1346,6 +1405,7 @@ export function Timeline() {
               <LaneLabel
                 key={row.key || '__main'}
                 row={row}
+                dim={!!litLanes && !litLanes.has(row.key)}
                 gm={!pl}
                 name={row.lane ? row.lane.name.trim() || S.untitled : S.main}
                 onToggle={toggleCollapse}
@@ -1410,7 +1470,7 @@ export function Timeline() {
                   selected={selected.has(bg.id)}
                   gm={!pl}
                   editable={!pl}
-                  dim={dimOf(bg.id)}
+                  dim={fadeOf(bg.id)}
                   title={looks.get(bg.id)?.title ?? ''}
                   dragging={dragging.has(bg.id)}
                   onKeyDown={onItemKeyDown}
@@ -1418,7 +1478,7 @@ export function Timeline() {
               );
             })}
             {flags.flags
-              .filter((f) => f.kind !== 'exit')
+              .filter((f) => f.kind !== 'exit' && f.kind !== 'slice')
               .map((f) => (
                 <div
                   key={`l${f.id}`}
@@ -1457,6 +1517,19 @@ export function Timeline() {
                 />
               );
             })}
+            {gaps.length ? (
+              <GapLayer
+                gaps={gaps}
+                rows={layout.rows}
+                items={layout.items}
+                backgrounds={layout.backgrounds}
+                lines={flags.flags.filter((f) => f.kind !== 'exit').map((f) => f.v)}
+                xOf={xOf}
+                width={width}
+                vdoc={vdocAll}
+              />
+            ) : null}
+            {sliceV !== null ? <SliceLine x={xOf(sliceV)} width={width} /> : null}
             {shownLinks.length || linkDraft ? (
               <LinkLayer
                 links={shownLinks}
@@ -1466,6 +1539,7 @@ export function Timeline() {
                 gm={!pl}
                 selected={selected}
                 dimOf={dimOf}
+                fade={lit ? linkFade : undefined}
                 vdoc={vdoc}
                 draft={linkDraft}
               />
@@ -1482,7 +1556,7 @@ export function Timeline() {
                 dragging={dragging.has(ownerId(it.id))}
                 gm={!pl}
                 editable={!pl && !it.event.truthOf}
-                dim={dimOf(it.id)}
+                dim={fadeOf(it.id)}
                 title={looks.get(it.id)?.title ?? ''}
                 onKeyDown={onItemKeyDown}
               />
@@ -1554,6 +1628,98 @@ const selectOnFocus = (id: string) => {
   select(id);
 };
 
+/* ---------- 不在場證明空白、時間切片（第五批） ---------- */
+
+/** 不在場證明空白（F131）：那一列的空白時段畫虛線框（在事件的下面、不擋點選） */
+const GapLayer = memo(function GapLayer({
+  gaps,
+  rows,
+  items,
+  backgrounds,
+  lines,
+  xOf,
+  width,
+  vdoc,
+}: {
+  gaps: readonly AlibiGap[];
+  rows: readonly RowLayout[];
+  items: readonly ItemLayout[];
+  backgrounds: readonly BackgroundLayout[];
+  /** 貫穿泳道的線（標記、目前進度、時間切片）的時間：字不壓在線上 */
+  lines: readonly number[];
+  xOf: (v: number) => number;
+  width: number;
+  vdoc: VisibleDoc;
+}) {
+  const rowOf = new Map(
+    rows.filter((r) => r.lane && !(r.collapsed && r.hasChildren)).map((r) => [r.key, r]),
+  );
+  const rowIndex = new Map(rows.map((r, i) => [r.key, i]));
+  return (
+    <>
+      {gaps.map((g) => {
+        const row = rowOf.get(g.laneId);
+        if (!row) return null;
+        const x1 = xOf(g.a) + 2;
+        const x2 = xOf(g.b) - 2;
+        if (x2 < -10 || x1 > width + 10 || x2 - x1 < 4) return null;
+        const left = Math.max(-4, x1);
+        const right = Math.min(width + 4, x2);
+        const len = durationText(vdoc.mode, g.b - g.a);
+        const name = row.lane?.name.trim() || S.untitled;
+        const label = `${S.anGapTag} ${len}`;
+        /* 標籤放在中間；那一列的事件（含右邊的標題）壓到標籤的位置時不寫（不和事件的字疊在一起） */
+        const lw = itemMeasure(label);
+        const cx = (left + right) / 2;
+        const ri = rowIndex.get(row.key);
+        const hit = (l: number, r: number) => r > cx - lw / 2 - 4 && l < cx + lw / 2 + 4;
+        const clear =
+          lw + 8 <= right - left &&
+          !lines.some((v) => hit(xOf(v) - 2, xOf(v) + 2)) &&
+          !items.some((it) => {
+            if (it.row !== ri) return false;
+            const ext = itemExtent(it.event.kind, xOf(it.a), xOf(it.b), it.labelW);
+            return hit(ext.left, ext.right);
+          }) &&
+          /* 背景的標題（和事件一起堆疊在這一列的） */
+          !backgrounds.some(
+            (bg) =>
+              bg.labelRow === ri &&
+              hit(xOf(bg.a), xOf(bg.a) + itemMeasure(bg.event.title.trim() || ' ') + 12),
+          );
+        return (
+          <div
+            key={`${g.laneId}:${g.a}`}
+            aria-hidden
+            data-gap={g.laneId}
+            title={S.gapTitle(name, spanText(vdoc, g.a, g.b), len)}
+            className="pointer-events-none absolute z-[1] flex items-center justify-center overflow-hidden rounded-[4px] border border-dashed border-border-strong text-[11px] font-semibold whitespace-nowrap text-muted"
+            style={{ left, width: right - left, top: row.y + 4, height: row.height - 9 }}
+          >
+            {clear ? label : null}
+          </div>
+        );
+      })}
+    </>
+  );
+});
+
+/** 時間切片（F133）：那一刻的直線（在事件的上面、不擋點選）；標籤是標記列的旗子 */
+function SliceLine({ x, width }: { x: number; width: number }) {
+  if (x < -10 || x > width + 10) return null;
+  return (
+    <div
+      aria-hidden
+      data-testid="slice-line"
+      className="pointer-events-none absolute top-0 bottom-0 z-[5]"
+      style={{ left: Math.round(x) }}
+    >
+      <div className="absolute top-0 bottom-0 -left-[5px] w-[10px] bg-accent opacity-10" />
+      <div className="absolute top-0 bottom-0 -left-px border-l-2 border-dashed border-accent" />
+    </div>
+  );
+}
+
 /* ---------- 刻度 ---------- */
 
 const AxisLabels = memo(function AxisLabels({
@@ -1623,8 +1789,9 @@ function FlagView({
   onPointerDown: (e: ReactPointerEvent<HTMLElement>, f: Flag) => void;
   onKeyDown: (e: ReactKeyboardEvent<HTMLElement>, f: Flag) => void;
 }) {
-  const bg = f.kind === 'progress' ? 'var(--accent)' : f.color;
-  const fg = f.kind === 'progress' ? 'var(--accent-contrast)' : barTextColor(f.color);
+  const accent = f.kind === 'progress' || f.kind === 'slice';
+  const bg = accent ? 'var(--accent)' : f.color;
+  const fg = accent ? 'var(--accent-contrast)' : barTextColor(f.color);
   const style: CSSProperties = {
     left: Math.round(x),
     top,
@@ -1675,11 +1842,14 @@ function FlagView({
 
 const LaneLabel = memo(function LaneLabel({
   row,
+  dim,
   gm,
   name,
   onToggle,
 }: {
   row: RowLayout;
+  /** 聚光在別的泳道上（第五批）：名稱淡化 */
+  dim?: boolean;
   gm: boolean;
   name: string;
   onToggle: (id: string) => void;
@@ -1692,7 +1862,11 @@ const LaneLabel = memo(function LaneLabel({
       aria-label={S.laneLabel(name)}
       data-lane-row={row.key || '__main'}
       data-secret={(gm && row.secret) || undefined}
-      className="absolute right-0 left-0 flex items-start gap-1 border-b border-border pt-[7px] pr-1.5"
+      data-dim={dim || undefined}
+      className={cn(
+        'absolute right-0 left-0 flex items-start gap-1 border-b border-border pt-[7px] pr-1.5',
+        dim && '[&>*]:opacity-40',
+      )}
       style={{
         top: row.y,
         height: row.height,
@@ -1753,6 +1927,7 @@ const LinkLayer = memo(function LinkLayer({
   gm,
   selected,
   dimOf,
+  fade,
   vdoc,
   draft,
 }: {
@@ -1764,6 +1939,8 @@ const LinkLayer = memo(function LinkLayer({
   gm: boolean;
   selected: ReadonlySet<string>;
   dimOf: (id: string) => boolean;
+  /** 聚光、時間切片的淡化（兩端都沒有強調時；第五批） */
+  fade?: (k: VisibleLink) => boolean;
   vdoc: VisibleDoc;
   draft: { x1: number; y1: number; x2: number; y2: number } | null;
 }) {
@@ -1776,7 +1953,14 @@ const LinkLayer = memo(function LinkLayer({
       data-testid="link-layer"
     >
       <g transform={`translate(${Math.round(shift * 100) / 100} 0)`}>
-        <LinkPaths links={links} gm={gm} selected={selected} dimOf={dimOf} vdoc={vdoc} />
+        <LinkPaths
+          links={links}
+          gm={gm}
+          selected={selected}
+          dimOf={dimOf}
+          fade={fade}
+          vdoc={vdoc}
+        />
       </g>
       {draft ? (
         <line
@@ -1800,12 +1984,14 @@ const LinkPaths = memo(function LinkPaths({
   gm,
   selected,
   dimOf,
+  fade,
   vdoc,
 }: {
   links: { k: VisibleLink; g: LinkGeometry }[];
   gm: boolean;
   selected: ReadonlySet<string>;
   dimOf: (id: string) => boolean;
+  fade?: (k: VisibleLink) => boolean;
   vdoc: VisibleDoc;
 }) {
   const titles = useMemo(() => {
@@ -1818,7 +2004,7 @@ const LinkPaths = memo(function LinkPaths({
         const st = LINK_STYLES[k.kind];
         const color = gm && k.secret ? GM_COLOR : st.color;
         const hot = selected.has(k.from) || selected.has(k.to);
-        const dim = dimOf(k.from) || dimOf(k.to);
+        const dim = dimOf(k.from) || dimOf(k.to) || !!fade?.(k);
         return (
           <g
             key={k.id}

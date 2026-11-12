@@ -7,8 +7,11 @@ import { readTime } from './time';
 import { EXIT_COLOR, NOW_COLOR } from './types';
 import { progressValue, type VisibleDoc } from './visible';
 
-/** exit：泳道的退場時刻（F121；旗子寫「<泳道> <寫法>」，不畫貫穿全部泳道的線、不能拖） */
-export type FlagKind = 'marker' | 'progress' | 'now' | 'exit';
+/**
+ * exit：泳道的退場時刻（F121；旗子寫「<泳道> <寫法>」，不畫貫穿全部泳道的線、不能拖）；
+ * slice：時間切片（F133；第五批：標籤放在標記列，和其他旗子錯開，不壓到事件的標題；不能拖）
+ */
+export type FlagKind = 'marker' | 'progress' | 'now' | 'exit' | 'slice';
 
 export interface Flag {
   id: string;
@@ -31,16 +34,18 @@ export const FLAG_H = 18;
 export const FLAG_GAP = 3;
 export const FLAG_PAD = 6;
 export const PROGRESS_ID = '__progress';
+export const SLICE_ID = '__slice';
 export const NOW_ID = '__now';
 
 export const flagRowHeight = (levels: number) =>
   levels > 0 ? FLAG_GAP + levels * (FLAG_H + FLAG_GAP) : 0;
 
-/** 要畫的旗子（標記、目前進度、現在時刻） */
+/** 要畫的旗子（標記、目前進度、現在時刻、退場；slice 有給時加時間切片的旗子，第五批） */
 export function collectFlags(
   vdoc: VisibleDoc,
   labels: { progress: string; now: string; exit?: string; untitled?: string },
   nowV: number | null,
+  slice?: { v: number; label: string; color: string } | null,
 ): Flag[] {
   const out: Flag[] = [];
   for (const m of vdoc.markers) {
@@ -93,6 +98,16 @@ export function collectFlags(
       gm: false,
     });
   }
+  if (slice)
+    out.push({
+      id: SLICE_ID,
+      kind: 'slice',
+      v: slice.v,
+      label: slice.label,
+      color: slice.color,
+      secret: false,
+      gm: false,
+    });
   return out;
 }
 

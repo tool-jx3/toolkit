@@ -74,6 +74,10 @@ const IMG_CLASS = 'max-h-full max-w-full object-contain';
  * 範本的縮圖：看得到的地方（對話框捲動區上下多 300 px）才畫，畫過的直接用。
  * 和素材面板的圖示共用 `lazyDraw`（lazyIcons.ts）：觀察範圍＝最近的捲動祖先（對話框的捲動區）、56 張共用一個觀察器、
  * 看得到的先畫、預先畫的排隊接著畫；一張要畫幾十 ms，所以用 `paced`（一個 frame 只畫到時間上限）（D55、7.18）。
+ *
+ * 2026-11-12（scenario-timeline 第五批驗證時查出的 e2e 偶發失敗）：縮圖畫好時**不換掉外層的元素**、整個縮圖不接指標（`pointer-events-none`）。
+ * 以前是把「…」的 span 換成 img：按下時指標在 span 上、放開前縮圖剛好畫好（span 被拿掉）時，Chromium 不送 click 給卡片，
+ * 點了沒反應（e2e 的「從範本對話框載入古城」偶爾 5 秒內對話框沒關；載入本身只要 9～91 ms）。現在按下的對象一定是卡片本身。
  */
 function TemplateThumb({ id }: { id: string }) {
   const [url, setUrl] = useState(() => thumbs.get(id) ?? null);
@@ -84,15 +88,19 @@ function TemplateThumb({ id }: { id: string }) {
     if (url || !el) return;
     return lazyDraw(el, () => setUrl(thumbnail(id)), { paced: true });
   }, [id, url]);
-  return url ? (
-    <img src={url} alt="" className={IMG_CLASS} />
-  ) : (
+  return (
     <span
       ref={ref}
       aria-hidden
-      className="flex size-full items-center justify-center bg-surface-2 text-xs text-muted"
+      data-template-thumb={id}
+      data-drawn={url ? '1' : undefined}
+      className={
+        url
+          ? 'pointer-events-none flex size-full items-center justify-center'
+          : 'pointer-events-none flex size-full items-center justify-center bg-surface-2 text-xs text-muted'
+      }
     >
-      …
+      {url ? <img src={url} alt="" className={IMG_CLASS} /> : '…'}
     </span>
   );
 }

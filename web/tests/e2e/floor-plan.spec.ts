@@ -893,6 +893,49 @@ test('範本對話框的縮圖：捲到看得到的卡片才畫，畫過的留�
   expect(errors).toEqual([]);
 });
 
+/*
+ * 2026-11-12：範本卡片的點選不會被縮圖吃掉。以前縮圖畫好時把「…」的 span 換成 img——按下時指標在 span 上、放開前剛好畫好
+ * （span 被拿掉）時 Chromium 不送 click 給卡片，點了沒反應（「匯出抽查：古城…」偶爾 5 秒內對話框沒關）。
+ * 現在縮圖整個不接指標、外層的元素畫好前後是同一個：按下的對象是卡片本身。
+ */
+test('範本卡片：縮圖還沒畫好時按下、畫好之後才放開，照樣載入（縮圖不接指標、元素不換）', async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  const errors = await open(page);
+  await page.getByRole('button', { name: '範本' }).click();
+  const dialog = page.getByTestId('template-dialog');
+  const last = dialog.getByRole('button', { name: /^魔法師之塔/ });
+  /* 最後一張捲到之前還沒畫：記下縮圖的外層元素 */
+  await expect(last.locator('img')).toHaveCount(0);
+  const thumb = await last.locator('[data-template-thumb]').elementHandle();
+  if (!thumb) throw new Error('沒有縮圖的元素');
+  await last.scrollIntoViewIfNeeded();
+  const box = await last.boundingBox();
+  if (!box) throw new Error('卡片不在畫面上');
+  const x = box.x + box.width / 2;
+  const y = box.y + box.height / 3;
+  /* 指標下的元素是卡片本身（縮圖不接指標） */
+  expect(
+    await page.evaluate(
+      ([px, py]) => {
+        const el = document.elementFromPoint(px, py);
+        return !!el?.closest('button') && !el.closest('[data-template-thumb]');
+      },
+      [x, y] as const,
+    ),
+  ).toBe(true);
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  /* 按著的時候縮圖畫好：外層的元素還是同一個 */
+  await expect(last.locator('img')).toHaveCount(1);
+  expect(await thumb.evaluate((el) => el.isConnected && !!el.querySelector('img'))).toBe(true);
+  await page.mouse.up();
+  await expect(dialog).toHaveCount(0);
+  expect((await project(page)).name).toBe('魔法師之塔');
+  expect(errors).toEqual([]);
+});
+
 /**
  * 範本對話框每張卡片離「捲動區的可見範圍」多遠（gap，0＝看得到）、縮圖畫好沒有（空白地圖算畫好）、捲動區的捲動位置。
  * 捲動區＝對話框裡第一個真的會捲動的祖先。
@@ -1035,7 +1078,11 @@ test('範本：分類、只載入格局、放入隱藏線索、空白地圖；�
 });
 
 test.describe('2026-10 增補的範本', () => {
-  /** 從範本對話框載入（分類 → 卡片），回傳載入後的專案 */
+  /**
+   * 從範本對話框載入（分類 → 卡片），回傳載入後的專案。
+   * 載入很快（按卡片到對話框關掉：建置版、4 個 worker 一起跑時 9～91 ms，頁面裡 20～53 ms；改版前的建置相同），5 秒的預設等待足夠；
+   * 以前偶爾 5 秒內沒關，原因是點選被縮圖吃掉（見上面「縮圖還沒畫好時按下」的測試，2026-11-12 修正程式）。
+   */
   async function loadFromDialog(page: Page, tag: string, name: RegExp) {
     await page.getByRole('button', { name: '範本' }).click();
     const dialog = page.getByTestId('template-dialog');
@@ -3590,7 +3637,11 @@ test.describe('第三批跟進（2026-10，家具擴充、貼牆素材、標籤�
 });
 
 test.describe('2026-10 第三批後半的範本（F237～F239）', () => {
-  /** 從範本對話框載入（分類 → 卡片），回傳載入後的專案 */
+  /**
+   * 從範本對話框載入（分類 → 卡片），回傳載入後的專案。
+   * 載入很快（按卡片到對話框關掉：建置版、4 個 worker 一起跑時 9～91 ms，頁面裡 20～53 ms；改版前的建置相同），5 秒的預設等待足夠；
+   * 以前偶爾 5 秒內沒關，原因是點選被縮圖吃掉（見上面「縮圖還沒畫好時按下」的測試，2026-11-12 修正程式）。
+   */
   async function loadFromDialog(page: Page, tag: string, name: RegExp) {
     await page.getByRole('button', { name: '範本' }).click();
     const dialog = page.getByTestId('template-dialog');
