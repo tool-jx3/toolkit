@@ -10,7 +10,7 @@ import { encodePng } from '@/core/encode';
 import { featherMask, getImageData, loadImage, makeCanvas } from '@/core/image';
 import { grayMaskCanvas } from './custom';
 import { edgeReach, estimateBg, hasPartial, unmixHalo } from './edges';
-import { type Mask, maskBoundary, maskSizeFor, type Rgba } from './mask';
+import { type Mask, maskBoundary, maskSizeFor, POP_VISIBLE, type Rgba } from './mask';
 import { IMAGE_MAX_SIDE, type ImageRef, type MaskRef } from './model';
 
 export const TOOL_ID = 'token-maker';
@@ -338,28 +338,34 @@ function alphaOf(imageId: string, m: Mask): Uint8Array | null | undefined {
   return lite.alpha && lite.alpha.length === m.width * m.height ? lite.alpha : null;
 }
 
-const boundaryByMask = new WeakMap<Mask, { alpha: boolean; b: Float32Array }>();
+/* 邊界點的快取：遮罩 > 0（以前的自動邊距）與遮罩 ≥ 16（畫布貼合、讓出框配合圖片邊界）各一份 */
+const boundaryByMask = new Map<number, WeakMap<Mask, { alpha: boolean; b: Float32Array }>>();
 const boundaryById = new Map<string, Float32Array>();
 const BOUNDARY_CACHE = 240;
 
-/** 出框的邊界點（這個遮罩物件；畫到一半的遮罩、剛存好的遮罩） */
-export function boundaryOf(m: Mask, image: ImageRef): Float32Array {
+/** 出框的邊界點（這個遮罩物件；畫到一半的遮罩、剛存好的遮罩）；min＝遮罩至少多少算出框 */
+export function boundaryOf(m: Mask, image: ImageRef, min = 1): Float32Array {
   const alpha = alphaOf(image.id, m);
-  const hit = boundaryByMask.get(m);
+  let byMask = boundaryByMask.get(min);
+  if (!byMask) {
+    byMask = new WeakMap();
+    boundaryByMask.set(min, byMask);
+  }
+  const hit = byMask.get(m);
   if (hit && (hit.alpha || alpha === undefined)) return hit.b;
-  const b = maskBoundary(m, alpha ?? null, image);
-  boundaryByMask.set(m, { alpha: alpha !== undefined, b });
+  const b = maskBoundary(m, alpha ?? null, image, min);
+  byMask.set(m, { alpha: alpha !== undefined, b });
   return b;
 }
 
 /** 出框的邊界點（依遮罩與圖片的 id 快取：遮罩本身被放掉之後也算得出邊距）；遮罩還沒讀時 null */
-export function boundaryFor(mask: MaskRef, image: ImageRef): Float32Array | null {
-  const key = `${mask.id}|${image.id}`;
+export function boundaryFor(mask: MaskRef, image: ImageRef, min = 1): Float32Array | null {
+  const key = min === 1 ? `${mask.id}|${image.id}` : `${mask.id}|${image.id}|${min}`;
   const hit = boundaryById.get(key);
   if (hit) return hit;
   const m = masks.get(mask.id);
   if (!m) return null;
-  const b = boundaryOf(m, image);
+  const b = boundaryOf(m, image, min);
   if (alphaOf(image.id, m) !== undefined) {
     boundaryById.set(key, b);
     if (boundaryById.size > BOUNDARY_CACHE) {
@@ -448,6 +454,7 @@ export function loadThumbMask(
     const m = await loadMask(ref);
     if (!m) return null;
     boundaryFor(ref, image);
+    boundaryFor(ref, image, POP_VISIBLE);
     const data = feather > 0 ? featherMask(m.data, m.width, m.height, feather) : m.data;
     const full = maskCanvas(data, m.width, m.height);
     const k = Math.min(1, THUMB_SIDE / Math.max(m.width, m.height));

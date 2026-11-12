@@ -43,9 +43,15 @@ import {
 } from './mask';
 import {
   type ExportFormat,
+  fitScaleView,
+  geom,
   type Look,
+  type PushDir,
+  pushView,
   ratioText,
+  ringMatchSat,
   type TokenItem,
+  type TokenView,
   tokenBaseName,
   type ZipJob,
 } from './model';
@@ -61,7 +67,13 @@ export {
   zipAllJobs,
 } from './model';
 
-import { type RenderSources, releaseScratch, renderTokenCanvas } from './render';
+import {
+  frameLayers,
+  meanLumSat,
+  type RenderSources,
+  releaseScratch,
+  renderTokenCanvas,
+} from './render';
 import {
   assets,
   decodeMaskPng,
@@ -84,6 +96,7 @@ import {
   currentToken,
   docNow,
   edit,
+  editToken,
   effectiveMode,
   flushBurst,
   prefsNow,
@@ -93,6 +106,7 @@ import {
   setPrefs,
   setTool,
   tokenPad,
+  tokenPopBounds,
   useDoc,
   useUi,
 } from './store';
@@ -503,6 +517,50 @@ export async function retuneGap(width: number, final: boolean): Promise<BatchNot
   return width > 0 ? { title: r.n ? S.gapRemoved(r.n) : S.gapNone, tone: 'info' } : null;
 }
 
+/* ---------- 讓出框配合圖片邊界（token-workshop 70f1503） ---------- */
+
+export type FitKind = 'scale' | PushDir;
+
+/**
+ * 縮小到剛好、往上下左右推：讓出框收進圖片裡。自動邊距時先改成手動 0%（外框碰到圖片的四邊；邊距是所有棋子共用的），
+ * 和擺放的改變算同一步復原（同原作：已經放得下時也會改成手動）。
+ */
+export async function fitPopToFrame(kind: FitKind): Promise<BatchNotice | null> {
+  const first = currentToken();
+  if (first?.mask && first.popOn && !peekMask(first.mask.id)) await loadMask(first.mask);
+  /* 讀遮罩的時候擺放可能又改了：讀好之後再拿一次 */
+  const token = currentToken();
+  if (!token?.image) return null;
+  const mask = token.mask && token.popOn ? (peekMask(token.mask.id) ?? null) : null;
+  const b = tokenPopBounds(token, mask);
+  if (!b) return { title: S.fitNeedPop, tone: 'info' };
+  const look = docNow().look;
+  const wasAuto = look.autoMargin;
+  const pad = wasAuto ? 0 : look.margin / 100;
+  let view: TokenView | null = null;
+  let title: string;
+  let tone: BatchNotice['tone'];
+  if (kind === 'scale') {
+    view = fitScaleView(token.view, b, pad);
+    title = view ? S.fitScaled(Math.round(view.zoom * 100)) : S.fitAlready;
+    tone = view ? 'success' : 'info';
+  } else {
+    const r = pushView(token.view, b, pad, kind);
+    view = r?.view ?? null;
+    title = !r ? S.fitPushNone : r.rest ? S.fitPushRest : S.fitPushed;
+    tone = !r ? 'info' : r.rest ? 'warning' : 'success';
+  }
+  edit((d) => {
+    if (d.look.autoMargin) {
+      d.look.autoMargin = false;
+      d.look.margin = 0;
+    }
+    const t = d.tokens.find((x) => x.id === token.id);
+    if (t && view) t.view = view;
+  });
+  return { title, description: wasAuto ? S.fitAutoOff : undefined, tone };
+}
+
 /* ---------- 套索 ---------- */
 
 /** 套索：圈起來的範圍（遮罩的 px）加入或去掉 */
@@ -837,6 +895,35 @@ export async function autoPickColor(kind: 'frame' | 'accent'): Promise<BatchNoti
     }
   });
   return null;
+}
+
+/* ---------- 配合外框調整圖片的顏色 ---------- */
+
+/**
+ * 配合外框調整圖片的顏色（token-workshop 的 Match picture colour to ring；規格 F95）：外框（128 px、目前的邊距）
+ * 與圖片的平均飽和度比 → 目前棋子的飽和度（100＋原作的值 %，−30～30）；亮度不動。一步復原。
+ */
+export async function matchPictureToRing(): Promise<BatchNotice> {
+  const token = currentToken();
+  if (!token?.image) return { title: S.noImageYet, tone: 'warning' };
+  const work = peekImageWork(token.image.id) ?? (await loadImageWork(token.image));
+  if (!work) return { title: S.imageMissing, tone: 'danger' };
+  const look = docNow().look;
+  const texture = await ensureTexture(look.texture, look.texSeed).catch(() => null);
+  const custom = docNow().custom;
+  const frameImg =
+    look.frame === 'custom' && custom.frame
+      ? ((await assets.bitmap(custom.frame.id).catch(() => undefined)) ?? null)
+      : null;
+  const ring = frameLayers(look, geom(128, tokenPad(look, token)), texture, false, {
+    image: frameImg,
+    id: custom.frame?.id ?? null,
+  }).frame;
+  const sat = 100 + ringMatchSat(meanLumSat(ring).s, meanLumSat(work.bitmap).s);
+  editToken(token.id, (t) => {
+    t.adjust = { ...t.adjust, sat };
+  });
+  return { title: S.matchRingDone(sat), description: S.matchRingDoneHint, tone: 'success' };
 }
 
 /* ---------- 參考圖 ---------- */

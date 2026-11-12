@@ -9,7 +9,7 @@ import { create } from 'zustand';
 import { referencedAssetIds } from '@/core/assets';
 import { createPreviewStore, createToolStore, historyGesture } from '@/core/storage';
 import { frameDefaults } from './frames';
-import type { Mask, SelectMode } from './mask';
+import { type Mask, POP_VISIBLE, type SelectMode } from './mask';
 import {
   autoPad,
   CUSTOM_SIZE,
@@ -28,6 +28,10 @@ import {
   nextTokenId,
   normalizeLook,
   normalizeState,
+  type PopBounds,
+  type PopOverflow,
+  popBounds,
+  popOverflow,
   RANGES,
   rotateView,
   TOKEN_MAX,
@@ -41,8 +45,11 @@ import { assets, boundaryFor, boundaryOf, putMask, setImageKeepers, TOOL_ID } fr
 import type { TabId, ToolId } from './strings';
 
 export { TOOL_ID };
-/** 專案檔與自動儲存的資料版本（2：外觀加漸層的色彩平衡、棋子加去光暈；1 的照讀） */
-export const DATA_VERSION = 2;
+/**
+ * 專案檔與自動儲存的資料版本（2：外觀加漸層的色彩平衡、棋子加去光暈；3（2026-11-12）：外觀加畫布貼合、外緣淡出；
+ * 1、2 的照讀，沒有的欄位是以前的畫法）
+ */
+export const DATA_VERSION = 3;
 
 export const useDoc = createToolStore<DocState>(TOOL_ID, initialState(), {
   version: DATA_VERSION,
@@ -125,6 +132,8 @@ export interface Prefs {
   autoFix: boolean;
   /** 預覽下面的桌面尺寸預覽（40、80、120 px） */
   tableStrip: boolean;
+  /** 預覽上用虛線標出圖片邊界（匯出的範圍；出框超出時變紅）。2026-11-12 加 */
+  showFrame: boolean;
   /** 匯出尺寸：預設的其中一個，或 custom 時用 customSize */
   sizeChoice: number | 'custom';
   customSize: number;
@@ -157,6 +166,7 @@ export const initialPrefs = (): Prefs => ({
   autoShrink: 0,
   autoFix: true,
   tableStrip: false,
+  showFrame: true,
   sizeChoice: DEFAULT_SIZE,
   customSize: 300,
   format: 'png',
@@ -223,6 +233,7 @@ export const usePrefs = createPreviewStore<Prefs>(TOOL_ID, initialPrefs());
     ),
     autoFix: p.autoFix !== false,
     tableStrip: p.tableStrip === true,
+    showFrame: p.showFrame !== false,
     sizeChoice:
       p.sizeChoice === 'custom' || [256, 280, 400, 512, 1024, 2048].includes(p.sizeChoice as number)
         ? p.sizeChoice
@@ -348,19 +359,50 @@ export function effectiveMode(): SelectMode {
 
 /* ---------- 邊距 ---------- */
 
-/** 一個棋子的邊距（自動時依出框的範圍；手動時用設定）；maskOverride：畫到一半、還沒存的遮罩 */
+/**
+ * 一個棋子的邊距（自動時依出框的範圍；手動時用設定）；maskOverride：畫到一半、還沒存的遮罩。
+ * 畫布貼合時只算看得到的出框（遮罩 ≥ 16，同原作）；以前的算法是遮罩 > 0。
+ */
 export function tokenPad(look: Look, token: TokenItem | null, maskOverride?: Mask | null): number {
   if (!look.autoMargin) return look.margin / 100;
   if (!token?.image) return autoPad(null, { width: 1, height: 1 }, defaultView(), look);
   if (!token.popOn) return autoPad(null, token.image, token.view, look);
+  const min = look.tightFit ? POP_VISIBLE : 1;
   if (maskOverride !== undefined) {
     if (!maskOverride) return autoPad(null, token.image, token.view, look);
-    const b = boundaryOf(maskOverride, token.image);
+    const b = boundaryOf(maskOverride, token.image, min);
     return autoPad(b, token.image, token.view, look, token.image.width / maskOverride.width);
   }
-  const b = token.mask ? boundaryFor(token.mask, token.image) : null;
+  const b = token.mask ? boundaryFor(token.mask, token.image, min) : null;
   if (!b || !token.mask) return autoPad(null, token.image, token.view, look);
   return autoPad(b, token.image, token.view, look, token.image.width / token.mask.width);
+}
+
+/**
+ * 目前畫得出來的出框的上下左右範圍（R 為單位；讓出框配合圖片邊界、圖片邊界的紅色用）：
+ * 要有圖片、打開顯示出框、有遮罩；只算看得到的出框（遮罩 ≥ 16）。遮罩還沒讀好時 null。
+ */
+export function tokenPopBounds(token: TokenItem | null, mask?: Mask | null): PopBounds | null {
+  if (!token?.image || !token.popOn) return null;
+  if (mask !== undefined) {
+    if (!mask) return null;
+    const b = boundaryOf(mask, token.image, POP_VISIBLE);
+    return popBounds(b, token.image, token.view, token.image.width / mask.width);
+  }
+  if (!token.mask) return null;
+  const b = boundaryFor(token.mask, token.image, POP_VISIBLE);
+  return popBounds(b, token.image, token.view, token.image.width / token.mask.width);
+}
+
+/** 出框超出圖片的量（手動邊距時；自動邊距不會超出，null）；沒有出框時也是 null */
+export function tokenOverflow(
+  look: Look,
+  token: TokenItem | null,
+  mask?: Mask | null,
+): PopOverflow | null {
+  if (look.autoMargin) return null;
+  const b = tokenPopBounds(token, mask);
+  return b ? popOverflow(b, look.margin / 100) : null;
 }
 
 /* ---------- 外框 ---------- */

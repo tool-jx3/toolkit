@@ -26,7 +26,7 @@ import {
   tokenFileName,
 } from './actions';
 import { FxTab } from './FxTab';
-import { initialState, RANGES } from './model';
+import { initialState, popOverflow, RANGES } from './model';
 import { ExportTab, FrameTab, ImageTab, PopoutTab } from './Panels';
 import { Preview } from './Preview';
 import { importProject, projectAssetIds } from './project';
@@ -51,6 +51,7 @@ import {
   TOOL_ID,
   toggleMaskView,
   tokenPad,
+  tokenPopBounds,
   useDoc,
   usePrefs,
   useUi,
@@ -255,6 +256,12 @@ function useTestHook() {
       doc: () => docNow(),
       prefs: () => prefsNow(),
       pad: () => tokenPad(docNow().look, currentToken()),
+      /** 出框的上下左右範圍（R 為單位）、手動邊距時超出圖片的量 */
+      popBounds: () => tokenPopBounds(currentToken()),
+      overflow: () => {
+        const b = tokenPopBounds(currentToken());
+        return b ? popOverflow(b, docNow().look.autoMargin ? 0 : docNow().look.margin / 100) : null;
+      },
       ui: () => {
         const u = useUi.getState();
         return {
