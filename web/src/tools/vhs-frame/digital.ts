@@ -1,7 +1,7 @@
 /**
  * 數位攝影（規格 3.14、F83～F86）：照片先被一台數位攝影機「拍」下來、壓縮，再當成類比訊號錄上錄影帶。
  * NTSCRT 跑真的影片編碼器；本站在瀏覽器裡用自己寫的近似（純函式，不依賴畫布）：
- * - 相機（不隨時間變，算一次）：鋸齒（最近點取樣混進平滑取樣、紅藍錯開半格）、鏡頭柔焦、交錯（一個圖場、每列重複）、
+ * - 相機（不隨時間變，算一次）：鋸齒（最近點取樣混進平滑取樣、紅藍錯開半格）、鏡頭柔焦、單場（一個圖場、每列重複）、
  *   曝光（各色版各自截斷）、色溫與色調、飽和度、黑位、銳利化（反銳利遮罩）、降噪；
  * - 每一格：感光雜訊（色度比亮度多）→ YCbCr、色度次取樣（4:4:4／4:2:2／4:2:0／4:1:1）→ 8 × 8 DCT 量化（JPEG 的量化表、品質換算）；
  *   關鍵影格之間是預測影格（第 j 個預測影格的殘差以關鍵影格的 max(0.2, 0.7^j) 倍的量化補上：畫面在關鍵影格之後的幾格裡越來越細、
@@ -9,6 +9,9 @@
  *   資料遺失：一段一段的巨集區塊（16 × 16）沒收到——關鍵影格時拿錯位的內容補（閃一下就消失），預測影格時留著舊的、錯到下一個關鍵影格；
  *   datamosh：關鍵影格被丟掉時，之後的影格只剩移動、沒有殘差，舊的畫面被一片慢慢變化的移動場拖著糊開，直到下一個留下來的關鍵影格
  *   （靜態照片沒有真的移動，移動場是本站造的，D35）；解碼後可以柔化方塊的邊。
+ * 2026-11-12 參考 NTSCRT `352b4dc`（MIT，© 2026 Finn McKenty；授權全文在同一個資料夾的 UPSTREAM_LICENSE）加的：
+ *   彩虹鋸齒（三色差三分之一格取樣、超過一半時加強細節）、CCD 的反應（自動曝光、眩光、膝點、黑位）、低光雜訊（亮度的中位數）、
+ *   銳利化的寬度（方框模糊的半徑）；第二種編碼「方塊色」（Microsoft Video 1）在 colorblock.ts。都是預設不作用，沒用時和加入之前逐位元組相同。
  * 決定性：同樣的照片、設定與影格號碼，結果永遠相同（雜訊、遺失、丟關鍵影格都由影格號碼的雜湊決定）。
  * 移動場的雜訊用 ntsc.ts 的 simplex（改寫自 ntsc-rs 的 noise/，其本身改寫自 Clatter，https://github.com/Ralith/clatter，MIT／Apache-2.0／zlib）。
  */
@@ -51,31 +54,37 @@ function blur121(src: Float32Array, w: number, h: number, ch: number, dst: Float
 
 /* ---------- 相機（不隨時間變） ---------- */
 
+/** 相機用到的設定 */
+export type CameraSettings = Pick<
+  Digital,
+  | 'alias'
+  | 'rainbow'
+  | 'lens'
+  | 'interlace'
+  | 'exposure'
+  | 'warmth'
+  | 'tint'
+  | 'saturation'
+  | 'black'
+  | 'sharpen'
+  | 'halo'
+  | 'denoise'
+  | 'ccd'
+>;
+
 /**
- * 相機的固定部分：smooth＝照片以高品質縮成擷取的大小、sharp＝以最近點縮的（鋸齒用；alias 是 0 時不用）。
- * 回傳 RGB（每個像素 3 個 0～1 的數）。
+ * 感光元件讀到的畫面（RGB，每個像素 3 個 0～1 的數）：smooth＝照片以高品質縮成擷取的大小、sharp＝以最近點縮的（鋸齒用；alias 是 0 時不用）、
+ * thirds＝以最近點畫成擷取的 3 × 3 倍（彩虹鋸齒用；rainbow 是 0 時不用）。之後是鏡頭的柔焦與單場（每列重複）。
  */
-export function cameraBase(
+export function cameraSample(
   smooth: Uint8ClampedArray,
   sharp: Uint8ClampedArray | null,
   w: number,
   h: number,
-  d: Pick<
-    Digital,
-    | 'alias'
-    | 'lens'
-    | 'interlace'
-    | 'exposure'
-    | 'warmth'
-    | 'tint'
-    | 'saturation'
-    | 'black'
-    | 'sharpen'
-    | 'denoise'
-  >,
+  d: Pick<CameraSettings, 'alias' | 'rainbow' | 'lens' | 'interlace'>,
+  thirds: Uint8ClampedArray | null = null,
 ): Float32Array {
-  const n = w * h;
-  const rgb = new Float32Array(n * 3);
+  const rgb = new Float32Array(w * h * 3);
   const a = sharp ? d.alias / 100 : 0;
   /* 鋸齒：最近點取樣混進去；紅、藍的感光元件各錯開半格（3CCD），細紋變成彩虹 */
   const half = a * 0.5;
@@ -98,12 +107,142 @@ export function cameraBase(
       rgb[o + 1] = sample(x, y, 1, 0);
       rgb[o + 2] = sample(x, y, 2, half);
     }
+  if (thirds && d.rainbow > 0) rainbowAlias(rgb, thirds, w, h, d.rainbow / 100);
   /* 鏡頭的柔焦：1-2-1 模糊做幾次 */
   for (let k = Math.round((d.lens / 100) * 4); k > 0; k--) blur121(rgb, w, h, 3, rgb);
-  /* 交錯：只用偶數列，奇數列重複上一列 */
+  /* 單場：只用偶數列，奇數列重複上一列 */
   if (d.interlace)
     for (let y = 1; y < h; y += 2) rgb.copyWithin(y * w * 3, (y - 1) * w * 3, y * w * 3);
-  /* 曝光、色溫與色調、飽和度、黑位 */
+  return rgb;
+}
+
+/**
+ * 彩虹鋸齒（2026-11-12，參考 NTSCRT 的 Aliasing）：紅、綠、藍各自在一格的左三分之一、中間、右三分之一點取樣
+ * （thirds 是 3 × 3 倍的最近點畫面，第 3x、3x ＋ 1、3x ＋ 2 欄、第 3y ＋ 1 列），往這些點靠 min(1, 2a)；
+ * 慢慢飄的摩爾紋在三色差 120° 的相位上被讀到，顏色繞一圈＝彩虹。a 超過 0.5 時每個點先加強細節
+ * （v ＋ 1.5(2a − 1)(v − 周圍 3 × 3 的平均)：照片沒有比擷取的大小細很多時也有明顯的摩爾紋）。
+ */
+function rainbowAlias(
+  rgb: Float32Array,
+  thirds: Uint8ClampedArray,
+  w: number,
+  h: number,
+  a: number,
+): void {
+  const tw = w * 3;
+  const th = h * 3;
+  const mix = Math.min(1, a * 2);
+  const boost = Math.max(0, a * 2 - 1) * 1.5;
+  const read = (sx: number, sy: number, c: number) => {
+    const v = thirds[(sy * tw + sx) * 4 + c];
+    if (!(boost > 0)) return v / 255;
+    let sum = 0;
+    for (let dy = -1; dy <= 1; dy++) {
+      const yy = Math.min(th - 1, Math.max(0, sy + dy));
+      for (let dx = -1; dx <= 1; dx++)
+        sum += thirds[(yy * tw + Math.min(tw - 1, Math.max(0, sx + dx))) * 4 + c];
+    }
+    return clamp01((v + boost * (v - sum / 9)) / 255);
+  };
+  for (let y = 0; y < h; y++) {
+    const sy = Math.min(th - 1, y * 3 + 1);
+    for (let x = 0; x < w; x++) {
+      const o = (y * w + x) * 3;
+      for (let c = 0; c < 3; c++) {
+        const p = read(Math.min(tw - 1, x * 3 + c), sy, c);
+        rgb[o + c] += (p - rgb[o + c]) * mix;
+      }
+    }
+  }
+}
+
+/** sRGB（0～1）→ 線性的光 */
+const toLinear = (c: number) => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
+/** 線性的光 → sRGB（0～1；超過白的不截斷，膝點還看得到超出多少） */
+const toSrgb = (l: number) => (l <= 0.0031308 ? l * 12.92 : 1.055 * l ** (1 / 2.4) - 0.055);
+
+/**
+ * CCD 的反應（2026-11-12，照 NTSCRT 的 CCDResponse：照 VX1000 的畫面調的 90 年代 3CCD 攝影機），強度 s（0～1）：
+ * - 自動曝光：中間重的測光（線性的亮度，每 2 × 2 取一點）把平均拉到 0.40，增益夾在 0.5～4 倍、再取 s 次方；
+ * - 鏡頭的眩光：整張的光散開一點（0.03 × s × 曝光後的平均，亮的畫面暗部浮得多）；
+ * - 膝點：每一色在 0.72 以上壓縮（斜率 1 − 0.62s），各自到白就截斷（暖的膚色、天空先變黃再變白）；
+ * - 黑位：NTSC DV 的 7.5 IRE 處理錯，黑色浮成灰（亮度 ＋ 0.065s × (1 − 亮度)，見 ccdSetup）。
+ */
+export interface CcdResponse {
+  gain: number;
+  flare: number;
+  slope: number;
+  setup: number;
+}
+export const CCD = {
+  target: 0.4,
+  minGain: 0.5,
+  maxGain: 4,
+  flare: 0.03,
+  knee: 0.72,
+  kneeSlope: 0.62,
+  setup: 0.065,
+} as const;
+
+/** 測光：中間重（權重 max(0.15, 1 − 0.6r²)）的線性亮度平均，每 2 × 2 取一點 */
+export function meteredMean(rgb: Float32Array, w: number, h: number): number {
+  let sum = 0;
+  let weight = 0;
+  for (let y = 0; y < h; y += 2) {
+    const dy = ((y + 0.5) / h) * 2 - 1;
+    for (let x = 0; x < w; x += 2) {
+      const dx = ((x + 0.5) / w) * 2 - 1;
+      const wt = Math.max(0.15, 1 - 0.6 * (dx * dx + dy * dy));
+      const o = (y * w + x) * 3;
+      const l =
+        0.2126 * toLinear(rgb[o]) + 0.7152 * toLinear(rgb[o + 1]) + 0.0722 * toLinear(rgb[o + 2]);
+      sum += l * wt;
+      weight += wt;
+    }
+  }
+  return weight > 0 ? sum / weight : 0.18;
+}
+
+/** 強度 s、測光的平均 m → 這張的曝光增益、眩光、膝點的斜率、黑位 */
+export function ccdResponse(s: number, m: number): CcdResponse {
+  const full = Math.min(CCD.maxGain, Math.max(CCD.minGain, CCD.target / Math.max(m, 1e-4)));
+  const gain = full ** s;
+  return {
+    gain,
+    flare: CCD.flare * s * m * gain,
+    slope: 1 - CCD.kneeSlope * s,
+    setup: CCD.setup * s,
+  };
+}
+
+/** 膝點：v（0～1，可以超過 1）在 0.72 以上照斜率壓縮，再截在 1 */
+export const ccdKnee = (v: number, slope: number): number =>
+  v > CCD.knee ? Math.min(1, CCD.knee + (v - CCD.knee) * slope) : v;
+
+/** CCD 的曲線（0～1 → 0～1：線性的光乘上曝光、加眩光，回到 sRGB 再過膝點）：先算成 4096 段的表，逐像素查表內插（每個值兩次乘冪太慢） */
+const CURVE_STEPS = 4096;
+export function ccdCurve(cr: CcdResponse): (v: number) => number {
+  const lut = new Float64Array(CURVE_STEPS + 1);
+  for (let k = 0; k <= CURVE_STEPS; k++)
+    lut[k] = ccdKnee(toSrgb(toLinear(k / CURVE_STEPS) * cr.gain + cr.flare), cr.slope);
+  return (v) => {
+    const x = (v < 0 ? 0 : v > 1 ? 1 : v) * CURVE_STEPS;
+    const k = Math.min(CURVE_STEPS - 1, Math.floor(x));
+    return lut[k] + (lut[k + 1] - lut[k]) * (x - k);
+  };
+}
+
+/**
+ * 相機的電路（就地改 cameraSample 的畫面）：曝光、色溫與色調（各色版各自截斷）→〔CCD 的反應〕→ 飽和度 → 黑位 →〔CCD 的黑位〕
+ * → 銳利化（反銳利遮罩：邊上多一圈亮、暗的光暈；寬度 1＝1-2-1 模糊，2～4＝那個半徑的方框模糊）與降噪（往 1-2-1 模糊的那張靠）。
+ */
+export function cameraTone(
+  rgb: Float32Array,
+  w: number,
+  h: number,
+  d: Omit<CameraSettings, 'alias' | 'rainbow' | 'lens' | 'interlace'>,
+): Float32Array {
+  const n = w * h;
   const gain = 2 ** (d.exposure / 100);
   const warm = d.warmth / 100;
   const tint = d.tint / 100;
@@ -112,27 +251,128 @@ export function cameraBase(
   const gb = gain * (1 - 0.18 * warm) * (1 + 0.06 * tint);
   const sat = d.saturation / 100;
   const lift = d.black / 100;
-  for (let i = 0; i < n * 3; i += 3) {
-    const r = clamp01(rgb[i] * gr);
-    const g = clamp01(rgb[i + 1] * gg);
-    const b = clamp01(rgb[i + 2] * gb);
-    const l = 0.299 * r + 0.587 * g + 0.114 * b;
-    rgb[i] = lift + clamp01(l + (r - l) * sat) * (1 - lift);
-    rgb[i + 1] = lift + clamp01(l + (g - l) * sat) * (1 - lift);
-    rgb[i + 2] = lift + clamp01(l + (b - l) * sat) * (1 - lift);
-  }
-  /* 銳利化（反銳利遮罩：邊上多一圈亮、暗的光暈）與降噪（往模糊的那張靠） */
+  const ccd = d.ccd / 100;
+  if (ccd > 0) {
+    /* 測光在曝光、色溫之後（截斷過的） */
+    for (let i = 0; i < n * 3; i += 3) {
+      rgb[i] = clamp01(rgb[i] * gr);
+      rgb[i + 1] = clamp01(rgb[i + 1] * gg);
+      rgb[i + 2] = clamp01(rgb[i + 2] * gb);
+    }
+    const cr = ccdResponse(ccd, meteredMean(rgb, w, h));
+    const tone = ccdCurve(cr);
+    for (let i = 0; i < n * 3; i += 3) {
+      const r = tone(rgb[i]);
+      const g = tone(rgb[i + 1]);
+      const b = tone(rgb[i + 2]);
+      const l = 0.299 * r + 0.587 * g + 0.114 * b;
+      const lr = lift + clamp01(l + (r - l) * sat) * (1 - lift);
+      const lg = lift + clamp01(l + (g - l) * sat) * (1 - lift);
+      const lb = lift + clamp01(l + (b - l) * sat) * (1 - lift);
+      /* 黑位：只抬亮度（三色加同樣的量） */
+      const up = cr.setup * (1 - (0.299 * lr + 0.587 * lg + 0.114 * lb));
+      rgb[i] = clamp01(lr + up);
+      rgb[i + 1] = clamp01(lg + up);
+      rgb[i + 2] = clamp01(lb + up);
+    }
+  } else
+    for (let i = 0; i < n * 3; i += 3) {
+      const r = clamp01(rgb[i] * gr);
+      const g = clamp01(rgb[i + 1] * gg);
+      const b = clamp01(rgb[i + 2] * gb);
+      const l = 0.299 * r + 0.587 * g + 0.114 * b;
+      rgb[i] = lift + clamp01(l + (r - l) * sat) * (1 - lift);
+      rgb[i + 1] = lift + clamp01(l + (g - l) * sat) * (1 - lift);
+      rgb[i + 2] = lift + clamp01(l + (b - l) * sat) * (1 - lift);
+    }
   const amt = (d.sharpen / 100) * 2;
   const dn = (d.denoise / 100) * 0.6;
   if (amt > 0 || dn > 0) {
     const soft = new Float32Array(rgb.length);
     blur121(rgb, w, h, 3, soft);
+    const halo = Math.round(d.halo);
+    const wide = amt > 0 && halo > 1 ? boxBlur(rgb, w, h, 3, halo) : soft;
     for (let i = 0; i < rgb.length; i++) {
-      const v = rgb[i] + (rgb[i] - soft[i]) * amt;
+      const v = rgb[i] + (rgb[i] - wide[i]) * amt;
       rgb[i] = clamp01(v + (soft[i] - v) * dn);
     }
   }
   return rgb;
+}
+
+/** 方框模糊（半徑 r，橫、直各一次，邊上取邊上的值） */
+function boxBlur(src: Float32Array, w: number, h: number, ch: number, r: number): Float32Array {
+  const tmp = new Float32Array(src.length);
+  const out = new Float32Array(src.length);
+  const k = 1 / (2 * r + 1);
+  for (let y = 0; y < h; y++)
+    for (let x = 0; x < w; x++)
+      for (let c = 0; c < ch; c++) {
+        let s = 0;
+        for (let d = -r; d <= r; d++)
+          s += src[(y * w + Math.min(w - 1, Math.max(0, x + d))) * ch + c];
+        tmp[(y * w + x) * ch + c] = s * k;
+      }
+  for (let y = 0; y < h; y++)
+    for (let x = 0; x < w; x++)
+      for (let c = 0; c < ch; c++) {
+        let s = 0;
+        for (let d = -r; d <= r; d++)
+          s += tmp[(Math.min(h - 1, Math.max(0, y + d)) * w + x) * ch + c];
+        out[(y * w + x) * ch + c] = s * k;
+      }
+  return out;
+}
+
+/** 相機的固定部分（cameraSample → cameraTone；2026-11-10 的寫法，測試用） */
+export function cameraBase(
+  smooth: Uint8ClampedArray,
+  sharp: Uint8ClampedArray | null,
+  w: number,
+  h: number,
+  d: CameraSettings,
+  thirds: Uint8ClampedArray | null = null,
+): Float32Array {
+  return cameraTone(cameraSample(smooth, sharp, w, h, d, thirds), w, h, d);
+}
+
+/**
+ * 低光雜訊（2026-11-12，照 NTSCRT 的 Low-light noise）：畫面越暗，相機的增益（與感光雜訊）越高。
+ * 以亮度的中位數判斷（Y′ 每 2 × 2 取一點，換成線性的光；不用測光的平均：照片是別台相機已經曝光好的，夜景中間亮、一半是黑的）：
+ * 中位數在 sRGB 100 以上時 1 倍，越暗越高，最多 8 倍（＋18 dB）；雜訊乘上 1 ＋ 低光雜訊 × (增益 − 1)。
+ */
+export const LOW_LIGHT = { knee: toLinear(100 / 255), maxGain: 8 } as const;
+
+export function medianLuma(rgb: Float32Array, w: number, h: number): number {
+  const counts = new Uint32Array(256);
+  let n = 0;
+  for (let y = 0; y < h; y += 2)
+    for (let x = 0; x < w; x += 2) {
+      const o = (y * w + x) * 3;
+      const l = Math.floor(255 * (0.299 * rgb[o] + 0.587 * rgb[o + 1] + 0.114 * rgb[o + 2]));
+      counts[Math.max(0, Math.min(255, l))]++;
+      n++;
+    }
+  let seen = 0;
+  for (let v = 0; v < 256; v++) {
+    seen += counts[v];
+    if (seen * 2 >= n) return toLinear(v / 255);
+  }
+  return 1;
+}
+
+export const sensorGain = (median: number): number =>
+  Math.min(LOW_LIGHT.maxGain, Math.max(1, LOW_LIGHT.knee / Math.max(median, 1e-4)));
+
+/** 感光雜訊要乘的倍數（低光雜訊 0 或沒有雜訊時 1） */
+export function lowLightNoise(
+  sampled: Float32Array,
+  w: number,
+  h: number,
+  d: Pick<Digital, 'lowLight' | 'noise'>,
+): number {
+  if (!(d.lowLight > 0 && d.noise > 0)) return 1;
+  return 1 + (d.lowLight / 100) * (sensorGain(medianLuma(sampled, w, h)) - 1);
 }
 
 /* ---------- YCbCr 的平面（長寬補到 16 的倍數；色度依次取樣） ---------- */
@@ -154,7 +394,7 @@ export interface Planes {
 
 const ceilTo = (v: number, m: number) => Math.ceil(v / m) * m;
 
-const clonePlanes = (p: Planes): Planes => ({
+export const clonePlanes = (p: Planes): Planes => ({
   ...p,
   y: p.y.slice(),
   cb: p.cb.slice(),
@@ -342,7 +582,8 @@ export interface CodecSettings {
   smoothing: number;
 }
 
-export function codecSettings(d: Digital): CodecSettings {
+/** noiseGain：感光雜訊再乘的倍數（低光雜訊，lowLightNoise；不給＝1） */
+export function codecSettings(d: Digital, noiseGain = 1): CodecSettings {
   const intra: [Float32Array, Float32Array] = [
     quantTable(Q_LUMA, d.quality),
     quantTable(Q_CHROMA, d.quality),
@@ -359,7 +600,7 @@ export function codecSettings(d: Digital): CodecSettings {
     intra,
     refine,
     gop: Math.round((d.keyframe / 10) * d.fps),
-    noise: (d.noise / 100) * 14 * (1 - 0.6 * (d.denoise / 100)),
+    noise: (d.noise / 100) * 14 * (1 - 0.6 * (d.denoise / 100)) * noiseGain,
     loss: (d.loss / 100) * 0.35,
     mosh: d.mosh / 100,
     smoothing: d.blockSmooth / 100,
@@ -367,7 +608,7 @@ export function codecSettings(d: Digital): CodecSettings {
 }
 
 /** 第 n 格的來源：相機的固定畫面＋感光雜訊（色度的雜訊是亮度的兩倍） */
-function sourceFrame(base: Planes, c: CodecSettings, n: number): Planes {
+export function sourceFrame(base: Planes, c: CodecSettings, n: number): Planes {
   if (!(c.noise > 0)) return base;
   const out = clonePlanes(base);
   const s = c.noise;
@@ -381,7 +622,7 @@ function sourceFrame(base: Planes, c: CodecSettings, n: number): Planes {
 }
 
 /** 第 n 格遺失的巨集區塊（16 × 16）：每一列以 loss 的機率從隨機的位置開始掉 2～8 個 */
-function dropBlocks(p: Planes, c: CodecSettings, n: number): Uint8Array {
+export function dropBlocks(p: Planes, c: CodecSettings, n: number): Uint8Array {
   const mw = p.w / 16;
   const mh = p.h / 16;
   const lost = new Uint8Array(mw * mh);
@@ -396,7 +637,7 @@ function dropBlocks(p: Planes, c: CodecSettings, n: number): Uint8Array {
 }
 
 /** 對選到的每一個巨集區塊（第 m 個）的三個平面做 fn(平面, 區塊左上, 區塊寬高, m)：亮度 16 × 16、色度依次取樣 */
-function eachMacroblock(
+export function eachMacroblock(
   p: Planes,
   pick: Uint8Array,
   fn: (plane: 'y' | 'cb' | 'cr', x: number, y: number, bw: number, bh: number, m: number) => void,
@@ -412,14 +653,14 @@ function eachMacroblock(
 }
 
 /** 平面 k 的格子是亮度的幾倍（橫、直） */
-const cell = (p: Planes, k: 'y' | 'cb' | 'cr') =>
+export const cell = (p: Planes, k: 'y' | 'cb' | 'cr') =>
   k === 'y' ? { x: 1, y: 1 } : { x: p.sx, y: p.sy };
 
 const planeWidth = (p: Planes, k: 'y' | 'cb' | 'cr') => (k === 'y' ? p.w : p.cw);
 const planeHeight = (p: Planes, k: 'y' | 'cb' | 'cr') => (k === 'y' ? p.h : p.ch);
 
 /** 把 from 的 (x ＋ dx, y ＋ dy) 起的區塊複製到 to 的 (x, y)（超出邊界的取邊上） */
-function copyBlock(
+export function copyBlock(
   from: Planes,
   to: Planes,
   k: 'y' | 'cb' | 'cr',
@@ -520,11 +761,16 @@ function smoothBlockEdges(p: Planes, amount: number): void {
 export const keyframeKept = (g: number, mosh: number): boolean =>
   g % 3 === 0 || hash01(g, 0, 21) >= mosh;
 
+/** 一種編碼的編碼器＋解碼器：decode(n) 回傳第 n 格解碼後的畫面（BlockCodec＝DCT、ColorBlockCodec＝方塊色） */
+export interface FrameCodec {
+  decode(n: number): Planes;
+}
+
 /**
  * 一台數位攝影機的編碼器＋解碼器：記著上一次解到哪一格（依序往後要時接著算，播放、匯出動畫不必從頭算）。
  * decode(n) 回傳第 n 格解碼後的畫面。
  */
-export class BlockCodec {
+export class BlockCodec implements FrameCodec {
   private readonly base: Planes;
   private readonly c: CodecSettings;
   /** 依序算的狀態：從哪一個留下來的關鍵影格開始、算到第幾格、編碼器與解碼器各自的參考畫面、是不是已經在 datamosh */

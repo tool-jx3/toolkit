@@ -1,6 +1,6 @@
 /** 錄影帶畫面產生器的介面文字 */
 
-import type { DigitalFormat, MaskKind } from './look';
+import type { DigitalCodec, DigitalFormat, MaskKind } from './look';
 import type {
   Aspect,
   CaptionFont,
@@ -262,7 +262,7 @@ export const S = {
   /* 樣子（2026-11-10） */
   sectionLooks: '樣子',
   looksHint:
-    '一鍵套用本站調好的樣子：磨損度、效果、映像管、數位攝影、NTSC 訊號與 Screen Loop 一起換（照片、文字、色調與動畫不變，可以復原）。',
+    '一鍵套用一組調好的樣子：磨損度、效果、映像管、數位攝影、NTSC 訊號與 Screen Loop 一起換（照片、文字、色調與動畫不變，可以復原）。',
   lookNames: {
     plain: '原本的錄影帶',
     clean: '乾淨的 CRT',
@@ -270,6 +270,12 @@ export const S = {
     ntsc: 'NTSC 錄影帶',
     minidv: '家庭錄影（MiniDV）',
     loop: 'Screen Loop',
+    chunky: '粗方塊的網路攝影機',
+    cdrom: 'CD-ROM（低畫質）',
+    camcorder: '便宜的攝影機',
+    mild: '輕微的錄影帶',
+    static: '色彩雜訊',
+    corner: 'Screen Loop（左下角）',
   } satisfies Record<LookPresetId, string>,
   lookDesc: {
     plain: '映像管、數位攝影、NTSC 訊號、Screen Loop 都關掉，磨損度與效果回到預設。',
@@ -278,6 +284,13 @@ export const S = {
     ntsc: '顏色滲開、雪花、邊緣波動與色彩脫落的類比訊號。',
     minidv: '家用 DV 拍的白天戶外（乾淨、偏冷、細紋有摩爾紋），播在槽孔的映像管上。',
     loop: '攝影機拍著播放自己畫面的電視，一層一層縮進去的隧道。',
+    chunky:
+      '只有數位攝影：256 寬的網路攝影機，曝光拉得很亮、細紋變成彩虹、硬的白邊、粗方塊，常常掉資料。',
+    cdrom: '只有數位攝影：90 年代 CD-ROM 的影片，4 × 4 的方塊色、一段一段的色帶、每秒 12 格。',
+    camcorder: '只有數位攝影：2000 年代的家用攝影機，亮部爆白、黑色浮成乳灰、暗的地方雜訊變多。',
+    mild: '幾乎乾淨的 SP 錄影帶，只有一點訊號雜訊，映像管有光暈。',
+    static: 'EP 錄影帶：滿滿的訊號雜訊、邊緣波動與錯開的顏色，映像管有光暈。',
+    corner: '隧道收進左下角、層數很多、偏冷、手持晃動（不循環）。',
   } satisfies Record<LookPresetId, string>,
 
   /* 映像管 */
@@ -316,6 +329,7 @@ export const S = {
     minidv: 'MiniDV',
     web: '早期網路影片',
     mosh: 'Datamosh',
+    cdrom: 'CD-ROM',
   } satisfies Record<DigitalFormat, string>,
   digitalFormatDesc: {
     webcam: '網路攝影機（320 × 240）：昏暗的房間裡增益拉滿——偏暗、藍綠、雜訊很多、黑色變灰。',
@@ -324,12 +338,39 @@ export const S = {
       'MiniDV（720 × 480、4:1:1、交錯）：家用 DV 拍白天戶外——乾淨偏冷、畫質高，偶爾磁帶掉訊的方塊。',
     web: '早期網路影片（320 × 240）：位元很少，方塊與色帶很明顯；關鍵影格之後幾格慢慢補上細節。',
     mosh: 'Datamosh：大多數關鍵影格被丟掉，鮮豔的顏色被拖著流開。',
+    cdrom:
+      'CD-ROM（240 寬、每秒 12 格、方塊色）：90 年代光碟上的影片——4 × 4 的雙色方塊、一段一段的色帶。',
   } satisfies Record<DigitalFormat, string>,
+  digitalCodec: '編碼',
+  digitalCodecs: {
+    dct: '方塊雜訊（DCT）',
+    video1: '方塊色（Video 1）',
+  } satisfies Record<DigitalCodec, string>,
+  digitalCodecDesc: {
+    dct: 'MPEG、H.263、DV 這一類：8 × 8 的方塊裡細節變糊、邊緣有蚊狀雜訊。',
+    video1:
+      'Microsoft Video 1（1992 年的 Video for Windows）：每個 4 × 4 的方塊換成一、二或八個 15 位元色，硬的雙色邊與一段一段的色帶；沒有色彩取樣、柔化方塊的邊與 datamosh。',
+  } satisfies Record<DigitalCodec, string>,
+  digitalCapture: '擷取',
   digitalCamera: '相機',
   digitalCompress: '壓縮',
-  interlace: '交錯（只用一個圖場）',
+  interlace: '單場（只用一個圖場）',
+  interlaceHint: '只留一個圖場、每一行重複兩次：斜線變成階梯。',
+  fieldScan: '掃描線一行一條（240p）',
+  fieldScanHint: (rows: number) =>
+    `單場的每一行在映像管上畫一條掃描線（${rows} 行，行數＝擷取的高 ÷ 2）；要開著「畫面」的掃描線。`,
   alias: '鋸齒',
   aliasHint: '沒有先模糊就取樣：細紋變成摩爾紋與彩虹邊。',
+  rainbow: '彩虹鋸齒',
+  rainbowHint:
+    '紅綠藍各差三分之一格取樣：慢慢飄的摩爾紋變成彩虹；超過 50% 再加強細節（照片要比擷取的大小細）。',
+  lowLight: '低光雜訊',
+  lowLightHint: '畫面越暗（看亮度的中位數），感光雜訊越強，最多 8 倍；要有感光雜訊。',
+  ccd: 'CCD 的反應',
+  ccdHint:
+    '90 年代 3CCD 攝影機的色調：自動曝光拍得亮、亮部一色一色先爆白（膚色、天空先黃再白）、黑色浮成乳灰。',
+  halo: '銳利化的寬度',
+  haloHint: '白邊伸多遠：1 px 是硬邊（原本的），越寬越像便宜攝影機的軟白邊。',
   exposure: '曝光',
   exposureUnit: ' 級',
   warmth: '色溫',
@@ -341,10 +382,13 @@ export const S = {
   sensorNoise: '感光雜訊',
   quality: '畫質',
   qualityHint: '越低方塊越明顯，邊緣有蚊狀雜訊。',
+  qualityHintVideo1: '越低越多方塊只剩一、兩色，預測影格裡沒變多少的方塊直接沿用上一張。',
   keyframe: '關鍵影格間隔',
   keyframeUnit: ' 秒',
   keyframeHint:
     '0＝每一格都是完整的一張；大於 0 時中間的影格只記變化（關鍵影格之後幾格慢慢變細），資料遺失與 datamosh 會一直留到下一個關鍵影格。',
+  keyframeHintVideo1:
+    '0＝每一格都是完整的一張；大於 0 時中間的影格裡沒變多少的方塊直接沿用上一張，遺失的方塊一直留到那一塊重新編碼或下一個關鍵影格。',
   loss: '資料遺失',
   lossHint: '一段一段的方塊沒收到，拿錯的內容補上。',
   mosh: 'Datamosh',
@@ -423,6 +467,8 @@ export const S = {
   gainHint: '每一層乘一次：低於 100% 越裡面越暗、高於越亮。',
   key: '亮度鍵',
   keyHint: '照片亮的地方蓋在隧道上面，主體保持實心。',
+  keyInvert: '亮度鍵反過來',
+  keyInvertHint: '改成照片暗的地方蓋在上面、隧道從亮的地方透出來（亮的背景、暗的主體時用）。',
   seamless: '無縫循環',
   seamlessHint: '動作出去再回來、晃動照動畫的長度重複，GIF 接回開頭時不會跳。',
 
@@ -442,7 +488,7 @@ export const S = {
     '放一張照片（選檔、拖到視窗裡、或直接貼上），在預覽上拖曳移動、滾輪或兩指縮放，調整要拍到的範圍。',
     '寫下字幕（每個場景最多兩行，空一行換下一個場景）與左上角的文字；右上角可以是播放時間、監視器的日期時間或頻道，也可以加上攝影機的日期戳記。',
     '「磨損度」決定畫面壞得多嚴重：越高色差、撕裂、掉訊與雜訊越多；色調、弧面、暗角與各種效果也可以調。',
-    '「樣子」一鍵換一組本站調好的效果；「映像管」加上螢光粉遮罩與光暈，「數位攝影」先用網路攝影機、MiniDV 這類數位攝影機拍（方塊雜訊、datamosh），「NTSC 訊號」模擬類比訊號的滲色與雜訊，「Screen Loop」是攝影機拍電視的畫面隧道。預覽上方的「比較原圖」可以左右對照。',
+    '「樣子」一鍵換一組調好的效果；「映像管」加上螢光粉遮罩與光暈，「數位攝影」先用網路攝影機、MiniDV、CD-ROM 影片這類數位攝影機與編碼拍（方塊雜訊、方塊色、datamosh），「NTSC 訊號」模擬類比訊號的滲色與雜訊，「Screen Loop」是攝影機拍電視的畫面隧道。預覽上方的「比較原圖」可以左右對照。',
     '預覽「錄影帶」一直在播，PNG 存的是目前這一格（暫停就能挑一格）；「GIF 動畫」是匯出 GIF、APNG、WebP 的影格：場景依序換、字幕一個字一個字打出來，可以加上轉台的開場與關機的收尾。',
     '照片與設定會自動儲存在這個瀏覽器；也可以從「專案」選單存成專案檔，帶到別台電腦。',
   ],

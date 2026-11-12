@@ -33,9 +33,11 @@ export const TOOL_ID = 'vhs-frame';
 /**
  * 專案檔與自動儲存的資料版本：
  * 1（2026-10-19）；2（2026-11-05：字幕分場景，加了樣子、日期戳記、頻道、色調、效果的開關、動畫的演出——第 1 版照讀，見 migrateV1）；
- * 3（2026-11-10：映像管、數位攝影、NTSC 訊號、Screen Loop——第 2 版照讀，新的設定用預設〔全關〕）。
+ * 3（2026-11-10：映像管、數位攝影、NTSC 訊號、Screen Loop——第 2 版照讀，新的設定用預設〔全關〕）；
+ * 4（2026-11-12：數位攝影多了編碼〔方塊色〕、CCD 的反應、彩虹鋸齒、低光雜訊、銳利化的寬度、單場的掃描線——
+ * 第 3 版以前照讀，沒有的欄位用「和以前一樣」的值〔DCT、0、寬度 1、關〕，畫出來和以前相同）。
  */
-export const DATA_VERSION = 3;
+export const DATA_VERSION = 4;
 
 /** 讀回來的資料（自動儲存、專案檔）→ 目前的狀態 */
 export const upgradeState = (raw: unknown, fromVersion: number): VhsState =>
