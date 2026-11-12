@@ -5,7 +5,7 @@ noise/simplex.rs、noise/grid.rs、noise/hash.rs、random.rs、shift.rs、yiq_fi
 ntsc-rs：https://github.com/ntsc-rs/ntsc-rs（commit 8cfc510，2026-10-14）。crates/ntscrs 以 MIT、ISC、Apache-2.0
 三選一授權，本站採用 MIT（下面是 ntsc-rs 的 LICENSE-MIT 全文）。ntsc-rs 的 crates/gui（GPL-3.0）沒有參考。
 ntsc-rs 的雜訊（noise/）是改寫自 Clatter（https://github.com/Ralith/clatter，MIT／Apache-2.0／zlib）。
-vhs-frame 其他的部分（原作 dearmysn1p3r/VHS_Maker 沒有授權；功能參考 finnmckenty/NTSCRT 沒有授權）不適用這份授權。
+vhs-frame 其他的部分（原作 dearmysn1p3r/VHS_Maker 沒有授權；功能參考的 finnmckenty/NTSCRT 在參考的 commit 2b3013d 沒有授權檔，之後改 MIT，本站沒有沿用它的程式）不適用這份授權。
 
 This license applies to all source files except those under /crates/gui.
 
