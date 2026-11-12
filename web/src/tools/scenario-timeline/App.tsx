@@ -4,7 +4,7 @@
  * 匯出 PNG、SVG、文字、CSV；讀入 CSV、vis-timeline 的資料。
  * 規格：docs/refactor/specs/scenario-timeline.md。
  *
- * 版面：共用外框；設定欄四個分頁（事件、泳道、專案、匯出）；預覽欄是工具列＋時間軸或年表。
+ * 版面：共用外框；設定欄五個分頁（事件、泳道、專案、推理〔第五批〕、匯出）；預覽欄是工具列＋時間軸或年表。
  */
 import { Redo2, Undo2 } from 'lucide-react';
 import { useEffect, useRef } from 'react';
@@ -26,6 +26,7 @@ import { fileBase } from './export/render';
 import type { TimelineDoc } from './model/types';
 import { BUTTON_STEP } from './model/window';
 import { NotifyBridge, notify } from './notify';
+import { AnalysisTab } from './panels/AnalysisTab';
 import { EventPanel } from './panels/EventPanel';
 import { ExportTab } from './panels/ExportTab';
 import { ImportBridge, importFiles, PasteDialog, readProjectData } from './panels/importer';
@@ -100,6 +101,7 @@ function Settings() {
         { value: 'event', label: S.tabEvent, content: <EventPanel /> },
         { value: 'lanes', label: S.tabLanes, content: <LanesPanel /> },
         { value: 'project', label: S.tabProject, content: <ProjectPanel /> },
+        { value: 'analysis', label: S.tabAnalysis, content: <AnalysisTab /> },
         { value: 'export', label: S.tabExport, content: <ExportTab /> },
       ]}
     />

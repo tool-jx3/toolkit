@@ -3,6 +3,9 @@
  * 人名、地名、情節全部原創（不沿用 KIIN 的四個範例的場景、人物的角色、手法與線索；規格 D51）。示範這一批的功能：
  * 偽裝的證詞與真相（時間、地點和證詞不同）、伏字、完全保密、調查後公開、GM 專用與調查後公開的線、
  * 被害者的退場時刻、時刻的標示（18:00 起的一晚）、背景事件（第一幕、中場休息、第二幕）。
+ * 第五批（推理分頁）的同席也有兩段可以看（2026-11-12 補）：
+ * - 主演說 21:35 在下舞台從小魏手上拿到道具信＝證詞的同席，GM 用的調書裡被小魏的真相（21:30～21:40 在後門）推翻（矛盾）；
+ * - 主演中場休息的真相（送字條到二樓包廂）和劇評家「中場休息留在包廂」＝只在真相裡的同席（證詞沒有）。
  */
 import { emptyCalendar } from './calendar';
 import { defaultSession } from './session';
@@ -97,6 +100,15 @@ export function mysteryDoc(): TimelineDoc {
         description: '首演前一週寫信給劇團，說要寫一篇「讓服裝設計很難看」的劇評。',
       }),
       ev({
+        id: 'mx-he-break',
+        title: '中場休息留在包廂看節目單',
+        kind: 'range',
+        start: t('20:40'),
+        end: t('21:00'),
+        laneId: 'mx-he',
+        place: '二樓包廂',
+      }),
+      ev({
         id: 'mx-he-leave',
         title: '第二幕中途離開包廂',
         start: t('21:36'),
@@ -154,6 +166,14 @@ export function mysteryDoc(): TimelineDoc {
         end: t('22:20'),
         laneId: 'mx-xu',
         place: '舞台',
+      }),
+      ev({
+        id: 'mx-xu-wings',
+        title: '第二場下場，在下舞台從小魏手上拿到下一場的道具信',
+        start: t('21:35'),
+        laneId: 'mx-xu',
+        place: '下舞台',
+        gmNote: '道具信是小魏事先放在下舞台桌上的；小魏拜託他，有人問就說一直看到自己在下舞台。',
       }),
       ev({
         id: 'mx-jiang-act1',

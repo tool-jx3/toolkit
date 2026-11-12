@@ -14,6 +14,7 @@
  * - 調查後公開（revealed）：PL 也看得到真相；完全保密的事件、GM 專用的線與標記也看得到（GM 專用的泳道仍然拿掉）。
  * - 看得到真相時，真相另外是一筆（truths，畫在同一條泳道、時間照真相的），證詞那一筆標「證詞」「伏字」。
  * - 退場時刻（泳道的 exit）所有檢視都看得到（「只到目前進度」時進度之後的拿掉）。
+ * - 遊戲中的段階公開（unlocked，F135）：效果和調查後公開相同（PL 看到的是兩個的「或」）。
  */
 
 import type { Link } from './links';
@@ -85,6 +86,10 @@ export function povLanes(doc: TimelineDoc): Lane[] {
   return doc.lanes.filter((l) => !secret.has(l.id) && POV_KINDS.includes(l.kind));
 }
 
+/** 調查後公開或遊戲中公開了（F119、F135） */
+export const isOpened = (x: { revealed?: boolean; unlocked?: boolean }) =>
+  !!(x.revealed || x.unlocked);
+
 /** 事件的「看起來」：完全保密（gm）優先，其他照公開範圍 */
 export const faceOf = (
   e: Pick<TimelineEvent, 'gm' | 'scope'>,
@@ -137,7 +142,7 @@ function truthEvent(mode: TimeMode, e: VisibleEvent, ctx: EraArg): VisibleEvent 
   const start = t.start || e.start;
   let end = t.end || (t.start ? '' : e.kind === 'point' ? '' : e.end);
   if (end && !validRange(mode, start, end, ctx)) end = '';
-  const { scope: _s, truth: _t, revealed: _r, clipEnd: _c, ongoing: _o, ...rest } = e;
+  const { scope: _s, truth: _t, revealed: _r, unlocked: _u, clipEnd: _c, ongoing: _o, ...rest } = e;
   return {
     ...rest,
     id: `${e.id}${TRUTH_SUFFIX}`,
@@ -172,17 +177,17 @@ export function visibleDoc(doc: TimelineDoc, audience: Audience, pov = ''): Visi
   const eventsAll: VisibleEvent[] = doc.events.map((e) => ({
     ...e,
     /* 調查後公開的完全保密事件 PL 也看得到（GM 專用的泳道上的仍然看不到） */
-    secret: (e.gm && !e.revealed) || secretLanes.has(e.laneId),
-    ...(e.revealed && (e.gm || e.scope) ? { opened: true } : {}),
+    secret: (e.gm && !isOpened(e)) || secretLanes.has(e.laneId),
+    ...(isOpened(e) && (e.gm || e.scope) ? { opened: true } : {}),
   }));
   const markersAll: VisibleMarker[] = doc.markers.map((m) => ({
     ...m,
-    secret: m.gm && !m.revealed,
+    secret: m.gm && !isOpened(m),
   }));
   const secretEvents = new Set(eventsAll.filter((e) => e.secret).map((e) => e.id));
   const linksAll: VisibleLink[] = (doc.links ?? []).map((k) => ({
     ...k,
-    secret: (k.gm && !k.revealed) || secretEvents.has(k.from) || secretEvents.has(k.to),
+    secret: (k.gm && !isOpened(k)) || secretEvents.has(k.from) || secretEvents.has(k.to),
   }));
   if (audience === 'gm') {
     const truths: VisibleEvent[] = [];
@@ -209,11 +214,11 @@ export function visibleDoc(doc: TimelineDoc, audience: Audience, pov = ''): Visi
   for (const e of eventsAll) {
     if (e.secret) continue;
     /* 這個檢視知道真相：調查後公開、人物別的本人（完全保密的不算：那種只有調查後公開才看得到） */
-    const known = !!e.revealed || (!!povLane && e.laneId === povLane && !e.gm);
+    const known = isOpened(e) || (!!povLane && e.laneId === povLane && !e.gm);
     let out: VisibleEvent = { ...e, gmNote: '', secret: false, gm: false };
     if (e.scope && !known) {
       /* 不知道真相：偽裝看起來和公開的事件一樣（不留公開範圍的欄位）、伏字只剩時間與泳道 */
-      const { scope: _s, truth: _t, revealed: _r, opened: _o, ...rest } = out;
+      const { scope: _s, truth: _t, revealed: _r, unlocked: _u, opened: _o, ...rest } = out;
       out = rest;
       if (e.scope === 'redacted')
         out = {
@@ -227,7 +232,7 @@ export function visibleDoc(doc: TimelineDoc, audience: Audience, pov = ''): Visi
           masked: true,
         };
     } else if (!e.scope) {
-      const { truth: _t, revealed: _r, ...rest } = out;
+      const { truth: _t, revealed: _r, unlocked: _u, ...rest } = out;
       out = rest;
     }
     const clipped = clipToProgress(doc, out, p);

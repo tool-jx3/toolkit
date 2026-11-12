@@ -4,6 +4,7 @@
  * - 紙的污漬與摺痕：不規則的水漬（中間淡、邊緣一圈深、旁邊幾滴）＋橫的（有時再一條直的）摺痕。
  * 都用 canvas 的漸層與決定性的亂數（同樣的種子每次畫一樣），不用圖片。
  */
+import { wearPlan, wearStrength, wearTint } from '@/core/paperWear';
 import { seeded } from './furniture/kit';
 import { type FloorTheme, isDarkTheme } from './themes';
 
@@ -136,64 +137,9 @@ export function drawThemeEffect(
 
 /* ---------- 紙的污漬與摺痕 ---------- */
 
-interface Stain {
-  /** 中心（紙的比例 0～1） */
-  u: number;
-  v: number;
-  /** 半徑（紙的短邊的比例） */
-  r: number;
-  /** 外形的起伏（每個角度的半徑倍率） */
-  wobble: number[];
-  alpha: number;
-  drops: { du: number; dv: number; r: number }[];
-}
-
-interface Fold {
-  /** 'h'＝橫的摺痕（y 固定）；'v'＝直的 */
-  o: 'h' | 'v';
-  /** 位置（紙的比例） */
-  at: number;
-  /** 往哪一側暗 */
-  side: 1 | -1;
-}
-
-export interface WearPlan {
-  stains: Stain[];
-  folds: Fold[];
-}
-
-/** 種子 → 污漬與摺痕的配置（紙的比例座標；同樣的種子結果一樣） */
-export function wearPlan(seed: number): WearPlan {
-  const rnd = seeded((seed * 2654435761) ^ 0x3c6ef372);
-  const n = 3 + Math.floor(rnd() * 3);
-  const stains: Stain[] = [];
-  for (let i = 0; i < n; i++) {
-    const wobble = Array.from({ length: 28 }, () => 0);
-    const k1 = rnd() * Math.PI * 2;
-    const k2 = rnd() * Math.PI * 2;
-    for (let j = 0; j < wobble.length; j++) {
-      const a = (j / wobble.length) * Math.PI * 2;
-      wobble[j] =
-        1 + 0.13 * Math.sin(a * 3 + k1) + 0.07 * Math.sin(a * 7 + k2) + 0.05 * (rnd() - 0.5);
-    }
-    const drops = Array.from({ length: Math.floor(rnd() * 4) }, () => ({
-      du: (rnd() - 0.5) * 2.6,
-      dv: (rnd() - 0.5) * 2.6,
-      r: 0.06 + rnd() * 0.12,
-    }));
-    stains.push({
-      u: 0.08 + rnd() * 0.84,
-      v: 0.08 + rnd() * 0.84,
-      r: 0.05 + rnd() * 0.11,
-      wobble,
-      alpha: 0.6 + rnd() * 0.4,
-      drops,
-    });
-  }
-  const folds: Fold[] = [{ o: 'h', at: 0.42 + rnd() * 0.16, side: rnd() < 0.5 ? 1 : -1 }];
-  if (rnd() < 0.6) folds.push({ o: 'v', at: 0.38 + rnd() * 0.24, side: rnd() < 0.5 ? 1 : -1 });
-  return { stains, folds };
-}
+/* 配置（種子 → 水漬與摺痕）是共用的（2026-11-11 搬到 @/core/paperWear，劇本時間表的匯出圖也用；結果不變） */
+export type { WearPlan } from '@/core/paperWear';
+export { wearPlan } from '@/core/paperWear';
 
 /**
  * 畫污漬與摺痕：sheet＝當成一張紙的範圍（目前座標系；編輯畫面是世界座標的地圖範圍，匯出是整張圖的像素），
@@ -210,9 +156,9 @@ export function drawWear(
   const plan = wearPlan(seed);
   const dark = isDarkTheme(theme);
   /* 淺色的紙：茶褐色的水漬；深色的紙：淡淡的白色水痕 */
-  const tint = dark ? [235, 225, 200] : [126, 88, 38];
+  const tint = wearTint(dark);
   const rgba = (a: number) => `rgba(${tint[0]}, ${tint[1]}, ${tint[2]}, ${Math.max(0, a)})`;
-  const k = Math.min(1, strength) * (dark ? 0.55 : 1);
+  const k = wearStrength(strength, dark);
   const m = Math.min(sheet.w, sheet.h);
   c.save();
   for (const s of plan.stains) {

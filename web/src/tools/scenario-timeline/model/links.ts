@@ -16,6 +16,8 @@ export interface Link {
   gm: boolean;
   /** 調查後公開（F119：GM 專用的線 PL 也看得到；只有打開時才有這個欄位） */
   revealed?: boolean;
+  /** 遊戲中的段階公開（F135；只有打開時才有這個欄位） */
+  unlocked?: boolean;
 }
 
 export const LINK_LIMITS = { links: 3000, note: 200 } as const;
@@ -90,6 +92,7 @@ export function normalizeLinks(
       note: typeof o.note === 'string' ? o.note.slice(0, LINK_LIMITS.note) : '',
       gm: o.gm === true,
       ...(o.revealed === true ? { revealed: true } : {}),
+      ...(o.unlocked === true ? { unlocked: true } : {}),
     });
   }
   return { links: out, skipped, over };

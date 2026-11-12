@@ -35,7 +35,11 @@ const routeFonts = (p: Page) =>
     r.fulfill({ status: 200, contentType: 'text/css', body: '' }),
   );
 
-async function open(page: Page, url = URL) {
+/**
+ * 開頁。`modal`：開頁時可能已經跳出確認的對話框（分享連結要取代自動儲存的地圖時）——對話框開著時頁面的其他部分不在無障礙樹裡，
+ * 找不到 h1，所以只等測試用的 hook（2026-11-12：4 個 worker 一起跑時自動儲存比較早寫好，「取代」的對話框一開頁就出現，以前這裡偶爾失敗）。
+ */
+async function open(page: Page, url = URL, { modal = false } = {}) {
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
   page.on('console', (m) => {
@@ -43,7 +47,8 @@ async function open(page: Page, url = URL) {
   });
   await routeFonts(page);
   await page.goto(url);
-  await expect(page.getByRole('heading', { level: 1, name: '室內平面圖產生器' })).toBeVisible();
+  if (!modal)
+    await expect(page.getByRole('heading', { level: 1, name: '室內平面圖產生器' })).toBeVisible();
   await page.waitForFunction(() => !!(window as unknown as { __floorPlan?: unknown }).__floorPlan);
   return errors;
 }
@@ -455,7 +460,7 @@ test.describe('祕密樓層（F307）與匯出（F306）', () => {
     await loadTemplate(page, 'clockshop');
     const hash = await hook(page, (h) => h.shareHash('pl'));
     const other = await context.newPage();
-    const errors2 = await open(other, `${URL}${hash}`);
+    const errors2 = await open(other, `${URL}${hash}`, { modal: true });
     /* 同一個瀏覽器：自動儲存可能已經是鐘錶行（先問要不要取代），也可能還是開頁的範本（不問） */
     const replace = other.getByRole('alertdialog').getByRole('button', { name: '取代' });
     const opened = other.getByText(/^已開啟分享的地圖.*（PL 用）$/);

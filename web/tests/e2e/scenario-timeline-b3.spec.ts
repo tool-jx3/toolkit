@@ -391,7 +391,7 @@ test('架空曆寫到時刻：CSV 匯出再貼上讀入、專案檔存了再開�
     page.getByRole('menuitem', { name: /存成專案檔/ }).click(),
   ]);
   const saved = JSON.parse(readFileSync(await file.path(), 'utf8'));
-  expect(saved.version).toBe(4);
+  expect(saved.version).toBe(5);
   expect(saved.data.calendar.clock).toBe(true);
   expect(saved.data.markers[0].time).toBe('302-01-05 12:00');
   await page.getByRole('button', { name: /^專案/ }).click();

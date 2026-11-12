@@ -82,6 +82,8 @@ export interface TimelineEvent {
   truth?: Truth;
   /** 調查後公開（F119）：PL 也看得到真相（完全保密的整個事件也看得到） */
   revealed?: boolean;
+  /** 遊戲中的段階公開（F135；第五批）：效果同調查後公開，「全部回到初始」時清掉（只有打開時才有這個欄位） */
+  unlocked?: boolean;
 }
 
 export interface Marker {
@@ -92,6 +94,8 @@ export interface Marker {
   gm: boolean;
   /** 調查後公開（F119：GM 專用的標記 PL 也看得到） */
   revealed?: boolean;
+  /** 遊戲中的段階公開（F135） */
+  unlocked?: boolean;
 }
 
 export interface Progress {
@@ -443,6 +447,7 @@ export function normalizeDoc(raw: unknown, report?: NormalizeReport): TimelineDo
       color: color(o.color, '#8a63d2'),
       gm: bool(o.gm),
       ...(o.revealed === true ? { revealed: true } : {}),
+      ...(o.unlocked === true ? { unlocked: true } : {}),
     });
   }
 
@@ -488,13 +493,13 @@ function laneExit(mode: TimeMode, raw: unknown, era: EraArg): { exit?: LaneExit 
 export const truthUsed = (t: Truth | undefined): t is Truth =>
   !!t && !!(t.title.trim() || t.start || t.end || t.place.trim());
 
-/** 公開範圍、真相、調查後公開（F116～F119）：用了才有欄位（沒用的事件和第三批的資料逐欄位相同） */
+/** 公開範圍、真相、調查後公開（F116～F119）、段階公開（F135）：用了才有欄位（沒用的事件和第三批的資料逐欄位相同） */
 function eventFace(
   mode: TimeMode,
   o: Record<string, unknown>,
   era: EraArg,
-): Pick<TimelineEvent, 'scope' | 'truth' | 'revealed'> {
-  const out: Pick<TimelineEvent, 'scope' | 'truth' | 'revealed'> = {};
+): Pick<TimelineEvent, 'scope' | 'truth' | 'revealed' | 'unlocked'> {
+  const out: Pick<TimelineEvent, 'scope' | 'truth' | 'revealed' | 'unlocked'> = {};
   if (EVENT_SCOPES.includes(o.scope as EventScope)) out.scope = o.scope as EventScope;
   if (o.truth && typeof o.truth === 'object') {
     const t = o.truth as Record<string, unknown>;
@@ -507,6 +512,7 @@ function eventFace(
     if (truthUsed(truth)) out.truth = truth;
   }
   if (o.revealed === true) out.revealed = true;
+  if (o.unlocked === true) out.unlocked = true;
   return out;
 }
 
