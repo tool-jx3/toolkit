@@ -9,7 +9,8 @@
 import { encodeShareHash, readShareHash } from '@/core/share';
 import { ASSET, assetDims } from './assets';
 import { clueCount, visibleFloor } from './geometry';
-import type { Floor, Item, Opening, Project, Room } from './types';
+import { momentOf, singleMomentProject } from './moment';
+import type { Floor, Item, Moment, Opening, Project, Room } from './types';
 
 /** # 後面的鍵名：`#m=…` */
 export const SHARE_KEY = 'm';
@@ -36,6 +37,8 @@ export interface PlRemoved {
   secretFloors: number;
   /** 演出（2026-11-09，F327：藏起來的房間與樓層、移動路線；PL 用連結不帶，1＝有拿掉） */
   stage: number;
+  /** 另一個狀態（事件前／事件後）才有的東西（2026-11-12，F335） */
+  moment: number;
 }
 
 const EMPTY_REMOVED: PlRemoved = {
@@ -46,14 +49,25 @@ const EMPTY_REMOVED: PlRemoved = {
   notes: 0,
   secretFloors: 0,
   stage: 0,
+  moment: 0,
 };
 
 /** PL 用連結裡祕密樓層的房間的種類（中性：祕密樓層的 PL 畫法不看種類） */
 export const VEILED_CAT: Room['cat'] = 'living';
 
-/** PL 用的地圖：每一層照 PL 檢視＋藏起隱藏線索；原本的地圖不動 */
-export function playerProject(p: Project): { project: Project; removed: PlRemoved } {
+/**
+ * PL 用的地圖：每一層照 PL 檢視＋藏起隱藏線索；原本的地圖不動。
+ * 事件前後（2026-11-12，F335）：先整理成只剩一個狀態（`moment`；沒有＝地圖目前顯示的狀態）——另一個狀態才有的東西拿掉，
+ * 事件前不帶事件後才發生的倒下、破損與停電。
+ */
+export function playerProject(
+  p0: Project,
+  moment: Moment = momentOf(p0),
+): { project: Project; removed: PlRemoved } {
   const removed = { ...EMPTY_REMOVED };
+  const single = singleMomentProject(p0, moment);
+  const p = single.project;
+  removed.moment = single.removed;
   const floors = p.floors.map((f): Floor => {
     const v = visibleFloor(f, true, true);
     /*
@@ -247,6 +261,9 @@ export function packProject(p: Project): Record<string, unknown> {
     ...(p.night ? { night: p.night } : {}),
     /* 2026-11-09：立體樓層圖的視角（不是祕密；預設時不寫） */
     ...(p.stack ? { stack: p.stack } : {}),
+    /* 2026-11-12：事件前後（目前顯示的狀態、事件後才停電；PL 用連結在 playerProject 換成只剩一個狀態） */
+    ...(p.moment ? { moment: p.moment } : {}),
+    ...(p.blackout ? { blackout: true } : {}),
     /* 2026-11-09：演出（完整連結才有；PL 用連結在 playerProject 拿掉了）：房間、樓層寫成順序 */
     ...(packStage(p) ?? {}),
     floors: p.floors.map((f) => {
@@ -346,9 +363,9 @@ export interface MapShare {
   removed: PlRemoved;
 }
 
-/** 地圖 → 分享連結的 # 部分 */
-export function encodeMapHash(p: Project, mode: ShareMode): MapShare {
-  const pl = mode === 'pl' ? playerProject(p) : null;
+/** 地圖 → 分享連結的 # 部分（`moment`：PL 用連結的狀態，沒有＝地圖目前顯示的狀態，F335） */
+export function encodeMapHash(p: Project, mode: ShareMode, moment?: Moment): MapShare {
+  const pl = mode === 'pl' ? playerProject(p, moment) : null;
   const data = packProject(pl ? pl.project : p);
   if (pl) data.pl = 1;
   const hash = encodeShareHash(data, { version: SHARE_VERSION, key: SHARE_KEY });

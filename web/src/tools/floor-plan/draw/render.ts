@@ -23,14 +23,18 @@ import {
   visibleFloor,
 } from '../model/geometry';
 import { LINE_BASE, lineSamples, lineTangent } from '../model/lines';
+import { momentFloor } from '../model/moment';
 import { traceRoom } from '../model/shape';
+import { tatamiMats } from '../model/tatami';
 import type {
   Floor,
   FreeLine,
   Item,
+  Moment,
   Opening,
   Rect,
   SizeMode,
+  TatamiLayout,
   TextLabel,
   Wall,
 } from '../model/types';
@@ -91,6 +95,51 @@ function tatami(c: Ctx, room: Rect, lw: number): void {
   c.stroke();
 }
 
+/**
+ * 照鋪法排的榻榻米（2026-11-12，F334；model/tatami.ts）：每一張的外框、紋路（沿著長邊的細線）、有邊的兩條疊緣；
+ * 半疊市松的半張隔一張淡淡地塗一層（紋路方向不同，顏色看起來不一樣）。呼叫時已經 clip 在房間裡、線色設好。
+ */
+function tatamiLaid(c: Ctx, room: Rect, layout: TatamiLayout, lw: number): void {
+  const mats = tatamiMats(room, layout);
+  if (layout === 'ryukyu') {
+    c.beginPath();
+    for (const m of mats) if (!m.across) c.rect(m.x, m.y, m.w, m.h);
+    c.fill();
+  }
+  /* 紋路：沿著長邊（半張照 across）的細線，每張 5 條 */
+  c.save();
+  c.lineWidth = lw * 0.45;
+  c.globalAlpha = 0.7;
+  c.beginPath();
+  for (const m of mats)
+    for (let i = 1; i < 6; i++) {
+      if (m.across) seg2(c, m.x, m.y + (m.h * i) / 6, m.x + m.w, m.y + (m.h * i) / 6);
+      else seg2(c, m.x + (m.w * i) / 6, m.y, m.x + (m.w * i) / 6, m.y + m.h);
+    }
+  c.stroke();
+  c.restore();
+  c.lineWidth = lw * 0.9;
+  c.beginPath();
+  for (const m of mats) c.rect(m.x, m.y, m.w, m.h);
+  c.stroke();
+  /* 疊緣：長邊內側的粗線（半張與無邊的不畫） */
+  const inset = Math.min(0.08, lw * 2);
+  c.lineWidth = lw * 1.8;
+  c.beginPath();
+  for (const m of mats) {
+    if (!m.edge) continue;
+    if (m.half) continue;
+    if (m.across) {
+      seg2(c, m.x, m.y + inset, m.x + m.w, m.y + inset);
+      seg2(c, m.x, m.y + m.h - inset, m.x + m.w, m.y + m.h - inset);
+    } else {
+      seg2(c, m.x + inset, m.y, m.x + inset, m.y + m.h);
+      seg2(c, m.x + m.w - inset, m.y, m.x + m.w - inset, m.y + m.h);
+    }
+  }
+  c.stroke();
+}
+
 export function drawPattern(c: Ctx, room: ShownRoom, theme: FloorTheme, lw: number): void {
   /* 房間的地板（2026-11-05，F282）優先，沒有時照種類 */
   const p = room.floor ? FLOOR_PATTERN[room.floor] : CAT[room.cat]?.pattern;
@@ -118,7 +167,9 @@ export function drawPattern(c: Ctx, room: ShownRoom, theme: FloorTheme, lw: numb
       c.stroke();
       break;
     case 'tatami':
-      tatami(c, room, lw);
+      /* 鋪法（2026-11-12，F334）：沒設時照原本的畫法 */
+      if (room.tatami) tatamiLaid(c, room, room.tatami, lw);
+      else tatami(c, room, lw);
       break;
     case 'grass': {
       const n = Math.floor(w * h * 0.5);
@@ -1552,6 +1603,63 @@ export function drawOpening(
   c.restore();
 }
 
+/**
+ * 事件後破損的門窗（2026-11-12，F331）：門窗原本的畫法上面再畫裂痕與兩側散落的碎片（窗是玻璃色、門是木屑色）。
+ * 位置與碎片的形狀由門窗的位置決定（每次畫一樣）。
+ */
+export function drawSmashed(c: Ctx, o: Opening, t: number, theme: FloorTheme, lw: number): void {
+  const len = o.len;
+  const win = OPEN[o.kind]?.group === 'window';
+  const rnd = seeded(
+    Math.round(o.x * 97) * 31 + Math.round(o.y * 89) * 17 + (o.o === 'h' ? 5 : 11),
+  );
+  local(c, o, () => {
+    c.save();
+    c.lineJoin = 'round';
+    c.lineCap = 'round';
+    /* 裂痕：沿著門窗的鋸齒 */
+    c.strokeStyle = win ? theme.window : theme.door;
+    c.lineWidth = lw * 1.1;
+    c.beginPath();
+    const n = Math.max(3, Math.round(len * 2.2));
+    c.moveTo(len * 0.06, 0);
+    for (let i = 1; i < n; i++)
+      c.lineTo(len * (0.06 + (0.88 * i) / n), (i % 2 ? 1 : -1) * t * (0.25 + rnd() * 0.3));
+    c.lineTo(len * 0.94, 0);
+    c.stroke();
+    /* 碎片：兩側各幾片（窗的碎片多、小；門的木屑長） */
+    const pieces = Math.max(4, Math.round(len * (win ? 4 : 2.6)));
+    c.fillStyle = win ? (theme.bg === 'transparent' ? '#e8f2f8' : theme.bg) : theme.furn.wood;
+    c.strokeStyle = win ? theme.window : theme.door;
+    c.lineWidth = lw * 0.7;
+    for (let i = 0; i < pieces; i++) {
+      const side = i % 2 ? 1 : -1;
+      const u = len * (0.08 + rnd() * 0.84);
+      const v = side * (t / 2 + 0.12 + rnd() * (win ? 0.55 : 0.45));
+      const s = (win ? 0.09 : 0.06) + rnd() * 0.08;
+      const a = rnd() * TAU;
+      c.save();
+      c.translate(u, v);
+      c.rotate(a);
+      c.beginPath();
+      if (win) {
+        c.moveTo(-s, -s * 0.5);
+        c.lineTo(s, -s * 0.2);
+        c.lineTo(-s * 0.2, s * 0.8);
+      } else {
+        c.moveTo(-s * 2.2, -s * 0.25);
+        c.lineTo(s * 2.2, 0);
+        c.lineTo(-s * 2.2, s * 0.35);
+      }
+      c.closePath();
+      c.fill();
+      c.stroke();
+      c.restore();
+    }
+    c.restore();
+  });
+}
+
 /* ---------- 家具 ---------- */
 
 export function furnStyle(theme: FloorTheme, lw: number, color?: string): FurnStyle {
@@ -1584,6 +1692,23 @@ export function drawClueMark(c: Ctx, x: number, y: number, theme: FloorTheme, lw
   c.restore();
 }
 
+/** 倒下・翻亂的角度（度）：±16～24°，由家具的位置決定（每次畫一樣） */
+export function upsetTilt(item: Pick<Item, 'x' | 'y'>): number {
+  const h = Math.abs(Math.round(item.x * 4) * 73 + Math.round(item.y * 4) * 151) % 9;
+  return (h % 2 ? -1 : 1) * (16 + h);
+}
+
+/** 倒下的家具原本站的地方：淡淡的虛線框 */
+function drawUpsetTrace(c: Ctx, item: Item, theme: FloorTheme, lw: number): void {
+  c.save();
+  c.globalAlpha = 0.55;
+  c.strokeStyle = theme.door;
+  c.lineWidth = lw * 0.8;
+  c.setLineDash([lw * 3, lw * 2.5]);
+  c.strokeRect(item.x, item.y, item.w, item.h);
+  c.restore();
+}
+
 export function drawItem(
   c: Ctx,
   item: Item,
@@ -1596,10 +1721,14 @@ export function drawItem(
   if (!asset || !draw) return;
   const loc = itemLocalSize(item);
   const S = furnStyle(theme, lw, item.color);
+  /* 事件後倒下・翻亂（2026-11-12，F331）：原本的位置畫虛線框，家具歪一個角度、往旁邊挪一點 */
+  const tilt = item.upset ? upsetTilt(item) : 0;
+  if (item.upset) drawUpsetTrace(c, item, theme, lw);
   c.save();
   if (item.gm && opts.editor) c.globalAlpha = 0.72;
   c.translate(item.x + item.w / 2, item.y + item.h / 2);
-  c.rotate(((item.rot || 0) * Math.PI) / 180);
+  if (tilt) c.translate(Math.sign(tilt) * Math.min(item.w, item.h) * 0.08, 0);
+  c.rotate((((item.rot || 0) + tilt) * Math.PI) / 180);
   if (item.flip) c.scale(-1, 1);
   c.translate(-loc.w / 2, -loc.h / 2);
   c.lineWidth = lw;
@@ -2096,6 +2225,11 @@ export interface DrawFloorOptions {
    * 由立體圖另外畫成面向看的人的名牌）；card＝總覽的平面圖卡片（照一般的畫，祕密樓層的「？？？」照畫）。
    */
   stacked?: 'stack' | 'card';
+  /**
+   * 事件前後（2026-11-12，F329～F331）：畫哪一種狀態（沒有＝事件前）。已經整理過的樓層（`shownAt`）不再整理；
+   * 沒有用到事件前後的樓層照原樣畫。
+   */
+  moment?: Moment;
 }
 
 /**
@@ -2170,8 +2304,10 @@ export function drawVeilPlate(
   c.restore();
 }
 
-export function drawFloor(c: Ctx, floorIn: Floor, opts: DrawFloorOptions): ShownFloor {
+export function drawFloor(c: Ctx, floorRaw: Floor, opts: DrawFloorOptions): ShownFloor {
   const theme = opts.theme;
+  /* 事件前後（2026-11-12）：先拿掉另一個狀態才有的東西 */
+  const floorIn = momentFloor(floorRaw, opts.moment ?? 'before');
   /* 揭露用（F284）：GM 專用的東西拿掉「GM 專用」、暗門換成門，再照一般的畫 */
   const floor = visibleFloor(
     opts.reveal ? revealFloor(floorIn) : floorIn,
@@ -2217,7 +2353,7 @@ export function drawFloor(c: Ctx, floorIn: Floor, opts: DrawFloorOptions): Shown
 
   /* 下一層是祕密樓層（2026-11-09，F307）：PL 檢視不畫它的影子 */
   if (opts.ghost && !(opts.playerView && opts.ghost.secret)) {
-    const ghost = visibleFloor(opts.ghost, opts.playerView);
+    const ghost = visibleFloor(momentFloor(opts.ghost, opts.moment ?? 'before'), opts.playerView);
     const g = computeWalls(ghost, { playerView: opts.playerView });
     const tinted = { ...theme, wall: theme.gm, rail: theme.gm };
     c.save();
@@ -2245,9 +2381,12 @@ export function drawFloor(c: Ctx, floorIn: Floor, opts: DrawFloorOptions): Shown
   for (const run of walls.curves) drawCurveRun(c, run, theme, lw, opts.editor);
   for (const w of walls.diagonal) drawDiagonalWall(c, w, theme, lw);
   for (const o of floor.openings)
-    withPose(c, o, walls.poses.get(o.id), () =>
-      drawOpening(c, o, wallThickness(walls.openingKind.get(o.id)), theme, lw, opts),
-    );
+    withPose(c, o, walls.poses.get(o.id), () => {
+      const t = wallThickness(walls.openingKind.get(o.id));
+      drawOpening(c, o, t, theme, lw, opts);
+      /* 事件後破損（2026-11-12，F331；momentFloor 在事件前已經拿掉 smashed） */
+      if (o.smashed && o.kind !== 'open') drawSmashed(c, o, t, theme, lw);
+    });
   for (const item of floor.items) if (layer(item) === 2) drawItem(c, item, theme, lw, opts);
   /* 自由線（2026-11-05，F285）：畫在牆、門窗、貼牆素材的上面 */
   if (floor.lines) for (const l of floor.lines) drawFreeLine(c, l, theme, lw, opts);

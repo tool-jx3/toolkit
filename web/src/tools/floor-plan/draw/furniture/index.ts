@@ -9,6 +9,7 @@ import type { FurnDraw } from './kit';
 import { MYSTERY } from './mystery';
 import { OUTDOOR } from './outdoor';
 import { PEOPLE } from './people';
+import { RESIDENCE } from './residence';
 import { ROOMS } from './rooms';
 import { STORY } from './story';
 import { TRANSIT } from './transit';
@@ -26,4 +27,6 @@ export const FURNITURE_DRAW: Readonly<Record<string, FurnDraw>> = {
   ...MYSTERY,
   ...PEOPLE,
   ...ROOMS,
+  /* 2026-11-12（參考 KIIN v3.0）：和家具、日本庭園、事件痕跡 */
+  ...RESIDENCE,
 };

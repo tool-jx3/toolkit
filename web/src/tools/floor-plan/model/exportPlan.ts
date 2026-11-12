@@ -23,9 +23,10 @@ import { coordGrid } from './coords';
 import { outlineOf } from './curve';
 import { floorHasClues } from './geometry';
 import { composedFloor } from './interior';
+import { momentNight, momentOf, usesMoments } from './moment';
 import { cutRect, roomContainsRoom } from './shape';
 import { stackCamera, stackLevels } from './stack';
-import type { Floor, Project, Rect, Room, ThemeId } from './types';
+import type { Floor, Moment, Project, Rect, Room, ThemeId } from './types';
 
 /**
  * 範圍：這一層／所有樓層排成一張／每層各一張；2026-11-09 加立體樓層圖（stack）、樓層總覽（board）（F306）。
@@ -51,7 +52,37 @@ export interface ExportSettings {
   vttPx?: VttPx;
   /** 黑色電影、監視終端的顆粒與雜訊（2026-10-29；沒有＝畫，D74） */
   noise?: boolean;
+  /**
+   * 事件前後（2026-11-12，F333）：匯出哪一個狀態（不記在瀏覽器；沒有＝地圖目前顯示的狀態）。
+   * 地圖沒有用到事件前後時沒有作用。
+   */
+  moment?: Moment;
+  /**
+   * 「事件前後各存一張」的兩張（不記在瀏覽器）：範圍用兩種狀態合起來（兩張疊得齊）。沒有＝只存一張，
+   * 範圍只算 `moment` 這個狀態看得到的東西（驗證後修訂 2026-11-12，F333、D137）。
+   */
+  momentPair?: boolean;
 }
+
+/** 匯出的狀態（地圖沒有用到事件前後時 null：選項、檔名都不變） */
+export function exportMoment(p: Project, exp: Pick<ExportSettings, 'moment'>): Moment | null {
+  if (!usesMoments(p)) return null;
+  return exp.moment ?? momentOf(p);
+}
+
+/** 範圍算哪些東西（`exportLayout`、`hasExportContent`、立體圖的版面；地圖沒有用到事件前後時是空的） */
+export function exportScope(
+  p: Project,
+  exp: Pick<ExportSettings, 'moment' | 'momentPair'>,
+): { moment?: Moment; bothMoments?: true } {
+  const m = exportMoment(p, exp);
+  if (!m) return {};
+  return exp.momentPair ? { moment: m, bothMoments: true } : { moment: m };
+}
+
+/** 匯出用的夜的暗度（事件後才停電時照狀態） */
+const exportNight = (p: Project, m: Moment | null): number | undefined =>
+  m ? momentNight(p, m) : p.night;
 
 /** VTT 用的匯出（2026-10-29，F265） */
 export const isVtt = (exp: Pick<ExportSettings, 'mode'>): boolean => exp.mode === 'vtt';
@@ -85,6 +116,8 @@ export function stackExportOptions(
   theme: ThemeId,
   px: number,
 ): StackImageOptions {
+  const m = exportMoment(p, exp);
+  const night = exportNight(p, m);
   return {
     kind: exp.range === 'board' ? 'board' : 'stack',
     theme,
@@ -98,7 +131,8 @@ export function stackExportOptions(
     transparent: exp.transparent,
     gmBadge: exp.view === 'gm' ? S.badgeGm : null,
     ...(exp.view === 'reveal' ? { reveal: true } : {}),
-    ...(p.night ? { night: p.night } : {}),
+    ...(night ? { night } : {}),
+    ...exportScope(p, exp),
     wear: p.wear ? { strength: p.wear, seed: p.wearSeed ?? 0 } : null,
     noNoise: exp.noise === false,
   };
@@ -138,6 +172,8 @@ export function exportOptions(
   const vtt = isVtt(exp);
   const cell = vttCell(p);
   const vttScale = vttPxOf(exp) / cell;
+  const m = exportMoment(p, exp);
+  const night = exportNight(p, m);
   return {
     theme,
     px: vtt ? (preview ? Math.min(vttScale, px) : vttScale) : px,
@@ -145,8 +181,9 @@ export function exportOptions(
     coordGrid: p.coords ? coordGrid(p.floors, p.tokenGrid) : null,
     wear: p.wear ? { strength: p.wear, seed: p.wearSeed ?? 0 } : null,
     noNoise: exp.noise === false,
-    ...(p.night ? { night: p.night } : {}),
+    ...(night ? { night } : {}),
     ...(exp.view === 'reveal' ? { reveal: true } : {}),
+    ...exportScope(p, exp),
     showSize: p.showSize,
     hideNames: p.showNames === false,
     playerView: exp.view === 'pl',
@@ -174,7 +211,7 @@ export const vttTooLarge = (L: Pick<ExportLayout, 'pxWidth' | 'pxHeight'>): bool
   L.pxWidth > VTT_MAX_SIDE || L.pxHeight > VTT_MAX_SIDE || L.pxWidth * L.pxHeight > VTT_MAX_PIXELS;
 
 /**
- * 匯出的檔名：地圖名稱[_樓層]_PL／GM[_無線索][_橫x縱（VTT）].png。
+ * 匯出的檔名：地圖名稱[_樓層]_PL／GM[_事件前／事件後][_無線索][_橫x縱（VTT）].png。
  * 2026-11-09：立體樓層圖、樓層總覽在地圖名稱後面加「立體」「總覽」（不加樓層名）；祕密樓層全部公開的那一張最後加「全部公開」（F306、F307）。
  */
 export function exportFileName(
@@ -189,6 +226,9 @@ export function exportFileName(
     parts.push(exp.range === 'stack' ? S.exp.stackSuffix : S.exp.boardSuffix);
   else if (floor) parts.push(String(floor.name || '').replace(/[\\/:*?"<>|\s]+/g, '_'));
   parts.push(exp.view === 'pl' ? 'PL' : exp.view === 'reveal' ? S.exp.revealSuffix : 'GM');
+  /* 事件前後（2026-11-12，F333）：地圖有用到時加「事件前」「事件後」 */
+  const m = exportMoment(p, exp);
+  if (m) parts.push(S.moment.suffix[m]);
   if (exp.clues === 'hide' && p.floors.some(floorHasClues)) parts.push(S.exp.noClueSuffix);
   if (cells) parts.push(`${cells.x}x${cells.y}`);
   if (unveiled) parts.push(S.exp.unveiledSuffix);
@@ -243,7 +283,8 @@ export function exportJobs(p: Project, exp: ExportSettings, unveiled = false): E
 export function wearSheet(p: Project, exp: ExportSettings, showClues: boolean): Rect | null {
   const e: ExportSettings = { ...exp, range: 'current', clues: showClues ? 'show' : 'hide' };
   const floors = exportFloors(p, 'current');
-  if (!hasExportContent(floors, e.view === 'pl', e.clues === 'hide')) return null;
+  if (!hasExportContent(floors, e.view === 'pl', e.clues === 'hide', exportScope(p, e)))
+    return null;
   const L = exportLayout(floors, exportOptions(p, e, p.theme, 24));
   const f = L.frames[0];
   return { x: f.x, y: f.y, w: L.width, h: L.height };

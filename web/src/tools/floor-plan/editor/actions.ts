@@ -43,6 +43,7 @@ import {
 } from '../model/geometry';
 import { interiorFloor } from '../model/interior';
 import { flipLine } from '../model/lines';
+import { momentFloor, momentOf } from '../model/moment';
 import { isLegacyMapFile, type NormalizeReport, normalizeProject } from '../model/normalize';
 import { isRoomNumber, numberRooms } from '../model/numbering';
 import {
@@ -86,6 +87,7 @@ import {
   type Floor,
   type FreeLine,
   type Item,
+  type Moment,
   OBJ_TYPES,
   type ObjType,
   type Project,
@@ -165,10 +167,22 @@ export function updateProject(fn: (p: Project) => void): void {
 const update = updateProject;
 const cur = (p: Project) => p.floors[p.active];
 
+/**
+ * 新增一個東西。事件後的狀態（2026-11-12，F330）新增的家具、文字、自由線、手畫的牆、門窗只在事件後出現
+ * （`only: 'after'`；房間不分狀態）。
+ */
 export function addObject(type: ObjType, obj: AnyObj): void {
+  stampMoment(type, obj);
   update((p) => {
     pushObj(cur(p), type, obj);
   });
+}
+
+/** 事件後新增的東西標成只在事件後（已經有出現時機的、房間不動） */
+function stampMoment(type: ObjType, obj: AnyObj): void {
+  if (type === 'room' || momentOf(useProject.getState().data) !== 'after') return;
+  const o = obj as { only?: Moment };
+  if (!o.only) o.only = 'after';
 }
 
 export function removeObjects(refs: readonly SelRef[]): void {
@@ -208,6 +222,8 @@ export function newRoom(rect: Rect, preset: RoomPresetId | null, lshape = false)
     ...(shape ? { shape } : {}),
     /* 新畫的甲板類房間：疊在戶外房間上時外圍是欄杆（F299、D102） */
     ...(isDeckCat(p ? p.cat : 'living') ? { deck: true } : {}),
+    /* 榻榻米的鋪法（2026-11-12，F334；日式宅邸的座敷、佛間、離屋） */
+    ...(p?.tatami ? { tatami: p.tatami } : {}),
   };
 }
 
@@ -301,6 +317,18 @@ export function updateHint(warn: boolean): void {
   )
     text = S.hints[tool];
   else text = '';
+  /* 事件後（2026-11-12，F330）：新放的東西只在事件後出現，提示列先說一聲 */
+  if (
+    mode === 'plan' &&
+    !warn &&
+    tool !== 'select' &&
+    tool !== 'hand' &&
+    tool !== 'eraser' &&
+    tool !== 'room' &&
+    tool !== 'lroom' &&
+    momentOf(useProject.getState().data) === 'after'
+  )
+    text = `${S.moment.placeNote}${text}`;
   if (hint.text !== text || hint.warn !== warn) setEditor({ hint: { text, warn } });
 }
 
@@ -455,8 +483,12 @@ export function paste(): void {
   const dx = sameFloor ? cb.offset.dx * shift : 0;
   const dy = sameFloor ? cb.offset.dy * shift : 0;
   const added: SelRef[] = [];
+  const moment = momentOf(useProject.getState().data);
   const copies = cb.entries.map((e) => {
     const copy = cloneObj(e.type, e.obj as AnyObj, dx, dy);
+    /* 事件前後（2026-11-12）：貼上的東西在這個狀態看不到時，改成這個狀態才有（不然貼了看不到） */
+    const o = copy as { only?: Moment };
+    if (e.top && o.only && o.only !== moment) o.only = moment;
     if (e.top) added.push({ type: e.type, id: copy.id });
     return { type: e.type, obj: copy };
   });
@@ -814,9 +846,65 @@ export function setNight(v: number): void {
   });
 }
 
+/* ---------- 2026-11-12（參考 KIIN マップ制作スタジオ v3.0）：事件前後 ---------- */
+
+/** 目前的樓層在目前顯示的狀態的樣子（自動擺放、內裝、圓形配置只動這個狀態看得到的家具） */
+const shownMomentFloor = (): Floor => {
+  const p = useProject.getState().data;
+  return momentFloor(cur(p), momentOf(p));
+};
+
+/**
+ * 切換事件前／事件後（F330）：不算一步復原（同切換樓層）；這個狀態看不到的東西取消選取。
+ */
+export function setMoment(m: Moment): void {
+  const p = useProject.getState().data;
+  if (momentOf(p) === m) return;
+  flushNudge();
+  useProject.temporal.getState().pause();
+  useProject.getState().update((d) => {
+    if (m === 'after') d.moment = 'after';
+    else delete d.moment;
+  });
+  useProject.temporal.getState().resume();
+  dropMissingSelection();
+  updateHint(false);
+}
+
+/** 事件後才停電（F332；一步復原） */
+export function setBlackout(on: boolean): void {
+  update((p) => {
+    if (on) p.blackout = true;
+    else delete p.blackout;
+  });
+}
+
+/** 選取的東西的出現時機（F329；一步復原）：`null`＝兩種狀態都有。房間沒有出現時機（略過） */
+export function setSelectionOnly(only: Moment | null): void {
+  const sel = useEditor.getState().sel.filter((s) => s.type !== 'room');
+  if (!sel.length) return;
+  const keys = new Set(sel.map(refKey));
+  update((p) => {
+    const f = cur(p);
+    for (const type of ['item', 'opening', 'wall', 'text', 'line'] as const)
+      for (const o of objList(f, type) as { id: string; only?: Moment }[]) {
+        if (!keys.has(`${type}:${o.id}`)) continue;
+        if (only) o.only = only;
+        else delete o.only;
+      }
+  });
+  /* 設成另一個狀態才有的東西：這個狀態看不到了，取消選取並說一聲 */
+  const m = momentOf(useProject.getState().data);
+  if (only && only !== m) {
+    dropMissingSelection();
+    notify(S.moment.movedAway(S.moment.names[only]), 'info', { action: undoAction() });
+  }
+}
+
 /** 房間的內裝預設（F275）：一步復原 */
 export function furnishRoomPreset(roomId: string, preset: FurnishPresetId): void {
-  const f = currentFloor();
+  /* 事件前後（2026-11-12）：只換這個狀態看得到的家具，另一個狀態才有的不動 */
+  const f = shownMomentFloor();
   const room = getObj(f, 'room', roomId) as Room | null;
   const r = furnishRoom(f, roomId, preset);
   const name = room?.name || S.newRoom;
@@ -833,6 +921,7 @@ export function furnishRoomPreset(roomId: string, preset: FurnishPresetId): void
     return;
   }
   const gone = new Set(r.remove);
+  for (const it of r.add) stampMoment('item', it);
   update((p) => {
     const ff = cur(p);
     ff.items = ff.items.filter((it) => !gone.has(it.id)).concat(r.add);
@@ -847,7 +936,7 @@ export { FURNISH_PRESET };
 
 /** 圓形配置（F279）：以這一件為準排成 count 個一圈；一步復原 */
 export function arrangeItemRing(itemId: string, count: number): void {
-  const f = currentFloor();
+  const f = shownMomentFloor();
   const r = arrangeRing(f, itemId, count);
   if (!r.ok) {
     notify(S.msg.ringFail[r.reason], 'warning');
@@ -855,12 +944,18 @@ export function arrangeItemRing(itemId: string, count: number): void {
   }
   const gone = new Set(r.remove);
   const byId = new Map(r.items.map((it) => [it.id, it]));
+  const fresh = r.items.filter((it) => !f.items.some((o) => o.id === it.id));
+  for (const it of fresh) stampMoment('item', it);
   update((p) => {
     const ff = cur(p);
     ff.items = ff.items
       .filter((it) => !gone.has(it.id))
-      .map((it) => byId.get(it.id) ?? it)
-      .concat(r.items.filter((it) => !f.items.some((o) => o.id === it.id)));
+      .map((it) => {
+        const n = byId.get(it.id);
+        /* 事件前看不到 `upset`（momentFloor 拿掉了），換回來時留著 */
+        return n ? (it.upset && !n.upset ? { ...n, upset: true } : n) : it;
+      })
+      .concat(fresh);
   });
   setEditor({ sel: [{ type: 'item', id: itemId }] });
   notify(S.msg.ringDone(r.items.length), 'success', { action: undoAction() });
@@ -868,7 +963,7 @@ export function arrangeItemRing(itemId: string, count: number): void {
 
 /** 圓形配置的整圈內外反轉 */
 export function flipItemRing(itemId: string): void {
-  const rots = flipRing(currentFloor(), itemId);
+  const rots = flipRing(shownMomentFloor(), itemId);
   if (!rots.size) return;
   update((p) => {
     for (const it of cur(p).items) {
@@ -881,7 +976,7 @@ export function flipItemRing(itemId: string): void {
 
 /** 選取整圈 */
 export function selectItemRing(itemId: string): void {
-  const f = currentFloor();
+  const f = shownMomentFloor();
   const it = getObj(f, 'item', itemId) as Item | null;
   if (!it) return;
   setEditor({ sel: ringMembers(f, it).map((m) => ({ type: 'item' as const, id: m.id })) });
@@ -1109,9 +1204,16 @@ export function loadTemplate(id: string, opts: { structureOnly: boolean; clues: 
         : 'clean'
       : p.theme;
   flushNudge();
-  useProject
-    .getState()
-    .replace({ ...p, floors, active: groundFloorIndex(floors), name: tpl.name, theme });
+  /* 事件前後（2026-11-12）：範本從事件前開始；事件後才停電照範本（沒設的拿掉） */
+  const { moment: _m, blackout: _b, ...rest } = p;
+  useProject.getState().replace({
+    ...rest,
+    floors,
+    active: groundFloorIndex(floors),
+    name: tpl.name,
+    theme,
+    ...(tpl.blackout ? { blackout: true } : {}),
+  });
   setEditor({ sel: [], templatesOpen: false });
   setTool('select');
   if (opts.clues && !usePrefs.getState().data.showClues) setShowClues(true, true);
@@ -1246,7 +1348,8 @@ export function connectSelection(): void {
 
 /** 自動擺放家具（F253）；一步復原 */
 export function arrangeRoomFurniture(id: string): void {
-  const f = currentFloor();
+  /* 事件前後（2026-11-12）：只排這個狀態看得到的家具 */
+  const f = shownMomentFloor();
   const room = getObj(f, 'room', id) as Room | null;
   if (!room) return;
   const r = arrangeRoom(f, id);

@@ -51,13 +51,21 @@ export type RoomExtra = Partial<
     | 'shape'
     | 'radius'
     | 'deck'
+    /* 2026-11-12（老鋪町家）：地板、榻榻米的鋪法 */
+    | 'floor'
+    | 'tatami'
   >
 >;
-export type ItemExtra = Partial<Pick<Item, 'label' | 'gm' | 'clue' | 'flip' | 'color'>> & {
+/* 2026-11-12（事件前後）：出現時機 `only`、家具的 `upset`、門窗的 `smashed` */
+export type ItemExtra = Partial<
+  Pick<Item, 'label' | 'gm' | 'clue' | 'flip' | 'color' | 'only' | 'upset'>
+> & {
   size?: [number, number];
 };
-export type DoorExtra = Partial<Pick<Opening, 'gm'>>;
-export type TextExtra = Partial<Pick<TextLabel, 'size' | 'bold' | 'color' | 'gm' | 'clue'>>;
+export type DoorExtra = Partial<Pick<Opening, 'gm' | 'only' | 'smashed'>>;
+export type TextExtra = Partial<
+  Pick<TextLabel, 'size' | 'bold' | 'color' | 'gm' | 'clue' | 'only' | 'badge'>
+>;
 
 export class FloorBuilder {
   readonly f: TplFloor;
@@ -108,14 +116,14 @@ export class FloorBuilder {
   }
 
   /** 橫線上的窗 */
-  wh(x: number, y: number, len: number, kind: OpeningKind = 'window'): this {
-    this.f.openings.push({ kind, o: 'h', x, y, len, side: 1, hinge: 0 });
+  wh(x: number, y: number, len: number, kind: OpeningKind = 'window', extra?: DoorExtra): this {
+    this.f.openings.push({ kind, o: 'h', x, y, len, side: 1, hinge: 0, ...extra });
     return this;
   }
 
   /** 直線上的窗 */
-  wv(x: number, y: number, len: number, kind: OpeningKind = 'window'): this {
-    this.f.openings.push({ kind, o: 'v', x, y, len, side: 1, hinge: 0 });
+  wv(x: number, y: number, len: number, kind: OpeningKind = 'window', extra?: DoorExtra): this {
+    this.f.openings.push({ kind, o: 'v', x, y, len, side: 1, hinge: 0, ...extra });
     return this;
   }
 
@@ -139,7 +147,7 @@ export class FloorBuilder {
     x2: number,
     y2: number,
     kind: WallKind = 'int',
-    extra?: { gm?: boolean },
+    extra?: { gm?: boolean; only?: Wall['only'] },
   ): this {
     this.f.walls.push({ x1, y1, x2, y2, kind, ...extra });
     return this;

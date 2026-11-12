@@ -5,7 +5,7 @@
  * 「在地圖演出產生器開啟」（共用的 core/handoff 交給 map-fx）。
  */
 import { Copy, Film } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { copyImage, copyText, downloadBlob, downloadSequentially } from '@/core/files';
 import { beginHandoff, failHandoff, handoffHref, sendHandoff } from '@/core/handoff';
 import { canvasToBlob } from '@/core/image';
@@ -28,6 +28,7 @@ import {
   exportHasSecret,
   exportJobs,
   exportOptions,
+  exportScope,
   handoffRoomsOf,
   isStackRange,
   isVtt,
@@ -40,7 +41,8 @@ import {
   vttTooLarge,
 } from '../model/exportPlan';
 import { floorHasClues } from '../model/geometry';
-import type { Project, ThemeId } from '../model/types';
+import { MOMENTS, momentOf, usesMoments } from '../model/moment';
+import type { Moment, Project, ThemeId } from '../model/types';
 import { S } from '../strings';
 import { notify } from './actions';
 import { type Prefs, setEditor, useEditor, usePrefs, useProject } from './store';
@@ -69,6 +71,9 @@ export function ExportDialog() {
   const [busy, setBusy] = useState(false);
   /* 下載完成之後（PL 用的圖裡有祕密樓層時）顯示「祕密樓層全部公開再存一張」（2026-11-09，F307） */
   const [unveilKey, setUnveilKey] = useState<string | null>(null);
+  /* 事件前後（2026-11-12，F333）：匯出哪一個狀態（打開時＝畫布上目前的狀態；只在這個對話框） */
+  const [moment, setMoment] = useState<Moment>(momentOf(project));
+  const hasMoments = usesMoments(project);
 
   /* 打開時：樣式＝地圖的樣式（這一頁選過就沿用）、隱藏線索＝畫面上目前的狀態 */
   useEffect(() => {
@@ -80,6 +85,7 @@ export function ExportDialog() {
     if ((view === 'stack' || view === 'board') && useProject.getState().data.floors.length > 1)
       setExp({ range: view });
     setUnveilKey(null);
+    setMoment(momentOf(useProject.getState().data));
   }, [open]);
 
   const multi = project.floors.length > 1;
@@ -87,14 +93,21 @@ export function ExportDialog() {
   /* 立體樓層圖、樓層總覽（2026-11-09，F306）：VTT 用、格線、棋子方格不適用 */
   const stackMode = isStackRange(range);
   const e2 = useMemo(
-    () => ({ ...exp, range, ...(stackMode ? { mode: 'image' as const } : {}) }),
-    [exp, range, stackMode],
+    () => ({
+      ...exp,
+      range,
+      ...(stackMode ? { mode: 'image' as const } : {}),
+      ...(hasMoments ? { moment } : {}),
+    }),
+    [exp, range, stackMode, hasMoments, moment],
   );
   /* 下載之後範圍或對象改了就收起來 */
   const unveilReady = unveilKey === `${range}|${exp.view}`;
   const hasClues = project.floors.some(floorHasClues);
   const floors = useMemo(() => exportFloors(project, range), [project, range]);
-  const empty = !hasExportContent(floors, exp.view === 'pl', exp.clues === 'hide');
+  /* 範圍算哪一個狀態（只存一張：只算那個狀態看得到的東西，驗證後修訂 2026-11-12，F333） */
+  const scope = useMemo(() => exportScope(project, e2), [project, e2]);
+  const empty = !hasExportContent(floors, exp.view === 'pl', exp.clues === 'hide', scope);
   const layout = useMemo(() => {
     if (empty) return null;
     if (stackMode) {
@@ -112,17 +125,32 @@ export function ExportDialog() {
   const vtt = isVtt(exp) && !stackMode;
   const cell = vttCell(project);
   /* VTT 用：每一張都要在上限裡（每層各一張時每張各自算，F266） */
-  const vttLayouts = useMemo(() => {
-    if (!vtt || empty) return [];
-    return exportJobs(project, e2)
-      .filter((j) => hasExportContent(j.floors, e2.view === 'pl', e2.clues === 'hide'))
-      .map((j) => exportLayout(j.floors, exportOptions(project, e2, theme, e2.px)));
-  }, [vtt, empty, project, e2, theme]);
+  const vttLayoutsOf = useCallback(
+    (e: typeof e2) =>
+      exportJobs(project, e)
+        .filter((j) =>
+          hasExportContent(j.floors, e.view === 'pl', e.clues === 'hide', exportScope(project, e)),
+        )
+        .map((j) => exportLayout(j.floors, exportOptions(project, e, theme, e.px))),
+    [project, theme],
+  );
+  const vttLayouts = useMemo(
+    () => (!vtt || empty ? [] : vttLayoutsOf(e2)),
+    [vtt, empty, e2, vttLayoutsOf],
+  );
   const tooLarge = vttLayouts.find(vttTooLarge) ?? null;
+  /* 事件前後各存一張的範圍（兩種狀態合起來）可能比只存一張大：VTT 用時另外檢查 */
+  const pairTooLarge = useMemo(
+    () =>
+      vtt && !empty && hasMoments
+        ? vttLayoutsOf({ ...e2, momentPair: true }).some(vttTooLarge)
+        : false,
+    [vtt, empty, hasMoments, e2, vttLayoutsOf],
+  );
   const cells = vtt && layout && 'width' in layout ? vttCells(layout, cell) : null;
   const vttLine =
     vtt && layout && cells
-      ? `${S.exp.vttInfo(cells.x, cells.y, layout.pxWidth, layout.pxHeight)}${
+      ? `${S.exp.vttInfo(cells.x, cells.y, layout.pxWidth, layout.pxHeight, vttPxOf(exp), cell * CELL_M)}${
           range === 'each' && multi ? S.exp.vttEach(project.floors.length) : ''
         }`
       : '';
@@ -130,7 +158,7 @@ export function ExportDialog() {
   /* 揭露用（F284）：GM 專用的東西在 PL 用的圖的範圍外面時，兩張圖的範圍不同，疊圖對不齊 */
   const revealFrameDiffers = useMemo(() => {
     if (exp.view !== 'reveal' || !layout) return false;
-    if (!hasExportContent(floors, true, exp.clues === 'hide')) return true;
+    if (!hasExportContent(floors, true, exp.clues === 'hide', scope)) return true;
     /* 立體樓層圖、總覽（驗證後修訂 2026-11-09）：PL 用的圖只算 PL 看得到的範圍，同樣比較 */
     if ('frameKey' in layout) {
       const pl = stackImageLayout(
@@ -146,7 +174,7 @@ export function ExportDialog() {
       pl.frames[0]?.x !== layout.frames[0]?.x ||
       pl.frames[0]?.y !== layout.frames[0]?.y
     );
-  }, [exp.view, exp.clues, layout, floors, project, e2, theme]);
+  }, [exp.view, exp.clues, layout, floors, project, e2, theme, scope]);
 
   useEffect(() => {
     if (!open || empty) {
@@ -172,7 +200,7 @@ export function ExportDialog() {
     try {
       const src: Project = unveiled ? unveiledProject(project) : project;
       const jobs = exportJobs(src, e2, unveiled).filter((j) =>
-        hasExportContent(j.floors, exp.view === 'pl', exp.clues === 'hide'),
+        hasExportContent(j.floors, exp.view === 'pl', exp.clues === 'hide', exportScope(src, e2)),
       );
       const render = (fl: typeof floors) =>
         stackMode
@@ -191,6 +219,44 @@ export function ExportDialog() {
         );
       notify(unveiled ? S.exp.unveiled : S.exp.saved(jobs.length), 'success');
       if (!unveiled && exportHasSecret(project, e2)) setUnveilKey(`${range}|${exp.view}`);
+    } catch {
+      notify(S.exp.failed, 'danger');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  /**
+   * 事件前後各存一張（2026-11-12，F333）：同樣的設定、同樣的範圍（兩種狀態合起來，`momentPair`），
+   * 事件前的先、事件後的後
+   */
+  const downloadPair = async () => {
+    setBusy(true);
+    try {
+      const files = MOMENTS.flatMap((m) => {
+        const em = { ...e2, moment: m, momentPair: true };
+        return exportJobs(project, em)
+          .filter((j) =>
+            hasExportContent(
+              j.floors,
+              exp.view === 'pl',
+              exp.clues === 'hide',
+              exportScope(project, em),
+            ),
+          )
+          .map((j) => ({
+            name: j.name,
+            blob: () =>
+              canvasToBlob(
+                stackMode
+                  ? renderStackImage(j.floors, stackExportOptions(project, em, theme, exp.px))
+                  : renderImage(j.floors, exportOptions(project, em, theme, exp.px)),
+                'image/png',
+              ),
+          }));
+      });
+      await downloadSequentially(files, { intervalMs: 300 });
+      notify(S.moment.pairSaved(files.length), 'success');
     } catch {
       notify(S.exp.failed, 'danger');
     } finally {
@@ -374,6 +440,30 @@ export function ExportDialog() {
             <div className="flex flex-col gap-1" data-testid="export-reveal-note">
               <p className="m-0 text-xs text-muted">{S.exp.revealNote}</p>
               {revealFrameDiffers ? <Notice tone="warning">{S.exp.revealFrame}</Notice> : null}
+            </div>
+          ) : null}
+          {hasMoments ? (
+            <div className="flex flex-col gap-1.5" data-testid="export-moment">
+              <Field label={S.moment.label}>
+                <Segmented
+                  size="sm"
+                  value={moment}
+                  onValueChange={(v) => setMoment(v as Moment)}
+                  options={MOMENTS.map((m) => ({ value: m, label: S.moment.names[m] }))}
+                />
+              </Field>
+              <Button
+                size="sm"
+                className="self-start"
+                loading={busy}
+                disabled={blocked || pairTooLarge}
+                onClick={() => void downloadPair()}
+                title={S.moment.exportPairHint}
+                data-testid="export-pair"
+              >
+                {S.moment.exportPair}
+              </Button>
+              <p className="m-0 text-xs text-muted">{S.moment.exportNote}</p>
             </div>
           ) : null}
           {hasClues ? (

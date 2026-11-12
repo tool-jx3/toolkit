@@ -13,6 +13,7 @@ import type { RoomPresetId } from '../model/catalog';
 import type { CompatReport } from '../model/compat';
 import type { ExportSettings } from '../model/exportPlan';
 import { composedFloor, ownFloor } from '../model/interior';
+import { momentFloor, momentOf } from '../model/moment';
 import { normalizeProject } from '../model/normalize';
 import type { ShareMode } from '../model/share';
 import type { LineKind, OpeningKind, Project, SelRef, WallKind } from '../model/types';
@@ -31,9 +32,11 @@ export const TOOL_ID = 'floor-plan';
  * 9：曲線的房間（`rooms[].shape`、`rooms[].radius`，2026-11-05 跟進 KIIN v2.0 第二批；D98）。
  * 10：立體樓層圖的視角（`stack`）、祕密樓層（`floors[].secret`）（2026-11-09 參考 KIIN 立体フロアガイド；D110）。
  * 11：演出（`stage`：藏起來的房間與樓層、移動路線；2026-11-09 參考 KIIN 立体フロアガイド第二批；D121）。
+ * 12：事件前後（`moment`、`blackout`、`only`、`items[].upset`、`openings[].smashed`）、新的家具、房間的榻榻米鋪法（`rooms[].tatami`）、
+ *     地板 `tatami`（2026-11-12 參考 KIIN マップ制作スタジオ v3.0；D134）。
  * 舊版本的存檔與專案檔不必轉換（少了欄位就是沒有圓標、沒有方格、牆照規則、不顯示內部、長方形的房間…），讀進來一律經過 normalizeProject。
  */
-export const DATA_VERSION = 11;
+export const DATA_VERSION = 12;
 
 /** 開頁第一次（沒有存檔）時的地圖：第一個範本 */
 export function starterProject(): Project {
@@ -115,7 +118,7 @@ export const useProject = createToolStore<Project>(TOOL_ID, starterProject(), {
   historyLimit: 120,
   coalesceMs: 0,
   storage: projectStorage,
-  /* 版本 1 → … → 11：欄位只多不少，整理一次就好 */
+  /* 版本 1 → … → 12：欄位只多不少，整理一次就好 */
   migrate: (persisted) => normalizeProject(persisted, isAsset) ?? starterProject(),
 });
 
@@ -273,9 +276,16 @@ export const currentFloor = () => {
 /**
  * 外觀層打開「顯示內部」時（F230）：畫的是疊好的樓層（drawnFloor），點得到、選得到、能編號的只有外觀層自己留下來的東西（editableFloor）。
  * 沒有打開時兩個都是 currentFloor()。
+ * 2026-11-12（事件前後，F330）：兩個都照目前顯示的狀態整理過（另一個狀態才有的東西看不到、點不到）。
  */
-export const drawnFloor = () => composedFloor(currentFloor(), useProject.getState().data.floors);
-export const editableFloor = () => ownFloor(currentFloor(), useProject.getState().data.floors);
+export const drawnFloor = () => {
+  const p = useProject.getState().data;
+  return momentFloor(composedFloor(currentFloor(), p.floors), momentOf(p));
+};
+export const editableFloor = () => {
+  const p = useProject.getState().data;
+  return momentFloor(ownFloor(currentFloor(), p.floors), momentOf(p));
+};
 
 /**
  * PL 檢視的祕密樓層（2026-11-09 驗證後修訂，F307）：唯讀——什麼都選不到、不能畫、不能貼上或放素材

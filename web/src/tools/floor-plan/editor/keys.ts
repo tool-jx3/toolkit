@@ -48,6 +48,8 @@ export const SHORTCUT_HELP: Shortcut[] = [
   { keys: '0', label: K.fit, group: K.view },
   { keys: ['+', '='], label: K.zoomIn, group: K.view },
   { keys: '-', label: K.zoomOut, group: K.view },
+  /* 2026-11-12（參考 KIIN v3.0，F337）：Z／X 以游標為中心放大、縮小 */
+  { keys: ['z', 'x'], label: K.zoomPointer, group: K.view },
   { keys: '[', label: K.floorDown, group: K.view },
   { keys: ']', label: K.floorUp, group: K.view },
   /* 演出（2026-11-09，F322）：空白鍵＝播放／暫停、Home＝回到開頭（共用的播放快捷鍵）；實際的處理在 handleStageKey */
@@ -294,6 +296,15 @@ export function handleKeyDown(e: KeyboardEvent): void {
     case 'KeyC':
       act.setShowClues(!usePrefs.getState().data.showClues);
       return;
+    /* Z／X（2026-11-12 參考 KIIN v3.0，F337）：游標在畫布上時以游標為中心放大、縮小 */
+    case 'KeyZ':
+      e.preventDefault();
+      editor.zoomAtPointer(1.25);
+      return;
+    case 'KeyX':
+      e.preventDefault();
+      editor.zoomAtPointer(0.8);
+      return;
   }
   switch (e.key) {
     case '0':
@@ -317,7 +328,8 @@ export function handleKeyDown(e: KeyboardEvent): void {
   const tool = TOOL_KEYS[e.code];
   if (tool) {
     e.preventDefault();
-    act.setTool(tool);
+    /* H 再按一次回到選取工具（2026-11-12 參考 KIIN v3.0 的平移模式切換，F337） */
+    act.setTool(tool === 'hand' && ed.tool === 'hand' ? 'select' : tool);
   }
 }
 

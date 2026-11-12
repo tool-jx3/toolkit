@@ -9,11 +9,14 @@
  * - 開了棋子方格（2026-10，原作 v1.07；規格 F220、3.9）時，範圍、樓層名稱、間隔、字帶都對齊「格線的單位」與方格大小的
  *   最小公倍數，方格線從圖的左上角開始，寬高是方格的整數倍；方格畫在家具與牆的上面（房間名字、文字的下面）。
  * - 實際的倍率：每格 px，但超過瀏覽器能畫的大小時自動縮小（core/image 的 limitResolution、deviceResolutionLimits）。
+ * - 事件前後（2026-11-12，F333；驗證後修訂 2026-11-12）：範圍只算 `moment` 這個狀態看得到的東西（另一個狀態才有的東西
+ *   不會撐大範圍、透露「那裡之後有東西」）；「事件前後各存一張」（`bothMoments`）時兩張用兩種狀態合起來的範圍，疊得齊。
  */
 import { deviceResolutionLimits, limitResolution, type ResolutionLimits } from '@/core/image';
 import { type CoordGrid, type CoordLabels, coordLabels } from '../model/coords';
 import { floorBounds, unionRect, visibleFloor } from '../model/geometry';
-import type { Floor, Rect, SizeMode, ThemeId } from '../model/types';
+import { momentFloor } from '../model/moment';
+import type { Floor, Moment, Rect, SizeMode, ThemeId } from '../model/types';
 import { drawThemeEffect, drawWear } from './effects';
 import { haloText } from './labels';
 import { drawFloor } from './render';
@@ -59,7 +62,21 @@ export interface ExportImageOptions {
   night?: number;
   /** 揭露用（公開差分用，2026-11-05，F284）：GM 專用的東西照一般的顏色畫 */
   reveal?: boolean;
+  /**
+   * 事件前後（2026-11-12，F333；沒有＝事件前）：畫這個狀態，範圍也只算這個狀態看得到的東西
+   * （傳進來的樓層是原本的資料；驗證後修訂 2026-11-12）。
+   */
+  moment?: Moment;
+  /**
+   * 範圍用兩種狀態合起來算（「事件前後各存一張」的兩張，F333）：事件前、事件後的圖大小與位置相同，疊得齊。
+   * 畫的照樣只有 `moment` 這個狀態。
+   */
+  bothMoments?: boolean;
 }
+
+/** 範圍算哪一個狀態的東西（地圖沒有用到事件前後時傳回同一個物件） */
+const rangeFloor = (f: Floor, o: Pick<ExportImageOptions, 'moment' | 'bothMoments'>): Floor =>
+  o.bothMoments ? f : momentFloor(f, o.moment ?? 'before');
 
 export interface ExportLayout {
   frames: Rect[];
@@ -110,7 +127,9 @@ export function exportLayout(floors: readonly Floor[], opts: ExportImageOptions)
   );
   const down = (v: number) => Math.floor(v / unit + 1e-9) * unit;
   const up = (v: number) => Math.ceil(v / unit - 1e-9) * unit;
-  const shown = floors.map((f) => visibleFloor(f, opts.playerView, opts.hideClues));
+  const shown = floors.map((f) =>
+    visibleFloor(rangeFloor(f, opts), opts.playerView, opts.hideClues),
+  );
   const multi = floors.length > 1;
   let common: Rect | null = null;
   if (multi)
@@ -234,6 +253,7 @@ export function renderImage(floors: readonly Floor[], opts: ExportImageOptions):
       coords: L.coords[i],
       ...(opts.night ? { night: opts.night } : {}),
       ...(opts.reveal ? { reveal: true } : {}),
+      ...(opts.moment ? { moment: opts.moment } : {}),
     });
     if (L.titleH) {
       c.textAlign = 'left';
@@ -287,11 +307,17 @@ export function renderImage(floors: readonly Floor[], opts: ExportImageOptions):
   return canvas;
 }
 
-/** 有沒有東西可以匯出（每一層都空時 false） */
+/**
+ * 有沒有東西可以匯出（每一層都空時 false）。`scope`：哪一個狀態（同 `exportLayout`；沒有＝事件前，
+ * 地圖沒有用到事件前後時沒有差別）。
+ */
 export function hasExportContent(
   floors: readonly Floor[],
   playerView: boolean,
   hideClues: boolean,
+  scope: Pick<ExportImageOptions, 'moment' | 'bothMoments'> = {},
 ): boolean {
-  return floors.some((f) => floorBounds(visibleFloor(f, playerView, hideClues) as Floor));
+  return floors.some((f) =>
+    floorBounds(visibleFloor(rangeFloor(f, scope), playerView, hideClues) as Floor),
+  );
 }

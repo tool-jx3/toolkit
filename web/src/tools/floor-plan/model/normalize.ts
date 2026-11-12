@@ -31,13 +31,16 @@ import {
 import { CURVE_MIN, hasRadius, isRoomShape, radiusMax } from './curve';
 import { clamp, emptyFloor, normDeg, uid } from './geometry';
 import { isLineKind, LINE_W_MAX, LINE_W_MIN } from './lines';
+import { isMoment } from './moment';
 import { isCorner, validCut } from './shape';
 import { clampCamera, isDefaultCamera } from './stack';
 import { normalizeStage } from './stageData';
+import { isTatamiLayout } from './tatami';
 import type {
   Floor,
   FreeLine,
   Item,
+  Moment,
   Opening,
   OpeningKind,
   Project,
@@ -69,6 +72,8 @@ const color = (v: unknown): string | undefined => {
   return c ? formatHex(c, c.a < 1) : undefined;
 };
 const flag = (v: unknown): true | undefined => (v === true ? true : undefined);
+/** 出現的時機（2026-11-12，F329）：只認 `before`、`after` */
+const only = (v: unknown): Moment | undefined => (isMoment(v) ? v : undefined);
 
 /** undefined 的欄位拿掉（存檔小一點、比較時穩定） */
 function compact<T extends object>(o: T): T {
@@ -172,6 +177,8 @@ function room(r: Record<string, unknown>, report: CompatReport): Room | null {
     /* 甲板的外圍（F299、D102）：甲板類的房間才留著 */
     deck: flag(r.deck) && isDeckCat(cat) ? true : undefined,
     radius: curved && hasRadius(r.shape as RoomShape) ? roomRadius(r.radius, w, h) : undefined,
+    /* 榻榻米的鋪法（2026-11-12，F334）：認得的才留著 */
+    tatami: isTatamiLayout(r.tatami) ? r.tatami : undefined,
   });
 }
 
@@ -185,6 +192,7 @@ function wall(w: Record<string, unknown>, report: CompatReport): Wall | null {
     y2: num(w.y2),
     kind: wallKind(w.kind, report),
     gm: flag(w.gm),
+    only: only(w.only),
   });
 }
 
@@ -203,6 +211,8 @@ function opening(o: Record<string, unknown>, report: CompatReport): Opening | nu
     side: num(o.side) === -1 ? -1 : 1,
     hinge: o.hinge ? 1 : 0,
     gm: flag(o.gm),
+    only: only(o.only),
+    smashed: flag(o.smashed),
   });
 }
 
@@ -232,6 +242,8 @@ function item(
     gm: flag(i.gm),
     clue: flag(i.clue),
     ring: optStr(i.ring, 60),
+    only: only(i.only),
+    upset: flag(i.upset),
   });
 }
 
@@ -254,6 +266,7 @@ function freeLine(l: Record<string, unknown>): FreeLine | null {
     y2,
     w: w === 1 ? undefined : w,
     gm: flag(l.gm),
+    only: only(l.only),
   });
 }
 
@@ -270,6 +283,7 @@ function text(t: Record<string, unknown>): TextLabel | null {
     gm: flag(t.gm),
     clue: flag(t.clue),
     badge: flag(t.badge),
+    only: only(t.only),
   });
 }
 
@@ -387,6 +401,9 @@ export function normalizeProject(
   /* 2026-11-09（參考 KIIN 立体フロアガイド的演出）：藏起來的房間與樓層、移動路線（指到的房間、樓層要存在；空的不寫） */
   const stage = normalizeStage(p.stage, out.floors);
   if (stage) out.stage = stage;
+  /* 2026-11-12（參考 KIIN v3.0）：目前顯示的狀態（只認 after）、事件後才停電（只在 true 時寫） */
+  if (p.moment === 'after') out.moment = 'after';
+  if (p.blackout === true) out.blackout = true;
   return out;
 }
 

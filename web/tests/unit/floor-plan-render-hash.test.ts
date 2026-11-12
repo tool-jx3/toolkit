@@ -110,8 +110,10 @@ describe('沒有用到新功能時匯出的圖和改版前相同（D79、D84）'
     ? {}
     : (JSON.parse(fs.readFileSync(GOLDEN, 'utf8')) as Record<string, string>);
 
-  /* 2026-11-05 第二批的新範本（用到曲線的房間）、2026-11-09 的鐘錶行（祕密樓層）不在基準裡 */
-  const NEW = new Set(['steamliner', 'clockshop']);
+  /*
+   * 2026-11-05 第二批的新範本（用到曲線的房間）、2026-11-09 的鐘錶行（祕密樓層）、2026-11-12 的老鋪町家（事件前後）不在基準裡
+   */
+  const NEW = new Set(['steamliner', 'clockshop', 'machiya']);
   const OLD = TEMPLATES.filter((t) => !NEW.has(t.id));
 
   it('57 個範本都在', () => {

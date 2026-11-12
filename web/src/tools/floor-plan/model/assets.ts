@@ -222,6 +222,23 @@ export const ASSETS: readonly AssetInfo[] = [
   A('wall_hole', 'wall', 2, 1, '打穿的牆洞', W(['damaged', 'ruins'], '破洞 牆洞')),
   A('bullet_holes', 'wall', 1.2, 0.8, '彈孔', W(['damaged', 'danger', 'evidence'], '槍 子彈')),
   A('tendrils', 'wall', 4, 3, '觸手侵蝕', W(['horror', 'danger'], '藤蔓 觸手 侵蝕')),
+  /* 2026-11-12（參考 KIIN v3.0 的「事件・痕跡」；畫法本站自己的，F334）：釘在門窗、牆上的木板與貼著的符咒 */
+  A(
+    'boards',
+    'wall',
+    3.2,
+    0.9,
+    '封鎖的木板',
+    W(['damaged', 'horror'], '木板 釘子 封門 封窗 路障 籠城 事件'),
+  ),
+  A(
+    'ofuda',
+    'wall',
+    1.6,
+    0.7,
+    '封印的符咒',
+    W(['religious', 'horror'], '符 咒 護符 札 御札 封印 事件'),
+  ),
   A('wall_graffiti', 'wall', 3, 0.6, '牆上的塗鴉', W(['ruins'], '噴漆 塗寫')),
   A('wall_claws', 'wall', 1.6, 0.8, '爪痕', W(['horror', 'danger'], '抓痕 怪物')),
   A('wall_blood', 'wall', 1.6, 0.8, '血手印', W(['horror', 'evidence'], '血跡 手印')),
@@ -704,6 +721,43 @@ export const ASSETS: readonly AssetInfo[] = [
     tags: ['religious', 'outdoor'],
   }),
   A('jizo', 'japanese', 0.9, 0.9, '地藏像', { keys: '石像 地藏', tags: ['religious', 'outdoor'] }),
+  /* 2026-11-12（參考 KIIN v3.0 的和家具；名稱、尺寸、畫法本站自己的，F334） */
+  A('kotatsu', 'japanese', 2.6, 2.6, '暖桌（被爐）', {
+    keys: '桌子 和室 冬天 棉被 炬燵',
+    tags: ['indoor', 'home', 'retro'],
+  }),
+  A('chabudai', 'japanese', 1.8, 1.8, '圓矮桌（飯桌）', {
+    keys: '桌子 和室 吃飯 卓袱台',
+    tags: ['indoor', 'home', 'retro'],
+  }),
+  A('tansu', 'japanese', 3.2, 1.1, '和式衣櫃（簞笥）', {
+    orient: true,
+    keys: '櫃子 抽屜 衣櫥 箪笥',
+    tags: ['indoor', 'home'],
+  }),
+  A('chadansu', 'japanese', 2, 0.9, '茶櫃', {
+    orient: true,
+    keys: '櫃子 碗櫃 茶箪笥',
+    tags: ['indoor', 'home', 'retro'],
+  }),
+  A('oshiire', 'japanese', 3.6, 1.8, '壁櫥（押入）', {
+    orient: true,
+    keys: '櫃子 衣櫃 收納 襖 押入 棉被',
+    tags: ['indoor', 'home'],
+  }),
+  A('kamidana', 'japanese', 2.4, 0.8, '神棚', {
+    orient: true,
+    keys: '神龕 神社 祭祀',
+    tags: ['indoor', 'religious'],
+  }),
+  A('hibachi', 'japanese', 1.2, 1.2, '火盆（火缽）', {
+    keys: '火 炭 取暖 火鉢',
+    tags: ['indoor', 'home', 'retro'],
+  }),
+  A('morishio', 'japanese', 0.6, 0.6, '盛鹽', {
+    keys: '鹽 驅邪 封印 結界',
+    tags: ['religious', 'horror'],
+  }),
 
   /* ---------- 日式庭園 ---------- */
   A('well', 'garden', 2.2, 2.2, '水井', { keys: '井', tags: ['historic'] }),
@@ -719,6 +773,17 @@ export const ASSETS: readonly AssetInfo[] = [
   A('tsukubai', 'garden', 1.6, 1.6, '洗手缽（蹲踞）', { keys: '水缽 茶庭' }),
   A('shishiodoshi', 'garden', 2.4, 1, '驚鹿（竹筒）', { keys: '添水 竹子' }),
   A('tea_house', 'garden', 6, 6, '茶室（屋頂）', { keys: '茶屋 建築', tags: ['historic'] }),
+  /* 2026-11-12（參考 KIIN v3.0 的日本庭園；畫法本站自己的，F334） */
+  A('gourd_pond', 'garden', 8, 5, '葫蘆池', {
+    under: true,
+    keys: '池塘 水池 瓢簞 錦鯉',
+    tags: ['waterside'],
+  }),
+  A('inari', 'garden', 2.8, 2.8, '屋敷稻荷（小祠）', {
+    orient: true,
+    keys: '神社 狐狸 鳥居 稲荷 祠',
+    tags: ['religious', 'historic'],
+  }),
 
   /* ---------- 調查・證物 ---------- */
   A('evidence', 'investigation', 0.9, 0.9, '證物標示牌', {
@@ -751,6 +816,22 @@ export const ASSETS: readonly AssetInfo[] = [
   A('debris', 'investigation', 3, 2.4, '瓦礫', { keys: '碎石', tags: ['damaged', 'ruins'] }),
   A('glass', 'investigation', 1.6, 1.6, '碎玻璃', { under: true, tags: ['damaged', 'ruins'] }),
   A('tape', 'investigation', 6, 0.35, '封鎖線', { keys: '膠帶', tags: ['public', 'military'] }),
+  /* 2026-11-12（參考 KIIN v3.0 的「事件・痕跡」；畫法本站自己的，F334）：地上的痕跡（封鎖的木板、符咒在貼牆素材） */
+  A('blood_drag', 'investigation', 1.6, 4, '拖行的血跡', {
+    under: true,
+    keys: '血 拖 痕跡 事件',
+    tags: ['evidence', 'danger', 'horror'],
+  }),
+  A('scattered_papers', 'investigation', 2.4, 1.8, '散落的紙張', {
+    under: true,
+    keys: '紙 文件 翻亂 痕跡 事件',
+    tags: ['evidence', 'damaged'],
+  }),
+  A('broken_dishes', 'investigation', 1.6, 1.2, '摔破的碗盤', {
+    under: true,
+    keys: '碗 盤子 碎片 痕跡 事件',
+    tags: ['damaged', 'home'],
+  }),
   A('safe', 'investigation', 1.2, 1.2, '保險箱', { keys: '金庫', tags: ['hidden'] }),
   A('flashlight', 'investigation', 0.8, 0.4, '手電筒', { keys: '燈 照明', tags: ['modern'] }),
   A('tools', 'investigation', 1.2, 0.6, '工具組', {
