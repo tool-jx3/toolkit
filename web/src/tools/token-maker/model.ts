@@ -173,6 +173,13 @@ export interface Look {
   /** 自動邊距（不讓出框的部分被切掉）；關掉時用 margin（%） */
   autoMargin: boolean;
   margin: number;
+  /**
+   * 畫布貼合（token-workshop 70f1503 的 Auto-fit canvas；自動邊距時）：外框置中，畫布剛好容得下外框或出框
+   * （出框的上下左右範圍）。false＝以前的算法（出框離中心最遠的距離＋柔邊、陰影的空間）。2026-11-12 加。
+   */
+  tightFit: boolean;
+  /** 外框外緣 1 px 的透明度淡出（token-workshop 70f1503；浮雕環，鎖鏈與寶石除外）。2026-11-12 加 */
+  edgeFade: boolean;
   /** 出框的柔邊（遮罩 px）與陰影（%） */
   feather: number;
   shadow: number;
@@ -282,6 +289,9 @@ export const DEFAULT_LOOK: Readonly<Look> = Object.freeze({
   bgColor: '#2b2f3a',
   autoMargin: true,
   margin: 8,
+  /* 2026-11-12 加的兩個欄位：預設是以前的畫法（既有的棋子匯出不變；規格 D46） */
+  tightFit: false,
+  edgeFade: false,
   feather: 0.5,
   shadow: 0,
   customInner: 78,
@@ -542,38 +552,179 @@ export function rotateView(v: TokenView, delta: number): TokenView {
 
 /* ---------- 自動邊距 ---------- */
 
+/** 出框的上下左右範圍（R 為單位，外框的中心為原點；x 往右、y 往下） */
+export interface PopBounds {
+  x0: number;
+  x1: number;
+  y0: number;
+  y1: number;
+}
+
 /**
- * 出框的邊界點（圖片 px，以圖片中心為原點，xy 交錯）依擺放算出最遠的半徑（R 為單位），
- * 換成「剛好不切到出框」的邊距（N 的比例，0～0.45）。柔邊與陰影各留一點空間；外光暈另外留。
+ * 出框的邊界點（圖片 px，以圖片中心為原點，xy 交錯）依擺放換成上下左右的範圍（R 為單位），
+ * 再往外加半個遮罩 px（旋轉時取那半格的外接寬；token-workshop 70f1503 的 popBounds）。沒有邊界點時 null。
+ * maskScale＝每個遮罩 px 是幾個圖片 px。
+ */
+export function popBounds(
+  boundary: Float32Array | null,
+  size: { width: number; height: number },
+  v: TokenView,
+  maskScale = 1,
+): PopBounds | null {
+  if (!boundary || boundary.length < 2) return null;
+  const k = (2 / Math.max(1, Math.min(size.width, size.height))) * v.zoom;
+  const a = (v.rotate * Math.PI) / 180;
+  const co = Math.cos(a);
+  const si = Math.sin(a);
+  const f = v.flip ? -1 : 1;
+  let x0 = Number.POSITIVE_INFINITY;
+  let x1 = Number.NEGATIVE_INFINITY;
+  let y0 = Number.POSITIVE_INFINITY;
+  let y1 = Number.NEGATIVE_INFINITY;
+  for (let i = 0; i + 1 < boundary.length; i += 2) {
+    const x = boundary[i] * k * f;
+    const y = boundary[i + 1] * k;
+    const X = x * co - y * si + v.x;
+    const Y = x * si + y * co + v.y;
+    if (X < x0) x0 = X;
+    if (X > x1) x1 = X;
+    if (Y < y0) y0 = Y;
+    if (Y > y1) y1 = Y;
+  }
+  const h = 0.5 * maskScale * k * (Math.abs(co) + Math.abs(si));
+  return { x0: x0 - h, x1: x1 + h, y0: y0 - h, y1: y1 + h };
+}
+
+/**
+ * 出框的邊界點（圖片 px，以圖片中心為原點，xy 交錯）依擺放換成「剛好不切到出框」的邊距（N 的比例，0～0.45）。
+ * - 以前的算法（tightFit 關）：最遠的點離中心的距離 × 1.005，柔邊與陰影各留一點空間（規格 3.3）。
+ * - 畫布貼合（tightFit 開；token-workshop 70f1503）：出框的上下左右範圍（popBounds）最遠的一邊，
+ *   畫布剛好等於外框或出框需要的大小；柔邊照樣留空間（本站的柔邊是兩個方向的高斯），陰影只落在外框上所以不留（規格 3.13）。
+ * 兩種都是外光暈時至少留 R × 0.06。
  */
 export function autoPad(
   boundary: Float32Array | null,
   size: { width: number; height: number },
   v: TokenView,
-  look: Pick<Look, 'feather' | 'shadow' | 'glow'>,
+  look: Pick<Look, 'feather' | 'shadow' | 'glow'> & Partial<Pick<Look, 'tightFit'>>,
   maskScale = 1,
 ): number {
   let d = 1;
   if (boundary?.length) {
     const k = (2 / Math.max(1, Math.min(size.width, size.height))) * v.zoom;
-    const a = (v.rotate * Math.PI) / 180;
-    const co = Math.cos(a);
-    const si = Math.sin(a);
-    const f = v.flip ? -1 : 1;
-    let far = 0;
-    for (let i = 0; i + 1 < boundary.length; i += 2) {
-      const x = boundary[i] * k * f;
-      const y = boundary[i + 1] * k;
-      const r = Math.hypot(x * co - y * si + v.x, x * si + y * co + v.y);
-      if (r > far) far = r;
-    }
-    if (far > 1) {
-      d = far * 1.005 + (look.feather > 0 ? look.feather * maskScale * k : 0);
-      if (look.shadow > 0) d += 0.01 + 0.05 * (look.shadow / 100);
+    const soft = look.feather > 0 ? look.feather * maskScale * k : 0;
+    if (look.tightFit) {
+      const b = popBounds(boundary, size, v, maskScale);
+      const far = b ? Math.max(-b.x0, b.x1, -b.y0, b.y1) : 0;
+      if (far > 1) d = far + soft;
+    } else {
+      const a = (v.rotate * Math.PI) / 180;
+      const co = Math.cos(a);
+      const si = Math.sin(a);
+      const f = v.flip ? -1 : 1;
+      let far = 0;
+      for (let i = 0; i + 1 < boundary.length; i += 2) {
+        const x = boundary[i] * k * f;
+        const y = boundary[i + 1] * k;
+        const r = Math.hypot(x * co - y * si + v.x, x * si + y * co + v.y);
+        if (r > far) far = r;
+      }
+      if (far > 1) {
+        d = far * 1.005 + soft;
+        if (look.shadow > 0) d += 0.01 + 0.05 * (look.shadow / 100);
+      }
     }
   }
   if (look.glow === 'outer' || look.glow === 'all') d = Math.max(d, 1.06);
   return clamp(0.5 - 0.5 / d, 0, 0.45);
+}
+
+/* ---------- 讓出框配合畫布邊界（token-workshop 70f1503 的 Fit pop-out to frame） ---------- */
+
+/** 出框超出畫布的量（R 為單位，> 0＝超出）；L＝畫布的半邊長（R 為單位） */
+export interface PopOverflow {
+  l: number;
+  r: number;
+  t: number;
+  b: number;
+  L: number;
+}
+
+/** 小於這個量（R 為單位）不算超出（同原作） */
+export const OVERFLOW_EPS = 0.002;
+
+/** 邊距 pad（N 的比例）的圖片，出框在每一邊超出多少 */
+export function popOverflow(b: PopBounds, pad: number): PopOverflow {
+  const L = 1 / (1 - 2 * clamp(pad, 0, 0.45));
+  return { l: -b.x0 - L, r: b.x1 - L, t: -b.y0 - L, b: b.y1 - L, L };
+}
+
+export const overflowMax = (o: PopOverflow): number => Math.max(o.l, o.r, o.t, o.b);
+
+/**
+ * 縮小到剛好：圖片和出框以外框的中心一起縮小，直到出框都在畫布裡（縮放夾在 10～800%）。
+ * 已經放得下（縮放比例 ≥ 0.9995）時 null。
+ */
+export function fitScaleView(v: TokenView, b: PopBounds, pad: number): TokenView | null {
+  const L = 1 / (1 - 2 * clamp(pad, 0, 0.45));
+  const far = Math.max(-b.x0, b.x1, -b.y0, b.y1);
+  const s = far > 0 ? Math.min(1, L / far) : 1;
+  if (s >= 0.9995) return null;
+  const z = clamp(v.zoom * s, RANGES.zoom.min / 100, RANGES.zoom.max / 100);
+  const r = z / v.zoom;
+  return { ...v, zoom: z, x: v.x * r, y: v.y * r };
+}
+
+export type PushDir = 'left' | 'right' | 'up' | 'down';
+
+/**
+ * 往一個方向推：往左推到右邊收進畫布（其他方向同理）。那一邊本來就放得下時 null；
+ * rest＝推完之後其他邊還有超出。
+ */
+export function pushView(
+  v: TokenView,
+  b: PopBounds,
+  pad: number,
+  dir: PushDir,
+): { view: TokenView; rest: boolean } | null {
+  const o = popOverflow(b, pad);
+  const need = { left: o.r, right: o.l, up: o.b, down: o.t }[dir];
+  if (need <= OVERFLOW_EPS) return null;
+  const dx = dir === 'left' ? -need : dir === 'right' ? need : 0;
+  const dy = dir === 'up' ? -need : dir === 'down' ? need : 0;
+  const x = clamp(v.x + dx, -20, 20);
+  const y = clamp(v.y + dy, -20, 20);
+  const moved: PopBounds = {
+    x0: b.x0 + (x - v.x),
+    x1: b.x1 + (x - v.x),
+    y0: b.y0 + (y - v.y),
+    y1: b.y1 + (y - v.y),
+  };
+  return { view: { ...v, x, y }, rest: overflowMax(popOverflow(moved, pad)) > OVERFLOW_EPS };
+}
+
+/* ---------- 配合外框調整圖片的顏色（token-workshop ce4c62b 的 Match picture colour to ring） ---------- */
+
+/**
+ * 外框與圖片的平均飽和度（0～1）→ 原作的飽和度調整（−30～30；只動顏色、不動亮度）。
+ * 本站的色彩調整是 100＋這個值 %（同讀原作檔案時的對應，規格 D25）。
+ */
+export function ringMatchSat(ringSat: number, picSat: number): number {
+  return Math.round(clamp((ringSat / Math.max(0.05, picSat) - 1) * 40, -30, 30));
+}
+
+/* ---------- 外緣淡出 ---------- */
+
+/** 本來就伸出外緣的浮雕環（外緣淡出不套用；同原作） */
+export const EDGE_FADE_SKIP: readonly FrameId[] = ['chain', 'gems'];
+
+/** 這個外觀的外框要不要做外緣淡出：打開、浮雕環、不是鎖鏈與寶石 */
+export function edgeFadeOn(look: Pick<Look, 'edgeFade' | 'frame'>): boolean {
+  return (
+    look.edgeFade &&
+    (RELIEF_FRAMES as readonly FrameId[]).includes(look.frame) &&
+    !EDGE_FADE_SKIP.includes(look.frame)
+  );
 }
 
 /* ---------- 匯出 ---------- */
@@ -753,6 +904,9 @@ export function normalizeLook(raw: unknown): Look {
     bgColor: color(d.bgColor, D.bgColor),
     autoMargin: typeof d.autoMargin === 'boolean' ? d.autoMargin : D.autoMargin,
     margin: ranged(d.margin, RANGES.margin, D.margin),
+    /* 2026-11-12 加的：沒有這個欄位（以前存的）＝以前的畫法，和 DEFAULT_LOOK 無關 */
+    tightFit: d.tightFit === true,
+    edgeFade: d.edgeFade === true,
     feather: ranged(d.feather, RANGES.feather, D.feather),
     shadow: ranged(d.shadow, RANGES.shadow, D.shadow),
     customInner: ranged(d.customInner, RANGES.customInner, D.customInner),

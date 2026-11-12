@@ -379,14 +379,19 @@ test('出框：魔術棒（加入、Alt 去掉、容許度重新選）、筆刷�
   await expect.poll(async () => (await cur(page)).mask).not.toBeNull();
   await expect(ratio(page)).toHaveText(/已選取圖片的 3\.\d%/);
   await expect(page.getByTestId('token-hint')).toHaveText(/加入了圖片的/);
+  /* 遮罩的 id 依內容產生：帽子的遮罩存好之後 id 一定是這個 */
+  const hatMask = (await cur(page)).mask?.id;
   /* 容許度拉高到 100：從同一點重新選（整張圖） */
   const slider = page.getByRole('spinbutton', { name: '容許度' });
   await slider.fill('100');
   await slider.press('Enter');
   await expect(ratio(page)).toHaveText('已選取圖片的 100%');
+  await expect.poll(async () => (await cur(page)).mask?.id).not.toBe(hatMask);
   await slider.fill('18');
   await slider.press('Enter');
   await expect(ratio(page)).toHaveText(/已選取圖片的 3\.\d%/);
+  /* 預覽先顯示重選的結果、遮罩存好才寫進狀態：等它存好再點（不然 Alt 點的是還沒換掉的 100% 遮罩） */
+  await expect.poll(async () => (await cur(page)).mask?.id).toBe(hatMask);
   /* 按住 Alt 點帽子：去掉 */
   await page.keyboard.down('Alt');
   await expect(page.getByTestId('tool-badge')).toHaveText('魔術棒・去掉');

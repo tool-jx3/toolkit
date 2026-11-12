@@ -28,6 +28,7 @@ import { applyAdjust, overlayFx, portraitFx, portraitFxActive } from './fx';
 import { badgeText, drawBadge, drawLabel, labelText, lookColors } from './labels';
 import {
   clamp,
+  edgeFadeOn,
   type Geom,
   geom,
   type ImageTransform,
@@ -317,6 +318,23 @@ export function drawFrameLayer(
       ctx.globalCompositeOperation = 'source-over';
     }
   }
+  if (edgeFadeOn(look)) fadeOuterEdge(ctx, g);
+}
+
+/**
+ * 外緣淡出（token-workshop 70f1503 的 featherEdge）：外半徑 R 以內不變、R～R＋1 px 的透明度線性淡到 0、再外面清掉，
+ * 超出外緣的鋸齒雜點不會留在圖上。鎖鏈、寶石本來就伸出外緣，不套用（edgeFadeOn）。
+ */
+export function fadeOuterEdge(ctx: Ctx2D, g: Geom): void {
+  const gr = ctx.createRadialGradient(g.c, g.c, 0, g.c, g.c, g.R + 1);
+  gr.addColorStop(0, '#000');
+  gr.addColorStop(g.R / (g.R + 1), '#000');
+  gr.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.save();
+  ctx.globalCompositeOperation = 'destination-in';
+  ctx.fillStyle = gr;
+  ctx.fillRect(0, 0, g.N, g.N);
+  ctx.restore();
 }
 
 /** 光暈：外框的模糊（外框色）減掉外框本身；inner／outer 只留外緣以內／以外 */
@@ -374,6 +392,7 @@ function frameKey(look: Look, g: Geom, texReady: boolean, customId: string | nul
     look.energy,
     look.texSeed,
     look.glow,
+    edgeFadeOn(look),
     g.N,
     Math.round(g.R * 1000) / 1000,
     texReady,
@@ -664,6 +683,32 @@ export function renderToken(ctx: Ctx2D, opts: RenderOptions, src: RenderSources)
   }
   ctx.restore();
   return { geom: g, transform: t };
+}
+
+/**
+ * 平均的亮度（0.299／0.587／0.114）與飽和度（(最大 − 最小) ÷ 最大）：縮到 48 × 48，只算不透明度 ≥ 200 的像素；
+ * 沒有這種像素時 { l: 128, s: 0.3 }（token-workshop 的 lumSat，「配合外框調整圖片的顏色」用）。
+ */
+export function meanLumSat(src: Drawable): { l: number; s: number } {
+  const c = makeCanvas(48, 48);
+  const x = ctx2d(c);
+  x.drawImage(src, 0, 0, 48, 48);
+  const d = x.getImageData(0, 0, 48, 48).data;
+  let l = 0;
+  let s = 0;
+  let n = 0;
+  for (let i = 0; i < d.length; i += 4) {
+    if (d[i + 3] < 200) continue;
+    const r = d[i];
+    const g = d[i + 1];
+    const b = d[i + 2];
+    const mx = Math.max(r, g, b);
+    const mn = Math.min(r, g, b);
+    l += 0.299 * r + 0.587 * g + 0.114 * b;
+    s += mx ? (mx - mn) / mx : 0;
+    n++;
+  }
+  return n ? { l: l / n, s: s / n } : { l: 128, s: 0.3 };
 }
 
 /** 畫到一張新的 N × N 畫布（匯出） */
