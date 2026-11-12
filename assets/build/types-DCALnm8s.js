@@ -1,0 +1,1 @@
+var e={maxSide:32767,maxPixels:268435456};function t(t,n){return!(t>=1&&n>=1)||t>e.maxSide||n>e.maxSide||t*n>e.maxPixels}export{t};
