@@ -1,6 +1,6 @@
 /**
  * 錄影帶畫面產生器 2026-11-10 加的功能（規格 1.11～1.17）的端對端測試：
- * - 新的區塊（樣子、映像管、數位攝影、NTSC 訊號、Screen Loop）預設全關，自動儲存是資料版本 3；
+ * - 新的區塊（樣子、映像管、數位攝影、NTSC 訊號、Screen Loop）預設全關，自動儲存是資料版本 3（2026-11-12 起 4）；
  * - 比較原圖：預覽右邊是原圖、分割線可以拖曳與用鍵盤移動、匯出的 PNG 和沒開比較時逐位元組相同、沒有照片時停用；
  * - 樣子：套用後按鈕按下、一步復原；
  * - 螢光粉遮罩：匯出的 PNG 每 3 px 一組紅綠藍；光暈；
@@ -147,7 +147,7 @@ async function noHorizontalScroll(page: Page) {
 
 /* ---------- 預設 ---------- */
 
-test('新的區塊預設全關；自動儲存是第 3 版', async ({ page }) => {
+test('新的區塊預設全關；自動儲存是第 4 版（2026-11-12 起）', async ({ page }) => {
   const errors = await open(page);
   for (const title of ['樣子', '映像管', '數位攝影', 'NTSC 訊號', 'Screen Loop'])
     await expect(page.getByRole('button', { name: title, exact: true }).last()).toBeVisible();
@@ -165,7 +165,7 @@ test('新的區塊預設全關；自動儲存是第 3 版', async ({ page }) => 
     .poll(() =>
       page.evaluate((k) => JSON.parse(localStorage.getItem(k) ?? '{}').version, STORAGE_KEY),
     )
-    .toBe(3);
+    .toBe(4); /* 2026-11-12 起第 4 版 */
   /* 沒有照片時不能比較 */
   await expect(page.getByRole('switch', { name: /比較原圖/ })).toBeDisabled();
   expect(errors).toEqual([]);
@@ -334,7 +334,7 @@ test('NTSC 訊號＋datamosh 的 GIF：24 格、每格 9/100 秒', { tag: '@seri
 test('Screen Loop：綠點拖曳與方向鍵移動消失點、拖曳一次算一步復原', async ({ page }) => {
   const errors = await open(page);
   await loadPhoto(page);
-  await looks(page).getByRole('button', { name: 'Screen Loop' }).click();
+  await looks(page).getByRole('button', { name: 'Screen Loop', exact: true }).click();
   const dot = page.getByTestId('vanish-dot');
   await expect(dot).toBeVisible();
   await expect(dot).toHaveAttribute('data-at', '-12,-10');
@@ -374,7 +374,7 @@ test('Screen Loop 的 GIF：24 格；PNG 和沒有 Screen Loop 時不同', { tag
   await loadPhoto(page);
   await seek(page, 1);
   const plain = await exportFile(page, 'PNG');
-  await looks(page).getByRole('button', { name: 'Screen Loop' }).click();
+  await looks(page).getByRole('button', { name: 'Screen Loop', exact: true }).click();
   await seek(page, 1);
   /* 暫停的預覽分段畫完（data-busy false）之後＝匯出的 PNG（照設定的 6 層） */
   await expect(canvas(page)).toHaveAttribute('data-busy', 'false');
@@ -460,7 +460,7 @@ test('第 2 版的自動儲存與專案檔照讀：新的設定是預設', async
   await expect.poll(async () => (await doc(page)).caption).toBe('專案的字幕');
   d = await doc(page);
   expect([d.wear, d.crt.mask, d.ntsc.on]).toEqual([20, 'none', false]);
-  /* 存成專案檔：第 3 版，帶著新的欄位 */
+  /* 存成專案檔：第 4 版（2026-11-12 起；2026-11-10 是第 3 版），帶著新的欄位 */
   await page.getByRole('button', { name: '專案' }).click();
   const [dl] = await Promise.all([
     page.waitForEvent('download'),
@@ -469,7 +469,7 @@ test('第 2 版的自動儲存與專案檔照讀：新的設定是預設', async
   const saved = JSON.parse(
     strFromU8(unzipSync(new Uint8Array(readFileSync((await dl.path()) as string)))['project.json']),
   );
-  expect(saved.version).toBe(3);
+  expect(saved.version).toBe(4);
   expect(Object.keys(saved.data)).toEqual(
     expect.arrayContaining(['crt', 'digital', 'ntsc', 'loop']),
   );

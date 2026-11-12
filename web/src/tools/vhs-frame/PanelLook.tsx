@@ -15,9 +15,11 @@ import {
 } from '@/ui';
 import {
   CRT_RANGES,
+  DIGITAL_CODECS,
   DIGITAL_FORMATS,
   DIGITAL_PRESETS,
   DIGITAL_RANGES,
+  type DigitalCodec,
   type DigitalFormat,
   LOOP_RANGES,
   MASK_KINDS,
@@ -25,6 +27,7 @@ import {
   NTSC_RANGES,
   TAPE_SPEEDS,
 } from './look';
+import { fieldScanRows } from './model';
 import type { TapeSpeed } from './ntsc';
 import { applyLookPreset, LOOK_PRESET_IDS, matchingPreset } from './presets';
 import { edit, gesture, TOOL_ID, useDoc } from './store';
@@ -217,7 +220,10 @@ export function CrtSection() {
 
 export function DigitalSection() {
   const dg = useDoc((st) => st.data.digital);
+  const aspect = useDoc((st) => st.data.aspect);
   const [more] = useAdvancedMode(TOOL_ID);
+  /* 方塊色沒有色彩取樣、柔化方塊的邊與 datamosh（藏起來；存的值不改） */
+  const dct = dg.codec === 'dct';
   const set = (recipe: (c: typeof dg) => void) => edit((d) => recipe(d.digital));
   const slider = (
     key: keyof typeof DIGITAL_RANGES,
@@ -265,9 +271,33 @@ export function DigitalSection() {
               columns={3}
             />
           </Field>
-          <Group title={S.digitalCamera}>
+          {/* 2026-11-12：壓縮優先（NTSCRT 的順序：壓縮、擷取、相機） */}
+          <Group title={S.digitalCompress}>
+            <Field label={S.digitalCodec} hint={S.digitalCodecDesc[dg.codec]}>
+              <Segmented<DigitalCodec>
+                value={dg.codec}
+                onValueChange={(v) =>
+                  set((c) => {
+                    c.codec = v;
+                  })
+                }
+                options={DIGITAL_CODECS.map((k) => ({ value: k, label: S.digitalCodecs[k] }))}
+                fullWidth
+              />
+            </Field>
+            {slider('quality', S.quality, { hint: dct ? S.qualityHint : S.qualityHintVideo1 })}
+            {slider('keyframe', S.keyframe, {
+              hint: `${dct ? S.keyframeHint : S.keyframeHintVideo1}${S.keyframeSlow}`,
+              unit: S.keyframeUnit,
+              scale: 10,
+            })}
+            {slider('loss', S.loss, { hint: S.lossHint })}
+            {dct ? slider('mosh', S.mosh, { hint: S.moshHint }) : null}
+          </Group>
+          <Group title={S.digitalCapture}>
             <Switch
               label={S.interlace}
+              hint={S.interlaceHint}
               checked={dg.interlace}
               onChange={(v) =>
                 set((c) => {
@@ -275,44 +305,54 @@ export function DigitalSection() {
                 })
               }
             />
+            {dg.interlace ? (
+              <Switch
+                label={S.fieldScan}
+                hint={S.fieldScanHint(fieldScanRows({ digital: dg, aspect }))}
+                checked={dg.fieldScan}
+                onChange={(v) =>
+                  set((c) => {
+                    c.fieldScan = v;
+                  })
+                }
+              />
+            ) : null}
             {slider('alias', S.alias, { hint: S.aliasHint })}
+            {slider('rainbow', S.rainbow, { hint: S.rainbowHint })}
+            {slider('noise', S.sensorNoise)}
+            {slider('lowLight', S.lowLight, { hint: S.lowLightHint })}
+          </Group>
+          <Group title={S.digitalCamera}>
+            {slider('ccd', S.ccd, { hint: S.ccdHint })}
             {slider('exposure', S.exposure, { unit: S.exposureUnit, scale: 100 })}
             {slider('warmth', S.warmth, { hint: S.warmthHint })}
             {slider('saturation', S.digitalSaturation)}
             {slider('black', S.black, { hint: S.blackHint })}
             {slider('sharpen', S.sharpen)}
-            {slider('noise', S.sensorNoise)}
-          </Group>
-          <Group title={S.digitalCompress}>
-            {slider('quality', S.quality, { hint: S.qualityHint })}
-            {slider('keyframe', S.keyframe, {
-              hint: S.keyframeHint,
-              unit: S.keyframeUnit,
-              scale: 10,
-            })}
-            {slider('loss', S.loss, { hint: S.lossHint })}
-            {slider('mosh', S.mosh, { hint: S.moshHint })}
+            {dg.sharpen > 0 ? slider('halo', S.halo, { hint: S.haloHint, unit: 'px' }) : null}
           </Group>
           <AdvancedToggle toolId={TOOL_ID} label={S.advanced} />
           {more ? (
             <>
               {slider('width', S.captureWidth, { unit: 'px' })}
               {slider('fps', S.fps, { unit: '' })}
-              <Field label={S.chromaSub}>
-                <Select
-                  value={String(dg.chroma)}
-                  onValueChange={(v) =>
-                    set((c) => {
-                      c.chroma = Number(v);
-                    })
-                  }
-                  options={S.chromaSubs.map((label, i) => ({ value: String(i), label }))}
-                />
-              </Field>
+              {dct ? (
+                <Field label={S.chromaSub}>
+                  <Select
+                    value={String(dg.chroma)}
+                    onValueChange={(v) =>
+                      set((c) => {
+                        c.chroma = Number(v);
+                      })
+                    }
+                    options={S.chromaSubs.map((label, i) => ({ value: String(i), label }))}
+                  />
+                </Field>
+              ) : null}
               {slider('lens', S.lens)}
               {slider('denoise', S.denoise)}
               {slider('tint', S.tint, { hint: S.tintHint })}
-              {slider('blockSmooth', S.blockSmooth)}
+              {dct ? slider('blockSmooth', S.blockSmooth) : null}
             </>
           ) : null}
         </>
@@ -457,6 +497,18 @@ export function LoopSection() {
           {slider('color', S.loopColor, { hint: S.loopColorHint })}
           {slider('gain', S.gain, { hint: S.gainHint })}
           {slider('key', S.key, { hint: S.keyHint })}
+          {l.key > 0 ? (
+            <Switch
+              label={S.keyInvert}
+              hint={S.keyInvertHint}
+              checked={l.keyInvert}
+              onChange={(v) =>
+                set((c) => {
+                  c.keyInvert = v;
+                })
+              }
+            />
+          ) : null}
           <Switch
             label={S.seamless}
             hint={S.seamlessHint}

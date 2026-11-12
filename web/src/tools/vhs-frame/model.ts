@@ -39,6 +39,10 @@ export const screenSize = (aspect: Aspect): Size => ({
 export const heightFor = (width: number, aspect: Aspect): number =>
   Math.round((width * (aspect === '16:9' ? 9 : 3)) / (aspect === '16:9' ? 16 : 4));
 
+/** 單場的掃描線一行一條（2026-11-12）的行數：數位攝影擷取的高（依比例）÷ 2，無條件進位 */
+export const fieldScanRows = (s: { digital: { width: number }; aspect: Aspect }): number =>
+  Math.ceil(heightFor(s.digital.width, s.aspect) / 2);
+
 /** 動畫的大小：小（原作 360 × 270）、中、大 */
 export const ANIM_SIZES: Record<Aspect, readonly Size[]> = {
   '4:3': [

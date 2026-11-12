@@ -7,7 +7,7 @@ import { createEncoder, type EncoderSpec } from '@/core/encode';
 import { canvasToBlob, makeCanvas } from '@/core/image';
 import type { ExportOutput } from '@/ui';
 import { waitFonts } from './fonts';
-import { crtActive, ntscParams } from './look';
+import { crtActive, fieldScanOn, ntscParams } from './look';
 import { LOOP_DRAFT_DEPTH, loopSteps } from './loop';
 import {
   type AnimFrameInfo,
@@ -19,6 +19,7 @@ import {
   DEFAULT_PNG_SIZE,
   type ExportFormat,
   exportFileName,
+  fieldScanRows,
   frameText,
   GIF_COLORS,
   GIF_DELAY_CS,
@@ -158,6 +159,8 @@ function lookParams(s: VhsState) {
     vignette: s.picture.vignette / 100,
     corners: s.picture.corners,
     crt: crtActive(s.crt) ? s.crt : null,
+    /* 2026-11-12：單場的掃描線一行一條（行數＝擷取的高 ÷ 2）；沒開時不給（畫法照舊） */
+    ...(fieldScanOn(s.digital) ? { scanRows: fieldScanRows(s) } : {}),
   } satisfies Partial<FrameParams>;
 }
 

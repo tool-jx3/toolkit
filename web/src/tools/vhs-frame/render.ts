@@ -12,17 +12,21 @@
 import { makeCanvas } from '@/core/image';
 import { canvasFilterSupported } from '@/core/scene';
 import { createRandom } from '@/core/timeline';
+import { ColorBlockCodec } from './colorblock';
 import { type CanvasPool, glowSource, paintGlow, paintMask } from './crt';
 import {
   BlockCodec,
-  cameraBase,
+  cameraSample,
+  cameraTone,
   codecSettings,
   digitalFrameAt,
+  type FrameCodec,
   fromPlanes,
+  lowLightNoise,
   toPlanes,
 } from './digital';
 import { captionFont, NO_SIGNAL, OSD_FONT_SPEC, osdFontCss } from './fonts';
-import type { Crt, Digital } from './look';
+import { type Crt, type Digital, effectiveDigital } from './look';
 import {
   type Aspect,
   type CaptionStyle,
@@ -505,6 +509,22 @@ function softBand(
   g.fillRect(0, top, width, height);
 }
 
+/**
+ * 單場的掃描線（2026-11-12，規格 3.19；參考 NTSCRT〔MIT〕的 One field 把一個圖場直接送給 CRT：行數一半、每行兩倍高、一行一條掃描線）：
+ * 畫面高 H 分成 rows 行，第 i 行從 round(iH ÷ rows) 起、上半（round(H ÷ rows ÷ 2)，至少 1 px）是黑的，不透明度 alpha。
+ */
+function fieldLines(g: Ctx, W: number, H: number, rows: number, alpha: number): void {
+  const pitch = H / rows;
+  const dark = Math.max(1, Math.round(pitch / 2));
+  g.save();
+  g.globalAlpha = alpha;
+  g.fillStyle = '#000';
+  g.beginPath();
+  for (let i = 0; i < rows; i++) g.rect(0, Math.round(i * pitch), W, dark);
+  g.fill();
+  g.restore();
+}
+
 /** 把一張顆粒從 (start, start) 起每 step 一張鋪滿 W × H */
 function tileAcross(
   g: Ctx,
@@ -690,6 +710,10 @@ export interface FrameParams {
   ntsc?: { params: NtscParams; frame: number; draft?: boolean } | null;
   /** 映像管的螢光粉遮罩與光暈 */
   crt?: Crt | null;
+
+  /* ---- 2026-11-12（不給＝原本的畫法） ---- */
+  /** 單場的掃描線：整個畫面高分成這麼多行、每一行上半是黑的（數位攝影的單場、一行一條；fieldScanRows） */
+  scanRows?: number | null;
 }
 
 /**
@@ -967,8 +991,10 @@ export class VhsRenderer implements CanvasPool {
       x.restore();
     }
 
-    /* 掃描線 */
-    if (fx.scan) {
+    /* 掃描線（2026-11-12：單場、一行一條時照行數畫，見 fieldLines） */
+    if (fx.scan && p.scanRows)
+      fieldLines(x, W, H, p.scanRows, FX.scan.alpha + wear * FX.scan.alphaWear);
+    else if (fx.scan) {
       const per = Math.max(2, Math.round(H / FX.scan.lines));
       x.save();
       x.globalAlpha = FX.scan.alpha + wear * FX.scan.alphaWear;
@@ -1077,7 +1103,7 @@ export class VhsRenderer implements CanvasPool {
 
   /* ---------- 數位攝影（2026-11-10） ---------- */
 
-  private camera: { key: string; photo: CanvasImageSource; codec: BlockCodec } | null = null;
+  private camera: { key: string; photo: CanvasImageSource; codec: FrameCodec } | null = null;
 
   /**
    * 數位攝影拍的第 t 秒那一格（擷取的大小；照片已依位置畫好、可以左右反轉）：相機的固定部分與編碼器依「照片、位置、比例、設定」留著，
@@ -1096,22 +1122,37 @@ export class VhsRenderer implements CanvasPool {
     const ch = heightFor(cw, aspect);
     const key = JSON.stringify([img.width, img.height, view, aspect, flip, d]);
     if (!this.camera || this.camera.key !== key || this.camera.photo !== photo) {
-      const grab = (smooth: boolean) => {
-        const c = this.canvas(smooth ? 'cam-s' : 'cam-n', cw, ch);
+      /* scale＝1：擷取的大小（smooth＝高品質、否則最近點）；3：彩虹鋸齒用的 3 × 3 倍最近點 */
+      const grab = (smooth: boolean, scale = 1) => {
+        const w = cw * scale;
+        const h = ch * scale;
+        const c = this.canvas(smooth ? 'cam-s' : scale === 1 ? 'cam-n' : 'cam-3', w, h);
         const g = ctx2d(c);
         g.globalCompositeOperation = 'source-over';
         g.fillStyle = '#000';
-        g.fillRect(0, 0, cw, ch);
+        g.fillRect(0, 0, w, h);
         g.imageSmoothingEnabled = smooth;
         if (smooth) g.imageSmoothingQuality = 'high';
-        placePhoto(g, photo, img, view, aspect, cw, flip);
-        return g.getImageData(0, 0, cw, ch).data;
+        placePhoto(g, photo, img, view, aspect, w, flip);
+        return g.getImageData(0, 0, w, h).data;
       };
-      const base = cameraBase(grab(true), d.alias > 0 ? grab(false) : null, cw, ch, d);
+      const smooth = grab(true);
+      const sharp = d.alias > 0 ? grab(false) : null;
+      const thirds = d.rainbow > 0 ? grab(false, 3) : null;
+      const sampled = cameraSample(smooth, sharp, cw, ch, d, thirds);
+      /* 低光雜訊看感光元件讀到的亮度（調色之前） */
+      const noiseGain = lowLightNoise(sampled, cw, ch, d);
+      const base = cameraTone(sampled, cw, ch, d);
+      const e = effectiveDigital(d);
+      const planes = toPlanes(base, cw, ch, e.chroma);
+      const settings = codecSettings(e, noiseGain);
       this.camera = {
         key,
         photo,
-        codec: new BlockCodec(toPlanes(base, cw, ch, d.chroma), codecSettings(d)),
+        codec:
+          d.codec === 'video1'
+            ? new ColorBlockCodec(planes, settings, d.quality)
+            : new BlockCodec(planes, settings),
       };
     }
     const planes = this.camera.codec.decode(digitalFrameAt(t, d.fps));
