@@ -261,6 +261,7 @@ describe('PL 用連結（F216）', () => {
       notes: 2,
       secretFloors: 0,
       stage: 0,
+      moment: 0,
     });
     expect(removed.clues).toBe(clueCount(p.floors));
     /* 原本的地圖不變 */

@@ -18,6 +18,7 @@ import {
 } from '../draw/stage';
 import { getTheme } from '../draw/themes';
 import { clamp, snap } from '../model/geometry';
+import { momentNight, momentOf, momentProject } from '../model/moment';
 import { floorNavigator, type Navigator, roomKey } from '../model/route';
 import { roomHasPointClosed } from '../model/shape';
 import {
@@ -172,7 +173,11 @@ export class StageCanvas {
     const hideClues = !usePrefs.getState().data.showClues;
     const key = [p, tl, view, pl, hideClues];
     if (this.memo?.key.every((k, i) => k === key[i])) return this.memo.scene;
-    const scene = stageScene(p, tl, view, { playerView: pl, hideClues });
+    /* 事件前後（2026-11-12，F333）：演出照目前顯示的狀態畫 */
+    const scene = stageScene(momentProject(p, momentOf(p)), tl, view, {
+      playerView: pl,
+      hideClues,
+    });
     this.memo = { key, scene };
     return scene;
   }
@@ -241,7 +246,7 @@ export class StageCanvas {
       viewRect,
       activeLevel: levels.findIndex((f) => f.id === p.floors[p.active]?.id),
       planFloor: p.floors[p.active]?.id,
-      ...(p.night ? { night: p.night } : {}),
+      ...(momentNight(p, momentOf(p)) ? { night: momentNight(p, momentOf(p)) } : {}),
     };
     const frame = this.frame();
     if (frame) drawStageFrame(c, sc, opts, frame);

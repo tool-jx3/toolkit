@@ -54,6 +54,14 @@ export interface RecordingCanvas {
 
 let seq = 0;
 
+/**
+ * 畫布、漸層的編號從 0 重新數（2026-11-12）：兩次畫圖要逐指令比較、而且用到漸層（夜的光）時，先各自重設，
+ * 漸層的編號才會一樣。不呼叫時照舊（編號一路往上加）。
+ */
+export function resetRecordingIds(): void {
+  seq = 0;
+}
+
 export function recordingCanvas(width = 300, height = 150): RecordingCanvas {
   const h = new Hasher();
   let calls = 0;

@@ -166,7 +166,15 @@ export interface Room {
    * 疊放的邊畫欄杆、疊在甲板上時畫段差線。只在 true 時寫；新畫的甲板類房間才有，舊的地圖沒有＝照以前的規則（沒有牆）。
    */
   deck?: boolean;
+  /**
+   * 榻榻米的鋪法（2026-11-12 參考 KIIN v3.0，規格 F334）：祝儀鋪法、不祝儀鋪法、半疊市松。只在地板是榻榻米時有作用
+   * （和室、或地板選了榻榻米）；沒有＝原本的畫法（依房間大小交錯排）。
+   */
+  tatami?: TatamiLayout;
 }
+
+/** 榻榻米的鋪法（2026-11-12，F334；model/tatami.ts） */
+export type TatamiLayout = 'shugi' | 'fushugi' | 'ryukyu';
 
 /**
  * 曲線的房間的形狀（2026-11-05，F289）：圓・橢圓、圓角、八角形（倒角）、圓頂（半圓）、船首、船體；
@@ -189,8 +197,8 @@ export type RoomShape =
   | 'hull-s'
   | 'hull-w';
 
-/** 房間的地板（2026-11-05，F282） */
-export type FloorMaterial = 'carpet' | 'water' | 'grating';
+/** 房間的地板（2026-11-05，F282；2026-11-12 加榻榻米，F334） */
+export type FloorMaterial = 'carpet' | 'water' | 'grating' | 'tatami';
 
 /** 手畫的牆（線段） */
 export interface Wall {
@@ -201,6 +209,8 @@ export interface Wall {
   y2: number;
   kind: WallKind;
   gm?: boolean;
+  /** 出現的時機（2026-11-12，F329）：只在事件前／只在事件後；沒有＝兩種狀態都有 */
+  only?: Moment;
 }
 
 /**
@@ -217,6 +227,10 @@ export interface Opening {
   side: 1 | -1;
   hinge: 0 | 1;
   gm?: boolean;
+  /** 出現的時機（2026-11-12，F329） */
+  only?: Moment;
+  /** 事件後破損（2026-11-12，F331：事件後的狀態畫成破掉的門窗、碎片散在兩側；只在 true 時寫） */
+  smashed?: boolean;
 }
 
 /**
@@ -244,6 +258,10 @@ export interface Item {
    * 單獨移動或複製的那幾件離開群組。
    */
   ring?: string;
+  /** 出現的時機（2026-11-12，F329） */
+  only?: Moment;
+  /** 事件後倒下・翻亂（2026-11-12，F331：事件後的狀態畫成歪倒的樣子；只在 true 時寫） */
+  upset?: boolean;
 }
 
 /**
@@ -264,6 +282,8 @@ export interface FreeLine {
   /** 線的粗細倍率（0.5～3；沒有＝1） */
   w?: number;
   gm?: boolean;
+  /** 出現的時機（2026-11-12，F329） */
+  only?: Moment;
 }
 
 /** 地圖上的文字（x、y 是中心） */
@@ -281,6 +301,8 @@ export interface TextLabel {
   clue?: boolean;
   /** 圓標（深色的圓裡寫白字，例如房間編號；2026-10） */
   badge?: boolean;
+  /** 出現的時機（2026-11-12，F329） */
+  only?: Moment;
 }
 
 export interface Floor {
@@ -305,7 +327,19 @@ export interface Floor {
    * 整層只剩房間的輪廓與「？？？」。GM 檢視、GM 用與揭露用的圖照常。只在 true 時寫。
    */
   secret?: boolean;
+  /**
+   * 畫的時候用的標記（不存檔）：這一份已經照「事件前／事件後」整理過（model/moment.ts 的 momentFloor），不要再整理一次。
+   */
+  shownAt?: Moment;
 }
+
+/**
+ * 事件前後（2026-11-12 參考 KIIN「マップ制作スタジオ」v3.0 的「状態差分」，規格 F329～F336、3.20）：
+ * 同一張地圖有「事件前」與「事件後」兩種狀態。家具、文字、自由線、手畫的牆、門窗可以設「只在事件前」「只在事件後」
+ * （`only`；沒有＝兩種都有），家具可以設「事件後倒下・翻亂」（`upset`）、門窗「事件後破損」（`smashed`），
+ * 地圖可以設「事件後才停電」（`Project.blackout`）。房間不分狀態（兩種狀態的格局一樣，圖對得齊）。
+ */
+export type Moment = 'before' | 'after';
 
 /**
  * 立體樓層圖的視角（2026-11-09 參考 KIIN「立体フロアガイド制作スタジオ」，規格 F304、3.18）：
@@ -405,6 +439,14 @@ export interface Project {
    * 編輯演出算復原的步驟；播放時的公開是暫時的（不改這裡）。
    */
   stage?: StagePlan;
+  /**
+   * 目前顯示的狀態（2026-11-12，F330）：`after`＝事件後；沒有＝事件前。同切換樓層，不算一步復原。
+   */
+  moment?: 'after';
+  /**
+   * 事件後才停電（2026-11-12，F332）：事件前不畫夜色；事件後畫夜色（沒設夜的暗度時用 55%）。只在 true 時寫。
+   */
+  blackout?: boolean;
 }
 
 /** 可以選取的東西 */

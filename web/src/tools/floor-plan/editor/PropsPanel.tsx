@@ -41,6 +41,7 @@ import {
   CAT,
   CATEGORIES,
   FLOOR_MATERIALS,
+  FLOOR_PATTERN,
   isFloorMaterial,
   isWallKind,
   NIGHT_DEFAULT,
@@ -58,6 +59,7 @@ import { hasRadius, ROOM_SHAPES, radiusMax } from '../model/curve';
 import { FURNISH_PRESETS, NO_FURNISH } from '../model/furnish';
 import { clamp, metersText, meterText, pingText, roomArea, round2 } from '../model/geometry';
 import { isLineKind, LINE_KINDS, LINE_W_MAX, LINE_W_MIN, lineLength } from '../model/lines';
+import { momentOnlyCount } from '../model/moment';
 import { getObj, rotateItem } from '../model/ops';
 import { CORNERS, L_MIN } from '../model/shape';
 import {
@@ -74,9 +76,11 @@ import {
   stackCamera,
   stackLevels,
 } from '../model/stack';
+import { isTatamiLayout, TATAMI_LAYOUTS } from '../model/tatami';
 import type {
   FreeLine,
   Item,
+  Moment,
   Opening,
   Room,
   RoomShape,
@@ -216,6 +220,74 @@ const setOpt = <T,>(o: T, key: keyof T, v: T[keyof T] | undefined) => {
   else o[key] = v;
 };
 
+/**
+ * 出現時機（2026-11-12 參考 KIIN v3.0 的「状態差分」，F329）：兩種狀態都有／只在事件前／只在事件後。
+ * `flag`：家具的「事件後倒下・翻亂」、門窗的「事件後破損」。選了好幾個時 `only` 是共同的值（不一樣時 null）。
+ */
+function MomentFields({
+  only,
+  flag,
+}: {
+  only: Moment | undefined | null;
+  flag?: { ref: SelRef; key: 'upset' | 'smashed'; on: boolean };
+}) {
+  const value = only === null ? '' : (only ?? 'both');
+  return (
+    <div className="flex flex-col gap-2 border-t border-border pt-3" data-testid="moment-fields">
+      <Field label={S.moment.only} hint={S.moment.onlyHint}>
+        <Select
+          value={value}
+          onValueChange={(v) => act.setSelectionOnly(v === 'both' ? null : (v as Moment))}
+          options={[
+            { value: 'both', label: S.moment.onlyBoth },
+            { value: 'before', label: S.moment.onlyBefore },
+            { value: 'after', label: S.moment.onlyAfter },
+          ]}
+          placeholder={value ? undefined : '—'}
+          data-testid="moment-only"
+        />
+      </Field>
+      {flag ? (
+        <Field
+          label={flag.key === 'upset' ? S.moment.upset : S.moment.smashed}
+          hint={flag.key === 'upset' ? S.moment.upsetHint : S.moment.smashedHint}
+          layout="inline"
+        >
+          <Toggle
+            checked={flag.on}
+            onCheckedChange={(v) =>
+              act.editObj(flag.ref, (o) => {
+                const r = o as unknown as Record<string, unknown>;
+                if (v) r[flag.key] = true;
+                else delete r[flag.key];
+              })
+            }
+          />
+        </Field>
+      ) : null}
+    </div>
+  );
+}
+
+/** 地圖設定的事件前後（F332）：事件後才停電、只在某個狀態的東西的個數 */
+function MomentMapFields() {
+  const p = useProject((s) => s.data);
+  const before = momentOnlyCount(p, 'after');
+  const after = momentOnlyCount(p, 'before');
+  return (
+    <div className="flex flex-col gap-2 border-t border-border pt-3" data-testid="moment-map">
+      <p className="m-0 text-sm font-semibold text-fg">{S.moment.section}</p>
+      <Field label={S.moment.blackout} hint={S.moment.blackoutHint} layout="inline">
+        <Toggle checked={!!p.blackout} onCheckedChange={act.setBlackout} />
+      </Field>
+      <p className="m-0 text-xs text-muted">
+        {S.moment.sectionHint}
+        {before || after ? ` ${S.moment.stats(before, after)}` : ''}
+      </p>
+    </div>
+  );
+}
+
 /** 棋子方格（F220）：大小、顏色、不透明度 */
 function TokenGridFields() {
   const p = useProject((s) => s.data);
@@ -335,6 +407,7 @@ function MapProps() {
       <TokenGridFields />
       <KiinFields />
       <Kiin2Fields />
+      <MomentMapFields />
       <FloorFields />
       <p className="m-0 border-t border-border pt-3 text-xs text-muted" data-testid="map-stats">
         {f.name}：{S.props.stats(f.rooms.length, f.items.length, f.openings.length)}
@@ -1065,6 +1138,24 @@ function RoomProps({ r }: { r: Room }) {
           data-testid="room-floor"
         />
       </Field>
+      {(r.floor ? FLOOR_PATTERN[r.floor] : CAT[r.cat]?.pattern) === 'tatami' ? (
+        <Field label={S.tatami.label} hint={S.tatami.hint}>
+          <Select
+            value={r.tatami ?? AUTO}
+            onValueChange={(v) =>
+              edit((o) => {
+                if (isTatamiLayout(v)) o.tatami = v;
+                else delete o.tatami;
+              })
+            }
+            options={[
+              { value: AUTO, label: S.tatami.auto },
+              ...TATAMI_LAYOUTS.map((m) => ({ value: m, label: S.tatami[m] })),
+            ]}
+            data-testid="room-tatami"
+          />
+        </Field>
+      ) : null}
       <Readout
         label={S.props.area}
         value={
@@ -1184,6 +1275,29 @@ function ItemProps({ it }: { it: Item }) {
           size="sm"
         />
       </Field>
+      {/* 左右 15° 與 90° 旋轉的按鈕（2026-11-12 參考 KIIN v3.0，F339：手機沒有鍵盤也能轉） */}
+      <div className="-mt-1 flex flex-wrap gap-1" data-testid="item-rotate-buttons">
+        {(
+          [
+            [-1, false],
+            [-1, true],
+            [1, true],
+            [1, false],
+          ] as const
+        ).map(([dir, fine]) => (
+          <Button
+            key={`${dir}${fine}`}
+            size="sm"
+            variant="ghost"
+            icon={dir < 0 ? <RotateCcw /> : <RotateCw />}
+            onClick={() => act.rotateSelection(dir, fine)}
+            title={S.props.rotateStep(dir, fine ? 15 : 90)}
+            data-rotate={`${dir < 0 ? 'ccw' : 'cw'}${fine ? 15 : 90}`}
+          >
+            {fine ? '15°' : '90°'}
+          </Button>
+        ))}
+      </div>
       <Typing>
         <FieldRow columns={2}>
           <Field label={S.props.angle} hint={S.props.angleHint}>
@@ -1226,7 +1340,9 @@ function ItemProps({ it }: { it: Item }) {
       />
       {flagToggle<Item>(ref, 'gm', S.props.gmOnly, !!it.gm)}
       {flagToggle<Item>(ref, 'clue', S.props.clue, !!it.clue)}
+      <MomentFields only={it.only} flag={{ ref, key: 'upset', on: !!it.upset }} />
       <RingFields it={it} />
+      <p className="m-0 text-xs text-muted">{S.props.cycleHint}</p>
       <Actions>
         <CommonButtons order />
       </Actions>
@@ -1283,6 +1399,7 @@ function LineProps({ l }: { l: FreeLine }) {
         </Button>
       </div>
       {flagToggle<FreeLine>(ref, 'gm', S.props.gmOnly, !!l.gm)}
+      <MomentFields only={l.only} />
       <Actions>
         <CommonButtons />
       </Actions>
@@ -1351,6 +1468,14 @@ function OpeningProps({ o }: { o: Opening }) {
         </div>
       ) : null}
       {flagToggle<Opening>(ref, 'gm', S.props.gmOnly, !!o.gm)}
+      <MomentFields
+        only={o.only}
+        flag={
+          o.kind === 'open' || o.kind === 'hole'
+            ? undefined
+            : { ref, key: 'smashed', on: !!o.smashed }
+        }
+      />
       <Actions>
         <CommonButtons />
       </Actions>
@@ -1380,6 +1505,7 @@ function WallProps({ w }: { w: Wall }) {
         value={`${meterText(Math.hypot(w.x2 - w.x1, w.y2 - w.y1))}m`}
       />
       {flagToggle<Wall>(ref, 'gm', S.props.gmOnly, !!w.gm)}
+      <MomentFields only={w.only} />
       <Actions>
         <CommonButtons />
       </Actions>
@@ -1458,11 +1584,18 @@ function TextProps({ t }: { t: TextLabel }) {
       />
       {flagToggle<TextLabel>(ref, 'gm', S.props.gmOnly, !!t.gm)}
       {flagToggle<TextLabel>(ref, 'clue', S.props.clue, !!t.clue)}
+      <MomentFields only={t.only} />
       <Actions>
         <CommonButtons />
       </Actions>
     </>
   );
+}
+
+/** 選了好幾個時共同的出現時機（不一樣時 null） */
+function commonOnly(refs: { obj: Record<string, unknown> }[]): Moment | undefined | null {
+  const first = refs[0]?.obj.only as Moment | undefined;
+  return refs.every((r) => r.obj.only === first) ? first : null;
 }
 
 function MultiProps({
@@ -1521,6 +1654,9 @@ function MultiProps({
           </>
         ) : null}
       </div>
+      {refs.some((r) => r.type !== 'room') ? (
+        <MomentFields only={commonOnly(refs.filter((r) => r.type !== 'room'))} />
+      ) : null}
       <p className="m-0 text-xs text-muted">{S.props.multiNote}</p>
       <Actions>
         <CommonButtons order />

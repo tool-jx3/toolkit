@@ -35,6 +35,7 @@ import {
   unionRect,
   visibleFloor,
 } from '../model/geometry';
+import { composedFloor } from '../model/interior';
 import {
   bendTo,
   LINE_MIN_LEN,
@@ -44,6 +45,7 @@ import {
   lineMid,
   lineSamples,
 } from '../model/lines';
+import { momentNight, momentOf, usesMoments } from '../model/moment';
 import { type AnyObj, getObj, movable, nextFloorName, objList } from '../model/ops';
 import {
   cutHandlePoint,
@@ -88,6 +90,7 @@ import {
   type Floor,
   type FreeLine,
   type Item,
+  type Moment,
   OBJ_TYPES,
   type ObjType,
   type Opening,
@@ -161,6 +164,8 @@ type Drag =
       step: number;
       moved: boolean;
       before: Project;
+      /** 按下時已經單獨選著這件家具（放開時沒拖＝換選下面那一件，2026-11-12，F338） */
+      cycle?: boolean;
     }
   | {
       mode: 'resize';
@@ -240,7 +245,12 @@ export class EditorController {
   private dirty = false;
   private linesCache: { floor: Floor; lines: WallRun[] } | null = null;
   private openLinesCache: { floor: Floor; lines: WallRun[] } | null = null;
-  private posesCache: { floor: Floor; pv: boolean; poses: Map<string, OpeningPose> } | null = null;
+  private posesCache: {
+    floor: Floor;
+    pv: boolean;
+    moment: Moment;
+    poses: Map<string, OpeningPose>;
+  } | null = null;
   private unsubs: (() => void)[] = [];
   private ro: ResizeObserver | null = null;
   /** 從素材面板拖過來的家具或房間 */
@@ -508,6 +518,14 @@ export class EditorController {
     this.zoomAt(this.view.w / 2, this.view.h / 2, factor);
   }
 
+  /** Z／X（2026-11-12 參考 KIIN v3.0，F337）：游標在畫布上時以游標為中心，不然以畫面中心 */
+  zoomAtPointer(factor: number): void {
+    const p = this.pointer;
+    if (p && p.sx >= 0 && p.sy >= 0 && p.sx <= this.view.w && p.sy <= this.view.h)
+      this.zoomAt(p.sx, p.sy, factor);
+    else this.zoomBy(factor);
+  }
+
   syncZoom(): void {
     const pct = Math.round((this.view.zoom / ZOOM_BASE) * 100);
     if (useEditor.getState().zoomPct !== pct) setEditor({ zoomPct: pct });
@@ -541,12 +559,17 @@ export class EditorController {
   private poses(): Map<string, OpeningPose> {
     const f = this.shownFloor();
     const key = currentFloor();
-    if (this.posesCache?.floor === key && this.posesCache.pv === useEditor.getState().playerView)
+    const moment = momentOf(useProject.getState().data);
+    if (
+      this.posesCache?.floor === key &&
+      this.posesCache.pv === useEditor.getState().playerView &&
+      this.posesCache.moment === moment
+    )
       return this.posesCache.poses;
     const poses = f.rooms.some((r) => r.shape)
       ? computeWalls(f).poses
       : new Map<string, OpeningPose>();
-    this.posesCache = { floor: key, pv: useEditor.getState().playerView, poses };
+    this.posesCache = { floor: key, pv: useEditor.getState().playerView, moment, poses };
     return poses;
   }
 
@@ -707,6 +730,32 @@ export class EditorController {
     return best ? { type: 'room', id: (best as { id: string }).id } : null;
   }
 
+  /**
+   * 這一點上的家具（由上而下：貼牆素材 → 一般的家具 → 畫在底下的；同一組裡後放的在上；2026-11-12，F338）。
+   * 規則同 hitTest，只是全部列出來。
+   */
+  itemsAt(wx: number, wy: number): string[] {
+    if (veiledLocked()) return [];
+    const f = this.shownFloor();
+    const tol = 5 / this.view.zoom;
+    const hits = (it: Item) => {
+      const pad = Math.min(it.w, it.h) * this.view.zoom < 12 ? tol : 0;
+      return isRightAngle(it.rot || 0)
+        ? wx >= it.x - pad && wx <= it.x + it.w + pad && wy >= it.y - pad && wy <= it.y + it.h + pad
+        : itemHasPoint(it, wx, wy, pad);
+    };
+    const under = (it: Item) => Boolean(ASSET[it.t]?.under);
+    const wall = (it: Item) => Boolean(ASSET[it.t]?.wall);
+    const out: string[] = [];
+    for (const group of [
+      f.items.filter(wall),
+      f.items.filter((i) => !under(i) && !wall(i)),
+      f.items.filter(under),
+    ])
+      for (let i = group.length - 1; i >= 0; i--) if (hits(group[i])) out.push(group[i].id);
+    return out;
+  }
+
   private labelOpts() {
     const p = useProject.getState().data;
     return {
@@ -820,6 +869,8 @@ export class EditorController {
     c.clearRect(0, 0, this.canvas.width, this.canvas.height);
     c.setTransform(dpr * z, 0, 0, dpr * z, dpr * ox, dpr * oy);
     const viewRect = { x: -ox / z, y: -oy / z, w: this.view.w / z, h: this.view.h / z };
+    /* 事件前後（2026-11-12，F330、F332）：事件後才停電時夜色照狀態 */
+    const night = momentNight(p, momentOf(p));
     /* 演出（2026-11-09，F313～）：準備（GM）與演出的畫面（PL）都交給 StageCanvas */
     if (useStage.getState().on && this.stage) {
       this.stage.render(c);
@@ -841,7 +892,9 @@ export class EditorController {
         hideClues: !prefs.showClues,
         activeLevel: s.active,
         ghosts: s.ghosts,
-        ...(p.night ? { night: p.night } : {}),
+        ...(night ? { night } : {}),
+        /* 事件前後（2026-11-12，F330） */
+        ...(usesMoments(p) ? { moment: momentOf(p) } : {}),
       };
       if (s.board) drawBoard(c, s.board, s.floors, { ...opts, title: p.name });
       else drawStack(c, s.stack, s.floors, opts);
@@ -867,12 +920,18 @@ export class EditorController {
     }
     const ghost = prefs.ghost && p.active > 0 ? p.floors[p.active - 1] : null;
     const drawn = drawnFloor();
-    /* 座標標示（2026-10-29，F264）：字寫在這一層看得到的東西的外面 */
+    /* 座標標示（2026-10-29，F264）：字寫在這一層看得到的東西的外面（2026-11-12：事件前後兩種狀態合起來的範圍，同匯出） */
     const grid = p.coords ? coordGrid(p.floors, p.tokenGrid) : null;
     const coords = grid
       ? coordLabels(
           grid,
-          floorBounds(visibleFloor(drawn, ed.playerView, !prefs.showClues) as Floor),
+          floorBounds(
+            visibleFloor(
+              composedFloor(currentFloor(), p.floors),
+              ed.playerView,
+              !prefs.showClues,
+            ) as Floor,
+          ),
         )
       : null;
     drawFloor(c, drawn, {
@@ -896,7 +955,9 @@ export class EditorController {
         : undefined,
       coords,
       /* 夜的暗度（2026-11-05，F273） */
-      ...(p.night ? { night: p.night } : {}),
+      ...(night ? { night } : {}),
+      /* 事件前後（2026-11-12，F330）：drawnFloor 已經整理過，下一層的影子照同一個狀態 */
+      moment: momentOf(p),
     });
     /* 紙的污漬與摺痕（F263）：匯出這一層時整張圖的範圍當一張紙（和匯出的圖同一個位置） */
     if (p.wear) {
@@ -1575,13 +1636,25 @@ export class EditorController {
           this.updateCursor();
           return;
         }
-        const hit = this.hitTest(w.x, w.y);
+        const top = this.hitTest(w.x, w.y);
+        /* 重疊的家具（2026-11-12，F338）：選著的家具在這一點的下面時，按下去的是它（拖曳移動它；沒拖＝換選下一件） */
+        const picked = ed.sel.length === 1 && ed.sel[0].type === 'item' ? ed.sel[0] : null;
+        const hit =
+          top?.type === 'item' &&
+          picked &&
+          !e.shiftKey &&
+          !e.altKey &&
+          this.itemsAt(w.x, w.y).includes(picked.id)
+            ? picked
+            : top;
         if (hit) {
           if (e.shiftKey) {
             const has = ed.sel.some((s) => sameRef(s, hit));
             setEditor({ sel: has ? ed.sel.filter((s) => !sameRef(s, hit)) : [...ed.sel, hit] });
             return;
           }
+          const cycle =
+            hit.type === 'item' && ed.sel.length === 1 && sameRef(ed.sel[0], hit) && !e.altKey;
           if (!ed.sel.some((s) => sameRef(s, hit))) setEditor({ sel: [hit] });
           const f = currentFloor();
           if (hit.type === 'room' && (getObj(f, 'room', hit.id) as Room).locked) {
@@ -1610,6 +1683,7 @@ export class EditorController {
             step: entries.some((x) => x.type === 'room') ? 1 : 0.25,
             moved: false,
             before: useProject.getState().data,
+            ...(cycle ? { cycle: true } : {}),
           };
           this.updateCursor();
           return;
@@ -2173,6 +2247,12 @@ export class EditorController {
           if (ed.sel.length > 1 && !e.shiftKey) {
             const hit = this.hitTest(w.x, w.y);
             if (hit) setEditor({ sel: [hit] });
+          } else if (d.cycle && ed.sel.length === 1 && !e.shiftKey) {
+            /* 重疊的家具（2026-11-12，參考 KIIN；F338）：在選著的家具上再點一下＝換選下面那一件（一圈之後回到最上面） */
+            const stack = this.itemsAt(w.x, w.y);
+            const at = stack.indexOf(ed.sel[0].id);
+            if (at >= 0 && stack.length > 1)
+              setEditor({ sel: [{ type: 'item', id: stack[(at + 1) % stack.length] }] });
           }
         } else {
           /* 圓形配置（F279）：單獨移動的那幾件離開一圈（同一個手勢） */
@@ -2291,7 +2371,16 @@ export class EditorController {
       return;
     const { sx, sy } = this.eventPos(e);
     const w = this.toWorld(sx, sy);
-    const hit = this.hitTest(w.x, w.y);
+    const top = this.hitTest(w.x, w.y);
+    /* 重疊的家具（2026-11-12，F338）：連點換選到下面那一件時，按兩下不跳回最上面那一件 */
+    const sel = useEditor.getState().sel;
+    const hit =
+      top?.type === 'item' &&
+      sel.length === 1 &&
+      sel[0].type === 'item' &&
+      this.itemsAt(w.x, w.y).includes(sel[0].id)
+        ? sel[0]
+        : top;
     if (!hit) return;
     setEditor({ sel: [hit] });
     act.focusField(

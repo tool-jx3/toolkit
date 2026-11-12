@@ -7,6 +7,7 @@ import type {
   RoomCategory,
   RoomShape,
   SizeMode,
+  TatamiLayout,
   ThemeId,
   TokenGridSize,
   WallKind,
@@ -268,7 +269,15 @@ export type RoomPresetId =
   | 'domeRoom'
   | 'octagon'
   | 'hullDeck'
-  | 'bowDeck';
+  | 'bowDeck'
+  /* 2026-11-12：日式宅邸（町家的構成與和室；名稱、尺寸、鋪法本站自己定） */
+  | 'toriniwa'
+  | 'misenoma'
+  | 'zashiki'
+  | 'butsuma'
+  | 'tsuboniwa'
+  | 'inkyo'
+  | 'kura';
 
 export interface RoomPreset {
   id: RoomPresetId;
@@ -277,6 +286,8 @@ export interface RoomPreset {
   h: number;
   /** 曲線的形狀（2026-11-05，F289；沒有＝長方形） */
   shape?: RoomShape;
+  /** 榻榻米的鋪法（2026-11-12，F334；沒有＝原本的畫法） */
+  tatami?: TatamiLayout;
 }
 
 export type RoomPresetGroupId =
@@ -287,7 +298,9 @@ export type RoomPresetGroupId =
   | 'world'
   | 'build'
   | 'transit'
-  | 'curve';
+  | 'curve'
+  /* 2026-11-12：日式宅邸 */
+  | 'japanese';
 
 const P = (id: RoomPresetId, cat: RoomCategory, w: number, h: number): RoomPreset => ({
   id,
@@ -396,6 +409,22 @@ export const ROOM_PRESET_GROUPS: readonly { id: RoomPresetGroupId; items: RoomPr
       { ...P('bowDeck', 'shipdeck', 8, 12), shape: 'bow-e' },
     ],
   },
+  /*
+   * 2026-11-12：日式宅邸（F334）——町家的通庭、店之間、坪庭與和室、土藏；名稱、尺寸、鋪法本站自己定
+   * （驗證後修訂 2026-11-12：原本的組合名和 KIIN 見本的房間一一對應，換掉）
+   */
+  {
+    id: 'japanese',
+    items: [
+      P('toriniwa', 'doma', 3, 16),
+      { ...P('misenoma', 'washitsu', 9, 8), tatami: 'fushugi' },
+      { ...P('zashiki', 'washitsu', 8, 9), tatami: 'shugi' },
+      { ...P('butsuma', 'washitsu', 6, 6), tatami: 'shugi' },
+      P('tsuboniwa', 'garden', 5, 6),
+      { ...P('inkyo', 'washitsu', 6, 8), tatami: 'ryukyu' },
+      P('kura', 'stone', 8, 8),
+    ],
+  },
 ];
 
 export const ROOM_PRESETS: Record<RoomPresetId, RoomPreset> = Object.fromEntries(
@@ -457,7 +486,7 @@ export const NIGHT_MAX = 0.85;
 export const NIGHT_DEFAULT = 0.55;
 
 /** 房間的地板（2026-11-05，F282）：地毯、水面、格柵；花紋與底色的來源 */
-export const FLOOR_MATERIALS: readonly FloorMaterial[] = ['carpet', 'water', 'grating'];
+export const FLOOR_MATERIALS: readonly FloorMaterial[] = ['carpet', 'water', 'grating', 'tatami'];
 export const isFloorMaterial = (v: unknown): v is FloorMaterial =>
   typeof v === 'string' && (FLOOR_MATERIALS as readonly string[]).includes(v);
 /** 地板的花紋 */
@@ -465,11 +494,14 @@ export const FLOOR_PATTERN: Record<FloorMaterial, FloorPattern> = {
   carpet: 'carpet',
   water: 'water',
   grating: 'grating',
+  /* 2026-11-12（F334）：任何房間都可以鋪榻榻米 */
+  tatami: 'tatami',
 };
 /** 地板的底色借哪一種房間的顏色（地毯另外配色，themes.ts 的 carpet） */
 export const FLOOR_FILL_FROM: Record<Exclude<FloorMaterial, 'carpet'>, RoomCategory> = {
   water: 'water',
   grating: 'grate',
+  tatami: 'washitsu',
 };
 
 /** 匯出時 1 格的像素數 */

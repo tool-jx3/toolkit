@@ -22,6 +22,7 @@ import { gym, karaoke, theatre } from './leisure';
 import { steamLiner } from './liner';
 import { apartment, house, japaneseHouse, sanheyuan } from './living';
 import { diner, ryokan, speakeasy } from './lodging';
+import { machiya } from './machiya';
 import { mansion } from './mansion';
 import { militaryBase, prison } from './military';
 import { campsite, mine } from './outdoor';
@@ -81,6 +82,8 @@ export interface FloorTemplate {
   clues: readonly ClueSpec[];
   /** 載入時建議的顯示樣式（目前是彩色或恐怖調查時才換） */
   theme?: ThemeId;
+  /** 事件後才停電（2026-11-12，F332；老鋪町家的示範） */
+  blackout?: boolean;
 }
 
 /**
@@ -298,6 +301,23 @@ export const TEMPLATES: readonly FloorTemplate[] = [
       C('1F', '座敷', 'photo', '穿軍服的/男人的照片'),
       C('1F', '廚房', 'key', '刻著片假名的/鑰匙'),
       C('1F', '洋式客廳', 'memo', '夾在唱片/封套裡的信'),
+    ],
+  },
+  /* 2026-11-12（示範 KIIN v3.0 的「状態差分」與和風素材的用法；題材、格局、房間、線索本站自己的，F336、D139） */
+  {
+    id: 'machiya',
+    group: 'home',
+    also: ['commerce', 'ruins'],
+    name: '老鋪町家（事件前後）',
+    description:
+      '臨街開當鋪的町家：店之間、貫穿到後面的通庭與灶間、坪庭與緣側、奧之間與隱居間，後院有土藏。畫布右上切到「事件後」：停電、翻亂的帳場、奧之間的血跡、撬開的土藏與釘上木板的格子窗（事件前後兩種狀態的示範）。',
+    build: machiya,
+    blackout: true,
+    clues: [
+      C('1F', '店之間', 'memo', '撕掉一半的/當票'),
+      C('1F', '中之間', 'photo', '店主與陌生人的/合照'),
+      C('1F', '隱居間', 'diary', '老闆娘的/家計簿'),
+      C('1F', '土藏', 'key', '沾了泥的/土藏鑰匙'),
     ],
   },
   {

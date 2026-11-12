@@ -1,6 +1,6 @@
 /**
  * 室內平面圖產生器：2026-10 第三批（家具擴充、貼牆素材、標籤搜尋；規格 F232～F236、3.11、D46～D51）。
- * - 目錄：397 種（2026-10-29 跟進原作 v1.15 加 8 種；同日參考 KIIN 加桌上的小物 2 種；2026-11-05 參考 KIIN v2.0 加船的素材 5 種、
+ * - 目錄：412 種（2026-11-12 參考 KIIN v3.0 加和家具、庭園、事件痕跡 15 種；2026-10-29 跟進原作 v1.15 加 8 種；同日參考 KIIN 加桌上的小物 2 種；2026-11-05 參考 KIIN v2.0 加船的素材 5 種、
  *   逆時針的螺旋梯，F280、F281）、24 類、尺寸、標籤；
  * - 畫法：每一種都有、五種樣式都畫得出來（用記錄呼叫的假 canvas：沒有例外、畫得出東西、不超出外框太多、彼此不同）；
  * - 搜尋：名稱、#標籤、組合、全形＃、建議；範本的標籤；
@@ -175,13 +175,34 @@ function drawAsset(a: AssetInfo, theme: (typeof THEME_IDS)[number], icon = false
   return rec;
 }
 
+/** 2026-11-12（參考 KIIN v3.0，F334）新增的 15 種 */
+const KIIN3_IDS = [
+  'kotatsu',
+  'chabudai',
+  'tansu',
+  'chadansu',
+  'oshiire',
+  'kamidana',
+  'hibachi',
+  'morishio',
+  'gourd_pond',
+  'inari',
+  'boards',
+  'ofuda',
+  'blood_drag',
+  'scattered_papers',
+  'broken_dishes',
+];
+
 /* ---------- 目錄 ---------- */
 
 describe('家具目錄（F232、3.11）', () => {
-  it('397 種、24 類；原作新增的 242 種（v1.15 的 8 種含）代號相同，另有本站的貼牆素材 4 種、桌上的小物 2 種、船的素材 5 種與逆時針的螺旋梯', () => {
-    expect(ASSETS.length).toBe(397);
+  it('412 種、24 類；原作新增的 242 種（v1.15 的 8 種含）代號相同，另有本站的貼牆素材 4 種、桌上的小物 2 種、船的素材 5 種與逆時針的螺旋梯；2026-11-12 和家具、庭園、事件痕跡 15 種', () => {
+    expect(ASSETS.length).toBe(412);
     expect(ASSET_GROUPS.length).toBe(24);
-    expect(new Set(ASSETS.map((a) => a.id)).size).toBe(397);
+    expect(new Set(ASSETS.map((a) => a.id)).size).toBe(412);
+    /* 2026-11-12（參考 KIIN v3.0，F334）：和家具 8 種、日本庭園 2 種、事件痕跡 5 種（本站自己的代號） */
+    for (const id of KIIN3_IDS) expect(ASSET[id], id).toBeDefined();
     /* 2026-11-05（參考 KIIN v2.0）：帆柱、艦砲、蒸汽機、絞盤、一捲纜繩、逆時針的螺旋梯（本站自己的代號） */
     for (const id of ['mast', 'ship_cannon', 'steam_engine', 'capstan', 'rope_coil', 'spiral_ccw'])
       expect(ASSET[id], id).toBeDefined();
@@ -227,9 +248,9 @@ describe('家具目錄（F232、3.11）', () => {
       expect(ASSET[id].w).toBeGreaterThanOrEqual(4);
   });
 
-  it('貼牆素材：9 種（原作的 5 種＋本站的 4 種），橫的（長邊沿著牆）', () => {
+  it('貼牆素材：11 種（原作的 5 種＋本站的 4 種＋2026-11-12 的封鎖的木板、封印的符咒），橫的（長邊沿著牆）', () => {
     const wall = ASSETS.filter((a) => a.wall).map((a) => a.id);
-    expect(wall.sort()).toEqual([...UPSTREAM_WALL_ITEMS, ...OWN].sort());
+    expect(wall.sort()).toEqual([...UPSTREAM_WALL_ITEMS, ...OWN, 'boards', 'ofuda'].sort());
     for (const id of wall) {
       expect(isWallMounted(id)).toBe(true);
       expect(ASSET[id].w).toBeGreaterThanOrEqual(ASSET[id].h);
@@ -375,7 +396,7 @@ describe('搜尋（F46、F234、F235）', () => {
     expect(find('＃鐵道')).toEqual(rail);
     /* 「#床」不是標籤：沒有結果（名稱有床的不算） */
     expect(find('#床')).toEqual([]);
-    expect(find('#')).toHaveLength(397);
+    expect(find('#')).toHaveLength(412);
     /* 代號也可以：#railway */
     expect(find('#railway')).toEqual(rail);
   });
@@ -448,7 +469,8 @@ describe('搜尋（F46、F234、F235）', () => {
     expect(tpl('#廢墟 #住家')).toEqual(['ruined-house']);
     expect(tpl('#鐵道')).toEqual(['station', 'subway']);
     expect(tpl('#地下 #交通')).toEqual(['station', 'subway', 'parking']);
-    expect(tpl('#和風')).toEqual(['japanese-house', 'ryokan', 'shrine']);
+    /* 2026-11-12：老鋪町家（事件前後，F336） */
+    expect(tpl('#和風')).toEqual(['japanese-house', 'machiya', 'ryokan', 'shrine']);
     expect(tpl('#奇幻')).toEqual(['castle', 'dungeon', 'tavern', 'wizard-tower']);
     expect(tpl('#宗教 #戶外')).toEqual([
       'sanheyuan',

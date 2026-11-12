@@ -242,13 +242,15 @@ describe('新的種類的資料（F226、F227、F229）', () => {
   });
 
   it('房間卡片：新的兩組，每種新的房間種類一張（共 51 張）', () => {
-    /* 2026-11-05 加的「曲線的房間・船」一組（6 張）接在最後，這裡不算 */
-    const before = ROOM_PRESET_GROUPS.filter((g) => g.id !== 'curve');
+    /*
+     * 2026-11-05 加的「曲線的房間・船」一組（6 張）、2026-11-12 加的「日式宅邸」一組（7 張，F334）接在最後，這裡不算
+     */
+    const before = ROOM_PRESET_GROUPS.filter((g) => g.id !== 'curve' && g.id !== 'japanese');
     const groups = before.slice(-2);
     expect(groups.map((g) => g.id)).toEqual(['build', 'transit']);
     expect(groups.flatMap((g) => g.items.map((p) => p.cat)).sort()).toEqual([...NEW_ROOMS].sort());
     expect(before.flatMap((g) => g.items)).toHaveLength(51);
-    expect(ROOM_PRESET_GROUPS.flatMap((g) => g.items)).toHaveLength(57);
+    expect(ROOM_PRESET_GROUPS.flatMap((g) => g.items)).toHaveLength(64);
     for (const g of groups) {
       expect(S.presetGroups[g.id]).toBeTruthy();
       for (const p of g.items) expect(S.presets[p.id], p.id).toBeTruthy();
