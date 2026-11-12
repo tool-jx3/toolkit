@@ -30,6 +30,7 @@ import { useEffect, useRef } from 'react';
 import { Button, cn, IconButton } from '@/ui';
 import { SWING_DOORS } from '../model/catalog';
 import { donorFloorIndex } from '../model/floorCopy';
+import { MOMENTS, momentOf } from '../model/moment';
 import { getObj } from '../model/ops';
 import type { Opening, Room } from '../model/types';
 import { S } from '../strings';
@@ -129,6 +130,45 @@ function ClueToggle() {
       {S.bar.clues}
       <span className="font-bold">{on ? S.bar.on : S.bar.off}</span>
     </button>
+  );
+}
+
+/**
+ * 事件前／事件後（2026-11-12 參考 KIIN v3.0 的「状態差分」，F330）：畫布右上、隱藏線索的下面。
+ * 切換不算一步復原；事件後是醒目的顏色（不會忘了自己在事件後畫東西）。
+ */
+function MomentToggle() {
+  const moment = useProject((s) => momentOf(s.data));
+  return (
+    <fieldset
+      aria-label={S.moment.toggle}
+      title={S.moment.toggleHint}
+      className={cn(
+        'absolute top-11 right-2 z-10 m-0 flex min-w-0 items-center gap-0.5 rounded-full border bg-surface p-0.5 text-xs font-medium shadow-1',
+        moment === 'after' ? 'border-danger' : 'border-border',
+      )}
+      data-testid="moment-toggle"
+    >
+      {MOMENTS.map((m) => (
+        <button
+          key={m}
+          type="button"
+          aria-pressed={moment === m}
+          onClick={() => act.setMoment(m)}
+          className={cn(
+            'rounded-full px-2.5 py-0.5 focus-visible:ring-2 focus-visible:ring-focus focus-visible:outline-none',
+            moment === m
+              ? m === 'after'
+                ? 'bg-danger font-bold text-danger-contrast'
+                : 'bg-surface-2 font-bold text-fg'
+              : 'text-muted hover:text-fg',
+          )}
+          data-moment={m}
+        >
+          {S.moment.names[m]}
+        </button>
+      ))}
+    </fieldset>
   );
 }
 
@@ -423,6 +463,7 @@ export function CanvasArea() {
       />
       {stage && M ? <M.StageToolStrip /> : view === 'plan' ? <ToolStrip /> : null}
       <ClueToggle />
+      <MomentToggle />
       {view === 'plan' && !stage ? <MiniBar /> : null}
       <QuickSetup />
       <Hint />

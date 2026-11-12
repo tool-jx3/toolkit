@@ -40,6 +40,8 @@ export const LIGHT_ITEMS: Readonly<Record<string, LightSpec>> = {
   torch: { r: 5.6, glow: 0.32, tone: 'fire' },
   campfire: { r: 7.6, glow: 0.38, tone: 'fire' },
   fireplace: { r: 6.8, glow: 0.36, tone: 'fire' },
+  /* 2026-11-12（F334）：火盆 */
+  hibachi: { r: 4, glow: 0.26, tone: 'fire' },
   streetlight: { r: 8, glow: 0.24, tone: 'fire' },
   magic_circle: { r: 5.6, glow: 0.24, tone: 'mystic' },
   crystal_ball: { r: 3.4, glow: 0.22, tone: 'mystic' },

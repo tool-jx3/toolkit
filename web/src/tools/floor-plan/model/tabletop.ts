@@ -32,6 +32,9 @@ export const SURFACES: ReadonlySet<string> = new Set([
   'display_case',
   'pedestal',
   'picnic',
+  /* 2026-11-12（F334）：暖桌、圓矮桌 */
+  'kotatsu',
+  'chabudai',
 ]);
 
 /**

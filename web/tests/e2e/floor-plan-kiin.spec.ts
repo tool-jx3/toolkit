@@ -230,7 +230,7 @@ test.describe('L 形房間（F257～F260）', () => {
     expect(saved).toMatchObject({
       format: 'trpg-toolkit-project',
       tool: 'floor-plan',
-      version: 11,
+      version: 12,
     });
     expect(saved.data.floors[0].rooms[0].cut).toEqual({ c: 'ne', w: 4, h: 3 });
     expect(errors).toEqual([]);
@@ -634,9 +634,14 @@ test.describe('VTT 用的匯出（F265、F266）', () => {
     const dialog = page.getByTestId('export-dialog');
     await dialog.getByRole('radio', { name: 'VTT 用' }).click();
     /* 13 × 9 格＋四周 2 格 → 18 × 14 格 → 對齊 1 m：18 × 14 → 9 × 7 個 VTT 格 */
-    await expect(page.getByTestId('export-info')).toHaveText('橫 9 格 × 縱 7 格・900 × 700 px');
+    /* 2026-11-12 修訂（參考 KIIN v3.0，F265）：後面多「1 格幾 px（幾 m）」 */
+    await expect(page.getByTestId('export-info')).toHaveText(
+      '橫 9 格 × 縱 7 格・900 × 700 px・1 格 100 px（1 m）',
+    );
     await dialog.getByRole('radio', { name: '50px' }).click();
-    await expect(page.getByTestId('export-info')).toHaveText('橫 9 格 × 縱 7 格・450 × 350 px');
+    await expect(page.getByTestId('export-info')).toHaveText(
+      '橫 9 格 × 縱 7 格・450 × 350 px・1 格 50 px（1 m）',
+    );
     const [dl] = await Promise.all([
       page.waitForEvent('download'),
       page.getByTestId('export-download').click(),
@@ -647,7 +652,7 @@ test.describe('VTT 用的匯出（F265、F266）', () => {
     await page.getByTestId('export-vtt-copy').click();
     await expect(page.getByText('已複製格數與大小', { exact: true })).toBeVisible();
     expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
-      '橫 9 格 × 縱 7 格・450 × 350 px',
+      '橫 9 格 × 縱 7 格・450 × 350 px・1 格 50 px（1 m）',
     );
     /* 太大：任一邊超過 8192 px */
     await page.keyboard.press('Escape');

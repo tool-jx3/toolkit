@@ -88,6 +88,8 @@ const BUILT_IN: Record<string, string[]> = {
   'wizard-tower': ['3F/召喚室'],
   /* 2026-11-09：鐘錶行（三層樓的範例）工作室牆後的密室 */
   clockshop: ['B1/密室'],
+  /* 2026-11-12：日式老宅（F336）土藏深處的封印之間 */
+  'japanese-estate': ['1F/封印之間'],
 };
 
 /**

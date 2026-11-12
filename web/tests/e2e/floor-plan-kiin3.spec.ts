@@ -248,7 +248,7 @@ test('曲線的房間的預設（F289）：素材面板「曲線的房間・船�
   /* 專案檔 */
   const [dl] = await Promise.all([page.waitForEvent('download'), page.keyboard.press('Control+s')]);
   const json = JSON.parse(readFileSync((await dl.path()) as string, 'utf8'));
-  expect(json.version).toBe(11);
+  expect(json.version).toBe(12);
   expect(json.data.floors[0].rooms[0].shape).toBe('ellipse');
   expect(errors).toEqual([]);
 });

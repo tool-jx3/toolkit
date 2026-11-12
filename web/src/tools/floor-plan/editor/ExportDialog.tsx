@@ -40,7 +40,8 @@ import {
   vttTooLarge,
 } from '../model/exportPlan';
 import { floorHasClues } from '../model/geometry';
-import type { Project, ThemeId } from '../model/types';
+import { MOMENTS, momentOf, usesMoments } from '../model/moment';
+import type { Moment, Project, ThemeId } from '../model/types';
 import { S } from '../strings';
 import { notify } from './actions';
 import { type Prefs, setEditor, useEditor, usePrefs, useProject } from './store';
@@ -69,6 +70,9 @@ export function ExportDialog() {
   const [busy, setBusy] = useState(false);
   /* 下載完成之後（PL 用的圖裡有祕密樓層時）顯示「祕密樓層全部公開再存一張」（2026-11-09，F307） */
   const [unveilKey, setUnveilKey] = useState<string | null>(null);
+  /* 事件前後（2026-11-12，F333）：匯出哪一個狀態（打開時＝畫布上目前的狀態；只在這個對話框） */
+  const [moment, setMoment] = useState<Moment>(momentOf(project));
+  const hasMoments = usesMoments(project);
 
   /* 打開時：樣式＝地圖的樣式（這一頁選過就沿用）、隱藏線索＝畫面上目前的狀態 */
   useEffect(() => {
@@ -80,6 +84,7 @@ export function ExportDialog() {
     if ((view === 'stack' || view === 'board') && useProject.getState().data.floors.length > 1)
       setExp({ range: view });
     setUnveilKey(null);
+    setMoment(momentOf(useProject.getState().data));
   }, [open]);
 
   const multi = project.floors.length > 1;
@@ -87,8 +92,13 @@ export function ExportDialog() {
   /* 立體樓層圖、樓層總覽（2026-11-09，F306）：VTT 用、格線、棋子方格不適用 */
   const stackMode = isStackRange(range);
   const e2 = useMemo(
-    () => ({ ...exp, range, ...(stackMode ? { mode: 'image' as const } : {}) }),
-    [exp, range, stackMode],
+    () => ({
+      ...exp,
+      range,
+      ...(stackMode ? { mode: 'image' as const } : {}),
+      ...(hasMoments ? { moment } : {}),
+    }),
+    [exp, range, stackMode, hasMoments, moment],
   );
   /* 下載之後範圍或對象改了就收起來 */
   const unveilReady = unveilKey === `${range}|${exp.view}`;
@@ -122,7 +132,7 @@ export function ExportDialog() {
   const cells = vtt && layout && 'width' in layout ? vttCells(layout, cell) : null;
   const vttLine =
     vtt && layout && cells
-      ? `${S.exp.vttInfo(cells.x, cells.y, layout.pxWidth, layout.pxHeight)}${
+      ? `${S.exp.vttInfo(cells.x, cells.y, layout.pxWidth, layout.pxHeight, vttPxOf(exp), cell * CELL_M)}${
           range === 'each' && multi ? S.exp.vttEach(project.floors.length) : ''
         }`
       : '';
@@ -191,6 +201,34 @@ export function ExportDialog() {
         );
       notify(unveiled ? S.exp.unveiled : S.exp.saved(jobs.length), 'success');
       if (!unveiled && exportHasSecret(project, e2)) setUnveilKey(`${range}|${exp.view}`);
+    } catch {
+      notify(S.exp.failed, 'danger');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  /** 事件前後各存一張（2026-11-12，F333）：同樣的設定、同樣的範圍，事件前的先、事件後的後 */
+  const downloadPair = async () => {
+    setBusy(true);
+    try {
+      const files = MOMENTS.flatMap((m) => {
+        const em = { ...e2, moment: m };
+        return exportJobs(project, em)
+          .filter((j) => hasExportContent(j.floors, exp.view === 'pl', exp.clues === 'hide'))
+          .map((j) => ({
+            name: j.name,
+            blob: () =>
+              canvasToBlob(
+                stackMode
+                  ? renderStackImage(j.floors, stackExportOptions(project, em, theme, exp.px))
+                  : renderImage(j.floors, exportOptions(project, em, theme, exp.px)),
+                'image/png',
+              ),
+          }));
+      });
+      await downloadSequentially(files, { intervalMs: 300 });
+      notify(S.moment.pairSaved(files.length), 'success');
     } catch {
       notify(S.exp.failed, 'danger');
     } finally {
@@ -374,6 +412,30 @@ export function ExportDialog() {
             <div className="flex flex-col gap-1" data-testid="export-reveal-note">
               <p className="m-0 text-xs text-muted">{S.exp.revealNote}</p>
               {revealFrameDiffers ? <Notice tone="warning">{S.exp.revealFrame}</Notice> : null}
+            </div>
+          ) : null}
+          {hasMoments ? (
+            <div className="flex flex-col gap-1.5" data-testid="export-moment">
+              <Field label={S.moment.label}>
+                <Segmented
+                  size="sm"
+                  value={moment}
+                  onValueChange={(v) => setMoment(v as Moment)}
+                  options={MOMENTS.map((m) => ({ value: m, label: S.moment.names[m] }))}
+                />
+              </Field>
+              <Button
+                size="sm"
+                className="self-start"
+                loading={busy}
+                disabled={blocked}
+                onClick={() => void downloadPair()}
+                title={S.moment.exportPairHint}
+                data-testid="export-pair"
+              >
+                {S.moment.exportPair}
+              </Button>
+              <p className="m-0 text-xs text-muted">{S.moment.exportNote}</p>
             </div>
           ) : null}
           {hasClues ? (

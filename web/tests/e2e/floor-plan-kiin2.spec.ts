@@ -455,7 +455,7 @@ test('下繪圖（F283）：選圖片之後疊在畫面上；不存進專案檔�
   const saved = readFileSync((await dl.path()) as string, 'utf8');
   expect(saved).not.toContain('sketch');
   expect(saved).not.toContain('blob:');
-  expect(JSON.parse(saved).version).toBe(11);
+  expect(JSON.parse(saved).version).toBe(12);
   expect(errors).toEqual([]);
 });
 

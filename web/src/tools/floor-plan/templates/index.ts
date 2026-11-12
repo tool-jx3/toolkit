@@ -14,6 +14,7 @@ import { addClues, type ClueSpec } from './clues';
 import { detective, konbini, nightMarket, office, shoppingStreet } from './commerce';
 import { decay } from './decay';
 import { dungeon } from './dungeon';
+import { japaneseEstate } from './estate';
 import { tavern, wizardTower } from './fantasy';
 import { applyGmDefaults } from './gmDefaults';
 import { lodge, studio, townhouse } from './homes';
@@ -81,6 +82,8 @@ export interface FloorTemplate {
   clues: readonly ClueSpec[];
   /** 載入時建議的顯示樣式（目前是彩色或恐怖調查時才換） */
   theme?: ThemeId;
+  /** 事件後才停電（2026-11-12，F332；日式老宅的示範） */
+  blackout?: boolean;
 }
 
 /**
@@ -298,6 +301,23 @@ export const TEMPLATES: readonly FloorTemplate[] = [
       C('1F', '座敷', 'photo', '穿軍服的/男人的照片'),
       C('1F', '廚房', 'key', '刻著片假名的/鑰匙'),
       C('1F', '洋式客廳', 'memo', '夾在唱片/封套裡的信'),
+    ],
+  },
+  /* 2026-11-12（參考 KIIN v3.0 的「状態差分」與和風素材；格局、房間、線索本站自己的，F336） */
+  {
+    id: 'japanese-estate',
+    group: 'home',
+    also: ['sacred', 'ruins'],
+    name: '日式老宅（事件前後）',
+    description:
+      '庭院裡有離屋茶室與土藏的老宅。畫布右上切到「事件後」：停電、倒下的家具、破掉的玻璃門、座敷的血跡與封起來的土藏（事件前後兩種狀態的示範）。',
+    build: japaneseEstate,
+    blackout: true,
+    clues: [
+      C('1F', '書齋', 'diary', '祖父寫到一半的/日記'),
+      C('1F', '次之間', 'photo', '少了一個人的/全家福'),
+      C('1F', '土藏', 'key', '生鏽的/土藏鑰匙'),
+      C('1F', '離屋・茶室', 'memo', '掛軸背面的/字條'),
     ],
   },
   {

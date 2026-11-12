@@ -348,6 +348,8 @@ describe('範本目錄', () => {
         'house',
         'sanheyuan',
         'japanese-house',
+        /* 2026-11-12：事件前後的示範（F336） */
+        'japanese-estate',
         /* 2026-11-09：三層樓的範例（F312） */
         'clockshop',
         'ruined-house',
@@ -392,6 +394,7 @@ describe('範本目錄', () => {
       sacred: [
         'sanheyuan',
         'japanese-house',
+        'japanese-estate',
         'funeral-home',
         'temple',
         'shrine',
@@ -400,6 +403,7 @@ describe('範本目錄', () => {
       ],
       wild: ['lodge', 'sewer', 'cave', 'cult', 'campsite', 'mine', 'dungeon'],
       ruins: [
+        'japanese-estate',
         'asylum',
         'detective',
         'construction',
@@ -424,10 +428,10 @@ describe('範本目錄', () => {
     const order = TEMPLATE_GROUPS.map((g) => g.id);
     const groups = TEMPLATES.map((t) => order.indexOf(t.group));
     expect(groups).toEqual([...groups].sort((a, b) => a - b));
-    /* 2026-11-09：加了鐘錶行（三層樓的範例，F312）：58 → 59 */
-    expect(TEMPLATES).toHaveLength(59);
-    expect(new Set(TEMPLATES.map((t) => t.id)).size).toBe(59);
-    expect(new Set(TEMPLATES.map((t) => t.name)).size).toBe(59);
+    /* 2026-11-09：加了鐘錶行（三層樓的範例，F312）：58 → 59；2026-11-12：日式老宅（F336）：59 → 60 */
+    expect(TEMPLATES).toHaveLength(60);
+    expect(new Set(TEMPLATES.map((t) => t.id)).size).toBe(60);
+    expect(new Set(TEMPLATES.map((t) => t.name)).size).toBe(60);
     /* 恐怖調查樣式：主要分類是廢墟的（命案現場除外）與地下教團據點 */
     expect(TEMPLATES.filter((t) => t.theme === 'horror').map((t) => t.id)).toEqual([
       'cult',

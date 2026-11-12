@@ -9,11 +9,12 @@
  * - 開了棋子方格（2026-10，原作 v1.07；規格 F220、3.9）時，範圍、樓層名稱、間隔、字帶都對齊「格線的單位」與方格大小的
  *   最小公倍數，方格線從圖的左上角開始，寬高是方格的整數倍；方格畫在家具與牆的上面（房間名字、文字的下面）。
  * - 實際的倍率：每格 px，但超過瀏覽器能畫的大小時自動縮小（core/image 的 limitResolution、deviceResolutionLimits）。
+ * - 事件前後（2026-11-12，F333）：範圍照傳進來的樓層（兩種狀態合起來）算，畫的時候才照 `moment` 拿掉另一個狀態的東西。
  */
 import { deviceResolutionLimits, limitResolution, type ResolutionLimits } from '@/core/image';
 import { type CoordGrid, type CoordLabels, coordLabels } from '../model/coords';
 import { floorBounds, unionRect, visibleFloor } from '../model/geometry';
-import type { Floor, Rect, SizeMode, ThemeId } from '../model/types';
+import type { Floor, Moment, Rect, SizeMode, ThemeId } from '../model/types';
 import { drawThemeEffect, drawWear } from './effects';
 import { haloText } from './labels';
 import { drawFloor } from './render';
@@ -59,6 +60,11 @@ export interface ExportImageOptions {
   night?: number;
   /** 揭露用（公開差分用，2026-11-05，F284）：GM 專用的東西照一般的顏色畫 */
   reveal?: boolean;
+  /**
+   * 事件前後（2026-11-12，F333；沒有＝事件前）：畫這個狀態。**範圍照兩種狀態合起來算**（傳進來的樓層是原本的資料），
+   * 所以事件前、事件後的圖大小與位置相同，疊得齊。
+   */
+  moment?: Moment;
 }
 
 export interface ExportLayout {
@@ -234,6 +240,7 @@ export function renderImage(floors: readonly Floor[], opts: ExportImageOptions):
       coords: L.coords[i],
       ...(opts.night ? { night: opts.night } : {}),
       ...(opts.reveal ? { reveal: true } : {}),
+      ...(opts.moment ? { moment: opts.moment } : {}),
     });
     if (L.titleH) {
       c.textAlign = 'left';

@@ -179,7 +179,8 @@ function insideRooms(f: Floor, pts: { x: number; y: number }[]): boolean {
 
 describe('專案檔與整理（版本 11、F327、D121）', () => {
   it('版本 11；演出照讀，指到不存在的房間、樓層的拿掉，路線的數字夾回來、時機指到不見的路線變成最後', () => {
-    expect(DATA_VERSION).toBe(11);
+    /* 2026-11-12：事件前後（D134）起是 12 */
+    expect(DATA_VERSION).toBe(12);
     const floors = twoFloors();
     const raw = {
       ...projectOf(floors),
@@ -307,7 +308,7 @@ describe('專案檔與整理（版本 11、F327、D121）', () => {
       JSON.stringify(createProjectFile('floor-plan', DATA_VERSION, p)),
       'floor-plan',
     );
-    expect(file.version).toBe(11);
+    expect(file.version).toBe(12);
     expect(normalizeProject(file.data, isAsset)).toEqual(p);
     expect(p.floors.some((f) => f.secret)).toBe(false);
     /* 刪掉路線：指到它的時機改成「所有路線之後」 */

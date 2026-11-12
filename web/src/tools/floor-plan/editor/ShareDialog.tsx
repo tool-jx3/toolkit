@@ -3,10 +3,11 @@
  * 選「PL 用」（預設）或「完整（GM 用）」，下面是連結（共用的文字輸出欄：字數、複製）；太長時改成錯誤訊息。
  * 打開網址裡的分享連結：openSharedFromHash（Editor 開頁與 hashchange 時呼叫）。
  */
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { clearShareHash } from '@/core/share';
 import { Dialog, Field, Notice, Segmented, TextOutputPanel } from '@/ui';
 import { isAsset } from '../model/assets';
+import { MOMENTS, momentOf, usesMoments } from '../model/moment';
 import { normalizeProject } from '../model/normalize';
 import {
   encodeMapHash,
@@ -15,6 +16,7 @@ import {
   SHARE_MAX_LENGTH,
   type ShareMode,
 } from '../model/share';
+import type { Moment } from '../model/types';
 import { S } from '../strings';
 import { confirmUi, isDisposableMap, notify, openProjectData } from './actions';
 import { setEditor, useEditor, usePrefs, useProject } from './store';
@@ -68,7 +70,16 @@ export function ShareDialog() {
   const project = useProject((s) => s.data);
   const pref = usePrefs((s) => s.data.share);
   const mode: ShareMode = isMode(pref) ? pref : 'pl';
-  const share = useMemo(() => (open ? encodeMapHash(project, mode) : null), [open, project, mode]);
+  /* 事件前後（2026-11-12，F335）：PL 用連結只帶一個狀態（打開時＝畫布上目前的狀態） */
+  const hasMoments = usesMoments(project);
+  const [moment, setMoment] = useState<Moment>(momentOf(project));
+  useEffect(() => {
+    if (open) setMoment(momentOf(useProject.getState().data));
+  }, [open]);
+  const share = useMemo(
+    () => (open ? encodeMapHash(project, mode, hasMoments ? moment : undefined) : null),
+    [open, project, mode, hasMoments, moment],
+  );
   const url = share && !share.tooLong ? mapShareUrl(share.hash, location.href) : '';
   const r = share?.removed;
   /* 關掉之後焦點回到「專案」（對話框沒有自己的觸發按鈕，不處理的話焦點會掉到頁面最上層） */
@@ -112,6 +123,19 @@ export function ShareDialog() {
         <p className="m-0 text-sm text-muted">
           {mode === 'pl' ? S.share.plNote : S.share.fullNote}
         </p>
+        {mode === 'pl' && hasMoments ? (
+          <div className="flex flex-col gap-1.5" data-testid="share-moment">
+            <Field label={S.moment.label}>
+              <Segmented
+                aria-label={S.moment.label}
+                value={moment}
+                onValueChange={(v) => setMoment(v as Moment)}
+                options={MOMENTS.map((m) => ({ value: m, label: S.moment.names[m] }))}
+              />
+            </Field>
+            <p className="m-0 text-xs text-muted">{S.moment.shareNote(S.moment.names[moment])}</p>
+          </div>
+        ) : null}
         {mode === 'pl' && r ? (
           <p className="m-0 text-xs text-muted" data-testid="share-removed">
             {removedAny ? S.share.removed(r) : S.share.nothingRemoved}

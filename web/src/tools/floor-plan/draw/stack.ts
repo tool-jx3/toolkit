@@ -17,6 +17,7 @@ import { deviceResolutionLimits, limitResolution, type ResolutionLimits } from '
 import { ASSET } from '../model/assets';
 import { GROUND_CATS } from '../model/floorCopy';
 import { revealFloor, type ShownFloor, visibleFloor } from '../model/geometry';
+import { momentFloor } from '../model/moment';
 import { roomContainsRoom, roomMainRect, roomPolygon } from '../model/shape';
 import {
   type BoardLayout,
@@ -35,7 +36,7 @@ import {
   type VerticalLink,
   verticalLinks,
 } from '../model/stack';
-import type { Floor, Item, Rect, SizeMode, StackCamera, ThemeId } from '../model/types';
+import type { Floor, Item, Moment, Rect, SizeMode, StackCamera, ThemeId } from '../model/types';
 import { S } from '../strings';
 import { drawThemeEffect, drawWear } from './effects';
 import { haloText, measureText } from './labels';
@@ -415,6 +416,8 @@ export interface StackDrawOptions {
   hideClues: boolean;
   reveal?: boolean;
   night?: number;
+  /** 事件前後（2026-11-12，F329；沒有＝事件前） */
+  moment?: Moment;
   /** 目前的樓層（立體圖的第幾層；樓層牌加框）；沒有＝−1 */
   activeLevel: number;
   /**
@@ -439,13 +442,16 @@ export interface StackFloorView {
 
 export function shownStackFloors(
   floors: readonly Floor[],
-  o: Pick<StackDrawOptions, 'playerView' | 'hideClues' | 'reveal'>,
+  o: Pick<StackDrawOptions, 'playerView' | 'hideClues' | 'reveal' | 'moment'>,
 ): StackFloorView[] {
-  return floors.map((f) => ({
-    floor: visibleFloor(o.reveal ? revealFloor(f) : f, o.playerView, o.hideClues),
-    name: f.name,
-    secret: !!f.secret,
-  }));
+  return floors.map((raw) => {
+    const f = momentFloor(raw, o.moment ?? 'before');
+    return {
+      floor: visibleFloor(o.reveal ? revealFloor(f) : f, o.playerView, o.hideClues),
+      name: f.name,
+      secret: !!f.secret,
+    };
+  });
 }
 
 /** 房間名牌要寫的名字（PL 檢視有 PL 名字時用它） */
@@ -749,6 +755,7 @@ export function drawStack(
       stacked: 'stack',
       ...(o.night ? { night: o.night } : {}),
       ...(o.reveal ? { reveal: true } : {}),
+      ...(o.moment ? { moment: o.moment } : {}),
     });
     c.restore();
     if (f.veiled) {
@@ -922,6 +929,7 @@ export function drawBoard(
       stacked: 'card',
       ...(o.night ? { night: o.night } : {}),
       ...(o.reveal ? { reveal: true } : {}),
+      ...(o.moment ? { moment: o.moment } : {}),
     });
     o.cardOverlay?.(c, card.level, o.zoom * B.scale);
     c.restore();
@@ -948,6 +956,8 @@ export interface StackImageOptions {
   gmBadge?: string | null;
   reveal?: boolean;
   night?: number;
+  /** 事件前後（2026-11-12，F333；沒有＝事件前） */
+  moment?: Moment;
   wear?: { strength: number; seed: number } | null;
   noNoise?: boolean;
   limit?: ResolutionLimits;
@@ -969,7 +979,7 @@ export interface StackImageLayout {
  */
 export function stackLayoutFloors(
   floors: readonly Floor[],
-  o: Pick<StackDrawOptions, 'playerView' | 'hideClues' | 'reveal'>,
+  o: Pick<StackDrawOptions, 'playerView' | 'hideClues' | 'reveal' | 'moment'>,
 ): Floor[] {
   return shownStackFloors(floors, o).map((v) => v.floor as Floor);
 }
@@ -1025,6 +1035,7 @@ export function renderStackImage(
     activeLevel: -1,
     ...(o.reveal ? { reveal: true } : {}),
     ...(o.night ? { night: o.night } : {}),
+    ...(o.moment ? { moment: o.moment } : {}),
   };
   c.save();
   c.setTransform(s, 0, 0, s, -L.rect.x * s, -L.rect.y * s);

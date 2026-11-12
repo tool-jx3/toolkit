@@ -5,6 +5,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Dialog, type ExportFormatOption, ExportPanel } from '@/ui';
 import type { StageView } from '../draw/stage';
+import { momentOf, momentProject } from '../model/moment';
 import { STAGE_FPS } from '../model/stage';
 import { ST } from '../stageStrings';
 import { editor } from './controller';
@@ -32,7 +33,8 @@ export function StageExportDialog() {
   const [size, setSize] = useState<{ width: number; height: number } | null>(null);
   const input = useMemo(
     () => ({
-      project: p,
+      /* 事件前後（2026-11-12，F333）：照目前顯示的狀態 */
+      project: momentProject(p, momentOf(p)),
       tl,
       view: exportView(),
       camera: stageCamera(),

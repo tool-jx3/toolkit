@@ -848,8 +848,10 @@ test('範本對話框：預設「全部」；空白地圖在每個分類（含�
   for (const [tag, n] of [
     /* 2026-11-05 加了夜航蒸汽客輪（交通・運輸）：58 → 59、6 → 7 */
     /* 2026-11-09 加了鐘錶行（商店・辦公，也在住宅）：59 → 60、住宅 11 → 12、商店・辦公 9 → 10 */
-    ['全部', 60],
-    ['住宅', 12],
+    /* 2026-11-12 加了日式老宅（事件前後；住宅，也在宗教・古蹟、廢墟・事件）：60 → 61、住宅 12 → 13、
+       宗教・古蹟 8 → 9、廢墟・事件 11 → 12 */
+    ['全部', 61],
+    ['住宅', 13],
     ['住宿・餐飲', 7],
     ['醫療・研究', 6],
     ['公共場所', 9],
@@ -858,9 +860,9 @@ test('範本對話框：預設「全部」；空白地圖在每個分類（含�
     ['交通・運輸', 7],
     ['工業・設施', 7],
     ['軍警・保全', 5],
-    ['宗教・古蹟', 8],
+    ['宗教・古蹟', 9],
     ['野外・地下', 8],
-    ['廢墟・事件', 11],
+    ['廢墟・事件', 12],
     ['奇幻・科幻', 6],
   ] as const) {
     await dialog.getByRole('radio', { name: tag }).click();
@@ -876,7 +878,7 @@ test('範本對話框的縮圖：捲到看得到的卡片才畫，畫過的留�
   await page.getByRole('button', { name: '範本' }).click();
   const dialog = page.getByTestId('template-dialog');
   const cards = dialog.getByRole('list').getByRole('button');
-  await expect(cards).toHaveCount(60);
+  await expect(cards).toHaveCount(61);
   /* 上面幾排先畫好；最後一個範本（魔法師之塔）捲到之前還沒畫 */
   await expect(cards.first().locator('img')).toHaveCount(1);
   /* 看得到的卡片一張一張畫，第一張畫好時其他的可能還在畫 */
@@ -977,7 +979,7 @@ for (const [width, height] of [
     await page.getByRole('button', { name: '範本' }).click();
     await expect(
       page.getByTestId('template-dialog').getByRole('list').getByRole('button'),
-    ).toHaveCount(60);
+    ).toHaveCount(61);
     /* 上下 300 px 內（少算 5 px，避開剛好壓在邊界上的小數位） */
     const undrawnNear = async () =>
       (await thumbGaps(page)).cards.filter((c) => c.gap <= 295 && !c.drawn).length;
@@ -1273,7 +1275,7 @@ test.describe('存檔', () => {
     expect(saved).toMatchObject({
       format: 'trpg-toolkit-project',
       tool: 'floor-plan',
-      version: 11,
+      version: 12,
     });
     expect(saved.data.floors[0].rooms).toHaveLength(6);
     await blank(page);
@@ -1953,7 +1955,8 @@ test.describe('分享連結與房間編號（2026-10，參考 Maptsukuri）', ()
       page.keyboard.press('Control+s'),
     ]);
     const saved = JSON.parse(readFileSync((await save.path()) as string, 'utf8'));
-    expect(saved.version).toBe(11);
+    /* 2026-11-12：專案檔版本 12（事件前後，D134） */
+    expect(saved.version).toBe(12);
     expect(
       saved.data.floors[0].texts.map((t: TextLabel) => [t.text, t.badge, t.gm ?? false]),
     ).toEqual([
@@ -2228,7 +2231,7 @@ test.describe('第一批跟進（2026-10，原作 v1.05～v1.14）', () => {
       page.keyboard.press('Control+s'),
     ]);
     const saved = JSON.parse(readFileSync((await dl.path()) as string, 'utf8'));
-    expect(saved).toMatchObject({ version: 11 });
+    expect(saved).toMatchObject({ version: 12 });
     expect([saved.data.tokenGrid, saved.data.tokenGridOpacity]).toEqual([3, 1]);
     expect(errors).toEqual([]);
   });
@@ -2866,7 +2869,8 @@ test.describe('第二批跟進（2026-10，原作 v1.05～v1.14）：新的門�
     await blank(page);
     for (let i = 0; i < 3; i++) await page.keyboard.press('-');
     await page.getByRole('tab', { name: '房間' }).click();
-    await expect(library(page).locator('[data-room]')).toHaveCount(57);
+    /* 2026-11-12：加了「日式宅邸」7 張（F334）：57 → 64 */
+    await expect(library(page).locator('[data-room]')).toHaveCount(64);
     await expect(library(page).getByRole('heading', { name: '石造・工廠・建物' })).toBeVisible();
     await expect(
       library(page).getByRole('heading', { name: '交通・工地・戶外地面' }),
@@ -2991,7 +2995,8 @@ test.describe('第二批跟進（2026-10，原作 v1.05～v1.14）：新的門�
       page.keyboard.press('Control+s'),
     ]);
     const saved = JSON.parse(readFileSync((await dl.path()) as string, 'utf8'));
-    expect(saved.version).toBe(11);
+    /* 2026-11-12：專案檔版本 12（事件前後，D134） */
+    expect(saved.version).toBe(12);
     expect([saved.data.floors[1].showInside, saved.data.floors[1].inside]).toEqual([
       true,
       saved.data.floors[0].id,
@@ -3215,23 +3220,24 @@ test.describe('第三批跟進（2026-10，家具擴充、貼牆素材、標籤�
       return h.editor.debugShown().items.map((i) => i.t);
     });
 
-  test('素材面板：397 種、分類選單一直在上面、名稱與 #標籤搜尋、標籤建議、其他分類的提示；放新的家具（F232、F234）', async ({
+  test('素材面板：412 種（2026-11-12 加 15 種）、分類選單一直在上面、名稱與 #標籤搜尋、標籤建議、其他分類的提示；放新的家具（F232、F234）', async ({
     page,
   }) => {
     const errors = await open(page);
     await blank(page);
     await page.getByRole('tab', { name: '家具・小物' }).click();
-    await expect(cards(page)).toHaveCount(397);
+    await expect(cards(page)).toHaveCount(412);
     /* 分類選單：全部＋24 類（名稱後面是符合的件數） */
     const groupSelect = page.getByRole('combobox', { name: '家具分類' });
-    await expect(groupSelect).toHaveText('全部（397）');
+    await expect(groupSelect).toHaveText('全部（412）');
     await groupSelect.click();
     await expect(page.getByRole('option')).toHaveCount(25);
-    await page.getByRole('option', { name: '貼牆素材（9）' }).click();
-    await expect(cards(page)).toHaveCount(9);
+    /* 2026-11-12 加了釘上的木板、符咒（貼牆）：9 → 11 */
+    await page.getByRole('option', { name: '貼牆素材（11）' }).click();
+    await expect(cards(page)).toHaveCount(11);
     /* 捲到下面時搜尋欄與分類仍然看得到（固定在上面） */
     await groupSelect.click();
-    await page.getByRole('option', { name: '全部（397）' }).click();
+    await page.getByRole('option', { name: '全部（412）' }).click();
     await library(page).locator('[data-asset="wild_animal"]').scrollIntoViewIfNeeded();
     await expect(search(page)).toBeInViewport();
     await expect(groupSelect).toBeInViewport();
@@ -3282,7 +3288,7 @@ test.describe('第三批跟進（2026-10，家具擴充、貼牆素材、標籤�
     const errors = await open(page);
     await blank(page);
     await page.getByRole('tab', { name: '家具・小物' }).click();
-    await expect(cards(page)).toHaveCount(397);
+    await expect(cards(page)).toHaveCount(412);
     const panel = library(page).getByRole('tabpanel');
     const bar = page.getByTestId('library-search');
     /* 搜尋欄貼齊面板頂端（上面沒有縫隙，卡片不會從它上面露出來）：沒捲動與捲動之後都一樣 */
@@ -3308,8 +3314,9 @@ test.describe('第三批跟進（2026-10，家具擴充、貼牆素材、標籤�
     /* 只選分類、沒有搜尋字：不說「其他分類還有 N 件符合」；打了字才說 */
     const elsewhere = library(page).getByText(/其他分類還有 \d+ 件符合/);
     await page.getByRole('combobox', { name: '家具分類' }).click();
-    await page.getByRole('option', { name: '貼牆素材（9）' }).click();
-    await expect(cards(page)).toHaveCount(9);
+    /* 2026-11-12 加了釘上的木板、符咒（貼牆）：9 → 11 */
+    await page.getByRole('option', { name: '貼牆素材（11）' }).click();
+    await expect(cards(page)).toHaveCount(11);
     await expect(elsewhere).toHaveCount(0);
     await search(page).fill('消防');
     await expect(elsewhere).toHaveCount(1);
@@ -3317,7 +3324,7 @@ test.describe('第三批跟進（2026-10，家具擴充、貼牆素材、標籤�
     await expect(elsewhere).toHaveCount(0);
     await page.getByRole('combobox', { name: '家具分類' }).click();
     await page.getByRole('option', { name: /^全部（/ }).click();
-    await expect(cards(page)).toHaveCount(397);
+    await expect(cards(page)).toHaveCount(412);
 
     /* 圖示：一打開只畫看得到的與上下 300 px 內的，不是 397 張 */
     const drawn = () => page.locator('[data-asset] canvas[data-drawn="1"]').count();
@@ -3350,13 +3357,13 @@ test.describe('第三批跟進（2026-10，家具擴充、貼牆素材、標籤�
       return out;
     });
     expect(blankAfterScroll.reduce((a, c) => a + c, 0)).toBe(0);
-    expect(await drawn()).toBeLessThan(397);
+    expect(await drawn()).toBeLessThan(412);
 
     /* 搜尋再清空：清空時不把 397 張的圖示都重畫（只畫看得到的與預先畫的），而且很快畫好 */
     await search(page).fill('椅');
-    await expect(cards(page)).not.toHaveCount(397);
+    await expect(cards(page)).not.toHaveCount(412);
     await search(page).fill('');
-    await expect(cards(page)).toHaveCount(397);
+    await expect(cards(page)).toHaveCount(412);
     const t = await page.evaluate(async () => {
       const t0 = performance.now();
       const b = document.querySelector('[data-testid=library-search]');
@@ -3390,7 +3397,7 @@ test.describe('第三批跟進（2026-10，家具擴充、貼牆素材、標籤�
     await twoRooms(page);
     await page.getByRole('tab', { name: '家具・小物' }).click();
     await search(page).fill('#貼牆');
-    await expect(cards(page)).toHaveCount(9);
+    await expect(cards(page)).toHaveCount(11);
     /* 上面的橫牆（y＝0）：崩塌的牆面，長邊沿著牆、中心線在牆線上 */
     await library(page).locator('[data-asset="collapse_wall"]').click();
     await click(page, 5, 0.7);
@@ -3624,9 +3631,9 @@ test.describe('第三批跟進（2026-10，家具擴充、貼牆素材、標籤�
     await box.fill('zzz');
     await expect(tplCards).toHaveCount(0);
     await expect(dialog).toContainText('找不到符合的範本。');
-    /* 分類名稱也找得到（宗教・古蹟 7 個） */
+    /* 分類名稱也找得到（宗教・古蹟 7 個；2026-11-12 加了日式老宅：8 個） */
     await box.fill('古蹟');
-    await expect(tplCards).toHaveCount(7);
+    await expect(tplCards).toHaveCount(8);
     await box.fill('三合院');
     await expect(tplCards).toHaveCount(1);
     await tplCards.first().click();
@@ -3914,7 +3921,7 @@ test.describe('2026-10-29 跟進原作 v1.15（健身房範本、家具 8 種、
     const library = page.getByTestId('library');
     const cards = library.locator('[data-asset]');
     const search = page.getByRole('searchbox', { name: '搜尋家具' });
-    await expect(cards).toHaveCount(397);
+    await expect(cards).toHaveCount(412);
     const groupSelect = page.getByRole('combobox', { name: '家具分類' });
     for (const [group, n, ids] of [
       ['娛樂・運動', 20, ['squat_rack', 'cable_machine', 'rowing_machine', 'yoga_mat']],
@@ -3926,7 +3933,7 @@ test.describe('2026-10-29 跟進原作 v1.15（健身房範本、家具 8 種、
       for (const id of ids) await expect(library.locator(`[data-asset="${id}"]`), id).toBeVisible();
     }
     await groupSelect.click();
-    await page.getByRole('option', { name: '全部（397）' }).click();
+    await page.getByRole('option', { name: '全部（412）' }).click();
     /* 名稱、別名、#標籤 */
     await search.fill('深蹲');
     await expect(cards).toHaveCount(1);
@@ -4164,7 +4171,8 @@ test.describe('2026-10-29 跟進原作 v1.15（健身房範本、家具 8 種、
       page.keyboard.press('Control+s'),
     ]);
     const saved = JSON.parse(readFileSync((await dl.path()) as string, 'utf8'));
-    expect(saved.version).toBe(11);
+    /* 2026-11-12：專案檔版本 12（事件前後，D134） */
+    expect(saved.version).toBe(12);
     expect(
       saved.data.floors[0].openings.filter((o: { kind: string }) => o.kind === 'slidingc'),
     ).toHaveLength(2);
