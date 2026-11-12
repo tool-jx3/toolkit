@@ -289,7 +289,7 @@ export const S = {
     cdrom: '只有數位攝影：90 年代 CD-ROM 的影片，4 × 4 的方塊色、一段一段的色帶、每秒 12 格。',
     camcorder: '只有數位攝影：2000 年代的家用攝影機，亮部爆白、黑色浮成乳灰、暗的地方雜訊變多。',
     mild: '幾乎乾淨的 SP 錄影帶，只有一點訊號雜訊，映像管有光暈。',
-    static: 'EP 錄影帶：滿滿的訊號雜訊、邊緣波動與錯開的顏色，映像管有光暈。',
+    static: 'EP 錄影帶：顏色拖得長長的、錯開一點，畫面上一條一條的橫紋與邊緣波動，映像管有光暈。',
     corner: '隧道收進左下角、層數很多、偏冷、手持晃動（不循環）。',
   } satisfies Record<LookPresetId, string>,
 
@@ -347,7 +347,7 @@ export const S = {
     video1: '方塊色（Video 1）',
   } satisfies Record<DigitalCodec, string>,
   digitalCodecDesc: {
-    dct: 'MPEG、H.263、DV 這一類：8 × 8 的方塊裡細節變糊、邊緣有蚊狀雜訊。',
+    dct: 'MPEG、H.263、DV 這一類：8 × 8 的方塊裡細節變糊、邊緣有蚊式雜訊。',
     video1:
       'Microsoft Video 1（1992 年的 Video for Windows）：每個 4 × 4 的方塊換成一、二或八個 15 位元色，硬的雙色邊與一段一段的色帶；沒有色彩取樣、柔化方塊的邊與 datamosh。',
   } satisfies Record<DigitalCodec, string>,
@@ -381,7 +381,7 @@ export const S = {
   sharpen: '銳利化',
   sensorNoise: '感光雜訊',
   quality: '畫質',
-  qualityHint: '越低方塊越明顯，邊緣有蚊狀雜訊。',
+  qualityHint: '越低方塊越明顯，邊緣有蚊式雜訊。',
   qualityHintVideo1: '越低越多方塊只剩一、兩色，預測影格裡沒變多少的方塊直接沿用上一張。',
   keyframe: '關鍵影格間隔',
   keyframeUnit: ' 秒',
@@ -389,6 +389,7 @@ export const S = {
     '0＝每一格都是完整的一張；大於 0 時中間的影格只記變化（關鍵影格之後幾格慢慢變細），資料遺失與 datamosh 會一直留到下一個關鍵影格。',
   keyframeHintVideo1:
     '0＝每一格都是完整的一張；大於 0 時中間的影格裡沒變多少的方塊直接沿用上一張，遺失的方塊一直留到那一塊重新編碼或下一個關鍵影格。',
+  keyframeSlow: '擷取寬度大又停在間隔的後段時，要從關鍵影格一格一格算過來，會等比較久。',
   loss: '資料遺失',
   lossHint: '一段一段的方塊沒收到，拿錯的內容補上。',
   mosh: 'Datamosh',

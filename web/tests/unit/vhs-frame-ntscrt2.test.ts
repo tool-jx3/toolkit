@@ -7,27 +7,27 @@
  */
 import { describe, expect, it } from 'vitest';
 import {
-  type BlockMode,
-  blockLimit,
+  type BlockStyle,
+  blockBudget,
   ColorBlockCodec,
-  codeColorBlock,
-  to555,
-  twoColors,
+  paintArea,
+  paintBlock,
+  rgb15,
 } from '@/tools/vhs-frame/colorblock';
 import {
-  CCD,
+  CCD_TONE,
   cameraBase,
   cameraSample,
   cameraTone,
-  ccdKnee,
-  ccdResponse,
+  ccdTone,
   codecSettings,
+  DARK_GAIN,
+  darkGain,
   fromPlanes,
-  LOW_LIGHT,
   lowLightNoise,
-  medianLuma,
+  medianLight,
   type Planes,
-  sensorGain,
+  squeezeHighlight,
   toPlanes,
 } from '@/tools/vhs-frame/digital';
 import {
@@ -58,26 +58,26 @@ const block = (px: readonly (readonly number[])[]) => Float32Array.from(px.flat(
 
 describe('方塊色：一個 4 × 4 的方塊', () => {
   it('15 位元色：每色 31 階（Swift：(v × 31 ÷ 255).rounded() × 255 ÷ 31）', () => {
-    expect(to555(0)).toBe(0);
-    expect(to555(255)).toBe(255);
-    expect(to555(100)).toBeCloseTo((12 * 255) / 31, 9);
-    expect(to555(-20)).toBe(0);
-    expect(to555(300)).toBe(255);
+    expect(rgb15(0)).toBe(0);
+    expect(rgb15(255)).toBe(255);
+    expect(rgb15(100)).toBeCloseTo((12 * 255) / 31, 9);
+    expect(rgb15(-20)).toBe(0);
+    expect(rgb15(300)).toBe(255);
   });
 
   it('畫質的上限：(50 − 49q)² × 48（q＝畫質 ÷ 100；0＝每個值均方誤差 2500、100＝1）', () => {
-    expect(blockLimit(0)).toBe(2500 * 48);
-    expect(blockLimit(100)).toBe(48);
+    expect(blockBudget(0)).toBe(2500 * 48);
+    expect(blockBudget(100)).toBe(48);
     /* CD-ROM 的格式（NTSCRT 0.57）：r＝50 − 49 × 0.57＝22.07 */
-    expect(blockLimit(57)).toBeCloseTo(22.07 ** 2 * 48, 6);
+    expect(blockBudget(57)).toBeCloseTo(22.07 ** 2 * 48, 6);
   });
 
   it('平的方塊 → 一色（平均的 15 位元色）', () => {
     const src = block(Array.from({ length: 16 }, () => [100, 150, 200]));
     const out = new Float32Array(48);
-    expect(codeColorBlock(src, null, blockLimit(100), out)).toBe('fill');
+    expect(paintBlock(src, null, blockBudget(100), out)).toBe('flat');
     expect(Array.from(out.slice(0, 3))).toEqual(
-      [to555(100), to555(150), to555(200)].map(Math.fround),
+      [rgb15(100), rgb15(150), rgb15(200)].map(Math.fround),
     );
   });
 
@@ -86,7 +86,7 @@ describe('方塊色：一個 4 × 4 的方塊', () => {
       Array.from({ length: 16 }, (_, i) => (i % 4 < 2 ? [0, 0, 0] : [255, 255, 255])),
     );
     const out = new Float32Array(48);
-    expect(codeColorBlock(src, null, blockLimit(100), out)).toBe('two');
+    expect(paintBlock(src, null, blockBudget(100), out)).toBe('duo');
     expect(Array.from(out)).toEqual(Array.from(src));
   });
 
@@ -115,12 +115,12 @@ describe('方塊色：一個 4 × 4 的方塊', () => {
       Array.from({ length: 16 }, (_, i) => pairs[quarter(i)][(i + Math.floor(i / 4)) % 2]),
     );
     const out = new Float32Array(48);
-    const mode: BlockMode = codeColorBlock(src, null, blockLimit(100), out);
-    expect(mode).toBe('eight');
+    const mode: BlockStyle = paintBlock(src, null, blockBudget(100), out);
+    expect(mode).toBe('quad');
     expect(Array.from(out)).toEqual(Array.from(src));
   });
 
-  it('兩色的分法（Swift 的 twoColors）：以平均亮度分組、再換到比較近的那一色，兩色量化成 15 位元', () => {
+  it('深淺兩色的分法（照 Swift 的 Video 1 推）：以平均亮度分組、再換到比較近的那一色，兩色量化成 15 位元', () => {
     /* 8 個 10、4 個 200、4 個 220：平均亮度 110 → 暗組 10、亮組 210 → 15 位元 1 × 255/31 與 26 × 255/31 */
     const src = block([
       ...Array.from({ length: 8 }, () => [10, 10, 10]),
@@ -128,9 +128,10 @@ describe('方塊色：一個 4 × 4 的方塊', () => {
       ...Array.from({ length: 4 }, () => [220, 220, 220]),
     ]);
     const out = new Float32Array(48);
-    const err = twoColors(
+    const err = paintArea(
       src,
       Array.from({ length: 16 }, (_, i) => i),
+      2,
       out,
     );
     const lo = (1 * 255) / 31;
@@ -148,9 +149,9 @@ describe('方塊色：一個 4 × 4 的方塊', () => {
     const ref = block(Array.from({ length: 16 }, () => [100, 100, 100]));
     const src = block(Array.from({ length: 16 }, () => [101, 100, 99]));
     const out = new Float32Array(48);
-    expect(codeColorBlock(src, ref, blockLimit(50), out)).toBe('skip');
+    expect(paintBlock(src, ref, blockBudget(50), out)).toBe('keep');
     expect(Array.from(out)).toEqual(Array.from(ref));
-    expect(codeColorBlock(src, ref, 1, out)).not.toBe('skip');
+    expect(paintBlock(src, ref, 1, out)).not.toBe('keep');
   });
 });
 
@@ -192,7 +193,7 @@ describe('方塊色：解碼器', () => {
     fromPlanes(p, 64, 48, out);
     for (let i = 0; i < out.length; i += 4)
       for (let c = 0; c < 3; c++)
-        expect(Math.abs(out[i + c] - to555(out[i + c]))).toBeLessThanOrEqual(1);
+        expect(Math.abs(out[i + c] - rgb15(out[i + c]))).toBeLessThanOrEqual(1);
   });
 
   it('畫質越低誤差越大', () => {
@@ -240,22 +241,22 @@ describe('方塊色：解碼器', () => {
 
 /* ---------- 相機 ---------- */
 
-describe('CCD 的反應（Swift 的 CCDResponse）', () => {
+describe('CCD 的反應（數值照 Swift 推）', () => {
   it('自動曝光：平均拉到 0.40（增益 0.5～4 倍、取強度次方）；眩光；膝點；黑位', () => {
-    expect(ccdResponse(1, 0.1)).toEqual({
-      gain: 4,
-      flare: 0.03 * 0.1 * 4,
+    expect(ccdTone(1, 0.1)).toEqual({
+      scale: 4,
+      haze: 0.03 * 0.1 * 4,
       slope: 0.38,
-      setup: 0.065,
+      lift: 0.065,
     });
-    expect(ccdResponse(0.5, 0.1).gain).toBeCloseTo(2, 12);
-    expect(ccdResponse(1, 2).gain).toBe(0.5);
-    expect(ccdResponse(0, 0.1).gain).toBe(1);
+    expect(ccdTone(0.5, 0.1).scale).toBeCloseTo(2, 12);
+    expect(ccdTone(1, 2).scale).toBe(0.5);
+    expect(ccdTone(0, 0.1).scale).toBe(1);
     /* Swift：kneePoint 0.72 × 255＝183.6；229.5 → 183.6 ＋ 45.9 × 0.38＝201.042 */
-    expect(ccdKnee(0.9, 0.38) * 255).toBeCloseTo(201.042, 3);
-    expect(ccdKnee(2, 0.38)).toBe(1);
-    expect(ccdKnee(0.5, 0.38)).toBe(0.5);
-    expect(CCD.knee).toBe(0.72);
+    expect(squeezeHighlight(0.9, 0.38) * 255).toBeCloseTo(201.042, 3);
+    expect(squeezeHighlight(2, 0.38)).toBe(1);
+    expect(squeezeHighlight(0.5, 0.38)).toBe(0.5);
+    expect(CCD_TONE.highlight).toBe(0.72);
   });
 
   it('暗的畫面拍得亮、黑色浮起來；0 時和沒有這一步相同', () => {
@@ -281,7 +282,7 @@ describe('CCD 的反應（Swift 的 CCDResponse）', () => {
   });
 });
 
-describe('彩虹鋸齒（Swift 的 scale：紅綠藍各差三分之一格）', () => {
+describe('彩虹鋸齒（數值照 Swift 推：紅綠藍各差三分之一格）', () => {
   const w = 4;
   const h = 2;
   /** 3 × 3 倍的最近點畫面：第 c 欄只有第 c mod 3 色是 255 */
@@ -324,17 +325,14 @@ describe('彩虹鋸齒（Swift 的 scale：紅綠藍各差三分之一格）', (
   });
 });
 
-describe('低光雜訊（Swift 的 sensorGain、medianLuma）', () => {
+describe('低光雜訊（數值照 Swift 推：亮度的中位數、最多 8 倍）', () => {
   const flat = (v: number, w = 16, h = 12) => new Float32Array(w * h * 3).fill(v);
   it('中位數在 sRGB 100 以上時 1 倍、越暗越高、最多 8 倍', () => {
-    expect(sensorGain(medianLuma(flat(100 / 255), 16, 12))).toBeCloseTo(1, 9);
-    expect(sensorGain(medianLuma(flat(1), 16, 12))).toBe(1);
-    expect(sensorGain(medianLuma(flat(10 / 255), 16, 12))).toBe(8);
+    expect(darkGain(medianLight(flat(100 / 255), 16, 12))).toBeCloseTo(1, 9);
+    expect(darkGain(medianLight(flat(1), 16, 12))).toBe(1);
+    expect(darkGain(medianLight(flat(10 / 255), 16, 12))).toBe(8);
     /* sRGB 50：線性 0.0319 → 0.1274 ÷ 0.0319 ≈ 3.99 */
-    expect(sensorGain(medianLuma(flat(50 / 255), 16, 12))).toBeCloseTo(
-      LOW_LIGHT.knee / 0.031896,
-      2,
-    );
+    expect(darkGain(medianLight(flat(50 / 255), 16, 12))).toBeCloseTo(DARK_GAIN.from / 0.031896, 2);
   });
   it('雜訊乘上 1 ＋ 低光雜訊 × (增益 − 1)；低光雜訊 0 或沒有雜訊時 1', () => {
     const dark = flat(10 / 255);

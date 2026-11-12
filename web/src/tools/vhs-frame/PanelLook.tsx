@@ -287,7 +287,7 @@ export function DigitalSection() {
             </Field>
             {slider('quality', S.quality, { hint: dct ? S.qualityHint : S.qualityHintVideo1 })}
             {slider('keyframe', S.keyframe, {
-              hint: dct ? S.keyframeHint : S.keyframeHintVideo1,
+              hint: `${dct ? S.keyframeHint : S.keyframeHintVideo1}${S.keyframeSlow}`,
               unit: S.keyframeUnit,
               scale: 10,
             })}

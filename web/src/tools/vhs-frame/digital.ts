@@ -117,10 +117,10 @@ export function cameraSample(
 }
 
 /**
- * 彩虹鋸齒（2026-11-12，參考 NTSCRT 的 Aliasing）：紅、綠、藍各自在一格的左三分之一、中間、右三分之一點取樣
- * （thirds 是 3 × 3 倍的最近點畫面，第 3x、3x ＋ 1、3x ＋ 2 欄、第 3y ＋ 1 列），往這些點靠 min(1, 2a)；
- * 慢慢飄的摩爾紋在三色差 120° 的相位上被讀到，顏色繞一圈＝彩虹。a 超過 0.5 時每個點先加強細節
- * （v ＋ 1.5(2a − 1)(v − 周圍 3 × 3 的平均)：照片沒有比擷取的大小細很多時也有明顯的摩爾紋）。
+ * 彩虹鋸齒（2026-11-12，規格 3.19；數值參考 NTSCRT〔MIT〕）：一格切成左、中、右三等分，紅取左、綠取中、藍取右那一份的點
+ * （thirds 是 3 × 3 倍的最近點畫面：第 3x、3x ＋ 1、3x ＋ 2 欄，第 3y ＋ 1 列），各色往自己的點靠 min(1, 2a)。
+ * 三色的點錯開，細紋的明暗在三色上不同步，摩爾紋就帶著一圈一圈的顏色。a 超過 0.5 時點的值先拉開和周圍 3 × 3 平均的差
+ * （× 1.5(2a − 1)），細紋不夠細的照片也拍得出摩爾紋。
  */
 function rainbowAlias(
   rgb: Float32Array,
@@ -158,34 +158,35 @@ function rainbowAlias(
 
 /** sRGB（0～1）→ 線性的光 */
 const toLinear = (c: number) => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
-/** 線性的光 → sRGB（0～1；超過白的不截斷，膝點還看得到超出多少） */
+/** 線性的光 → sRGB（0～1；超過 1 的照樣算，留給壓亮部） */
 const toSrgb = (l: number) => (l <= 0.0031308 ? l * 12.92 : 1.055 * l ** (1 / 2.4) - 0.055);
 
 /**
- * CCD 的反應（2026-11-12，照 NTSCRT 的 CCDResponse：照 VX1000 的畫面調的 90 年代 3CCD 攝影機），強度 s（0～1）：
- * - 自動曝光：中間重的測光（線性的亮度，每 2 × 2 取一點）把平均拉到 0.40，增益夾在 0.5～4 倍、再取 s 次方；
- * - 鏡頭的眩光：整張的光散開一點（0.03 × s × 曝光後的平均，亮的畫面暗部浮得多）；
- * - 膝點：每一色在 0.72 以上壓縮（斜率 1 − 0.62s），各自到白就截斷（暖的膚色、天空先變黃再變白）；
- * - 黑位：NTSC DV 的 7.5 IRE 處理錯，黑色浮成灰（亮度 ＋ 0.065s × (1 − 亮度)，見 ccdSetup）。
+ * CCD 的反應（2026-11-12，規格 3.19；數值參考 NTSCRT〔MIT〕）：90 年代家用 3CCD 攝影機的色調，強度 s（0～1）分四步：
+ * 1. 拉亮：看畫面中間比較重的平均亮度（centerLight），整張乘到平均 0.40（乘數夾在 0.5～4，再取 s 次方）；
+ * 2. 白霧：整張加上「拉亮後的平均 × 0.03s」的光（亮的畫面，暗部也跟著浮）；
+ * 3. 壓亮部：每一色過了 0.72 就壓扁（斜率 1 − 0.62s）、到 1 截斷，紅、綠、藍各走各的（偏暖的亮部先變黃才變白）；
+ * 4. 黑色變灰：最後亮度再抬 0.065s × (1 − 亮度)。
  */
-export interface CcdResponse {
-  gain: number;
-  flare: number;
+export interface CcdTone {
+  /** 1. 乘數、2. 白霧、3. 壓亮部的斜率、4. 黑色抬多少 */
+  scale: number;
+  haze: number;
   slope: number;
-  setup: number;
+  lift: number;
 }
-export const CCD = {
-  target: 0.4,
-  minGain: 0.5,
-  maxGain: 4,
-  flare: 0.03,
-  knee: 0.72,
-  kneeSlope: 0.62,
-  setup: 0.065,
+export const CCD_TONE = {
+  aim: 0.4,
+  minScale: 0.5,
+  maxScale: 4,
+  haze: 0.03,
+  highlight: 0.72,
+  squash: 0.62,
+  lift: 0.065,
 } as const;
 
-/** 測光：中間重（權重 max(0.15, 1 − 0.6r²)）的線性亮度平均，每 2 × 2 取一點 */
-export function meteredMean(rgb: Float32Array, w: number, h: number): number {
+/** 中間比較重的平均亮度（線性的光；權重 max(0.15, 1 − 0.6r²)，r 是到中心的距離，每 2 × 2 取一點） */
+export function centerLight(rgb: Float32Array, w: number, h: number): number {
   let sum = 0;
   let weight = 0;
   for (let y = 0; y < h; y += 2) {
@@ -203,28 +204,31 @@ export function meteredMean(rgb: Float32Array, w: number, h: number): number {
   return weight > 0 ? sum / weight : 0.18;
 }
 
-/** 強度 s、測光的平均 m → 這張的曝光增益、眩光、膝點的斜率、黑位 */
-export function ccdResponse(s: number, m: number): CcdResponse {
-  const full = Math.min(CCD.maxGain, Math.max(CCD.minGain, CCD.target / Math.max(m, 1e-4)));
-  const gain = full ** s;
+/** 強度 s、中間重的平均亮度 m → 這一張的乘數、白霧、壓亮部的斜率、黑色抬多少 */
+export function ccdTone(s: number, m: number): CcdTone {
+  const full = Math.min(
+    CCD_TONE.maxScale,
+    Math.max(CCD_TONE.minScale, CCD_TONE.aim / Math.max(m, 1e-4)),
+  );
+  const scale = full ** s;
   return {
-    gain,
-    flare: CCD.flare * s * m * gain,
-    slope: 1 - CCD.kneeSlope * s,
-    setup: CCD.setup * s,
+    scale,
+    haze: CCD_TONE.haze * s * m * scale,
+    slope: 1 - CCD_TONE.squash * s,
+    lift: CCD_TONE.lift * s,
   };
 }
 
-/** 膝點：v（0～1，可以超過 1）在 0.72 以上照斜率壓縮，再截在 1 */
-export const ccdKnee = (v: number, slope: number): number =>
-  v > CCD.knee ? Math.min(1, CCD.knee + (v - CCD.knee) * slope) : v;
+/** 壓亮部：v（可以超過 1）過了 0.72 的部分乘上斜率，再截在 1 */
+export const squeezeHighlight = (v: number, slope: number): number =>
+  v > CCD_TONE.highlight ? Math.min(1, CCD_TONE.highlight + (v - CCD_TONE.highlight) * slope) : v;
 
-/** CCD 的曲線（0～1 → 0～1：線性的光乘上曝光、加眩光，回到 sRGB 再過膝點）：先算成 4096 段的表，逐像素查表內插（每個值兩次乘冪太慢） */
+/** CCD 的曲線（0～1 → 0～1：換成線性的光、乘上乘數、加白霧，換回 sRGB 再壓亮部）：先算成 4096 段的表，逐像素查表內插（每個值兩次乘冪太慢） */
 const CURVE_STEPS = 4096;
-export function ccdCurve(cr: CcdResponse): (v: number) => number {
+export function ccdCurve(cr: CcdTone): (v: number) => number {
   const lut = new Float64Array(CURVE_STEPS + 1);
   for (let k = 0; k <= CURVE_STEPS; k++)
-    lut[k] = ccdKnee(toSrgb(toLinear(k / CURVE_STEPS) * cr.gain + cr.flare), cr.slope);
+    lut[k] = squeezeHighlight(toSrgb(toLinear(k / CURVE_STEPS) * cr.scale + cr.haze), cr.slope);
   return (v) => {
     const x = (v < 0 ? 0 : v > 1 ? 1 : v) * CURVE_STEPS;
     const k = Math.min(CURVE_STEPS - 1, Math.floor(x));
@@ -259,7 +263,7 @@ export function cameraTone(
       rgb[i + 1] = clamp01(rgb[i + 1] * gg);
       rgb[i + 2] = clamp01(rgb[i + 2] * gb);
     }
-    const cr = ccdResponse(ccd, meteredMean(rgb, w, h));
+    const cr = ccdTone(ccd, centerLight(rgb, w, h));
     const tone = ccdCurve(cr);
     for (let i = 0; i < n * 3; i += 3) {
       const r = tone(rgb[i]);
@@ -270,7 +274,7 @@ export function cameraTone(
       const lg = lift + clamp01(l + (g - l) * sat) * (1 - lift);
       const lb = lift + clamp01(l + (b - l) * sat) * (1 - lift);
       /* 黑位：只抬亮度（三色加同樣的量） */
-      const up = cr.setup * (1 - (0.299 * lr + 0.587 * lg + 0.114 * lb));
+      const up = cr.lift * (1 - (0.299 * lr + 0.587 * lg + 0.114 * lb));
       rgb[i] = clamp01(lr + up);
       rgb[i + 1] = clamp01(lg + up);
       rgb[i + 2] = clamp01(lb + up);
@@ -337,13 +341,13 @@ export function cameraBase(
 }
 
 /**
- * 低光雜訊（2026-11-12，照 NTSCRT 的 Low-light noise）：畫面越暗，相機的增益（與感光雜訊）越高。
- * 以亮度的中位數判斷（Y′ 每 2 × 2 取一點，換成線性的光；不用測光的平均：照片是別台相機已經曝光好的，夜景中間亮、一半是黑的）：
- * 中位數在 sRGB 100 以上時 1 倍，越暗越高，最多 8 倍（＋18 dB）；雜訊乘上 1 ＋ 低光雜訊 × (增益 − 1)。
+ * 低光雜訊（2026-11-12，規格 3.19；數值參考 NTSCRT〔MIT〕）：拍暗的東西時相機把訊號放大，雜訊也一起放大。
+ * 「多暗」看亮度的中位數（每 2 × 2 取一點的 ⌊255Y′⌋，換成線性的光）：只要一半以上的畫面是暗的就算暗，中間有亮的主體也一樣。
+ * 中位數不暗於 sRGB 100 時放大 1 倍，越暗越大、最多 8 倍；感光雜訊乘上 1 ＋ 低光雜訊 ×（倍數 − 1）。
  */
-export const LOW_LIGHT = { knee: toLinear(100 / 255), maxGain: 8 } as const;
+export const DARK_GAIN = { from: toLinear(100 / 255), max: 8 } as const;
 
-export function medianLuma(rgb: Float32Array, w: number, h: number): number {
+export function medianLight(rgb: Float32Array, w: number, h: number): number {
   const counts = new Uint32Array(256);
   let n = 0;
   for (let y = 0; y < h; y += 2)
@@ -361,8 +365,9 @@ export function medianLuma(rgb: Float32Array, w: number, h: number): number {
   return 1;
 }
 
-export const sensorGain = (median: number): number =>
-  Math.min(LOW_LIGHT.maxGain, Math.max(1, LOW_LIGHT.knee / Math.max(median, 1e-4)));
+/** 中位數（線性的光）→ 放大幾倍（1～8） */
+export const darkGain = (median: number): number =>
+  Math.min(DARK_GAIN.max, Math.max(1, DARK_GAIN.from / Math.max(median, 1e-4)));
 
 /** 感光雜訊要乘的倍數（低光雜訊 0 或沒有雜訊時 1） */
 export function lowLightNoise(
@@ -372,7 +377,7 @@ export function lowLightNoise(
   d: Pick<Digital, 'lowLight' | 'noise'>,
 ): number {
   if (!(d.lowLight > 0 && d.noise > 0)) return 1;
-  return 1 + (d.lowLight / 100) * (sensorGain(medianLuma(sampled, w, h)) - 1);
+  return 1 + (d.lowLight / 100) * (darkGain(medianLight(sampled, w, h)) - 1);
 }
 
 /* ---------- YCbCr 的平面（長寬補到 16 的倍數；色度依次取樣） ---------- */
@@ -458,6 +463,26 @@ export function fromPlanes(p: Planes, w: number, h: number, out: Uint8ClampedArr
       out[o + 3] = 255;
     }
   }
+}
+
+/**
+ * 4:4:4 的平面上第 k 個點的 RGB（0～255，不截斷；BT.601 全範圍，同 fromPlanes），寫進 out 的第 o 個起。
+ * 方塊色（colorblock.ts）在 RGB 上挑顏色，用這一對在平面與 RGB 之間來回。
+ */
+export function pixelRgb(p: Planes, k: number, out: Float32Array, o: number): void {
+  const Y = p.y[k];
+  const cb = p.cb[k] - 128;
+  const cr = p.cr[k] - 128;
+  out[o] = Y + 1.402 * cr;
+  out[o + 1] = Y - 0.344136 * cb - 0.714136 * cr;
+  out[o + 2] = Y + 1.772 * cb;
+}
+
+/** RGB（0～255）寫回 4:4:4 平面的第 k 個點（BT.601 全範圍，同 toPlanes） */
+export function setPixelRgb(p: Planes, k: number, r: number, g: number, b: number): void {
+  p.y[k] = 0.299 * r + 0.587 * g + 0.114 * b;
+  p.cb[k] = 128 - 0.168736 * r - 0.331264 * g + 0.5 * b;
+  p.cr[k] = 128 + 0.5 * r - 0.418688 * g - 0.081312 * b;
 }
 
 /* ---------- 8 × 8 DCT 與量化 ---------- */
