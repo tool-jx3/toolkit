@@ -338,7 +338,7 @@ function alphaOf(imageId: string, m: Mask): Uint8Array | null | undefined {
   return lite.alpha && lite.alpha.length === m.width * m.height ? lite.alpha : null;
 }
 
-/* 邊界點的快取：遮罩 > 0（以前的自動邊距）與遮罩 ≥ 16（畫布貼合、讓出框配合圖片邊界）各一份 */
+/* 邊界點的快取：遮罩 > 0（以前的自動邊距）與遮罩 ≥ 16（畫布貼合、讓出框配合畫布邊界）各一份 */
 const boundaryByMask = new Map<number, WeakMap<Mask, { alpha: boolean; b: Float32Array }>>();
 const boundaryById = new Map<string, Float32Array>();
 const BOUNDARY_CACHE = 240;

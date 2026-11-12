@@ -565,8 +565,8 @@ const PUSH: { dir: PushDir; icon: React.ReactNode }[] = [
 ];
 
 /**
- * 讓出框配合圖片邊界（token-workshop 70f1503 的 Fit pop-out to frame）：縮小到剛好、往上下左右推，
- * 讓出框收進圖片裡（自動邊距時先改成手動 0%）；上面一行寫目前出框超出圖片多少。
+ * 讓出框配合畫布邊界（token-workshop 70f1503 的 Fit pop-out to frame）：縮小到剛好、往上下左右推，
+ * 讓出框收進畫布裡（自動邊距時先改成手動 0%）；上面一行寫目前出框超出畫布多少。
  */
 function FitSection({ token }: { token: TokenItem | null }) {
   const look = useLook();

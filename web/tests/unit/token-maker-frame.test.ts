@@ -2,7 +2,7 @@
  * VTT 棋子產生器 2026-11-12 跟進 token-workshop（70f1503）：
  * - 畫布貼合（自動邊距的新算法）：外框置中、畫布剛好等於外框或出框需要的大小（原作 tests/frame.test.mjs 的 5 種擺放）；
  *   以前的算法不變（關掉時）；只算看得到的出框（遮罩 ≥ 16）。
- * - 讓出框配合圖片邊界：縮小到剛好、往上下左右推（原作 frame.test.mjs 的案例）。
+ * - 讓出框配合畫布邊界：縮小到剛好、往上下左右推（原作 frame.test.mjs 的案例）。
  * - 外緣淡出：外半徑 R＋1 px 以外沒有像素（鎖鏈、寶石、霓虹與幾何不套用），R 以內不變。
  * - 資料：沒有新欄位（以前存的）＝以前的畫法；嵌進 PNG 時以前的值不寫；讀 TW 的檔案時兩個都打開。
  */
@@ -52,7 +52,7 @@ const view = (p: Partial<TokenView> = {}): TokenView => ({
   flip: false,
   ...p,
 });
-/** 邊距 → 圖片的半邊長（R 為單位） */
+/** 邊距 → 畫布的半邊長（R 為單位） */
 const halfSide = (pad: number) => 1 / (1 - 2 * pad);
 
 /* 200 × 200 的圖（縮放 1：100 px＝1 R）、遮罩同大小：一頂帽子（x 60～140、y 0～40）＋右下角的一把劍（x 170～199、y 150～199） */
@@ -91,7 +91,7 @@ describe('出框的上下左右範圍（popBounds）', () => {
 describe('畫布貼合（token-workshop 70f1503 的 Auto-fit canvas）', () => {
   const tight = look({ tightFit: true, feather: 0 });
 
-  it('外框或出框剛好碰到圖片的邊，不留空（原作 frame.test.mjs 的 5 種擺放，含旋轉、平移）', () => {
+  it('外框或出框剛好碰到畫布的邊，不留空（原作 frame.test.mjs 的 5 種擺放，含旋轉、平移）', () => {
     for (const [x, y, rotRad, zoom] of [
       [0, 0, 0, 1],
       [0.3, -0.2, 0.6, 1],
@@ -172,7 +172,7 @@ describe('畫布貼合（token-workshop 70f1503 的 Auto-fit canvas）', () => {
   });
 });
 
-describe('讓出框配合圖片邊界（縮小到剛好、往上下左右推）', () => {
+describe('讓出框配合畫布邊界（縮小到剛好、往上下左右推）', () => {
   it('縮小到剛好：以外框的中心一起縮小，出框都在外框碰到四邊的圖片裡（原作的案例）', () => {
     const v = view({ zoom: 1.6, x: 0.4, y: -0.3 });
     const b = popBounds(HAT, SIZE, v);
@@ -192,7 +192,7 @@ describe('讓出框配合圖片邊界（縮小到剛好、往上下左右推）'
     expect(fitScaleView(view(), popBounds(HAT, SIZE, view()) as never, 0)).toBeNull();
   });
 
-  it('往左推到右邊收進圖片；那一邊已經放得下時 null；其他邊還超出時 rest', () => {
+  it('往左推到右邊收進畫布；那一邊已經放得下時 null；其他邊還超出時 rest', () => {
     const v = view({ x: 0.3 });
     const b = popBounds(HAT, SIZE, v);
     if (!b) throw new Error('沒有出框');

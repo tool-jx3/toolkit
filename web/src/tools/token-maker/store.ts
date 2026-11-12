@@ -132,7 +132,7 @@ export interface Prefs {
   autoFix: boolean;
   /** 預覽下面的桌面尺寸預覽（40、80、120 px） */
   tableStrip: boolean;
-  /** 預覽上用虛線標出圖片邊界（匯出的範圍；出框超出時變紅）。2026-11-12 加 */
+  /** 預覽上用虛線標出畫布邊界（匯出的範圍；出框超出時變紅）。2026-11-12 加 */
   showFrame: boolean;
   /** 匯出尺寸：預設的其中一個，或 custom 時用 customSize */
   sizeChoice: number | 'custom';
@@ -379,7 +379,7 @@ export function tokenPad(look: Look, token: TokenItem | null, maskOverride?: Mas
 }
 
 /**
- * 目前畫得出來的出框的上下左右範圍（R 為單位；讓出框配合圖片邊界、圖片邊界的紅色用）：
+ * 目前畫得出來的出框的上下左右範圍（R 為單位；讓出框配合畫布邊界、畫布邊界的紅色用）：
  * 要有圖片、打開顯示出框、有遮罩；只算看得到的出框（遮罩 ≥ 16）。遮罩還沒讀好時 null。
  */
 export function tokenPopBounds(token: TokenItem | null, mask?: Mask | null): PopBounds | null {
@@ -394,7 +394,7 @@ export function tokenPopBounds(token: TokenItem | null, mask?: Mask | null): Pop
   return popBounds(b, token.image, token.view, token.image.width / token.mask.width);
 }
 
-/** 出框超出圖片的量（手動邊距時；自動邊距不會超出，null）；沒有出框時也是 null */
+/** 出框超出畫布的量（手動邊距時；自動邊距不會超出，null）；沒有出框時也是 null */
 export function tokenOverflow(
   look: Look,
   token: TokenItem | null,

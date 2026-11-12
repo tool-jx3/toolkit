@@ -332,7 +332,7 @@ export function autoSubject(rgba: Rgba): Mask | null {
 }
 
 /**
- * 畫布貼合、讓出框配合圖片邊界用的「看得到的出框」：遮罩 ≥ 16（token-workshop ce4c62b 起，邊緣與貼合的計算
+ * 畫布貼合、讓出框配合畫布邊界用的「看得到的出框」：遮罩 ≥ 16（token-workshop ce4c62b 起，邊緣與貼合的計算
  * 只算看得出來的像素）；以前的自動邊距照舊是遮罩 > 0。
  */
 export const POP_VISIBLE = 16;

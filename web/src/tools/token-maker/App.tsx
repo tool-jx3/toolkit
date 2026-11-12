@@ -256,7 +256,7 @@ function useTestHook() {
       doc: () => docNow(),
       prefs: () => prefsNow(),
       pad: () => tokenPad(docNow().look, currentToken()),
-      /** 出框的上下左右範圍（R 為單位）、手動邊距時超出圖片的量 */
+      /** 出框的上下左右範圍（R 為單位）、手動邊距時超出畫布的量 */
       popBounds: () => tokenPopBounds(currentToken()),
       overflow: () => {
         const b = tokenPopBounds(currentToken());

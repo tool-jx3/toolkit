@@ -639,9 +639,9 @@ export function autoPad(
   return clamp(0.5 - 0.5 / d, 0, 0.45);
 }
 
-/* ---------- 讓出框配合圖片邊界（token-workshop 70f1503 的 Fit pop-out to frame） ---------- */
+/* ---------- 讓出框配合畫布邊界（token-workshop 70f1503 的 Fit pop-out to frame） ---------- */
 
-/** 出框超出圖片的量（R 為單位，> 0＝超出）；L＝圖片的半邊長（R 為單位） */
+/** 出框超出畫布的量（R 為單位，> 0＝超出）；L＝畫布的半邊長（R 為單位） */
 export interface PopOverflow {
   l: number;
   r: number;
@@ -662,7 +662,7 @@ export function popOverflow(b: PopBounds, pad: number): PopOverflow {
 export const overflowMax = (o: PopOverflow): number => Math.max(o.l, o.r, o.t, o.b);
 
 /**
- * 縮小到剛好：圖片和出框以外框的中心一起縮小，直到出框都在圖片裡（縮放夾在 10～800%）。
+ * 縮小到剛好：圖片和出框以外框的中心一起縮小，直到出框都在畫布裡（縮放夾在 10～800%）。
  * 已經放得下（縮放比例 ≥ 0.9995）時 null。
  */
 export function fitScaleView(v: TokenView, b: PopBounds, pad: number): TokenView | null {
@@ -678,7 +678,7 @@ export function fitScaleView(v: TokenView, b: PopBounds, pad: number): TokenView
 export type PushDir = 'left' | 'right' | 'up' | 'down';
 
 /**
- * 往一個方向推：往左推到右邊收進圖片（其他方向同理）。那一邊本來就放得下時 null；
+ * 往一個方向推：往左推到右邊收進畫布（其他方向同理）。那一邊本來就放得下時 null；
  * rest＝推完之後其他邊還有超出。
  */
 export function pushView(

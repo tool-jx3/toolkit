@@ -241,7 +241,7 @@ export function Preview({ onPick }: { onPick: () => void }) {
   const hasImage = !!token?.image;
   const ready = data.status === 'ready';
   const showFrame = usePrefs((s) => s.data.showFrame);
-  /* 圖片邊界：手動邊距、出框超出圖片時變紅 */
+  /* 畫布邊界：手動邊距、出框超出畫布時變紅 */
   const overflow = showFrame ? tokenOverflow(look, token, mask ?? undefined) : null;
   const frameOver = !!overflow && overflowMax(overflow) > OVERFLOW_EPS;
 
@@ -434,8 +434,8 @@ export function Preview({ onPick }: { onPick: () => void }) {
 }
 
 /**
- * 圖片邊界（token-workshop 70f1503 的 image frame）：預覽畫布就是匯出的圖，在它的邊上畫虛線（深色的底線＋白色虛線，
- * 出框超出圖片時紅色）；線寬、虛線的長度依舞台的縮放換算，畫面上一樣粗。只在預覽，不會匯出。
+ * 畫布邊界（token-workshop 70f1503 的 image frame）：預覽畫布就是匯出的圖，在它的邊上畫虛線（深色的底線＋白色虛線，
+ * 出框超出畫布時紅色）；線寬、虛線的長度依舞台的縮放換算，畫面上一樣粗。只在預覽，不會匯出。
  */
 function ImageFrame({ over }: { over: boolean }) {
   const k = 1 / Math.max(0.01, useStageScale());

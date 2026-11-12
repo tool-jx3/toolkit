@@ -1,8 +1,8 @@
 /**
  * VTT 棋子產生器 2026-11-12 跟進 token-workshop（70f1503）的端對端測試（規格 1.11、F90～F95、3.13）：
- * - 圖片邊界：預覽的虛線（「更多」選單開關、記住）、手動邊距時出框超出圖片變紅；
- * - 讓出框配合圖片邊界：往下推、縮小到剛好（自動邊距改成手動 0%，和擺放同一步復原）；
- * - 畫布貼合：斜角的出框時外框比以前的算法大，匯出的圖上出框碰到圖片的邊、外框還在中間；
+ * - 畫布邊界：預覽的虛線（「更多」選單開關、記住）、手動邊距時出框超出畫布變紅；
+ * - 讓出框配合畫布邊界：往下推、縮小到剛好（自動邊距改成手動 0%，和擺放同一步復原）；
+ * - 畫布貼合：斜角的出框時外框比以前的算法大，匯出的圖上出框碰到畫布的邊、外框還在中間；
  * - 外緣淡出：匯出的 PNG 在外半徑＋1 px 以外沒有外框的像素（鎖鏈停用、霓虹不顯示）；
  * - 滑桿：拖曳中重算（自動的靈敏度停 0.26 秒會重新自動選取）不會動到滑桿、放開時以滑桿的位置為準、很快點兩下不會重設；
  * - 配合外框調整圖片的顏色（原作 ce4c62b 的 Match picture colour to ring）；
@@ -215,11 +215,11 @@ async function menu(page: Page, item: string | RegExp) {
 
 /* ---------- 測試 ---------- */
 
-test('圖片邊界：預覽上的虛線（「更多」選單開關、重新整理後記得）；手動邊距、出框超出時變紅', async ({
+test('畫布邊界：預覽上的虛線（「更多」選單開關、重新整理後記得）；手動邊距、出框超出時變紅', async ({
   page,
 }) => {
   const errors = await open(page);
-  /* 還沒有圖片：沒有圖片邊界 */
+  /* 還沒有圖片：沒有畫布邊界 */
   await expect(frame(page)).toHaveCount(0);
   await heroWithHat(page);
   await expect(frame(page)).toBeVisible();
@@ -234,7 +234,7 @@ test('圖片邊界：預覽上的虛線（「更多」選單開關、重新整�
   ] as [number, number][])
     expect(png.at(x, y)[3]).toBe(0);
 
-  /* 手動邊距 0%、圖片往上移 0.3 R：帽子超出圖片的上面 → 紅色 */
+  /* 手動邊距 0%、圖片往上移 0.3 R：帽子超出畫布的上面 → 紅色 */
   await tab(page, '出框').click();
   await page.getByRole('switch', { name: '自動邊距' }).click();
   await page.getByRole('spinbutton', { name: '邊距' }).fill('0');
@@ -245,7 +245,7 @@ test('圖片邊界：預覽上的虛線（「更多」選單開關、重新整�
   await expect.poll(async () => (await cur(page)).view.y).toBeCloseTo(-0.3);
   await expect(frame(page)).toHaveAttribute('data-over', 'true');
   await expect(page.getByTestId('fit-info')).toHaveText(
-    /^出框超出圖片：上 1[23]%（外框直徑的比例）。$/,
+    /^出框超出畫布：上 1[23]%（外框直徑的比例）。$/,
   );
   /* 自動邊距：不會超出，不紅；復原回到手動 0% 又變紅 */
   await page.getByRole('switch', { name: '自動邊距' }).click();
@@ -255,18 +255,18 @@ test('圖片邊界：預覽上的虛線（「更多」選單開關、重新整�
   await expect(frame(page)).toHaveAttribute('data-over', 'true');
 
   /* 「更多」選單：不顯示 → 重新整理之後還是不顯示 → 再打開 */
-  await menu(page, '不顯示圖片邊界');
+  await menu(page, '不顯示畫布邊界');
   await expect(frame(page)).toHaveCount(0);
   expect((await prefs(page)).showFrame).toBe(false);
   await page.reload();
   await expect(layer(page)).toBeVisible();
   await expect(frame(page)).toHaveCount(0);
-  await menu(page, '顯示圖片邊界');
+  await menu(page, '顯示畫布邊界');
   await expect(frame(page)).toBeVisible();
   expect(errors).toEqual([]);
 });
 
-test('讓出框配合圖片邊界：往下推、縮小到剛好（自動邊距改成手動 0%，同一步復原）；沒有出框時停用', async ({
+test('讓出框配合畫布邊界：往下推、縮小到剛好（自動邊距改成手動 0%，同一步復原）；沒有出框時停用', async ({
   page,
 }) => {
   const errors = await open(page);
@@ -286,15 +286,15 @@ test('讓出框配合圖片邊界：往下推、縮小到剛好（自動邊距�
   await page.keyboard.press('v');
   await nudge(page, 'Shift+ArrowUp', 6);
   await expect.poll(async () => (await cur(page)).view.y).toBeCloseTo(-0.3);
-  await expect(page.getByTestId('fit-info')).toContainText('自動邊距會讓圖片剛好容得下出框');
+  await expect(page.getByTestId('fit-info')).toContainText('自動邊距會讓畫布剛好容得下出框');
   await expect(scale).toBeEnabled();
 
-  /* 縮小到剛好：自動邊距關掉、邊距 0%、出框都在圖片裡 */
+  /* 縮小到剛好：自動邊距關掉、邊距 0%、出框都在畫布裡 */
   await scale.click();
   await expect.poll(async () => (await look(page)).autoMargin).toBe(false);
   expect((await look(page)).margin).toBe(0);
   await expect(
-    page.getByText('自動邊距已關掉，邊距改成手動 0%（所有棋子共用）。').first(),
+    page.getByText('自動邊距已關掉，邊距改成手動 0%（所有棋子共用）。', { exact: true }).first(),
   ).toBeVisible();
   const o = await overflowOf(page);
   expect(maxOver(o)).toBeLessThanOrEqual(0.003);
@@ -302,7 +302,7 @@ test('讓出框配合圖片邊界：往下推、縮小到剛好（自動邊距�
   const t = await cur(page);
   expect(t.view.zoom).toBeLessThan(1);
   expect(t.view.y).toBeCloseTo(-0.3 * t.view.zoom, 6);
-  await expect(page.getByTestId('fit-info')).toHaveText('出框都在圖片裡。');
+  await expect(page.getByTestId('fit-info')).toHaveText('出框都在畫布裡。');
   await expect(frame(page)).not.toHaveAttribute('data-over');
   /* 一步復原：擺放與自動邊距一起回來 */
   await page.keyboard.press('Control+z');
@@ -310,15 +310,15 @@ test('讓出框配合圖片邊界：往下推、縮小到剛好（自動邊距�
   expect((await cur(page)).view).toMatchObject({ zoom: 1 });
   expect((await cur(page)).view.y).toBeCloseTo(-0.3);
 
-  /* 往下推：上面收進圖片；往上推：下面本來就在圖片裡 */
+  /* 往下推：上面收進畫布；往上推：下面本來就在畫布裡 */
   await down.click();
   await expect.poll(async () => (await look(page)).autoMargin).toBe(false);
   await expect.poll(async () => (await overflowOf(page))?.t ?? 1).toBeLessThanOrEqual(0.003);
   expect((await cur(page)).view.zoom).toBe(1);
-  await expect(page.getByText('推好了，出框都在圖片裡。').first()).toBeVisible();
+  await expect(page.getByText('推好了，出框都在畫布裡。').first()).toBeVisible();
   const y = (await cur(page)).view.y;
   await page.getByRole('button', { name: '往上推' }).click();
-  await expect(page.getByText('那一邊已經在圖片裡，不用推。').first()).toBeVisible();
+  await expect(page.getByText('那一邊已經在畫布裡，不用推。').first()).toBeVisible();
   expect((await cur(page)).view.y).toBe(y);
   /* 已經放得下時「縮小到剛好」不改縮放 */
   await scale.click();
@@ -327,7 +327,75 @@ test('讓出框配合圖片邊界：往下推、縮小到剛好（自動邊距�
   expect(errors).toEqual([]);
 });
 
-test('畫布貼合：斜角的出框時外框比以前的算法大，匯出的圖上出框碰到圖片的邊、外框還在中間', async ({
+test('讓出框配合畫布邊界：自動邊距改成手動 0% 時，通知寫出名單裡其他棋子有幾個的出框會超出畫布', async ({
+  page,
+}) => {
+  const errors = await open(page);
+  const hero = await heroPng();
+  await dropInput(page).setInputFiles([
+    file('hero1.png', hero),
+    file('hero2.png', hero),
+    file('hero3.png', hero),
+  ]);
+  const roster = page.getByRole('list', { name: '棋子名單' });
+  await expect(roster.getByRole('listitem')).toHaveCount(3);
+  /* 每個棋子點帽子出框；第 1、2 個往上移 0.3 R（手動 0% 時帽子會超出畫布），第 3 個不動（放得下） */
+  for (const [i, up] of [
+    [0, true],
+    [1, true],
+    [2, false],
+  ] as [number, boolean][]) {
+    await tab(page, '圖片').click();
+    await roster.getByRole('listitem').nth(i).click();
+    await expect
+      .poll(async () => {
+        const d = await doc(page);
+        return d.current === d.tokens[i].id;
+      })
+      .toBe(true);
+    await page.locator('body').click({ position: { x: 5, y: 880 } });
+    await page.keyboard.press('w');
+    const hat = await imageToScreen(page, 200, 40);
+    await page.mouse.click(hat.x, hat.y);
+    await expect.poll(async () => (await cur(page)).mask).not.toBeNull();
+    await page.keyboard.press('v');
+    if (up) {
+      await nudge(page, 'Shift+ArrowUp', 6);
+      await expect.poll(async () => (await cur(page)).view.y).toBeCloseTo(-0.3);
+    }
+  }
+  /* 在第 1 個按「縮小到剛好」：第 2 個會超出、第 3 個不會 → 「另外 1 個」 */
+  await tab(page, '圖片').click();
+  await roster.getByRole('listitem').nth(0).click();
+  await tab(page, '出框').click();
+  await page.getByRole('button', { name: '縮小到剛好' }).click();
+  await expect(
+    page
+      .getByText(
+        '自動邊距已關掉，邊距改成手動 0%（所有棋子共用）。另外 1 個棋子的出框會超出畫布，可以復原。',
+      )
+      .first(),
+  ).toBeVisible();
+  await expect.poll(async () => (await look(page)).autoMargin).toBe(false);
+  /* 復原：一步回到自動邊距 */
+  await page.keyboard.press('Control+z');
+  await expect.poll(async () => (await look(page)).autoMargin).toBe(true);
+  /* 第 2 個也放下來：其他棋子都放得下時不寫這一句 */
+  await tab(page, '圖片').click();
+  await roster.getByRole('listitem').nth(1).click();
+  await nudge(page, 'Shift+ArrowDown', 6);
+  await expect.poll(async () => (await cur(page)).view.y).toBeCloseTo(0);
+  await tab(page, '圖片').click();
+  await roster.getByRole('listitem').nth(0).click();
+  await tab(page, '出框').click();
+  await page.getByRole('button', { name: '往下推' }).click();
+  const note = page.getByText(/^自動邊距已關掉，邊距改成手動 0%（所有棋子共用）。/).first();
+  await expect(note).toBeVisible();
+  await expect(note).not.toContainText('另外');
+  expect(errors).toEqual([]);
+});
+
+test('畫布貼合：斜角的出框時外框比以前的算法大，匯出的圖上出框碰到畫布的邊、外框還在中間', async ({
   page,
 }) => {
   const errors = await open(page);
@@ -357,7 +425,7 @@ test('畫布貼合：斜角的出框時外框比以前的算法大，匯出的�
   const pad = await padOf(page);
   expect(pad).toBeLessThan(oldPad - 0.02);
   const after = await downloadPng(page);
-  /* 帽子碰到圖片的上面（不留空），外框還在中間：中心正下方的外框上不是圖片的顏色 */
+  /* 帽子碰到畫布的上面（不留空），外框還在中間：中心正下方的外框上不是圖片的顏色 */
   expect(firstBlueRow(after)).toBeLessThanOrEqual(1);
   const R = 512 * (0.5 - pad);
   for (const [x, y] of [
