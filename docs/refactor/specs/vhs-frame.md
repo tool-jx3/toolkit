@@ -172,6 +172,7 @@ Signal：磨損度（已有）、八種效果的開關（F70）；Output：轉�
 選了「挑 1～4 併進 vhs-frame；6 可行的話也加」：CRT 的螢光粉遮罩與光暈（1.12）、比較原圖（1.13）、數位攝影（1.14）、Screen Loop（1.16）、
 更真實的 NTSC 訊號（參考 ntsc-rs 移植，1.15）；影片輸入與影片匯出不做。另加本站自己調的「樣子」（1.17）。
 NTSCRT **沒有授權檔（未授權）**：只參考功能、互動的流程與數值範圍，程式與介面文字自己寫，`presets/` 不用；它的 CRT 著色器（libretro slang-shaders，大多 GPL）沒有讀、沒有移植（D34）。
+（2026-11-12 註：NTSCRT 在 2026-11-10 的 `2b41a5a` 起改 MIT〔著色器仍是各自的授權〕；本站這一批讀的 `2b3013d` 還沒有授權檔，上面的界線照舊。之後跟進時可以沿用它的程式與 `presets/`，見 TODO 第一節。）
 ntsc-rs（<https://github.com/ntsc-rs/ntsc-rs>，`8cfc510`）的 `crates/ntscrs` 是 MIT／ISC／Apache-2.0 三選一：本站採用 MIT，演算法與數值照它改寫成本站的 TypeScript（`ntsc.ts`），
 授權全文在 `web/src/tools/vhs-frame/UPSTREAM_LICENSE`（建置時併入 THIRD_PARTY_NOTICES）；`crates/gui`（GPL-3.0）沒有讀。頁尾的靈感來源仍是 VHS_Maker（D40）。
 新的設定全部**預設關閉**；沒用到時 PNG、GIF、APNG、WebP 和改版前逐位元組相同（F98）。設定欄多五個區塊：「樣子」（照片之後）、「映像管」「數位攝影」「NTSC 訊號」「Screen Loop」（畫面之後、動畫之前；後四個預設收起來，記住展開）。
