@@ -335,6 +335,79 @@ describe('vhs-frame：沒用新功能時匯出的畫法不變', () => {
   });
 });
 
+/* ---------- 2026-11-10 的設定（數位攝影的五種格式、六組樣子）：2026-11-12 的新設定沒動時不變 ---------- */
+
+/**
+ * 基準檔 `fixtures/vhs-frame-golden-2611.json` 是 2026-11-12 跟進 NTSCRT（方塊色、CCD 的反應、彩虹鋸齒、單場的掃描線…）**之前**的程式
+ * （main `7ebd387`）用這個檔案產生的：數位攝影的五種格式與兩組自訂的值、六組樣子 × PNG 與 GIF。
+ * 假畫布的 getImageData 回傳固定的圖樣，所以數位攝影的相機、壓縮與 NTSC 訊號的每一個值都會反映在 putImageData 的雜湊裡。
+ * 要重新產生：`VHS_FRAME_GOLDEN_2611_WRITE=1 npx vitest run tests/unit/vhs-frame-golden.test.ts`（只在刻意改變外觀時，並在規格寫明）。
+ */
+const FIXTURE_2611 = new URL('./fixtures/vhs-frame-golden-2611.json', import.meta.url).pathname;
+const WRITE_2611 = ENV.VHS_FRAME_GOLDEN_2611_WRITE === '1';
+
+async function cases2611(): Promise<Record<string, Case>> {
+  const { DIGITAL_PRESETS } = await import('@/tools/vhs-frame/look');
+  const { applyLookPreset } = await import('@/tools/vhs-frame/presets');
+  /* 2026-11-10 就有的五種格式、六組樣子（之後加的不在基準檔裡） */
+  const formats = ['webcam', 'call', 'minidv', 'web', 'mosh'] as const;
+  const looks = ['plain', 'clean', 'webcam', 'ntsc', 'minidv', 'loop'] as const;
+  const c = cases().photo;
+  const out: Record<string, Case> = {};
+  for (const f of formats) {
+    const s = structuredClone(c.s);
+    s.digital = { ...s.digital, ...DIGITAL_PRESETS[f], on: true, format: f };
+    out[`digital-${f}`] = { s, photo: c.photo };
+  }
+  const custom = structuredClone(c.s);
+  custom.digital = {
+    ...custom.digital,
+    ...DIGITAL_PRESETS.webcam,
+    on: true,
+    alias: 60,
+    lens: 50,
+    black: 10,
+    sharpen: 70,
+    denoise: 40,
+    chroma: 0,
+    quality: 3,
+    loss: 40,
+    keyframe: 10,
+    interlace: true,
+  };
+  out['digital-custom'] = { s: custom, photo: c.photo };
+  const mosh = structuredClone(c.s);
+  mosh.digital = { ...mosh.digital, ...DIGITAL_PRESETS.mosh, on: true, format: 'mosh', loss: 20 };
+  out['digital-mosh-loss'] = { s: mosh, photo: c.photo };
+  for (const id of looks) {
+    const s = structuredClone(c.s);
+    applyLookPreset(s, id);
+    out[`look-${id}`] = { s, photo: c.photo };
+  }
+  return out;
+}
+
+describe('vhs-frame：2026-11-10 的設定在沒動 2026-11-12 的新設定時畫法不變', () => {
+  beforeAll(() => {
+    rec.state.prefix = 'noise';
+    noiseTiles();
+  });
+
+  it('數位攝影的五種格式、自訂的值、六組樣子：PNG 與 GIF 的畫布指令（含 putImageData 的內容）相同', async () => {
+    const got: Record<string, string> = {};
+    for (const [name, c] of Object.entries(await cases2611()))
+      for (const jn of ['png@7.25', 'gif'] as const)
+        got[`${name}/${jn}`] = await exportLog(`2611-${name}/${jn}`, c, JOBS[jn], true);
+    if (WRITE_2611 || !existsSync(FIXTURE_2611)) {
+      writeFileSync(FIXTURE_2611, `${JSON.stringify(got, null, 2)}\n`);
+      if (!WRITE_2611) throw new Error('基準檔不存在，已產生；請確認後再跑一次');
+    }
+    const want = JSON.parse(readFileSync(FIXTURE_2611, 'utf8')) as Record<string, string>;
+    expect(Object.keys(got).sort()).toEqual(Object.keys(want).sort());
+    for (const k of Object.keys(want)) expect(got[k], k).toBe(want[k]);
+  }, 120_000);
+});
+
 /* ---------- 新功能有作用（同一個記錄器） ---------- */
 
 /** 指令裡的文字（fillText 的字、填色、對齊） */

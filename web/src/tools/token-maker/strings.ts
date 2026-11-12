@@ -104,6 +104,38 @@ export const S = {
   placementHint:
     '移動工具：拖曳平移、滾輪縮放（Shift＋滾輪旋轉）、兩指捏合縮放；方向鍵微調，＋／－ 縮放，0 重設。',
 
+  /* ---------- 讓出框配合畫布邊界（token-workshop 70f1503，2026-11-12） ---------- */
+  fitSection: '讓出框配合畫布邊界',
+  fitScale: '縮小到剛好',
+  fitScaleTitle: '圖片和出框一起縮小，直到沒有超出畫布的部分',
+  fitPushGroup: '把出框推進畫布裡',
+  fitPush: { left: '往左推', right: '往右推', up: '往上推', down: '往下推' } as Record<
+    'left' | 'right' | 'up' | 'down',
+    string
+  >,
+  fitPushTitle: {
+    left: '往左推，直到右邊收進畫布',
+    right: '往右推，直到左邊收進畫布',
+    up: '往上推，直到下面收進畫布',
+    down: '往下推，直到上面收進畫布',
+  } as Record<'left' | 'right' | 'up' | 'down', string>,
+  fitNote: '自動邊距時會先改成手動 0%（外框碰到畫布的四邊）；邊距是所有棋子共用的。',
+  fitInfoNone:
+    '先在「出框」分頁選好要出框的部分（並打開「顯示出框」），這些按鈕就能把它收進畫布裡。',
+  fitInfoAuto:
+    '自動邊距會讓畫布剛好容得下出框。想讓外框維持最大、碰到畫布的四邊，可以用這些按鈕把出框收進來。',
+  fitInfoOver: (sides: string) => `出框超出畫布：${sides}（外框直徑的比例）。`,
+  fitInfoFits: '出框都在畫布裡。',
+  fitSides: { l: '左', r: '右', t: '上', b: '下' } as Record<'l' | 'r' | 't' | 'b', string>,
+  fitNeedPop: '還沒有出框：先在「出框」分頁選好要出框的部分。',
+  fitScaled: (z: number) => `已縮小到 ${z}%，出框都在畫布裡。`,
+  fitAlready: '已經放得下了。',
+  fitPushNone: '那一邊已經在畫布裡，不用推。',
+  fitPushRest: '推好了，但其他邊還有超出；可以試試「縮小到剛好」。',
+  fitPushed: '推好了，出框都在畫布裡。',
+  fitAutoOff: '自動邊距已關掉，邊距改成手動 0%（所有棋子共用）。',
+  fitOthersOver: (n: number) => `另外 ${n} 個棋子的出框會超出畫布，可以復原。`,
+
   /* ---------- 背景 ---------- */
   background: '背景',
   bgMode: '開口裡的背景',
@@ -184,6 +216,8 @@ export const S = {
   maskViewOff: '不檢視遮罩',
   tableStripOn: '顯示桌面尺寸預覽',
   tableStripOff: '不顯示桌面尺寸預覽',
+  showFrame: '顯示畫布邊界',
+  hideFrame: '不顯示畫布邊界',
   tableStrip: '桌面尺寸',
   tableStripLabel: '棋子在 40、80、120 px 的樣子',
   mode: '模式',
@@ -210,6 +244,9 @@ export const S = {
   marginSection: '邊距',
   autoMargin: '自動邊距',
   autoMarginHint: '外框縮小到剛好不會切到出框的部分。',
+  tightFit: '畫布貼合',
+  tightFitHint:
+    '外框固定在中間，畫布剛好容得下外框或出框（上下左右最遠的那一邊碰到畫布的邊，斜角的出框不會讓外框縮小）。關掉時照以前的算法：以出框離中心最遠的距離為準，四邊都留一樣的空間。',
   margin: '邊距',
   marginHint: '外框四周留的空白（整張的 %）。',
   autoFound: '已自動選出主體，可以用魔術棒或筆刷修改，也可以復原。',
@@ -299,6 +336,9 @@ export const S = {
 
   /* ---------- 外框 ---------- */
   frameSection: '外框樣式',
+  edgeFade: '外緣淡出',
+  edgeFadeHint: '外框最外圈 1 px 的透明度慢慢淡出，超出外緣的鋸齒雜點不會留在圖上（浮雕環）。',
+  edgeFadeSkip: '鎖鏈、寶石本來就伸出外緣，不套用外緣淡出。',
   frameGroups: { relief: '浮雕環', neon: '霓虹與幾何' } as Record<'relief' | 'neon', string>,
   frames: {
     plain: '單純',
@@ -353,6 +393,12 @@ export const S = {
   autoColorFrame: '外框色',
   autoColorAccent: '第二色',
   autoColorHint: '從目前棋子的圖片挑顏色；再按一次換下一個。',
+  matchRing: '圖片的顏色',
+  matchRingButton: '配合外框調整',
+  matchRingHint:
+    '依外框和圖片的鮮豔程度，調整目前棋子圖片的飽和度（亮度不變），讓圖片和外框更搭；之後可以在「圖片」的「色彩調整」微調。',
+  matchRingDone: (sat: number) => `已配合外框把圖片的飽和度調成 ${sat}%（亮度不變）。`,
+  matchRingDoneHint: '可以在「圖片」分頁的「色彩調整」微調，也可以復原。',
   autoColorNone: '從圖片找不到合適的顏色。',
   param: {
     teeth: '齒數',

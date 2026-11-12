@@ -1,1 +1,4 @@
-[{ "name": "ntsc-rs（crates/ntscrs，MIT）", "url": "https://github.com/ntsc-rs/ntsc-rs" }]
+[
+  { "name": "ntsc-rs（crates/ntscrs，MIT）", "url": "https://github.com/ntsc-rs/ntsc-rs" },
+  { "name": "NTSCRT（finnmckenty/NTSCRT，MIT）", "url": "https://github.com/finnmckenty/NTSCRT" }
+]

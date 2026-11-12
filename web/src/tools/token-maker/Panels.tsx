@@ -4,13 +4,18 @@
  * 「名字」與「效果」在 TextTab、FxTab。
  */
 import {
+  ArrowDown,
+  ArrowLeft,
   ArrowLeftRight,
+  ArrowRight,
+  ArrowUp,
   Copy,
   Download,
   FileArchive,
   FlipHorizontal2,
   ImageUp,
   RotateCcw,
+  Shrink,
   Shuffle,
   Sparkles,
   Upload,
@@ -43,11 +48,14 @@ import {
   type BatchNotice,
   changeMask,
   cleanCurrentSpecks,
+  type FitKind,
+  fitPopToFrame,
   fixCurrentEdges,
   loadCustomFrame,
   loadCustomMaskFile,
   loadMaskFile,
   loadRefImage,
+  matchPictureToRing,
   renderTokenBlob,
   retuneAuto,
   retuneGap,
@@ -65,6 +73,7 @@ import {
   type BgMode,
   CUSTOM_SIZE,
   defaultAdjust,
+  EDGE_FADE_SKIP,
   FRAME_IDS,
   type FrameId,
   GLOW_MODES,
@@ -74,7 +83,11 @@ import {
   type Look,
   METALS,
   NEONS,
+  OVERFLOW_EPS,
+  type PushDir,
+  popOverflow,
   RANGES,
+  RELIEF_FRAMES,
   SIZE_PRESETS,
   sharpSize,
   TEXTURE_AMOUNT,
@@ -103,6 +116,7 @@ import {
   setPrefs,
   toggleMaskView,
   tokenPad,
+  tokenPopBounds,
   useDoc,
   usePrefs,
   useUi,
@@ -513,6 +527,18 @@ export function PopoutTab() {
             }
           />
         </Field>
+        <Show when={look.autoMargin}>
+          <Field label={S.tightFit} hint={S.tightFitHint} layout="inline">
+            <Toggle
+              checked={look.tightFit}
+              onCheckedChange={(v) =>
+                editLook((l) => {
+                  l.tightFit = v;
+                })
+              }
+            />
+          </Field>
+        </Show>
         <Show when={!look.autoMargin}>
           <Field label={S.margin} hint={S.marginHint}>
             <Slider
@@ -526,7 +552,83 @@ export function PopoutTab() {
           </Field>
         </Show>
       </Section>
+      <FitSection token={token} />
     </div>
+  );
+}
+
+const PUSH: { dir: PushDir; icon: React.ReactNode }[] = [
+  { dir: 'left', icon: <ArrowLeft /> },
+  { dir: 'right', icon: <ArrowRight /> },
+  { dir: 'up', icon: <ArrowUp /> },
+  { dir: 'down', icon: <ArrowDown /> },
+];
+
+/**
+ * 讓出框配合畫布邊界（token-workshop 70f1503 的 Fit pop-out to frame）：縮小到剛好、往上下左右推，
+ * 讓出框收進畫布裡（自動邊距時先改成手動 0%）；上面一行寫目前出框超出畫布多少。
+ */
+function FitSection({ token }: { token: TokenItem | null }) {
+  const look = useLook();
+  const notify = useNotice();
+  const data = useTokenData(token?.image ?? null, token?.mask ?? null);
+  const live = useUi((s) => s.liveMask);
+  const mask = live && token && live.tokenId === token.id ? live.mask : data.mask;
+  const b = tokenPopBounds(token, mask ?? undefined);
+  const ov = b ? popOverflow(b, look.autoMargin ? 0 : look.margin / 100) : null;
+  const sides = ov
+    ? (['l', 'r', 't', 'b'] as const)
+        .filter((k) => ov[k] > OVERFLOW_EPS)
+        .map((k) => `${S.fitSides[k]} ${Math.round((ov[k] / 2) * 100)}%`)
+        .join('、')
+    : '';
+  const info = !b
+    ? S.fitInfoNone
+    : look.autoMargin
+      ? S.fitInfoAuto
+      : sides
+        ? S.fitInfoOver(sides)
+        : S.fitInfoFits;
+  const run = async (kind: FitKind) => notify(await fitPopToFrame(kind));
+  return (
+    <Section title={S.fitSection} persistKey="token-maker:fit">
+      <p
+        className="m-0 text-sm"
+        data-testid="fit-info"
+        data-over={!look.autoMargin && sides ? 'true' : undefined}
+      >
+        {info}
+      </p>
+      <div className="flex flex-wrap gap-2">
+        <Button
+          size="sm"
+          variant="secondary"
+          icon={<Shrink />}
+          disabled={!b}
+          title={S.fitScaleTitle}
+          onClick={() => run('scale')}
+        >
+          {S.fitScale}
+        </Button>
+      </div>
+      <fieldset className="m-0 grid min-w-0 grid-cols-2 gap-2 border-0 p-0">
+        <legend className="sr-only">{S.fitPushGroup}</legend>
+        {PUSH.map(({ dir, icon }) => (
+          <Button
+            key={dir}
+            size="sm"
+            variant="secondary"
+            icon={icon}
+            disabled={!b}
+            title={S.fitPushTitle[dir]}
+            onClick={() => run(dir)}
+          >
+            {S.fitPush[dir]}
+          </Button>
+        ))}
+      </fieldset>
+      <p className="m-0 text-xs text-muted">{S.fitNote}</p>
+    </Section>
   );
 }
 
@@ -694,6 +796,7 @@ export function FrameTab() {
   const look = useLook();
   const pal = useImagePalette();
   const notify = useNotice();
+  const hasImage = useDoc((s) => !!currentToken(s.data)?.image);
   const custom = useDoc((s) => s.data.custom);
   const cdata = useCustomData(custom.frame?.id ?? null, custom.mask?.id ?? null);
   const def = frameDef(look.frame);
@@ -799,6 +902,23 @@ export function FrameTab() {
               max={def.lineW.max}
               step={0.5}
               unit="%"
+            />
+          </Field>
+        ) : null}
+        {(RELIEF_FRAMES as readonly FrameId[]).includes(look.frame) ? (
+          <Field
+            label={S.edgeFade}
+            hint={EDGE_FADE_SKIP.includes(look.frame) ? S.edgeFadeSkip : S.edgeFadeHint}
+            layout="inline"
+          >
+            <Toggle
+              checked={look.edgeFade}
+              disabled={EDGE_FADE_SKIP.includes(look.frame)}
+              onCheckedChange={(v) =>
+                editLook((l) => {
+                  l.edgeFade = v;
+                })
+              }
             />
           </Field>
         ) : null}
@@ -909,6 +1029,19 @@ export function FrameTab() {
               onClick={async () => notify(await autoPickColor('accent'))}
             >
               {S.autoColorAccent}
+            </Button>
+          </div>
+        </Field>
+        <Field label={S.matchRing} hint={S.matchRingHint}>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              size="sm"
+              variant="secondary"
+              icon={<Sparkles />}
+              disabled={!hasImage}
+              onClick={async () => notify(await matchPictureToRing())}
+            >
+              {S.matchRingButton}
             </Button>
           </div>
         </Field>

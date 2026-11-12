@@ -68,11 +68,16 @@ export interface EmbedInput {
   mask: { width: number; height: number; bytes: Uint8Array } | null;
 }
 
-/** 外觀裡 2026-11-05 加的欄位：預設值時不寫（嵌入的內容和之前相同） */
+/**
+ * 外觀裡 2026-11-05 之後加的欄位：以前的值（色彩平衡 50%、畫布貼合與外緣淡出關）時不寫，嵌入的內容和之前相同；
+ * 讀的時候沒有這些欄位就是以前的值。
+ */
 function lookForEmbed(look: Look): Partial<Look> {
-  if (look.gMid !== 50) return look;
-  const { gMid: _omit, ...rest } = look;
-  return rest;
+  const out: Partial<Look> = { ...look };
+  if (look.gMid === 50) delete out.gMid;
+  if (!look.tightFit) delete out.tightFit;
+  if (!look.edgeFade) delete out.edgeFade;
+  return out;
 }
 
 export function embedJson(e: EmbedInput): string {
@@ -284,6 +289,9 @@ export function fromTokenWorkshop(
     bgColor: s.bg,
     autoMargin: s.autoFit !== false,
     margin: pctOf(s.pad, base.margin),
+    /* TW 70f1503 起一律是貼合的畫布、外緣淡出（檔案裡沒有這兩個設定；規格 D48） */
+    tightFit: true,
+    edgeFade: true,
     feather: s.feather,
     shadow: pctOf(s.shadow, 0),
     /* TW 的環沒有光暈與不透明度 */

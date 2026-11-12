@@ -332,16 +332,23 @@ export function autoSubject(rgba: Rgba): Mask | null {
 }
 
 /**
- * 出框的邊界點（自動邊距用）：選取中、圖片看得到（不透明度 > 8）、而且旁邊有不是這樣的像素（或在圖邊）的位置，
+ * 畫布貼合、讓出框配合畫布邊界用的「看得到的出框」：遮罩 ≥ 16（token-workshop ce4c62b 起，邊緣與貼合的計算
+ * 只算看得出來的像素）；以前的自動邊距照舊是遮罩 > 0。
+ */
+export const POP_VISIBLE = 16;
+
+/**
+ * 出框的邊界點（自動邊距用）：選取中（遮罩 ≥ min）、圖片看得到（不透明度 > 8）、而且旁邊有不是這樣的像素（或在圖邊）的位置，
  * 換成圖片的 px、以圖片中心為原點（xy 交錯）。
  */
 export function maskBoundary(
   m: Mask,
   alpha: Uint8Array | null,
   image: { width: number; height: number },
+  min = 1,
 ): Float32Array {
   const { width: w, height: h, data } = m;
-  const on = (i: number) => data[i] > 0 && (!alpha || alpha[i] > 8);
+  const on = (i: number) => data[i] >= min && (!alpha || alpha[i] > 8);
   const sx = image.width / w;
   const sy = image.height / h;
   const pts: number[] = [];

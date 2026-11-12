@@ -203,7 +203,7 @@ export function* loopSteps(
     cg.drawImage(tv, 0, 0);
     cg.restore();
     /* 亮度鍵：照片亮的部分蓋回最上面（柔邊） */
-    if (sceneData) keyOver(cg, sceneData, camW, camH, l.key / 100);
+    if (sceneData) keyOver(cg, sceneData, camW, camH, l.key / 100, l.keyInvert);
     const master = r.compose(cam, { width: camW, height: camH }, DEFAULT_VIEW, input.aspect, res, {
       ...input.look,
       flip: false,
@@ -217,14 +217,25 @@ export function* loopSteps(
   return depth;
 }
 
-/** 亮度鍵：場景的亮度超過 1 − key 的地方（前後 0.08 柔邊）蓋回去 */
-function keyOver(g: Ctx, scene: Uint8ClampedArray, w: number, h: number, key: number): void {
+/**
+ * 亮度鍵：場景的亮度超過 1 − key 的地方（前後 0.08 柔邊）蓋回去。
+ * invert（2026-11-12，參考 NTSCRT 的 Key the dark parts，MIT）：亮度反過來看（1 − 亮度），暗的部分蓋在上面、隧道從亮的地方透出來。
+ */
+function keyOver(
+  g: Ctx,
+  scene: Uint8ClampedArray,
+  w: number,
+  h: number,
+  key: number,
+  invert = false,
+): void {
   const img = g.getImageData(0, 0, w, h);
   const d = img.data;
   const lo = 1 - key - 0.08;
   const hi = 1 - key + 0.08;
   for (let i = 0; i < d.length; i += 4) {
-    const l = (0.299 * scene[i] + 0.587 * scene[i + 1] + 0.114 * scene[i + 2]) / 255;
+    const y = (0.299 * scene[i] + 0.587 * scene[i + 1] + 0.114 * scene[i + 2]) / 255;
+    const l = invert ? 1 - y : y;
     if (l <= lo) continue;
     const u = l >= hi ? 1 : (l - lo) / (hi - lo);
     const a = u * u * (3 - 2 * u);

@@ -23,6 +23,7 @@ import {
   Stage,
   Toggle,
   Tooltip,
+  useStageScale,
   useToast,
 } from '@/ui';
 import { changeMask, lassoSelect, retuneWand, runAuto, selectionText, wandAt } from './actions';
@@ -33,6 +34,8 @@ import {
   type Geom,
   geom,
   type ImageTransform,
+  OVERFLOW_EPS,
+  overflowMax,
   PREVIEW_SIZE,
   RANGES,
   type TokenItem,
@@ -63,6 +66,7 @@ import {
   setTool,
   setView,
   toggleMaskView,
+  tokenOverflow,
   tokenPad,
   useDoc,
   usePrefs,
@@ -236,6 +240,10 @@ export function Preview({ onPick }: { onPick: () => void }) {
   const pad = lockedPad ?? tokenPad(look, token, liveMask ?? undefined);
   const hasImage = !!token?.image;
   const ready = data.status === 'ready';
+  const showFrame = usePrefs((s) => s.data.showFrame);
+  /* 畫布邊界：手動邊距、出框超出畫布時變紅 */
+  const overflow = showFrame ? tokenOverflow(look, token, mask ?? undefined) : null;
+  const frameOver = !!overflow && overflowMax(overflow) > OVERFLOW_EPS;
 
   /* 主畫布：和匯出同一段繪製 */
   // biome-ignore lint/correctness/useExhaustiveDependencies: paintTick、texTick、fontTick 讓正在畫的一筆、產生好的質感、載好的字型重畫
@@ -391,6 +399,7 @@ export function Preview({ onPick }: { onPick: () => void }) {
             data-testid="token-overlay"
             className="pointer-events-none absolute inset-0 block size-full"
           />
+          {hasImage && showFrame ? <ImageFrame over={frameOver} /> : null}
           {hasImage ? (
             <InteractionLayer
               token={token as TokenItem}
@@ -421,6 +430,34 @@ export function Preview({ onPick }: { onPick: () => void }) {
       {hasImage ? <TableStrip source={main} redraw={strip} /> : null}
       {data.status === 'missing' ? <Notice tone="warning">{S.imageMissing}</Notice> : null}
     </div>
+  );
+}
+
+/**
+ * 畫布邊界（token-workshop 70f1503 的 image frame）：預覽畫布就是匯出的圖，在它的邊上畫虛線（深色的底線＋白色虛線，
+ * 出框超出畫布時紅色）；線寬、虛線的長度依舞台的縮放換算，畫面上一樣粗。只在預覽，不會匯出。
+ */
+function ImageFrame({ over }: { over: boolean }) {
+  const k = 1 / Math.max(0.01, useStageScale());
+  const outer = 3.2 * k;
+  const inset = outer / 2;
+  const rect = { x: inset, y: inset, width: N - outer, height: N - outer, fill: 'none' };
+  return (
+    <svg
+      aria-hidden
+      data-testid="image-frame"
+      data-over={over ? 'true' : undefined}
+      viewBox={`0 0 ${N} ${N}`}
+      className="pointer-events-none absolute inset-0 block size-full"
+    >
+      <rect {...rect} stroke="rgba(0,0,0,0.55)" strokeWidth={outer} />
+      <rect
+        {...rect}
+        stroke={over ? '#ff453a' : '#ffffff'}
+        strokeWidth={1.5 * k}
+        strokeDasharray={`${6 * k} ${4 * k}`}
+      />
+    </svg>
   );
 }
 
@@ -506,6 +543,7 @@ function ToolBar({ disabled }: { disabled: boolean }) {
   const brush = usePrefs((s) => s.data.brush);
   const showOutline = usePrefs((s) => s.data.showOutline);
   const tableStrip = usePrefs((s) => s.data.tableStrip);
+  const showFrame = usePrefs((s) => s.data.showFrame);
   const maskView = useUi((s) => s.maskView);
   const busy = useUi((s) => s.busy);
   const toast = useToast();
@@ -584,6 +622,10 @@ function ToolBar({ disabled }: { disabled: boolean }) {
             {
               label: tableStrip ? S.tableStripOff : S.tableStripOn,
               onSelect: () => setPrefs({ tableStrip: !tableStrip }),
+            },
+            {
+              label: showFrame ? S.hideFrame : S.showFrame,
+              onSelect: () => setPrefs({ showFrame: !showFrame }),
             },
           ]}
         />
