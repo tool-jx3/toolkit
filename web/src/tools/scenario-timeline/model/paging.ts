@@ -43,7 +43,10 @@ function cutScore(v: number, target: number, pageSpan: number, p: PageInput): nu
   return n + (Math.abs(v - target) / pageSpan) * 1.5;
 }
 
-/** 分頁：每一頁的時間範圍（一頁放得下時只有一頁） */
+/**
+ * 分頁：每一頁的時間範圍（一頁放得下時只有一頁）。剩下的不到兩頁（但超過 1.28 頁）時對半切
+ * （第五批驗證後：以前照一頁的寬切，最後一頁只剩 0.3 頁、變得接近正方形）
+ */
 export function planPages(p: PageInput): Span[] {
   const { range, k } = p;
   const total = (range.b - range.a) * k;
@@ -54,10 +57,12 @@ export function planPages(p: PageInput): Span[] {
   const pages: Span[] = [];
   let cur = range.a;
   for (let guard = 0; guard < 500; guard++) {
-    if ((range.b - cur) * k <= track * ABSORB) break;
-    const target = cur + pageSpan;
-    const lo = cur + pageSpan * 0.75;
-    const hi = Math.min(cur + pageSpan * 1.2, range.b - pageSpan * 0.25);
+    const rest = range.b - cur;
+    if (rest * k <= track * ABSORB) break;
+    const half = rest < pageSpan * 2;
+    const target = half ? cur + rest / 2 : cur + pageSpan;
+    const lo = half ? cur + rest * 0.4 : cur + pageSpan * 0.75;
+    const hi = half ? cur + rest * 0.6 : Math.min(cur + pageSpan * 1.2, range.b - pageSpan * 0.8);
     let best = target;
     let bestScore = Number.POSITIVE_INFINITY;
     for (const v of cuts) {

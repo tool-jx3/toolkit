@@ -10,12 +10,15 @@ import { CURL_PAD, OUTER_MARGIN, wearShapes } from '@/tools/scenario-timeline/ex
 import {
   buildPicture,
   drawPicture,
+  type PanelSpec,
   type Picture,
   type Prim,
   pictureToSvg,
+  splitPanel,
 } from '@/tools/scenario-timeline/export/picture';
 import {
   imageFileName,
+  PANEL_FIT,
   panelSpec,
   pictureStyle,
   planPicture,
@@ -35,8 +38,10 @@ import {
 } from '@/tools/scenario-timeline/model/alibi';
 import { alibiReport, reportText, sliceReport } from '@/tools/scenario-timeline/model/alibiReport';
 import { mysteryDoc } from '@/tools/scenario-timeline/model/exampleMystery';
+import { collectFlags } from '@/tools/scenario-timeline/model/flags';
 import { estimateWidth } from '@/tools/scenario-timeline/model/measure';
 import {
+  A4_RATIO,
   ABSORB,
   idealTrackWidth,
   pageLabel,
@@ -869,5 +874,228 @@ describe('其他', () => {
         p.t === 'clip' || p.t === 'group' ? [p.t, ...kinds(p.children)] : [p.t],
       );
     expect(kinds(a.prims)).not.toContain('group');
+  });
+});
+
+describe('第五批驗證後的修正（2026-11-12）', () => {
+  /** 圖裡所有的字（群組、剪裁裡的也算） */
+  const texts = (list: Prim[]): Extract<Prim, { t: 'text' }>[] =>
+    list.flatMap((p) =>
+      p.t === 'text' ? [p] : p.t === 'clip' || p.t === 'group' ? texts(p.children) : [],
+    );
+  const hm = (x: number) =>
+    `${String(Math.floor(x / 60)).padStart(2, '0')}:${String(x % 60).padStart(2, '0')}`;
+
+  it('範例的同席：證詞的同席被真相推翻（矛盾）、只在真相裡的（證詞沒有）；PL 用只比證詞', () => {
+    const doc = mysteryDoc();
+    const gm = contactReport(visibleDoc(doc, 'gm'));
+    expect(gm.testimony).toEqual([
+      {
+        lanes: ['mx-xu', 'mx-wei'],
+        place: '下舞台',
+        a: v('21:35'),
+        b: v('21:35'),
+        conflict: {
+          laneId: 'mx-wei',
+          place: '後門',
+          a: v('21:30'),
+          b: v('21:40'),
+          title: '溜到後門抽菸，回來時看到維修通道的門半開著',
+        },
+      },
+    ]);
+    expect(gm.truth).toEqual([
+      { lanes: ['mx-he', 'mx-xu'], place: '二樓包廂', a: v('20:42'), b: v('20:55'), hidden: true },
+    ]);
+    for (const pov of ['', 'mx-xu', 'mx-wei', 'mx-jiang']) {
+      const vd = visibleDoc(doc, 'pl', pov);
+      expect(contactReport(vd)).toEqual({
+        audience: 'pl',
+        testimony: [{ lanes: ['mx-xu', 'mx-wei'], place: '下舞台', a: v('21:35'), b: v('21:35') }],
+        truth: [],
+      });
+      expect(JSON.stringify(vd)).not.toContain('一直看到自己在下舞台');
+    }
+  });
+
+  it('矛盾只看真相與完全保密的：同一個人另一筆證詞在別的地點不算', () => {
+    const lanes = [
+      { id: 'A', name: '甲', kind: 'character', color: '#4f7cff', parentId: '', gm: false },
+      { id: 'B', name: '乙', kind: 'character', color: '#e0565b', parentId: '', gm: false },
+    ];
+    const events = [
+      {
+        id: 'a1',
+        title: '甲在舞台',
+        kind: 'range',
+        start: t('21:00'),
+        end: t('22:00'),
+        laneId: 'A',
+        place: '舞台',
+      },
+      { id: 'a2', title: '甲下場', start: t('21:30'), laneId: 'A', place: '下舞台' },
+      {
+        id: 'b1',
+        title: '乙待命',
+        kind: 'range',
+        start: t('21:00'),
+        end: t('22:00'),
+        laneId: 'B',
+        place: '下舞台',
+      },
+    ];
+    const plain = normalizeDoc({ mode: 'day', lanes, events }) as TimelineDoc;
+    const c = contactReport(visibleDoc(plain, 'gm')).testimony;
+    expect(c).toEqual([{ lanes: ['A', 'B'], place: '下舞台', a: v('21:30'), b: v('21:30') }]);
+    /* 乙完全保密的密會（21:25～21:35 在後門）推翻 */
+    const secret = normalizeDoc({
+      mode: 'day',
+      lanes,
+      events: [
+        ...events,
+        {
+          id: 'b2',
+          title: '乙的密會',
+          kind: 'range',
+          start: t('21:25'),
+          end: t('21:35'),
+          laneId: 'B',
+          place: '後門',
+          gm: true,
+        },
+      ],
+    }) as TimelineDoc;
+    expect(contactReport(visibleDoc(secret, 'gm')).testimony[0].conflict).toMatchObject({
+      laneId: 'B',
+      place: '後門',
+    });
+  });
+
+  it('A4 分頁：剛好在切點上的時間點（含圓點與標題）不會被切開', () => {
+    const make = (extra: string | null) =>
+      normalizeDoc({
+        mode: 'day',
+        lanes: [
+          { id: 'A', name: '甲', kind: 'character', color: '#4f7cff', parentId: '', gm: false },
+        ],
+        events: [
+          { id: 's', title: '開始', start: t('18:00'), laneId: 'A' },
+          { id: 'e', title: '結束', start: t('23:00'), laneId: 'A' },
+          ...(extra
+            ? [{ id: 'x', title: '剛好在切點上的時間點', start: t(extra), laneId: 'A' }]
+            : []),
+        ],
+      }) as TimelineDoc;
+    const opts = ex({ width: 6000, paging: 'a4' });
+    const before = planPicturePages(make(null), opts, null, {}, null);
+    if (!before.ok) throw new Error(before.error);
+    expect(before.pages.length).toBeGreaterThan(2);
+    const cut = before.pages[1].range.b;
+    const after = planPicturePages(make(hm(cut)), opts, null, {}, null);
+    if (!after.ok) throw new Error(after.error);
+    expect(after.pages[1].range.b).not.toBe(cut);
+    const on = after.pages.filter((p) => pictureToSvg(p.pic).includes('剛好在切點上的時間點'));
+    expect(on).toHaveLength(1);
+  });
+
+  it('A4 分頁：剩下不到兩頁時對半切（最後一頁不會只剩一小段）', () => {
+    const track = idealTrackWidth(140, 400);
+    for (const len of [1.35, 1.6, 1.95]) {
+      const range = { a: 0, b: Math.round(track * len) };
+      const cuts = Array.from({ length: 200 }, (_, i) => i * 10);
+      const pages = planPages({ range, k: 1, laneW: 140, height: 400, bars: [], cuts });
+      expect(pages).toHaveLength(2);
+      for (const p of pages) expect(p.b - p.a).toBeGreaterThanOrEqual(range.b * 0.4 - 10);
+    }
+  });
+
+  it('A4 分頁：每一頁都是橫的；調書放不進最後一頁時另外成一頁（頁數算在裡面）', () => {
+    const doc = mysteryDoc();
+    let separate = 0;
+    for (const audience of ['gm', 'pl'])
+      for (const width of [1600, 2400, 3000, 3600, 6000, 9000]) {
+        const r = planPicturePages(
+          doc,
+          ex({ width, paging: 'a4', panel: 'report', audience }),
+          null,
+          {},
+          null,
+        );
+        if (!r.ok) throw new Error(r.error);
+        const n = r.pages.length;
+        const svgs = r.pages.map((p) => pictureToSvg(p.pic));
+        r.pages.forEach((p, i) => {
+          expect(p.pic.height, `${audience} ${width} 第 ${i + 1} 頁`).toBeLessThanOrEqual(
+            (p.pic.width / A4_RATIO) * PANEL_FIT,
+          );
+          expect(svgs[i]).toContain(pageLabel(i + 1, n));
+        });
+        const withPanel = svgs.filter((s) => s.includes('不在場證明・接觸調書'));
+        expect(withPanel.length).toBeGreaterThanOrEqual(1);
+        /* 只有調書的頁沒有泳道 */
+        if (!withPanel[0].includes('舞台監督 林佩芸')) separate++;
+        expect(svgs.indexOf(withPanel[0])).toBe(n - withPanel.length);
+      }
+    expect(separate).toBeGreaterThan(0);
+  });
+
+  it('調書太高時切成好幾段：每段不超過上限、塊的順序不變、後面的段標題加「（續）」', () => {
+    const spec: PanelSpec = {
+      title: '時間切片：第 1 天 21:00',
+      layout: 'cards',
+      blocks: Array.from({ length: 12 }, (_, i) => ({
+        heading: `＠地點 ${i + 1}`,
+        lines: Array.from({ length: 4 }, (_, j) => ({ text: `・人物 ${j + 1}：做某件事` })),
+      })),
+      footer: [{ text: '所在不明：人物丙' }],
+    };
+    expect(splitPanel(spec, 900, MEAS.small, 10000, '（續）')).toEqual([spec]);
+    const parts = splitPanel(spec, 900, MEAS.small, 260, '（續）');
+    expect(parts.length).toBeGreaterThan(1);
+    expect(parts[0].title).toBe(spec.title);
+    for (const p of parts.slice(1)) expect(p.title).toBe(`${spec.title}（續）`);
+    expect(parts.flatMap((p) => p.blocks)).toEqual(spec.blocks);
+    expect(parts.slice(0, -1).every((p) => !p.footer?.length)).toBe(true);
+    expect(parts[parts.length - 1].footer).toEqual(spec.footer);
+  });
+
+  it('時間切片的標籤是標記列的旗子（不在泳道裡）；空白的字不壓在貫穿的線上', () => {
+    const doc = caseDoc();
+    const vd = visibleDoc(doc, 'gm');
+    const flags = collectFlags(vd, { progress: '目前進度', now: '現在' }, null, {
+      v: v('21:25'),
+      label: '切片 21:25',
+      color: '#000',
+    });
+    expect(flags.find((f) => f.kind === 'slice')).toMatchObject({
+      v: v('21:25'),
+      label: '切片 21:25',
+    });
+    const r = planPicture(
+      doc,
+      ex({ audience: 'gm', panel: 'slice', focus: true }),
+      null,
+      {},
+      null,
+      null,
+      '',
+      { spot: '', sliceTime: t('21:25') },
+    );
+    if (!r.ok) throw new Error('bad');
+    const all = texts(r.pic.prims);
+    const label = all.find((x) => x.text === '切片 第 1 天 21:25');
+    const lane = all.find((x) => x.text === '人物甲');
+    if (!label || !lane) throw new Error('no text');
+    expect(label.y).toBeLessThan(lane.y - 10);
+    /* 甲的空白（19:00～21:00）中間有標記時不寫字（框照畫） */
+    const gapText = (d: TimelineDoc) => {
+      const p = planPicture(d, ex({ audience: 'gm', gaps: true }), null, {}, null);
+      if (!p.ok) throw new Error('bad');
+      return texts(p.pic.prims).some((x) => x.text === '空白 2 小時');
+    };
+    expect(gapText(doc)).toBe(true);
+    const marked = caseDoc();
+    marked.markers.push({ id: 'm2', label: '鐘', time: t('20:00'), color: '#8a63d2', gm: false });
+    expect(gapText(marked)).toBe(false);
   });
 });

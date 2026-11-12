@@ -199,7 +199,15 @@ test('推理分頁：不在場證明空白、同席調書、時間切片（時�
   await expect(slice.locator('[data-slice-room="＠圖書室"]')).toContainText(
     '・人物乙：乙在圖書室找書',
   );
-  await expect(tl(page).getByTestId('slice-line')).toContainText('切片 21:20');
+  /* 切片的標籤是標記列的旗子（和其他旗子錯開，不壓到事件的標題；第五批驗證後） */
+  await expect(tl(page).getByTestId('slice-line')).toHaveCount(1);
+  await expect(tl(page).locator('[data-flag="slice"]')).toHaveText('切片 21:20');
+  {
+    const flag = await tl(page).locator('[data-flag="slice"]').boundingBox();
+    const lane = await tl(page).locator('[data-event-id="a1"]').boundingBox();
+    if (!flag || !lane) throw new Error('no box');
+    expect(flag.y + flag.height).toBeLessThanOrEqual(lane.y);
+  }
   /* 那一刻沒有在進行的淡化：乙的密會 */
   await expect(tl(page).locator('[data-event-id="b2"]')).toHaveAttribute('data-dim', 'true');
   await expect(tl(page).locator('[data-event-id="b1"]')).not.toHaveAttribute('data-dim', 'true');
@@ -213,6 +221,7 @@ test('推理分頁：不在場證明空白、同席調書、時間切片（時�
   expect(at).toMatch(/^2[23]:\d\d$/);
   await axis.click({ position: { x: box.width * 0.9, y: 30 } });
   await expect(tl(page).getByTestId('slice-line')).toHaveCount(0);
+  await expect(tl(page).locator('[data-flag="slice"]')).toHaveCount(0);
   await expect(tab.getByLabel('看某一刻每個地點有誰')).not.toBeChecked();
   /* 聚光：只強調人物甲（其他淡化、列的名稱淡化） */
   await choose(page, field(page, 'spot'), '泳道：人物甲');
@@ -247,8 +256,19 @@ test('段階公開：公開、收回、全部回到初始、復原；PL 檢視�
     '這次公開了 0 個（共 5 個可以公開）',
   );
   await expect(stage.locator('[data-stage-item="mx-wei-stand"]')).toContainText('準備時已公開');
+  /* 範例的同席（2026-11-12 補）：證詞的同席被小魏的真相推翻；主演送字條＝只在真相裡 */
+  await expect(analysis(page).getByTestId('an-contacts-testimony')).toHaveText(
+    '21:35（同一刻）＠下舞台：主演 許子豪 × 道具組 小魏　→ 矛盾：道具組 小魏 的真相是 21:30～21:40 在後門',
+  );
+  await expect(analysis(page).getByTestId('an-contacts-truth')).toHaveText(
+    '20:42～20:55（13 分）＠二樓包廂：劇評家 何仲文 × 主演 許子豪（證詞沒有）',
+  );
   /* 公開之前：PL 檢視的每個分頁、時間軸都沒有服裝師的真相 */
   await setPl(page);
+  await expect(analysis(page).getByTestId('an-contacts-testimony')).toHaveText(
+    '21:35（同一刻）＠下舞台：主演 許子豪 × 道具組 小魏',
+  );
+  await expect(analysis(page).getByTestId('an-contacts-truth')).toHaveCount(0);
   await expect(analysis(page).getByTestId('an-stage-gm-only')).toBeVisible();
   const forbidden = [JIANG_TRUTH, XU_TRUTH, XU_SURFACE, LOG_SECRET, ...GM_LINKS];
   for (const name of ['事件', '泳道', '專案', '推理', '匯出']) {

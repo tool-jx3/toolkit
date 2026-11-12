@@ -434,6 +434,23 @@ export function Timeline() {
     () => axisTicks(mode, w.start, w.end, k, axisMeasure, vdocBase),
     [mode, w.start, w.end, k, vdocBase],
   );
+  /* 時間切片（第五批，F133）：那一刻（關著時 null）；標籤是標記列的旗子（和其他旗子錯開，不壓到事件的標題） */
+  const sliceTime = analysis?.slice?.on ? (analysis.slice.time ?? '') : '';
+  const sliceV = useMemo(
+    () => (sliceTime ? (readTime(mode, sliceTime, vdocAll)?.v ?? null) : null),
+    [sliceTime, mode, vdocAll],
+  );
+  const sliceFlag = useMemo(
+    () =>
+      sliceV === null
+        ? null
+        : {
+            v: sliceV,
+            label: S.anSliceTag(spanText(vdocAll, sliceV, sliceV)),
+            color: 'var(--accent)',
+          },
+    [sliceV, vdocAll],
+  );
   const flags = useMemo(
     () =>
       placeFlags(
@@ -441,11 +458,12 @@ export function Timeline() {
           vdoc,
           { progress: S.progress, now: S.now, exit: S.exitDefault, untitled: S.untitled },
           showNow ? now : null,
+          sliceFlag,
         ),
         xOf,
         flagMeasure,
       ),
-    [vdoc, xOf, showNow, now],
+    [vdoc, xOf, showNow, now, sliceFlag],
   );
   /* 提示與顏色只跟著資料變（縮放、平移時不重算） */
   const looks = useMemo(() => {
@@ -476,11 +494,6 @@ export function Timeline() {
    * 不在場證明空白畫在那一列。都只用這個檢視看得到的資料（vdocAll）。
    */
   const spotRaw = analysis?.spot?.[vdocAll.audience] ?? '';
-  const sliceTime = analysis?.slice?.on ? (analysis.slice.time ?? '') : '';
-  const sliceV = useMemo(
-    () => (sliceTime ? (readTime(mode, sliceTime, vdocAll)?.v ?? null) : null),
-    [sliceTime, mode, vdocAll],
-  );
   const lit = useMemo(() => litIds(vdocAll, spotRaw, sliceV), [vdocAll, spotRaw, sliceV]);
   const litLanes = useMemo(() => spotLanes(vdocAll, spotRaw), [vdocAll, spotRaw]);
   const fadeOf = useCallback((id: string) => dimOf(id) || (!!lit && !lit.has(id)), [dimOf, lit]);
@@ -1374,7 +1387,7 @@ export function Timeline() {
                 x={xOf(f.v)}
                 top={AXIS_ROW * 2 + FLAG_GAP + f.level * (FLAG_H + FLAG_GAP)}
                 gm={!pl}
-                editable={!pl && f.kind !== 'now' && f.kind !== 'exit'}
+                editable={!pl && f.kind !== 'now' && f.kind !== 'exit' && f.kind !== 'slice'}
                 onPointerDown={onFlagPointerDown}
                 onKeyDown={onFlagKeyDown}
               />
@@ -1465,7 +1478,7 @@ export function Timeline() {
               );
             })}
             {flags.flags
-              .filter((f) => f.kind !== 'exit')
+              .filter((f) => f.kind !== 'exit' && f.kind !== 'slice')
               .map((f) => (
                 <div
                   key={`l${f.id}`}
@@ -1510,18 +1523,13 @@ export function Timeline() {
                 rows={layout.rows}
                 items={layout.items}
                 backgrounds={layout.backgrounds}
+                lines={flags.flags.filter((f) => f.kind !== 'exit').map((f) => f.v)}
                 xOf={xOf}
                 width={width}
                 vdoc={vdocAll}
               />
             ) : null}
-            {sliceV !== null ? (
-              <SliceLine
-                x={xOf(sliceV)}
-                width={width}
-                label={S.anSliceTag(spanText(vdocAll, sliceV, sliceV))}
-              />
-            ) : null}
+            {sliceV !== null ? <SliceLine x={xOf(sliceV)} width={width} /> : null}
             {shownLinks.length || linkDraft ? (
               <LinkLayer
                 links={shownLinks}
@@ -1628,6 +1636,7 @@ const GapLayer = memo(function GapLayer({
   rows,
   items,
   backgrounds,
+  lines,
   xOf,
   width,
   vdoc,
@@ -1636,6 +1645,8 @@ const GapLayer = memo(function GapLayer({
   rows: readonly RowLayout[];
   items: readonly ItemLayout[];
   backgrounds: readonly BackgroundLayout[];
+  /** 貫穿泳道的線（標記、目前進度、時間切片）的時間：字不壓在線上 */
+  lines: readonly number[];
   xOf: (v: number) => number;
   width: number;
   vdoc: VisibleDoc;
@@ -1664,6 +1675,7 @@ const GapLayer = memo(function GapLayer({
         const hit = (l: number, r: number) => r > cx - lw / 2 - 4 && l < cx + lw / 2 + 4;
         const clear =
           lw + 8 <= right - left &&
+          !lines.some((v) => hit(xOf(v) - 2, xOf(v) + 2)) &&
           !items.some((it) => {
             if (it.row !== ri) return false;
             const ext = itemExtent(it.event.kind, xOf(it.a), xOf(it.b), it.labelW);
@@ -1692,8 +1704,8 @@ const GapLayer = memo(function GapLayer({
   );
 });
 
-/** 時間切片（F133）：那一刻的直線與標籤（在事件的上面、不擋點選） */
-function SliceLine({ x, width, label }: { x: number; width: number; label: string }) {
+/** 時間切片（F133）：那一刻的直線（在事件的上面、不擋點選）；標籤是標記列的旗子 */
+function SliceLine({ x, width }: { x: number; width: number }) {
   if (x < -10 || x > width + 10) return null;
   return (
     <div
@@ -1704,9 +1716,6 @@ function SliceLine({ x, width, label }: { x: number; width: number; label: strin
     >
       <div className="absolute top-0 bottom-0 -left-[5px] w-[10px] bg-accent opacity-10" />
       <div className="absolute top-0 bottom-0 -left-px border-l-2 border-dashed border-accent" />
-      <span className="absolute top-1 left-1 rounded-[3px] bg-accent px-1.5 text-[11px] leading-4 font-bold whitespace-nowrap text-accent-contrast">
-        {label}
-      </span>
     </div>
   );
 }
@@ -1780,8 +1789,9 @@ function FlagView({
   onPointerDown: (e: ReactPointerEvent<HTMLElement>, f: Flag) => void;
   onKeyDown: (e: ReactKeyboardEvent<HTMLElement>, f: Flag) => void;
 }) {
-  const bg = f.kind === 'progress' ? 'var(--accent)' : f.color;
-  const fg = f.kind === 'progress' ? 'var(--accent-contrast)' : barTextColor(f.color);
+  const accent = f.kind === 'progress' || f.kind === 'slice';
+  const bg = accent ? 'var(--accent)' : f.color;
+  const fg = accent ? 'var(--accent-contrast)' : barTextColor(f.color);
   const style: CSSProperties = {
     left: Math.round(x),
     top,

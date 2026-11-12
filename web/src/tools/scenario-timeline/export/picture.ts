@@ -408,11 +408,15 @@ export function buildPicture(input: PictureInput): Picture {
     untitled: S.untitled,
   });
   const ticks = axisTicks(vdoc.mode, range.a, range.b, k, M.small, vdoc);
+  /* 時間切片（F133）：標籤是標記列的旗子（和其他旗子錯開，不壓到事件的標題） */
+  const sliceOn =
+    st.sliceV !== undefined && st.sliceV !== null && st.sliceV >= range.a && st.sliceV <= range.b;
   const flags = placeFlags(
     collectFlags(
       vdoc,
       { progress: S.progress, now: S.now, exit: S.exit, untitled: S.untitled },
       input.nowV,
+      sliceOn ? { v: st.sliceV as number, label: st.sliceLabel ?? '', color: pal.accent } : null,
     ),
     xOf,
     M.small,
@@ -470,65 +474,7 @@ export function buildPicture(input: PictureInput): Picture {
   prims.push({ t: 'rect', x: 0, y: 0, w: W, h: height, fill: pal.bg });
 
   /* 標題列 */
-  if (input.title) {
-    const title = vdoc.title.trim() || S.fallbackTitle;
-    let tx = 16;
-    const povW = !gm && vdoc.pov && S.pov ? M.small(S.pov) + 28 : 0;
-    /* 頁碼（F141）在右上角；標題的字體（F139） */
-    const pageW = st.pageLabel ? M.small(st.pageLabel) + 30 : 0;
-    const font = st.titleFont && st.titleFont !== 'sans' ? TITLE_FONT_SPECS[st.titleFont] : null;
-    const TM = font ? (M.titleAlt ?? M.title) : M.title;
-    const titleText = ellipsize(title, W - 32 - (gm ? 60 : 0) - povW - pageW, TM);
-    prims.push({
-      t: 'text',
-      x: tx,
-      y: 26,
-      text: titleText,
-      size: 18,
-      weight: font ? font.weight : 700,
-      fill: pal.text,
-      ...(font ? { family: font.stack } : {}),
-    });
-    tx += TM(titleText) + 10;
-    if (!gm && vdoc.pov && S.pov) {
-      const pw = M.small(S.pov) + 18;
-      prims.push({ t: 'rect', x: tx, y: 12, w: pw, h: 18, r: 9, fill: pal.accent });
-      prims.push({
-        t: 'text',
-        x: tx + pw / 2,
-        y: 25,
-        text: S.pov,
-        size: 11,
-        weight: 700,
-        fill: barTextColor(pal.accent),
-        anchor: 'middle',
-      });
-    }
-    if (gm) {
-      prims.push({ t: 'rect', x: tx, y: 12, w: 46, h: 18, r: 9, fill: GM_COLOR });
-      prims.push({
-        t: 'text',
-        x: tx + 23,
-        y: 25,
-        text: S.gmUse,
-        size: 11,
-        weight: 700,
-        fill: '#2b1f06',
-        anchor: 'middle',
-      });
-    }
-    prims.push({
-      t: 'text',
-      x: 16,
-      y: 44,
-      text: ellipsize(S.rangeText, W - 32 - pageW, M.small),
-      size: 11,
-      weight: 400,
-      fill: pal.muted,
-    });
-    if (st.pageLabel)
-      prims.push(...pageBadge(W - 16 - (pageW - 12), 12, st.pageLabel, pal, M.small));
-  }
+  if (input.title) titleRow(prims, vdoc, W, M, S, st, pal);
 
   /* 刻度的底與左上角 */
   prims.push({ t: 'rect', x: 0, y: axisTop, w: W, h: AXIS_ROW * 2 + flagH, fill: pal.surface });
@@ -702,11 +648,22 @@ export function buildPicture(input: PictureInput): Picture {
   /* 不在場證明空白（F131）：那一列的空白時段畫虛線框（在事件的下面） */
   if (st.gaps?.length)
     track.push(
-      ...gapPrims(st.gaps, layout, xOf, lanesTop, range, pal, M.small, S.gap ?? '', vdoc.mode),
+      ...gapPrims(
+        st.gaps,
+        layout,
+        xOf,
+        lanesTop,
+        range,
+        pal,
+        M.small,
+        S.gap ?? '',
+        vdoc.mode,
+        flags.flags.filter((f) => f.kind !== 'exit').map((f) => xOf(f.v)),
+      ),
     );
   for (const f of flags.flags) {
-    /* 退場的線只畫在那一列（上面） */
-    if (f.kind === 'exit') continue;
+    /* 退場的線只畫在那一列（上面）；時間切片的線畫在事件的上面（下面） */
+    if (f.kind === 'exit' || f.kind === 'slice') continue;
     const x = xOf(f.v);
     const color = f.kind === 'progress' ? pal.accent : f.color;
     track.push({
@@ -922,11 +879,8 @@ export function buildPicture(input: PictureInput): Picture {
     drawItem(it);
     if (lit && !lit.has(it.id)) dimFrom(track, from);
   }
-  /* 時間切片（F133）：那一刻的直線與標籤（在事件的上面） */
-  if (st.sliceV !== undefined && st.sliceV !== null && st.sliceV >= range.a && st.sliceV <= range.b)
-    track.push(
-      ...slicePrims(xOf(st.sliceV), lanesTop, lanesBottom, st.sliceLabel ?? '', pal, M.small),
-    );
+  /* 時間切片（F133）：那一刻的直線（在事件的上面；標籤是旗子） */
+  if (sliceOn) track.push(...slicePrims(xOf(st.sliceV as number), flagTop, lanesBottom, pal));
   /* 旗子（標記列） */
   for (const f of flags.flags) {
     const x = xOf(f.v);
@@ -1002,6 +956,75 @@ export function buildPicture(input: PictureInput): Picture {
 }
 
 /* ---------- 第五批：紙、圖框、記號的說明、空白、時間切片、調書、頁碼 ---------- */
+
+/** 標題列（專案名稱、人物別或 GM 用的標、範圍、右上角的頁碼）；時間軸的圖與調書的頁共用 */
+function titleRow(
+  prims: Prim[],
+  vdoc: VisibleDoc,
+  W: number,
+  M: PictureMeasures,
+  S: PictureInput['strings'],
+  st: PictureStyle,
+  pal: Palette,
+): void {
+  const gm = vdoc.audience === 'gm';
+  const title = vdoc.title.trim() || S.fallbackTitle;
+  let tx = 16;
+  const povW = !gm && vdoc.pov && S.pov ? M.small(S.pov) + 28 : 0;
+  /* 頁碼（F141）在右上角；標題的字體（F139） */
+  const pageW = st.pageLabel ? M.small(st.pageLabel) + 30 : 0;
+  const font = st.titleFont && st.titleFont !== 'sans' ? TITLE_FONT_SPECS[st.titleFont] : null;
+  const TM = font ? (M.titleAlt ?? M.title) : M.title;
+  const titleText = ellipsize(title, W - 32 - (gm ? 60 : 0) - povW - pageW, TM);
+  prims.push({
+    t: 'text',
+    x: tx,
+    y: 26,
+    text: titleText,
+    size: 18,
+    weight: font ? font.weight : 700,
+    fill: pal.text,
+    ...(font ? { family: font.stack } : {}),
+  });
+  tx += TM(titleText) + 10;
+  if (!gm && vdoc.pov && S.pov) {
+    const pw = M.small(S.pov) + 18;
+    prims.push({ t: 'rect', x: tx, y: 12, w: pw, h: 18, r: 9, fill: pal.accent });
+    prims.push({
+      t: 'text',
+      x: tx + pw / 2,
+      y: 25,
+      text: S.pov,
+      size: 11,
+      weight: 700,
+      fill: barTextColor(pal.accent),
+      anchor: 'middle',
+    });
+  }
+  if (gm) {
+    prims.push({ t: 'rect', x: tx, y: 12, w: 46, h: 18, r: 9, fill: GM_COLOR });
+    prims.push({
+      t: 'text',
+      x: tx + 23,
+      y: 25,
+      text: S.gmUse,
+      size: 11,
+      weight: 700,
+      fill: '#2b1f06',
+      anchor: 'middle',
+    });
+  }
+  prims.push({
+    t: 'text',
+    x: 16,
+    y: 44,
+    text: ellipsize(S.rangeText, W - 32 - pageW, M.small),
+    size: 11,
+    weight: 400,
+    fill: pal.muted,
+  });
+  if (st.pageLabel) prims.push(...pageBadge(W - 16 - (pageW - 12), 12, st.pageLabel, pal, M.small));
+}
 
 /** 從 from 起的指令合成一組、淡化（聚光、時間切片） */
 function dimFrom(list: Prim[], from: number, opacity = DIM_OPACITY): void {
@@ -1109,6 +1132,84 @@ function dressPicture(
   };
 }
 
+/**
+ * 只有調書的一頁（A4 自動分頁時調書放不進最後一頁，F141）：標題列（有開時）＋調書，紙與圖框照樣。
+ * 寬度照一般的頁；調書太高時由呼叫端先用 `splitPanel` 切成好幾段。
+ */
+export function buildPanelPicture(input: {
+  vdoc: VisibleDoc;
+  width: number;
+  title: boolean;
+  theme: Theme;
+  measures: PictureMeasures;
+  strings: PictureInput['strings'];
+  style: PictureStyle;
+  panel: PanelSpec;
+}): Picture {
+  const { vdoc, measures: M, strings: S, style: st, theme } = input;
+  const paper = st.paper && st.paper !== 'none' ? PAPER_PALETTES[st.paper] : null;
+  const pal: Palette = paper ?? PALETTES[theme];
+  const darkInk = paper ? paper.dark : theme === 'dark';
+  const W = Math.max(200, Math.round(input.width));
+  const top = input.title ? TITLE_H : 0;
+  const panel = layoutPanel(input.panel, W, M.small);
+  const height = Math.ceil(top + 10 + panel.h + BOTTOM_PAD);
+  const prims: Prim[] = [{ t: 'rect', x: 0, y: 0, w: W, h: height, fill: pal.bg }];
+  if (input.title) titleRow(prims, vdoc, W, M, S, st, pal);
+  else if (st.pageLabel)
+    prims.push(...pageBadge(W - 8 - (M.small(st.pageLabel) + 18), 4, st.pageLabel, pal, M.small));
+  prims.push(...panelPrims(panel, top + 10, W, pal, darkInk));
+  const pic: Picture = {
+    width: W,
+    height,
+    background: pal.bg,
+    title: vdoc.title.trim() || S.fallbackTitle,
+    prims,
+  };
+  return st.frame || paper ? dressPicture(pic, st, pal, paper) : pic;
+}
+
+/** 調書的高（px；版面同 buildPicture 的圖下方） */
+export const panelHeight = (spec: PanelSpec, width: number, measure: TextMeasure): number =>
+  layoutPanel(spec, Math.max(200, Math.round(width)), measure).h;
+
+/**
+ * 調書切成好幾段，每段的高不超過 maxH（一排一排放；至少一排；最後一段帶著下面的幾行）。
+ * 接觸調書只有一排（每塊最多 12 行），時間切片的卡片很多時才會切。後面的段標題加 contSuffix。
+ */
+export function splitPanel(
+  spec: PanelSpec,
+  width: number,
+  measure: TextMeasure,
+  maxH: number,
+  contSuffix: string,
+): PanelSpec[] {
+  const lay = layoutPanel(spec, Math.max(200, Math.round(width)), measure);
+  if (lay.h <= maxH || lay.rows.length <= 1) return [spec];
+  const footerH = (spec.footer?.length ?? 0) * PANEL_LINE + 6;
+  const out: PanelSpec[] = [];
+  let cur: PanelSpec['blocks'] = [];
+  let h = PANEL_HEAD;
+  lay.rows.forEach((row, i) => {
+    const last = i === lay.rows.length - 1;
+    const need = row.h + 8 + (last ? footerH : 0);
+    if (cur.length && h + need > maxH) {
+      out.push({
+        ...spec,
+        title: out.length ? `${spec.title}${contSuffix}` : spec.title,
+        blocks: cur,
+        footer: [],
+      });
+      cur = [];
+      h = PANEL_HEAD;
+    }
+    cur.push(...row.blocks);
+    h += row.h + 8;
+  });
+  out.push({ ...spec, title: out.length ? `${spec.title}${contSuffix}` : spec.title, blocks: cur });
+  return out;
+}
+
 /** 頁碼的框（右上角） */
 function pageBadge(x: number, y: number, text: string, pal: Palette, measure: TextMeasure): Prim[] {
   const w = measure(text) + 18;
@@ -1138,6 +1239,8 @@ function gapPrims(
   measure: TextMeasure,
   label: string,
   mode: VisibleDoc['mode'],
+  /** 貫穿泳道的線（標記、目前進度、時間切片）的位置：字不壓在線上 */
+  lines: readonly number[] = [],
 ): Prim[] {
   const out: Prim[] = [];
   const rows = layout.rows;
@@ -1166,12 +1269,18 @@ function gapPrims(
       opacity: 0.75,
     });
     const text = label ? `${label} ${durationText(mode, g.b - g.a)}` : '';
-    /* 標籤在中間；那一列的事件（含右邊的標題）壓到時不寫 */
+    /*
+     * 標籤在看得到的那一段的中間（分頁時空白跨過頁的邊，字不會被切成兩半）；
+     * 那一列的事件（含右邊的標題）、貫穿的線壓到時不寫
+     */
     const tw = measure(text);
-    const cx = (x1 + x2) / 2;
+    const vx1 = Math.max(x1, xOf(range.a));
+    const vx2 = Math.min(x2, xOf(range.b));
+    const cx = (vx1 + vx2) / 2;
     const ri = rowIndex.get(row.key);
     const hit = (left: number, right: number) => right > cx - tw / 2 - 4 && left < cx + tw / 2 + 4;
     const clear =
+      !lines.some((x) => hit(x - 2, x + 2)) &&
       !layout.items.some((it) => {
         if (it.row !== ri) return false;
         const ext = itemExtent(it.event.kind, xOf(it.a), xOf(it.b), it.labelW);
@@ -1183,10 +1292,10 @@ function gapPrims(
           bg.labelRow === ri &&
           hit(xOf(bg.a), xOf(bg.a) + measure(bg.event.title.trim() || ' ') + 12),
       );
-    if (text && clear && tw + 8 <= x2 - x1)
+    if (text && clear && tw + 8 <= vx2 - vx1)
       out.push({
         t: 'text',
-        x: (x1 + x2) / 2,
+        x: cx,
         y: y + h / 2 + 4,
         text,
         size: 11,
@@ -1198,33 +1307,12 @@ function gapPrims(
   return out;
 }
 
-/** 時間切片（F133）：那一刻的直線（強調色的虛線、淡淡的帶）與上方的標籤 */
-function slicePrims(
-  x: number,
-  top: number,
-  bottom: number,
-  label: string,
-  pal: Palette,
-  measure: TextMeasure,
-): Prim[] {
-  const out: Prim[] = [
+/** 時間切片（F133）：那一刻的直線（強調色的虛線、淡淡的帶）；標籤是標記列的旗子 */
+function slicePrims(x: number, top: number, bottom: number, pal: Palette): Prim[] {
+  return [
     { t: 'rect', x: x - 5, y: top, w: 10, h: bottom - top, fill: pal.accent, opacity: 0.1 },
     { t: 'line', x1: x, y1: top, x2: x, y2: bottom, stroke: pal.accent, sw: 2, dash: [6, 3] },
   ];
-  if (label) {
-    const w = measure(label) + 12;
-    out.push({ t: 'rect', x: x + 3, y: top + 2, w, h: 16, r: 3, fill: pal.accent });
-    out.push({
-      t: 'text',
-      x: x + 9,
-      y: top + 14,
-      text: label,
-      size: 11,
-      weight: 700,
-      fill: barTextColor(pal.accent),
-    });
-  }
-  return out;
 }
 
 /** 這張圖用到的記號（F138；依說明的順序） */

@@ -16,9 +16,9 @@ import { axisTicks } from '../model/axis';
 import { calInfo } from '../model/calendar';
 import { chronicle } from '../model/chronicle';
 import { type FilterState, filteredDoc, matchingIds } from '../model/filter';
-import { contentRange, eventSpan, hasContentIn, type Span } from '../model/layout';
+import { contentRange, eventSpan, hasContentIn, itemExtent, type Span } from '../model/layout';
 import { createMeasure } from '../model/measure';
-import { pageLabel, planPages } from '../model/paging';
+import { A4_RATIO, idealTrackWidth, pageLabel, planPages } from '../model/paging';
 import { litIds, spotLanes, validSpot } from '../model/spotlight';
 import { formatLong, type Precision, parseTime, readTime, type Tv } from '../model/time';
 import { nowValue, type TimelineDoc, todayValue } from '../model/types';
@@ -34,17 +34,22 @@ import type { ExportPrefs } from '../store';
 import { S } from '../strings';
 import { type PanelKind, TITLE_FONT_SPECS, type TitleFont } from './paper';
 import {
+  BOTTOM_PAD,
+  buildPanelPicture,
   buildPicture,
   drawPicture,
   laneColumnWidth,
   type PanelSpec,
   type Picture,
+  type PictureInput,
   type PictureMeasures,
   type PictureStyle,
   pictureChars,
   pictureFamilyChars,
   pictureToSvg,
   SVG_FAMILY,
+  splitPanel,
+  TITLE_H,
 } from './picture';
 
 export const EXPORT_FONT = 'Noto Sans TC';
@@ -270,6 +275,31 @@ export function pictureStyle(
 /** 紙的老舊的預設（選了紙的樣式時） */
 export const DEFAULT_AGE = 20;
 
+/** 圖上的字 */
+function pictureStrings(
+  doc: TimelineDoc,
+  vdoc: VisibleDoc,
+  rangeText: string,
+  style: PictureStyle | undefined,
+): PictureInput['strings'] {
+  return {
+    untitled: S.untitled,
+    main: S.main,
+    fallbackTitle: S.toolName,
+    gmUse: S.gmUse,
+    progress: S.progress,
+    now: S.now,
+    rangeText,
+    ...(vdoc.pov ? { pov: S.povUse(laneName(doc, vdoc.pov)) } : {}),
+    truth: S.tagTruth,
+    alibi: S.tagAlibi,
+    redacted: S.tagRedacted,
+    opened: S.tagOpened,
+    exit: S.exitDefault,
+    ...(style ? { gap: S.anGapTag, marks: S.markLabels } : {}),
+  };
+}
+
 /** 畫一張圖（範圍、寬度已經決定） */
 function pictureFor(
   doc: TimelineDoc,
@@ -291,22 +321,7 @@ function pictureFor(
     theme: ex.theme,
     collapsed,
     measures: measures(style?.titleFont ?? 'sans'),
-    strings: {
-      untitled: S.untitled,
-      main: S.main,
-      fallbackTitle: S.toolName,
-      gmUse: S.gmUse,
-      progress: S.progress,
-      now: S.now,
-      rangeText,
-      ...(vdoc.pov ? { pov: S.povUse(laneName(doc, vdoc.pov)) } : {}),
-      truth: S.tagTruth,
-      alibi: S.tagAlibi,
-      redacted: S.tagRedacted,
-      opened: S.tagOpened,
-      exit: S.exitDefault,
-      ...(style ? { gap: S.anGapTag, marks: S.markLabels } : {}),
-    },
+    strings: pictureStrings(doc, vdoc, rangeText, style),
     nowV,
     ...(style ? { style } : {}),
   });
@@ -381,7 +396,8 @@ export type PagesResult =
 
 /**
  * A4 自動分頁（F141）：整張圖照 planPicture 的範圍與寬度（比例尺）切成好幾頁；每頁再畫一次標題列、刻度、泳道名稱，
- * 右上角寫頁碼（打開時），調書放在最後一頁。一頁放得下時只有一頁。
+ * 右上角寫頁碼（打開時）。調書放在最後一頁；放進去會讓最後一頁不再是橫的（高 > 寬 ÷ √2 × 1.1）時，調書另外成一頁
+ * （寬照一般的頁；太高時切成好幾頁），頁數算在裡面。一頁放得下時只有一頁。
  */
 export function planPicturePages(
   doc: TimelineDoc,
@@ -398,16 +414,26 @@ export function planPicturePages(
   const vdoc = exportDoc(doc, ex.audience, filter, pov);
   const range = first.range;
   const width = clampWidth(ex.width);
-  const lw = laneColumnWidth(vdoc, measures(), S.main, S.untitled);
+  const M = measures();
+  const lw = laneColumnWidth(vdoc, M, S.main, S.untitled);
   const k = Math.max(40, width - lw) / Math.max(1e-9, range.b - range.a);
+  /*
+   * 不要切過的東西：事件（含真相）畫出來的範圍——時間點含圓點與右邊的標題、期間的標題放在外面時含標題
+   * （第五批驗證後：以前只算期間，剛好在切點上的時間點會被切成兩半）；背景只算區段
+   */
   const bars: Span[] = [];
   const backgrounds: Span[] = [];
   for (const e of [...vdoc.events, ...(vdoc.truths ?? [])]) {
-    if (e.kind === 'point') continue;
     const sp = eventSpan(vdoc.mode, e, vdoc);
-    if (sp) (e.kind === 'background' ? backgrounds : bars).push(sp);
+    if (!sp) continue;
+    if (e.kind === 'background') {
+      backgrounds.push(sp);
+      continue;
+    }
+    const ext = itemExtent(e.kind, sp.a * k, sp.b * k, M.item(e.title.trim() || S.untitled));
+    bars.push({ a: ext.left / k, b: ext.right / k });
   }
-  const ticks = axisTicks(vdoc.mode, range.a, range.b, k, measures().small, vdoc);
+  const ticks = axisTicks(vdoc.mode, range.a, range.b, k, M.small, vdoc);
   const spans = planPages({
     range,
     k,
@@ -418,23 +444,69 @@ export function planPicturePages(
     cuts: [...ticks.minor.map((t) => t.v), ...ticks.major.map((t) => t.v)],
   });
   const style = pictureStyle(doc, vdoc, ex, ctx) ?? {};
-  const n = spans.length;
+  const panel = style.panel ?? null;
+  const rangeText = (sp: Span) =>
+    spans.length === 1 && ex.range === 'all'
+      ? chronicle(vdoc, S.untitled, S.toolName).range
+      : spanRangeText(doc, sp);
+  const pageAt = (sp: Span, st: PictureStyle) =>
+    pictureFor(
+      doc,
+      vdoc,
+      ex,
+      sp,
+      rangeText(sp),
+      Math.round(lw + (sp.b - sp.a) * k),
+      collapsed,
+      nowV,
+      st,
+    );
+  /* 調書：最後一頁放得下（還是橫的）就放；不然另外成一頁（寬照一般的頁，太高時切開） */
+  let panels: PanelSpec[] = [];
+  let panelOnLast = false;
+  let panelW = 0;
+  if (panel) {
+    const lastSpan = spans[spans.length - 1];
+    const probe = pageAt(lastSpan, { ...style, panel });
+    if (probe.height <= (probe.width / A4_RATIO) * PANEL_FIT) panelOnLast = true;
+    else {
+      panelW = Math.max(
+        Math.round(lw + idealTrackWidth(lw, first.pic.height)),
+        Math.round(lw + (lastSpan.b - lastSpan.a) * k),
+      );
+      /* 一頁的高：寬 ÷ √2，扣掉標題列與上下留白 */
+      const maxH = panelW / A4_RATIO - (ex.title ? TITLE_H : 0) - 10 - BOTTOM_PAD;
+      panels = splitPanel(panel, panelW, M.small, Math.max(120, maxH), S.anPanelCont);
+    }
+  }
+  const n = spans.length + panels.length;
+  const label = (i: number) => (ex.pageNum !== false ? { pageLabel: pageLabel(i + 1, n) } : {});
   const pages = spans.map((sp, i) => {
-    const last = i === n - 1;
-    const st: PictureStyle = {
-      ...style,
-      ...(ex.pageNum !== false ? { pageLabel: pageLabel(i + 1, n) } : {}),
-      ...(last ? {} : { panel: null }),
-    };
-    const w = Math.round(lw + (sp.b - sp.a) * k);
-    const text =
-      n === 1 && ex.range === 'all'
-        ? chronicle(vdoc, S.untitled, S.toolName).range
-        : spanRangeText(doc, sp);
-    return { pic: pictureFor(doc, vdoc, ex, sp, text, w, collapsed, nowV, st), range: sp };
+    const last = i === spans.length - 1;
+    const st: PictureStyle = { ...style, ...label(i), panel: last && panelOnLast ? panel : null };
+    return { pic: pageAt(sp, st), range: sp };
+  });
+  panels.forEach((spec, j) => {
+    const st: PictureStyle = { ...style, ...label(spans.length + j), panel: null };
+    pages.push({
+      pic: buildPanelPicture({
+        vdoc,
+        width: panelW,
+        title: ex.title,
+        theme: ex.theme,
+        measures: measures(style.titleFont ?? 'sans'),
+        strings: pictureStrings(doc, vdoc, rangeText(range), style),
+        style: st,
+        panel: spec,
+      }),
+      range,
+    });
   });
   return { ok: true, pages };
 }
+
+/** 調書放進最後一頁時，頁還算是橫的：高 ≤ 寬 ÷ √2 × 這個倍數 */
+export const PANEL_FIT = 1.1;
 
 /** 「人物別：全部各一張」（F118） */
 export const POV_ALL = '*';

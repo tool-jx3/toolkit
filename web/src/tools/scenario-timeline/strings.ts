@@ -582,6 +582,7 @@ export const S = {
   anCopy: '複製調書',
   anCopied: '已複製調書',
   anMore: (n: number) => `…還有 ${n} 筆`,
+  anPanelCont: '（續）',
   anSliceTitleSection: '時間切片',
   anSliceOn: '看某一刻每個地點有誰',
   anSliceHint:

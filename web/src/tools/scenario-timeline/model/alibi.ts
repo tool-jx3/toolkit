@@ -306,6 +306,11 @@ export function contactReport(vdoc: VisibleDoc): ContactReport {
     const k = placeKey(c.place);
     for (const laneId of c.lanes)
       for (const r of truthBy.get(laneId) ?? []) {
+        /*
+         * 推翻證詞的只有真相與完全保密的（GM 才知道的事）；同一個人的另一筆證詞在別的地點
+         * （例：第二幕在舞台的期間裡、下場時在下舞台的時間點）是證詞自己的事，不算矛盾
+         */
+        if (!r.truth && !r.secret) continue;
         if (!r.place || placeKey(r.place) === k) continue;
         const o = overlapOf(r, {
           ...r,
