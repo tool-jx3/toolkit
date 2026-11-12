@@ -5,7 +5,7 @@
  * 「在地圖演出產生器開啟」（共用的 core/handoff 交給 map-fx）。
  */
 import { Copy, Film } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { copyImage, copyText, downloadBlob, downloadSequentially } from '@/core/files';
 import { beginHandoff, failHandoff, handoffHref, sendHandoff } from '@/core/handoff';
 import { canvasToBlob } from '@/core/image';
@@ -28,6 +28,7 @@ import {
   exportHasSecret,
   exportJobs,
   exportOptions,
+  exportScope,
   handoffRoomsOf,
   isStackRange,
   isVtt,
@@ -104,7 +105,9 @@ export function ExportDialog() {
   const unveilReady = unveilKey === `${range}|${exp.view}`;
   const hasClues = project.floors.some(floorHasClues);
   const floors = useMemo(() => exportFloors(project, range), [project, range]);
-  const empty = !hasExportContent(floors, exp.view === 'pl', exp.clues === 'hide');
+  /* 範圍算哪一個狀態（只存一張：只算那個狀態看得到的東西，驗證後修訂 2026-11-12，F333） */
+  const scope = useMemo(() => exportScope(project, e2), [project, e2]);
+  const empty = !hasExportContent(floors, exp.view === 'pl', exp.clues === 'hide', scope);
   const layout = useMemo(() => {
     if (empty) return null;
     if (stackMode) {
@@ -122,13 +125,28 @@ export function ExportDialog() {
   const vtt = isVtt(exp) && !stackMode;
   const cell = vttCell(project);
   /* VTT 用：每一張都要在上限裡（每層各一張時每張各自算，F266） */
-  const vttLayouts = useMemo(() => {
-    if (!vtt || empty) return [];
-    return exportJobs(project, e2)
-      .filter((j) => hasExportContent(j.floors, e2.view === 'pl', e2.clues === 'hide'))
-      .map((j) => exportLayout(j.floors, exportOptions(project, e2, theme, e2.px)));
-  }, [vtt, empty, project, e2, theme]);
+  const vttLayoutsOf = useCallback(
+    (e: typeof e2) =>
+      exportJobs(project, e)
+        .filter((j) =>
+          hasExportContent(j.floors, e.view === 'pl', e.clues === 'hide', exportScope(project, e)),
+        )
+        .map((j) => exportLayout(j.floors, exportOptions(project, e, theme, e.px))),
+    [project, theme],
+  );
+  const vttLayouts = useMemo(
+    () => (!vtt || empty ? [] : vttLayoutsOf(e2)),
+    [vtt, empty, e2, vttLayoutsOf],
+  );
   const tooLarge = vttLayouts.find(vttTooLarge) ?? null;
+  /* 事件前後各存一張的範圍（兩種狀態合起來）可能比只存一張大：VTT 用時另外檢查 */
+  const pairTooLarge = useMemo(
+    () =>
+      vtt && !empty && hasMoments
+        ? vttLayoutsOf({ ...e2, momentPair: true }).some(vttTooLarge)
+        : false,
+    [vtt, empty, hasMoments, e2, vttLayoutsOf],
+  );
   const cells = vtt && layout && 'width' in layout ? vttCells(layout, cell) : null;
   const vttLine =
     vtt && layout && cells
@@ -140,7 +158,7 @@ export function ExportDialog() {
   /* 揭露用（F284）：GM 專用的東西在 PL 用的圖的範圍外面時，兩張圖的範圍不同，疊圖對不齊 */
   const revealFrameDiffers = useMemo(() => {
     if (exp.view !== 'reveal' || !layout) return false;
-    if (!hasExportContent(floors, true, exp.clues === 'hide')) return true;
+    if (!hasExportContent(floors, true, exp.clues === 'hide', scope)) return true;
     /* 立體樓層圖、總覽（驗證後修訂 2026-11-09）：PL 用的圖只算 PL 看得到的範圍，同樣比較 */
     if ('frameKey' in layout) {
       const pl = stackImageLayout(
@@ -156,7 +174,7 @@ export function ExportDialog() {
       pl.frames[0]?.x !== layout.frames[0]?.x ||
       pl.frames[0]?.y !== layout.frames[0]?.y
     );
-  }, [exp.view, exp.clues, layout, floors, project, e2, theme]);
+  }, [exp.view, exp.clues, layout, floors, project, e2, theme, scope]);
 
   useEffect(() => {
     if (!open || empty) {
@@ -182,7 +200,7 @@ export function ExportDialog() {
     try {
       const src: Project = unveiled ? unveiledProject(project) : project;
       const jobs = exportJobs(src, e2, unveiled).filter((j) =>
-        hasExportContent(j.floors, exp.view === 'pl', exp.clues === 'hide'),
+        hasExportContent(j.floors, exp.view === 'pl', exp.clues === 'hide', exportScope(src, e2)),
       );
       const render = (fl: typeof floors) =>
         stackMode
@@ -208,14 +226,24 @@ export function ExportDialog() {
     }
   };
 
-  /** 事件前後各存一張（2026-11-12，F333）：同樣的設定、同樣的範圍，事件前的先、事件後的後 */
+  /**
+   * 事件前後各存一張（2026-11-12，F333）：同樣的設定、同樣的範圍（兩種狀態合起來，`momentPair`），
+   * 事件前的先、事件後的後
+   */
   const downloadPair = async () => {
     setBusy(true);
     try {
       const files = MOMENTS.flatMap((m) => {
-        const em = { ...e2, moment: m };
+        const em = { ...e2, moment: m, momentPair: true };
         return exportJobs(project, em)
-          .filter((j) => hasExportContent(j.floors, exp.view === 'pl', exp.clues === 'hide'))
+          .filter((j) =>
+            hasExportContent(
+              j.floors,
+              exp.view === 'pl',
+              exp.clues === 'hide',
+              exportScope(project, em),
+            ),
+          )
           .map((j) => ({
             name: j.name,
             blob: () =>
@@ -428,7 +456,7 @@ export function ExportDialog() {
                 size="sm"
                 className="self-start"
                 loading={busy}
-                disabled={blocked}
+                disabled={blocked || pairTooLarge}
                 onClick={() => void downloadPair()}
                 title={S.moment.exportPairHint}
                 data-testid="export-pair"

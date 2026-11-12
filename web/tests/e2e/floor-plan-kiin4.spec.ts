@@ -1,7 +1,7 @@
 /**
  * 室內平面圖產生器：2026-11-12 跟進 KIIN「マップ制作スタジオ」v3.0（規格 1.31：F329～F340）——
  * 事件前後（切換狀態、出現時機、事件後新放的東西、倒下・破損、事件後才停電）、事件前後兩張一次存（實際存下來檢查）、
- * PL 用連結的狀態、和風的素材與榻榻米的鋪法、日式宅邸的區畫、日式老宅範本、Z／X、H、旋轉的按鈕、重疊的家具換選、窄畫面。
+ * PL 用連結的狀態、和風的素材與榻榻米的鋪法、日式宅邸的區畫、老鋪町家範本、Z／X、H、旋轉的按鈕、重疊的家具換選、窄畫面。
  */
 import { readFileSync } from 'node:fs';
 import { expect, type Page, test } from '@playwright/test';
@@ -129,14 +129,14 @@ const pastSteps = (page: Page) =>
 const toggle = (page: Page, m: 'before' | 'after') =>
   page.getByTestId('moment-toggle').locator(`[data-moment="${m}"]`);
 
-async function loadEstate(page: Page) {
+async function loadMachiya(page: Page) {
   await page.evaluate(() =>
-    (window as unknown as { __floorPlan: Hook }).__floorPlan.act.loadTemplate('japanese-estate', {
+    (window as unknown as { __floorPlan: Hook }).__floorPlan.act.loadTemplate('machiya', {
       structureOnly: false,
       clues: false,
     }),
   );
-  await expect.poll(async () => (await project(page)).name).toBe('日式老宅（事件前後）');
+  await expect.poll(async () => (await project(page)).name).toBe('老鋪町家（事件前後）');
 }
 
 test('事件前後：切換狀態（不算一步復原）、事件後新放的只在事件後出現、出現時機、倒下・破損、事件後才停電（F329～F332）', async ({
@@ -204,10 +204,15 @@ test('匯出：選狀態、事件前後各存一張（同樣大小、檔名、�
   tag: '@serial',
 }, async ({ page }) => {
   const errors = await open(page);
-  await loadEstate(page);
+  await loadMachiya(page);
   await page.keyboard.press('Control+e');
   const dialog = page.getByTestId('export-dialog');
   await expect(dialog.getByTestId('export-moment')).toBeVisible();
+  /* 只存一張與各存一張的範圍不同（驗證後修訂 2026-11-12） */
+  await expect(dialog.getByTestId('export-moment')).toContainText(
+    '只存一張時，範圍只算那個狀態看得到的東西',
+  );
+  await expect(dialog.getByTestId('export-moment')).toContainText('各存一張時兩張用同一個範圍');
   await dialog.getByRole('radio', { name: '24px' }).click();
   const downloads: { name: string; path: string }[] = [];
   page.on('download', async (d) => {
@@ -219,8 +224,8 @@ test('匯出：選狀態、事件前後各存一張（同樣大小、檔名、�
   });
   await expect.poll(() => downloads.length).toBe(2);
   expect(downloads.map((d) => d.name)).toEqual([
-    '日式老宅（事件前後）_PL_事件前.png',
-    '日式老宅（事件前後）_PL_事件後.png',
+    '老鋪町家（事件前後）_PL_事件前.png',
+    '老鋪町家（事件前後）_PL_事件後.png',
   ]);
   const [a, b] = downloads.map((d) => pngPixels(readFileSync(d.path)));
   expect([a.width, a.height]).toEqual([b.width, b.height]);
@@ -233,7 +238,7 @@ test('匯出：選狀態、事件前後各存一張（同樣大小、檔名、�
     page.waitForEvent('download'),
     page.getByTestId('export-download').click(),
   ]);
-  expect(dl.suggestedFilename()).toBe('日式老宅（事件前後）_PL_事件後.png');
+  expect(dl.suggestedFilename()).toBe('老鋪町家（事件前後）_PL_事件後.png');
   await page.keyboard.press('Escape');
   /* 分享連結：PL 用連結的狀態 */
   await page.getByRole('button', { name: '專案' }).click();
@@ -254,9 +259,9 @@ test('匯出：選狀態、事件前後各存一張（同樣大小、檔名、�
 test('和風的素材與榻榻米的鋪法、日式宅邸的區畫（F334）', async ({ page }) => {
   const errors = await open(page);
   await setFloor(page, { rooms: [room('和室', 0, 0, 8, 8, { cat: 'washitsu' })] });
-  /* 素材：日文的別名也找得到 */
+  /* 素材：漢字的別名也找得到 */
   await page.getByRole('tab', { name: '家具・小物' }).click();
-  await page.getByRole('searchbox', { name: '搜尋家具' }).fill('こたつ');
+  await page.getByRole('searchbox', { name: '搜尋家具' }).fill('炬燵');
   await expect(page.getByTestId('library').locator('[data-asset]')).toHaveCount(1);
   await page.getByTestId('library').locator('[data-asset="kotatsu"]').click();
   await click(page, 4, 4);
@@ -282,29 +287,29 @@ test('和風的素材與榻榻米的鋪法、日式宅邸的區畫（F334）', a
   await expect(
     page.getByTestId('library').getByRole('heading', { name: '日式宅邸' }),
   ).toBeVisible();
-  for (const id of ['genkan', 'nakaroka', 'zashiki', 'butsuma', 'hiroen', 'hanare', 'kura'])
+  for (const id of ['toriniwa', 'misenoma', 'zashiki', 'butsuma', 'tsuboniwa', 'inkyo', 'kura'])
     await expect(page.getByTestId('library').locator(`[data-room="${id}"]`)).toHaveCount(1);
   await page.getByTestId('library').locator('[data-room="zashiki"]').click();
   await page.getByTestId('map-canvas').focus();
   for (let i = 0; i < 3; i++) await page.keyboard.press('-');
   await click(page, 14, 4);
-  const z = (await floor(page)).rooms.find((r) => r.name === '座敷・客間');
-  expect(z).toMatchObject({ cat: 'washitsu', tatami: 'shugi', w: 8, h: 8 });
+  const z = (await floor(page)).rooms.find((r) => r.name === '座敷');
+  expect(z).toMatchObject({ cat: 'washitsu', tatami: 'shugi', w: 8, h: 9 });
   expect(errors).toEqual([]);
 });
 
-test('範本：日式老宅（事件前後）載入後從事件前開始、事件後才停電；畫面上看得到不同（F336）', async ({
+test('範本：老鋪町家（事件前後）載入後從事件前開始、事件後才停電；畫面上看得到不同（F336）', async ({
   page,
 }) => {
   const errors = await open(page);
   await page.getByRole('button', { name: '範本' }).click();
   const dlg = page.getByTestId('template-dialog');
-  await dlg.getByPlaceholder(/#標籤/).fill('日式老宅');
+  await dlg.getByPlaceholder(/#標籤/).fill('町家');
   await expect(
-    dlg.getByRole('list').getByRole('button', { name: /^日式老宅（事件前後）/ }),
+    dlg.getByRole('list').getByRole('button', { name: /^老鋪町家（事件前後）/ }),
   ).toBeVisible();
   await page.keyboard.press('Escape');
-  await loadEstate(page);
+  await loadMachiya(page);
   const p = await project(page);
   expect(p.blackout).toBe(true);
   expect(p.moment).toBeUndefined();
@@ -371,12 +376,19 @@ for (const width of [390, 360, 320])
   }) => {
     await page.setViewportSize({ width, height: 800 });
     const errors = await open(page);
-    await loadEstate(page);
+    await loadMachiya(page);
     await toggle(page, 'after').click();
     await expect(toggle(page, 'after')).toHaveAttribute('aria-pressed', 'true');
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
       width,
     );
+    /* 觸控：切換鈕每顆至少 32 px 高、不擋到隱藏線索的開關（驗證後修訂 2026-11-12） */
+    const clue = await page.getByTestId('clue-toggle').boundingBox();
+    for (const m of ['before', 'after'] as const) {
+      const b = await toggle(page, m).boundingBox();
+      expect(b?.height ?? 0, m).toBeGreaterThanOrEqual(32);
+      expect((b?.y ?? 0) >= (clue?.y ?? 0) + (clue?.height ?? 0), m).toBe(true);
+    }
     await page.getByRole('button', { name: '匯出圖片' }).click();
     await expect(page.getByTestId('export-pair')).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(

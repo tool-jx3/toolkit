@@ -52,11 +52,11 @@ const rows: Row[] = [];
 /** 2026-11-05 的客輪範本（曲線的房間）另外量，不改 57 個範本的數字；2026-11-09 的鐘錶行（F312）也另外量 */
 const LINER = 'steamliner';
 const CLOCK = 'clockshop';
-/* 2026-11-12 的日式老宅（事件前後）也不在這張表裡（新範本的長度另外量，floor-plan-kiin4.test.ts） */
-const OLD = TEMPLATES.filter((t) => t.id !== LINER && t.id !== CLOCK && t.id !== 'japanese-estate');
+/* 2026-11-12 的老鋪町家（事件前後）也不在這張表裡（新範本的長度另外量，floor-plan-kiin4.test.ts） */
+const OLD = TEMPLATES.filter((t) => t.id !== LINER && t.id !== CLOCK && t.id !== 'machiya');
 let liner: Row | null = null;
 let clock: Row | null = null;
-let estate: Row | null = null;
+let machiyaRow: Row | null = null;
 
 beforeAll(() => {
   act.bindUi(
@@ -81,20 +81,20 @@ beforeAll(() => {
     };
     if (t.id === LINER) liner = row;
     else if (t.id === CLOCK) clock = row;
-    else if (t.id === 'japanese-estate') estate = row;
+    else if (t.id === 'machiya') machiyaRow = row;
     else rows.push(row);
   }
 });
 
-describe('日式老宅（2026-11-12，事件前後）的分享連結', () => {
+describe('老鋪町家（2026-11-12，事件前後）的分享連結', () => {
   it('完整、PL 用、放入隱藏線索並編號都在 8,000 字以內', () => {
-    expect(estate).toBeTruthy();
-    const r = estate as unknown as Row;
+    expect(machiyaRow).toBeTruthy();
+    const r = machiyaRow as unknown as Row;
     for (const v of [r.full, r.pl, r.fullClues, r.fullNumbered, r.plNumbered]) {
       expect(v).toBeGreaterThan(500);
       expect(v).toBeLessThan(8000);
     }
-    console.info('japanese-estate link length', JSON.stringify(r));
+    console.info('machiya link length', JSON.stringify(r));
   });
 });
 

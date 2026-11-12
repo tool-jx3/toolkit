@@ -1,12 +1,12 @@
 /**
  * 室內平面圖產生器 2026-11-12 跟進 KIIN「マップ制作スタジオ」v3.0（規格 1.31、3.20、F329～F340、D134～D145）：
  * 事件前後（出現時機、倒下・破損、事件後才停電）、每一種輸出在事件前／事件後與 PL／GM 下看得到什麼（不洩漏）、
- * 專案檔版本 12 與舊版、榻榻米的鋪法、新的素材、日式老宅範本、Z／X 的說明表。
+ * 專案檔版本 12 與舊版、榻榻米的鋪法、新的素材、老鋪町家範本、Z／X 的說明表。
  */
 import { describe, expect, it } from 'vitest';
-import { exportLayout, renderImage } from '@/tools/floor-plan/draw/export';
+import { exportLayout, hasExportContent, renderImage } from '@/tools/floor-plan/draw/export';
 import { FURNITURE_DRAW } from '@/tools/floor-plan/draw/furniture';
-import { renderStackImage } from '@/tools/floor-plan/draw/stack';
+import { renderStackImage, stackFrameKey, stackImageLayout } from '@/tools/floor-plan/draw/stack';
 import { drawStageFrame, stageScene } from '@/tools/floor-plan/draw/stage';
 import { getTheme } from '@/tools/floor-plan/draw/themes';
 import { SHORTCUT_HELP } from '@/tools/floor-plan/editor/keys';
@@ -18,6 +18,7 @@ import {
   exportFloors,
   exportJobs,
   exportOptions,
+  exportScope,
   handoffRoomsOf,
   stackExportOptions,
 } from '@/tools/floor-plan/model/exportPlan';
@@ -172,7 +173,7 @@ describe('事件前後的資料（F329～F332、3.20.1）', () => {
   });
 
   it('沒有用到事件前後的樓層、地圖原樣傳回（輸出逐指令不變的前提）', () => {
-    for (const t of TEMPLATES.filter((x) => x.id !== 'japanese-estate')) {
+    for (const t of TEMPLATES.filter((x) => x.id !== 'machiya')) {
       const p = project(t.id);
       expect(usesMoments(p), t.id).toBe(false);
       for (const f of p.floors) {
@@ -287,7 +288,7 @@ describe('事件前後的資料（F329～F332、3.20.1）', () => {
 /* ---------- 每一種輸出看得到什麼（F333、F335；不洩漏） ---------- */
 
 describe('每一種輸出在事件前／事件後與 PL／GM 下看得到的東西（F333～F335、D137）', () => {
-  it('匯出 PNG：每個狀態＝只剩那個狀態的地圖（逐指令相同）；兩個狀態的圖一樣大、位置一樣', () => {
+  it('匯出 PNG：每個狀態＝只剩那個狀態的地圖（逐指令相同）', () => {
     const restore = installRecordingDocument();
     try {
       const p = clockWithMoments();
@@ -299,12 +300,122 @@ describe('每一種輸出在事件前／事件後與 PL／GM 下看得到的東�
               hashImage(singleMomentProject(p, m).project, { ...EXP, view, range }),
             );
           }
-      const size = (m: 'before' | 'after') =>
-        exportJobs(p, { ...EXP, moment: m }).map((j) => {
-          const L = exportLayout(j.floors, exportOptions(p, { ...EXP, moment: m }, 'clean', 24));
-          return [L.pxWidth, L.pxHeight, L.frames[0].x, L.frames[0].y];
-        });
-      expect(size('before')).toEqual(size('after'));
+    } finally {
+      restore();
+    }
+  });
+
+  /*
+   * 驗證後修訂（2026-11-12）：原本的範圍是兩種狀態合起來，房間外一個只在事件後的家具會撐大事件前的 PL 用的圖
+   * （驗證者重現：12 × 10 格的房間＋(60, 40) 的書桌，256 × 224 → 1072 × 736 px）。改成只存一張時只算那個狀態，
+   * 「事件前後各存一張」時兩張用合起來的範圍。
+   */
+  it('匯出的範圍：只存一張時只算那個狀態看得到的東西；各存一張時兩張用合起來的範圍（F333、D137）', () => {
+    const restore = installRecordingDocument();
+    try {
+      const room = { id: 'r', name: 'A', cat: 'living' as const, x: 0, y: 0, w: 12, h: 10 };
+      const base = (items: Item[], walls: Floor['walls'] = []): Project => ({
+        name: '範圍',
+        theme: 'clean',
+        showSize: 'none',
+        showNames: true,
+        active: 0,
+        floors: [
+          { id: 'f', name: '1F', rooms: [room], walls, openings: [], texts: [], items },
+          {
+            id: 'g',
+            name: '2F',
+            rooms: [{ ...room, id: 'r2' }],
+            walls: [],
+            openings: [],
+            texts: [],
+            items: [],
+          },
+        ],
+      });
+      /* 驗證者的重現用每格 16 px（匯出對話框的預覽也是） */
+      const e16: ExportSettings = { ...EXP, px: 16 as ExportSettings['px'] };
+      const size = (p: Project, e: ExportSettings) => {
+        const L = exportLayout(exportFloors(p, e.range), exportOptions(p, e, 'clean', e.px));
+        return [L.pxWidth, L.pxHeight, L.frames[0].x, L.frames[0].y];
+      };
+      const plain = base([]);
+      const far = base([item('far', 'desk', 60, 40, { only: 'after' })]);
+      const farGm = base([item('far', 'desk', 60, 40, { only: 'after', gm: true })]);
+      const farBefore = base([item('far', 'desk', 60, 40, { only: 'before' })]);
+      const farWall = base(
+        [],
+        [{ id: 'w', x1: 60, y1: 40, x2: 64, y2: 40, kind: 'thin', only: 'after' }],
+      );
+      const none = size(plain, e16);
+      expect(none.slice(0, 2)).toEqual([256, 224]);
+      for (const view of ['pl', 'gm', 'reveal'] as const)
+        for (const range of ['current', 'all'] as const) {
+          const e = { ...e16, view, range };
+          const tag = `${view}|${range}`;
+          /* 事件前（只存一張）：只在事件後的東西不撐大範圍，圖和沒有那件東西時逐指令相同 */
+          for (const p of [far, farGm, farWall]) {
+            expect(size(p, { ...e, moment: 'before' }), tag).toEqual(size(plain, e));
+            expect(hashImage(p, { ...e, moment: 'before' }), tag).toBe(hashImage(plain, e));
+          }
+          expect(size(farBefore, { ...e, moment: 'after' }), tag).toEqual(size(plain, e));
+          /* 事件後：看得到的就算（PL 用的圖不算 GM 專用的） */
+          expect(size(far, { ...e, moment: 'after' }), tag).not.toEqual(size(plain, e));
+          if (view === 'pl')
+            expect(size(farGm, { ...e, moment: 'after' }), tag).toEqual(size(plain, e));
+          else expect(size(farGm, { ...e, moment: 'after' }), tag).not.toEqual(size(plain, e));
+          /* 各存一張：兩張一樣大、位置一樣（合起來的範圍＝事件後那一張的範圍） */
+          const pair = (m: 'before' | 'after') => size(far, { ...e, moment: m, momentPair: true });
+          expect(pair('before'), tag).toEqual(pair('after'));
+          expect(pair('before'), tag).toEqual(size(far, { ...e, moment: 'after' }));
+          const pairB = (m: 'before' | 'after') =>
+            size(farBefore, { ...e, moment: m, momentPair: true });
+          expect(pairB('after'), tag).toEqual(pairB('before'));
+          expect(pairB('after'), tag).not.toEqual(size(plain, e));
+        }
+      /* 驗證者的數字：事件前的 PL 用的圖 256 × 224（原本 1072 × 736）；各存一張時兩張都是 1072 × 736 */
+      expect(size(far, { ...e16, moment: 'before' }).slice(0, 2)).toEqual([256, 224]);
+      expect(size(far, { ...e16, moment: 'before', momentPair: true }).slice(0, 2)).toEqual([
+        1072, 736,
+      ]);
+      /* 各存一張的事件前那一張：範圍大，但畫的照樣只有事件前的東西（書桌不畫） */
+      const pairBefore = { ...e16, moment: 'before' as const, momentPair: true };
+      const farSafe = base([item('far', 'safe', 60, 40, { only: 'after', w: 2.4, h: 1.2 })]);
+      expect(hashImage(far, pairBefore)).not.toBe(hashImage(plain, e16));
+      expect(hashImage(far, pairBefore)).toBe(hashImage(farSafe, pairBefore));
+      expect(hashImage(far, { ...pairBefore, moment: 'after' })).not.toBe(
+        hashImage(farSafe, { ...pairBefore, moment: 'after' }),
+      );
+      /* 有沒有東西可以匯出也照狀態 */
+      const onlyAfter: Floor = { ...far.floors[0], rooms: [] };
+      expect(hasExportContent([onlyAfter], true, false, { moment: 'before' })).toBe(false);
+      expect(hasExportContent([onlyAfter], true, false, { moment: 'after' })).toBe(true);
+      expect(
+        hasExportContent([onlyAfter], true, false, { moment: 'before', bothMoments: true }),
+      ).toBe(true);
+      expect(exportScope(plain, { moment: 'after', momentPair: true })).toEqual({});
+      expect(exportScope(far, { moment: 'before', momentPair: true })).toEqual({
+        moment: 'before',
+        bothMoments: true,
+      });
+      /* 立體樓層圖、樓層總覽：同樣的規則 */
+      for (const range of ['stack', 'board'] as const)
+        for (const view of ['pl', 'gm'] as const) {
+          const e = { ...e16, range, view };
+          const key = (p: Project, x: ExportSettings) =>
+            stackFrameKey(
+              stackImageLayout(exportFloors(p, range), stackExportOptions(p, x, 'clean', 16)),
+            );
+          expect(key(far, { ...e, moment: 'before' }), `${range}|${view}`).toBe(key(plain, e));
+          expect(key(far, { ...e, moment: 'after' }), `${range}|${view}`).not.toBe(key(plain, e));
+          expect(key(far, { ...e, moment: 'before', momentPair: true })).toBe(
+            key(far, { ...e, moment: 'after', momentPair: true }),
+          );
+          expect(key(far, { ...e, moment: 'before', momentPair: true })).toBe(
+            key(far, { ...e, moment: 'after' }),
+          );
+          expect(hashStack(far, { ...e, moment: 'before' })).toBe(hashStack(plain, e));
+        }
     } finally {
       restore();
     }
@@ -619,8 +730,10 @@ describe('新的素材與區畫（F334、3.20.5）', () => {
       expect(ASSET.kotatsu.w * 0.5).toBeCloseTo(1.3);
       expect(SURFACES.has('kotatsu') && SURFACES.has('chabudai')).toBe(true);
       expect(LIGHT_ITEMS.hibachi?.tone).toBe('fire');
-      /* 搜尋：中文名稱、日文的別名、#標籤 */
-      expect(assetMatches(ASSET.kotatsu, 'こたつ')).toBe(true);
+      /* 搜尋：中文名稱、漢字的別名、#標籤；別名不用假名（驗證後修訂 2026-11-12：資料只用繁中與漢字） */
+      expect(assetMatches(ASSET.kotatsu, '炬燵')).toBe(true);
+      for (const id of NEW)
+        expect(/[\u3040-\u30fa\u30fc-\u30ff]/.test(ASSET[id].keys ?? ''), id).toBe(false);
       expect(assetMatches(ASSET.boards, '事件')).toBe(true);
       expect(assetMatches(ASSET.ofuda, '#恐怖')).toBe(true);
     } finally {
@@ -628,40 +741,65 @@ describe('新的素材與區畫（F334、3.20.5）', () => {
     }
   });
 
-  it('日式宅邸的區畫 7 種：座敷、佛間是祝儀鋪法、離屋是半疊市松', () => {
+  it('日式宅邸的區畫 7 種：店之間是不祝儀鋪法、座敷與佛間是祝儀鋪法、隱居間是半疊市松', () => {
     for (const id of [
-      'genkan',
-      'nakaroka',
+      'toriniwa',
+      'misenoma',
       'zashiki',
       'butsuma',
-      'hiroen',
-      'hanare',
+      'tsuboniwa',
+      'inkyo',
       'kura',
     ] as const)
       expect(ROOM_PRESETS[id], id).toBeDefined();
+    expect(ROOM_PRESETS.misenoma.tatami).toBe('fushugi');
     expect(ROOM_PRESETS.zashiki.tatami).toBe('shugi');
     expect(ROOM_PRESETS.butsuma.tatami).toBe('shugi');
-    expect(ROOM_PRESETS.hanare.tatami).toBe('ryukyu');
-    expect(ROOM_PRESETS.genkan.cat).toBe('doma');
+    expect(ROOM_PRESETS.inkyo.tatami).toBe('ryukyu');
+    expect(ROOM_PRESETS.toriniwa.cat).toBe('doma');
+    expect(ROOM_PRESETS.tsuboniwa.cat).toBe('garden');
     expect(ROOM_PRESETS.kura.cat).toBe('stone');
   });
 });
 
-/* ---------- 範本：日式老宅（F336） ---------- */
+/* ---------- 範本：老鋪町家（F336） ---------- */
 
-describe('範本：日式老宅（事件前後）（F336、D139）', () => {
-  const tpl = getTemplate('japanese-estate');
+describe('範本：老鋪町家（事件前後）（F336、D139）', () => {
+  const tpl = getTemplate('machiya');
 
-  it('住宅類（也在宗教・古蹟、廢墟・事件）；事件後才停電；事件前後的東西、三種鋪法、新素材', () => {
+  it('住宅類（也在商店・辦公、廢墟・事件）；事件後才停電；事件前後的東西、三種鋪法、新素材', () => {
     expect(tpl?.group).toBe('home');
+    expect(tpl?.also).toEqual(['commerce', 'ruins']);
     expect(tpl?.blackout).toBe(true);
-    const [f] = instantiateTemplate('japanese-estate') ?? [];
+    const [f] = instantiateTemplate('machiya') ?? [];
+    /* 房間是本站自己的構成（驗證後修訂 2026-11-12：不用和 KIIN 見本一一對應的組合名） */
+    expect(new Set(f.rooms.map((r) => r.name))).toEqual(
+      new Set([
+        '表通',
+        '通庭',
+        '灶間',
+        '店之間',
+        '中之間',
+        '納戶',
+        '暗間',
+        '緣側',
+        '渡廊',
+        '坪庭',
+        '奧之間',
+        '隱居間',
+        '湯殿',
+        '廁',
+        '土藏',
+        '庭',
+        '後院',
+      ]),
+    );
     expect(f.rooms.filter((r) => r.tatami).map((r) => r.tatami)).toEqual(
       expect.arrayContaining(['shugi', 'fushugi', 'ryukyu']),
     );
     expect(f.items.filter((i) => i.only === 'after').length).toBeGreaterThanOrEqual(10);
     expect(f.items.filter((i) => i.only === 'before')).toHaveLength(1);
-    expect(f.items.filter((i) => i.upset).length).toBeGreaterThanOrEqual(5);
+    expect(f.items.filter((i) => i.upset).length).toBeGreaterThanOrEqual(4);
     expect(f.openings.filter((o) => o.smashed)).toHaveLength(2);
     expect(f.texts.some((t) => t.only === 'after' && t.gm)).toBe(true);
     for (const t of ['kotatsu', 'chabudai', 'tansu', 'chadansu', 'oshiire', 'kamidana', 'hibachi'])
@@ -678,7 +816,7 @@ describe('範本：日式老宅（事件前後）（F336、D139）', () => {
 
   it('兩個狀態各自通過格局檢查（放入隱藏線索也是）', () => {
     for (const clues of [false, true]) {
-      const fs = instantiateTemplate('japanese-estate', { clues }) ?? [];
+      const fs = instantiateTemplate('machiya', { clues }) ?? [];
       expect(layoutProblems(fs), `raw ${clues}`).toEqual([]);
       for (const m of ['before', 'after'] as const)
         expect(layoutProblems(fs.map((f) => momentFloor(f, m))), `${m} ${clues}`).toEqual([]);
@@ -686,10 +824,10 @@ describe('範本：日式老宅（事件前後）（F336、D139）', () => {
   });
 
   it('分享連結放得下（完整、PL 用、放入隱藏線索）；整張地圖轉四次回到原樣（事件前後的欄位留著）', () => {
-    const p = project('japanese-estate', { blackout: true });
+    const p = project('machiya', { blackout: true });
     expect(encodeMapHash(p, 'full').tooLong).toBe(false);
     expect(encodeMapHash(p, 'pl', 'after').tooLong).toBe(false);
-    const c = { ...p, floors: instantiateTemplate('japanese-estate', { clues: true }) ?? [] };
+    const c = { ...p, floors: instantiateTemplate('machiya', { clues: true }) ?? [] };
     expect(encodeMapHash(c, 'full').tooLong).toBe(false);
     const q = structuredClone(p);
     for (let i = 0; i < 4; i++) transformProject(q, 'rotate');

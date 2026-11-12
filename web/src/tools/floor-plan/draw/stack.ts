@@ -442,10 +442,13 @@ export interface StackFloorView {
 
 export function shownStackFloors(
   floors: readonly Floor[],
-  o: Pick<StackDrawOptions, 'playerView' | 'hideClues' | 'reveal' | 'moment'>,
+  o: Pick<StackDrawOptions, 'playerView' | 'hideClues' | 'reveal' | 'moment'> & {
+    bothMoments?: boolean;
+  },
 ): StackFloorView[] {
   return floors.map((raw) => {
-    const f = momentFloor(raw, o.moment ?? 'before');
+    /* bothMoments：版面用兩種狀態合起來（只在算「各存一張」的版面時；畫的時候一律照 moment） */
+    const f = o.bothMoments ? raw : momentFloor(raw, o.moment ?? 'before');
     return {
       floor: visibleFloor(o.reveal ? revealFloor(f) : f, o.playerView, o.hideClues),
       name: f.name,
@@ -956,8 +959,10 @@ export interface StackImageOptions {
   gmBadge?: string | null;
   reveal?: boolean;
   night?: number;
-  /** 事件前後（2026-11-12，F333；沒有＝事件前） */
+  /** 事件前後（2026-11-12，F333；沒有＝事件前）：畫這個狀態，版面也只算這個狀態看得到的東西 */
   moment?: Moment;
+  /** 版面用兩種狀態合起來算（「事件前後各存一張」的兩張，F333；驗證後修訂 2026-11-12） */
+  bothMoments?: boolean;
   wear?: { strength: number; seed: number } | null;
   noNoise?: boolean;
   limit?: ResolutionLimits;
@@ -979,7 +984,7 @@ export interface StackImageLayout {
  */
 export function stackLayoutFloors(
   floors: readonly Floor[],
-  o: Pick<StackDrawOptions, 'playerView' | 'hideClues' | 'reveal' | 'moment'>,
+  o: Pick<StackImageOptions, 'playerView' | 'hideClues' | 'reveal' | 'moment' | 'bothMoments'>,
 ): Floor[] {
   return shownStackFloors(floors, o).map((v) => v.floor as Floor);
 }

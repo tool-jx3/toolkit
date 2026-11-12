@@ -469,8 +469,8 @@ describe('搜尋（F46、F234、F235）', () => {
     expect(tpl('#廢墟 #住家')).toEqual(['ruined-house']);
     expect(tpl('#鐵道')).toEqual(['station', 'subway']);
     expect(tpl('#地下 #交通')).toEqual(['station', 'subway', 'parking']);
-    /* 2026-11-12：日式老宅（事件前後，F336） */
-    expect(tpl('#和風')).toEqual(['japanese-house', 'japanese-estate', 'ryokan', 'shrine']);
+    /* 2026-11-12：老鋪町家（事件前後，F336） */
+    expect(tpl('#和風')).toEqual(['japanese-house', 'machiya', 'ryokan', 'shrine']);
     expect(tpl('#奇幻')).toEqual(['castle', 'dungeon', 'tavern', 'wizard-tower']);
     expect(tpl('#宗教 #戶外')).toEqual([
       'sanheyuan',

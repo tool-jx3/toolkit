@@ -139,8 +139,9 @@ test.describe('檢視方式（F303、F304）', () => {
       width: number;
       height: number;
     };
+    /* 右上的「事件前｜事件後」（2026-11-12，F330；每顆 32 px 高）下面開始拖 */
     const cx = box.x + box.width - 60;
-    const cy = box.y + 80;
+    const cy = box.y + 120;
     await page.mouse.move(cx, cy);
     await page.mouse.down();
     await page.mouse.move(cx - 40, cy + 20, { steps: 4 });

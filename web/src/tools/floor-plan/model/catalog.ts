@@ -270,13 +270,13 @@ export type RoomPresetId =
   | 'octagon'
   | 'hullDeck'
   | 'bowDeck'
-  /* 2026-11-12（參考 KIIN v3.0 的和風區畫）：日式宅邸 */
-  | 'genkan'
-  | 'nakaroka'
+  /* 2026-11-12：日式宅邸（町家的構成與和室；名稱、尺寸、鋪法本站自己定） */
+  | 'toriniwa'
+  | 'misenoma'
   | 'zashiki'
   | 'butsuma'
-  | 'hiroen'
-  | 'hanare'
+  | 'tsuboniwa'
+  | 'inkyo'
   | 'kura';
 
 export interface RoomPreset {
@@ -409,17 +409,20 @@ export const ROOM_PRESET_GROUPS: readonly { id: RoomPresetGroupId; items: RoomPr
       { ...P('bowDeck', 'shipdeck', 8, 12), shape: 'bow-e' },
     ],
   },
-  /* 2026-11-12（參考 KIIN v3.0 的和風區畫；尺寸與鋪法本站自己定，F334） */
+  /*
+   * 2026-11-12：日式宅邸（F334）——町家的通庭、店之間、坪庭與和室、土藏；名稱、尺寸、鋪法本站自己定
+   * （驗證後修訂 2026-11-12：原本的組合名和 KIIN 見本的房間一一對應，換掉）
+   */
   {
     id: 'japanese',
     items: [
-      P('genkan', 'doma', 5, 4),
-      P('nakaroka', 'hall', 2, 10),
-      { ...P('zashiki', 'washitsu', 8, 8), tatami: 'shugi' },
+      P('toriniwa', 'doma', 3, 16),
+      { ...P('misenoma', 'washitsu', 9, 8), tatami: 'fushugi' },
+      { ...P('zashiki', 'washitsu', 8, 9), tatami: 'shugi' },
       { ...P('butsuma', 'washitsu', 6, 6), tatami: 'shugi' },
-      P('hiroen', 'engawa', 14, 3),
-      { ...P('hanare', 'washitsu', 6, 6), tatami: 'ryukyu' },
-      P('kura', 'stone', 8, 7),
+      P('tsuboniwa', 'garden', 5, 6),
+      { ...P('inkyo', 'washitsu', 6, 8), tatami: 'ryukyu' },
+      P('kura', 'stone', 8, 8),
     ],
   },
 ];

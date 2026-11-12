@@ -51,7 +51,7 @@ export type RoomExtra = Partial<
     | 'shape'
     | 'radius'
     | 'deck'
-    /* 2026-11-12（日式老宅）：地板、榻榻米的鋪法 */
+    /* 2026-11-12（老鋪町家）：地板、榻榻米的鋪法 */
     | 'floor'
     | 'tatami'
   >

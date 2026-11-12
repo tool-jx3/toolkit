@@ -3,21 +3,7 @@
  * 暖桌、圓矮桌、和式衣櫃、茶櫃、壁櫥、神棚、火盆、盛鹽、葫蘆池、屋敷稻荷、封鎖的木板、封印的符咒、拖行的血跡、
  * 散落的紙張、摔破的碗盤。全部是本站自己畫的線畫（顏色只用樣式的家具配色，七種樣式都畫得出來）。
  */
-import {
-  block,
-  type Ctx,
-  disc,
-  type FurnDraw,
-  type FurnStyle,
-  lw,
-  oval,
-  paint,
-  poly,
-  rrect,
-  seeded,
-  seg,
-  TAU,
-} from './kit';
+import { block, disc, type FurnDraw, lw, oval, paint, poly, rrect, seeded, seg, TAU } from './kit';
 import { inked, type Pt, ring, thin } from './parts';
 import { blob } from './story';
 
@@ -102,30 +88,40 @@ const chadansu: FurnDraw = (c, S, w, h) => {
   disc(c, S, w * 0.73, h * 0.83, 0.05, S.gold);
 };
 
-/** 壁櫥：兩片隔扇（錯開、圓的拉手），裡面的中層隔板（虛線）與疊著的棉被 */
+/**
+ * 壁櫥：平面圖的收納（暗色的內部、對角的交叉線）、靠一邊疊著的棉被（摺線）；
+ * 朝房間的那一邊是兩條軌道上錯開的兩片隔扇（細長的紙板、中間一條框線）。
+ * （驗證後修訂 2026-11-12：原本前面兩塊厚板＋裡面的圓角方塊，看起來像流理台）
+ */
 const oshiire: FurnDraw = (c, S, w, h) => {
-  block(c, S, 0, 0, w, h, 0.02, S.shade);
-  c.save();
-  dashed(c, S);
-  seg(c, 0.12, h * 0.45, w - 0.12, h * 0.45);
-  c.restore();
-  block(c, S, w * 0.1, h * 0.1, w * 0.36, h * 0.28, 0.06, S.cloth);
-  block(c, S, w * 0.14, h * 0.16, w * 0.3, h * 0.2, 0.06, S.tint);
-  /* 前面的隔扇 */
-  const pw = w * 0.52;
+  const t = Math.min(h * 0.14, 0.26);
+  const inner = h - 2 * t;
+  block(c, S, 0, 0, w, inner, 0.02, S.shade);
+  thin(c, S, 0.45, () =>
+    inked(c, S.faint, () => {
+      seg(c, 0.1, 0.1, w - 0.1, inner - 0.1);
+      seg(c, w - 0.1, 0.1, 0.1, inner - 0.1);
+    }),
+  );
+  /* 疊著的棉被：一疊三層（摺線） */
+  const fx = w * 0.07;
+  const fy = inner * 0.14;
+  const fw = w * 0.36;
+  const fh = inner * 0.72;
+  block(c, S, fx, fy, fw, fh, 0.03, S.cloth);
+  thin(c, S, 0.4, () => {
+    for (const k of [1 / 3, 2 / 3]) seg(c, fx + 0.04, fy + fh * k, fx + fw - 0.04, fy + fh * k);
+  });
+  /* 兩片隔扇：後面的軌道在右、前面的軌道在左，中間重疊一點 */
+  const pw = w * 0.53;
   for (const [x, y] of [
-    [0, h * 0.62],
-    [w - pw, h * 0.74],
+    [w - pw, inner],
+    [0, inner + t],
   ] as const) {
-    block(c, S, x, y, pw, h * 0.22, 0.01, S.paper);
-    disc(c, S, x + pw * (x ? 0.12 : 0.88), y + h * 0.11, h * 0.05, S.faint);
+    block(c, S, x, y, pw, t, 0.01, S.paper);
+    thin(c, S, 0.35, () => seg(c, x + 0.06, y + t / 2, x + pw - 0.06, y + t / 2));
   }
 };
-
-function dashed(c: Ctx, S: FurnStyle): void {
-  lw(c, S, 0.6);
-  c.setLineDash([S.lw * 3, S.lw * 2]);
-}
 
 /** 神棚：架子、中間的小宮（屋頂的三角）、兩側的榊與正中的鏡 */
 const kamidana: FurnDraw = (c, S, w, h) => {

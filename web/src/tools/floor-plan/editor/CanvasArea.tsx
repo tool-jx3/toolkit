@@ -156,7 +156,8 @@ function MomentToggle() {
           aria-pressed={moment === m}
           onClick={() => act.setMoment(m)}
           className={cn(
-            'rounded-full px-2.5 py-0.5 focus-visible:ring-2 focus-visible:ring-focus focus-visible:outline-none',
+            /* 觸控：每顆至少 32 px 高（驗證後修訂 2026-11-12；原本 22 px） */
+            'inline-flex min-h-8 items-center rounded-full px-3 focus-visible:ring-2 focus-visible:ring-focus focus-visible:outline-none',
             moment === m
               ? m === 'after'
                 ? 'bg-danger font-bold text-danger-contrast'

@@ -35,17 +35,8 @@ export const TEMPLATE_TAGS: Readonly<Record<string, readonly TagId[]>> = {
   house: ['modern', 'indoor', 'home', 'garden', 'underground', 'hidden', 'gm', 'multifloor'],
   sanheyuan: ['historic', 'outdoor', 'home', 'religious', 'hidden', 'gm'],
   'japanese-house': ['historic', 'japanese', 'home', 'garden', 'underground', 'gm', 'multifloor'],
-  /* 2026-11-12：日式老宅（事件前後） */
-  'japanese-estate': [
-    'historic',
-    'japanese',
-    'home',
-    'garden',
-    'horror',
-    'evidence',
-    'hidden',
-    'gm',
-  ],
+  /* 2026-11-12：老鋪町家（事件前後） */
+  machiya: ['historic', 'japanese', 'home', 'shop', 'garden', 'horror', 'evidence', 'hidden', 'gm'],
   ryokan: ['modern', 'japanese', 'indoor', 'leisure', 'public', 'gm', 'multifloor'],
   speakeasy: ['retro', 'underground', 'leisure', 'shop', 'hidden', 'gm', 'multifloor'],
   diner: ['modern', 'indoor', 'shop', 'gm'],

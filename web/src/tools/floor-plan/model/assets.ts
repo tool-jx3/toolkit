@@ -229,7 +229,7 @@ export const ASSETS: readonly AssetInfo[] = [
     3.2,
     0.9,
     '封鎖的木板',
-    W(['damaged', 'horror'], '木板 釘子 封門 封窗 路障 籠城 バリケード 事件'),
+    W(['damaged', 'horror'], '木板 釘子 封門 封窗 路障 籠城 事件'),
   ),
   A(
     'ofuda',
@@ -237,7 +237,7 @@ export const ASSETS: readonly AssetInfo[] = [
     1.6,
     0.7,
     '封印的符咒',
-    W(['religious', 'horror'], '符 咒 護符 札 封印 お札 事件'),
+    W(['religious', 'horror'], '符 咒 護符 札 御札 封印 事件'),
   ),
   A('wall_graffiti', 'wall', 3, 0.6, '牆上的塗鴉', W(['ruins'], '噴漆 塗寫')),
   A('wall_claws', 'wall', 1.6, 0.8, '爪痕', W(['horror', 'danger'], '抓痕 怪物')),
@@ -723,11 +723,11 @@ export const ASSETS: readonly AssetInfo[] = [
   A('jizo', 'japanese', 0.9, 0.9, '地藏像', { keys: '石像 地藏', tags: ['religious', 'outdoor'] }),
   /* 2026-11-12（參考 KIIN v3.0 的和家具；名稱、尺寸、畫法本站自己的，F334） */
   A('kotatsu', 'japanese', 2.6, 2.6, '暖桌（被爐）', {
-    keys: '桌子 和室 冬天 棉被 炬燵 こたつ',
+    keys: '桌子 和室 冬天 棉被 炬燵',
     tags: ['indoor', 'home', 'retro'],
   }),
   A('chabudai', 'japanese', 1.8, 1.8, '圓矮桌（飯桌）', {
-    keys: '桌子 和室 吃飯 卓袱台 ちゃぶ台',
+    keys: '桌子 和室 吃飯 卓袱台',
     tags: ['indoor', 'home', 'retro'],
   }),
   A('tansu', 'japanese', 3.2, 1.1, '和式衣櫃（簞笥）', {
@@ -742,7 +742,7 @@ export const ASSETS: readonly AssetInfo[] = [
   }),
   A('oshiire', 'japanese', 3.6, 1.8, '壁櫥（押入）', {
     orient: true,
-    keys: '櫃子 衣櫃 收納 襖 押し入れ 棉被',
+    keys: '櫃子 衣櫃 收納 襖 押入 棉被',
     tags: ['indoor', 'home'],
   }),
   A('kamidana', 'japanese', 2.4, 0.8, '神棚', {

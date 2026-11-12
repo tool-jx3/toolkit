@@ -57,12 +57,27 @@ export interface ExportSettings {
    * 地圖沒有用到事件前後時沒有作用。
    */
   moment?: Moment;
+  /**
+   * 「事件前後各存一張」的兩張（不記在瀏覽器）：範圍用兩種狀態合起來（兩張疊得齊）。沒有＝只存一張，
+   * 範圍只算 `moment` 這個狀態看得到的東西（驗證後修訂 2026-11-12，F333、D137）。
+   */
+  momentPair?: boolean;
 }
 
 /** 匯出的狀態（地圖沒有用到事件前後時 null：選項、檔名都不變） */
 export function exportMoment(p: Project, exp: Pick<ExportSettings, 'moment'>): Moment | null {
   if (!usesMoments(p)) return null;
   return exp.moment ?? momentOf(p);
+}
+
+/** 範圍算哪些東西（`exportLayout`、`hasExportContent`、立體圖的版面；地圖沒有用到事件前後時是空的） */
+export function exportScope(
+  p: Project,
+  exp: Pick<ExportSettings, 'moment' | 'momentPair'>,
+): { moment?: Moment; bothMoments?: true } {
+  const m = exportMoment(p, exp);
+  if (!m) return {};
+  return exp.momentPair ? { moment: m, bothMoments: true } : { moment: m };
 }
 
 /** 匯出用的夜的暗度（事件後才停電時照狀態） */
@@ -117,7 +132,7 @@ export function stackExportOptions(
     gmBadge: exp.view === 'gm' ? S.badgeGm : null,
     ...(exp.view === 'reveal' ? { reveal: true } : {}),
     ...(night ? { night } : {}),
-    ...(m ? { moment: m } : {}),
+    ...exportScope(p, exp),
     wear: p.wear ? { strength: p.wear, seed: p.wearSeed ?? 0 } : null,
     noNoise: exp.noise === false,
   };
@@ -168,7 +183,7 @@ export function exportOptions(
     noNoise: exp.noise === false,
     ...(night ? { night } : {}),
     ...(exp.view === 'reveal' ? { reveal: true } : {}),
-    ...(m ? { moment: m } : {}),
+    ...exportScope(p, exp),
     showSize: p.showSize,
     hideNames: p.showNames === false,
     playerView: exp.view === 'pl',
@@ -268,7 +283,8 @@ export function exportJobs(p: Project, exp: ExportSettings, unveiled = false): E
 export function wearSheet(p: Project, exp: ExportSettings, showClues: boolean): Rect | null {
   const e: ExportSettings = { ...exp, range: 'current', clues: showClues ? 'show' : 'hide' };
   const floors = exportFloors(p, 'current');
-  if (!hasExportContent(floors, e.view === 'pl', e.clues === 'hide')) return null;
+  if (!hasExportContent(floors, e.view === 'pl', e.clues === 'hide', exportScope(p, e)))
+    return null;
   const L = exportLayout(floors, exportOptions(p, e, p.theme, 24));
   const f = L.frames[0];
   return { x: f.x, y: f.y, w: L.width, h: L.height };
