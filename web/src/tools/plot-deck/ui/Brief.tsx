@@ -1,58 +1,40 @@
 /**
- * 劇情大綱的例子（抽到的卡組出來的一段話），與題材 × 氣氛的標示、變更的對話框。
+ * 故事梗概（用抽到的卡串出來的幾段話）、題材與氣氛的一行、改題材與氣氛的對話框。
  */
 import { Pencil, Shuffle } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Button, cn, Dialog, DialogClose, useMediaQuery } from '@/ui';
 import { cardsOf, type Deck, findMission, findTone, getDeck } from '../data';
-import { synopsis } from '../model/document';
+import { briefOf } from '../model/document';
 import type { Scenario } from '../model/scenario';
-import { setUi, useUi } from '../store';
+import { openDialog, openerOf, setUi, useUi } from '../store';
 import { S } from '../strings';
 import { useCardOps, useCurrent } from './hooks';
 
-function Label({ children }: { children: string }) {
-  return (
-    <span className="mr-1.5 inline-block rounded-sm bg-accent px-1.5 text-xs font-semibold text-accent-contrast">
-      {children}
-    </span>
-  );
-}
-
 export function SynopsisBody({ sc }: { sc: Scenario }) {
   const deck = getDeck(sc.deck);
-  const sy = synopsis(deck, sc);
-  if (!sy) return <p className="m-0 text-sm text-muted">{S.desk.synopsisEmpty}</p>;
+  const brief = briefOf(deck, sc);
+  if (!brief) return <p className="m-0 text-sm text-muted">{S.desk.synopsisEmpty}</p>;
   return (
-    <div data-testid="synopsis" className="flex flex-col gap-2 text-sm leading-relaxed text-fg">
-      {sy.core ? (
-        <p className="m-0">
-          <Label>{S.doc.labels.core}</Label>
-          {sy.core}
-        </p>
-      ) : null}
-      {sy.open.map((t) => (
-        <p key={t} className="m-0">
-          {t}
-        </p>
+    <dl data-testid="synopsis" className="m-0 flex flex-col gap-2 text-sm leading-relaxed text-fg">
+      {brief.map((p) => (
+        <div
+          key={p.id}
+          data-brief={p.id}
+          className={cn(
+            'flex flex-col gap-0.5 rounded-md px-2.5 py-1.5',
+            p.id === 'backstage' ? 'bg-accent-soft' : 'bg-surface-2',
+          )}
+        >
+          <dt className="text-xs font-semibold text-muted">{p.label}</dt>
+          {p.lines.map((l) => (
+            <dd key={l} className="m-0">
+              {l}
+            </dd>
+          ))}
+        </div>
       ))}
-      <p className="m-0">
-        <Label>{S.doc.labels.truth}</Label>
-        {sy.truth}
-      </p>
-      <p className="m-0">
-        <Label>{S.doc.labels.ask}</Label>
-        {sy.ask.map((a) => (
-          <span key={a} className="block">
-            {a}
-          </span>
-        ))}
-      </p>
-      <p className="m-0">
-        <Label>{S.doc.labels.ending}</Label>
-        {sy.end}
-      </p>
-    </div>
+    </dl>
   );
 }
 
@@ -79,7 +61,7 @@ export function SynopsisPanel({ sc }: { sc: Scenario }) {
   );
 }
 
-/** 題材與氣氛的一行（＋「變更」） */
+/** 題材與氣氛的一行（＋「改」） */
 export function MissionToneStrip({
   sc,
   changeable = true,
@@ -111,7 +93,8 @@ export function MissionToneStrip({
           variant="ghost"
           icon={<Pencil />}
           className="ml-auto"
-          onClick={() => setUi({ mtOpen: true })}
+          data-testid="mt-change"
+          onClick={(e) => openDialog('mt', { mtOpen: true }, e.currentTarget)}
         >
           {S.mt.change}
         </Button>
@@ -120,7 +103,7 @@ export function MissionToneStrip({
   );
 }
 
-/** 題材或氣氛的一組按鈕（單選；名稱、說明、符合的核心張數） */
+/** 題材或氣氛的一組按鈕（單選；名稱、說明、可以選的餘韻張數） */
 export function ChoiceGrid({
   label,
   hint,
@@ -136,7 +119,7 @@ export function ChoiceGrid({
   value: string | null;
   onChange: (v: string | null) => void;
   onRandom?: () => void;
-  /** 有給時多一個「交給系統」（null） */
+  /** 有給時多一個「抽的時候再決定」（null） */
   autoLabel?: string;
 }) {
   const all = autoLabel ? [{ id: '', name: autoLabel, desc: '', extra: '' }, ...options] : options;
@@ -202,14 +185,14 @@ export function toneOptions(deck: Deck, mission: string | null) {
   }));
 }
 
-/** 這個題材 × 氣氛有幾張體驗的核心（同一種氣氛、題材也合） */
+/** 這個題材與氣氛有幾張餘韻（同一種氣氛、題材也合） */
 export function fitCores(deck: Deck, mission: string, tone: string): number {
   return cardsOf(deck, 'core').filter(
     (c) => c.tones?.includes(tone) && (c.missions ?? []).includes(mission),
   ).length;
 }
 
-/** 抽好之後變更題材與氣氛 */
+/** 抽好之後改題材與氣氛 */
 export function MissionToneDialog() {
   const sc = useCurrent();
   const open = useUi((s) => s.mtOpen);
@@ -232,6 +215,7 @@ export function MissionToneDialog() {
       title={S.mt.dialogTitle}
       description={S.mt.dialogLead}
       size="lg"
+      returnFocus={openerOf('mt', ['[data-testid="mt-change"]'])}
       footer={
         <>
           <DialogClose>{S.confirm.cancel}</DialogClose>

@@ -1,5 +1,5 @@
 /**
- * PC 與 NPC：每位 PC 的稱呼、立場、關係（對象）與秘密的卡；NPC 卡的名字與和真相的關係；追加的 NPC。
+ * 角色：每位 PC 的稱呼、立場、關係（對象）與秘密的卡；NPC 卡的名字與和真相的關係；追加的 NPC。
  */
 import { ArrowRight, Dices, Plus, Sparkles, Trash2 } from 'lucide-react';
 import { Button, Field, Select, TextArea, TextInput, useConfirm, useToast } from '@/ui';
@@ -16,12 +16,12 @@ import {
 } from '../actions';
 import { getDeck } from '../data';
 import {
-  answeredKeys,
-  npcList,
+  bondTargetOf,
+  npcChoices,
+  pcDisplayName,
   pcKeys,
-  pcLabel,
   relKey,
-  relTarget,
+  repliedKeys,
   type Scenario,
   secKey,
   slotCard,
@@ -37,8 +37,8 @@ function TargetSelect({ sc, i }: { sc: Scenario; i: number }) {
   const options = [
     ...Array.from({ length: sc.pcCount }, (_, k) => k + 1)
       .filter((j) => j !== i)
-      .map((j) => ({ value: `pc${j}`, label: pcLabel(sc, j) })),
-    ...npcList(deck, sc).map((n) => ({ value: n.id, label: S.cast.targetNpc(n.label) })),
+      .map((j) => ({ value: `pc${j}`, label: pcDisplayName(sc, j) })),
+    ...npcChoices(deck, sc).map((n) => ({ value: n.id, label: S.cast.targetNpc(n.label) })),
   ];
   if (!options.length) return null;
   return (
@@ -46,7 +46,7 @@ function TargetSelect({ sc, i }: { sc: Scenario; i: number }) {
       <Select
         size="sm"
         data-testid="rel-target"
-        value={relTarget(deck, sc, i)}
+        value={bondTargetOf(deck, sc, i)}
         onValueChange={(v) => setPcTarget(i, v)}
         options={options}
       />
@@ -240,12 +240,12 @@ export function CastView({ sc }: { sc: Scenario }) {
         <div className="flex flex-wrap items-center gap-2">
           <h2 className="m-0 text-lg font-bold text-fg">{S.cast.title}</h2>
           <span className="text-sm text-muted" data-testid="cast-count" aria-live="polite">
-            {S.cast.answered(answeredKeys(sc, drawn).length, drawn.length)}
+            {S.cast.answered(repliedKeys(sc, drawn).length, drawn.length)}
           </span>
           <span className="flex-1" />
           {undrawn ? (
             <Button variant="primary" icon={<Dices />} onClick={() => drawPc()}>
-              {S.cast.drawAll}
+              {S.cast.drawEveryone}
             </Button>
           ) : (
             <Button

@@ -1,57 +1,62 @@
 /**
- * 場景與線索：PL 要查明的事（推理 N）、場景（S）、線索（C）。
- * 編號依排列（線索依場景的順序、同一場景裡依加進來的順序，沒決定場景的排最後）；刪掉或移動就重新編號。
- * 檢查：一個推理至少連 3 條線索（漏掉一條也能往下走）。
+ * 推理與場景：推理題（A、B、C…）、場景（#1、#2…）、線索（場景的編號－第幾條，例如 2-1；還沒放進場景的是 ?-1）。
+ * 標號依排列；刪掉或移動就重新標。
+ * 健檢：先列總數，再看每一道推理題的線索夠不夠（3 條以上），最後是沒有線索的場景、還沒放的線索、沒指向推理題的線索。
  */
 import type { Deck } from '../data';
 import { S } from '../strings';
-import {
-  answerOf,
-  type Clue,
-  type Plot,
-  type Scenario,
-  slotCard,
-  toneSlotName,
-  uid,
-} from './scenario';
+import { type Clue, type Plot, replyOf, type Scenario, slotCard, uid } from './scenario';
 
-/** 一個推理建議的線索條數 */
+/** 一道推理題建議的線索條數 */
 export const CLUES_PER_DEDUCTION = 3;
 
-export const hasScene = (plot: Plot, c: Clue): boolean => plot.scenes.some((s) => s.id === c.scene);
+export const isPlaced = (plot: Plot, c: Clue): boolean => plot.scenes.some((s) => s.id === c.scene);
 
-/** 線索的排列：依場景的順序，沒決定場景的排最後 */
-export function clueOrder(plot: Plot): Clue[] {
+/** 線索的排列：依場景的順序，還沒放的排最後 */
+export function cluesInSceneOrder(plot: Plot): Clue[] {
   return [
     ...plot.scenes.flatMap((s) => plot.clues.filter((c) => c.scene === s.id)),
-    ...plot.clues.filter((c) => !hasScene(plot, c)),
+    ...plot.clues.filter((c) => !isPlaced(plot, c)),
   ];
 }
 
-/** 每個項目的編號（N1、S1、C1…） */
-export function plotNumbers(plot: Plot): Record<string, string> {
+/** 推理題的字母（A…Z，之後 AA、AB…） */
+function letters(i: number): string {
+  const a = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  return i < a.length ? a[i] : letters(Math.floor(i / a.length) - 1) + a[i % a.length];
+}
+
+/** 每個項目的標號（推理題 A、場景 #1、線索 1-1） */
+export function plotLabels(plot: Plot): Record<string, string> {
   const m: Record<string, string> = {};
   plot.deductions.forEach((d, i) => {
-    m[d.id] = `N${i + 1}`;
+    m[d.id] = letters(i);
   });
   plot.scenes.forEach((s, i) => {
-    m[s.id] = `S${i + 1}`;
+    m[s.id] = `#${i + 1}`;
+    plot.clues
+      .filter((c) => c.scene === s.id)
+      .forEach((c, j) => {
+        m[c.id] = `${i + 1}-${j + 1}`;
+      });
   });
-  clueOrder(plot).forEach((c, i) => {
-    m[c.id] = `C${i + 1}`;
-  });
+  plot.clues
+    .filter((c) => !isPlaced(plot, c))
+    .forEach((c, j) => {
+      m[c.id] = `?-${j + 1}`;
+    });
   return m;
 }
 
 /** 有寫內容的線索 */
-export const liveClues = (plot: Plot): Clue[] => plot.clues.filter((c) => c.text.trim());
+export const writtenClues = (plot: Plot): Clue[] => plot.clues.filter((c) => c.text.trim());
 
-/** 連到這個推理的線索（有寫內容的，依編號） */
+/** 指向這一題的線索（有寫內容的，照場景的順序） */
 export function cluesFor(plot: Plot, deductionId: string): Clue[] {
-  return clueOrder(plot).filter((c) => c.text.trim() && c.links.includes(deductionId));
+  return cluesInSceneOrder(plot).filter((c) => c.text.trim() && c.links.includes(deductionId));
 }
 
-export const plotEmpty = (plot: Plot): boolean =>
+export const isPlotBlank = (plot: Plot): boolean =>
   !plot.deductions.length && !plot.scenes.length && !plot.clues.length;
 
 export type CheckLevel = 'ok' | 'mid' | 'warn' | 'info';
@@ -59,37 +64,45 @@ export type CheckLevel = 'ok' | 'mid' | 'warn' | 'info';
 export interface CheckItem {
   level: CheckLevel;
   text: string;
-  /** 推理的 id（推理的那一行） */
+  /** 推理題的 id（推理題的那一行） */
   deduction?: string;
 }
 
-/** 檢查（給畫面的「檢查」欄與文件） */
-export function checkPlot(plot: Plot): CheckItem[] {
-  const no = plotNumbers(plot);
-  const out: CheckItem[] = [];
-  if (!plot.deductions.length) out.push({ level: 'warn', text: S.plot.check.noDeduction });
+/** 健檢（畫面的「健檢」欄與送去劇本排版台的提醒） */
+export function reviewPlot(plot: Plot): CheckItem[] {
+  const no = plotLabels(plot);
+  const C = S.plot.check;
+  const written = writtenClues(plot);
+  const out: CheckItem[] = [
+    {
+      level: 'info',
+      text: C.summary(plot.deductions.length, plot.scenes.length, written.length),
+    },
+  ];
+  if (!plot.deductions.length) out.push({ level: 'warn', text: C.none });
   for (const d of plot.deductions) {
     const n = cluesFor(plot, d.id).length;
-    const label = `${no[d.id]} ${d.text.trim() || S.plot.unwritten}`;
-    const level: CheckLevel = n >= CLUES_PER_DEDUCTION ? 'ok' : n === 2 ? 'mid' : 'warn';
-    out.push({ level, text: S.plot.check.deduction(label, n, level), deduction: d.id });
+    const label = `${no[d.id]}. ${d.text.trim() || S.plot.unwritten}`;
+    const level: CheckLevel =
+      n >= CLUES_PER_DEDUCTION ? 'ok' : n === CLUES_PER_DEDUCTION - 1 ? 'mid' : 'warn';
+    out.push({ level, text: C.deduction(label, n, level), deduction: d.id });
   }
-  const live = liveClues(plot);
-  const loose = live.filter((c) => !hasScene(plot, c));
-  if (loose.length)
-    out.push({ level: 'warn', text: S.plot.check.loose(loose.map((c) => no[c.id]).join('・')) });
-  const stray = live.filter((c) => !c.links.some((x) => plot.deductions.some((d) => d.id === x)));
-  if (stray.length)
-    out.push({ level: 'mid', text: S.plot.check.stray(stray.map((c) => no[c.id]).join('・')) });
-  const bare = plot.scenes.filter(
-    (s) => !plot.clues.some((c) => c.scene === s.id && c.text.trim()),
+  const list = (ids: string[]) => ids.map((id) => no[id]).join('、');
+  const emptyScenes = plot.scenes.filter((s) => !written.some((c) => c.scene === s.id));
+  if (emptyScenes.length)
+    out.push({ level: 'info', text: C.emptyScenes(list(emptyScenes.map((s) => s.id))) });
+  const unplaced = written.filter((c) => !isPlaced(plot, c));
+  if (unplaced.length)
+    out.push({ level: 'warn', text: C.unplaced(list(unplaced.map((c) => c.id))) });
+  const unlinked = written.filter(
+    (c) => !c.links.some((x) => plot.deductions.some((d) => d.id === x)),
   );
-  if (bare.length)
-    out.push({ level: 'info', text: S.plot.check.bare(bare.map((s) => no[s.id]).join('・')) });
+  if (unlinked.length)
+    out.push({ level: 'mid', text: C.unlinked(list(unlinked.map((c) => c.id))) });
   return out;
 }
 
-/** 從空白開始：一個推理、一個「導入」場景 */
+/** 一格一格自己寫：一道空白的推理題、一個「開場」場景 */
 export function blankPlot(): Plot {
   return {
     deductions: [{ id: uid('n'), text: '' }],
@@ -99,55 +112,67 @@ export function blankPlot(): Plot {
 }
 
 /**
- * 從卡片做草稿（叩き台）：
- * - 推理：氣氛卡的真面目與規則、真相的內容（誰、為什麼）、走向結局的方法；
- * - 場景：導入、調查舞台、找 NPC 問話、障礙、高潮、結局；
- * - 線索：線索卡（＋回答）放在調查的場景、連到第一個推理；NPC 的話放在問話的場景、連到第二個推理。
+ * 用卡片排草稿：
+ * - 推理題：線索卡指向什麼、NPC 隱瞞了什麼、真相為什麼會發生；
+ * - 場景：開場（導入）、現場（舞台＋焦點）、對話（NPC）、阻礙、揭曉與收尾（最後一幕＋結局）；
+ * - 線索：線索卡（＋回答）放在現場、指向第一題；NPC 說溜嘴的話放在對話、指向第二題；焦點留下的痕跡放在阻礙、指向第三題。
  */
-export function seedPlot(deck: Deck, sc: Scenario): Plot {
+export function draftPlot(deck: Deck, sc: Scenario): Plot {
   const title = (k: string) => slotCard(deck, sc, k)?.title ?? '';
-  const body = (k: string) => {
+  const bodyOf = (k: string) => {
     const c = slotCard(deck, sc, k);
-    return c ? (answerOf(sc, k) || c.text).replace(/\n/g, ' ') : '';
+    return c ? (replyOf(sc, k) || c.text).replace(/\n/g, ' ') : '';
   };
   const core = slotCard(deck, sc, 'core');
-  const climax = core ? answerOf(sc, 'core') || core.answers[0] : '';
+  const climax = core ? replyOf(sc, 'core') || core.answers[0] : '';
   const npcName = sc.npc.name.trim() || title('npc');
-  const slot = toneSlotName(deck, sc);
   const T = S.plot.seed;
-  const deductions = [
-    title('tone') && T.dedTone(slot, title('tone')),
+  const dedText = [
+    title('clue') && T.dedClue(title('clue')),
+    npcName && T.dedNpc(npcName),
     title('truth') && T.dedTruth(title('truth')),
-    title('ending') && T.dedEnding(title('ending')),
-  ]
-    .filter((t): t is string => !!t)
-    .map((text) => ({ id: uid('n'), text }));
+  ];
+  const asked = dedText.map((text) => (text ? { id: uid('n'), text } : null));
+  const deductions = asked.filter((d): d is { id: string; text: string } => !!d);
   const st = title('stage');
   const rows: [string, string, string][] = [
-    [T.intro(title('intro')), st, body('intro')],
-    [T.investigate(st), st, T.investigateWhat(st, title('tone') || T.anomaly)],
+    [T.opening(title('intro')), '', bodyOf('intro')],
+    [T.site(st), st, T.siteWhat(st, title('tone'))],
   ];
-  if (npcName) rows.push([T.ask(npcName), '', sc.npc.tie.trim() || T.askWhat(npcName)]);
-  rows.push([T.obstacle(title('obstacle')), '', body('obstacle')]);
-  rows.push([T.climax, '', climax]);
-  rows.push([T.ending(title('ending')), '', body('ending')]);
+  if (npcName) rows.push([T.talk(npcName), '', sc.npc.tie.trim() || T.talkWhat(npcName)]);
+  rows.push([T.block(title('obstacle')), '', bodyOf('obstacle')]);
+  rows.push([T.finale, '', T.finaleWhat(climax, title('ending'))]);
   const scenes = rows.map(([name, place, what]) => ({ id: uid('s'), name, place, what }));
-  const at = (i: number) => scenes[Math.min(i, scenes.length - 1)].id;
-  const dn = (i: number) => (deductions[i] ? [deductions[i].id] : []);
+  const sceneOf = (prefix: string) => scenes.find((s) => s.name.startsWith(prefix))?.id ?? '';
+  const to = (i: number) => (asked[i] ? [(asked[i] as { id: string }).id] : []);
   const clues: Clue[] = [];
   const clueTitle = title('clue');
   if (clueTitle) {
-    const a = answerOf(sc, 'clue').replace(/\n/g, ' ');
+    const a = replyOf(sc, 'clue').replace(/\n/g, ' ');
     clues.push({
       id: uid('c'),
       text: a ? T.clueAnswered(clueTitle, a) : clueTitle,
       how: '',
-      scene: at(1),
-      links: dn(0),
+      scene: sceneOf(T.site('')),
+      links: to(0),
     });
   }
   if (npcName)
-    clues.push({ id: uid('c'), text: T.npcTalk(npcName), how: '', scene: at(2), links: dn(1) });
+    clues.push({
+      id: uid('c'),
+      text: T.slip(npcName),
+      how: '',
+      scene: sceneOf(T.talk('')),
+      links: to(1),
+    });
+  if (title('tone'))
+    clues.push({
+      id: uid('c'),
+      text: T.trace(title('tone')),
+      how: '',
+      scene: sceneOf(T.block('')),
+      links: to(2),
+    });
   return { deductions, scenes, clues };
 }
 
@@ -170,7 +195,7 @@ export function needsDeleteConfirm(
   return !!c && !!(c.text.trim() || c.how.trim());
 }
 
-/** 刪掉（推理：線索上的連結一起拿掉；場景：上面的線索移到「還沒決定場景」） */
+/** 刪掉（推理題：線索上的指向一起拿掉；場景：上面的線索移到「還沒放進場景」） */
 export function removePlotItem(plot: Plot, kind: 'deduction' | 'scene' | 'clue', id: string): void {
   if (kind === 'deduction') {
     plot.deductions = plot.deductions.filter((d) => d.id !== id);
@@ -190,9 +215,9 @@ export function moveScene(plot: Plot, id: string, dir: -1 | 1): boolean {
   return true;
 }
 
-/** 文字版的場景與線索（文字檔、文件用） */
-export function plotLines(plot: Plot): string[] {
-  const no = plotNumbers(plot);
+/** 純文字的推理題與場景表（純文字檔、我的劇本的展開用） */
+export function plotTextLines(plot: Plot): string[] {
+  const no = plotLabels(plot);
   const P = S.plot.text;
   const out: string[] = [P.deductions];
   for (const d of plot.deductions) {
@@ -218,10 +243,10 @@ export function plotLines(plot: Plot): string[] {
     if (s.what.trim()) out.push(P.what(s.what.trim().replace(/\n/g, ' ')));
     for (const c of plot.clues.filter((x) => x.scene === s.id && x.text.trim())) out.push(line(c));
   }
-  const loose = liveClues(plot).filter((c) => !hasScene(plot, c));
-  if (loose.length) {
-    out.push(P.loose);
-    for (const c of loose) out.push(line(c));
+  const unplaced = writtenClues(plot).filter((c) => !isPlaced(plot, c));
+  if (unplaced.length) {
+    out.push(P.unplaced);
+    for (const c of unplaced) out.push(line(c));
   }
   return out;
 }

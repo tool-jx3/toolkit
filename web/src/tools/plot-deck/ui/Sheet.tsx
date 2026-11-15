@@ -18,13 +18,13 @@ import { Button, buttonClass, Field, MenuButton, TextInput, useToast } from '@/u
 import { setStep, setTitle } from '../actions';
 import { getDeck } from '../data';
 import {
-  DOC_CSS,
   documentFile,
   documentHtml,
   editorMarkdown,
-  outlineText,
+  PRINT_STYLE,
+  scenarioText,
 } from '../model/document';
-import { autoTitle, type Scenario, titleOf } from '../model/scenario';
+import { fallbackTitle, type Scenario, titleOf } from '../model/scenario';
 import { usePrefs } from '../store';
 import { S } from '../strings';
 import { textGesture } from './hooks';
@@ -36,7 +36,7 @@ export function printScenario(sc: Scenario): Promise<HTMLIFrameElement> {
   const deck = getDeck(sc.deck);
   return printPages({
     title: titleOf(deck, sc),
-    css: DOC_CSS,
+    css: PRINT_STYLE,
     pages: [documentHtml(deck, sc)],
     size: PAPER_SIZES.A4,
     pageMargin: '12mm',
@@ -60,7 +60,7 @@ export function SheetView({ sc }: { sc: Scenario }) {
           <TextInput
             value={sc.title}
             maxLength={60}
-            placeholder={autoTitle(deck, sc)}
+            placeholder={fallbackTitle(deck, sc)}
             data-field="title"
             onFocus={textGesture.begin}
             onBlur={textGesture.commit}
@@ -93,7 +93,7 @@ export function SheetView({ sc }: { sc: Scenario }) {
           <Button
             icon={<FileText />}
             onClick={() => {
-              downloadText(outlineText(deck, sc), `${base}.txt`);
+              downloadText(scenarioText(deck, sc), `${base}.txt`);
               toast({ title: S.sheet.savedText, tone: 'success', replace: true });
             }}
           >
@@ -150,7 +150,7 @@ export function SheetView({ sc }: { sc: Scenario }) {
         </div>
       </header>
       <div className="min-w-0 overflow-x-auto rounded-lg bg-surface-3 p-2 sm:p-4">
-        <style>{DOC_CSS}</style>
+        <style>{PRINT_STYLE}</style>
         {/* biome-ignore lint/security/noDangerouslySetInnerHtml: 文件的 HTML 由 documentHtml 產生，使用者的字一律跳脫 */}
         <div data-testid="document" dangerouslySetInnerHTML={{ __html: html }} />
       </div>

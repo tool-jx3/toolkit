@@ -1,24 +1,24 @@
 /**
- * 回答問題的一張卡：卡的內容、可以改寫的問題、回答，與「隨機回答」「清除回答」「問題還原」。
- * PC 的卡另有「重抽這張卡」「從清單挑卡」；關係的卡上面有對象的選單（由呼叫端放進 extra）。
+ * 填答的一張卡：卡的內容、可以改寫的提問、回答，與「給個例子」「清空」「改回原本的提問」。
+ * PC 的卡另有「換一張卡」「自己挑卡」；關係的卡上面有對象的選單（由呼叫端放進 extra）。
  */
 import { Eraser, ListChecks, RefreshCw, RotateCcw, Sparkles } from 'lucide-react';
 import { type ReactNode, useId, useState } from 'react';
 import { Button, cn, TextArea } from '@/ui';
-import { randomAnswerFor, resetQuestion, setAnswer, setQuestion } from '../actions';
+import { exampleReplyFor, restorePrompt, writePrompt, writeReply } from '../actions';
 import { cardNo, getDeck } from '../data';
 import {
-  answerOf,
   catName,
   isPcKey,
-  questionEdited,
-  questionOf,
+  promptEdited,
+  promptOf,
+  replyOf,
   type Scenario,
   slotCard,
   slotCat,
   slotWho,
 } from '../model/scenario';
-import { setUi, useUi } from '../store';
+import { openDialog, useUi } from '../store';
 import { S } from '../strings';
 import { textGesture, useCardOps } from './hooks';
 
@@ -42,8 +42,8 @@ export function QaCard({
   const qId = useId();
   const aId = useId();
   if (!card) return null;
-  const answer = answerOf(sc, slotKey);
-  const edited = questionEdited(sc, slotKey);
+  const answer = replyOf(sc, slotKey);
+  const edited = promptEdited(sc, slotKey);
   const who = slotWho(deck, sc, slotKey);
   const pc = isPcKey(slotKey);
   return (
@@ -76,14 +76,14 @@ export function QaCard({
         id={qId}
         rows={2}
         data-field="question"
-        value={draftQ ?? questionOf(deck, sc, slotKey)}
+        value={draftQ ?? promptOf(deck, sc, slotKey)}
         onFocus={() => {
           textGesture.begin();
-          setDraftQ(questionOf(deck, sc, slotKey));
+          setDraftQ(promptOf(deck, sc, slotKey));
         }}
         onChange={(e) => {
           setDraftQ(e.target.value);
-          setQuestion(slotKey, e.target.value);
+          writePrompt(slotKey, e.target.value);
         }}
         onBlur={() => {
           setDraftQ(null);
@@ -100,11 +100,11 @@ export function QaCard({
         placeholder={S.answers.answerPlaceholder}
         value={answer}
         onFocus={textGesture.begin}
-        onChange={(e) => setAnswer(slotKey, e.target.value)}
+        onChange={(e) => writeReply(slotKey, e.target.value)}
         onBlur={textGesture.commit}
       />
       <div className="flex flex-wrap gap-1.5">
-        <Button size="sm" icon={<Sparkles />} onClick={() => randomAnswerFor(slotKey)}>
+        <Button size="sm" icon={<Sparkles />} onClick={() => exampleReplyFor(slotKey)}>
           {S.answers.random}
         </Button>
         <Button
@@ -112,7 +112,7 @@ export function QaCard({
           variant="ghost"
           icon={<Eraser />}
           disabled={!answer}
-          onClick={() => setAnswer(slotKey, '')}
+          onClick={() => writeReply(slotKey, '')}
         >
           {S.answers.clear}
         </Button>
@@ -121,9 +121,9 @@ export function QaCard({
             size="sm"
             variant="ghost"
             icon={<RotateCcw />}
-            onClick={() => resetQuestion(slotKey)}
+            onClick={() => restorePrompt(slotKey)}
           >
-            {S.answers.resetQuestion}
+            {S.answers.restorePrompt}
           </Button>
         ) : null}
         {pc ? (
@@ -132,7 +132,12 @@ export function QaCard({
             <Button size="sm" icon={<RefreshCw />} onClick={() => void ops.reroll(slotKey)}>
               {S.answers.rerollCard}
             </Button>
-            <Button size="sm" icon={<ListChecks />} onClick={() => setUi({ picker: slotKey })}>
+            <Button
+              size="sm"
+              icon={<ListChecks />}
+              data-action="pick"
+              onClick={(e) => openDialog('picker', { picker: slotKey }, e.currentTarget)}
+            >
               {S.answers.pickCard}
             </Button>
           </>

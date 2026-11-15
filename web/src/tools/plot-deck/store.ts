@@ -1,8 +1,8 @@
 /**
  * 狀態：
- * - usePlot：劇本清單與目前的劇本（自動存檔 `trpg-toolkit:plot-deck`、復原／重做）。開頁時整理一次（sanitizeState）。
- * - usePrefs：畫面的選擇（分頁、卡片的顯示方式、卡片一覽的篩選與挑的卡、清單的搜尋；`…:preview`，不列入復原）。
- * - useUi：對話框（放大看、從清單挑；不存）。
+ * - usePlot：我的劇本（清單）與目前的劇本（自動存檔 `trpg-toolkit:plot-deck`、復原／重做）。開頁時整理一次（sanitizeState）。
+ * - usePrefs：畫面的選擇（分頁、卡片的排法、卡庫的篩選與放進去的卡、清單的搜尋；`…:preview`，不列入復原）。
+ * - useUi：對話框（打開來看、自己挑、改題材與氣氛；不存）與打開它們的元素（關閉後焦點還給它）。
  */
 import { create } from 'zustand';
 import { createPreviewStore, createToolStore, sameData } from '@/core/storage';
@@ -29,8 +29,11 @@ export interface Prefs {
   deskMode: DeskMode;
   catalogDeck: DeckId;
   catalogCat: CardCat | 'all';
+  /** 卡庫的題材、氣氛篩選（'all'＝不限；標了「全部都合」的卡也算合） */
+  catalogMission: string;
+  catalogTone: string;
   catalogQuery: string;
-  /** 卡片一覽挑的卡（種類 → 卡 id） */
+  /** 卡庫放進去的卡（種類 → 卡 id） */
   catalogPicks: Partial<Record<CardCat, string>>;
   libraryQuery: string;
 }
@@ -40,19 +43,21 @@ export const usePrefs = createPreviewStore<Prefs>(TOOL_ID, {
   deskMode: 'cards',
   catalogDeck: 'modern',
   catalogCat: 'all',
+  catalogMission: 'all',
+  catalogTone: 'all',
   catalogQuery: '',
   catalogPicks: {},
   libraryQuery: '',
 });
 
 export interface UiState {
-  /** 放大看的欄 */
+  /** 打開來看的欄 */
   zoom: string | null;
-  /** 從清單挑的欄 */
+  /** 自己挑的欄 */
   picker: string | null;
   /** 剛換掉的欄（短暫標示） */
   flash: string[];
-  /** 「變更題材與氣氛」的對話框 */
+  /** 「改題材與氣氛」的對話框 */
   mtOpen: boolean;
 }
 
@@ -63,3 +68,40 @@ export const useUi = create<UiState>(() => ({
   mtOpen: false,
 }));
 export const setUi = (patch: Partial<UiState>): void => useUi.setState(patch);
+
+export type DialogKind = 'zoom' | 'picker' | 'mt';
+const openers: Partial<Record<DialogKind, HTMLElement | null>> = {};
+const FOCUSABLE = 'button, a[href], input, select, textarea, [tabindex]';
+
+/**
+ * 打開對話框，記住打開它的元素（`from`；沒給時用目前的焦點）。對話框裡的按鈕（例如打開來看裡的「自己挑」）
+ * 與不能聚焦的元素（點卡片的空白處）不記，關閉時改用 openerOf 的備用位置。
+ */
+export function openDialog(
+  kind: DialogKind,
+  patch: Partial<UiState>,
+  from?: EventTarget | null,
+): void {
+  const el =
+    from instanceof HTMLElement
+      ? from
+      : typeof document !== 'undefined' && document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+  openers[kind] = el?.matches(FOCUSABLE) && !el.closest('[role="dialog"]') ? el : null;
+  setUi(patch);
+}
+
+/** 關閉後焦點要回去的元素：打開它的元素還在頁面上就是它，不然照順序找備用的（跳過停用的按鈕） */
+export function openerOf(kind: DialogKind, fallbacks: readonly string[] = []): HTMLElement | null {
+  const el = openers[kind];
+  if (el?.isConnected) return el;
+  if (typeof document === 'undefined') return null;
+  for (const sel of fallbacks) {
+    const hit = [...document.querySelectorAll<HTMLElement>(sel)].find(
+      (x) => !x.closest('[role="dialog"]') && !(x as HTMLButtonElement).disabled,
+    );
+    if (hit) return hit;
+  }
+  return null;
+}

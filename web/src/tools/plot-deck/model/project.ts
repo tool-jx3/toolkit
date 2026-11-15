@@ -1,5 +1,5 @@
 /**
- * 存檔：自動存檔（劇本清單＋目前的劇本）與專案檔（版本 1：一份劇本）。
+ * 存檔：自動存檔（我的劇本＋目前的劇本）與專案檔（版本 1：一份劇本）。
  * 讀的時候一律經過 sanitize：壞掉、手改過或舊版的資料補上預設值，不認得的卡丟掉。
  */
 import { ProjectFileError } from '@/core/storage';
@@ -26,7 +26,7 @@ import {
 export const TOOL_ID = 'plot-deck';
 /** 專案檔的版本 */
 export const PROJECT_VERSION = 1;
-/** 劇本清單最多幾份 */
+/** 我的劇本最多幾份 */
 export const LIBRARY_MAX = 100;
 /** 文字欄的上限（字） */
 export const TEXT_MAX = 4000;
@@ -160,12 +160,12 @@ export function sanitizeScenario(raw: unknown, now = Date.now()): Scenario | nul
     : 'start';
   /* 抽好的卡還在就是「抽好了」；沒有卡的「抽好了」回到開始 */
   sc.phase = phase === 'done' && !anyCard ? 'start' : phase;
-  sc.setupStep = raw.setupStep === 'cards' ? 'cards' : 'core';
-  sc.coreDeal = arr(raw.coreDeal)
+  sc.setupStage = raw.setupStage === 'cards' ? 'cards' : 'core';
+  sc.coreOffer = arr(raw.coreOffer)
     .map(idOf)
     .filter((id) => findCard(deck, id)?.cat === 'core')
     .slice(0, 3);
-  if (sc.phase === 'setup' && sc.setupStep === 'core' && !sc.coreDeal.length) sc.coreDeal = [];
+  if (sc.phase === 'setup' && sc.setupStage === 'core' && !sc.coreOffer.length) sc.coreOffer = [];
   sc.step = STEPS.includes(raw.step as Step) ? (raw.step as Step) : 'cards';
   return sc;
 }

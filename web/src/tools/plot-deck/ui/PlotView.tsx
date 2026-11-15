@@ -1,6 +1,6 @@
 /**
- * 場景與線索：檢查、PL 要查明的事（推理）、場景（上下移動、刪除）、線索（連到推理、換場景、刪除）。
- * 還沒有內容時：「從卡片做草稿」或「從空白開始」。
+ * 推理與場景：健檢、推理題、場景表（上下移動、刪除）、線索（指向推理題、換場景、刪除）。
+ * 還沒有內容時：「用卡片排草稿」或「一格一格自己寫」。
  */
 import { ArrowDown, ArrowRight, ArrowUp, FilePlus2, Plus, Trash2, Wand2 } from 'lucide-react';
 import { Button, cn, IconButton, Select, TextArea, TextInput, useConfirm, useToast } from '@/ui';
@@ -8,9 +8,9 @@ import {
   addClue,
   addDeduction,
   addScene,
+  draftFromCards,
   moveSceneBy,
   removePlot,
-  seedPlotFromCards,
   setClueField,
   setClueScene,
   setDeductionText,
@@ -21,12 +21,12 @@ import {
 } from '../actions';
 import {
   type CheckLevel,
-  checkPlot,
   cluesFor,
-  hasScene,
+  isPlaced,
+  isPlotBlank,
   needsDeleteConfirm,
-  plotEmpty,
-  plotNumbers,
+  plotLabels,
+  reviewPlot,
 } from '../model/plot';
 import type { Clue, Plot, Scenario } from '../model/scenario';
 import { S } from '../strings';
@@ -46,7 +46,7 @@ function focusLater(selector: string) {
 }
 
 function CheckPanel({ plot }: { plot: Plot }) {
-  const items = checkPlot(plot);
+  const items = reviewPlot(plot);
   return (
     <section
       aria-label={S.plot.check.title}
@@ -74,13 +74,13 @@ function useRemove() {
   const confirm = useConfirm();
   return async (plot: Plot, kind: 'deduction' | 'scene' | 'clue', id: string) => {
     if (needsDeleteConfirm(plot, kind, id)) {
-      const no = plotNumbers(plot)[id];
-      const held = kind === 'scene' ? plot.clues.filter((c) => c.scene === id).length : 0;
+      const no = plotLabels(plot)[id];
+      const kept = kind === 'scene' ? plot.clues.filter((c) => c.scene === id).length : 0;
       const ok = await confirm({
         title: S.plot.deleteTitle(no),
         description:
           kind === 'scene'
-            ? S.plot.deleteSceneDesc(held)
+            ? S.plot.deleteSceneDesc(kept)
             : kind === 'deduction'
               ? S.plot.deleteDeductionDesc
               : S.plot.deleteClueDesc,
@@ -156,7 +156,7 @@ function ClueRow({ plot, clue, no }: { plot: Plot; clue: Clue; no: Record<string
               size="sm"
               aria-label={S.plot.clueScene(n)}
               data-testid="clue-scene"
-              value={hasScene(plot, clue) ? clue.scene : NO_SCENE}
+              value={isPlaced(plot, clue) ? clue.scene : NO_SCENE}
               onValueChange={(v) => setClueScene(clue.id, v === NO_SCENE ? '' : v)}
               options={[
                 { value: NO_SCENE, label: S.plot.chooseScene },
@@ -182,8 +182,8 @@ function ClueRow({ plot, clue, no }: { plot: Plot; clue: Clue; no: Record<string
 
 function PlotEditor({ plot }: { plot: Plot }) {
   const remove = useRemove();
-  const no = plotNumbers(plot);
-  const loose = plot.clues.filter((c) => !hasScene(plot, c));
+  const no = plotLabels(plot);
+  const unplaced = plot.clues.filter((c) => !isPlaced(plot, c));
   return (
     <div className="flex flex-col gap-4">
       <CheckPanel plot={plot} />
@@ -351,13 +351,13 @@ function PlotEditor({ plot }: { plot: Plot }) {
             </div>
           </article>
         ))}
-        {loose.length ? (
+        {unplaced.length ? (
           <article
-            data-testid="loose-clues"
+            data-testid="unplaced-clues"
             className="flex min-w-0 flex-col gap-1.5 rounded-lg border border-dashed border-border-strong p-3"
           >
-            <h4 className="m-0 text-sm font-bold text-fg">{S.plot.loose}</h4>
-            {loose.map((c) => (
+            <h4 className="m-0 text-sm font-bold text-fg">{S.plot.unplaced}</h4>
+            {unplaced.map((c) => (
               <ClueRow key={c.id} plot={plot} clue={c} no={no} />
             ))}
           </article>
@@ -381,7 +381,7 @@ function PlotEditor({ plot }: { plot: Plot }) {
 
 export function PlotView({ sc }: { sc: Scenario }) {
   const toast = useToast();
-  const empty = plotEmpty(sc.plot);
+  const empty = isPlotBlank(sc.plot);
   return (
     <div className="flex flex-col gap-3" data-testid="plot">
       <header className="flex flex-col gap-1">
@@ -396,7 +396,7 @@ export function PlotView({ sc }: { sc: Scenario }) {
               variant="primary"
               icon={<Wand2 />}
               onClick={() => {
-                seedPlotFromCards();
+                draftFromCards();
                 toast({ title: S.plot.seed.done, tone: 'success', replace: true });
               }}
             >

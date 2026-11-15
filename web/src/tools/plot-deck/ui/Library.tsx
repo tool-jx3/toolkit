@@ -1,20 +1,20 @@
 /**
- * 劇本清單：這個瀏覽器裡的劇本（自動存檔），找、打開、看文件、改名、複製一份、刪除、新的劇本。
+ * 我的劇本：這個瀏覽器裡的劇本（自動存檔），找、打開、看文件、改名、複製一份、刪除、新的劇本。
  */
 import { Copy, FileText, FolderOpen, Plus, Search, Trash2 } from 'lucide-react';
 import { Button, cn, TextInput, useConfirm, useToast } from '@/ui';
 import {
+  beginScenario,
   deleteScenario,
   duplicateScenario,
   libraryFullMessage,
   libraryOf,
   openScenario,
   renameScenario,
-  startNew,
 } from '../actions';
 import { getDeck } from '../data';
-import { answerProgress, missionToneLabel, outlineText } from '../model/document';
-import { autoTitle, type Scenario, slotCard, titleOf, toneSlotName } from '../model/scenario';
+import { answerProgress, scenarioText, themeLabel } from '../model/document';
+import { fallbackTitle, type Scenario, slotCard, titleOf, toneSlotName } from '../model/scenario';
 import { usePlot, usePrefs } from '../store';
 import { S } from '../strings';
 import { textGesture } from './hooks';
@@ -25,12 +25,12 @@ const fmt = (ms: number) => {
   return `${d.getFullYear()}/${z(d.getMonth() + 1)}/${z(d.getDate())} ${z(d.getHours())}:${z(d.getMinutes())}`;
 };
 
-/** 搜尋用的文字：劇本名、自動的名字、舞台、氣氛卡、真相、結局 */
+/** 搜尋用的文字：劇本名、自動的名字、舞台、焦點、真相、結局 */
 function haystack(sc: Scenario): string {
   const deck = getDeck(sc.deck);
   return [
     sc.title,
-    autoTitle(deck, sc),
+    fallbackTitle(deck, sc),
     ...['stage', 'tone', 'truth', 'ending'].map((k) => slotCard(deck, sc, k)?.title ?? ''),
   ].join(' ');
 }
@@ -76,13 +76,13 @@ function Entry({ sc, current }: { sc: Scenario; current: boolean }) {
         data-field="library-title"
         value={sc.title}
         maxLength={60}
-        placeholder={autoTitle(deck, sc)}
+        placeholder={fallbackTitle(deck, sc)}
         onFocus={textGesture.begin}
         onBlur={textGesture.commit}
         onChange={(e) => renameScenario(sc.id, e.target.value)}
       />
       <p className="m-0 text-xs text-muted">
-        {[S.library.pcs(sc.pcCount), missionToneLabel(deck, sc)].filter(Boolean).join('・')}
+        {[S.library.pcs(sc.pcCount), themeLabel(deck, sc)].filter(Boolean).join('・')}
       </p>
       <ul className="m-0 flex list-none flex-wrap gap-1 p-0">
         {chips.map(([k, v]) => (
@@ -104,7 +104,7 @@ function Entry({ sc, current }: { sc: Scenario; current: boolean }) {
       <details className="text-xs" data-testid="library-outline">
         <summary className="cursor-pointer text-muted">{S.library.outline}</summary>
         <pre className="mt-1 max-h-60 overflow-auto whitespace-pre-wrap break-words rounded-md bg-surface-2 p-2 font-ui text-xs text-fg">
-          {outlineText(deck, sc)}
+          {scenarioText(deck, sc)}
         </pre>
       </details>
       <div className="flex flex-wrap gap-1.5">
@@ -199,7 +199,7 @@ export function LibraryView() {
             variant="primary"
             icon={<Plus />}
             onClick={() => {
-              if (!startNew()) {
+              if (!beginScenario()) {
                 toast({ title: libraryFullMessage(), tone: 'warning', replace: true });
                 return;
               }

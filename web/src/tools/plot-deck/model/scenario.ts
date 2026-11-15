@@ -1,6 +1,6 @@
 /**
- * 一份劇本（骨架）：抽到的卡、鎖定、回答、改寫的問題、PC 與 NPC、場景與線索。
- * 純資料與小工具（不依賴 React）；抽卡的規則在 draw.ts、場景與線索在 plot.ts。
+ * 一份劇本（骨架）：抽到的卡、鎖定、回答、改寫的提問、角色（角色）、推理題與場景。
+ * 純資料與小工具（不依賴 React）；抽卡的規則在 draw.ts、推理與場景在 plot.ts。
  */
 import {
   type Card,
@@ -13,28 +13,31 @@ import {
 } from '../data';
 import { S } from '../strings';
 
-/** 故事的卡（不含 PC 的卡），依「抽的順序」以外的顯示順序：核心、骨架、舞台 */
+/** 故事的卡（不含 PC 的卡），照畫面與文件的排法：餘韻與收尾、開場與阻礙、幕後與線頭 */
 export const STORY_KEYS = [
   'core',
+  'ending',
   'intro',
+  'stage',
   'obstacle',
   'truth',
-  'ending',
-  'stage',
   'tone',
   'clue',
   'npc',
 ] as const;
 export type StoryKey = (typeof STORY_KEYS)[number];
-/** 故事的骨架（導入 → 障礙 → 真相 → 結局） */
-export const FLOW_KEYS: readonly StoryKey[] = ['intro', 'obstacle', 'truth', 'ending'];
-/** 舞台與氣氛卡的一組 */
-export const STAGE_KEYS: readonly StoryKey[] = ['stage', 'tone', 'clue', 'npc'];
-/** 回答問題的順序（先真相，再舞台，最後故事的流程） */
+export type DeskGroupId = 'aim' | 'front' | 'back';
+/** 桌面與文件的三組卡 */
+export const DESK_GROUPS: readonly { id: DeskGroupId; keys: readonly StoryKey[] }[] = [
+  { id: 'aim', keys: ['core', 'ending'] },
+  { id: 'front', keys: ['intro', 'stage', 'obstacle'] },
+  { id: 'back', keys: ['truth', 'tone', 'clue', 'npc'] },
+];
+/** 填答的三組（從結尾想回來 → 開場與阻礙 → 桌上會出現的東西） */
 export const ANSWER_GROUPS: readonly (readonly StoryKey[])[] = [
-  ['core', 'truth'],
-  ['stage', 'tone', 'clue', 'npc'],
-  ['intro', 'obstacle', 'ending'],
+  ['core', 'ending', 'truth'],
+  ['intro', 'stage', 'obstacle'],
+  ['tone', 'clue', 'npc'],
 ];
 
 export const PC_MAX = 4;
@@ -48,7 +51,7 @@ export const ALL_KEYS: readonly string[] = [
 ];
 
 export type Phase = 'start' | 'setup' | 'done';
-export type SetupStep = 'core' | 'cards';
+export type SetupStage = 'core' | 'cards';
 export type Step = 'cards' | 'cast' | 'answers' | 'plot' | 'sheet';
 export const STEPS: readonly Step[] = ['cards', 'cast', 'answers', 'plot', 'sheet'];
 export type MadeBy = 'random' | 'setup' | 'catalog';
@@ -58,18 +61,18 @@ export interface Slot {
   locked: boolean;
 }
 
-/** 回答或改寫的問題：只在同一張卡還在欄上時有效 */
+/** 回答或改寫的提問：只在同一張卡還在欄上時有效 */
 export interface Written {
   card: string;
   text: string;
 }
 
 export interface PcInfo {
-  /** 稱呼 */
+  /** 名字 */
   name: string;
-  /** 立場 */
+  /** 身分 */
   role: string;
-  /** 關係的對象：`pc2`、`npc`、追加的 NPC 的 id；null＝預設（PC1 → PC2 → … → PC1） */
+  /** 牽扯的對象：`pc2`、`npc`、配角的 id；null＝預設（PC1 → PC2 → … → PC1） */
   target: string | null;
 }
 
@@ -95,11 +98,11 @@ export interface Scene {
 export interface Clue {
   id: string;
   text: string;
-  /** 取得的方法（檢定、條件、問誰） */
+  /** 怎麼拿到（檢定、條件、要問誰） */
   how: string;
-  /** 放在哪個場景（id；空字串＝還沒決定） */
+  /** 放在哪個場景（id；空字串＝還沒放） */
   scene: string;
-  /** 連到哪些推理（id） */
+  /** 指向哪些推理題（id） */
   links: string[];
 }
 
@@ -116,14 +119,14 @@ export interface Scenario {
   /** 自己取的劇本名（空白＝用卡片組出來的名字） */
   title: string;
   deck: DeckId;
-  /** 題材、氣氛（null＝還沒決定，抽的時候交給系統） */
+  /** 題材、氣氛（null＝還沒決定，抽的時候抽的時候再決定） */
   mission: string | null;
   tone: string | null;
   madeBy: MadeBy | null;
   phase: Phase;
-  setupStep: SetupStep;
-  /** 「照條件抽」發的三張體驗的核心 */
-  coreDeal: string[];
+  setupStage: SetupStage;
+  /** 「先挑餘韻」發的三張餘韻 */
+  coreOffer: string[];
   step: Step;
   pcCount: number;
   useSecrets: boolean;
@@ -147,7 +150,7 @@ export function uid(prefix: string, now = Date.now()): string {
     .padStart(2, '0')}`;
 }
 
-export const emptyPlot = (): Plot => ({ deductions: [], scenes: [], clues: [] });
+export const noPlot = (): Plot => ({ deductions: [], scenes: [], clues: [] });
 export const emptyPc = (): PcInfo => ({ name: '', role: '', target: null });
 
 export function emptySlots(): Record<string, Slot> {
@@ -169,8 +172,8 @@ export function newScenario(
     tone: options.tone ?? null,
     madeBy: null,
     phase: 'start',
-    setupStep: 'core',
-    coreDeal: [],
+    setupStage: 'core',
+    coreOffer: [],
     step: 'cards',
     pcCount: options.pcCount ?? 2,
     useSecrets: options.useSecrets ?? true,
@@ -180,7 +183,7 @@ export function newScenario(
     extras: [],
     answers: {},
     questions: {},
-    plot: emptyPlot(),
+    plot: noPlot(),
   };
 }
 
@@ -222,40 +225,40 @@ export function slotCard(deck: Deck, sc: Scenario, key: string): Card | null {
 }
 
 /** 回答（卡換掉了就不算） */
-export function answerOf(sc: Scenario, key: string): string {
+export function replyOf(sc: Scenario, key: string): string {
   const a = sc.answers[key];
   const card = sc.slots[key]?.card;
   return a && card && a.card === card ? a.text : '';
 }
 
-export function questionEdited(sc: Scenario, key: string): boolean {
+export function promptEdited(sc: Scenario, key: string): boolean {
   const q = sc.questions[key];
   const card = sc.slots[key]?.card;
   return !!(q && card && q.card === card);
 }
 
-/** 問題（改寫過就是改寫的） */
-export function questionOf(deck: Deck, sc: Scenario, key: string): string {
+/** 提問（改寫過就是改寫的） */
+export function promptOf(deck: Deck, sc: Scenario, key: string): string {
   const card = slotCard(deck, sc, key);
   if (!card) return '';
-  return questionEdited(sc, key) ? sc.questions[key].text : card.question;
+  return promptEdited(sc, key) ? sc.questions[key].text : card.question;
 }
 
-export function setAnswer(sc: Scenario, key: string, text: string): void {
+export function writeReply(sc: Scenario, key: string, text: string): void {
   const card = sc.slots[key]?.card;
   if (card && text.trim()) sc.answers[key] = { card, text };
   else delete sc.answers[key];
 }
 
-/** 改寫問題；和原本一樣或空白＝回到原本的問題 */
-export function setQuestion(deck: Deck, sc: Scenario, key: string, text: string): void {
+/** 改寫提問；和原本一樣或空白＝回到原本的提問 */
+export function writePrompt(deck: Deck, sc: Scenario, key: string, text: string): void {
   const card = slotCard(deck, sc, key);
   const t = text.trim();
   if (card && t && t !== card.question) sc.questions[key] = { card: card.id, text: t };
   else delete sc.questions[key];
 }
 
-/** 換卡：回答與改寫的問題跟著那張卡，換掉就清掉 */
+/** 換卡：回答與改寫的提問跟著那張卡，換掉就清掉 */
 export function setSlotCard(sc: Scenario, key: string, card: string | null): void {
   const slot = sc.slots[key] ?? { card: null, locked: false };
   slot.card = card;
@@ -265,37 +268,38 @@ export function setSlotCard(sc: Scenario, key: string, card: string | null): voi
 }
 
 /** 回答過的欄（已有卡的） */
-export function answeredKeys(sc: Scenario, keys: readonly string[]): string[] {
-  return keys.filter((k) => !!answerOf(sc, k));
+export function repliedKeys(sc: Scenario, keys: readonly string[]): string[] {
+  return keys.filter((k) => !!replyOf(sc, k));
 }
 
 export function hasAnyCard(sc: Scenario): boolean {
   return activeKeys(sc).some((k) => !!sc.slots[k]?.card);
 }
 
-/** 用卡片組出來的劇本名：「舞台與真相」 */
-export function autoTitle(deck: Deck, sc: Scenario): string {
+/** 沒取名時用卡片拼的名字：「舞台：焦點」（真相是 GM 的秘密，不放進劇本名） */
+export function fallbackTitle(deck: Deck, sc: Scenario): string {
   const st = slotCard(deck, sc, 'stage')?.title ?? '';
-  const tr = slotCard(deck, sc, 'truth')?.title ?? '';
-  return st && tr ? S.doc.autoTitle(st, tr) : st || tr || S.doc.untitled;
+  const tn = slotCard(deck, sc, 'tone')?.title ?? '';
+  return st && tn ? S.doc.fallbackTitle(st, tn) : st || tn || S.doc.untitled;
 }
 
-export const titleOf = (deck: Deck, sc: Scenario): string => sc.title.trim() || autoTitle(deck, sc);
+export const titleOf = (deck: Deck, sc: Scenario): string =>
+  sc.title.trim() || fallbackTitle(deck, sc);
 
-/** 這份劇本的氣氛卡叫什麼（還沒決定氣氛時是「氣氛卡」） */
+/** 這份劇本的焦點卡叫什麼（依氣氛換名字；還沒決定氣氛時是「焦點」） */
 export function toneSlotName(deck: Deck, sc: Pick<Scenario, 'tone'>): string {
   return findTone(deck, sc.tone)?.slot ?? S.cats.tone;
 }
 
-/** 卡的種類的名稱（氣氛卡依氣氛換名字） */
+/** 卡的種類的名稱（焦點依氣氛換名字） */
 export function catName(deck: Deck, sc: Pick<Scenario, 'tone'> | null, cat: CardCat): string {
   if (cat === 'tone' && sc) return toneSlotName(deck, sc);
   return S.cats[cat];
 }
 
-/* ---------- PC 與 NPC ---------- */
+/* ---------- 角色（角色） ---------- */
 
-export function pcLabel(sc: Scenario, i: number): string {
+export function pcDisplayName(sc: Scenario, i: number): string {
   const nm = sc.pcs[i - 1]?.name.trim() ?? '';
   return nm ? S.cast.pcNamed(i, nm) : S.cast.pc(i);
 }
@@ -305,8 +309,8 @@ export interface NpcEntry {
   label: string;
 }
 
-/** 關係的對象可以選的 NPC：抽到的 NPC 卡＋追加的 NPC */
-export function npcList(deck: Deck, sc: Scenario): NpcEntry[] {
+/** 牽扯的對象可以選的 NPC：抽到的 NPC 卡＋配角 */
+export function npcChoices(deck: Deck, sc: Scenario): NpcEntry[] {
   const out: NpcEntry[] = [];
   const card = slotCard(deck, sc, 'npc');
   if (card) out.push({ id: 'npc', label: sc.npc.name.trim() || card.title });
@@ -316,19 +320,19 @@ export function npcList(deck: Deck, sc: Scenario): NpcEntry[] {
   return out;
 }
 
-/** PC i 的關係的對象（沒選或選的不在了：PC1 → PC2 → … → PC1；只有一個 PC 時是 NPC） */
-export function relTarget(deck: Deck, sc: Scenario, i: number): string {
+/** PC i 牽扯的對象（沒選或選的不在了：PC1 → PC2 → … → PC1；只有一個 PC 時是 NPC） */
+export function bondTargetOf(deck: Deck, sc: Scenario, i: number): string {
   const t = sc.pcs[i - 1]?.target ?? null;
   const m = /^pc(\d)$/.exec(t ?? '');
   if (m && Number(m[1]) <= sc.pcCount && Number(m[1]) !== i) return t as string;
-  if (t && !m && npcList(deck, sc).some((n) => n.id === t)) return t;
+  if (t && !m && npcChoices(deck, sc).some((n) => n.id === t)) return t;
   return sc.pcCount === 1 ? 'npc' : `pc${(i % sc.pcCount) + 1}`;
 }
 
-export function targetLabel(deck: Deck, sc: Scenario, target: string): string {
+export function bondTargetName(deck: Deck, sc: Scenario, target: string): string {
   const m = /^pc(\d)$/.exec(target);
-  if (m) return pcLabel(sc, Number(m[1]));
-  return npcList(deck, sc).find((n) => n.id === target)?.label ?? S.cats.npc;
+  if (m) return pcDisplayName(sc, Number(m[1]));
+  return npcChoices(deck, sc).find((n) => n.id === target)?.label ?? S.cats.npc;
 }
 
 /** 欄的「誰的卡」：「PC1 → PC2」、「PC1」 */
@@ -336,6 +340,6 @@ export function slotWho(deck: Deck, sc: Scenario, key: string): string {
   const i = slotOwner(key);
   if (!i) return '';
   if (key.startsWith('rel'))
-    return S.cast.relWho(S.cast.pc(i), targetLabel(deck, sc, relTarget(deck, sc, i)));
+    return S.cast.bondLabel(S.cast.pc(i), bondTargetName(deck, sc, bondTargetOf(deck, sc, i)));
   return S.cast.pc(i);
 }

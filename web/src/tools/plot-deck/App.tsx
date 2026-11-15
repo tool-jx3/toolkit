@@ -1,6 +1,6 @@
 /**
- * 劇本骨架抽卡：抽卡組出 TRPG 劇本的骨架（體驗的核心、導入、障礙、真相、結局、舞台、氣氛卡、線索、NPC、
- * PC 的關係與秘密），回答卡上的問題、配置場景與線索、排成一份文件。
+ * 劇本骨架抽卡：抽卡組出 TRPG 劇本的骨架（餘韻、導入、障礙、真相、結局、舞台、焦點、線索、NPC、
+ * PC 的關係與秘密），回答卡上的問題、配置推理與場景、排成一份文件。
  * 參考 Xelltis エノキ「Kadan」現代・奇幻 體驗版（作者條款：只參考功能與做法，卡與文字全部本站自己寫）。
  * 規格：docs/refactor/specs/plot-deck.md。
  */
@@ -21,6 +21,7 @@ import {
 import { StepNav, Stepper } from '@/ui/Stepper';
 import {
   addLoadedScenario,
+  beginScenario,
   currentNow,
   ensureCurrent,
   libraryFullMessage,
@@ -28,7 +29,6 @@ import {
   resetCurrent,
   setDeck,
   setStep,
-  startNew,
 } from './actions';
 import type { DeckId } from './data';
 import { PROJECT_VERSION, scenarioFromProject, TOOL_ID } from './model/project';
@@ -36,6 +36,7 @@ import { hasAnyCard, type Scenario, STEPS } from './model/scenario';
 import { usePlot, usePrefs, type View } from './store';
 import { S } from './strings';
 import { AnswersView } from './ui/Answers';
+import { MissionToneDialog, SynopsisPanel } from './ui/Brief';
 import { CardPicker, CardZoom } from './ui/CardFace';
 import { CastView } from './ui/Cast';
 import { CatalogView } from './ui/Catalog';
@@ -44,8 +45,7 @@ import { useCurrent } from './ui/hooks';
 import { LibraryView } from './ui/Library';
 import { PlotView } from './ui/PlotView';
 import { fileBase, SheetView } from './ui/Sheet';
-import { CoreDeal, DeckSwitch, SetupDesk, StartScreen } from './ui/Start';
-import { MissionToneDialog, SynopsisPanel } from './ui/Synopsis';
+import { CoreOffer, DeckSwitch, SetupDesk, StartScreen } from './ui/Start';
 
 ensureCurrent();
 
@@ -92,7 +92,8 @@ function TopBar({ sc }: { sc: Scenario }) {
         size="sm"
         icon={<FilePlus2 />}
         onClick={() => {
-          if (!startNew()) toast({ title: libraryFullMessage(), tone: 'warning', replace: true });
+          if (!beginScenario())
+            toast({ title: libraryFullMessage(), tone: 'warning', replace: true });
         }}
       >
         {S.library.newScenario}
@@ -166,8 +167,8 @@ function MakeView() {
     <div className="flex flex-col gap-3">
       <TopBar sc={sc} />
       {sc.phase === 'setup' ? (
-        sc.setupStep === 'core' ? (
-          <CoreDeal sc={sc} />
+        sc.setupStage === 'core' ? (
+          <CoreOffer sc={sc} />
         ) : (
           <SetupDesk sc={sc} />
         )

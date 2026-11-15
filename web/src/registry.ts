@@ -1081,7 +1081,7 @@ export const TOOLS: readonly ToolEntry[] = [
     id: 'plot-deck',
     name: '劇本骨架抽卡',
     summary:
-      '抽卡組出 TRPG 劇本的骨架（不限規則系統）：體驗的核心、導入、障礙、真相、結局、舞台、氣氛卡、線索、NPC 與每位 PC 的關係和秘密；現代與奇幻兩套卡。回答卡上的問題、在場景裡配置線索並檢查推理，排成一份文件（列印／PDF、HTML、文字）。',
+      '用卡片拼出 TRPG 劇本的骨架（不限規則系統）：餘韻、導入、障礙、真相、結局、舞台、焦點、線索、NPC 與每位 PC 的關係和秘密；現代與奇幻兩套卡。回答每張卡的提問、把線索放進場景並做健檢，排成一份成品（列印／PDF、HTML、純文字，或送去劇本排版台）。',
     group: 'G6',
     status: 'next',
     inspiration: { name: 'Xelltis エノキ／Kadan', url: 'https://www.xelltis.com/' },

@@ -1,5 +1,5 @@
 /**
- * 畫面用的 hook：目前的劇本、換卡前的確認（回答會清掉、體驗的核心換了之後的真相與結局）、換掉的卡的短暫標示。
+ * 畫面用的 hook：目前的劇本、換卡前的確認（回答會清掉、餘韻換了之後的真相與結局）、換掉的卡的短暫標示。
  */
 import { useMemo } from 'react';
 import { historyGesture } from '@/core/storage';
@@ -15,7 +15,7 @@ import {
   reroll,
 } from '../actions';
 import { getDeck } from '../data';
-import { missionToneLabel } from '../model/document';
+import { themeLabel } from '../model/document';
 import { answersAtRisk, missionToneTargets } from '../model/draw';
 import { type Scenario, toneSlotName } from '../model/scenario';
 import { setUi, usePlot } from '../store';
@@ -57,8 +57,8 @@ export function useCardOps() {
         confirmLabel: S.confirm.loseOk,
       });
     };
-    /** 體驗的核心換了：合不來的真相與結局要不要重抽 */
-    const followCore = async (misfits: readonly string[]): Promise<string[]> => {
+    /** 餘韻換了：合不來的真相與結局要不要重抽 */
+    const alignToCore = async (misfits: readonly string[]): Promise<string[]> => {
       if (!misfits.length) return [];
       const ok = await confirm({
         title: S.confirm.followCoreTitle,
@@ -73,7 +73,7 @@ export function useCardOps() {
       async reroll(key: string) {
         if (!(await guard([key]))) return;
         const r = reroll(key);
-        const more = await followCore(r.misfits);
+        const more = await alignToCore(r.misfits);
         flash([...r.changed, ...more]);
       },
       async pick(key: string, cardId: string) {
@@ -81,7 +81,7 @@ export function useCardOps() {
         if (!sc || sc.slots[key]?.card === cardId) return;
         if (sc.phase === 'done' && !(await guard([key]))) return;
         const r = pickFromList(key, cardId);
-        const more = await followCore(r.misfits);
+        const more = await alignToCore(r.misfits);
         flash([...r.changed, ...more]);
       },
       async redrawAll() {
@@ -95,9 +95,9 @@ export function useCardOps() {
         const sc = currentNow();
         if (!sc || (mission === sc.mission && tone === sc.tone)) return;
         const deck = getDeck(sc.deck);
-        const { must, optional } = missionToneTargets(deck, sc, mission, tone);
-        const targets = [...must, ...optional];
-        const label = missionToneLabel(deck, { mission, tone });
+        const { forced, optional } = missionToneTargets(deck, sc, mission, tone);
+        const targets = [...forced, ...optional];
+        const label = themeLabel(deck, { mission, tone });
         if (!targets.length) {
           changeMissionTone(mission, tone, []);
           toast({ title: S.mt.applied(label), tone: 'success', replace: true });

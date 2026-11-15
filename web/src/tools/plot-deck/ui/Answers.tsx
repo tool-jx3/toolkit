@@ -1,11 +1,11 @@
 /**
- * 回答問題：體驗的核心與真相 → 舞台與氣氛卡 → 故事的流程，一張卡一列（PC 的卡在「PC 與 NPC」一步）。
+ * 填答：餘韻與真相 → 舞台與焦點 → 故事的流程，一張卡一列（PC 的卡在「角色」一步）。
  */
 import { ArrowRight, Sparkles } from 'lucide-react';
 import { Button, useToast } from '@/ui';
 import { fillAnswers, setStep } from '../actions';
 import { getDeck } from '../data';
-import { ANSWER_GROUPS, answeredKeys, type Scenario, toneSlotName } from '../model/scenario';
+import { ANSWER_GROUPS, repliedKeys, type Scenario, toneSlotName } from '../model/scenario';
 import { S } from '../strings';
 import { QaCard } from './QaCard';
 
@@ -20,7 +20,7 @@ export function AnswersView({ sc }: { sc: Scenario }) {
         <div className="flex flex-wrap items-center gap-2">
           <h2 className="m-0 text-lg font-bold text-fg">{S.answers.title}</h2>
           <span className="text-sm text-muted" data-testid="answers-count" aria-live="polite">
-            {S.answers.answered(answeredKeys(sc, all).length, all.length)}
+            {S.answers.answered(repliedKeys(sc, all).length, all.length)}
           </span>
           <span className="flex-1" />
           <Button

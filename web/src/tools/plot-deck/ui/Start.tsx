@@ -1,6 +1,6 @@
 /**
- * 開始的畫面：卡組、題材與氣氛、PC 人數與秘密卡、「隨機抽」與「照條件抽」、怎麼用。
- * 照條件抽：挑一張體驗的核心（三張）→ 挑想先決定的卡 → 抽剩下的。
+ * 開始的畫面：卡組、題材與氣氛、PC 人數與秘密卡、「一次抽齊」與「先挑餘韻」、怎麼用。
+ * 先挑餘韻：挑一張餘韻（三張）→ 挑想先決定的卡 → 抽剩下的。
  */
 import { Dices, FileCheck2, RefreshCw, X } from 'lucide-react';
 import { Button, cn, Field, Segmented, Toggle } from '@/ui';
@@ -21,13 +21,13 @@ import {
   startSetup,
 } from '../actions';
 import { DECK_IDS, type DeckId, findCard, getDeck } from '../data';
-import { missionToneLabel } from '../model/document';
+import { themeLabel } from '../model/document';
 import { PC_MAX, type Scenario, STORY_KEYS } from '../model/scenario';
 import { setUi } from '../store';
 import { S } from '../strings';
+import { ChoiceGrid, MissionToneStrip, missionOptions, toneOptions } from './Brief';
 import { CardFace } from './CardFace';
 import { DeskGroups } from './Desk';
-import { ChoiceGrid, MissionToneStrip, missionOptions, toneOptions } from './Synopsis';
 
 export function PcSettings({ sc }: { sc: Scenario }) {
   return (
@@ -140,11 +140,11 @@ function SetupSteps({ value }: { value: number }) {
   );
 }
 
-/** 照條件抽 A：挑一張體驗的核心 */
-export function CoreDeal({ sc }: { sc: Scenario }) {
+/** 先挑餘韻 A：挑一張餘韻 */
+export function CoreOffer({ sc }: { sc: Scenario }) {
   const deck = getDeck(sc.deck);
   const chosen = findCard(deck, sc.slots.core.card);
-  const label = missionToneLabel(deck, sc);
+  const label = themeLabel(deck, sc);
   return (
     <div className="flex flex-col gap-4" data-testid="core-deal">
       <SetupSteps value={0} />
@@ -154,7 +154,7 @@ export function CoreDeal({ sc }: { sc: Scenario }) {
       </header>
       <MissionToneStrip sc={sc} changeable={false} />
       <div className="grid gap-3 md:grid-cols-3">
-        {sc.coreDeal.map((id) => {
+        {sc.coreOffer.map((id) => {
           const c = findCard(deck, id);
           if (!c) return null;
           const on = sc.slots.core.card === id;
@@ -204,7 +204,7 @@ export function CoreDeal({ sc }: { sc: Scenario }) {
   );
 }
 
-/** 照條件抽 B：挑想先決定的卡，C：抽剩下的 */
+/** 先挑餘韻 B：挑想先決定的卡，C：抽剩下的 */
 export function SetupDesk({ sc }: { sc: Scenario }) {
   const decided = STORY_KEYS.filter((k) => !!sc.slots[k].card).length;
   return (
