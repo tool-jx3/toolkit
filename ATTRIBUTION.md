@@ -130,6 +130,7 @@
 | `5e-calc` | 5e 速查計算 | [Sly Flourish／Lazy GM Tools](https://github.com/mshea/lazy_gm_tools)（`encounter_calculator`、`point_buy_calculator` 程式 CC0，`quick_monster_stats` 只參考功能；規則與數值 SRD 5.2.1、SRD 5.1、Lazy GM's 5e Monster Builder Resource Document，CC BY 4.0） | —（新收錄，沒有舊版） |
 | `fantasy-gen` | 奇幻隨機產生器 | [Sly Flourish／Lazy GM Tools](https://github.com/mshea/lazy_gm_tools)（`generators`，引擎 CC0；名稱 SRD 5.1、SRD 5.2.1、BFRD 1.0、5e Artisanal Database 的共用詞，CC BY 4.0） | —（新收錄，沒有舊版） |
 | `floria-veins` | 魔法脈繪製工具（翠緑のフローリア） | [Nuts-ABCd／floria_canvas](https://github.com/Nuts-ABCd/floria_canvas)（MIT；作品『翠緑のフローリア』的權利屬於猫憑／六畳間幻想空間） | —（新收錄，沒有舊版） |
+| `plot-deck` | 劇本骨架抽卡 | [Xelltis エノキ／Kadan](https://www.xelltis.com/)（BOOTH 販售的工具，All rights reserved；條款禁止再散布、整批轉載收錄的卡文、用收錄的卡文做同目的的製品：只參考功能） | —（新收錄，沒有舊版） |
 | `anime-rig` | 2.5D 動態立繪 | [852wa/Anime2.5DRig](https://github.com/852wa/Anime2.5DRig)（MIT） | `6957b28` |
 
 `music-frame` 是照 [docs/refactor/PROCESS.md](docs/refactor/PROCESS.md) 第 6 節「新工具引入流程」直接在新框架做的工具，沒有收錄過原作的副本（原作 commit `0c24db2`）。原作未附授權條款，預設封面、預設文字與說明都由本站自做，只照原作的功能、版面與數值。
@@ -219,6 +220,8 @@
 `combat-tracker`、`5e-calc`、`fantasy-gen` 照新工具引入流程直接在新框架做，參考 Sly Flourish（Michael E. Shea）的 mshea/lazy_gm_tools 裡的 5e Artisanal Database（commit `89290732`）：戰鬥追蹤、遭遇計算、點數購買與產生器的程式檔頭寫明 CC0 1.0，照本站的結構改寫（CC0 的聲明在各工具的 `UPSTREAM_LICENSE`）；快速怪物數值的頁面沒有寫程式的授權，只參考功能。規則內容只用 CC BY 4.0 的參考文件——Wizards of the Coast 的 SRD 5.1 與 SRD 5.2.1、Kobold Press 的 Black Flag Reference Document 1.0、Sly Flourish 等人的 Lazy GM's 5e Monster Builder Resource Document 與 5e Artisanal Database 的共用詞——翻成繁中（「繁中（英文原文）」），署名文照原文放在各工具頁面裡的「關於規則內容」與 THIRD_PARTY_NOTICES（資料在 `web/src/core/srd5/` 與 `web/src/tools/fantasy-gen/data/`，附 meta.json 與 LICENSE.txt）；不收 2014 DMG、Kobold Press 的 OGL 內容（Tome of Beasts、Deep Magic 等）與原作的怪物資料庫，沒有逐檔寫明授權的產生器清單（NPC、委託、陷阱、地標、藝術品、寶石）由本站自己寫。工具名稱不用 D&D、Wizards of the Coast 的商標。原作的 Dyson 地圖是商用授權，不收。
 
 `floria-veins` 照新工具引入流程直接在新框架做：參考 Nuts-ABCd/floria_canvas（commit `5a9a582`，2026-09-12；MIT，授權全文在 `web/src/tools/floria-veins/UPSTREAM_LICENSE`，併入通知檔）的程式改寫成本站的結構（線的交點、吸附、移動・反轉・旋轉的算法和原作在瀏覽器裡比對過相同），原作附的範例資料沿用（MIT，翻成繁中）；可以讀寫原作的資料格式。原作是同人 TRPG『翠緑のフローリア』（權利屬於猫憑／六畳間幻想空間）的二次創作工具；權利人的二次創作規定在這個環境讀不到，所以只做繪圖功能、不收規則書的內容（魔法植物、規則說明、數值表），工具頁面裡註明權利人與「愛好者製作的非官方工具」，頁尾只放靈感來源（使用者 2026-11-10 決定收錄）。
+
+`plot-deck` 照新工具引入流程直接在新框架做：原作是 Xelltis エノキ 的「Kadan」現代與奇幻兩個體驗版（BOOTH 販售的製品版的體驗版，使用者 2026-11-15 上傳），授權 All rights reserved，條款禁止再散布、散布改作版或一部分、整批轉載收錄的卡文、用收錄的卡文做同目的的製品、取出效果音，不放 `UPSTREAM_LICENSE`。只參考功能、互動流程、演算法與數值（卡的種類與欄位、抽卡的偏好倍率與連動〔和原作逐條相同〕、問題與回答的流程、推理至少 3 條線索的檢查、文件的構成），程式照本站的結構重寫；**卡（現代 118 張、奇幻 110 張）、題材與氣氛、介面與說明文字全部本站自己寫（繁中）**：第一版驗證時發現有照原作的卡寫的與翻譯的文字，全部作廢重寫，寫完拿原作的全部卡逐張比對過（規格 D2、D3、6 節）。原作的「複製給 AI 的提示詞」、效果音、起動畫面與 Kadan ダンジョン 不做；原作的範例、logo、字型與畫面的設計不用。頁尾的靈感來源連到作者的網站。
 
 `log-converter` 的 EPUB 匯出（2026-10）參考 sotsotssi/CcfoliaLogConverter 的功能（原作沒有授權條款：只照功能與做法，程式、介面文字與版面都由本站自做）；原作在控制字元、`<wbr>`、`<font>` 與新格式的日誌會產生不合規的電子書或遺失內容，本站的輸出都通過 epubcheck。
 
