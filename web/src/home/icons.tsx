@@ -65,6 +65,7 @@ import {
   Orbit,
   Palette,
   PanelBottom,
+  PlayingCardsFan,
   Puzzle,
   QrCode,
   Route,
@@ -156,6 +157,7 @@ const ICONS: Record<string, LucideIcon> = {
   'session-calendar': CalendarDays,
   'pdf-compress': FileArchive,
   'scenario-timeline': ChartGantt,
+  'plot-deck': PlayingCardsFan,
   /* G7 介紹圖與宣傳 */
   'pair-maker': HeartHandshake,
   'character-select': Users,
