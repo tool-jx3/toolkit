@@ -1,5 +1,5 @@
 /**
- * 推理與場景：健檢、推理題、場景表（上下移動、刪除）、線索（指向推理題、換場景、刪除）。
+ * 推理與場景：檢查、推理題、場景表（上下移動、刪除）、線索（指向推理題、換場景、刪除）。
  * 還沒有內容時：「用卡片排草稿」或「一格一格自己寫」。
  */
 import { ArrowDown, ArrowRight, ArrowUp, FilePlus2, Plus, Trash2, Wand2 } from 'lucide-react';

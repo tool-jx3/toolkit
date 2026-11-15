@@ -1,6 +1,8 @@
 /**
  * 存檔：自動存檔（我的劇本＋目前的劇本）與專案檔（版本 1：一份劇本）。
- * 讀的時候一律經過 sanitize：壞掉、手改過或舊版的資料補上預設值，不認得的卡丟掉。
+ * 讀的時候一律經過 sanitize：壞掉、手改過或舊版的資料補上預設值。
+ * 這一版的卡組裡找不到的卡 id（舊版或卡組改過的存檔）連同它們的回答一起拿掉，記在 `missing` 裡讓畫面通知。
+ * 卡的 id 一旦上線就固定，拿掉的卡 id 不再拿來給別的卡用（規格 3.11）。
  */
 import { ProjectFileError } from '@/core/storage';
 import { findCard, findMission, findTone, getDeck, isDeckId } from '../data';
@@ -101,8 +103,15 @@ function sanitizePlot(raw: unknown): Plot {
   return { deductions: uniq(deductions), scenes: uniq(scenes), clues: uniq(clues) };
 }
 
-/** 一份劇本（壞掉、不是劇本時 null） */
-export function sanitizeScenario(raw: unknown, now = Date.now()): Scenario | null {
+/**
+ * 一份劇本（壞掉、不是劇本時 null）。
+ * missing：給了就把這份劇本裡這一版的卡組找不到的卡 id 加進去（同一份劇本裡同一張只記一次）。
+ */
+export function sanitizeScenario(
+  raw: unknown,
+  now = Date.now(),
+  missing?: string[],
+): Scenario | null {
   if (!isObj(raw) || !isDeckId(raw.deck)) return null;
   const deck = getDeck(raw.deck);
   const base = newScenario(raw.deck, {}, now);
@@ -119,9 +128,12 @@ export function sanitizeScenario(raw: unknown, now = Date.now()): Scenario | nul
   sc.pcCount = Math.min(PC_MAX, Math.max(PC_MIN, Math.round(num(raw.pcCount, 2))));
   sc.useSecrets = typeof raw.useSecrets === 'boolean' ? raw.useSecrets : true;
   const slots = isObj(raw.slots) ? raw.slots : {};
+  const lost = new Set<string>();
   for (const k of ALL_KEYS) {
     const s = isObj(slots[k]) ? (slots[k] as Obj) : {};
-    const card = findCard(deck, idOf(s.card));
+    const id = idOf(s.card);
+    const card = findCard(deck, id);
+    if (id && !card) lost.add(id);
     sc.slots[k] = {
       card: card && card.cat === slotCat(k) ? card.id : null,
       locked: !!card && s.locked === true,
@@ -161,21 +173,23 @@ export function sanitizeScenario(raw: unknown, now = Date.now()): Scenario | nul
   /* 抽好的卡還在就是「抽好了」；沒有卡的「抽好了」回到開始 */
   sc.phase = phase === 'done' && !anyCard ? 'start' : phase;
   sc.setupStage = raw.setupStage === 'cards' ? 'cards' : 'core';
-  sc.coreOffer = arr(raw.coreOffer)
-    .map(idOf)
-    .filter((id) => findCard(deck, id)?.cat === 'core')
-    .slice(0, 3);
+  const offer = arr(raw.coreOffer).map(idOf).filter(Boolean);
+  for (const id of offer) if (!findCard(deck, id)) lost.add(id);
+  sc.coreOffer = offer.filter((id) => findCard(deck, id)?.cat === 'core').slice(0, 3);
+  /* 氣氛的 id 找不到時跟著餘韻（抽好的卡還在） */
+  if (!sc.tone) sc.tone = findCard(deck, sc.slots.core?.card)?.tones?.[0] ?? null;
+  missing?.push(...lost);
   if (sc.phase === 'setup' && sc.setupStage === 'core' && !sc.coreOffer.length) sc.coreOffer = [];
   sc.step = STEPS.includes(raw.step as Step) ? (raw.step as Step) : 'cards';
   return sc;
 }
 
-/** 自動存檔的整份資料 */
-export function sanitizeState(raw: unknown): PlotDeckState {
+/** 自動存檔的整份資料（missing：同 sanitizeScenario，每份劇本各記） */
+export function sanitizeState(raw: unknown, missing?: string[]): PlotDeckState {
   const r = isObj(raw) ? raw : {};
   const seen = new Set<string>();
   const scenarios = arr(r.scenarios)
-    .map((x) => sanitizeScenario(x))
+    .map((x) => sanitizeScenario(x, Date.now(), missing))
     .filter((x): x is Scenario => !!x && !seen.has(x.id) && !!seen.add(x.id))
     .slice(0, LIBRARY_MAX);
   const current = typeof r.current === 'string' && seen.has(r.current) ? r.current : null;
@@ -187,10 +201,13 @@ export interface ProjectData {
   scenario: Scenario;
 }
 
-/** 讀專案檔：版本比這一版新、不是劇本時丟 ProjectFileError（訊息可以直接顯示） */
-export function scenarioFromProject(data: unknown, version: number): Scenario {
+/**
+ * 讀專案檔：版本比這一版新、不是劇本時丟 ProjectFileError（訊息可以直接顯示）。
+ * missing：同 sanitizeScenario。
+ */
+export function scenarioFromProject(data: unknown, version: number, missing?: string[]): Scenario {
   if (version > PROJECT_VERSION) throw new ProjectFileError(S.project.newer);
-  const sc = sanitizeScenario(isObj(data) ? data.scenario : null);
+  const sc = sanitizeScenario(isObj(data) ? data.scenario : null, Date.now(), missing);
   if (!sc) throw new ProjectFileError(S.project.invalid);
   return sc;
 }

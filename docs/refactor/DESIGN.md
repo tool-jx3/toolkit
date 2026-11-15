@@ -902,11 +902,11 @@ loading-maker 預設（透明）、不透明背景＋預設的結尾動作（最
   **分析一律用 `visibleDoc` 的結果**：PL 用的空白、同席、切片、聚光的選項推不出藏起來的東西（範圍也只算看得到的）；會把藏起來的標題寫進通知的操作，通知不寫名稱（切換檢視時通知還在頁面上）。
 
 - G6 plot-deck（劇本骨架抽卡，2026-11-15 引入、修正第 1 輪改寫）：沒有新增或改動共用元件。用到 `ToolShell` 的 `body`（分頁：做劇本／我的劇本／卡庫）、`@/ui/Stepper` 的
-  `Stepper`（≥ 640 px）與 `StepNav`（窄畫面）、`Dialog`（打開來看、自己挑、改題材與氣氛；關閉後焦點用 `returnFocus` 還給打開它的按鈕，按鈕不在了就找頁面上同一欄的按鈕）、
-  `useConfirm`、`ProjectMenu`（`confirmOpen={false}`：開啟＝加進清單）、`@/core/paged` 的 `printPages`（`pageMargin: '12mm'`）、`@/core/names` 的 `seededRandom`
+  `Stepper`（≥ 640 px）與 `StepNav`（窄畫面）、`Dialog`（放大看、自己挑、改題材與氣氛；關閉後焦點用 `returnFocus` 還給打開它的按鈕，按鈕不在了就找頁面上同一欄的按鈕）、
+  `useConfirm`、`ProjectMenu`（`confirmOpen={false}`：開啟＝加進清單；`onLoad` 回傳 `{ warnings }` 通知這一版的卡組找不到的卡；重設用共用的「重設…」）、`@/core/paged` 的 `printPages`（`pageMargin: '12mm'`）、`@/core/names` 的 `seededRandom`
   （測試用的種子 `window.__plotDeckSeed`）、`@/core/html` 的 `escapeHtml`、`@/core/files` 的 `safeFileName`、`@/core/storage` 的手勢（`beginGesture`／`endGesture`）。
   沒有共用的：卡的權重與抽法（`model/draw.ts`：`themeWeight`、`drawWeight`、`drawStory`、`resolveTruthConflicts`、`offerCores`）、劇本與角色的資料（`model/scenario.ts`）、
-  推理題與場景的標號、健檢與草稿（`model/plot.ts`：`plotLabels`、`reviewPlot`、`draftPlot`）、故事梗概與文件／純文字／送去劇本排版台的 markdown（`model/document.ts`：
+  推理題與場景的標號、檢查與草稿（`model/plot.ts`：`plotLabels`、`reviewPlot`、`draftPlot`）、故事梗概與文件／純文字／送去劇本排版台的 markdown（`model/document.ts`：
   `briefOf`、`documentHtml` 與它的樣式 `PRINT_STYLE`〔只用 `.pdk-` 的類別、一欄的「標籤＋內容」列、`min-width: 640px` 一個斷點、顏色取本站淺色主題的 token 值〕、`editorMarkdown`）、
   多份劇本的清單（放在同一個 `createToolStore` 裡，復原涵蓋清單的操作）——別的工具要「抽卡＋偏好的權重」時可以把 `draw.ts` 的權重與 `weightedPick` 搬進 `core/`。
   **一次性的動作各記一步復原**：共用層把 0.4 秒內的變更合併成一步，抽完馬上重抽會被併在一起；`actions.ts` 的 `oneStep` 用共用層的手勢把一次性的動作包起來
@@ -1024,9 +1024,9 @@ loading-maker 預設（透明）、不透明背景＋預設的結尾動作（最
 | 塗色 | 塗潰し | |
 | 魔法植物 | 魔法植物 | 只出現在「沒有收錄」的說明 |
 
-### 劇本骨架抽卡的名詞（2026-11-15，plot-deck；修正第 1 輪改寫）
+### 劇本骨架抽卡的名詞（2026-11-15，plot-deck；修正第 1、2 輪改寫）
 
-本站自己的叫法（不用原作 Kadan 的用語的翻譯）；只用在 plot-deck。
+本站自己的叫法（不用原作 Kadan 的用語的翻譯）；只用在 plot-deck。一般的操作用本站慣用的詞（放大看、套用、隨機、複製一份、檢查、重設），不另外造詞。
 
 | 用這個 | 意思 | 不用 |
 |---|---|---|
@@ -1038,8 +1038,9 @@ loading-maker 預設（透明）、不透明背景＋預設的結尾動作（最
 | 抽骨架、角色、填答、推理與場景、成品 | 五個步驟 | 回答問題、場景與線索、文件（當步驟名） |
 | 餘韻與收尾、開場與阻礙、幕後與線頭 | 抽骨架與文件的三組卡 | 故事的骨架 |
 | 故事梗概（開場、往前走、幕後〔只給 GM〕、收尾、留給 GM 的空格） | 用抽到的卡串出來的五段 | 劇情大綱的例子 |
-| 重抽、全部重抽、鎖定、自己挑、打開來看 | 卡的操作（「鎖定」和 fantasy-gen、npc-names 一致） | 從清單挑、放大看 |
+| 重抽、全部重抽、鎖定、自己挑、放大看 | 卡的操作（「鎖定」和 fantasy-gen、npc-names 一致；「放大看」同其他工具） | 從清單挑、打開來看 |
+| 改題材與氣氛：套用、隨機 | 對話框的按鈕與「不指定」的選項 | 就這樣、交給運氣 |
 | 提問、給個例子、改回原本的提問、清空、空白的先放例子 | 每張卡的提問與回答 | 問題、隨機回答、問題還原、清除回答 |
-| 推理題（A、B…）、場景表（#1…）、線索（2-1、?-1）、怎麼拿到、指向、健檢、草稿 | 推理與場景 | PL 要查明的事、取得的方法、連到的推理、檢查、N1／S1／C1 |
+| 推理題（A、B…）、場景表（#1…）、線索（2-1＝場景 #2 的第 1 條、?-1＝還沒放進場景）、怎麼拿到、指向、檢查、草稿 | 推理與場景 | PL 要查明的事、取得的方法、連到的推理、健檢、N1／S1／C1 |
 | 名字、身分、牽扯的對象、牽連、配角 | 角色 | 稱呼、立場、關係的對象、和真相的關係、追加的 NPC |
-| 我的劇本、卡庫、送去劇本排版台、放進新劇本 | 清單、全部的卡、匯出 | 劇本清單、卡片一覽、劇本排版台的格式、用這張開始 |
+| 我的劇本、複製一份、卡庫、送去劇本排版台、放進新劇本；專案選單的「重設…」（共用） | 清單、全部的卡、匯出 | 劇本清單、另存一份、卡片一覽、劇本排版台的格式、用這張開始、把這份清空… |

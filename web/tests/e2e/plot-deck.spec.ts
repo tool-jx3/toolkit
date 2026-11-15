@@ -1,12 +1,12 @@
 /**
  * 劇本骨架抽卡（建置產物 next/plot-deck/）的端對端測試：
  * - 開頁沒有錯誤、頁尾的靈感來源、開始的畫面（卡組、題材、氣氛）；
- * - 一次抽齊（題材與氣氛）、重抽、鎖定與全部重抽、打開來看與自己挑（Esc、點外面、關閉鈕；焦點回到打開的按鈕）、列表的排法；
+ * - 一次抽齊（題材與氣氛）、重抽、鎖定與全部重抽、放大看與自己挑（Esc、點外面、關閉鈕；焦點回到打開的按鈕）、列表的排法；
  * - 先挑餘韻（三張餘韻 → 放上想要的卡 → 抽完其餘的）、改題材與氣氛（焦點回到「改」）；
  * - 角色（關係與秘密、對象、人數、秘密卡）、填答（給個例子、改寫與改回、清空、空白的先放例子）；
- * - 推理與場景（草稿、指向推理題、3 條的健檢、刪除與移動）；
+ * - 推理與場景（草稿、指向推理題、3 條的檢查、刪除與移動）；
  * - 匯出（HTML、純文字、送去劇本排版台的下載與複製、列印）——實際存下來檢查；
- * - 自動儲存、專案檔（存、清空、開、較新版本）、切換現代與奇幻、我的劇本、卡庫（題材與氣氛的篩選、餘韻決定氣氛）；
+ * - 自動儲存、專案檔（存、重設、開、較新版本、找不到的卡）、切換現代與奇幻、我的劇本、卡庫（題材與氣氛的篩選、餘韻決定氣氛）；
  * - 390／320 寬沒有橫向捲動（含卡庫與我的劇本）；1280／390 視覺基準（種子固定）。
  */
 import { readFileSync } from 'node:fs';
@@ -106,7 +106,7 @@ test('開頁：沒有錯誤、靈感來源、開始的畫面（卡組、題材�
   expect(errors).toEqual([]);
 });
 
-test('一次抽齊：9 張卡、故事梗概、重抽、鎖定與全部重抽、打開來看與自己挑（焦點回到打開的按鈕）、列表的排法', async ({
+test('一次抽齊：9 張卡、故事梗概、重抽、鎖定與全部重抽、放大看與自己挑（焦點回到打開的按鈕）、列表的排法', async ({
   page,
 }) => {
   const errors = await open(page);
@@ -142,8 +142,8 @@ test('一次抽齊：9 張卡、故事梗概、重抽、鎖定與全部重抽、
     )
     .not.toBe(before.join());
   expect(await cardId(page, 'clue')).toBe(clue);
-  /* 打開來看：點卡片，Esc 關閉；焦點回到那張卡的「打開來看」 */
-  const zoomBtn = (slot: string) => card(page, slot).getByRole('button', { name: '打開來看' });
+  /* 放大看：點卡片，Esc 關閉；焦點回到那張卡的「放大看」 */
+  const zoomBtn = (slot: string) => card(page, slot).getByRole('button', { name: '放大看' });
   await card(page, 'truth').locator('h3').click();
   const zoom = page.getByRole('dialog');
   await expect(zoom.getByTestId('card-zoom')).toBeVisible();
@@ -151,7 +151,7 @@ test('一次抽齊：9 張卡、故事梗概、重抽、鎖定與全部重抽、
   await page.keyboard.press('Escape');
   await expect(zoom).toBeHidden();
   await expect(zoomBtn('truth')).toBeFocused();
-  /* 「打開來看」的按鈕：Esc、點外面、關閉鈕都把焦點還給它 */
+  /* 「放大看」的按鈕：Esc、點外面、關閉鈕都把焦點還給它 */
   await zoomBtn('npc').click();
   await expect(page.getByTestId('card-zoom')).toBeVisible();
   await page.keyboard.press('Escape');
@@ -181,7 +181,7 @@ test('一次抽齊：9 張卡、故事梗概、重抽、鎖定與全部重抽、
   await page.locator(`[data-testid="picker-option"][data-card="${target}"]`).click();
   await expect(card(page, 'stage')).toHaveAttribute('data-card', target);
   await expect(pickBtn).toBeFocused();
-  /* 從打開來看裡的「自己挑」打開：關閉後焦點回到頁面上那張卡的「自己挑」 */
+  /* 從放大看裡的「自己挑」打開：關閉後焦點回到頁面上那張卡的「自己挑」 */
   await zoomBtn('ending').click();
   await btn(page.getByTestId('card-zoom'), '自己挑').click();
   await expect(page.getByTestId('picker-list')).toBeVisible();
@@ -247,7 +247,7 @@ test('先挑餘韻：三張餘韻 → 放上想要的卡 → 抽完其餘的；�
   const dlg = page.getByTestId('mt-dialog');
   await dlg.locator('[data-choice="deal"]').click();
   await dlg.locator('[data-choice="absurd"]').click();
-  await btn(page.getByRole('dialog'), '就這樣').click();
+  await btn(page.getByRole('dialog'), '套用').click();
   await expect(alert(page)).toContainText('跟新方向不搭的卡要換掉嗎？');
   await btn(alert(page), '換').click();
   await expect(page.getByTestId('mt-tone')).toHaveText('荒謬');
@@ -317,7 +317,7 @@ test('角色、填答：關係與秘密、對象、人數、秘密卡、給個�
   expect(errors).toEqual([]);
 });
 
-test('推理與場景：草稿、指向推理題、一道題 3 條的健檢、刪除與移動', async ({ page }) => {
+test('推理與場景：草稿、指向推理題、一道題 3 條的檢查、刪除與移動', async ({ page }) => {
   const errors = await open(page);
   await start(page, 'random', 'getaway', 'tense');
   await step(page, '推理與場景');
@@ -426,7 +426,7 @@ test.describe('匯出', () => {
   });
 });
 
-test('存讀：自動儲存、專案檔（存、清空、開、較新版本）', async ({ page }) => {
+test('存讀：自動儲存、專案檔（存、重設、開、較新版本、找不到的卡）', async ({ page }) => {
   const errors = await open(page);
   await start(page, 'random', 'trespass', 'nostalgic');
   await step(page, '填答');
@@ -457,10 +457,12 @@ test('存讀：自動儲存、專案檔（存、清空、開、較新版本）',
     },
   });
   expect(dl.suggestedFilename()).toMatch(/_\d{8}\.json$/);
-  /* 清空這份劇本 */
+  /* 重設這份劇本（共用的「重設…」） */
   await btn(page, '專案').click();
-  await page.getByRole('menuitem', { name: '把這份清空…' }).click();
-  await btn(alert(page), '清空').click();
+  await page.getByRole('menuitem', { name: '重設…' }).click();
+  await expect(alert(page)).toContainText('要重設這份劇本嗎？');
+  await btn(alert(page), '重設').click();
+  await expect(page.getByText('已重設', { exact: true })).toBeVisible();
   await expect(page.getByTestId('start')).toBeVisible();
   /* 開啟：加進清單、變成目前的劇本 */
   await btn(page, '專案').click();
@@ -491,6 +493,42 @@ test('存讀：自動儲存、專案檔（存、清空、開、較新版本）',
     page.getByText('這個專案檔是比較新的版本存的；重新整理頁面之後再開。').first(),
   ).toBeVisible();
   await expect(page.getByRole('tab', { name: '我的劇本（1）' })).toBeVisible();
+  /* 這一版的卡組裡找不到的卡（舊版或卡組改過的檔）：拿掉那張卡與它的回答，其他照樣讀進來 */
+  const missingMsg = '有 1 張卡在這一版的卡組裡找不到，已經拿掉；其他照樣讀進來。';
+  saved.version = 1;
+  saved.data.scenario.slots.core.card = 'core.retired';
+  await btn(page, '專案').click();
+  const chooser3 = await waitForFileChooser(page, () =>
+    page.getByRole('menuitem', { name: '開啟專案檔…' }).click(),
+  );
+  await chooser3.setFiles({
+    name: 'old.json',
+    mimeType: 'application/json',
+    buffer: Buffer.from(JSON.stringify(saved)),
+  });
+  await expect(page.getByText(missingMsg).first()).toBeVisible();
+  await expect(page.getByRole('tab', { name: '我的劇本（2）' })).toBeVisible();
+  await expect(qa(page, 'core')).toHaveCount(0);
+  expect(await qa(page, 'truth').getAttribute('data-card')).toBe(cards[1]);
+  await step(page, '抽骨架');
+  await expect(card(page, 'core')).toContainText('這欄還空著');
+  await btn(card(page, 'core'), '重抽餘韻').click();
+  await expect(card(page, 'core')).not.toHaveAttribute('data-card', '');
+  /* 自動存檔裡有找不到的卡：開頁時拿掉並通知一次 */
+  await page.waitForFunction((key) => {
+    const d = JSON.parse(localStorage.getItem(key) ?? '{}').state?.data;
+    return !!d?.scenarios?.find((x: { id: string }) => x.id === d.current)?.slots?.core?.card;
+  }, KEY);
+  await page.evaluate((key) => {
+    const raw = JSON.parse(localStorage.getItem(key) ?? '{}');
+    const d = raw.state.data;
+    d.scenarios.find((x: { id: string }) => x.id === d.current).slots.stage.card = 'stage.retired';
+    localStorage.setItem(key, JSON.stringify(raw));
+  }, KEY);
+  await page.reload();
+  await expect(page.getByText(missingMsg).first()).toBeVisible();
+  await expect(card(page, 'stage')).toContainText('這欄還空著');
+  await expect(btn(card(page, 'stage'), '鎖定')).toBeDisabled();
   /* 壞掉的自動存檔：開頁時整理，不會壞掉 */
   await page.evaluate((key) => {
     localStorage.setItem(
@@ -511,7 +549,7 @@ test('存讀：自動儲存、專案檔（存、清空、開、較新版本）',
   expect(errors).toEqual([]);
 });
 
-test('切換現代與奇幻、我的劇本（搜尋、開啟、看成品、另存一份、刪除）', async ({ page }) => {
+test('切換現代與奇幻、我的劇本（搜尋、開啟、看成品、複製一份、刪除）', async ({ page }) => {
   const errors = await open(page);
   await start(page, 'random', 'riddle', 'dread');
   const modernStage = (await card(page, 'stage').locator('h3').textContent()) ?? '';
@@ -541,16 +579,16 @@ test('切換現代與奇幻、我的劇本（搜尋、開啟、看成品、另�
   /* 看成品＝開啟那一份（現代的變成正在寫） */
   const current = page.locator('[data-testid="library-entry"][data-current="true"]');
   await expect(current).toContainText(modernStage);
-  /* 改名、另存一份、刪除 */
+  /* 改名、複製一份、刪除 */
   await current.locator('[data-field="library-title"]').fill('廟口的怪談');
-  await btn(current, '另存一份').click();
+  await btn(current, '複製一份').click();
   await expect(entries).toHaveCount(3);
   await expect(
-    page.locator('[data-field="library-title"][value="廟口的怪談（又一份）"]'),
+    page.locator('[data-field="library-title"][value="廟口的怪談（複製）"]'),
   ).toHaveCount(1);
-  const copy = entries.filter({ has: page.locator('[value="廟口的怪談（又一份）"]') });
+  const copy = entries.filter({ has: page.locator('[value="廟口的怪談（複製）"]') });
   await btn(copy, '刪除').click();
-  await expect(alert(page)).toContainText('刪除「廟口的怪談（又一份）」？');
+  await expect(alert(page)).toContainText('刪除「廟口的怪談（複製）」？');
   await btn(alert(page), '刪除').click();
   await expect(entries).toHaveCount(2);
   /* 開啟另一份（奇幻） */
@@ -618,7 +656,7 @@ test('卡庫：張數、種類、題材與氣氛的篩選、搜尋、放卡開�
 test.describe('窄畫面', () => {
   test.use({ viewport: { width: 390, height: 844 } });
 
-  test('390 寬：每一步都沒有橫向捲動、往下／退回、打開來看；視覺基準', async ({ page }) => {
+  test('390 寬：每一步都沒有橫向捲動、往下／退回、放大看；視覺基準', async ({ page }) => {
     const errors = await open(page, 'shot');
     await noHorizontalScroll(page);
     await start(page, 'random', 'riddle', 'dread');

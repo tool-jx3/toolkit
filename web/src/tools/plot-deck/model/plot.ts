@@ -1,7 +1,7 @@
 /**
  * 推理與場景：推理題（A、B、C…）、場景（#1、#2…）、線索（場景的編號－第幾條，例如 2-1；還沒放進場景的是 ?-1）。
  * 標號依排列；刪掉或移動就重新標。
- * 健檢：先列總數，再看每一道推理題的線索夠不夠（3 條以上），最後是沒有線索的場景、還沒放的線索、沒指向推理題的線索。
+ * 檢查：先列總數，再看每一道推理題的線索夠不夠（3 條以上），最後是沒有線索的場景、還沒放的線索、沒指向推理題的線索。
  */
 import type { Deck } from '../data';
 import { S } from '../strings';
@@ -68,7 +68,7 @@ export interface CheckItem {
   deduction?: string;
 }
 
-/** 健檢（畫面的「健檢」欄與送去劇本排版台的提醒） */
+/** 檢查（畫面的「檢查」欄與送去劇本排版台的提醒） */
 export function reviewPlot(plot: Plot): CheckItem[] {
   const no = plotLabels(plot);
   const C = S.plot.check;

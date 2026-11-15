@@ -33,7 +33,7 @@ import {
 import type { DeckId } from './data';
 import { PROJECT_VERSION, scenarioFromProject, TOOL_ID } from './model/project';
 import { hasAnyCard, type Scenario, STEPS } from './model/scenario';
-import { usePlot, usePrefs, type View } from './store';
+import { startupMissing, usePlot, usePrefs, type View } from './store';
 import { S } from './strings';
 import { AnswersView } from './ui/Answers';
 import { MissionToneDialog, SynopsisPanel } from './ui/Brief';
@@ -183,6 +183,12 @@ function Main() {
   const view = usePrefs((s) => s.data.view);
   const patch = usePrefs((s) => s.patch);
   const count = usePlot((s) => libraryOf(s.data).length);
+  const toast = useToast();
+  /* 自動存檔裡有這一版的卡組找不到的卡：開頁時通知一次 */
+  useEffect(() => {
+    const n = startupMissing.splice(0).length;
+    if (n) toast({ title: S.project.missingCards(n), tone: 'warning' });
+  }, [toast]);
   return (
     <>
       <Tabs<View>
@@ -239,20 +245,16 @@ export function App() {
         confirmOpen={false}
         openedMessage={S.project.opened}
         onLoad={(data, project) => {
-          addLoadedScenario(scenarioFromProject(data, project.version));
+          const missing: string[] = [];
+          addLoadedScenario(scenarioFromProject(data, project.version, missing));
           usePrefs.getState().patch({ view: 'make' });
-          return true;
+          return missing.length ? { warnings: [S.project.missingCards(missing.length)] } : true;
         }}
         onReset={() => {
           resetCurrent();
           usePrefs.getState().patch({ view: 'make' });
         }}
-        resetText={{
-          label: S.project.resetLabel,
-          title: S.project.resetTitle,
-          description: S.project.resetDesc,
-          confirmLabel: S.project.resetOk,
-        }}
+        resetText={{ title: S.project.resetTitle, description: S.project.resetDesc }}
         savedAt={savedAt}
       />
     </>

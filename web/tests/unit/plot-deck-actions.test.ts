@@ -1,6 +1,6 @@
 /**
  * 劇本骨架抽卡（plot-deck）的動作與 store：一次抽齊、先挑餘韻（餘韻 → 放上想要的卡 → 抽完其餘的）、
- * 自己挑、鎖定與重抽、換卡組、我的劇本（新的、另存、刪除、開啟）、從卡庫開始（餘韻決定氣氛）、
+ * 自己挑、鎖定與重抽、換卡組、我的劇本（新的、複製、刪除、開啟）、從卡庫開始（餘韻決定氣氛）、
  * 專案檔讀入與重設、復原（一次性的動作各一步，打字合併）。
  */
 import { beforeEach, describe, expect, it } from 'vitest';
@@ -205,7 +205,7 @@ describe('我的劇本與卡組', () => {
     expect(libraryOf(stateNow()).map((s) => s.id)).toEqual([first]);
   });
 
-  it('新的劇本、開啟、另存一份、刪除（刪目前這份時開一份新的）', () => {
+  it('新的劇本、開啟、複製一份、刪除（刪目前這份時開一份新的）', () => {
     startRandom();
     const a = cur().id;
     expect(beginScenario()).toBe(true);
@@ -280,7 +280,7 @@ describe('專案檔與重設', () => {
     expect(libraryOf(stateNow())).toHaveLength(2);
   });
 
-  it('清空這份劇本：回到開始畫面，卡組與題材留著', () => {
+  it('重設這份劇本：回到開始畫面，卡組與題材留著', () => {
     setTone('dread');
     startRandom();
     resetCurrent();

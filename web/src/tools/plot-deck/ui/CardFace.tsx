@@ -1,6 +1,6 @@
 /**
- * 卡片：種類、序號、卡名、說明、提問、回答、搭在哪裡的小標與按鈕（重抽、自己挑、鎖定、打開來看）。
- * 打開來看（CardZoom）與自己挑（CardPicker）是對話框；Esc 或點外面關閉，關閉後焦點回到打開它的按鈕。
+ * 卡片：種類、序號、卡名、說明、提問、回答、搭在哪裡的小標與按鈕（重抽、自己挑、鎖定、放大看）。
+ * 放大看（CardZoom）與自己挑（CardPicker）是對話框；Esc 或點外面關閉，關閉後焦點回到打開它的按鈕。
  */
 import { ListChecks, Lock, LockOpen, Maximize2, RefreshCw, X } from 'lucide-react';
 import { type MouseEvent, type ReactNode, useRef } from 'react';
@@ -52,7 +52,7 @@ export function ReasonChips({ reasons }: { reasons: Reason[] }) {
 export interface CardFaceProps {
   sc: Scenario;
   slotKey: string;
-  /** 打開來看的對話框裡（字大一點、不再有打開鈕） */
+  /** 放大看的對話框裡（字大一點、不再有打開鈕） */
   large?: boolean;
   className?: string;
 }
@@ -122,6 +122,7 @@ export function CardFace({ sc, slotKey, large, className }: CardFaceProps) {
         icon={slot.locked ? <Lock /> : <LockOpen />}
         aria-pressed={slot.locked}
         title={S.card.lockHint}
+        disabled={!card}
         onClick={() => toggleLock(slotKey)}
       >
         {slot.locked ? S.card.locked : S.card.lock}
@@ -130,7 +131,7 @@ export function CardFace({ sc, slotKey, large, className }: CardFaceProps) {
   );
 
   return (
-    // biome-ignore lint/a11y/useKeyWithClickEvents: 點卡片的空白處＝打開來看（鍵盤用「打開來看」的按鈕）
+    // biome-ignore lint/a11y/useKeyWithClickEvents: 點卡片的空白處＝放大看（鍵盤用「放大看」的按鈕）
     <article
       data-testid="card"
       data-slot={slotKey}
@@ -213,7 +214,7 @@ const backTo = (key: string, actions: readonly string[]): string[] =>
     `[data-testid="qa"][data-slot="${key}"] [data-action="${a}"]`,
   ]);
 
-/** 打開來看（目前的劇本的一張卡） */
+/** 放大看（目前的劇本的一張卡） */
 export function CardZoom() {
   const sc = useCurrent();
   const key = useUi((s) => s.zoom);

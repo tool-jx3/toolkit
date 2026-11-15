@@ -88,8 +88,8 @@ export const S = {
     dialogLead: '改完之後，跟新方向不搭的卡會列出來，由你決定要不要換。',
     fitCores: (n: number) => `可以選的餘韻：${n} 張`,
     slot: (name: string) => `焦點叫「${name}」`,
-    apply: '就這樣',
-    random: '交給運氣',
+    apply: '套用',
+    random: '隨機',
     summary: (m: string, t: string) => `${m}・${t}`,
     applied: (label: string) => `方向改成「${label}」`,
     refitTitle: '跟新方向不搭的卡要換掉嗎？',
@@ -129,7 +129,7 @@ export const S = {
     lock: '鎖定',
     locked: '已鎖定',
     lockHint: '鎖起來的卡在「全部重抽」時會留著',
-    zoom: '打開來看',
+    zoom: '放大看',
     zoomTitle: (cat: string, title: string) => `${cat}・${title}`,
     zoomHint: 'Esc 或點旁邊就會關上。',
     empty: '這欄還空著',
@@ -283,7 +283,7 @@ export const S = {
       trace: (tone: string) => `「${tone}」留下的痕跡`,
     },
     check: {
-      title: '健檢',
+      title: '檢查',
       summary: (d: number, s: number, c: number) => `推理題 ${d} 道、場景 ${s} 個、線索 ${c} 條。`,
       none: '先寫下 PL 得推理出來的事——一份劇本大約 2～4 道。',
       deduction: (label: string, n: number, level: string) =>
@@ -302,7 +302,7 @@ export const S = {
     addDeduction: '加一道推理題',
     scenes: {
       title: '場景表',
-      lead: '從上到下就是上場的順序；線索要換場景，用線索右下角的選單。',
+      lead: '從上到下就是上場的順序；線索要換場景，用線索右下角的選單。線索的編號「2-1」是場景 #2 的第 1 條，「?-1」是還沒放進場景的。',
     },
     addScene: '加一個場景',
     sceneName: '場景名',
@@ -464,9 +464,9 @@ export const S = {
     open: '開啟',
     openEditing: '繼續寫',
     sheet: '看成品',
-    duplicate: '另存一份',
-    duplicated: (t: string) => `「${t}」另存了一份`,
-    copySuffix: '（又一份）',
+    duplicate: '複製一份',
+    duplicated: (t: string) => `「${t}」複製了一份`,
+    copySuffix: '（複製）',
     delete: '刪除',
     deleteTitle: (t: string) => `刪除「${t}」？`,
     deleteDesc: (cur: boolean) =>
@@ -508,11 +508,11 @@ export const S = {
     newer: '這個專案檔是比較新的版本存的；重新整理頁面之後再開。',
     invalid: '這個專案檔裡沒有劇本。',
     opened: '專案檔開好了，放進了「我的劇本」。',
-    resetLabel: '把這份清空…',
-    resetTitle: '要把這份劇本清空嗎？',
+    /** 舊版或卡組改過的存檔裡，這一版沒有的卡（拿掉了） */
+    missingCards: (n: number) => `有 ${n} 張卡在這一版的卡組裡找不到，已經拿掉；其他照樣讀進來。`,
+    resetTitle: '要重設這份劇本嗎？',
     resetDesc:
       '卡、回答、角色、推理題與場景都會清掉，回到開始畫面；按「復原」可以拿回來。「我的劇本」裡的其他劇本不受影響。',
-    resetOk: '清空',
   },
 
   keys: {
@@ -528,10 +528,10 @@ export const S = {
       '用卡片拼出 TRPG 劇本的骨架，不限規則系統。一份骨架有九張故事的卡——餘韻、導入、障礙、真相、結局、舞台、焦點、線索、NPC——再加上每位 PC 的關係（和秘密）。卡不是完全隨機：會偏向你選的題材、氣氛，以及先抽到的真相。',
     steps: [
       '開始：挑現代或奇幻，題材與氣氛可以先選；按「一次抽齊」或「先挑餘韻」。',
-      '抽骨架：點卡片打開來看；「重抽」換一張、「自己挑」從整套卡裡選、「鎖定」讓它不會被換掉。寬畫面左邊、窄畫面上方會出現故事梗概。',
+      '抽骨架：點卡片放大看；「重抽」換一張、「自己挑」從整套卡裡選、「鎖定」讓它不會被換掉。寬畫面左邊、窄畫面上方會出現故事梗概。',
       '角色：每位 PC 抽關係（和秘密），寫名字、身分與牽扯的對象；需要的話加配角。',
       '填答：提問可以改寫、改回原本的；「給個例子」先放一句範例。',
-      '推理與場景：可以用卡片排一份草稿；每條線索標出指向的推理題，「健檢」會提醒線索不到 3 條的題目。',
+      '推理與場景：可以用卡片排一份草稿；每條線索標出指向的推理題，「檢查」會提醒線索不到 3 條的題目。線索的編號「2-1」是場景 #2 的第 1 條，「?-1」是還沒放進場景的第 1 條。',
       '成品：列印／PDF、HTML、純文字；也可以送去劇本排版台繼續排版。',
     ],
     notes: [

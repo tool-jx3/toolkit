@@ -1,6 +1,6 @@
 /**
  * 劇本骨架抽卡（plot-deck）的邏輯：抽卡的偏好（權重）與種子、鎖定與重抽、真相與餘韻的連動、
- * 題材與氣氛的變更、發三張餘韻、PC 的關係與秘密、推理題與線索的健檢、專案檔往返與壞檔、匯出的文字、
+ * 題材與氣氛的變更、發三張餘韻、PC 的關係與秘密、推理題與線索的檢查、專案檔往返與壞檔、匯出的文字、
  * 送去劇本排版台的 markdown（用劇本排版台的 mdParse 讀）。
  */
 import { describe, expect, it } from 'vitest';
@@ -418,7 +418,7 @@ describe('推理與場景', () => {
     expect(cluesFor(p, 'n2').map((c) => no[c.id])).toEqual(['2-2']);
   });
 
-  it('健檢：先列總數；3 條以上 ok、2 條 mid、1 條以下 warn；沒有線索的場景、還沒放的線索、沒指向推理題的線索', () => {
+  it('檢查：先列總數；3 條以上 ok、2 條 mid、1 條以下 warn；沒有線索的場景、還沒放的線索、沒指向推理題的線索', () => {
     const p = plotOf();
     const items = reviewPlot(p);
     expect(items[0]).toEqual({ level: 'info', text: '推理題 2 道、場景 2 個、線索 4 條。' });
@@ -545,6 +545,46 @@ describe('專案檔與自動存檔', () => {
     expect(sc.plot.clues[0]).toMatchObject({ scene: '', links: ['n1'] });
     expect(sanitizeScenario({ deck: 'modern', phase: 'done' })?.phase).toBe('start');
     expect(sanitizeScenario('壞掉')).toBeNull();
+  });
+
+  it('這一版的卡組找不到的卡：連同回答與改寫的提問拿掉、記下來；其他照樣讀進來（專案檔與自動存檔）', () => {
+    const sc = drawn('gone', { pcCount: 2 });
+    drawPcCards(M, sc, seededRandom('g'));
+    writeReply(sc, 'truth', '真相的回答');
+    writeReply(sc, 'stage', '舞台的回答');
+    writePrompt(M, sc, 'truth', '改寫的提問');
+    const data = JSON.parse(JSON.stringify({ scenario: sc }));
+    data.scenario.slots.truth.card = 'truth.retired';
+    data.scenario.answers.truth.card = 'truth.retired';
+    data.scenario.questions.truth.card = 'truth.retired';
+    data.scenario.slots.rel1.card = 'relation.retired';
+    const missing: string[] = [];
+    const got = scenarioFromProject(data, PROJECT_VERSION, missing);
+    expect(missing.sort()).toEqual(['relation.retired', 'truth.retired']);
+    expect(got.slots.truth).toEqual({ card: null, locked: false });
+    expect(got.slots.rel1.card).toBeNull();
+    expect(replyOf(got, 'truth')).toBe('');
+    expect(got.questions.truth).toBeUndefined();
+    expect(replyOf(got, 'stage')).toBe('舞台的回答');
+    expect(got.slots.core.card).toBe(sc.slots.core.card);
+    expect(got.phase).toBe('done');
+    /* 沒有找不到的卡：什麼都不記 */
+    const none: string[] = [];
+    scenarioFromProject(JSON.parse(JSON.stringify({ scenario: sc })), PROJECT_VERSION, none);
+    expect(none).toEqual([]);
+    /* 自動存檔：每份劇本各記；氣氛的 id 找不到時跟著餘韻 */
+    const b = drawn('gone-b');
+    const raw = JSON.parse(
+      JSON.stringify({
+        scenarios: [data.scenario, { ...b, tone: 'retired', coreOffer: ['core.retired'] }],
+        current: sc.id,
+      }),
+    );
+    const all: string[] = [];
+    const st = sanitizeState(raw, all);
+    expect(all.sort()).toEqual(['core.retired', 'relation.retired', 'truth.retired']);
+    expect(st.scenarios).toHaveLength(2);
+    expect(st.scenarios[1].tone).toBe(card(b.slots.core.card ?? '').tones?.[0]);
   });
 
   it('自動存檔整份：重複的 id 只留一份、目前的劇本不在清單裡時 null', () => {

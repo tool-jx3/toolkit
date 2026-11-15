@@ -66,7 +66,6 @@ function DeskRows({ sc }: { sc: Scenario }) {
               const card = slotCard(deck, sc, k);
               const slot = sc.slots[k];
               const a = replyOf(sc, k);
-              if (!card) return null;
               return (
                 <li
                   key={k}
@@ -81,25 +80,30 @@ function DeskRows({ sc }: { sc: Scenario }) {
                   <span className="text-xs font-semibold text-accent">
                     {catName(deck, sc, slotCat(k))}
                   </span>
-                  <span className="flex min-w-0 flex-col gap-0.5">
-                    <button
-                      type="button"
-                      data-action="zoom"
-                      className="m-0 w-fit cursor-pointer border-0 bg-transparent p-0 text-left text-sm font-bold text-fg underline-offset-2 hover:underline"
-                      onClick={(e) => openDialog('zoom', { zoom: k }, e.currentTarget)}
-                    >
-                      {card.title}
-                    </button>
-                    <span className="text-xs text-muted">{card.text}</span>
-                    <span className="text-xs text-fg">
-                      {S.card.question}：{promptOf(deck, sc, k)}
-                    </span>
-                    {a ? (
+                  {card ? (
+                    <span className="flex min-w-0 flex-col gap-0.5">
+                      <button
+                        type="button"
+                        data-action="zoom"
+                        className="m-0 w-fit cursor-pointer border-0 bg-transparent p-0 text-left text-sm font-bold text-fg underline-offset-2 hover:underline"
+                        onClick={(e) => openDialog('zoom', { zoom: k }, e.currentTarget)}
+                      >
+                        {card.title}
+                      </button>
+                      <span className="text-xs text-muted">{card.text}</span>
                       <span className="text-xs text-fg">
-                        {S.card.answer}：{a}
+                        {S.card.question}：{promptOf(deck, sc, k)}
                       </span>
-                    ) : null}
-                  </span>
+                      {a ? (
+                        <span className="text-xs text-fg">
+                          {S.card.answer}：{a}
+                        </span>
+                      ) : null}
+                    </span>
+                  ) : (
+                    /* 舊的存檔裡這一版找不到的卡拿掉之後：空著，重抽或自己挑補上 */
+                    <span className="text-sm text-muted">{S.card.empty}</span>
+                  )}
                   <span className="flex flex-wrap items-start gap-1">
                     <Button
                       size="sm"
@@ -124,6 +128,7 @@ function DeskRows({ sc }: { sc: Scenario }) {
                       variant={slot.locked ? 'primary' : 'ghost'}
                       icon={slot.locked ? <Lock /> : <LockOpen />}
                       aria-pressed={slot.locked}
+                      disabled={!card}
                       onClick={() => toggleLock(k)}
                     >
                       {slot.locked ? S.card.locked : S.card.lock}
