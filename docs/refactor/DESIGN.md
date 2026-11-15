@@ -153,7 +153,7 @@ import { ImageFxPreview } from '@/ui/imagefx'; // 一組一起用的元件（4.1
 | `PostEditor` | `PostEditor` | session-report | 11.3 | 6.7 | 3.2 | `@/core/social` |
 | `richDom`、`RichTextField` | `cssColorHex`、`isCanonicalRichDom`、`readRichDomFull`、`writeRichDomFull`、`domToOffset`、`offsetToDom`、`RichTextField`、`readRichDom`、`writeRichDom` | pair-maker、prose-card、speech-bubble | 29.0 | 13.1 | 5.1 | — |
 | `RichTextEditor` | `caretAfterChange`、`insertedRange`、`RICH_EDITOR_TEXT`、`RichTextEditor` | prose-card、speech-bubble | 39.0 | 16.8 | 6.3 | lucide 圖示 |
-| `Stepper` | `StepNav`、`Stepper` | obs-tachie | 5.4 | 2.4 | 1.2 | — |
+| `Stepper` | `StepNav`、`Stepper` | obs-tachie、plot-deck（2026-11-15 加） | 5.4 | 2.4 | 1.2 | — |
 | `TestValueRow` | `applyTestShortcut`、`TEST_SHORTCUTS`、`TestValueRow`、`TestValueShortcuts`、`testShortcutLabel` | status-bar | 4.9 | 2.0 | 1.1 | — |
 | `useVideoPlayback` | `useVideoPlayback` | video-anim | 5.3 | 6.3 | 2.7 | `@/core/video` |
 | `Viewport3D` | `Viewport3D` | acrylic-goods、map-fx | 8.4 | 3.1 | 1.5 | — |
@@ -901,6 +901,20 @@ loading-maker 預設（透明）、不透明背景＋預設的結尾動作（最
   匯出的「畫面描述」多了 `group`（位移、淡化）、`shape`（路徑＋徑向／線性漸層、落影；canvas 的落影要乘上目前的倍率）與文字的 `family`，`buildPicture` 的 `style` 不給時畫法和以前相同。
   **分析一律用 `visibleDoc` 的結果**：PL 用的空白、同席、切片、聚光的選項推不出藏起來的東西（範圍也只算看得到的）；會把藏起來的標題寫進通知的操作，通知不寫名稱（切換檢視時通知還在頁面上）。
 
+- G6 plot-deck（劇本骨架抽卡，2026-11-15 引入、修正第 1 輪改寫）：沒有新增或改動共用元件。用到 `ToolShell` 的 `body`（分頁：做劇本／我的劇本／卡庫）、`@/ui/Stepper` 的
+  `Stepper`（≥ 640 px）與 `StepNav`（窄畫面）、`Dialog`（放大看、自己挑、改題材與氣氛；關閉後焦點用 `returnFocus` 還給打開它的按鈕，按鈕不在了就找頁面上同一欄的按鈕）、
+  `useConfirm`、`ProjectMenu`（`confirmOpen={false}`：開啟＝加進清單；`onLoad` 回傳 `{ warnings }` 通知這一版的卡組找不到的卡；重設用共用的「重設…」）、`@/core/paged` 的 `printPages`（`pageMargin: '12mm'`）、`@/core/names` 的 `seededRandom`
+  （測試用的種子 `window.__plotDeckSeed`）、`@/core/html` 的 `escapeHtml`、`@/core/files` 的 `safeFileName`、`@/core/storage` 的手勢（`beginGesture`／`endGesture`）。
+  沒有共用的：卡的權重與抽法（`model/draw.ts`：`themeWeight`、`drawWeight`、`drawStory`、`resolveTruthConflicts`、`offerCores`）、劇本與角色的資料（`model/scenario.ts`）、
+  推理題與場景的標號、檢查與草稿（`model/plot.ts`：`plotLabels`、`reviewPlot`、`draftPlot`）、故事梗概與文件／純文字／送去劇本排版台的 markdown（`model/document.ts`：
+  `briefOf`、`documentHtml` 與它的樣式 `PRINT_STYLE`〔只用 `.pdk-` 的類別、一欄的「標籤＋內容」列、`min-width: 640px` 一個斷點、顏色取本站淺色主題的 token 值〕、`editorMarkdown`）、
+  多份劇本的清單（放在同一個 `createToolStore` 裡，復原涵蓋清單的操作）——別的工具要「抽卡＋偏好的權重」時可以把 `draw.ts` 的權重與 `weightedPick` 搬進 `core/`。
+  **一次性的動作各記一步復原**：共用層把 0.4 秒內的變更合併成一步，抽完馬上重抽會被併在一起；`actions.ts` 的 `oneStep` 用共用層的手勢把一次性的動作包起來
+  （動作裡又呼叫動作時只算外面那一步、正在打字的手勢先結束），打字照共用層合併——別的工具有「連按的按鈕要一步一步退」的需求時可以照這個做法（不用改共用層）。
+  劇本排版台的原稿欄照 markdown 讀（scenario-editor 規格 F289），所以「送去劇本排版台」做成一段 markdown（`editorMarkdown`），沒有改劇本排版台；
+  使用者寫的字照劇本排版台 `mdParse` 實際認得的寫法跳脫（會被當成寫法的行首加零寬空格、段落第一行會被猜成別的書式時前面接標籤，plot-deck 規格 3.10），
+  單元測試直接用劇本排版台的 `mdParse` 確認（`tests/unit/plot-deck-model.test.ts`）。
+
 - G10 battlemap（戰鬥地圖產生器，2026-10-30 加 ondras/rot.js 的生成法與地圖尺寸）：沒有改共用層（大地圖的 Worker 用 `@/core/worker`，種子亂數用 `@/core/timeline` 的 `createRandom`）。
   沒有共用的：格局的生成法（`web/src/tools/battlemap/gen/`：房間＋走道、挖掘式〔rot.js Digger〕、均勻房間〔Uniform〕、格狀房間〔Rogue〕、天然洞窟〔Cellular〕、迷宮〔分割法、Eller、蜿蜒〕、
   把分開的地板接起來的隧道 `connect.ts`、散布火光的交點 `lights.ts`）、分階段快取的繪圖器（`mapRenderer.ts`，主執行緒與 `render.worker.ts` 共用）、大地圖的繪製排程（`renderQueue.ts`：Worker 一次畫一張，畫的途中又換了設定時只保留最新的一筆、過期的結果丟掉；2026-10-30 驗證後）——別的工具把重的繪製丟給 Worker、使用者又會連續換設定時可以照這個做法（或搬進 `core/worker`）。
@@ -1010,3 +1024,23 @@ loading-maker 預設（透明）、不透明背景＋預設的結尾動作（最
 | 塗色 | 塗潰し | |
 | 魔法植物 | 魔法植物 | 只出現在「沒有收錄」的說明 |
 
+### 劇本骨架抽卡的名詞（2026-11-15，plot-deck；修正第 1、2 輪改寫）
+
+本站自己的叫法（不用原作 Kadan 的用語的翻譯）；只用在 plot-deck。一般的操作用本站慣用的詞（放大看、套用、隨機、複製一份、檢查、重設），不另外造詞。
+
+| 用這個 | 意思 | 不用 |
+|---|---|---|
+| 餘韻 | 卡的種類：散場後留在 PL 心裡的那種感覺（決定真相與結局的走向） | 體驗的核心 |
+| 焦點（依氣氛換叫法：怪談、倒數、勁敵、牽掛、怪事、舊物；誓約、異兆、燙手山芋、傷痕、心願） | 卡的種類：最能代表這個氣氛的那樣東西 | 氣氛卡、雰囲気のカード 的翻譯 |
+| 導入、障礙、真相、結局、舞台、線索、NPC、關係、秘密 | 卡的種類（通用的 TRPG 用語） | |
+| 題材、氣氛、抽的時候再決定 | 「PC 們要完成的事」「希望桌上的感覺」；沒選時抽卡順便決定 | 交給系統 |
+| 一次抽齊、先挑餘韻、從卡庫挑 | 三種開始的方式 | 隨機抽、照條件抽 |
+| 抽骨架、角色、填答、推理與場景、成品 | 五個步驟 | 回答問題、場景與線索、文件（當步驟名） |
+| 餘韻與收尾、開場與阻礙、幕後與線頭 | 抽骨架與文件的三組卡 | 故事的骨架 |
+| 故事梗概（開場、往前走、幕後〔只給 GM〕、收尾、留給 GM 的空格） | 用抽到的卡串出來的五段 | 劇情大綱的例子 |
+| 重抽、全部重抽、鎖定、自己挑、放大看 | 卡的操作（「鎖定」和 fantasy-gen、npc-names 一致；「放大看」同其他工具） | 從清單挑、打開來看 |
+| 改題材與氣氛：套用、隨機 | 對話框的按鈕與「不指定」的選項 | 就這樣、交給運氣 |
+| 提問、給個例子、改回原本的提問、清空、空白的先放例子 | 每張卡的提問與回答 | 問題、隨機回答、問題還原、清除回答 |
+| 推理題（A、B…）、場景表（#1…）、線索（2-1＝場景 #2 的第 1 條、?-1＝還沒放進場景）、怎麼拿到、指向、檢查、草稿 | 推理與場景 | PL 要查明的事、取得的方法、連到的推理、健檢、N1／S1／C1 |
+| 名字、身分、牽扯的對象、牽連、配角 | 角色 | 稱呼、立場、關係的對象、和真相的關係、追加的 NPC |
+| 我的劇本、複製一份、卡庫、送去劇本排版台、放進新劇本；專案選單的「重設…」（共用） | 清單、全部的卡、匯出 | 劇本清單、另存一份、卡片一覽、劇本排版台的格式、用這張開始、把這份清空… |

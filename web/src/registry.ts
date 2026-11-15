@@ -1077,6 +1077,15 @@ export const TOOLS: readonly ToolEntry[] = [
       url: 'https://github.com/Nuts-ABCd/floria_canvas',
     },
   },
+  {
+    id: 'plot-deck',
+    name: '劇本骨架抽卡',
+    summary:
+      '用卡片拼出 TRPG 劇本的骨架（不限規則系統）：餘韻、導入、障礙、真相、結局、舞台、焦點、線索、NPC 與每位 PC 的關係和秘密；現代與奇幻兩套卡。回答每張卡的提問、把線索放進場景、檢查每道推理題的線索夠不夠，排成一份成品（列印／PDF、HTML、純文字，或送去劇本排版台）。',
+    group: 'G6',
+    status: 'live',
+    inspiration: { name: 'Xelltis エノキ／Kadan', url: 'https://www.xelltis.com/' },
+  },
 ];
 
 export function getTool(id: string): ToolEntry | undefined {
