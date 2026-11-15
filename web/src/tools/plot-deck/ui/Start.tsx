@@ -227,7 +227,7 @@ export function SetupDesk({ sc }: { sc: Scenario }) {
         <Button variant="ghost" icon={<X />} onClick={setupCancel}>
           {S.setup.cancel}
         </Button>
-        <Button variant="primary" icon={<Dices />} onClick={setupDraw}>
+        <Button variant="primary" icon={<Dices />} data-testid="setup-draw" onClick={setupDraw}>
           {S.setup.drawRest}
         </Button>
       </div>
