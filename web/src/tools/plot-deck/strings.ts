@@ -476,6 +476,7 @@ export const S = {
       `${cur ? '這是編輯中的劇本，刪除後回到開始的畫面。' : ''}刪除之後可以用「復原」找回來。`,
     deleted: (t: string) => `已刪除「${t}」`,
     titleLabel: '劇本名',
+    outline: '看骨架（文字）',
     progress: '回答了',
     opened: (t: string) => `打開了「${t}」`,
     pcs: (n: number) => `PC ${n} 人`,

@@ -13,7 +13,7 @@ import {
   startNew,
 } from '../actions';
 import { getDeck } from '../data';
-import { answerProgress, missionToneLabel } from '../model/document';
+import { answerProgress, missionToneLabel, outlineText } from '../model/document';
 import { autoTitle, type Scenario, slotCard, titleOf, toneSlotName } from '../model/scenario';
 import { usePlot, usePrefs } from '../store';
 import { S } from '../strings';
@@ -101,6 +101,12 @@ function Entry({ sc, current }: { sc: Scenario; current: boolean }) {
           <span className="block h-full bg-accent" style={{ width: `${pct}%` }} />
         </span>
       </div>
+      <details className="text-xs" data-testid="library-outline">
+        <summary className="cursor-pointer text-muted">{S.library.outline}</summary>
+        <pre className="mt-1 max-h-60 overflow-auto whitespace-pre-wrap break-words rounded-md bg-surface-2 p-2 font-ui text-xs text-fg">
+          {outlineText(deck, sc)}
+        </pre>
+      </details>
       <div className="flex flex-wrap gap-1.5">
         <Button
           size="sm"
