@@ -307,7 +307,16 @@ test.describe('聊天視窗產生器：2026-11-20 的追加', () => {
     ])
       await expect.poll(() => shown(sel), sel).toBe(false);
     /* 改版容易失效的部分有標籤 */
-    await expect(page.locator('[data-fragile]')).toHaveCount(12);
+    await expect(page.locator('[data-fragile]')).toHaveCount(15);
+    /* 廣告影片：勾選旁與 OBS 說明都提醒會隱藏所有對話框（進房間時先取消） */
+    /* （CSS 的開頭說明也有同樣的句子，所以排除唯讀的 CSS 欄） */
+    const text = (re: RegExp) => page.locator('span, li').filter({ hasText: re });
+    await expect(text(/^會隱藏所有對話框：在 OBS 的「互動」裡進房間/)).toBeVisible();
+    await expect(text(/^勾了「廣告影片」時所有對話框都會被隱藏/)).toBeVisible();
+    await expect(text(/^CCFOLIA 的介面語言不是日文時/)).toBeVisible();
+    const css = await page.getByLabel('目前的 CSS（唯讀）').inputValue();
+    expect(css).toContain('廣告影片的規則會隱藏所有對話框');
+    expect(css).toContain('CCFOLIA 的介面語言不是日文時');
     await page.getByRole('button', { name: '只留盤面' }).click();
     await expect.poll(async () => (await settings(page)).roomHide).toHaveLength(13);
     /* 套用範本不改這裡的設定 */

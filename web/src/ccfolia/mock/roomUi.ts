@@ -1,21 +1,30 @@
 /**
- * 「隱藏介面」預覽用的 CCFOLIA 房間畫面（模擬）。
+ * 模擬 CCFOLIA 的房間畫面（`/rooms/{房間ID}`）裡會被「隱藏介面」消掉的各個部分（chat-window 的「隱藏介面」預覽；
+ * 2026-11-20 新增，修正第 1 輪從工具目錄搬來）。
  *
  * 房間畫面裡盤面、棋子、各種按鈕的結構不在本站的觀察範圍（message-box 規格 3.1.2），這裡的結構是**從
- * roomUi.ts 的選擇器反推**的：每個部分做成一塊標著名字的替身，元素、class、屬性剛好符合那個選擇器，
- * 讓使用者看得出勾了哪些、會消掉哪一塊。和真的 CCFOLIA 是否一致要以 OBS 為準（規格 3.9.3）。
+ * roomPage.ts 的選擇器反推**的：每個部分做成一塊標著名字的替身，元素、class、屬性剛好符合那個選擇器，
+ * 看得出勾了哪些、會消掉哪一塊。和真的 CCFOLIA 是否一致要以 OBS 為準（chat-window 規格 3.9.3）。
+ * 注意：這個替身**故意用真的 `sc-` class 與日文的 aria-label**（選擇器就是靠它們），和 shared.ts 的
+ * 「雜湊 class 用假的值」不同；CCFOLIA 改版時和 roomPage.ts 一起改。
  *
- * 聊天欄用 @/ccfolia/mock 的聊天頁模擬（同一個元件），所以「後面接上聊天視窗的 CSS」時也看得到聊天視窗。
- * 2026-11-20 同時有別的工作在改 @/ccfolia/，先放在工具目錄（之後和 roomUi.ts 的選擇器一起搬，D4）。
+ * 聊天欄用 chat.ts 的聊天頁模擬（同一個元件），所以接上聊天視窗的 CSS 時也看得到聊天視窗。
  */
-import { MESSAGE_BOX } from '@/ccfolia';
-import { mockAvatar, mockDie } from '@/ccfolia/mock/assets';
-import { type ChatScene, createChatScene } from '@/ccfolia/mock/chat';
-import { addStyle, h, type MockScene } from '@/ccfolia/mock/shared';
-import { sampleTabs } from './samples';
+import { MESSAGE_BOX } from '../dom';
+import type { RoomUiPartId } from '../roomPage';
+import { mockAvatar, mockDie } from './assets';
+import { type ChatScene, type ChatSceneState, createChatScene } from './chat';
+import { addStyle, h, type MockScene } from './shared';
 
 /** 預覽的大小（房間畫面常用 16:9；只影響預覽） */
-export const ROOM_PREVIEW_SIZE = { width: 1280, height: 720 } as const;
+export const ROOM_UI_PREVIEW_SIZE = { width: 1280, height: 720 } as const;
+
+export interface RoomUiSceneOptions {
+  /** 每一塊替身標的名字（沒給的用代號；`chat` 標在聊天欄） */
+  labels?: Partial<Record<RoomUiPartId, string>>;
+  /** 聊天欄的內容（chat.ts 的聊天頁模擬） */
+  chat?: Partial<ChatSceneState>;
+}
 
 /** 右邊聊天欄的寬度（模擬） */
 const CHAT_WIDTH = 320;
@@ -93,13 +102,13 @@ const DIE_SRC = 'https://ccfolia.com/images/dice/basic_dice/6_4.png';
 
 export class RoomUiScene implements MockScene {
   readonly chat: ChatScene;
-  private labels: Record<string, string>;
+  private labels: Partial<Record<string, string>>;
   private chatTag: HTMLElement | null = null;
   private chatTagShown = true;
 
-  constructor(labels: Record<string, string>) {
+  constructor({ labels = {}, chat = {} }: RoomUiSceneOptions = {}) {
     this.labels = labels;
-    this.chat = createChatScene({ tabs: sampleTabs(), selected: 0 });
+    this.chat = createChatScene(chat);
   }
 
   /** 聊天欄的名字（接上聊天視窗的 CSS 時不顯示，免得蓋在聊天視窗上） */
@@ -303,3 +312,6 @@ export class RoomUiScene implements MockScene {
     return [header, bg, container, status, timer, mb, cutIn, fab, ad, snack];
   }
 }
+
+export const createRoomUiScene = (options?: RoomUiSceneOptions): RoomUiScene =>
+  new RoomUiScene(options);

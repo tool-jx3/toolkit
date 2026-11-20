@@ -34,8 +34,9 @@ SOFTWARE.
 
 yudukiak/ccfoliaCSS（https://github.com/yudukiak/ccfoliaCSS，commit a3e1365，2026-07-16，對應 CCFOLIA v1.36.2）
 
-適用於 2026-11-20 參考 CSS/asset/*.css 的分類與選擇器改寫的「隱藏介面」：`roomUi.ts`（要隱藏的部分、選擇器、只留盤面的勾選）
-與預覽用的 `roomMock.ts`（依這些選擇器做的模擬房間畫面）。和 ngo1009db-hub/ccfolia-obs-css（沒有授權）不同的選擇器，只是照它記錄的
+適用於 2026-11-20 參考 CSS/asset/*.css 的分類與選擇器改寫的「隱藏介面」：共用的 `web/src/ccfolia/roomPage.ts`（要隱藏的部分與選擇器）、
+`web/src/ccfolia/mock/roomUi.ts`（預覽用、依這些選擇器做的模擬房間畫面），以及這個工具的 `roomUi.ts`（只留盤面的勾選、產生 CSS）。
+和 ngo1009db-hub/ccfolia-obs-css（沒有授權）不同的選擇器，只是照它記錄的
 CCFOLIA 1.36.4 的頁面結構（外部事實）挑比較新的寫法，沒有沿用它的程式或文字。
 
 MIT License

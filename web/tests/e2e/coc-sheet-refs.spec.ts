@@ -85,6 +85,40 @@ test.describe('參照式聊天面板', () => {
     expect(errors).toEqual([]);
   });
 
+  test('寫不進參數的名稱：大括號、重複、和狀態同名（技能表第 10～12 列）', async ({ page }) => {
+    const errors = await open(page);
+    await refs(page).click();
+    await page.getByRole('tab', { name: '技能', exact: true }).click();
+    /*
+     * 第 10、11 列是空白列（沒有初始值）：名稱之外還要有技能值或點數才會輸出（和沒開時相同，3.7）。
+     * 先填技能值（欄位的名稱是「第 n 列」），再改名稱。第 12 列是「鎖匠」（初始 1）。
+     */
+    await field(page, '技能值（第 10 列）').fill('30');
+    await field(page, '技能名稱（第 10 列）').fill('{x}');
+    await field(page, '技能值（第 11 列）').fill('40');
+    await field(page, '技能名稱（第 11 列）').fill('偵查');
+    await field(page, '技能名稱（第 12 列）').fill('san');
+    await expect(page.getByTestId('refs-skipped')).toHaveText(
+      '這些技能沒寫進參數，聊天面板照舊寫數字：{x}（名稱有大括號）、san（和屬性、狀態同名）、偵查（名稱重複）。',
+    );
+    const data = await copied(page);
+    const lines = data.commands.split('\n');
+    expect(lines).toContain('CC<=30 {x}');
+    expect(lines).toContain('CC<=1 san');
+    /* 第 11 列的「偵查」在前面，寫進參數；預設的「偵查」（第 54 列，初始 25）重複，寫數字 */
+    expect(lines).toContain('CC<={偵查} 偵查');
+    expect(lines).toContain('CC<=25 偵查');
+    const params = data.params.map(
+      (p: { label: string; value: string }) => `${p.label}=${p.value}`,
+    );
+    expect(params).toContain('偵查=40');
+    expect(params.filter((p: string) => p.startsWith('偵查='))).toHaveLength(1);
+    expect(
+      params.some((p: string) => p.startsWith('{x}') || p.toUpperCase().startsWith('SAN=')),
+    ).toBe(false);
+    expect(errors).toEqual([]);
+  });
+
   test('新增的角色卡跟著目前的；重新整理後還在', async ({ page }) => {
     const errors = await open(page);
     await refs(page).click();

@@ -5,13 +5,13 @@ import { RotateCcw } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { chatUrlFrom, roomUrlFrom } from '@/ccfolia';
 import { createChatScene } from '@/ccfolia/mock/chat';
+import { createRoomUiScene, ROOM_UI_PREVIEW_SIZE } from '@/ccfolia/mock/roomUi';
 import { Button, Field, Notice, Section, Segmented } from '@/ui';
 import { CssExportPanel, SourceUrlField } from '@/ui/CssExport';
 import { CssPreviewFrame } from '@/ui/CssPreviewFrame';
 import { MessageComposer } from '@/ui/MessageComposer';
 import { TextRow, useSettings } from './controls';
 import { buildChatCss } from './css';
-import { ROOM_PREVIEW_SIZE, RoomUiScene } from './roomMock';
 import { buildRoomCss } from './roomUi';
 import {
   customMessage,
@@ -40,7 +40,10 @@ export const scene = createChatScene({
 });
 
 /** 「隱藏介面」分頁的預覽：模擬的房間畫面（聊天欄是聊天頁的模擬，接上聊天視窗的 CSS 時看得到） */
-export const roomScene = new RoomUiScene(S.room.parts);
+export const roomScene = createRoomUiScene({
+  labels: S.room.parts,
+  chat: { tabs: sampleTabs(), selected: 0 },
+});
 
 /** 測試訊息各種類已送出的次數（輪流使用範例） */
 const sent: Record<TestKind, number> = {
@@ -264,8 +267,8 @@ function RoomPreview({ onGotoRoom }: { onGotoRoom: () => void }) {
     <>
       <StatusLine />
       <CssPreviewFrame
-        width={ROOM_PREVIEW_SIZE.width}
-        height={ROOM_PREVIEW_SIZE.height}
+        width={ROOM_UI_PREVIEW_SIZE.width}
+        height={ROOM_UI_PREVIEW_SIZE.height}
         css={css}
         scene={roomScene}
         maxHeight={620}

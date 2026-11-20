@@ -477,6 +477,21 @@ describe('參照式聊天面板（palette，2026-11-20）', () => {
     ]);
   });
 
+  it('全形與半形當成不同的名稱（不做全形轉半形）', async () => {
+    const { assignParamLabels } = await import('@/core/coc');
+    const r = assignParamLabels(
+      [
+        { id: 'a', name: 'ＳＴＲ' },
+        { id: 'b', name: 'Ａ' },
+        { id: 'c', name: 'A' },
+        { id: 'd', name: 'ａ' },
+      ],
+      ['STR'],
+    );
+    expect([...r.labels.values()]).toEqual(['ＳＴＲ', 'Ａ', 'A']);
+    expect(r.skipped).toEqual([{ id: 'd', name: 'ａ', reason: 'duplicate' }]);
+  });
+
   it('算式裡獨立的名稱換成參照（大小寫不拘，已經在大括號裡的、接在英數字後面的不換）', async () => {
     const { referenceNames } = await import('@/core/coc');
     const names = ['STR', 'SIZ', 'HP', 'MP'];

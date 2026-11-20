@@ -672,6 +672,9 @@ export function RoomPanel() {
                       {S.room.boardOutlineHint}
                     </span>
                   ) : null}
+                  {p.id === 'ads' ? (
+                    <span className="w-full pl-6.5 text-xs text-muted">{S.room.adsHint}</span>
+                  ) : null}
                   {merged ? (
                     <span className="w-full pl-6.5 text-xs text-muted">{S.room.chatMerged}</span>
                   ) : null}
@@ -698,7 +701,13 @@ export function RoomPanel() {
           obs={s.roomMerge ? { version: 31 } : null}
           multipleSources
           disclaimer={S.usage.disclaimer}
-        />
+        >
+          {s.roomHide.includes('ads') ? (
+            <ul className="m-0 flex list-disc flex-col gap-1 pl-5 text-muted">
+              <li>{S.room.guideAds}</li>
+            </ul>
+          ) : null}
+        </ObsGuide>
       </Section>
     </div>
   );

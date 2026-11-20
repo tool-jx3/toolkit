@@ -49,7 +49,7 @@ describe('部分的清單（ccfoliaCSS 的分類＋盤面的外框線）', () =>
     expect(roomPart('boardOutline').decls).toEqual({ outline: 'unset' });
   });
 
-  it('容易失效的：自動產生的 class、日文的按鈕名稱、行內樣式的寫法', () => {
+  it('容易失效的（15 項）：自動產生的 class、日文的按鈕名稱、行內樣式的寫法、位置', () => {
     expect(fragileParts([...ROOM_PART_IDS])).toEqual([
       'background',
       'foreground',
@@ -59,11 +59,18 @@ describe('部分的清單（ccfoliaCSS 的分類＋盤面的外框線）', () =>
       'diceSymbol',
       'board',
       'boardOutline',
+      'messageBox',
       'rollingDice',
       'status',
+      'bgm',
       'zoom',
       'ctrlDrag',
+      'edit',
     ]);
+    /* 訊息框也靠日文的 aria-label（メッセージ）；BGM、編輯按鈕靠位置（第 3 個子元素、沒有 class 的包裝） */
+    expect(roomPart('messageBox').basis).toBe('label');
+    expect(roomPart('bgm').basis).toBe('position');
+    expect(roomPart('edit').basis).toBe('position');
   });
 
   it('一鍵勾選與預設（只留盤面＝ccfoliaCSS 的盤面那組）', () => {
@@ -110,6 +117,14 @@ describe('隱藏介面的 CSS', () => {
     expect(room(['boardOutline'])).toContain('outline: unset !important;');
     /* 沒勾的不輸出 */
     expect(room(['ads'])).not.toContain('MuiDrawer');
+  });
+
+  it('開頭說明：有靠日文按鈕名稱的部分時提醒介面語言；有廣告影片時提醒會隱藏所有對話框', () => {
+    expect(room(['messageBox'])).toContain('CCFOLIA 的介面語言不是日文時');
+    expect(room(['zoom'])).toContain('CCFOLIA 的介面語言不是日文時');
+    expect(room(['header'])).not.toContain('介面語言');
+    expect(room(['ads'])).toContain('廣告影片的規則會隱藏所有對話框');
+    expect(room(['header'])).not.toContain('對話框');
   });
 
   it('全部勾選時每個部分的選擇器都在；大括號成對、註解沒有提早結束', () => {
