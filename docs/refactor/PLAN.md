@@ -57,7 +57,7 @@
 | acrylic-goods | 壓克力周邊工房 | sotsotssi/acrylic-goods | MIT | G7 |
 | video-anim | 影片轉動圖工具 | sotsotssi/video-to-pic | MIT | G8 |
 | gif-combiner | GIF 接合器 | sotsotssi/GIF-Combiner | MIT | G8 |
-| music-frame | 音樂播放畫面產生器 | zZnaptime/MVmaker（原 zznaptime/1007mv） | 未授權 | G8 |
+| music-frame | 音樂播放畫面產生器 | zZnaptime/MVmaker（原 zznaptime/1007mv；2026-11 起不公開，頁尾連到作者的 GitHub） | 未授權 | G8 |
 | battlemap | 戰鬥地圖產生器 | usagineko7865-debug/battlemap-generator（2026-10-30 起格局另參考 ondras/rot.js） | MIT（rot.js：BSD-3-Clause） | G10（原 G8） |
 | trpg-lab | 違法建築的 TRPG 實驗室（9 個子工具＋地圖編輯器） | ihoukentiku | MIT | G9 |
 | anime-rig | Anime2.5DRig | 852wa/Anime2.5DRig | MIT | G9 |
@@ -350,3 +350,4 @@ music-frame 的原作搬到 zZnaptime/MVmaker（功能沒變），連結已修�
 - **還原度**：靠行為規格＋並排比對控制；無法完全一致的地方要在規格的對等紀錄裡寫明理由並經確認。
 - **語言**：重寫後只有繁體中文；日、韓文使用者會失去原文介面（已確認）。
 - **授權特別注意**：くま。的工具等明文禁止複製工具本體：只參考功能與做法，程式用本專案的元件自己寫，素材與文字不沿用。
+  くま。的利用規約 2026-11-19 加了「請不要用 AI 或其他工具複製本站的程式」：使用者 2026-11-20 決定做法照舊（只參考功能、用本站的結構與元件自己改寫，不複製），已上線的 10 個工具不另外處理。

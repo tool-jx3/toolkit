@@ -58,7 +58,7 @@
 | `ccfolia-cropper` | 立繪裁切器 | [kimtaehee2018-maker/ccfolia-cropper](https://github.com/kimtaehee2018-maker/ccfolia-cropper) | `b8a22a1` |
 | `icon-maker` | 簡易頭像產生器 | [くま。／TRPG WEBツール観測所](https://kumachansteps.github.io/trpg-web-tools/)（`kantan-icon-maker`） | `b8a22a1` |
 | `variant-manager` | 角色差分管理器 | [くま。／TRPG WEBツール観測所](https://kumachansteps.github.io/trpg-web-tools/)（`chara-sabun-kanri-tool`） | `b8a22a1` |
-| `color-palette` | 角色配色條產生器 | [sotsotssi/CharColorPalette](https://github.com/sotsotssi/CharColorPalette)、[saturn97v/Color-shelf](https://github.com/saturn97v/Color-shelf)（캐릭터 컬러 정리함，色票櫃的功能參考，未授權）、[dearmysn1p3r/Colorpalettecard_Maker](https://github.com/dearmysn1p3r/Colorpalettecard_Maker)（配色卡的功能參考，未授權） | `b8a22a1` |
+| `color-palette` | 角色配色條產生器 | [sotsotssi/CharColorPalette](https://github.com/sotsotssi/CharColorPalette)、[saturn97v/Color-shelf](https://github.com/saturn97v/Color-shelf)（캐릭터 컬러 정리함，色票櫃的功能參考；2026-11-15 加了 All rights reserved 的作者條款）、[dearmysn1p3r/Colorpalettecard_Maker](https://github.com/dearmysn1p3r/Colorpalettecard_Maker)（配色卡的功能參考，未授權） | `b8a22a1` |
 | `typewriter` | 打字機動畫產生器 | [sotsotssi/Typewriter-apng](https://github.com/sotsotssi/Typewriter-apng) | `b8a22a1` |
 | `height-board` | 立繪身高比較板 | [woolwag3338/character-height-board](https://github.com/woolwag3338/character-height-board) | `b8a22a1` |
 | `emotion-maker` | 表情產生器 | [sotsotssi/emotion-maker](https://github.com/sotsotssi/emotion-maker) | `b8a22a1` |
@@ -84,7 +84,7 @@
 | `pair-maker` | 角色介紹圖產生器 | [baegop157902/PairMaker](https://github.com/baegop157902/PairMaker) | `83fd605` |
 | `character-select` | 選角畫面產生器 | [sotsotssi/select-your-chara](https://github.com/sotsotssi/select-your-chara) | `83fd605` |
 | `acrylic-goods` | 壓克力周邊工房 | [sotsotssi/acrylic-goods](https://github.com/sotsotssi/acrylic-goods) | `83fd605` |
-| `music-frame` | 音樂播放畫面產生器 | [zZnaptime/MVmaker](https://github.com/zZnaptime/MVmaker)（未授權） | —（新收錄，沒有舊版） |
+| `music-frame` | 音樂播放畫面產生器 | [zZnaptime／MVmaker](https://github.com/zZnaptime)（未授權；原作的 repo 2026-11 起不公開，連到作者的 GitHub） | —（新收錄，沒有舊版） |
 | `bg-remover` | 立繪去背工具 | [SkyTNT/anime-segmentation](https://github.com/SkyTNT/anime-segmentation)（Apache-2.0） | —（新收錄，沒有舊版） |
 | `coc-dice` | CoC 擲骰工具 | [ihoukentiku/ihoukentiku.github.io](https://github.com/ihoukentiku/ihoukentiku.github.io)（MIT；舊版 trpg-lab 的擲骰頁與 BCDice 傷害加總頁合併） | `6957b28` |
 | `coc-npc` | CoC NPC 產生器 | [ihoukentiku/ihoukentiku.github.io](https://github.com/ihoukentiku/ihoukentiku.github.io)（MIT；舊版 trpg-lab 的 NPC 頁） | `6957b28` |
@@ -185,7 +185,7 @@
 
 `bg-motion` 的「圖片切換」模式（2026-10）參考 utiyoso 的きりかえメーカー（commit `0e166ef`，沒有授權條款）的功能、效果的畫法與數值（同樣的圖片與設定，時間軸、每一格的時間與畫面和原作相同），程式、介面文字與範例圖由本站自做。
 
-`color-palette` 的「色票櫃」與「配色卡」（2026-10）參考兩個沒有授權條款的原作：saturn97v/Color-shelf（commit `24acb0f`）的圓形頭像、髮色瞳色、依色系排序的總覽與個人色碼表，以及 dearmysn1p3r/Colorpalettecard_Maker（commit `8664995`）的 k-means 自動取色、照片色票卡、混色帶與 GIF。只照功能、選項與數值範圍（色系的分界、k-means 的輪數與取樣大小、卡片的比例等），程式、版面、介面文字、範例角色與頭像剪影由本站自做；驗證時發現幾個取色函式、色碼表的版面與配色卡的幾段繪圖太接近原作的寫法，都已改用本站自己的做法與版面重寫。繁中色名表由本站自訂（用 OKLCH 數值定義每個色名），沒有使用原作的英文色名表。原本的配色條仍參考 sotsotssi/CharColorPalette（MIT）改寫，頁尾的靈感來源維持它。
+`color-palette` 的「色票櫃」與「配色卡」（2026-10）參考兩個沒有開放授權的原作：saturn97v/Color-shelf（commit `24acb0f`；當時沒有授權條款，2026-11-15 加了 All rights reserved、請勿複製與改作後再散布的作者條款）的圓形頭像、髮色瞳色、依色系排序的總覽與個人色碼表，以及 dearmysn1p3r/Colorpalettecard_Maker（commit `8664995`）的 k-means 自動取色、照片色票卡、混色帶與 GIF。只照功能、選項與數值範圍（色系的分界、k-means 的輪數與取樣大小、卡片的比例等），程式、版面、介面文字、範例角色與頭像剪影由本站自做；驗證時發現幾個取色函式、色碼表的版面與配色卡的幾段繪圖太接近原作的寫法，都已改用本站自己的做法與版面重寫。繁中色名表由本站自訂（用 OKLCH 數值定義每個色名），沒有使用原作的英文色名表。原本的配色條仍參考 sotsotssi/CharColorPalette（MIT）改寫，頁尾的靈感來源維持它。
 
 `lyric-fx` 照新工具引入流程直接在新框架做：原作（commit `d3c4f8d`）是 GPL-3.0 的 Windows 桌面程式，和本站的 MIT 不相容，所以只參考歌詞演出的效果、數值與規則（打字間隔、殘影的淡出與上飄、抖動、排位置與避開區域的規則），程式全部由本站自己寫；排位置的模組在驗證時發現逐行對應原作，已由沒看過原作的實作者依規格以無塵室方式重寫，並由驗證者逐函式比對確認不再對應。原作附的字型不沿用，介面不使用原作模仿的遊戲名稱。
 
