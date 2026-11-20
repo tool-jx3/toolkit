@@ -19,6 +19,7 @@ import {
   type Portrait,
   placePortrait,
   portraitWidth,
+  replacePortraitImage,
   resizePortrait,
   usePreview,
 } from './previewStore';
@@ -30,11 +31,18 @@ const setPortrait = (p: Portrait | null) =>
     d.portrait = p;
   });
 
-/** 圖片 id → 網址；讀不回來時是 null（undefined＝還在讀） */
+/**
+ * 圖片 id → 網址；讀不回來時是 null（undefined＝還在讀）。
+ * id 拿掉時把記住的網址也丟掉：拿掉立繪時資產庫會釋放那個網址，之後再加入同一張圖（同一個 id）要重新要一個，
+ * 不然會先拿已經釋放的網址去載（主控台出現 ERR_FILE_NOT_FOUND）。
+ */
 export function useAssetUrl(id: string | null | undefined): string | null | undefined {
   const [state, setState] = useState<{ id: string; url: string | null } | null>(null);
   useEffect(() => {
-    if (!id) return;
+    if (!id) {
+      setState(null);
+      return;
+    }
     let alive = true;
     assets.url(id).then(
       (url) => alive && setState({ id, url: url ?? null }),
@@ -68,6 +76,16 @@ export function PortraitImage({ portrait, url }: { portrait: Portrait; url: stri
     </div>
   );
 }
+
+/**
+ * 觸控（pointer: coarse）時角的控點的可點範圍往外擴 6 px（螢幕 px，用 Stage 的倍率換算），約 26 px；外觀不變。
+ * 控點是按鈕（定位元素），擴的是它的 ::after，點到那裡就是點到控點。
+ */
+const HANDLE_HIT = [
+  '[@media(pointer:coarse)]:[&_[data-layout-handle]]:after:absolute',
+  '[@media(pointer:coarse)]:[&_[data-layout-handle]]:after:inset-[calc(-6px/var(--stage-scale,1))]',
+  '[@media(pointer:coarse)]:[&_[data-layout-handle]]:after:rounded-full',
+].join(' ');
 
 /** 放在 Stage 裡、canvas 之後：拖曳、拖角調大小、方向鍵 */
 export function PortraitHandles({
@@ -114,6 +132,7 @@ export function PortraitHandles({
       nudgeStep={0.5}
       nudgeShiftStep={5}
       guides={false}
+      className={HANDLE_HIT}
     />
   );
 }
@@ -142,11 +161,8 @@ export function PortraitControls({
     try {
       const { ref, persisted } = await addImageFile(assets, file, { maxSide: 2048 });
       const prev = usePreview.getState().data.portrait;
-      setPortrait(
-        prev
-          ? resizePortrait({ ...prev, id: ref.id, aspect: ref.width / ref.height }, prev.height)
-          : newPortrait(ref.id, ref.width / ref.height),
-      );
+      const aspect = ref.width / ref.height;
+      setPortrait(prev ? replacePortraitImage(prev, ref.id, aspect) : newPortrait(ref.id, aspect));
       onSelect(true);
       if (!persisted) setNote({ tone: 'warning', text: S.portrait.notSaved });
       void assets.gc(keptAssetIds());
@@ -181,20 +197,7 @@ export function PortraitControls({
       />
       {portrait ? (
         <>
-          <div className="flex min-w-40 flex-1 items-center gap-2">
-            <span className="shrink-0 text-xs text-muted">{S.portrait.size}</span>
-            <Slider
-              className="min-w-0 flex-1"
-              value={Math.round(portrait.height)}
-              min={PORTRAIT_HEIGHT.min}
-              max={PORTRAIT_HEIGHT.max}
-              step={PORTRAIT_HEIGHT.step}
-              unit="%"
-              aria-label={S.portrait.sizeLabel}
-              onChange={(v) => setPortrait(resizePortrait(portrait, v))}
-            />
-          </div>
-          <div className="flex items-center gap-1">
+          <div className="ml-auto flex items-center gap-1">
             <IconButton
               label={S.portrait.move}
               icon={<Move />}
@@ -222,6 +225,20 @@ export function PortraitControls({
                 setNote(null);
                 void assets.gc(keptAssetIds());
               }}
+            />
+          </div>
+          {/* 大小自己一行：320 寬時滑桿也有約 130 px */}
+          <div className="flex w-full min-w-0 items-center gap-2">
+            <span className="shrink-0 text-xs text-muted">{S.portrait.size}</span>
+            <Slider
+              className="min-w-0 flex-1"
+              value={Math.round(portrait.height)}
+              min={PORTRAIT_HEIGHT.min}
+              max={PORTRAIT_HEIGHT.max}
+              step={PORTRAIT_HEIGHT.step}
+              unit="%"
+              aria-label={S.portrait.sizeLabel}
+              onChange={(v) => setPortrait(resizePortrait(portrait, v))}
             />
           </div>
         </>

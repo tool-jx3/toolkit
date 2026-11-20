@@ -454,6 +454,14 @@ function portraitPng(): Buffer {
   );
 }
 
+/** 橫長的圖（60 × 20 的 PNG；換一張時長寬比不同） */
+function widePng(): Buffer {
+  return Buffer.from(
+    'iVBORw0KGgoAAAANSUhEUgAAADwAAAAUCAYAAADRA14pAAAAMElEQVR42u3PAQkAAAjAMIPZH1tpC0HZ4QEWIellldnXBwYGBgYGBgYGBgZeAEs3G9Yolw9R1mMVAAAAAElFTkSuQmCC',
+    'base64',
+  );
+}
+
 type PreviewState = {
   background: string;
   backgroundImage: string | null;
@@ -461,14 +469,24 @@ type PreviewState = {
 };
 const previewState = (page: Page) => hook<PreviewState>(page, '(t) => t.previewState()');
 
-async function addPortrait(page: Page) {
+async function addPortrait(page: Page, buffer = portraitPng(), button = '加入立繪') {
   const [chooser] = await Promise.all([
     page.waitForEvent('filechooser'),
-    page.getByRole('button', { name: '加入立繪' }).click(),
+    page.getByRole('button', { name: button }).click(),
   ]);
-  await chooser.setFiles({ name: 'pc.png', mimeType: 'image/png', buffer: portraitPng() });
+  await chooser.setFiles({ name: 'pc.png', mimeType: 'image/png', buffer });
   await expect(page.getByTestId('st-portrait')).toBeVisible();
 }
+
+/** 立繪的左右中心、腳底、高度（畫面的百分比） */
+const portraitAnchor = (p: PreviewState['portrait']) =>
+  p
+    ? [
+        Math.round((p.x + (p.height * p.aspect * 9) / 16 / 2) * 100) / 100,
+        Math.round((p.y + p.height) * 100) / 100,
+        Math.round(p.height * 100) / 100,
+      ]
+    : null;
 
 test.describe('剪影（E54～E57）', () => {
   test.use({ contextOptions: { reducedMotion: 'reduce' }, viewport: { width: 1280, height: 900 } });
@@ -510,8 +528,11 @@ test.describe('剪影（E54～E57）', () => {
     await page.getByRole('radio', { name: '從中心' }).click();
     await expect(page.getByRole('slider', { name: '中心（左右位置）' })).toBeVisible();
 
+    await expect(page.getByRole('switch', { name: '反向順序' })).toBeVisible();
     await chooseEffect(page, '眨眼');
     await expect(page.getByRole('combobox', { name: '閉合方式' })).toHaveText('先眨一下');
+    /* 眨眼沒有先後：反向順序不出現（F40） */
+    await expect(page.getByRole('switch', { name: '反向順序' })).toHaveCount(0);
     await expect(page.getByRole('slider', { name: '眼皮弧度' })).toHaveAttribute(
       'aria-valuenow',
       '50',
@@ -520,6 +541,7 @@ test.describe('剪影（E54～E57）', () => {
     await expect(page.getByTestId('st-seed')).toHaveCount(0);
 
     await chooseEffect(page, '蝙蝠群');
+    await expect(page.getByRole('switch', { name: '反向順序' })).toBeVisible();
     await expect(page.getByRole('combobox', { name: '飛來的方式' })).toHaveText('從下方湧上');
     await expect(page.getByRole('slider', { name: '橫向隻數' })).toHaveAttribute(
       'aria-valuenow',
@@ -687,6 +709,97 @@ test.describe('預覽的立繪', () => {
     );
     expect(errors).toEqual([]);
   });
+
+  test('換一張長寬比不同的立繪：左右中心、腳底、高度不變（F77）', async ({ page }) => {
+    const errors = await open(page);
+    await addPortrait(page);
+    /* 移到左邊一點、往上一點、改小 */
+    await page.getByRole('spinbutton', { name: '立繪大小' }).fill('60');
+    await page.getByRole('spinbutton', { name: '立繪大小' }).press('Enter');
+    const select = page.getByRole('button', { name: '選取立繪（可以用方向鍵移動）' });
+    if ((await select.getAttribute('aria-pressed')) !== 'true') await select.click();
+    /* 焦點離開數字欄（方向鍵在數字欄裡是改數字） */
+    await select.focus();
+    await expect(select).toHaveAttribute('aria-pressed', 'true');
+    for (let i = 0; i < 3; i++) await page.keyboard.press('Shift+ArrowLeft');
+    await page.keyboard.press('Shift+ArrowUp');
+    await expect
+      .poll(async () => portraitAnchor((await previewState(page)).portrait))
+      .toEqual([35, 95, 60]);
+    const tall = (await previewState(page)).portrait;
+    /* 換成橫長的圖：中心、腳底、高度不變，長寬比換掉 */
+    await addPortrait(page, widePng(), '換一張立繪');
+    await expect.poll(async () => (await previewState(page)).portrait?.aspect).toBe(3);
+    expect(portraitAnchor((await previewState(page)).portrait)).toEqual([35, 95, 60]);
+    /* 換回直長的圖：回到原本的位置 */
+    await addPortrait(page, portraitPng(), '換一張立繪');
+    await expect.poll(async () => (await previewState(page)).portrait?.aspect).toBe(0.5);
+    expect((await previewState(page)).portrait).toEqual(tall);
+    expect(errors).toEqual([]);
+  });
+
+  test('背景圖 → 加入立繪 → 拿掉 → 換背景 → 再加入同一張立繪：主控台沒有錯誤', async ({ page }) => {
+    const errors = await open(page);
+    const png = Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFBQIAX8jx0gAAAABJRU5ErkJggg==',
+      'base64',
+    );
+    const [chooser] = await Promise.all([
+      page.waitForEvent('filechooser'),
+      page.getByRole('radio', { name: '背景圖（只供預覽）' }).click(),
+    ]);
+    await chooser.setFiles({ name: 'bg.png', mimeType: 'image/png', buffer: png });
+    await expect.poll(async () => (await previewState(page)).backgroundImage).not.toBeNull();
+    await addPortrait(page);
+    await page.getByRole('button', { name: '拿掉立繪' }).click();
+    await expect(page.getByTestId('st-portrait')).toHaveCount(0);
+    await page.getByRole('radio', { name: '白色背景' }).click();
+    await page.getByRole('radio', { name: '背景圖（只供預覽）' }).click();
+    await addPortrait(page);
+    /* 立繪真的載入了（不是已經釋放的網址） */
+    await expect
+      .poll(() =>
+        page
+          .getByTestId('st-portrait')
+          .evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth),
+      )
+      .toBe(20);
+    expect(errors).toEqual([]);
+  });
+});
+
+test.describe('觸控的立繪控點', () => {
+  test.use({
+    contextOptions: { reducedMotion: 'reduce' },
+    viewport: { width: 390, height: 844 },
+    hasTouch: true,
+    isMobile: true,
+  });
+
+  test('pointer: coarse 時角的控點的可點範圍約 26 px（外觀照舊 14 px）', async ({ page }) => {
+    const errors = await open(page);
+    expect(await page.evaluate(() => matchMedia('(pointer: coarse)').matches)).toBe(true);
+    await addPortrait(page);
+    await page.getByRole('spinbutton', { name: '立繪大小' }).fill('50');
+    await page.getByRole('spinbutton', { name: '立繪大小' }).press('Enter');
+    await expect.poll(async () => (await previewState(page)).portrait?.height).toBe(50);
+    const handle = page.locator('[data-layout-handle="nw"]');
+    const box = await handle.boundingBox();
+    if (!box) throw new Error('沒有控點');
+    expect(Math.round(box.width)).toBe(14);
+    const cx = box.x + box.width / 2;
+    const cy = box.y + box.height / 2;
+    /* 控點外 10 px（圓形的可點範圍半徑約 13 px）還是點到控點；20 px 外就不是 */
+    const hit = (dx: number, dy: number) =>
+      page.evaluate(
+        ([x, y]) => !!document.elementFromPoint(x, y)?.closest('[data-layout-handle="nw"]'),
+        [cx + dx, cy + dy] as const,
+      );
+    expect(await hit(-10, 0)).toBe(true);
+    expect(await hit(0, -10)).toBe(true);
+    expect(await hit(-20, 0)).toBe(false);
+    expect(errors).toEqual([]);
+  });
 });
 
 test.describe('預覽播放', () => {
@@ -750,6 +863,11 @@ test.describe('版面', () => {
       const errors = await open(page);
       await addPortrait(page);
       await noHorizontalScroll(page);
+      /* 立繪大小的滑桿自己一行，320 寬時也至少約 120 px */
+      const track = await page
+        .getByRole('slider', { name: '立繪大小' })
+        .evaluate((thumb) => thumb.closest('.touch-none')?.getBoundingClientRect().width ?? 0);
+      expect(track, `${width} 寬的滑桿`).toBeGreaterThanOrEqual(120);
       await chooseEffect(page, '眨眼');
       await noHorizontalScroll(page);
       await chooseEffect(page, '蝙蝠群');

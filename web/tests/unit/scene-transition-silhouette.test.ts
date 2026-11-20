@@ -12,6 +12,7 @@ import {
   applyEffect,
   exportFileName,
   normalizeSettings,
+  showsReverseOrder,
   silhouetteParams,
   visibleFields,
 } from '@/tools/scene-transition/model';
@@ -21,6 +22,7 @@ import {
   PORTRAIT_HEIGHT,
   placePortrait,
   portraitWidth,
+  replacePortraitImage,
   resizePortrait,
 } from '@/tools/scene-transition/previewStore';
 import { blurCoverage, Rasterizer } from '@/tools/scene-transition/raster';
@@ -154,6 +156,10 @@ describe('E54～E57：效果與分類', () => {
       'option',
       'seed',
     ]);
+  });
+
+  it('反向順序只有眨眼不出現（E01～E53 一律出現）', () => {
+    for (const e of EFFECTS) expect(showsReverseOrder({ effect: e.id }), e.id).toBe(e.id !== 'E56');
   });
 
   it('數量的範圍、形狀選項與存檔修正', () => {
@@ -411,6 +417,34 @@ describe('預覽的立繪（F74～F78）', () => {
     const far = placePortrait({ ...p, x: 500, y: -500 });
     expect(far.x + portraitWidth(far) / 2).toBeCloseTo(100, 9);
     expect(far.y + far.height / 2).toBeCloseTo(0, 9);
+  });
+
+  it('換一張長寬比不同的圖：左右中心、腳底、高度不變（夾住時以夾住為準）', () => {
+    const expectSame = (a: number[], b: number[]) => {
+      for (let i = 0; i < a.length; i++) expect(a[i]).toBeCloseTo(b[i], 9);
+    };
+    const anchor = (p: ReturnType<typeof newPortrait>) => [
+      p.x + portraitWidth(p) / 2,
+      p.y + p.height,
+      p.height,
+    ];
+    /* 100 × 200（0.5）中心 50% → 300 × 100（3）→ 換回 */
+    const tall = newPortrait('a', 0.5);
+    const wide = replacePortraitImage(tall, 'b', 3);
+    expect(wide.id).toBe('b');
+    expect(wide.aspect).toBe(3);
+    expectSame(anchor(wide), anchor(tall));
+    const back = replacePortraitImage(wide, 'a', 0.5);
+    expectSame(anchor(back), anchor(tall));
+    /* 中心在左緣（0%）、改小、往上：換成寬圖仍在 0% */
+    const edge = placePortrait({
+      ...resizePortrait(tall, 60),
+      x: -portraitWidth({ aspect: 0.5, height: 60 }) / 2,
+      y: 20,
+    });
+    const edgeWide = replacePortraitImage(edge, 'b', 3);
+    expectSame(anchor(edgeWide), anchor(edge));
+    expect(anchor(edgeWide)[0]).toBeCloseTo(0, 9);
   });
 
   it('存下的值讀回時修正（背景的種類、沒有圖時的背景圖、立繪的數字）', () => {

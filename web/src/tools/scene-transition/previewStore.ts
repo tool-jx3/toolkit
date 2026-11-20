@@ -117,6 +117,16 @@ export function resizePortrait(p: Portrait, height: number): Portrait {
   return placePortrait({ ...p, height: h, x: cx - width / 2, y: bottom - h });
 }
 
+/**
+ * 換一張圖：用舊的長寬比算出原本的左右中心與腳底，換成新的長寬比後保持中心、腳底與高度（再照夾住的規則）。
+ */
+export function replacePortraitImage(p: Portrait, id: string, aspect: number): Portrait {
+  const cx = p.x + portraitWidth(p) / 2;
+  const bottom = p.y + p.height;
+  const width = portraitWidth({ aspect, height: p.height });
+  return placePortrait({ ...p, id, aspect, x: cx - width / 2, y: bottom - p.height });
+}
+
 /* 開頁時修正存下的值 */
 {
   const cur = usePreview.getState().data;

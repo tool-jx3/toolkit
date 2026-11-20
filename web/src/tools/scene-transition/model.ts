@@ -272,6 +272,13 @@ function silhouetteFields(shape: SilhouetteShape, s: Settings): ShapeField[] {
   return out;
 }
 
+/**
+ * 「反向順序」要不要出現（規格 F40、F22）：只有眨眼（E56）不出現——兩片眼皮同時闔上，沒有先後可以顛倒。
+ * 隱藏時值照樣保留；其他效果（含 E01～E53）一律出現，和以前相同。
+ */
+export const showsReverseOrder = (s: Pick<Settings, 'effect'>): boolean =>
+  effectById(s.effect).shape !== 'blink';
+
 /** 這個效果是不是剪影（花瓣、羽毛、眨眼、蝙蝠群） */
 export const isSilhouetteEffect = (id: string): boolean => isSilhouetteShape(effectById(id).shape);
 

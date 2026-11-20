@@ -22,7 +22,7 @@ import {
 } from '@/ui';
 import { CATEGORIES, EFFECTS, effectById } from './effects';
 import { CAPTION_FONTS, CUSTOM_FONT, FONT_GROUPS } from './fonts';
-import { isSilhouetteEffect, visibleFields } from './model';
+import { isSilhouetteEffect, showsReverseOrder, visibleFields } from './model';
 import {
   COUNT_RANGE,
   CURVE_IDS,
@@ -441,7 +441,12 @@ export function AdvancedSection() {
       <Field label={S.reach} hint={S.reachHint}>
         <NumSlider k="reach" range={RANGES.reach} unit="%" />
       </Field>
-      <Field label={S.reverseOrder} layout="inline" hint={S.reverseOrderHint}>
+      <Field
+        label={S.reverseOrder}
+        layout="inline"
+        hint={S.reverseOrderHint}
+        hidden={!showsReverseOrder(s)}
+      >
         <Toggle checked={s.reverseOrder} onCheckedChange={(v) => setValue('reverseOrder', v)} />
       </Field>
       <Field label={S.reversePlay} layout="inline" hint={S.reversePlayHint}>
