@@ -3,6 +3,7 @@
  * 純資料與純函式（不依賴瀏覽器），單元測試直接引用。
  */
 import { DIRECTIONS, type Direction8, type TransitionShape } from '@/core/transition';
+import type { SilhouetteShape } from './silhouette';
 
 export const TOOL_ID = 'scene-transition';
 
@@ -53,20 +54,28 @@ export type ExportFormatId = 'webp' | 'apng';
 export type { Direction8 };
 export { DIRECTIONS };
 
-/** 形狀選項（規格 F11）：只有五種形狀有，選項隨形狀改變 */
-export const SHAPE_OPTIONS: Partial<Record<TransitionShape, readonly string[]>> = {
+/**
+ * 效果的畫法：core/transition 的 20 種形狀（到達先後圖）＋本工具的 4 種剪影（花瓣、羽毛、眨眼、蝙蝠群，2026-11-20）。
+ */
+export type EffectShape = TransitionShape | SilhouetteShape;
+
+/** 形狀選項（規格 F11）：只有八種形狀有，選項隨形狀改變（花瓣、眨眼、蝙蝠群 2026-11-20 加入） */
+export const SHAPE_OPTIONS: Partial<Record<EffectShape, readonly string[]>> = {
   figure: ['star', 'heart', 'diamond', 'square', 'hexagon'],
   clock: ['clockwise', 'symmetric'],
   wave: ['sine', 'saw', 'square'],
   grid: ['square', 'circle', 'diamond'],
   ink: ['direction', 'center'],
+  petals: ['sakura', 'round'],
+  blink: ['flutter', 'once'],
+  bats: ['rise', 'close', 'direction'],
 };
 
 /**
  * 「數量」的範圍（規格 F15），與 core/transition 的 SHAPE_COUNT_RANGE 相同；
  * 這裡另外列出，方便設定面板與存檔修正共用。
  */
-export const COUNT_RANGE: Partial<Record<TransitionShape, readonly [number, number]>> = {
+export const COUNT_RANGE: Partial<Record<EffectShape, readonly [number, number]>> = {
   blinds: [2, 40],
   wave: [1, 16],
   drip: [4, 60],
@@ -77,10 +86,21 @@ export const COUNT_RANGE: Partial<Record<TransitionShape, readonly [number, numb
   interlace: [8, 180],
   hex: [4, 40],
   rings: [2, 24],
+  petals: [6, 30],
+  feathers: [6, 30],
+  bats: [8, 40],
 };
 
 /** 有「強度」滑桿的形狀（規格 F16） */
-export const STRENGTH_SHAPES: readonly TransitionShape[] = ['wave', 'ink', 'drip', 'rotate'];
+export const STRENGTH_SHAPES: readonly EffectShape[] = [
+  'wave',
+  'ink',
+  'drip',
+  'rotate',
+  'petals',
+  'feathers',
+  'blink',
+];
 
 /** 字型（規格 F31）：電腦字型＋Google Fonts。id 存進設定 */
 export type FontId = string;
@@ -126,7 +146,7 @@ export interface Caption {
 }
 
 export interface Settings extends Look, Caption {
-  /** 效果編號（E01～E53） */
+  /** 效果編號（E01～E57） */
   effect: string;
   size: SizeId;
   fps: Fps;
@@ -202,14 +222,14 @@ export const defaultFontSize = (height: number): number =>
   snap(Math.round(height * 0.09), RANGES.fontSize);
 
 /** 數量夾在形狀的範圍內（沒有範圍的形狀維持原值） */
-export function clampCount(shape: TransitionShape, count: number): number {
+export function clampCount(shape: EffectShape, count: number): number {
   const r = COUNT_RANGE[shape];
   const n = Math.round(Number.isFinite(count) ? count : 10);
   return r ? Math.min(r[1], Math.max(r[0], n)) : n;
 }
 
 /** 形狀選項：不在這個形狀的清單裡時用第一個（沒有選項的形狀是空字串） */
-export function normalizeOption(shape: TransitionShape, option: string): string {
+export function normalizeOption(shape: EffectShape, option: string): string {
   const list = SHAPE_OPTIONS[shape];
   if (!list) return '';
   return list.includes(option) ? option : list[0];

@@ -1,11 +1,14 @@
 /**
  * 預覽區（規格 1.7、1.8）：
  * - 畫面以 480 × 270 計算（方塊大小與字級等比縮小），平滑放大填滿預覽區；背景可選示意場景、白色、棋盤格、自選圖片。
+ * - 疊的順序照 CCFOLIA：背景 → 立繪（2026-11-20，Portrait.tsx）→ 轉場圖層。背景的種類、背景圖與立繪記在這個瀏覽器
+ *   （previewStore.ts；不進設定的自動儲存與復原，也不匯出）。
  * - 一律重複播放，每格的時間＝該格的延遲（未四捨五入）；沒勾循環播放時每輪結束後多停約 1.2 秒。
  * - 改設定約 0.12 秒後重算並從頭播放；換效果、復原、重做立即重算。
  * - 狀態列：輸出摘要（影格數與匯出相同；秒數是檔案實際的總長）、字型載入、匯出進度與結果。
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { addImageFile } from '@/core/assets';
 import { downloadBlob, SIZE_WARNING_BYTES } from '@/core/files';
 import { frameIndexAt, frameTableDuration } from '@/core/timeline';
 import {
@@ -25,12 +28,12 @@ import { captionSpecOf, drawCaption } from './caption';
 import { effectById } from './effects';
 import { exportTransition } from './exporter';
 import { ensureCaptionFont, isWebFont } from './fonts';
+import { PortraitControls, PortraitHandles, PortraitImage, useAssetUrl } from './Portrait';
+import { assets, BACKGROUNDS, keptAssetIds, usePreview } from './previewStore';
 import { mergeRuns, PREVIEW_SIZE, planOf, renderFrame, runDelayMs } from './render';
 import { type ExportFormatId, type Settings, sizeOf } from './settings';
 import { patch, setValue, takeImmediate, useSt } from './store';
 import { S } from './strings';
-
-const BACKGROUNDS: readonly StageAnyBackgroundKind[] = ['scene', 'light', 'checker', 'image'];
 
 type FontState = 'ok' | 'loading' | 'missing';
 
@@ -144,6 +147,7 @@ export function PreviewPane() {
         runs: runs.map((r) => ({ first: r.first, count: r.count, ms: r.ms })),
       }),
       frame: () => index,
+      previewState: () => usePreview.getState().data,
       seekFrame: (i: number) => {
         playback.pause();
         let ms = 0;
@@ -153,8 +157,58 @@ export function PreviewPane() {
     };
   });
 
-  /* 預覽背景（不存檔；取消選檔時維持原本的背景） */
-  const [bg, setBg] = useState<StageBackground<StageAnyBackgroundKind>>({ kind: 'scene' });
+  /* 預覽背景與立繪（記在這個瀏覽器；取消選檔時維持原本的背景） */
+  const pv = usePreview((st) => st.data);
+  const storedBgUrl = useAssetUrl(pv.backgroundImage);
+  /* 這次開頁選的背景圖：Stage 做好的網址直接用（同時存進資產庫，下次開頁用存下的） */
+  const [sessionBg, setSessionBg] = useState<{ url: string; id: string | null } | null>(null);
+  const bgUrl =
+    sessionBg && (sessionBg.id === null || sessionBg.id === pv.backgroundImage)
+      ? sessionBg.url
+      : (storedBgUrl ?? undefined);
+  const bg: StageBackground<StageAnyBackgroundKind> = { kind: pv.background, imageUrl: bgUrl };
+  const portraitUrl = useAssetUrl(pv.portrait?.id);
+  const [portraitMissing, setPortraitMissing] = useState(false);
+  const [portraitSelected, setPortraitSelected] = useState(false);
+  /* 存下的圖讀不回來（被瀏覽器清掉）：背景回到示意場景、立繪拿掉 */
+  useEffect(() => {
+    const d = usePreview.getState().data;
+    if (d.backgroundImage && storedBgUrl === null && !sessionBg)
+      usePreview.getState().patch({
+        backgroundImage: null,
+        background: d.background === 'image' ? 'scene' : d.background,
+      });
+  }, [storedBgUrl, sessionBg]);
+  useEffect(() => {
+    if (pv.portrait && portraitUrl === null) {
+      usePreview.getState().patch({ portrait: null });
+      setPortraitMissing(true);
+    }
+  }, [pv.portrait, portraitUrl]);
+  /* 開頁的整理：清掉以前留下、現在沒用到的圖 */
+  useEffect(() => {
+    void assets.gcStale(keptAssetIds()).catch(() => {});
+  }, []);
+  const onBackgroundChange = (b: StageBackground<StageAnyBackgroundKind>) => {
+    if (b.kind === 'image' && !b.imageUrl) return;
+    if (b.kind === 'image' && b.imageUrl && b.imageUrl !== bgUrl) {
+      /* 新選的背景圖：先用 Stage 的網址顯示，再存進資產庫 */
+      const url = b.imageUrl;
+      setSessionBg({ url, id: null });
+      usePreview.getState().patch({ background: 'image' });
+      void fetch(url)
+        .then((r) => r.blob())
+        .then((blob) => addImageFile(assets, blob, { maxSide: 1920 }))
+        .then(({ ref }) => {
+          setSessionBg((cur) => (cur?.url === url ? { url, id: ref.id } : cur));
+          usePreview.getState().patch({ backgroundImage: ref.id });
+          void assets.gc(keptAssetIds());
+        })
+        .catch(() => {});
+      return;
+    }
+    usePreview.getState().patch({ background: b.kind });
+  };
 
   /* 狀態列 */
   const [exportStatus, setExportStatus] = useState<{ tone: NoticeTone; text: string } | null>(null);
@@ -198,19 +252,32 @@ export function PreviewPane() {
         aria-label={S.previewLabel}
         backgrounds={BACKGROUNDS}
         background={bg}
-        onBackgroundChange={(b) => {
-          if (b.kind === 'image' && !b.imageUrl) return;
-          setBg(b);
-        }}
+        onBackgroundChange={onBackgroundChange}
       >
+        {pv.portrait && portraitUrl ? (
+          <PortraitImage portrait={pv.portrait} url={portraitUrl} />
+        ) : null}
         <canvas
           ref={canvas}
           width={PREVIEW_SIZE.width}
           height={PREVIEW_SIZE.height}
-          className="block size-full"
+          className="relative block size-full"
           data-testid="st-canvas"
         />
+        {pv.portrait && portraitUrl ? (
+          <PortraitHandles
+            portrait={pv.portrait}
+            selected={portraitSelected}
+            onSelect={setPortraitSelected}
+          />
+        ) : null}
       </Stage>
+      <PortraitControls
+        portrait={pv.portrait}
+        missing={portraitMissing && !pv.portrait}
+        selected={portraitSelected}
+        onSelect={setPortraitSelected}
+      />
       <Transport
         {...playback}
         frames={plan.frames}

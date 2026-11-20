@@ -1,12 +1,14 @@
 /**
- * 53 種效果（規格 1.11）。每個效果是一組「形狀＋初始設定」：形狀決定畫法（core/transition 的 20 種形狀之一），
- * 初始設定只列出和 BASE_LOOK 不同的值。數值沿用原作（MIT）的預設集（主控裁定：初始設定可以照用），
- * 名稱、分類、說明與範例字幕是本站自己寫的。
+ * 57 種效果（規格 1.11）。每個效果是一組「形狀＋初始設定」：形狀決定畫法（core/transition 的 20 種形狀之一，
+ * 或本工具的 4 種剪影），初始設定只列出和 BASE_LOOK 不同的值。E01～E53 的數值沿用原作（MIT）的預設集
+ * （主控裁定：初始設定可以照用），名稱、分類、說明與範例字幕是本站自己寫的。
  *
  * 刻意差異（主控裁定）：E52 黑白輪閃改成交替閃爍後完全蓋上（推進比例 100%，舊版停在約 88%）。
+ *
+ * E54～E57「剪影」（2026-11-20）：參考くま。「演出APNGメーカー」的轉場（只參考功能與數值）；
+ * 初始設定（秒數、顏色、數量）是本站自己定的，圖形是程式畫的（outlines.ts）。
  */
-import type { TransitionShape } from '@/core/transition';
-import type { Caption, Look } from './settings';
+import type { Caption, EffectShape, Look } from './settings';
 
 export type CategoryId =
   | 'fade'
@@ -17,7 +19,8 @@ export type CategoryId =
   | 'horror'
   | 'caption'
   | 'digital'
-  | 'special';
+  | 'special'
+  | 'silhouette';
 
 /** 分類（選單的分組標題，依這個順序） */
 export const CATEGORIES: readonly { id: CategoryId; label: string }[] = [
@@ -30,14 +33,15 @@ export const CATEGORIES: readonly { id: CategoryId; label: string }[] = [
   { id: 'caption', label: '字幕' },
   { id: 'digital', label: '數位風' },
   { id: 'special', label: '翻轉與特殊' },
+  { id: 'silhouette', label: '剪影' },
 ];
 
 export interface EffectDef {
-  /** 編號（E01～E53，與規格相同） */
+  /** 編號（E01～E57，與規格相同） */
   id: string;
   name: string;
   category: CategoryId;
-  shape: TransitionShape;
+  shape: EffectShape;
   /** 效果的初始設定（只列出和 BASE_LOOK 不同的值） */
   look: Partial<Look>;
   /** 範例字幕與字幕的樣式（沒有範例字幕的效果不填） */
@@ -614,6 +618,73 @@ export const EFFECTS: readonly EffectDef[] = [
       glowColor: '#c9a2ff',
     },
     description: '同心環隔一圈長出，再補滿中間的空隙。',
+  },
+  /* ---------- 剪影（2026-11-20） ---------- */
+  {
+    id: 'E54',
+    name: '花瓣飛舞',
+    category: 'silhouette',
+    shape: 'petals',
+    look: {
+      color: '#f4b6c8',
+      duration: 1.6,
+      hold: 0.4,
+      curve: 'linear',
+      softness: 1,
+      option: 'sakura',
+      count: 14,
+      strength: 55,
+    },
+    description: '花瓣從左邊一片片轉著飛進來，疊滿整個畫面；揭開時照原路散開飛走。',
+  },
+  {
+    id: 'E55',
+    name: '羽毛飄落',
+    category: 'silhouette',
+    shape: 'feathers',
+    look: {
+      color: '#f3efe6',
+      duration: 1.8,
+      hold: 0.4,
+      curve: 'linear',
+      softness: 1,
+      direction: 'down',
+      count: 12,
+      strength: 60,
+    },
+    description: '羽毛從上方左右擺盪著飄下來，越積越多，直到蓋滿畫面。',
+  },
+  {
+    id: 'E56',
+    name: '眨眼',
+    category: 'silhouette',
+    shape: 'blink',
+    look: {
+      duration: 1.6,
+      hold: 0.5,
+      curve: 'linear',
+      softness: 90,
+      option: 'flutter',
+      strength: 50,
+    },
+    description:
+      '上下的眼皮闔起來，中途微微睜開一下才閉上，適合昏倒或睡著；改成「揭開」就是醒來睜眼。',
+  },
+  {
+    id: 'E57',
+    name: '蝙蝠群',
+    category: 'silhouette',
+    shape: 'bats',
+    look: {
+      color: '#0b0710',
+      duration: 2,
+      hold: 0.5,
+      curve: 'linear',
+      softness: 1,
+      option: 'rise',
+      count: 24,
+    },
+    description: '蝙蝠從畫面下方成群飛上來，聚成一片黑暗；改成「揭開」時，黑暗散成蝙蝠往上飛走。',
   },
 ];
 
