@@ -145,7 +145,7 @@ import { ImageFxPreview } from '@/ui/imagefx'; // 一組一起用的元件（4.1
 | `LyricStyleControls` | `LyricStyleControls` | lyric-fx | 15.1 | 42.5 | 17.4 | `@/core/lyricfx` |
 | `MessageComposer` | `MessageComposer`、`parseComposerText` | chat-window、message-box | 5.0 | 1.9 | 1.1 | — |
 | `ModelDownload` | `ModelDownloadPanel`、`useModelCache` | anime-rig、bg-remover | 9.7 | 9.0 | 4.1 | `@/core/models` |
-| `OptionalNumberInput` | `OptionalNumberInput`、`parseOptionalNumber` | coc-sheet、pdf-compress、relation-chart、scenario-editor、speech-bubble | 5.9 | 2.2 | 1.2 | — |
+| `OptionalNumberInput` | `OptionalNumberInput`、`parseOptionalNumber` | coc-sheet、pdf-compress、relation-chart、scenario-editor、speech-bubble、ccfolia-batch（2026-11-20 加） | 5.9 | 2.2 | 1.2 | — |
 | `PagedViewport` | `PagedViewport` | coc-sheet、coc-typesetter、scenario-editor | 9.1 | 3.7 | 1.6 | — |
 | `PanZoomViewport` | `PanZoomViewport` | height-board、magic-circle、tile-map、floria-veins（2026-11-10 加） | 28.8 | 10.5 | 4.1 | — |
 | `PartPicker`、`SelectableCardList` | `PartPicker`、`SelectableCardList` | emotion-maker | 14.4 | 7.9 | 3.2 | `@/core/sheet` |
@@ -968,6 +968,7 @@ loading-maker 預設（透明）、不透明背景＋預設的結尾動作（最
 | 聊天視窗產生器（chat-window 2026-11-20 登記，規格 D7）：名字固定、只捲本文（長訊息慢慢捲動的子開關）、訊息消失後視窗也消失（過一段時間後消失的子開關）；分頁「隱藏介面」（區塊「隱藏房間畫面的介面」、一鍵勾選「只留盤面／只隱藏介面／全部隱藏／全部取消」、標籤「改版容易失效」、開關「後面接上聊天視窗的 CSS」）；CCFOLIA 房間畫面的部分：背景、前景、棋子（盤面上的角色）、共用標記（マーカーパネル，和 room-zip 相同）、螢幕面板、卡牌堆、骰子符號、整個盤面、盤面的外框線、訊息框（發言時下方的框）、切入、滾動的骰子、上方的標題列、聊天欄、角色狀態（畫面上的角色清單）、計時器、BGM（音量）、縮放按鈕、「Ctrl＋拖曳」的提示、編輯按鈕（鉛筆）、廣告影片、監視模式的通知 | 吹き出し、泡泡（訊息框）、UI、隱藏 UI、マーカー、ダイスシンボル、カットイン、名前は止めて本文だけ流す |
 | CCFOLIA 的參照式聊天面板（coc-npc、coc-sheet 2026-11-20 登記）：開關「技能寫進參數（聊天面板用 {技能名} 參照）」、「只放有點數的技能」；參數（CCFOLIA 的パラメータ）、狀態（ステータス）、聊天面板（チャットパレット）、參照（`{名稱}`）；說明「這些技能沒寫進參數，聊天面板照舊寫數字」與原因「名稱重複／和屬性、狀態同名／名稱有大括號」 | パラメータ、ステータス、チャパレ、變數、引用（character-editor 的「插入引用」是按鈕名稱，照舊） |
 | VTT 棋子產生器（token-maker 2026-11-12 登記；本工具的「外框」是棋子的環、「圖片」是讀進來的原圖）：畫布邊界（匯出的畫布的範圍，預覽上的虛線；「顯示／不顯示畫布邊界」）、畫布貼合（自動邊距底下的開關）、讓出框配合畫布邊界（按鈕「縮小到剛好」「往左推」「往右推」「往上推」「往下推」）、外緣淡出、圖片的顏色：配合外框調整 | 圖片外框（會和環的「外框」混淆）、圖片邊界（「圖片」是讀進來的原圖）、Image frame、自動適應畫布、Auto-fit、Fit pop-out to frame、羽化邊緣（外框外緣） |
+| CCFOLIA 角色批次產生器（ccfolia-batch 2026-11-20 登記，規格 D13）：棋子（CCFOLIA 的角色）、圖片庫、狀態不公開、發言時不顯示立繪、不列入盤面的角色清單、讀到的標籤與讀法（技能〔寫成判定〕／狀態／參數／不用）、每一欄的用途、確定，換下一位 NPC、從輸入重做、手動修改、素材 ZIP、秘密骰（同 message-box）、角色備註（速記裡寫進 CCFOLIA 備註的標籤行）、×N 的名稱、能力值也寫成判定、名稱（傷害）（聊天面板的傷害行，同 coc-sheet） | 駒、置き場、使い方、ステータスを非公開にする、シークレットダイス（說明裡可以並用）、暗骰（room-zip 的 KP 聊天面板範本照舊）、【かぎ爪ダメージ】 |
 
 標點用全形；英文與數字前後加半形空白。
 
