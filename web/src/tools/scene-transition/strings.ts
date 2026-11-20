@@ -1,8 +1,8 @@
 /**
  * 介面文字（台灣繁體中文；用詞照 DESIGN.md 第 5 節）。效果的名稱與說明在 effects.ts，字型名稱在 fonts.ts。
  */
-import type { Direction8, TransitionShape } from '@/core/transition';
-import type { CellOrderId, CurveId, Fps, Mode, SizeId, TextPos } from './settings';
+import type { Direction8 } from '@/core/transition';
+import type { CellOrderId, CurveId, EffectShape, Fps, Mode, SizeId, TextPos } from './settings';
 
 const kb = (bytes: number) =>
   bytes >= 1024 * 1024
@@ -44,14 +44,25 @@ export const S = {
     wave: '邊緣形狀',
     grid: '格子形狀',
     ink: '擴散方式',
-  } as Partial<Record<TransitionShape, string>>,
+    petals: '花形',
+    blink: '閉合方式',
+    bats: '飛來的方式',
+  } as Partial<Record<EffectShape, string>>,
   optionNames: {
     figure: { star: '星形', heart: '心形', diamond: '菱形', square: '方形', hexagon: '六角形' },
     clock: { clockwise: '順時針', symmetric: '左右對稱' },
     wave: { sine: '圓滑波', saw: '鋸齒', square: '方波' },
     grid: { square: '方形', circle: '圓形', diamond: '菱形' },
     ink: { direction: '沿方向', center: '從中心' },
-  } as Partial<Record<TransitionShape, Record<string, string>>>,
+    petals: { sakura: '櫻花瓣', round: '圓瓣' },
+    blink: { flutter: '先眨一下', once: '直接閉上' },
+    bats: { rise: '從下方湧上', close: '從四周合攏', direction: '沿方向' },
+  } as Partial<Record<EffectShape, Record<string, string>>>,
+  /** 形狀選項的說明（選單下方；沒有的不顯示） */
+  optionHints: {
+    blink: '「先眨一下」：闔到一半先微微睜開再閉上（揭開時是醒來時眨一下才睜開）。',
+    bats: '揭開時黑暗散成蝙蝠飛走：「從下方湧上」的往上飛，其他的照飛來的路飛回去。',
+  } as Partial<Record<EffectShape, string>>,
   order: '出現順序',
   orders: {
     direction: '沿方向',
@@ -65,6 +76,8 @@ export const S = {
     random: undefined,
     alternate: '格子分兩組（棋盤格）、六角格分三組，一組長滿再換下一組。',
   } as Record<CellOrderId, string | undefined>,
+  /** 剪影（花瓣、羽毛）的「交錯分組」說明 */
+  orderHintPieces: '分成棋盤格的兩組：一組先落定，另一組再飛進來補滿。',
   direction: '方向',
   directions: {
     right: '從左到右',
@@ -89,13 +102,31 @@ export const S = {
     interlace: '掃描線數',
     hex: '橫向格數',
     rings: '環數',
-  } as Partial<Record<TransitionShape, string>>,
+    petals: '橫向片數',
+    feathers: '橫向片數',
+    bats: '橫向隻數',
+  } as Partial<Record<EffectShape, string>>,
+  /** 數量的說明（沒有的不顯示） */
+  countHints: {
+    petals: '橫向排幾片；越多片越小。',
+    feathers: '橫向排幾片；越多片越小。',
+    bats: '橫向排幾隻；越多隻越小。',
+  } as Partial<Record<EffectShape, string>>,
   strengthLabel: {
     wave: '起伏高度',
     ink: '不規則程度',
     drip: '液滴長度',
     rotate: '轉動角度',
-  } as Partial<Record<TransitionShape, string>>,
+    petals: '飄動幅度',
+    feathers: '飄動幅度',
+    blink: '眼皮弧度',
+  } as Partial<Record<EffectShape, string>>,
+  /** 強度的說明（沒有的不顯示） */
+  strengthHints: {
+    petals: '0：在原位長出來；越大飛得越遠、轉得越多。',
+    feathers: '0：在原位長出來；越大飄得越遠、擺得越大。',
+    blink: '0：眼皮是平直的；越大越彎，越像眼睛的形狀。',
+  } as Partial<Record<EffectShape, string>>,
   degrees: (v: number) => `${Math.round(v * 3.6 * 10) / 10}°`,
   blockSize: '方塊大小',
   blockHint: '以輸出尺寸的 px 計。',
@@ -193,6 +224,24 @@ export const S = {
 
   /* ---------- 預覽與狀態 ---------- */
   previewLabel: '轉場預覽',
+  /** 預覽的立繪（2026-11-20） */
+  portrait: {
+    title: '立繪（只供預覽）',
+    layer: '立繪的位置',
+    item: '立繪',
+    add: '加入立繪',
+    size: '大小',
+    sizeLabel: '立繪大小',
+    move: '選取立繪（可以用方向鍵移動）',
+    replace: '換一張立繪',
+    remove: '拿掉立繪',
+    emptyHint:
+      '放一張角色立繪（透明 PNG 也可以），看看轉場蓋在 CCFOLIA 畫面上的樣子：背景在最下面、立繪在中間、轉場在最上面。只在預覽，不會匯出。',
+    hint: '在預覽上拖曳移動、拖四個角調大小；按「選取」後可以用方向鍵移動（Shift 一次多移一點），Esc 取消選取。只在預覽，不會匯出。',
+    notSaved: '瀏覽器的空間不足或不能保存圖片：這次可以用，重新整理後立繪會不見。',
+    unreadable: (name: string) => `讀不到這張圖片${name ? `（${name}）` : ''}。`,
+    missing: '上次放的立繪已經從這個瀏覽器清掉了，要的話請重新加入。',
+  },
   undo: '復原',
   redo: '重做',
   status: {
@@ -244,7 +293,7 @@ export const S = {
     'CCFOLIA 能上傳的圖片最大 5 MB；APNG 超過上限時會被變成靜止圖。WebP 通常只有 APNG 的幾分之一到百分之一，CCFOLIA 也能播放，所以建議用 WebP。',
     '檔案預設只播一次並停在最後一格：「蓋上」類最後是一片顏色，「揭開」類最後是透明；預覽則會一直重複，方便檢查。',
     '兩張一組最自然：先放「蓋上」的素材把畫面遮住、換掉場景，再放「揭開」的素材。同一個效果勾「倒著播放」再匯出一次，就是成對的另一張。',
-    '預覽背景可以換成自己的圖片，看看疊在場景上的樣子；圖片只在這台電腦上，不會上傳或匯出。',
+    '預覽背景可以換成自己的圖片，也可以放一張立繪，看看疊在 CCFOLIA 畫面上的樣子（背景 → 立繪 → 轉場）；圖片只記在這個瀏覽器，不會上傳或匯出。',
     '素材是拉滿整個畫面使用的。單色的效果用 640 × 360 也不會失真，檔案小很多。',
     '「邊緣柔和度」調邊界的軟硬；「停留時間」留出換場的空檔（蓋上再揭開時是完全蓋住的時間）；「推進比例」做只走一部分的效果；「邊緣發光」讓邊界帶光；隨機花紋的效果可以按「換花紋」。',
     '全部在瀏覽器裡完成，不需要伺服器，圖片不會離開你的電腦。',

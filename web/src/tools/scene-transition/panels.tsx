@@ -4,7 +4,6 @@
  */
 import { Shuffle } from 'lucide-react';
 import { useState } from 'react';
-import type { TransitionShape } from '@/core/transition';
 import {
   Button,
   ColorField,
@@ -23,11 +22,12 @@ import {
 } from '@/ui';
 import { CATEGORIES, EFFECTS, effectById } from './effects';
 import { CAPTION_FONTS, CUSTOM_FONT, FONT_GROUPS } from './fonts';
-import { visibleFields } from './model';
+import { isSilhouetteEffect, showsReverseOrder, visibleFields } from './model';
 import {
   COUNT_RANGE,
   CURVE_IDS,
   DIRECTIONS,
+  type EffectShape,
   FPS_OPTIONS,
   MODES,
   ORDERS,
@@ -156,7 +156,7 @@ export function LookSection() {
   );
 }
 
-function optionList(shape: TransitionShape) {
+function optionList(shape: EffectShape) {
   const names = S.optionNames[shape] ?? {};
   return (SHAPE_OPTIONS[shape] ?? []).map((v) => ({ value: v, label: names[v] ?? v }));
 }
@@ -169,10 +169,12 @@ export function ShapeSection() {
   if (!shapeKeys.length) return null;
   const countRange = COUNT_RANGE[shape];
   const strengthLabel = S.strengthLabel[shape] ?? '強度';
+  const pieces = isSilhouetteEffect(s.effect);
+  const orderHint = pieces && s.order === 'alternate' ? S.orderHintPieces : S.orderHints[s.order];
   return (
     <Section title={S.shapeSection} persistKey="scene-transition:shape">
       {show.has('option') ? (
-        <Field label={S.optionLabel[shape] ?? '形狀'}>
+        <Field label={S.optionLabel[shape] ?? '形狀'} hint={S.optionHints[shape]}>
           <Select
             value={s.option}
             onValueChange={(v) => setValue('option', v)}
@@ -181,7 +183,7 @@ export function ShapeSection() {
         </Field>
       ) : null}
       {show.has('order') ? (
-        <Field label={S.order} hint={S.orderHints[s.order]}>
+        <Field label={S.order} hint={orderHint}>
           <Segmented
             fullWidth
             value={s.order}
@@ -213,7 +215,7 @@ export function ShapeSection() {
         </Field>
       ) : null}
       {show.has('count') && countRange ? (
-        <Field label={S.countLabel[shape] ?? '數量'}>
+        <Field label={S.countLabel[shape] ?? '數量'} hint={S.countHints[shape]}>
           <NumSlider k="count" range={[countRange[0], countRange[1], 1]} />
         </Field>
       ) : null}
@@ -235,7 +237,7 @@ export function ShapeSection() {
             />
           </Field>
         ) : (
-          <Field label={strengthLabel}>
+          <Field label={strengthLabel} hint={S.strengthHints[shape]}>
             <NumSlider k="strength" range={RANGES.strength} />
           </Field>
         )
@@ -439,7 +441,12 @@ export function AdvancedSection() {
       <Field label={S.reach} hint={S.reachHint}>
         <NumSlider k="reach" range={RANGES.reach} unit="%" />
       </Field>
-      <Field label={S.reverseOrder} layout="inline" hint={S.reverseOrderHint}>
+      <Field
+        label={S.reverseOrder}
+        layout="inline"
+        hint={S.reverseOrderHint}
+        hidden={!showsReverseOrder(s)}
+      >
         <Toggle checked={s.reverseOrder} onCheckedChange={(v) => setValue('reverseOrder', v)} />
       </Field>
       <Field label={S.reversePlay} layout="inline" hint={S.reversePlayHint}>

@@ -63,7 +63,7 @@
 | `height-board` | 立繪身高比較板 | [woolwag3338/character-height-board](https://github.com/woolwag3338/character-height-board) | `b8a22a1` |
 | `emotion-maker` | 表情產生器 | [sotsotssi/emotion-maker](https://github.com/sotsotssi/emotion-maker) | `b8a22a1` |
 | `cutin` | 切入素材產生器 | [Taku-Taku-Taku/cutin-maker](https://github.com/Taku-Taku-Taku/cutin-maker) | `b8a22a1` |
-| `scene-transition` | 場景轉換素材產生器 | [shiki365/scene-transition-maker](https://github.com/shiki365/scene-transition-maker) | `83fd605` |
+| `scene-transition` | 場景轉換素材產生器 | [shiki365/scene-transition-maker](https://github.com/shiki365/scene-transition-maker)、[くま。／演出APNGメーカー](https://github.com/KumachanSteps/trpg-web-tools)（`tools/effect-apng-maker/`，剪影轉場 4 種與預覽的立繪的功能參考，未授權） | `83fd605` |
 | `loading-maker` | 讀取動畫產生器 | [sotsotssi/loading-maker](https://github.com/sotsotssi/loading-maker) | `83fd605` |
 | `bg-motion` | 動態背景產生器 | [くま。／TRPG WEBツール観測所](https://kumachansteps.github.io/trpg-web-tools/)（`haikei-motion-maker`）、[utiyoso/kirikae-maker](https://github.com/utiyoso/kirikae-maker)（きりかえメーカー，圖片切換模式的功能參考，未授權） | `83fd605` |
 | `screenshot-fx` | 截圖演出產生器 | [KIIN／スクショ演出スタジオ](https://screenshot-studio-8n8.pages.dev/)（BOOTH 販售的付費工具，條款禁止再散布程式與工具固有的意匠，視同未授權） | —（新收錄，沒有舊版） |
@@ -227,6 +227,8 @@
 `ccfolia-batch` 照新工具引入流程直接在新框架做：參考 shiki365/character-batch-maker（「キャラクター一括メーカー」v1.4，commit `423a28a`，2026-11-18；MIT，授權全文在 `web/src/tools/ccfolia-batch/UPSTREAM_LICENSE`，併入通知檔）。讀法的規則、試算表的欄名對照與房間 ZIP 的構成照原作，程式照本站的結構改寫（第一版驗證時解析核心和原作太像，照本站的結構重寫，規格 D22、6 節），房間 ZIP 用本站的 `@/ccfolia` 共用模組寫；詞表補了繁中與簡中（中文劇本的 NPC 資料），範例改寫成繁中。原作的 OGP 圖、圖示與配色不用；可以讀原作存的專案檔。
 
 `chat-window` 2026-11-20 跟進 shiki365/chat-window-maker v1.12／v1.14（commit `157fcb6`；原作 2026-09-16 起 MIT，這次跟進的部分附 `UPSTREAM_LICENSE`），並參考 yudukiak/ccfoliaCSS（commit `a3e1365`，MIT）做「隱藏介面」分頁（隱藏 CCFOLIA 介面的房間 CSS；選擇器另參考 ngo1009db-hub/ccfolia-obs-css，未授權，只取 CCFOLIA 頁面結構的事實）。`coc-npc`、`coc-sheet` 的參照式聊天面板參考 65256619ko-sudo/TRPG_Char_Maker（commit `57d61bf`，MIT，`UPSTREAM_LICENSE` 加一段）。
+
+`scene-transition` 2026-11-20 參考くま。的「演出APNGメーカー」（KumachanSteps/trpg-web-tools 的 `tools/effect-apng-maker/`，v0.42，commit `1d84d98`，限定測試版）補了剪影轉場 4 種（花瓣飛舞、羽毛飄落、眨眼、蝙蝠群）與預覽的立繪。原作沒有授權條款，利用規約禁止轉載與二次利用，2026-11-19 起又請求不要用 AI 等工具複製程式；只參考功能、行為與數值，程式、剪影的外形（程式畫的多邊形）、介面文字都由本站自做，原作用的蝙蝠圖與花瓣、羽毛的曲線不用（規格 D101、6.1 節）。頁尾的靈感來源照舊只有 shiki365/scene-transition-maker。
 
 `log-converter` 的 EPUB 匯出（2026-10）參考 sotsotssi/CcfoliaLogConverter 的功能（原作沒有授權條款：只照功能與做法，程式、介面文字與版面都由本站自做）；原作在控制字元、`<wbr>`、`<font>` 與新格式的日誌會產生不合規的電子書或遺失內容，本站的輸出都通過 epubcheck。
 

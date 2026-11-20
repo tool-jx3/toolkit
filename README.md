@@ -51,7 +51,7 @@
 | [表情產生器](https://tool-jx3.github.io/toolkit/tools/emotion-maker/) | 組合眼睛、眉毛、嘴巴與裝飾，製作表情差分與合本圖 |
 | [讀取動畫產生器](https://tool-jx3.github.io/toolkit/tools/loading-maker/) | 把角色動畫、讀取條與上下文字合成一張畫布，輸出為 APNG／WebP／GIF |
 | [前景框產生器](https://tool-jx3.github.io/toolkit/tools/foreground-frame/) | 設計 CCFOLIA 前景用的外框，加上裝飾與天氣、時間帶差分，一次匯出 |
-| [場景轉換素材產生器](https://tool-jx3.github.io/toolkit/tools/scene-transition/) | 製作暗轉、抹除、光圈、故障風等 53 種場景轉換動畫，輸出為透明背景的 WebP 或 APNG，可加字幕（字型可選 Google Fonts 或電腦上的字型） |
+| [場景轉換素材產生器](https://tool-jx3.github.io/toolkit/tools/scene-transition/) | 製作暗轉、抹除、光圈、故障風、花瓣、蝙蝠群等 57 種場景轉換動畫，輸出為透明背景的 WebP 或 APNG，可加字幕（字型可選 Google Fonts 或電腦上的字型） |
 | [狀態條產生器](https://tool-jx3.github.io/toolkit/tools/status-bar/) | 產生自訂 CSS，把 CCFOLIA 角色的 HP、MP、SAN 以喜歡的樣式顯示在 OBS 上 |
 | [切入素材產生器](https://tool-jx3.github.io/toolkit/tools/cutin/) | 把文字做成集中線、描邊字與彩虹漸層的循環動畫，輸出為 APNG／GIF／PNG |
 | [立繪裁切器](https://tool-jx3.github.io/toolkit/tools/ccfolia-cropper/) | 依 CCFOLIA 的版面比例自動對齊頭部或角色中央，批次裁切立繪 |
@@ -193,7 +193,7 @@ CI（GitHub Actions）在 pull request 與 main 上跑 `npm test`、lint、typec
 | `height-board` | [立繪身高比較板](https://tool-jx3.github.io/toolkit/tools/height-board/) | [woolwag3338/character-height-board](https://github.com/woolwag3338/character-height-board) |
 | `emotion-maker` | [表情產生器](https://tool-jx3.github.io/toolkit/tools/emotion-maker/) | [sotsotssi/emotion-maker](https://github.com/sotsotssi/emotion-maker) |
 | `cutin` | [切入素材產生器](https://tool-jx3.github.io/toolkit/tools/cutin/) | [Taku-Taku-Taku/cutin-maker](https://github.com/Taku-Taku-Taku/cutin-maker) |
-| `scene-transition` | [場景轉換素材產生器](https://tool-jx3.github.io/toolkit/tools/scene-transition/) | [shiki365/scene-transition-maker](https://github.com/shiki365/scene-transition-maker) |
+| `scene-transition` | [場景轉換素材產生器](https://tool-jx3.github.io/toolkit/tools/scene-transition/) | [shiki365/scene-transition-maker](https://github.com/shiki365/scene-transition-maker)、[くま。／演出APNGメーカー](https://github.com/KumachanSteps/trpg-web-tools)（剪影轉場、預覽的立繪） |
 | `loading-maker` | [讀取動畫產生器](https://tool-jx3.github.io/toolkit/tools/loading-maker/) | [sotsotssi/loading-maker](https://github.com/sotsotssi/loading-maker) |
 | `bg-motion` | [動態背景產生器](https://tool-jx3.github.io/toolkit/tools/bg-motion/) | [くま。／TRPG WEBツール観測所](https://kumachansteps.github.io/trpg-web-tools/)、[utiyoso/kirikae-maker](https://github.com/utiyoso/kirikae-maker)（圖片切換） |
 | `screenshot-fx` | [截圖演出產生器](https://tool-jx3.github.io/toolkit/tools/screenshot-fx/) | [KIIN／スクショ演出スタジオ](https://screenshot-studio-8n8.pages.dev/) |
