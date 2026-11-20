@@ -121,6 +121,16 @@ export const S = {
       `${stats.join('、')} 的算式看不懂，沒有擲；複製的是其他項目擲好之後的內容。`,
     copyFailed: '無法寫入剪貼簿',
     copyFailedHint: '輸出已全選，請按 Ctrl＋C（Mac 為 ⌘＋C）手動複製。',
+    refs: '技能寫進參數（聊天面板用 {技能名} 參照）',
+    refsHint:
+      '技能的成功率寫進 CCFOLIA 角色的參數，聊天面板寫成「CC<={技能名}」；屬性、DB 也用參照，不再寫「//名稱=值」。技能成長後只要在 CCFOLIA 改參數，不必重貼聊天面板。',
+    refsSkipped: (items: readonly string[]) =>
+      `這些技能沒寫進參數，聊天面板照舊寫數字：${items.join('、')}。`,
+    refsReasons: {
+      invalid: '名稱有大括號',
+      reserved: '和屬性、狀態同名',
+      duplicate: '名稱重複',
+    } as Record<'invalid' | 'reserved' | 'duplicate', string>,
   },
 
   undo: '復原',
@@ -141,6 +151,7 @@ export const S = {
     '屬性：在算式欄寫骰子算式（例：3D6、2D6+6），按骰子鈕擲那一項，或按「全部擲骰」（快捷鍵 R）。7 版的結果自動 ×5；也可以直接改數值。',
     '衍生值（HP、MP、SAN、DB、體格）會依屬性自動計算，也可以手動改；不需要 SAN 時把「輸出 SAN」關掉。',
     '技能與指令：名稱空白的技能、算式空白的指令不輸出；指令算式裡的 DB 會換成 {DB}。6 版可以選 CC 或 CCB。',
+    '輸出上方的「技能寫進參數」打開時，技能的成功率放進 CCFOLIA 的參數、聊天面板用 {技能名} 參照：技能成長後只改參數，不必重貼聊天面板。',
     '右邊是輸出：「CCFOLIA」是角色 JSON（在 CCFOLIA 房間按 Ctrl＋V 貼上就會新增角色），「聊天面板」是給 BCDice 的指令清單。「擲骰並複製」會先全部擲骰再複製。',
     '內容會自動儲存在這個瀏覽器；「專案」選單可以把所有 NPC 存成專案檔帶到別台電腦。',
   ],

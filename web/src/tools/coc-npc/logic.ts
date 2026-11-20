@@ -4,18 +4,23 @@
  */
 import { type CcfoliaCharacterData, serializeCharacterClipboard } from '@/ccfolia';
 import {
+  assignParamLabels,
   CHARACTERISTICS,
   type Characteristic,
   type CocEdition,
   type DiceParseError,
   derivedStats,
+  type ParamAssignment,
   parseDiceExpression,
   type RandomSource,
+  referenceNames,
   rollDiceTerms,
 } from '@/core/coc';
 import { OUT } from './strings';
 
 export const TOOL_ID = 'coc-npc';
+/** 專案檔的版本（2026-11-20 起 2：NPC 多了 paletteRefs；版本 1 照讀） */
+export const PROJECT_VERSION = 2;
 /** 舊版（trpg-lab 的 CoC NPC 製作／管理工具）的存檔（localStorage） */
 export const LEGACY_KEY = 'iklab_coc_npc_token_v1';
 
@@ -62,6 +67,11 @@ export interface Npc {
   /** 6 版聊天面板的檢定指令 */
   commandType: CommandType;
   memo: string;
+  /**
+   * 參照式聊天面板（2026-11-20）：技能寫進參數，聊天面板用 {技能名} 參照。只在開的時候有這個欄位
+   * （沒開時存檔、專案檔和以前逐字相同）。
+   */
+  paletteRefs?: true;
 }
 
 export interface NpcData {
@@ -194,8 +204,65 @@ export function movValue(mov: string): number | null {
   return Number.isNaN(n) ? null : n;
 }
 
+/* ---------- 參照式聊天面板（2026-11-20，規格 1.9、3.6） ---------- */
+
+/** 角色本來就有的狀態與參數的名稱（技能不能用這些名稱寫進參數） */
+export const NPC_RESERVED_LABELS: readonly string[] = [
+  ...CHARACTERISTICS,
+  'DB',
+  OUT.build,
+  OUT.mov7,
+  OUT.mov6,
+  'HP',
+  'MP',
+  'SAN',
+];
+
+/** 哪些技能寫進參數（名稱空白的技能本來就不輸出，不列入） */
+export function npcSkillParams(npc: Npc): ParamAssignment {
+  return assignParamLabels(
+    npc.skills.filter((sk) => sk.name).map((sk) => ({ id: sk.id, name: sk.name })),
+    NPC_RESERVED_LABELS,
+  );
+}
+
+/** 指令算式：DB 換成 {DB}，參照式時屬性與狀態的名稱（STR、HP…）也換成參照 */
+function commandExpr(npc: Npc, expr: string): string {
+  const e = replaceDb(expr);
+  if (!npc.paletteRefs) return e;
+  return referenceNames(e, [...CHARACTERISTICS, 'HP', 'MP', ...(npc.sanEnabled ? ['SAN'] : [])]);
+}
+
 /** 聊天面板（每行一個指令，LF） */
 export function chatPalette(npc: Npc): string {
+  return npc.paletteRefs ? refPalette(npc) : plainPalette(npc);
+}
+
+/**
+ * 參照式：檢定寫成 `CC<={名稱}`（6 版的屬性 `CC<={STR}*5`）、SAN 參照狀態；寫不進參數的技能照舊寫數字；
+ * 不寫「//名稱=值」（參數已經有同名的值，兩個都有時 CCFOLIA 用哪一個本站確認不了；規格 D13）。
+ */
+function refPalette(npc: Npc): string {
+  const ct = npc.edition === 7 ? 'CC' : npc.commandType || 'CC';
+  const params = npcSkillParams(npc).labels;
+  const lines: string[] = [];
+  if (npc.sanEnabled) lines.push(`${ct}<={SAN} ${OUT.sanRoll}`);
+  for (const s of CHARACTERISTICS)
+    lines.push(npc.edition === 6 ? `${ct}<={${s}}*5 ${s}` : `${ct}<={${s}} ${s}`);
+  for (const sk of npc.skills) {
+    if (!sk.name) continue;
+    const label = params.get(sk.id);
+    lines.push(label ? `${ct}<={${label}} ${sk.name}` : `${ct}<=${sk.value} ${sk.name}`);
+  }
+  for (const c of npc.commands) {
+    if (!c.expr) continue;
+    const expr = commandExpr(npc, c.expr);
+    lines.push(c.name ? `${expr} ${c.name}` : expr);
+  }
+  return lines.join('\n');
+}
+
+function plainPalette(npc: Npc): string {
   const v = (s: Characteristic) => value(npc, s);
   /* 6 版的屬性是原始值，檢定用 ×5 */
   const check = (s: Characteristic) => (npc.edition === 6 ? v(s) * 5 : v(s));
@@ -206,7 +273,7 @@ export function chatPalette(npc: Npc): string {
   for (const sk of npc.skills) if (sk.name) lines.push(`${ct}<=${sk.value} ${sk.name}`);
   for (const c of npc.commands) {
     if (!c.expr) continue;
-    const expr = replaceDb(c.expr);
+    const expr = commandExpr(npc, c.expr);
     /* BCDice 只認行首的指令：算式在前、名稱在後（5. D2） */
     lines.push(c.name ? `${expr} ${c.name}` : expr);
   }
@@ -234,6 +301,14 @@ export function ccfoliaData(npc: Npc): CcfoliaCharacterData {
   if (npc.edition === 7) params.push({ label: OUT.build, value: String(npc.build) });
   const mov = movValue(npc.mov);
   if (mov !== null) params.push({ label: movLabel(npc.edition), value: String(mov) });
+  /* 參照式：技能的成功率接在後面 */
+  if (npc.paletteRefs) {
+    const labels = npcSkillParams(npc).labels;
+    for (const sk of npc.skills) {
+      const label = labels.get(sk.id);
+      if (label) params.push({ label, value: String(sk.value) });
+    }
+  }
   return {
     name: npc.name || OUT.unnamed,
     initiative: value(npc, 'DEX'),
@@ -313,6 +388,7 @@ export function sanitizeNpc(raw: unknown): Npc {
       : [blankCommand()],
     commandType: r.commandType === 'CCB' ? 'CCB' : 'CC',
     memo: str(r.memo),
+    ...(r.paletteRefs === true ? { paletteRefs: true as const } : {}),
   };
 }
 

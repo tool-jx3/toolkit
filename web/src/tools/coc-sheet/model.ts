@@ -6,8 +6,11 @@ import type { Rect } from '@/core/image';
 import { DEFAULTS, S, SKILL_NAMES } from './strings';
 
 export const TOOL_ID = 'coc-sheet';
-/** 自動存檔、專案檔的資料版本 */
-export const DATA_VERSION = 1;
+/**
+ * 自動存檔、專案檔的資料版本（2026-11-20 起 2：角色卡多了 paletteRefs、paletteRefsPointsOnly；版本 1 照讀，
+ * 沒有這兩個欄位就是關）
+ */
+export const DATA_VERSION = 2;
 
 /** 角色卡上印得下的列數 */
 export const SKILL_SLOTS = 60;
@@ -144,6 +147,13 @@ export interface Sheet {
   gear: string;
   assets: { spending: string; cash: string; assets: string; other: string };
   memo: string;
+  /**
+   * CCFOLIA 的參照式聊天面板（2026-11-20）：技能寫進參數，聊天面板用 {技能名} 參照。
+   * 只在開的時候有這個欄位（沒開時存檔、專案檔的角色卡和以前逐字相同）。
+   */
+  paletteRefs?: true;
+  /** 參照式時只把有點數的技能寫進參數 */
+  paletteRefsPointsOnly?: true;
 }
 
 /** 匯出 PNG 的頁面：第 1 頁、第 2 頁、兩頁接成一張 */
@@ -452,6 +462,8 @@ export function sanitizeSheet(raw: unknown): Sheet {
       other: str(assets.other),
     },
     memo: str(r.memo),
+    ...(r.paletteRefs === true ? { paletteRefs: true as const } : {}),
+    ...(r.paletteRefsPointsOnly === true ? { paletteRefsPointsOnly: true as const } : {}),
   };
 }
 

@@ -162,6 +162,7 @@ export const S = {
     '「角色卡」清單可以新增、複製、重新命名、刪除與切換多張角色卡；要留一份快照時先複製一張。',
     '頭像：選擇圖片後裁切成角色卡上的頭像框比例；圖片存在這個瀏覽器裡，存成專案檔時會一起打包。',
     '「列印／存成 PDF」只印角色卡（在列印對話框選「另存為 PDF」即可存檔）；也可以匯出 PNG，或複製 CCFOLIA 角色資料貼進房間。',
+    '複製 CCFOLIA 角色資料前打開「技能寫進參數」，技能值會放進 CCFOLIA 的參數、聊天面板用 {技能名} 參照：技能成長後只改參數，不必重貼聊天面板。',
     '舊版角色卡（實驗室版）存在這個瀏覽器裡的角色卡與自動儲存的內容，第一次開啟時會自動搬過來。',
   ],
   list: {
@@ -360,6 +361,19 @@ export const S = {
     copyFailedHint: '瀏覽器不允許網頁寫入剪貼簿；請改用其他瀏覽器，或允許剪貼簿的權限後再試一次。',
     printFailed: '無法列印',
     exportFailed: '匯出失敗',
+    refs: '技能寫進參數（聊天面板用 {技能名} 參照）',
+    refsHint:
+      '技能值寫進 CCFOLIA 角色的參數，聊天面板寫成「CC<={技能名}」；屬性、DB 也用參照，不再寫「//名稱=值」。技能成長後只要在 CCFOLIA 改參數，不必重貼聊天面板。',
+    refsPointsOnly: '只放有點數的技能',
+    refsPointsOnlyHint:
+      '只把職業、興趣、成長有點數或直接填了技能值的技能寫進參數（CCFOLIA 的參數清單比較短）；其他技能在聊天面板照舊寫數字。',
+    refsSkipped: (items: readonly string[]) =>
+      `這些技能沒寫進參數，聊天面板照舊寫數字：${items.join('、')}。`,
+    refsReasons: {
+      invalid: '名稱有大括號',
+      reserved: '和屬性、狀態同名',
+      duplicate: '名稱重複',
+    } as Record<'invalid' | 'reserved' | 'duplicate', string>,
   },
   project: {
     fileName: 'CoC 角色卡',

@@ -437,3 +437,54 @@ describe('BCDice 結果', () => {
     expect(RESULT_SEPARATOR).toBe(BCDICE_SEPARATOR);
   });
 });
+
+describe('參照式聊天面板（palette，2026-11-20）', () => {
+  it('能當參數名的名稱：去掉頭尾空白後不是空的、沒有大括號與換行', async () => {
+    const { paramLabel } = await import('@/core/coc');
+    expect(paramLabel(' 偵查 ')).toBe('偵查');
+    expect(paramLabel('科學（化學）')).toBe('科學（化學）');
+    expect(paramLabel('射擊 (手槍)')).toBe('射擊 (手槍)');
+    expect(paramLabel('   ')).toBeNull();
+    expect(paramLabel('{x}')).toBeNull();
+    expect(paramLabel('a}b')).toBeNull();
+    expect(paramLabel('a\nb')).toBeNull();
+  });
+
+  it('依序決定名稱：和保留的名稱同名、和前面同名（英文不分大小寫）、不能參照的不寫進參數', async () => {
+    const { assignParamLabels } = await import('@/core/coc');
+    const r = assignParamLabels(
+      [
+        { id: 'a', name: '偵查' },
+        { id: 'b', name: ' 偵查' },
+        { id: 'c', name: 'str' },
+        { id: 'd', name: '{x}' },
+        { id: 'e', name: 'Dodge' },
+        { id: 'f', name: 'DODGE' },
+        { id: 'g', name: '聆聽' },
+      ],
+      ['STR', 'DB'],
+    );
+    expect([...r.labels]).toEqual([
+      ['a', '偵查'],
+      ['e', 'Dodge'],
+      ['g', '聆聽'],
+    ]);
+    expect(r.skipped.map((x) => [x.id, x.reason])).toEqual([
+      ['b', 'duplicate'],
+      ['c', 'reserved'],
+      ['d', 'invalid'],
+      ['f', 'duplicate'],
+    ]);
+  });
+
+  it('算式裡獨立的名稱換成參照（大小寫不拘，已經在大括號裡的、接在英數字後面的不換）', async () => {
+    const { referenceNames } = await import('@/core/coc');
+    const names = ['STR', 'SIZ', 'HP', 'MP'];
+    expect(referenceNames('1D6+str', names)).toBe('1D6+{STR}');
+    expect(referenceNames('{STR}+1D3', names)).toBe('{STR}+1D3');
+    expect(referenceNames('1DMP+STRX', names)).toBe('1DMP+STRX');
+    expect(referenceNames('(STR+SIZ)/10', names)).toBe('({STR}+{SIZ})/10');
+    expect(referenceNames('1D{HP}', names)).toBe('1D{HP}');
+    expect(referenceNames('1D6', [])).toBe('1D6');
+  });
+});

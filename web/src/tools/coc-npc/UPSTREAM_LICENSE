@@ -1,6 +1,43 @@
+這個檔案有兩份授權（各自的適用範圍寫在每一段的開頭）：ihoukentiku/ihoukentiku.github.io（MIT）與 65256619ko-sudo/TRPG_Char_Maker（MIT）。
+
+----------------------------------------------------------------------
+
+ihoukentiku/ihoukentiku.github.io（https://github.com/ihoukentiku/ihoukentiku.github.io）
+
+適用於這個工具的其他部分（由 trpg-lab 的舊版改寫）。
+
 MIT License
 
 Copyright (c) 2025 ihoukentiku
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+----------------------------------------------------------------------
+
+65256619ko-sudo/TRPG_Char_Maker（https://github.com/65256619ko-sudo/TRPG_Char_Maker，commit 57d61bf，2026-11-20）
+
+適用於 2026-11-20 參考它的做法改寫的「參照式聊天面板」（技能寫進參數、聊天面板用 {技能名} 參照、算式裡的名稱換成參照）：
+`logic.ts` 的 chatPalette（參照式）、ccfoliaData 的技能參數，以及共用的 `web/src/core/coc/palette.ts`。
+
+MIT License
+
+Copyright (c) 2026 65256619ko-sudo
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
