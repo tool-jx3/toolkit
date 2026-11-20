@@ -1,6 +1,6 @@
 /**
  * 場景轉換素材產生器：設定的規則（純函式）。
- * - 53 種效果的初始設定與「會出現的形狀設定」逐項對照附件 scene-transition.effects.json；
+ * - 53 種效果的初始設定與「會出現的形狀設定」逐項對照附件 scene-transition.effects.json（E54～E57 另見 scene-transition-silhouette.test.ts）；
  * - 選取效果時哪些設定換掉、哪些保留（規格 4.5 的實測例子）；
  * - 依設定增減的欄位（F22）、數量的範圍（F15）、字級的初始值、存檔修正（F65、F66）、檔名（3.8）、換花紋（F21）。
  */
@@ -127,9 +127,9 @@ function expected(e: Effect): Partial<Settings> {
 }
 
 describe('53 種效果（附件）', () => {
-  it('效果數、編號、分類', () => {
-    expect(EFFECTS).toHaveLength(53);
-    expect(EFFECTS.map((e) => e.id)).toEqual(J.效果.map((e: Effect) => e.編號));
+  it('效果數、編號、分類（E54～E57 剪影是 2026-11-20 加的，不在附件裡，見 scene-transition-silhouette.test.ts）', () => {
+    expect(EFFECTS).toHaveLength(57);
+    expect(EFFECTS.slice(0, 53).map((e) => e.id)).toEqual(J.效果.map((e: Effect) => e.編號));
     const cats = new Map<string, string>();
     for (const e of J.效果 as Effect[]) cats.set(e.類別, effectById(e.編號).category);
     /* 附件的 9 個類別各自對到一個分類 */

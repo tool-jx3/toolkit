@@ -3,7 +3,7 @@
  * - 選取效果時哪些設定換成效果的值、哪些保留（規格 4.5）；
  * - 存檔讀回時的修正（規格 F65、F66）；
  * - 依效果與設定顯示哪些形狀設定（規格 F22）；
- * - 設定 → core/transition 的到達先後圖參數；
+ * - 設定 → core/transition 的到達先後圖參數、剪影（silhouette.ts）的參數；
  * - 檔名（規格 3.8）。
  */
 import { safeFileName } from '@/core/files';
@@ -27,6 +27,7 @@ import {
   clampCount,
   DIRECTIONS,
   defaultFontSize,
+  type EffectShape,
   FPS_OPTIONS,
   type Look,
   MODES,
@@ -39,6 +40,7 @@ import {
   snap,
   TEXT_POSITIONS,
 } from './settings';
+import { isSilhouetteShape, type SilhouetteParams, type SilhouetteShape } from './silhouette';
 
 /** 效果的初始設定（形狀選項換成該形狀的值、數量夾在範圍內、方塊最多 60） */
 export function effectLook(id: string): Look {
@@ -180,6 +182,22 @@ export function arrivalParams(s: Settings, shape: TransitionShape, scale = 1): A
   return p;
 }
 
+/** 設定 → 剪影的參數（形狀選項不在清單裡時用第一個；數量夾在範圍內） */
+export function silhouetteParams(s: Settings): SilhouetteParams {
+  const shape = effectById(s.effect).shape;
+  return {
+    option: normalizeOption(shape, s.option),
+    order: s.order as CellOrder,
+    direction: s.direction,
+    center: [s.centerX, s.centerY],
+    count: clampCount(shape, s.count),
+    strength: s.strength,
+    seed: s.seed,
+    reverse: s.reverseOrder,
+    softness: s.softness,
+  };
+}
+
 /** 依效果出現的設定（規格 F22；名稱對照附件「會出現的形狀設定」） */
 export type ShapeField =
   | 'glowColor'
@@ -222,13 +240,43 @@ export function visibleFields(s: Settings): Set<ShapeField> {
   const out = new Set<ShapeField>();
   if (s.glow) out.add('glowColor');
   if (s.strobe >= 2) out.add('color2');
-  for (const k of shapeParams(shape, arrivalParams(s, shape))) {
-    const f = PARAM_FIELD[k];
-    if (f) out.add(f);
-  }
+  if (isSilhouetteShape(shape)) for (const f of silhouetteFields(shape, s)) out.add(f);
+  else
+    for (const k of shapeParams(shape, arrivalParams(s, shape))) {
+      const f = PARAM_FIELD[k];
+      if (f) out.add(f);
+    }
   if (s.mode === 'sweep') out.add('bandWidth');
   return out;
 }
+
+/**
+ * 剪影用到的設定（2026-11-20）：
+ * - 花瓣：花形、出現順序（沿方向 → 方向、從中心 → 中心）、橫向片數、飄動幅度、花紋；羽毛同花瓣但沒有花形；
+ * - 眨眼：閉合方式、眼皮弧度；
+ * - 蝙蝠群：飛來的方式（沿方向 → 方向、從四周合攏 → 中心）、橫向隻數、花紋。
+ */
+function silhouetteFields(shape: SilhouetteShape, s: Settings): ShapeField[] {
+  if (shape === 'blink') return ['option', 'strength'];
+  if (shape === 'bats') {
+    const option = normalizeOption(shape, s.option);
+    const out: ShapeField[] = ['option'];
+    if (option === 'direction') out.push('direction');
+    else if (option === 'close') out.push('center');
+    out.push('count', 'seed');
+    return out;
+  }
+  const out: ShapeField[] = shape === 'petals' ? ['option', 'order'] : ['order'];
+  if (s.order === 'direction') out.push('direction');
+  else if (s.order === 'center') out.push('center');
+  out.push('count', 'strength', 'seed');
+  return out;
+}
+
+/** 這個效果是不是剪影（花瓣、羽毛、眨眼、蝙蝠群） */
+export const isSilhouetteEffect = (id: string): boolean => isSilhouetteShape(effectById(id).shape);
+
+export type { EffectShape };
 
 /* ---------- 檔名 ---------- */
 
