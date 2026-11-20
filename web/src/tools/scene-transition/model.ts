@@ -27,7 +27,6 @@ import {
   clampCount,
   DIRECTIONS,
   defaultFontSize,
-  type EffectShape,
   FPS_OPTIONS,
   type Look,
   MODES,
@@ -275,8 +274,6 @@ function silhouetteFields(shape: SilhouetteShape, s: Settings): ShapeField[] {
 
 /** 這個效果是不是剪影（花瓣、羽毛、眨眼、蝙蝠群） */
 export const isSilhouetteEffect = (id: string): boolean => isSilhouetteShape(effectById(id).shape);
-
-export type { EffectShape };
 
 /* ---------- 檔名 ---------- */
 
