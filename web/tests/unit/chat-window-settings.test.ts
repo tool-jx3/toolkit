@@ -3,10 +3,12 @@
  */
 import { describe, expect, it } from 'vitest';
 import { chatUrlFrom, parseRoomId } from '@/ccfolia';
+import { DEFAULT_ROOM_HIDE, ROOM_PRESETS } from '@/tools/chat-window/roomUi';
 import {
   BASE_SETTINGS,
   type ChatSettings,
   DEFAULT_SOURCE,
+  fadeWindowActive,
   fileStem,
   NON_APPEARANCE_KEYS,
   normalizeSourceSize,
@@ -14,6 +16,7 @@ import {
   RANGES,
   SIZE_PRESETS,
   scrollActive,
+  scrollPinActive,
   usedFonts,
 } from '@/tools/chat-window/settings';
 import {
@@ -267,5 +270,65 @@ describe('衍生規則', () => {
     expect(fams({ ...s, titleMode: 'tab' })).toContain(s.titleFont);
     expect(fams({ ...s, participants: true, participantPrefix: '  ' })).not.toContain(s.titleFont);
     expect(fams({ ...s, participants: true, participantPrefix: '參加者' })).toContain(s.titleFont);
+  });
+});
+
+describe('2026-11-20：名字固定、只捲本文（v1.14）、訊息消失後視窗也消失（v1.12）、隱藏介面的設定', () => {
+  it('新的預設：名字固定開（照原作）、視窗也消失關；秘匿分頁用的範本把視窗也消失先開著', () => {
+    expect(BASE_SETTINGS.scrollPinName).toBe(true);
+    expect(BASE_SETTINGS.fadeWindow).toBe(false);
+    expect(initialSettings().scrollPinName).toBe(true);
+    for (const t of TEMPLATES) {
+      const full = { ...BASE_SETTINGS, ...t.data };
+      expect(full.scrollPinName, t.id).toBe(true);
+      expect(full.fadeWindow, t.id).toBe(t.id === 'secret');
+    }
+    /* 秘匿範本的「過一段時間後消失」仍是關：外觀和以前相同，打開消失才生效 */
+    expect(getTemplate('secret')?.data.fade).toBeUndefined();
+  });
+
+  it('存檔、專案檔沒有「名字固定」欄位時照以前的捲法（關）；有的照讀；不是物件時用預設', () => {
+    const old = { ...initialSettings() } as Record<string, unknown>;
+    delete old.scrollPinName;
+    expect(normalizeChatSettings(old).scrollPinName).toBe(false);
+    expect(normalizeChatSettings({ ...old, scrollPinName: true }).scrollPinName).toBe(true);
+    expect(normalizeChatSettings({ ...old, scrollPinName: 'yes' }).scrollPinName).toBe(true);
+    expect(normalizeChatSettings({}).scrollPinName).toBe(false);
+    expect(normalizeChatSettings('garbage').scrollPinName).toBe(true);
+    expect(normalizeChatSettings({ fadeWindow: true }).fadeWindow).toBe(true);
+    expect(normalizeChatSettings({}).fadeWindow).toBe(false);
+  });
+
+  it('實際生效的條件：名字固定要捲動生效、名稱有顯示、不是「名稱：」；視窗也消失要先開消失', () => {
+    const s = { ...initialSettings(), scroll: true, count: 1 };
+    expect(scrollPinActive(s)).toBe(true);
+    expect(scrollPinActive({ ...s, count: 2 })).toBe(false);
+    expect(scrollPinActive({ ...s, scrollPinName: false })).toBe(false);
+    expect(scrollPinActive({ ...s, name: false })).toBe(false);
+    expect(scrollPinActive({ ...s, nameStyle: 'prefix' })).toBe(false);
+    expect(scrollPinActive({ ...s, nameStyle: 'pill' })).toBe(true);
+    expect(fadeWindowActive({ fade: true, fadeWindow: true })).toBe(true);
+    expect(fadeWindowActive({ fade: false, fadeWindow: true })).toBe(false);
+  });
+
+  it('隱藏介面的勾選：只留認得的、照清單順序、去掉重複；不是陣列時用預設（只留盤面）', () => {
+    expect(BASE_SETTINGS.roomHide).toEqual([...ROOM_PRESETS.board]);
+    expect(DEFAULT_ROOM_HIDE).toEqual(ROOM_PRESETS.board);
+    expect(
+      normalizeChatSettings({ roomHide: ['chat', 'nope', 'header', 'chat', 3] }).roomHide,
+    ).toEqual(['header', 'chat']);
+    expect(normalizeChatSettings({ roomHide: 'chat' }).roomHide).toEqual([...ROOM_PRESETS.board]);
+    expect(normalizeChatSettings({ roomHide: [] }).roomHide).toEqual([]);
+    expect(normalizeChatSettings({ roomMerge: true }).roomMerge).toBe(true);
+    expect(normalizeChatSettings({ roomMerge: 1 }).roomMerge).toBe(false);
+  });
+
+  it('套用範本不改隱藏介面的設定（不屬於外觀）', () => {
+    expect(NON_APPEARANCE_KEYS).toContain('roomHide');
+    expect(NON_APPEARANCE_KEYS).toContain('roomMerge');
+    const cur = { ...initialSettings(), roomHide: ['ads' as const], roomMerge: true };
+    const next = applyChatTemplate(cur, getTemplate('dice')!);
+    expect(next.roomHide).toEqual(['ads']);
+    expect(next.roomMerge).toBe(true);
   });
 });

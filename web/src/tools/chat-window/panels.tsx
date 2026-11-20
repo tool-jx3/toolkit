@@ -2,9 +2,9 @@
  * 設定面板的六個分頁：基本、視窗、訊息、文字、動態、OBS。
  */
 import { type Ref, useState } from 'react';
-import { chatUrlFrom } from '@/ccfolia';
+import { chatUrlFrom, roomUrlFrom } from '@/ccfolia';
 import { getTool, hrefToTool } from '@/registry';
-import { Button, Field, FieldRow, Notice, Section, Select, Show } from '@/ui';
+import { Button, Checkbox, Field, FieldRow, Notice, Section, Select, Show, Tooltip } from '@/ui';
 import { SourceUrlField } from '@/ui/CssExport';
 import { ObsGuide } from '@/ui/ObsGuide';
 import {
@@ -20,6 +20,15 @@ import {
   useVisibility,
 } from './controls';
 import {
+  fragileParts,
+  normalizeRoomHide,
+  ROOM_PART_GROUPS,
+  ROOM_PARTS,
+  ROOM_PRESETS,
+  type RoomPartId,
+  type RoomPreset,
+} from './roomUi';
+import {
   anyLocalFont,
   namePrefixActive,
   SIZE_PRESETS,
@@ -27,7 +36,7 @@ import {
   titleHasTab,
   titleHasText,
 } from './settings';
-import { setStatus, useChat } from './store';
+import { setSetting, setStatus, useChat } from './store';
 import { S } from './strings';
 import { applyChatTemplate, getTemplate, TEMPLATES } from './templates';
 
@@ -515,11 +524,22 @@ export function MotionPanel() {
         ) : null}
         <SliderRow k="scrollDelay" label={S.motion.scrollDelay} unit="秒" />
         <SliderRow k="scrollDuration" label={S.motion.scrollDuration} unit="秒" />
+        <ToggleRow
+          k="scrollPinName"
+          label={S.motion.scrollPinName}
+          hint={S.motion.scrollPinNameHint}
+        />
       </Show>
       <ToggleRow k="fade" label={S.motion.fade} />
       <Show when={v.fade}>
         <SliderRow k="fadeStay" label={S.motion.fadeStay} unit="秒" />
         <SliderRow k="fadeDuration" label={S.motion.fadeDuration} unit="秒" />
+        <ToggleRow
+          k="fadeWindow"
+          label={S.motion.fadeWindow}
+          hint={S.motion.fadeWindowHint}
+          badge
+        />
       </Show>
       <ul className="m-0 flex list-disc flex-col gap-1 pl-5 text-xs text-muted">
         {S.motion.notes.map((n) => (
@@ -584,6 +604,101 @@ export function ObsPanel({ roomRef }: { roomRef: Ref<HTMLInputElement> }) {
             </li>
           </ul>
         </ObsGuide>
+      </Section>
+    </div>
+  );
+}
+
+/* ---------- 隱藏 CCFOLIA 房間畫面的介面 ---------- */
+
+function FragileBadge() {
+  return (
+    <Tooltip content={S.room.fragileHint}>
+      <span
+        className="ml-1.5 inline-flex shrink-0 items-center rounded-sm border border-border-strong px-1 align-middle text-[11px] leading-4 font-medium text-muted"
+        data-fragile=""
+      >
+        {S.room.fragile}
+      </span>
+    </Tooltip>
+  );
+}
+
+export function RoomPanel() {
+  const s = useSettings();
+  const hide = new Set(s.roomHide);
+  const fragile = new Set(fragileParts(ROOM_PARTS.map((p) => p.id)));
+  const toggle = (id: RoomPartId, on: boolean) => {
+    const next = on ? [...s.roomHide, id] : s.roomHide.filter((x) => x !== id);
+    setSetting('roomHide', normalizeRoomHide(next));
+  };
+  const preset = (p: RoomPreset) => setSetting('roomHide', normalizeRoomHide(ROOM_PRESETS[p]));
+  const url = roomUrlFrom(s.room);
+  return (
+    <div className="flex flex-col gap-3">
+      <Section
+        title={S.room.section}
+        description={S.room.description}
+        persistKey="chat-window:room"
+      >
+        <fieldset className="m-0 flex min-w-0 flex-wrap gap-1.5 border-0 p-0">
+          <legend className="mb-1.5 p-0 text-sm font-medium text-fg">{S.room.presets}</legend>
+          {(Object.keys(ROOM_PRESETS) as RoomPreset[]).map((p) => (
+            <Button key={p} size="sm" onClick={() => preset(p)}>
+              {S.room.presetLabels[p]}
+            </Button>
+          ))}
+        </fieldset>
+        {ROOM_PART_GROUPS.map((g) => (
+          <fieldset
+            key={g}
+            className="m-0 flex min-w-0 flex-col gap-1.5 border-0 p-0"
+            data-room-group={g}
+          >
+            <legend className="mb-1 p-0 text-sm font-medium text-fg">{S.room.groups[g]}</legend>
+            {ROOM_PARTS.filter((p) => p.group === g).map((p) => {
+              const merged = s.roomMerge && p.id === 'chat';
+              return (
+                <div key={p.id} className="flex min-w-0 flex-wrap items-center gap-x-1">
+                  <Checkbox
+                    checked={hide.has(p.id) && !merged}
+                    disabled={merged}
+                    onCheckedChange={(on) => toggle(p.id, on)}
+                    label={S.room.parts[p.id]}
+                  />
+                  {fragile.has(p.id) ? <FragileBadge /> : null}
+                  {p.id === 'boardOutline' ? (
+                    <span className="w-full pl-6.5 text-xs text-muted">
+                      {S.room.boardOutlineHint}
+                    </span>
+                  ) : null}
+                  {merged ? (
+                    <span className="w-full pl-6.5 text-xs text-muted">{S.room.chatMerged}</span>
+                  ) : null}
+                </div>
+              );
+            })}
+          </fieldset>
+        ))}
+        <ToggleRow k="roomMerge" label={S.room.merge} hint={S.room.mergeHint} />
+        <ul className="m-0 flex list-disc flex-col gap-1 pl-5 text-xs text-muted">
+          {S.room.notes.map((n) => (
+            <li key={n}>{n}</li>
+          ))}
+        </ul>
+      </Section>
+      <Section title={S.obs.guide} persistKey="chat-window:room-guide">
+        <ObsGuide
+          title={null}
+          urlLabel={S.room.guideUrlLabel}
+          url={url}
+          size={s.roomMerge ? S.room.guideMergeSize(s.width, s.height) : S.room.guideSize}
+          login="interact"
+          audio
+          obs={s.roomMerge ? { version: 31 } : null}
+          multipleSources
+          disclaimer={S.usage.disclaimer}
+        />
       </Section>
     </div>
   );

@@ -125,6 +125,8 @@ const DATA: { id: keyof typeof S.templates; data: TemplateData }[] = [
       accentWidth: 3,
       enter: 'fade',
       enterDuration: 0.5,
+      /* 訊息消失後視窗也消失：先開著，打開「過一段時間後消失」就生效（照原作的秘匿範本，D1） */
+      fadeWindow: true,
     },
   },
   /* 5. 無背景紀錄 */

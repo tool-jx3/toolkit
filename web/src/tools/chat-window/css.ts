@@ -40,8 +40,10 @@ import {
 import type { FontValue } from '@/core/fonts';
 import {
   type ChatSettings,
+  fadeWindowActive,
   namePrefixActive,
   scrollActive,
+  scrollPinActive,
   titleHasTab,
   usedFonts,
 } from './settings';
@@ -77,7 +79,12 @@ export const KEYFRAMES = {
   enter: 'tk-chat-in',
   fade: 'tk-chat-out',
   scroll: 'tk-chat-scroll',
+  /** 名字固定、只捲本文（v1.14） */
+  scrollBody: 'tk-chat-scroll-body',
   flash: 'tk-chat-flash',
+  /** 訊息消失後視窗也消失（v1.12）：最新一則的 data-index 是偶數／奇數時各用一個名稱，換名稱就從頭重播 */
+  windowOutEven: 'tk-chat-window-out-even',
+  windowOutOdd: 'tk-chat-window-out-odd',
 } as const;
 
 /* ---------- 小工具 ---------- */
@@ -157,6 +164,7 @@ export function obsFeatures(s: ChatSettings): string[] {
   else if (s.hideSystem) f.push('隱藏系統訊息');
   if (s.accent === 'outcome') f.push('依擲骰成敗上色的左側線條');
   if (s.outcomeGlow && s.boxShape !== 'none') f.push('成敗時外框發光');
+  if (fadeWindowActive(s)) f.push('訊息消失後視窗也消失');
   return f;
 }
 
@@ -170,6 +178,8 @@ function messageFilter(s: ChatSettings): string | null {
 export interface BuildOptions {
   /** 最後套用的範本名稱（寫進開頭說明） */
   templateName?: string | null;
+  /** 開頭的說明註解（預設有；接在隱藏介面的 CSS 裡時不要，roomUi.ts） */
+  header?: boolean;
 }
 
 /* ---------- 主函式 ---------- */
@@ -177,6 +187,8 @@ export interface BuildOptions {
 export function buildChatCss(s: ChatSettings, options: BuildOptions = {}): string {
   const css = createCssSheet();
   const scroll = scrollActive(s);
+  /* 名字固定、只捲本文：文字欄不動，只有內文往上捲 */
+  const pin = scrollPinActive(s);
   const fill = s.sizeMode === 'fill' || scroll;
   const top = s.anchor === 'top';
   const newestTop = s.order === 'newest-top';
@@ -185,23 +197,24 @@ export function buildChatCss(s: ChatSettings, options: BuildOptions = {}): strin
   const features = obsFeatures(s);
 
   /* ---- 開頭說明與字型 ---- */
-  css.header({
-    title: '聊天視窗（OBS 瀏覽器來源的自訂 CSS）',
-    toolName: '聊天視窗產生器',
-    template: options.templateName ?? null,
-    url: chatUrlFrom(s.room),
-    exampleUrl: exampleChatUrl('<房間ID>'),
-    urlNote: '一定要是 /chat 結尾的聊天頁；填房間網址會拍到整個房間',
-    size: { width: s.width, height: s.height },
-    obs: features.length ? { version: 31, features } : null,
-    localFonts: localFontNames(fonts),
-    notes: [
-      s.hoverTabs
-        ? '要顯示其他分頁：在 OBS 的來源上按右鍵選「互動」，把滑鼠移到畫面上，從出現的分頁列點選。CCFOLIA 不會記住這個選擇，重新開啟後要再選一次。'
-        : '分頁列不會出現：只會顯示 CCFOLIA 目前開著的分頁（重新載入後是主分頁「メイン」）。',
-      scroll ? '長訊息慢慢捲動需要 OBS 31 以上（較舊的 OBS 會停在訊息開頭不動）。' : null,
-    ],
-  });
+  if (options.header !== false)
+    css.header({
+      title: '聊天視窗（OBS 瀏覽器來源的自訂 CSS）',
+      toolName: '聊天視窗產生器',
+      template: options.templateName ?? null,
+      url: chatUrlFrom(s.room),
+      exampleUrl: exampleChatUrl('<房間ID>'),
+      urlNote: '一定要是 /chat 結尾的聊天頁；填房間網址會拍到整個房間',
+      size: { width: s.width, height: s.height },
+      obs: features.length ? { version: 31, features } : null,
+      localFonts: localFontNames(fonts),
+      notes: [
+        s.hoverTabs
+          ? '要顯示其他分頁：在 OBS 的來源上按右鍵選「互動」，把滑鼠移到畫面上，從出現的分頁列點選。CCFOLIA 不會記住這個選擇，重新開啟後要再選一次。'
+          : '分頁列不會出現：只會顯示 CCFOLIA 目前開著的分頁（重新載入後是主分頁「メイン」）。',
+        scroll ? '長訊息慢慢捲動需要 OBS 31 以上（較舊的 OBS 會停在訊息開頭不動）。' : null,
+      ],
+    });
   for (const u of googleFontUrls(fonts)) css.import(u);
 
   page(css, s);
@@ -209,13 +222,13 @@ export function buildChatCss(s: ChatSettings, options: BuildOptions = {}): strin
   header(css, s);
   tabTitle(css, s);
   messageList(css, s, { fill, top, newestTop, scroll });
-  messageBox(css, s, { scroll });
+  messageBox(css, s, { scroll, pin });
   avatar(css, s, { scroll });
   nameRules(css, s, prefixName);
   bodyRules(css, s, prefixName);
   resultRules(css, s);
   divider(css, s, newestTop);
-  motion(css, s, { scroll, newestTop });
+  motion(css, s, { scroll, pin, newestTop });
   return css.toString();
 }
 
@@ -687,7 +700,11 @@ function messageList(
 
 /* ---------- 一則訊息的方框、左側線條、成敗外框 ---------- */
 
-function messageBox(css: CssSheet, s: ChatSettings, { scroll }: { scroll: boolean }) {
+function messageBox(
+  css: CssSheet,
+  s: ChatSettings,
+  { scroll, pin }: { scroll: boolean; pin: boolean },
+) {
   const line = s.accent !== 'none' ? s.accentWidth : 0;
   const bw = s.boxBorderWidth;
   const border = bw > 0 ? `${px(bw)} solid ${rgba(s.boxBorderColor)}` : '0 none';
@@ -784,10 +801,10 @@ function messageBox(css: CssSheet, s: ChatSettings, { scroll }: { scroll: boolea
     /*
      * 長訊息捲動：文字欄帶著 transform 往上移，會變成線條的定位基準。線條改從文字欄量回方框的左緣與上緣、
      * 往下延伸到方框外（由方框的 overflow: hidden 與圓角裁切），所以捲動中仍貼在方框左緣、從頂到底。
-     * 對話泡泡是整個泡泡移動，線條本來就跟著泡泡，不用改。
+     * 對話泡泡是整個泡泡移動，線條本來就跟著泡泡，不用改。名字固定、只捲本文時文字欄不動，也不用改。
      */
     const lineInset = scrollLineInset(s);
-    if (scroll && lineInset) {
+    if (scroll && !pin && lineInset) {
       css.rule(`${NAME}::before`, {
         left: px(-lineInset.left),
         top: px(-lineInset.top),
@@ -1130,7 +1147,7 @@ export function fadeDelay(s: ChatSettings): number {
 function motion(
   css: CssSheet,
   s: ChatSettings,
-  { scroll, newestTop }: { scroll: boolean; newestTop: boolean },
+  { scroll, pin, newestTop }: { scroll: boolean; pin: boolean; newestTop: boolean },
 ) {
   const anims: string[] = [];
   const frames = enterKeyframes(s.enter);
@@ -1164,7 +1181,8 @@ function motion(
       'transform-origin': s.enter === 'pop' ? 'center' : null,
     });
 
-  if (scroll) {
+  if (scroll && pin) scrollBodyOnly(css, s);
+  else if (scroll) {
     /* 只往上：位移＝min(0, 清單高 − 方框上下留白與外框 − 文字欄高) */
     const inset =
       s.boxShape === 'bubble'
@@ -1180,6 +1198,8 @@ function motion(
     });
   }
 
+  if (fadeWindowActive(s)) fadeWindowRules(css, s);
+
   if (s.resultFlash) {
     const name = css.keyframes(KEYFRAMES.flash, {
       from: { filter: 'brightness(2.2)' },
@@ -1187,4 +1207,83 @@ function motion(
     });
     css.rule(RES, { animation: `${name} 1.4s ease-out both` });
   }
+}
+
+/**
+ * 名字固定時名稱一列佔的高度（px）：一行（行高 1.35）＋樣式的內距與底線＋名稱與內文間距。
+ * 名稱照這個高度固定（scrollBodyOnly），所以和實際的高度一致。
+ */
+export function pinnedNameHeight(
+  s: Pick<ChatSettings, 'nameSize' | 'nameStyle' | 'nameGap'>,
+): number {
+  const extra =
+    s.nameStyle === 'underline'
+      ? s.nameSize * 0.12 + 2
+      : s.nameStyle === 'pill'
+        ? s.nameSize * 0.24
+        : 0;
+  return s.nameSize * 1.35 + extra + s.nameGap;
+}
+
+/**
+ * 名字固定、只捲本文（chat-window-maker v1.14 的做法改寫）：只有內文往上移；跟著位移的 clip-path
+ * 讓本文在名稱正下方、方框下內距上方消失（上面切掉已經往上移的量，下面切掉還超出的量，看得到的範圍不動）。
+ * 左右各放寬 60px，文字效果不會被切到。
+ */
+function scrollBodyOnly(css: CssSheet, s: ChatSettings) {
+  const bubble = s.boxShape === 'bubble';
+  const border = s.boxBorderWidth > 0 && s.boxShape !== 'none' ? 2 * s.boxBorderWidth : 0;
+  const off = 2 * s.boxPadY + border + pinnedNameHeight(s);
+  /* 內文比可用的高度多出來的量（不會小於 0） */
+  const over = `max(0px, 100% + ${px(off)} - 100cqh)`;
+  const name = css.keyframes(KEYFRAMES.scrollBody, {
+    from: { transform: 'translateY(0)', 'clip-path': `inset(0 -60px ${over} -60px)` },
+    to: {
+      transform: `translateY(calc(-1 * ${over}))`,
+      'clip-path': `inset(${over} -60px 0 -60px)`,
+    },
+  });
+  css.rule(BODY, {
+    animation: `${name} ${num(s.scrollDuration, 2)}s linear ${num(s.scrollDelay, 2)}s both`,
+  });
+  /* 名稱固定一行的高度（計算上面的位移量用） */
+  css.rule(NAME, { height: px(s.nameSize * 1.35), 'box-sizing': 'content-box', flex: 'none' });
+  css.rule(TXT, { 'align-self': 'flex-start' });
+  /* 方框（泡泡時是泡泡本身）不比視窗高，下緣一直看得到 */
+  if (bubble)
+    css.rule(TXT, {
+      'max-height': '100cqh',
+      'box-sizing': 'border-box',
+      'overflow-x': 'visible',
+      'overflow-y': 'clip',
+    });
+  else css.rule(LI, { 'max-height': '100cqh', 'box-sizing': 'border-box' });
+}
+
+/**
+ * 訊息消失後視窗也消失（chat-window-maker v1.12 的做法改寫）：CSS 看不到動畫結束，所以視窗自己跑一個
+ * 同樣長度的計時。data-index 是訊息在整個紀錄裡的編號，新訊息進來時最新一則的奇偶就會換，
+ * 奇偶各用一個動畫名稱（換名稱就從頭重播）。全部要 :has()（OBS 31），舊 OBS 丟掉這些規則、視窗照舊。
+ * 「只列擲骰」「隱藏系統訊息」的篩選本身也用 :has()，不能再包進 :has()：視窗看所有訊息，
+ * 不顯示的種類進來時視窗也會出現一段時間。:where() 讓這些規則的權重低於 OBS 互動時的規則。
+ */
+function fadeWindowRules(css: CssSheet, s: ChatSettings) {
+  const newest = `> ${CHAT.log} > div:last-child > div > div[data-index]:nth-last-child(1 of [data-index])`;
+  const parity = (digits: string[]) =>
+    `:is(${digits.map((d) => `[data-index$="${d}"]`).join(', ')})`;
+  const out = { to: { opacity: 0 } };
+  const timer = (n: string) =>
+    `${n} ${num(s.fadeDuration, 2)}s ease-in ${num(fadeDelay(s), 2)}s forwards`;
+  const even = css.keyframes(KEYFRAMES.windowOutEven, out);
+  const odd = css.keyframes(KEYFRAMES.windowOutOdd, out);
+  css.rule(`${CHAT.paper}:where(:has(${newest}${parity(['0', '2', '4', '6', '8'])}))`, {
+    animation: timer(even),
+  });
+  css.rule(`${CHAT.paper}:where(:has(${newest}${parity(['1', '3', '5', '7', '9'])}))`, {
+    animation: timer(odd),
+  });
+  /* 一則訊息都沒有：視窗不顯示 */
+  css.rule(`${CHAT.paper}:where(:not(:has(${newest})))`, { opacity: 0 });
+  /* OBS 的「互動」視窗裡滑鼠在畫面上：視窗一直顯示（才能選分頁） */
+  css.rule(`html:hover ${CHAT.paper}`, { animation: 'none', opacity: 1 });
 }

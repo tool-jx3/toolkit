@@ -13,6 +13,7 @@ export const S = {
     text: '文字',
     motion: '動態',
     obs: 'OBS',
+    room: '隱藏介面',
   },
   tabsLabel: '設定分類',
 
@@ -293,12 +294,18 @@ export const S = {
     scrollWarn: '則數不是 1，不會捲動（開關打開的當下會自動改成 1 則、填滿來源）。',
     scrollDelay: '開始前等待',
     scrollDuration: '捲完所需時間',
+    scrollPinName: '名字固定、只捲本文',
+    scrollPinNameHint:
+      '名稱留在原位，只有內文往上捲（在名稱正下方、方框的下內距上方消失）。名稱是「名稱：」接在內文前面或不顯示時，照樣整欄一起捲；有頭像時頭像一律不動。',
     scrollAdjusted: (parts: string[]) => `已開啟長訊息捲動，並把${parts.join('、')}。`,
     scrollAdjustCount: '則數改成 1',
     scrollAdjustFill: '視窗改成填滿來源',
     fade: '過一段時間後消失',
     fadeStay: '消失前停留',
     fadeDuration: '消失速度',
+    fadeWindow: '訊息消失後視窗也消失',
+    fadeWindowHint:
+      '視窗（背景、外框、標題）跟著最新一則一起淡出，有新訊息再出現；適合秘匿分頁「送出時才顯示」。OBS 的「互動」裡滑鼠在畫面上時視窗一直顯示（才能選分頁；預覽也一樣，確認時請把滑鼠移開）。和「只列出擲骰訊息」「隱藏系統訊息」一起用時，不顯示的種類進來視窗也會出現一段時間。',
     notes: [
       '消失適合「只在擲骰當下顯示」的視窗；消失的位置會由其他訊息遞補上來。',
       'OBS 重新載入來源時，已經消失的訊息會再播一次進場，照時間再消失一次。',
@@ -330,6 +337,73 @@ export const S = {
       '：那邊的擲骰只顯示最後「＞ 成功」一段，建議台詞用訊息框、完整的擲骰結果用這個聊天視窗（兩個瀏覽器來源，登入狀態共用）。',
     troubleshoot:
       '畫面一片空白：多半是瀏覽器來源還沒登入 CCFOLIA（照上面的登入步驟），或網址不是 /chat 結尾。秘匿分頁只有參加者的帳號看得到。',
+  },
+
+  /* ---------- 隱藏 CCFOLIA 房間畫面的介面 ---------- */
+  room: {
+    section: '隱藏房間畫面的介面',
+    description:
+      'OBS 的瀏覽器來源直接開 CCFOLIA 的房間網址（不是 /chat 的聊天頁），想拍盤面卻不要按鈕、聊天欄這些介面時用。勾選要隱藏的部分，下面產生一段自訂 CSS。',
+    presets: '一鍵勾選',
+    presetLabels: {
+      board: '只留盤面',
+      ui: '只隱藏介面',
+      all: '全部隱藏',
+      none: '全部取消',
+    },
+    groups: {
+      board: '盤面上的東西',
+      stage: '演出',
+      ui: '介面',
+      notice: '通知與廣告',
+    },
+    parts: {
+      background: '背景',
+      foreground: '前景',
+      characters: '棋子（盤面上的角色）',
+      markerPanel: '共用標記（マーカーパネル）',
+      screenPanel: '螢幕面板',
+      cardDeck: '卡牌堆',
+      diceSymbol: '骰子符號',
+      board: '整個盤面',
+      boardOutline: '盤面的外框線',
+      messageBox: '訊息框（發言時下方的框）',
+      cutIn: '切入',
+      rollingDice: '滾動的骰子',
+      header: '上方的標題列',
+      chat: '聊天欄',
+      status: '角色狀態（畫面上的角色清單）',
+      timer: '計時器',
+      bgm: 'BGM（音量）',
+      zoom: '縮放按鈕',
+      ctrlDrag: '「Ctrl＋拖曳」的提示',
+      edit: '編輯按鈕（鉛筆）',
+      ads: '廣告影片',
+      monitoring: '監視模式的通知',
+    },
+    fragile: '改版容易失效',
+    fragileHint:
+      '這一項的選擇器靠 CCFOLIA 自動產生的 class、日文的按鈕名稱或行內樣式的寫法，CCFOLIA 改版時最容易失效。',
+    boardOutlineHint: '不是隱藏，是拿掉盤面四周的外框線。',
+    merge: '後面接上聊天視窗的 CSS',
+    mergeHint:
+      '同一個瀏覽器來源開房間網址，房間右邊的聊天欄照「聊天視窗」的設定顯示（「聊天欄」不會被隱藏）。這時「基本」分頁的來源大小要改成整個房間畫面的大小（例如 1920 × 1080），視窗的位置照它算。只拍聊天的話，用 /chat 的聊天頁比較穩定。',
+    chatMerged: '後面接著聊天視窗的 CSS，聊天欄不隱藏。',
+    notes: [
+      '選擇器依 CCFOLIA v1.36 時的頁面結構（參考 yudukiak/ccfoliaCSS，兩個來源不同時用比較新的）；CCFOLIA 改版後可能失效，失效時請回到這裡重新產生。',
+      '預覽是本站依這些選擇器做的模擬畫面，每一塊標著它是哪一部分；實際的位置與樣子以 OBS 裡看到的為準。',
+    ],
+    url: '瀏覽器來源網址（房間網址）',
+    missingUrl: '還沒有填房間網址（在「OBS」分頁）。這段 CSS 要配房間網址用，不是 /chat 的聊天頁。',
+    preview: '房間畫面預覽',
+    previewNote: '預覽用的大小；粉紅虛線是瀏覽器來源的範圍',
+    output: '隱藏介面的 CSS',
+    fileSuffix: '-room',
+    copied:
+      '已複製隱藏介面的 CSS。瀏覽器來源的網址要填房間網址，再把內容貼進「自訂 CSS」欄（先清空原有的內容）。',
+    guideUrlLabel: 'CCFOLIA 的房間網址',
+    guideSize: '要拍的畫面大小（例如 1920 × 1080）',
+    guideMergeSize: (w: number, h: number) => `「聊天視窗」的來源大小（寬 ${w} × 高 ${h}）`,
   },
 
   /* ---------- 預覽 ---------- */
@@ -411,6 +485,7 @@ export const S = {
     notes: [
       '設定會自動存在這個瀏覽器裡；要做好幾份（例如擲骰用、秘匿用）時，可以用「專案」存成不同的專案檔。',
       '預覽是依 CCFOLIA 的頁面結構模擬的；實際效果以 OBS 裡看到的為準。',
+      '「隱藏介面」分頁：OBS 直接開房間網址拍盤面時，勾選要隱藏的 CCFOLIA 介面（標題列、聊天欄、按鈕…），產生另一段自訂 CSS；也可以接上聊天視窗的 CSS。',
     ],
     disclaimer: '本工具與 CCFOLIA 官方無關；CCFOLIA 改版時可能需要重新產生 CSS。',
   },

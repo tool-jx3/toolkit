@@ -11,7 +11,9 @@ import {
   dividerOffset,
   enterKeyframes,
   fadeDelay,
+  KEYFRAMES,
   obsFeatures,
+  pinnedNameHeight,
   roundedAvatarRadius,
 } from '@/tools/chat-window/css';
 import type { ChatSettings } from '@/tools/chat-window/settings';
@@ -70,15 +72,37 @@ describe('整體', () => {
   });
 
   it('會被動畫改動的屬性不加 !important（進場、消失、捲動、閃一下才不會失效）', () => {
-    const t = css({ enter: 'blur', fade: true, scroll: true, count: 1, resultFlash: true });
-    for (const prop of ['opacity', 'transform', 'filter', 'max-height', 'margin-top']) {
-      const bad = new RegExp(`\\n\\s+${prop}: [^;]*!important;`, 'g');
-      const hits = [...t.matchAll(bad)].map((m) => m[0].trim());
-      /* 例外：虛擬捲動內層的 transform: none、系統訊息內文的 opacity、視窗的 max-height（都不是動畫元素） */
-      expect(
-        hits.filter((h) => !/transform: none|opacity: 0\.75|max-height: none/.test(h)),
-        prop,
-      ).toEqual([]);
+    for (const scrollPinName of [false, true]) {
+      const t = css({
+        enter: 'blur',
+        fade: true,
+        fadeWindow: true,
+        scroll: true,
+        count: 1,
+        scrollPinName,
+        resultFlash: true,
+      });
+      for (const prop of [
+        'opacity',
+        'transform',
+        'filter',
+        'max-height',
+        'margin-top',
+        'clip-path',
+      ]) {
+        const bad = new RegExp(`\\n\\s+${prop}: [^;]*!important;`, 'g');
+        const hits = [...t.matchAll(bad)].map((m) => m[0].trim());
+        /*
+         * 例外（都不是那個動畫的元素）：虛擬捲動內層的 transform: none、系統訊息內文的 opacity、視窗的 max-height、
+         * 名字固定時方框的 max-height（消失動畫改的是訊息本身）、視窗消失的「沒有訊息時 0／互動時 1」（要蓋過視窗的動畫）
+         */
+        expect(
+          hits.filter(
+            (h) => !/transform: none|opacity: [01](\.75)?\b|max-height: (none|100cqh)/.test(h),
+          ),
+          `${prop} ${scrollPinName}`,
+        ).toEqual([]);
+      }
     }
   });
 });
@@ -537,7 +561,7 @@ describe('方框、頭像、名稱（F38～F56、3.4.4～3.4.6）', () => {
   });
 
   it('長訊息捲動時左側線條仍貼在方框左緣（F71）', () => {
-    const scroll = { scroll: true, count: 1 } as const;
+    const scroll = { scroll: true, count: 1, scrollPinName: false } as const;
     const card = block(
       css({
         ...scroll,
@@ -772,6 +796,7 @@ describe('動態（F70～F72、3.4.12）', () => {
     const t = css({
       scroll: true,
       count: 1,
+      scrollPinName: false,
       scrollDelay: 2,
       scrollDuration: 10,
       boxShape: 'card',
@@ -782,7 +807,9 @@ describe('動態（F70～F72、3.4.12）', () => {
     expect(t).toContain('tk-chat-scroll 10s linear 2s both');
     expect(block(t, CHAT.log)).toContain('container-type: size');
     expect(css({ scroll: true, count: 2 })).not.toContain('tk-chat-scroll');
-    expect(css({ scroll: true, count: 1, boxShape: 'bubble' })).toContain('100cqh - 0px - 100%');
+    expect(css({ scroll: true, count: 1, scrollPinName: false, boxShape: 'bubble' })).toContain(
+      '100cqh - 0px - 100%',
+    );
   });
 });
 
@@ -792,5 +819,116 @@ describe('範本名稱（F02）', () => {
     expect(
       header(buildChatCss({ ...initialSettings(), ...t.data }, { templateName: t.name })),
     ).toContain('以範本「擲骰紀錄」為基礎');
+  });
+});
+
+describe('2026-11-20：名字固定、只捲本文（v1.14，F113）', () => {
+  const NAME = `${ITEM} > .MuiListItem-root > ${CHAT.textColumn} > ${CHAT.name}`;
+  const BODY = `${ITEM} > .MuiListItem-root > ${CHAT.textColumn} > ${CHAT.body}`;
+  const LI = `${ITEM} > .MuiListItem-root`;
+  const TXT = `${LI} > ${CHAT.textColumn}`;
+  const pin = {
+    scroll: true,
+    count: 1,
+    scrollPinName: true,
+    scrollDelay: 2,
+    scrollDuration: 10,
+    boxShape: 'card',
+    boxPadY: 7,
+    boxBorderWidth: 0,
+    nameSize: 14,
+    nameGap: 2,
+    nameStyle: 'plain',
+  } as const;
+
+  it('名稱一列的高度：一行（行高 1.35）＋底線（0.12em＋2px）或膠囊（上下 0.12em）＋間距', () => {
+    expect(pinnedNameHeight({ nameSize: 14, nameStyle: 'plain', nameGap: 2 })).toBeCloseTo(20.9, 5);
+    expect(pinnedNameHeight({ nameSize: 20, nameStyle: 'underline', nameGap: 6 })).toBeCloseTo(
+      27 + 2.4 + 2 + 6,
+      5,
+    );
+    expect(pinnedNameHeight({ nameSize: 10, nameStyle: 'pill', nameGap: 0 })).toBeCloseTo(15.9, 5);
+  });
+
+  it('只有內文往上移，位移與 clip-path 一起走；名稱固定高度；文字欄不動', () => {
+    const t = css(pin);
+    /* 多出來的量＝內文高＋上下留白 14＋名稱 18.9＋間距 2 − 清單高 */
+    expect(t).toContain(`@keyframes ${KEYFRAMES.scrollBody}`);
+    expect(t).toContain('transform: translateY(calc(-1 * max(0px, 100% + 34.9px - 100cqh)));');
+    expect(t).toContain('clip-path: inset(0 -60px max(0px, 100% + 34.9px - 100cqh) -60px);');
+    expect(t).toContain('clip-path: inset(max(0px, 100% + 34.9px - 100cqh) -60px 0 -60px);');
+    expect(block(t, BODY)).toContain(`animation: ${KEYFRAMES.scrollBody} 10s linear 2s both`);
+    expect(block(t, NAME)).toContain('height: 18.9px');
+    expect(block(t, LI)).toContain('max-height: 100cqh');
+    expect(t).not.toContain(`${KEYFRAMES.scroll} 10s`);
+    expect(block(t, TXT)).not.toContain('animation:');
+    /* 外框：方框的上下外框也算進去 */
+    expect(css({ ...pin, boxBorderWidth: 2 })).toContain('100% + 38.9px - 100cqh');
+    /* 無框：沒有外框 */
+    expect(css({ ...pin, boxShape: 'none', boxBorderWidth: 2 })).toContain(
+      '100% + 34.9px - 100cqh',
+    );
+  });
+
+  it('對話泡泡：泡泡本身不比視窗高、上下切掉（尾巴在左邊，左右不切）', () => {
+    const t = css({ ...pin, boxShape: 'bubble', boxBorderWidth: 1 });
+    expect(t).toContain('100% + 36.9px - 100cqh');
+    const b = block(t, TXT);
+    expect(b).toContain('max-height: 100cqh');
+    expect(b).toContain('overflow-y: clip');
+    expect(b).toContain('overflow-x: visible');
+  });
+
+  it('「名稱：」前綴、不顯示名稱、開關關掉時照以前整欄一起捲', () => {
+    for (const p of [{ nameStyle: 'prefix' }, { name: false }, { scrollPinName: false }] as const) {
+      const t = css({ ...pin, ...p });
+      expect(t, JSON.stringify(p)).not.toContain(KEYFRAMES.scrollBody);
+      expect(t, JSON.stringify(p)).toContain(`${KEYFRAMES.scroll} 10s linear 2s both`);
+    }
+    /* 則數不是 1：都不捲 */
+    expect(css({ ...pin, count: 2 })).not.toContain(KEYFRAMES.scrollBody);
+  });
+
+  it('左側線條不用改定位（文字欄沒有位移）', () => {
+    const t = css({ ...pin, accent: 'custom', accentWidth: 4, boxPadX: 14, avatarSize: 50 });
+    expect(block(t, `${NAME}::before`)).not.toContain('bottom: -100cqh');
+    expect(block(t, `${NAME}::before`)).toContain('bottom: 0');
+  });
+});
+
+describe('2026-11-20：訊息消失後視窗也消失（v1.12，F112）', () => {
+  const fw = { fade: true, fadeStay: 5, fadeDuration: 1.2, fadeWindow: true } as const;
+  const P = CHAT.paper;
+
+  it('最新一則的編號是偶數／奇數時各用一個動畫（換名稱就重播）；時間＝訊息的消失', () => {
+    const t = css(fw);
+    const newest = `> ${CHAT.log} > div:last-child > div > div[data-index]:nth-last-child(1 of [data-index])`;
+    expect(t).toContain(
+      `${P}:where(:has(${newest}:is([data-index$="0"], [data-index$="2"], [data-index$="4"], [data-index$="6"], [data-index$="8"]))) {\n  animation: ${KEYFRAMES.windowOutEven} 1.2s ease-in 5s forwards !important;`,
+    );
+    expect(t).toContain(
+      `[data-index$="9"]))) {\n  animation: ${KEYFRAMES.windowOutOdd} 1.2s ease-in 5s forwards !important;`,
+    );
+    expect(t).toContain(`@keyframes ${KEYFRAMES.windowOutEven} {\n  to {\n    opacity: 0;`);
+    expect(t).toContain(`${P}:where(:not(:has(${newest}))) {\n  opacity: 0 !important;`);
+    expect(block(t, `html:hover ${P}`)).toContain('animation: none !important');
+    expect(block(t, `html:hover ${P}`)).toContain('opacity: 1 !important');
+    /* 捲動時從捲完才開始計時（和訊息的消失相同） */
+    const s2 = css({ ...fw, scroll: true, count: 1, scrollDelay: 2, scrollDuration: 10 });
+    expect(s2).toContain(`${KEYFRAMES.windowOutEven} 1.2s ease-in 17s forwards`);
+  });
+
+  it('要先開「過一段時間後消失」；開頭說明寫明需要 OBS 31', () => {
+    expect(css({ ...fw, fade: false })).not.toContain(KEYFRAMES.windowOutEven);
+    expect(css({ ...fw, fadeWindow: false })).not.toContain(KEYFRAMES.windowOutEven);
+    expect(obsFeatures(base(fw))).toContain('訊息消失後視窗也消失');
+    expect(header(css(fw))).toContain('訊息消失後視窗也消失');
+    expect(obsFeatures(base({ ...fw, fade: false }))).not.toContain('訊息消失後視窗也消失');
+  });
+
+  it('沒有開頭說明的寫法（接在隱藏介面的 CSS 裡）', () => {
+    const t = buildChatCss(base(), { header: false });
+    expect(t.startsWith('@import')).toBe(true);
+    expect(t).not.toContain('聊天視窗產生器');
   });
 });
