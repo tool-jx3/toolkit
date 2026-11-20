@@ -1,0 +1,1 @@
+function e(e){let t=[];for(let n of String(e??``).matchAll(/＞\s*(\d+)\s*$/gm))t.push(Number(n[1]));return t}function t(e,t){let n=e.map(e=>Math.max(0,e-t));return{each:n,total:n.reduce((e,t)=>e+t,0)}}function n(e,t=`HP`){return`:${t}-${e}`}export{e as n,n as r,t};

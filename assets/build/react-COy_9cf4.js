@@ -1,0 +1,1 @@
+import{r as e}from"./rolldown-runtime-hePW80VL.js";import{wt as t}from"./image-5EzES8vC.js";var n=e(t(),1);function r(e){let[t,r]=(0,n.useState)(()=>e(location.hash));return(0,n.useEffect)(()=>{let t=()=>r(e(location.hash));return window.addEventListener(`hashchange`,t),()=>window.removeEventListener(`hashchange`,t)},[e]),t}export{r as t};
