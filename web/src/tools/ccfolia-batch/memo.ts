@@ -768,11 +768,12 @@ class BlockReader {
     const kind = TAG_KIND.get(wordKey(m[1]));
     const v = m[2].trim();
     const raw = RE_TAG_LINE_RAW.exec(l.text);
-    if (kind === 'memo') this.memo.push(raw ? raw[2].trim() : v);
+    const shown = raw ? raw[2].trim() : v;
+    if (kind === 'memo') this.memo.push(shown);
     else if (kind === 'image') this.piece.imageName = v;
     else if (kind === 'url') this.piece.externalUrl = v;
     else this.explicit.push(v);
-    this.note(l, 'read', [{ t: 'tag', tag: m[1], value: v }]);
+    this.note(l, 'read', [{ t: 'tag', tag: raw ? raw[1] : m[1], value: shown }]);
     return true;
   }
 
