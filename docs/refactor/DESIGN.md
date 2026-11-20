@@ -145,7 +145,7 @@ import { ImageFxPreview } from '@/ui/imagefx'; // 一組一起用的元件（4.1
 | `LyricStyleControls` | `LyricStyleControls` | lyric-fx | 15.1 | 42.5 | 17.4 | `@/core/lyricfx` |
 | `MessageComposer` | `MessageComposer`、`parseComposerText` | chat-window、message-box | 5.0 | 1.9 | 1.1 | — |
 | `ModelDownload` | `ModelDownloadPanel`、`useModelCache` | anime-rig、bg-remover | 9.7 | 9.0 | 4.1 | `@/core/models` |
-| `OptionalNumberInput` | `OptionalNumberInput`、`parseOptionalNumber` | coc-sheet、pdf-compress、relation-chart、scenario-editor、speech-bubble | 5.9 | 2.2 | 1.2 | — |
+| `OptionalNumberInput` | `OptionalNumberInput`、`parseOptionalNumber` | coc-sheet、pdf-compress、relation-chart、scenario-editor、speech-bubble、ccfolia-batch（2026-11-20 加） | 5.9 | 2.2 | 1.2 | — |
 | `PagedViewport` | `PagedViewport` | coc-sheet、coc-typesetter、scenario-editor | 9.1 | 3.7 | 1.6 | — |
 | `PanZoomViewport` | `PanZoomViewport` | height-board、magic-circle、tile-map、floria-veins（2026-11-10 加） | 28.8 | 10.5 | 4.1 | — |
 | `PartPicker`、`SelectableCardList` | `PartPicker`、`SelectableCardList` | emotion-maker | 14.4 | 7.9 | 3.2 | `@/core/sheet` |
@@ -965,6 +965,7 @@ loading-maker 預設（透明）、不透明背景＋預設的結尾動作（最
 | 圖面的樣式（scenario-timeline 2026-11-11 登記，第五批）：紙的樣式（石板、藍曬圖、古紙・墨水、白地圖面、彩色、黑曜、監視終端）、紙的老舊（污漬與摺痕）、紙翻角與落影、紙的外側透明、標題的字體（黑體、明朝、等寬、古典碑文）、圖框、時間格線、記號的說明、圖下方（不在場證明・接觸調書／時間切片）、A4 自動分頁、頁碼（「第 01／02 頁」）、每頁的長邊、「（續）」（調書接到下一頁的標題，2026-11-12） | 図面の表情、青焼き、紙めくれ、PAGE 01（圖上寫「第 01／02 頁」）、凡例（用「圖例」「記號的說明」） |
 | 時間的標示（scenario-timeline）：標示（第 N 天／時刻／日程／倒數／階段）、日程寫「第 1 天 早・午・晚・夜」、倒數寫「T-01:30」、階段寫「階段 2」、開始時刻、時間幅、吸附（依刻度／15 分…）、插入與縮短（往後挪、往前縮）、基準時間 | 時間模式、Day1 朝、カウントダウン、Phase（輸入時照樣接受）、グリッド、網格對齊 |
 | VTT 棋子產生器（token-maker 2026-11-12 登記；本工具的「外框」是棋子的環、「圖片」是讀進來的原圖）：畫布邊界（匯出的畫布的範圍，預覽上的虛線；「顯示／不顯示畫布邊界」）、畫布貼合（自動邊距底下的開關）、讓出框配合畫布邊界（按鈕「縮小到剛好」「往左推」「往右推」「往上推」「往下推」）、外緣淡出、圖片的顏色：配合外框調整 | 圖片外框（會和環的「外框」混淆）、圖片邊界（「圖片」是讀進來的原圖）、Image frame、自動適應畫布、Auto-fit、Fit pop-out to frame、羽化邊緣（外框外緣） |
+| CCFOLIA 角色批次產生器（ccfolia-batch 2026-11-20 登記，規格 D13）：棋子（CCFOLIA 的角色）、圖片庫、狀態不公開、發言時不顯示立繪、不列入盤面的角色清單、讀到的標籤與讀法（技能〔寫成判定〕／狀態／參數／不用）、每一欄的用途、確定，換下一位 NPC、從輸入重做、手動修改、素材 ZIP、秘密骰（同 message-box）、角色備註（速記裡寫進 CCFOLIA 備註的標籤行）、×N 的名稱、能力值也寫成判定、名稱（傷害）（聊天面板的傷害行，同 coc-sheet） | 駒、置き場、使い方、ステータスを非公開にする、シークレットダイス（說明裡可以並用）、暗骰（room-zip 的 KP 聊天面板範本照舊）、【かぎ爪ダメージ】 |
 
 標點用全形；英文與數字前後加半形空白。
 

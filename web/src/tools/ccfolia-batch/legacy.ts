@@ -1,5 +1,5 @@
 /**
- * 讀原作的專案檔（不依賴 React；規格 2.4）：shiki365／キャラクター一括メーカー 的「プロジェクトを保存」存的 JSON
+ * 讀原作的專案檔（不依賴 React；規格 2.4、3.10）：shiki365／キャラクター一括メーカー 的「プロジェクトを保存」存的 JSON
  * `{ app: "ccf-character-batch-maker", version: 1, state: { images: [{ id, kind, name, type, size, hash, dataUrl }], mode, memo,
  * table, columns, labels, kept, pasted, opts, edited } }`。圖片是 data URL，讀出位元組交給資產庫；棋子、設定照欄位轉成本站的形狀。
  */

@@ -1,5 +1,5 @@
 /**
- * 「圖片庫」分頁（規格 1.5）：拖放區、每張圖的縮圖、名稱、用在哪裡、大小、刪除。
+ * 「圖片庫」分頁（規格 1.2）：拖放區、每張圖的縮圖、名稱、用在哪裡、大小、刪除。
  */
 import { Trash2 } from 'lucide-react';
 import { FileDrop, IconButton, Section, TextInput, useConfirm } from '@/ui';

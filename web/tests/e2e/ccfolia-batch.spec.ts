@@ -231,9 +231,7 @@ test('從劇本貼上（中文）：讀不出的標示、提醒、確定換下�
 test('貼上試算表：範例、改欄的用途、Tab 輸入 Tab；從角色卡網站貼上', async ({ page }) => {
   const errors = await open(page);
   await page.getByRole('radio', { name: '貼上試算表' }).click();
-  await expect(page.getByTestId('empty-list')).toHaveText(
-    '在上面貼上表格，這裡會一個一個列出來。',
-  );
+  await expect(page.getByTestId('empty-list')).toHaveText('在上面貼上表格，這裡會一個一個列出來。');
   await fillSample(page);
   await expect(rowNames(page)).toHaveText(['艾莉絲', '鮑伯', '黑影']);
   await expect(page.getByTestId('columns').getByRole('combobox')).toHaveCount(9);
@@ -402,7 +400,11 @@ test('專案檔：存、重來（圖片庫留著）、開啟、原作的專案�
   expect(saved.name).toMatch(/^ccfolia-batch-project-\d{8}-\d{4}\.zip$/);
   const pf = unzipSync(saved.bytes);
   const project = JSON.parse(new TextDecoder().decode(pf['project.json']));
-  expect(project).toMatchObject({ format: 'trpg-toolkit-project', tool: 'ccfolia-batch', version: 1 });
+  expect(project).toMatchObject({
+    format: 'trpg-toolkit-project',
+    tool: 'ccfolia-batch',
+    version: 1,
+  });
   expect(project.data.memo).toBe('鮑伯\nHP 14');
   expect(Object.keys(pf).filter((n) => n.startsWith('files/'))).toHaveLength(1);
   /* 重來 */
@@ -418,7 +420,11 @@ test('專案檔：存、重來（圖片庫留著）、開啟、原作的專案�
     page.waitForEvent('filechooser'),
     page.getByRole('menuitem', { name: '開啟專案檔…' }).click(),
   ]);
-  await chooser.setFiles({ name: saved.name, mimeType: 'application/zip', buffer: Buffer.from(saved.bytes) });
+  await chooser.setFiles({
+    name: saved.name,
+    mimeType: 'application/zip',
+    buffer: Buffer.from(saved.bytes),
+  });
   await expect(page.getByText(/已開啟專案檔/).first()).toBeVisible();
   await expect(rowNames(page)).toHaveText(['艾莉絲', '鮑伯']);
   await expect(memo(page)).toHaveValue('鮑伯\nHP 14');
@@ -461,9 +467,12 @@ test('專案檔：存、重來（圖片庫留著）、開啟、原作的專案�
     buffer: Buffer.from(JSON.stringify(legacy)),
   });
   await expect(
-    page.getByText('已開啟原作的專案檔「characters-20261120-1200.characters.json」，1 張圖片放進圖片庫', {
-      exact: true,
-    }),
+    page.getByText(
+      '已開啟原作的專案檔「characters-20261120-1200.characters.json」，1 張圖片放進圖片庫',
+      {
+        exact: true,
+      },
+    ),
   ).toBeVisible();
   await expect(rowNames(page)).toHaveText(['ボブ']);
   await rows(page).first().click();
@@ -475,7 +484,11 @@ test('專案檔：存、重來（圖片庫留著）、開啟、原作的專案�
     page.waitForEvent('filechooser'),
     page.getByRole('menuitem', { name: '開啟專案檔…' }).click(),
   ]);
-  await chooser3.setFiles({ name: 'x.json', mimeType: 'application/json', buffer: Buffer.from('{oops') });
+  await chooser3.setFiles({
+    name: 'x.json',
+    mimeType: 'application/json',
+    buffer: Buffer.from('{oops'),
+  });
   await expect(page.getByText(/無法開啟專案檔/).first()).toBeVisible();
   await expect(rowNames(page)).toHaveText(['ボブ']);
   expect(errors).toEqual([]);

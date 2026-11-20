@@ -1,5 +1,5 @@
 /**
- * 匯出（規格 1.9）：摘要、匯出房間 ZIP、匯出素材 ZIP、狀態；CCFOLIA 的讀入方法與注意事項（F43）。
+ * 匯出（規格 1.7）：摘要、匯出房間 ZIP、匯出素材 ZIP、狀態；CCFOLIA 的讀入方法與注意事項（F49）。
  */
 import { FileArchive, Images } from 'lucide-react';
 import { Button, Section } from '@/ui';

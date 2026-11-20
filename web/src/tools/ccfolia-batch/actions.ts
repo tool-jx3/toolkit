@@ -61,7 +61,7 @@ function asStep(fn: () => void): void {
 /* =================== 圖片庫 =================== */
 
 /**
- * 把檔案放進圖片庫（規格 F04～F06）：依檔頭認格式，同內容已經在圖片庫的沿用原本那張。
+ * 把檔案放進圖片庫（規格 F05、F06）：依檔頭認格式，同內容已經在圖片庫的沿用原本那張。
  * 回傳每個可用檔案的圖片庫 id（依順序；格式不符的不在裡面）。
  */
 export async function addFiles(
@@ -221,7 +221,7 @@ export function fillSample(): void {
 
 /* =================== 角色卡網站貼上 =================== */
 
-/** 加入貼上的角色資料（F24）；成功時回傳 true（元件清空輸入欄） */
+/** 加入貼上的角色資料（F29）；成功時回傳 true（元件清空輸入欄） */
 export function addPasted(text: string): boolean {
   if (!text.trim()) {
     say('paste', S.pasteEmpty, 'danger');
@@ -331,7 +331,7 @@ export function rebuild(): void {
   say('list', S.rebuilt, 'success');
 }
 
-/** 確定，換下一位 NPC（F31）：目前的清單（含手動修改）留成已確定，輸入欄清空 */
+/** 確定，換下一位 NPC（F32）：目前的清單（含手動修改）留成已確定，輸入欄清空 */
 export function confirmCurrent(): boolean {
   const d0 = doc();
   const list = piecesOf(d0);
@@ -405,7 +405,7 @@ async function outPiece(v: PieceView, read: ReturnType<typeof imageReader>): Pro
   };
 }
 
-/** 匯出房間 ZIP（F40） */
+/** 匯出房間 ZIP（F46） */
 export async function exportRoomZip(): Promise<void> {
   const d0 = doc();
   const views = viewsOf(d0);
@@ -448,7 +448,7 @@ export async function exportRoomZip(): Promise<void> {
   }
 }
 
-/** 匯出素材 ZIP（F41） */
+/** 匯出素材 ZIP（F47） */
 export async function exportAssetsZip(): Promise<void> {
   const d0 = doc();
   if (useUi.getState().busy.assets) return;
@@ -543,7 +543,7 @@ function replaceAsStep(next: Doc): void {
   asStep(() => useDoc.getState().replace(next));
 }
 
-/** 開啟本站的專案檔（F44）；回傳存不進瀏覽器的圖片數 */
+/** 開啟本站的專案檔（F52）；回傳存不進瀏覽器的圖片數 */
 export async function loadProject(
   data: unknown,
   files: Map<string, Uint8Array>,
@@ -557,7 +557,7 @@ export async function loadProject(
   return { notPersisted: r.notPersisted };
 }
 
-/** 讀原作的專案檔（F45）；不是原作的專案檔時回傳 null */
+/** 讀原作的專案檔（F53）；不是原作的專案檔時回傳 null */
 export async function loadLegacyProject(
   bytes: Uint8Array,
 ): Promise<{ images: number; notPersisted: number } | null> {
@@ -588,7 +588,7 @@ export async function loadLegacyProject(
   return { images: legacy.files.length, notPersisted };
 }
 
-/** 重來（F46）：輸入、清單、設定回預設；圖片庫與改過的讀法留著 */
+/** 重來（F54）：輸入、清單、設定回預設；圖片庫與改過的讀法留著 */
 export function resetAll(): void {
   const d0 = doc();
   replaceAsStep({ ...defaultDoc(), images: d0.images, labels: d0.labels });
@@ -600,7 +600,7 @@ export function resetAll(): void {
 export const hasInput = (d: Doc): boolean => !!(d.mode === 'table' ? d.table : d.memo).trim();
 
 /**
- * 清單上方的提醒（F22）：讀取的提示（最多 8 則＋「還有 n 則」；手動修改中不顯示）、
+ * 清單上方的提醒（F28）：讀取的提示（最多 8 則＋「還有 n 則」；手動修改中不顯示）、
  * 指定了名稱但圖片庫找不到的圖（×N 的複本不算）、同名的棋子。
  */
 export function warningsOf(d: Doc): string[] {

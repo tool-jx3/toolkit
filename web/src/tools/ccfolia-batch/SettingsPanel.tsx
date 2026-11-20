@@ -1,5 +1,5 @@
 /**
- * 「全體設定」分頁（規格 1.6）：盤面、棋子大小、給 NPC 的設定、共用的聊天面板、差分的 @ 名稱。
+ * 「全體設定」分頁（規格 1.3）：盤面、棋子大小、給 NPC 的設定、共用的聊天面板、差分的 @ 名稱。
  */
 import { Field, NumberInput, Section, Segmented, TextArea, Toggle } from '@/ui';
 import { setOpts } from './actions';

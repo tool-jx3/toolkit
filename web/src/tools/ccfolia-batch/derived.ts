@@ -84,7 +84,6 @@ export function parsedOf(doc: Doc): Parsed {
 }
 
 let lastList: {
-  edited: Doc['edited'];
   kept: Doc['kept'];
   pasted: Doc['pasted'];
   parsed: Parsed;
@@ -96,11 +95,9 @@ export function piecesOf(doc: Doc): readonly Piece[] {
   if (doc.edited) return doc.edited;
   const parsed = parsedOf(doc);
   const p = lastList;
-  if (p && p.kept === doc.kept && p.pasted === doc.pasted && p.parsed === parsed && !p.edited) {
-    return p.out;
-  }
+  if (p && p.kept === doc.kept && p.pasted === doc.pasted && p.parsed === parsed) return p.out;
   const out = [...doc.kept, ...parsed.pieces, ...doc.pasted];
-  lastList = { edited: null, kept: doc.kept, pasted: doc.pasted, parsed, out };
+  lastList = { kept: doc.kept, pasted: doc.pasted, parsed, out };
   return out;
 }
 
@@ -165,11 +162,22 @@ export function viewOf(
   };
 }
 
-/** 整份清單的樣子 */
+let lastViews: {
+  pieces: readonly Piece[];
+  images: readonly ShelfImage[];
+  opts: Opts;
+  out: PieceView[];
+} | null = null;
+
+/** 整份清單的樣子（清單、圖片庫、全體設定都沒變時沿用上一次的） */
 export function viewsOf(doc: Doc): PieceView[] {
   const pieces = piecesOf(doc);
+  const p = lastViews;
+  if (p && p.pieces === pieces && p.images === doc.images && p.opts === doc.opts) return p.out;
   const auto = matchesOf(pieces, doc.images);
-  return pieces.map((p, i) => viewOf(p, auto[i], doc.images, doc.opts));
+  const out = pieces.map((c, i) => viewOf(c, auto[i], doc.images, doc.opts));
+  lastViews = { pieces, images: doc.images, opts: doc.opts, out };
+  return out;
 }
 
 /**

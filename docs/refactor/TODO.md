@@ -9,7 +9,7 @@
 
 ## 進行中
 
-（沒有）
+- CCFOLIA 角色批次產生器（`ccfolia-batch`，參考 shiki365／キャラクター一括メーカー v1.4 `423a28a`，MIT；原本在第二節）：實作完成（registry `next`），等對等驗證與主控裁定規格 5. 的 D1（聊天面板不加【】）、D2（理智檢定、能力值判定預設關、不寫 // 變數）、D3（6 版自動用 CCB）、D5（「備註」小標不讀）、D14（id 與名稱）。原作的功能都做了；這一列原本提的「做成 coc-npc 的貼上讀入」沒有做（另開了工具）。
 
 ## 一、已收錄工具的原作更新
 
@@ -54,7 +54,6 @@
 | 招團貼產生器（點子） | 參考：[masquevil/trpg-saikou](https://github.com/masquevil/trpg-saikou)（GPL-3.0，只參考功能） | 本站自己做 | KP／社團／店家可帶的劇本清單、籌備中的劇本，排成一張圖發招募貼（系統、人數、時數、地雷、時段） | 台灣在 Facebook／Discord 招團；和 pl-profile、scenario-cards 同類 | 小～中 |
 | 通用角色卡（自訂欄位） | [DARKNEET69/character.sheet.online](https://github.com/DARKNEET69/character.sheet.online)（`9e3e8fe`，最後更新 2024-10；英文 PWA、沒做完，Workshop 頁是 COMING SOON） | 未授權（只參考功能） | 任何系統都能用的角色卡：自己排區塊（分段、標籤、文字、數字、按鈕、計算），分 BIO／屬性／行動／物品幾頁，頭像、多張角色卡（IndexedDB）。原作的按鈕與計算欄存一段 JavaScript 直接執行（例：擲 1D20＋技能值），分享角色卡等於叫別人執行程式——本站要改成**安全的算式**（只認欄位參照與四則運算、取大取小等）與 coc-dice 的骰子語法，不執行任意程式。本站的 coc-sheet 只有 CoC 7 版、character-editor 是 CCFOLIA 的角色資料；這個是「欄位自己定」的版本，可以做系統範本（只有欄位的骨架，不內建規則書的文字），輸出 CCFOLIA 的角色（狀態、參數、聊天面板）。同類而且是 MIT 的：第四節的 magineco/charashare-general（範本編輯器、計算欄、表格、CCFOLIA 棋子輸出；要拿掉 Google 登入、Analytics、AdSense），做的時候主要參考它；[TSFOmniCRON/SheetWright](https://github.com/TSFOmniCRON/SheetWright)（v1.0.3，2026-11-11，單檔 HTML，未授權；附的 5E 2024 範本內容不能用）也是「先做範本、再匯出可以填的角色卡」，只參考做法 | 非 CoC 系統的角色卡、自創系統（使用者 2026-11-10 要求放進候選） | 中～大 |
 | 紙立牌（印出來剪的紙製迷你人偶） | [MJLHThomassen/papermini](https://github.com/MJLHThomassen/papermini)（`ebb2830`，2026-11-19；11-11 看到 `b3673e9`；Python 的桌面程式＋命令列，README 自稱全部由 AI 寫） | MIT（Copyright 2026 Maarten Thomassen；沿用要附 UPSTREAM_LICENSE） | 圖片（有透明就用；沒有就去背）→ 裁切 → 自動產生**剪裁線**（沿外形的平滑輪廓加留白）→ **底座**（插進底座的方形折片，或折開成圓形底座）→ **雙面**（背面鏡像、空白或文字）→ 色彩調整 → **實際尺寸的 PDF 拼版**、每個角色一個 SVG、切割機用的對位標記與切割檔。11-12～19 新加：**生物體型** Tiny～Gargantuan（依格子帶入高度與底座：1 吋格、Medium 32 mm、Large 2×2、Huge 3×3、Gargantuan 4×4）；**圓形棋子**（圓框、外環、名牌或沿弧排的字，可以匯出 PNG 給 VTT，和 token-maker 重疊）；**編號**（折片、背面或棋子上印 1、2、3…）；紙張 A3～Tabloid 與自訂、直橫，放不下時有提示；一次加入整個資料夾。去背模型 RMBG-1.4 是非商用（本站用自己的 bg-remover）。本站的 token-maker、acrylic-goods 都沒有「印出來剪」的紙立牌；輪廓從 alpha 描邊＋外擴＋簡化，PDF 用 `@/core/pdf`，全部在瀏覽器裡做得到 | 面對面跑團的棋子（CoC 的調查員與怪物、D&D 的迷你人偶），KP 自己印 | 中 |
-| CCFOLIA 角色批次產生器（劇本的 NPC 一次做成棋子） | [shiki365/character-batch-maker](https://github.com/shiki365/character-batch-maker)（「キャラクター一括メーカー」v1.4，`423a28a`，2026-11-18 建；已收錄作者的新作） | MIT（Copyright (c) 2026 shiki365；沿用要附 UPSTREAM_LICENSE） | 三種輸入，結果都是一份棋子清單：①**メモ書き**（空行分隔一體，第一行是名字，之後「名稱 數值」；HP／MP／SAN 與 `值/最大` 變成狀態，STR、DEX、裝甲、DB 等變成參數〔DEX 兼先攻〕，其他變成技能寫進聊天面板〔`CCB<=70 【かぎ爪】` 與傷害式〕；判定寫法可選 `CCB<=`／`CC<=`／`1d100<=`；`×3` 自動變成 A～C 三體並共用立繪；劇本裡各作者寫法不同的 NPC 資料也能直接貼〔黏在一起的 `STR12`、各種括號、`12(60)`、PDF 複製時斷開的字〕；`+DB` 改成參照 `{DB}`；依數值判斷 6／7 版；秘密骰 `sCCB`；每一行標出讀成什麼、讀不了的標橘色，標籤可以改分類並記住）；②**試算表貼上**（TSV／CSV，一列一體，依標題分欄）；③角色卡網站的「ココフォリア出力」JSON。圖片放進置物區：檔名和角色名相同就是立繪，`名前_笑顔` 是差分「笑顔」。輸出：只有角色的房間 ZIP（最多 500 體，8 體一行排在盤面）與素材 ZIP；150 步復原、自動儲存、含圖片的專案檔。ZIP 格式是讀 CCFOLIA 1.37.4 的程式寫的、1.37.6 再確認過，可以拿來對照本站 `@/ccfolia/room.ts`。讀取用的詞表全是日文，本站要自己補繁中、簡中劇本的寫法（閃避、鬥毆、理智、體力…）。本站的 coc-npc 一次一個 NPC、room-zip 的棋子要手動加，都沒有「貼一段文字或表格，得到一批帶立繪與差分的棋子」；也可以不開新工具，做成 coc-npc 的「貼上讀入」再用 room-zip 寫房間 ZIP | KP 準備劇本的 NPC 與敵人群（帶立繪、表情差分），一次放進 CCFOLIA；表格模式不限系統 | 中 |
 
 ## 三、可以併進現有工具
 
