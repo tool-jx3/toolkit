@@ -577,7 +577,7 @@ test.describe('1280 寬', () => {
     expect(project).toMatchObject({
       format: 'trpg-toolkit-project',
       tool: 'coc-sheet',
-      version: 1,
+      version: 2,
     });
     expect(project.data.sheets.map((s: { info: { name: string } }) => s.info.name)).toEqual([
       '林子安',

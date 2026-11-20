@@ -3,11 +3,12 @@
  * 放在預覽下方，一列按鈕＋PNG 的兩個選項（寬畫面時和預覽一起固定在畫面上）。
  */
 import { ClipboardCopy, ImageDown, Printer } from 'lucide-react';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { copyText, downloadBlob } from '@/core/files';
-import { Button, Field, FieldRow, Select, Tooltip, useToast } from '@/ui';
+import { Button, Field, FieldRow, Select, Toggle, Tooltip, useToast } from '@/ui';
+import { setPaletteOption } from './actions';
 import type { PngPages, Sheet } from './model';
-import { ccfoliaJson, pngFileName, printSheet, sheetPng } from './output';
+import { ccfoliaJson, pngFileName, printSheet, sheetPng, sheetSkillParams } from './output';
 import { previewApi } from './Preview';
 import { useView } from './store';
 import { S } from './strings';
@@ -63,6 +64,16 @@ export function OutputPanel({ sheet }: { sheet: Sheet }) {
     );
   };
 
+  const skipped = useMemo(
+    () =>
+      sheet.paletteRefs
+        ? sheetSkillParams(sheet).skipped.map(
+            (x) => `${x.name}（${S.output.refsReasons[x.reason]}）`,
+          )
+        : [],
+    [sheet],
+  );
+
   return (
     <section
       aria-label={S.output.section}
@@ -111,6 +122,25 @@ export function OutputPanel({ sheet }: { sheet: Sheet }) {
           />
         </Field>
       </FieldRow>
+      <Field label={S.output.refs} hint={S.output.refsHint} layout="inline">
+        <Toggle
+          checked={!!sheet.paletteRefs}
+          onCheckedChange={(on) => setPaletteOption('paletteRefs', on)}
+        />
+      </Field>
+      {sheet.paletteRefs ? (
+        <Field label={S.output.refsPointsOnly} hint={S.output.refsPointsOnlyHint} layout="inline">
+          <Toggle
+            checked={!!sheet.paletteRefsPointsOnly}
+            onCheckedChange={(on) => setPaletteOption('paletteRefsPointsOnly', on)}
+          />
+        </Field>
+      ) : null}
+      {skipped.length ? (
+        <p className="m-0 text-xs text-warning" data-testid="refs-skipped">
+          {S.output.refsSkipped(skipped)}
+        </p>
+      ) : null}
     </section>
   );
 }

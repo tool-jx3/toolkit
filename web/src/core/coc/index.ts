@@ -7,6 +7,7 @@
  * - derived：屬性、DB／體格表（7 版、6 版）、HP／MP／SAN
  * - bcdice：BCDice 擲骰結果「＞ 數字」的解析、扣護甲加總
  * - investigator：7 版調查員（一般／困難／極限、移動力、理智上限、技能點數；coc-sheet 移植時新增）
+ * - palette：參照式聊天面板（技能寫進參數、`{名稱}` 參照；coc-npc、coc-sheet 2026-11-20）
  *
  * 規格：docs/refactor/specs/coc-dice.md、coc-npc.md 第 3 節、coc-sheet.md 第 3 節。
  */
@@ -14,5 +15,6 @@ export * from './bcdice';
 export * from './derived';
 export * from './dice';
 export * from './investigator';
+export * from './palette';
 export * from './random';
 export * from './skill';

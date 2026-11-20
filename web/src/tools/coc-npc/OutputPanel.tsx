@@ -4,9 +4,17 @@
 import { Dices } from 'lucide-react';
 import { useMemo, useRef } from 'react';
 import { copyText } from '@/core/files';
-import { Button, Segmented, selectAllInPlace, TextOutputPanel, useToast } from '@/ui';
-import { getCurrent, rollAll } from './actions';
-import { type Npc, type OutputKind, outputText } from './logic';
+import {
+  Button,
+  Field,
+  Segmented,
+  selectAllInPlace,
+  TextOutputPanel,
+  Toggle,
+  useToast,
+} from '@/ui';
+import { getCurrent, rollAll, setPaletteRefs } from './actions';
+import { type Npc, npcSkillParams, type OutputKind, outputText } from './logic';
 import { useView } from './store';
 import { S } from './strings';
 
@@ -45,8 +53,26 @@ export function OutputPanel({ npc }: { npc: Npc }) {
     }
   };
 
+  const skipped = useMemo(
+    () =>
+      npc.paletteRefs
+        ? npcSkillParams(npc).skipped.map(
+            (x) => `${x.name.trim() || x.name}（${S.output.refsReasons[x.reason]}）`,
+          )
+        : [],
+    [npc],
+  );
+
   return (
     <div ref={box} className="flex min-w-0 flex-col gap-2" data-testid="npc-output">
+      <Field label={S.output.refs} hint={S.output.refsHint} layout="inline">
+        <Toggle checked={!!npc.paletteRefs} onCheckedChange={setPaletteRefs} />
+      </Field>
+      {skipped.length ? (
+        <p className="m-0 text-xs text-warning" data-testid="refs-skipped">
+          {S.output.refsSkipped(skipped)}
+        </p>
+      ) : null}
       <Segmented
         aria-label={S.output.kind}
         fullWidth

@@ -5,6 +5,7 @@
 import { formatHex, parseColor } from '@/core/color';
 import type { FontValue } from '@/core/fonts';
 import { CSS_WEIGHT_CHOICES, findGoogleFont } from '@/core/fonts/catalog';
+import { DEFAULT_ROOM_HIDE, normalizeRoomHide, type RoomPartId } from './roomUi';
 
 export type SizeMode = 'fill' | 'fit';
 export type Anchor = 'bottom' | 'top';
@@ -34,6 +35,10 @@ export interface ChatSettings {
   /** 只在滑鼠移上時顯示分頁列（OBS 互動） */
   hoverTabs: boolean;
   fileName: string;
+  /** 隱藏 CCFOLIA 房間畫面的介面：要隱藏的部分（roomUi.ts；2026-11-20） */
+  roomHide: RoomPartId[];
+  /** 隱藏介面的 CSS 後面接聊天視窗的 CSS（同一個瀏覽器來源開房間網址） */
+  roomMerge: boolean;
 
   /* ---- 要顯示的訊息 ---- */
   count: number;
@@ -142,9 +147,13 @@ export interface ChatSettings {
   scroll: boolean;
   scrollDelay: number;
   scrollDuration: number;
+  /** 名字固定、只捲本文（v1.14；存檔沒有這個欄位時是 false：照以前的捲法） */
+  scrollPinName: boolean;
   fade: boolean;
   fadeStay: number;
   fadeDuration: number;
+  /** 訊息消失後視窗也消失（v1.12；要先開 fade） */
+  fadeWindow: boolean;
 }
 
 export type NumberKey = {
@@ -258,7 +267,18 @@ export const BOOL_KEYS = [
   'resultGlow',
   'resultFlash',
   'scroll',
+  'scrollPinName',
   'fade',
+  'fadeWindow',
+  'roomMerge',
+] as const satisfies readonly (keyof ChatSettings)[];
+
+/**
+ * 2026-11-20 加的開關裡，存檔或專案檔**沒有這個欄位**時當作關（照以前的畫法），
+ * 不用目前的預設值（新的預設照原作是開）。
+ */
+export const OFF_WHEN_MISSING = [
+  'scrollPinName',
 ] as const satisfies readonly (keyof ChatSettings)[];
 
 /** 來源大小的預設（空白或 0 時回到這裡） */
@@ -273,8 +293,16 @@ export const SIZE_PRESETS = [
   { width: 560, height: 180 },
 ] as const;
 
-/** 套用範本時保留的欄位（不屬於外觀） */
-export const NON_APPEARANCE_KEYS = ['width', 'height', 'room', 'hoverTabs', 'fileName'] as const;
+/** 套用範本時保留的欄位（不屬於外觀；隱藏介面的設定也不屬於外觀，2026-11-20） */
+export const NON_APPEARANCE_KEYS = [
+  'width',
+  'height',
+  'room',
+  'hoverTabs',
+  'fileName',
+  'roomHide',
+  'roomMerge',
+] as const;
 
 const font = (family: string, weight: number): FontValue => ({ source: 'google', family, weight });
 
@@ -288,6 +316,8 @@ export const BASE_SETTINGS: ChatSettings = {
   room: '',
   hoverTabs: true,
   fileName: DEFAULT_FILE_NAME,
+  roomHide: [...DEFAULT_ROOM_HIDE],
+  roomMerge: false,
 
   count: 6,
   diceOnly: false,
@@ -386,9 +416,11 @@ export const BASE_SETTINGS: ChatSettings = {
   scroll: false,
   scrollDelay: 2,
   scrollDuration: 20,
+  scrollPinName: true,
   fade: false,
   fadeStay: 10,
   fadeDuration: 0.8,
+  fadeWindow: false,
 };
 
 /* ---------- 修正 ---------- */
@@ -472,6 +504,9 @@ export function normalizeSettings(
     if (typeof v === 'string' && (values as readonly string[]).includes(v)) o[key] = v;
   }
   for (const key of BOOL_KEYS) if (typeof src[key] === 'boolean') o[key] = src[key];
+  /* 存檔或專案檔（物件）少了這些欄位：以前做的，照以前的畫法（不是物件＝沒有存檔，用預設） */
+  if (isObj(raw)) for (const key of OFF_WHEN_MISSING) if (!(key in src)) o[key] = false;
+  out.roomHide = normalizeRoomHide(src.roomHide, fallback.roomHide);
   for (const key of TEXT_KEYS) if (typeof src[key] === 'string') o[key] = src[key];
   for (const key of ALPHA_COLORS) o[key] = normalizeColor(src[key], fallback[key], true);
   for (const key of SOLID_COLORS) o[key] = normalizeColor(src[key], fallback[key], false);
@@ -491,6 +526,18 @@ export function normalizeSettings(
 /** 長訊息慢慢捲動實際生效（開啟且則數 1） */
 export const scrollActive = (s: Pick<ChatSettings, 'scroll' | 'count'>): boolean =>
   s.scroll && s.count === 1;
+
+/**
+ * 名字固定、只捲本文實際生效：捲動生效、開關開著、名稱有顯示而且不是「名稱：」前綴
+ * （前綴的名稱和本文在同一行，分不開，照以前一起捲）
+ */
+export const scrollPinActive = (
+  s: Pick<ChatSettings, 'scroll' | 'count' | 'scrollPinName' | 'name' | 'nameStyle'>,
+): boolean => scrollActive(s) && s.scrollPinName && s.name && s.nameStyle !== 'prefix';
+
+/** 訊息消失後視窗也消失實際生效（要先開「過一段時間後消失」） */
+export const fadeWindowActive = (s: Pick<ChatSettings, 'fade' | 'fadeWindow'>): boolean =>
+  s.fade && s.fadeWindow;
 
 /** 名稱是「名稱：」前綴且有顯示 */
 export const namePrefixActive = (s: Pick<ChatSettings, 'name' | 'nameStyle'>): boolean =>

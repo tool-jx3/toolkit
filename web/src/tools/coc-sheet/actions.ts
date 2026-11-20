@@ -45,7 +45,13 @@ export function updateSheet(recipe: (s: Draft<Sheet>) => void, id: string = curr
 
 export function addSheet(): void {
   step(() => {
-    const s = newSheet();
+    /* CCFOLIA 輸出的選項（參照式聊天面板）跟著目前的角色卡 */
+    const cur = currentSheet(useSheets.getState().data, useView.getState().data.currentId);
+    const s: Sheet = {
+      ...newSheet(),
+      ...(cur.paletteRefs ? { paletteRefs: true as const } : {}),
+      ...(cur.paletteRefsPointsOnly ? { paletteRefsPointsOnly: true as const } : {}),
+    };
     useSheets.getState().update((d) => {
       d.sheets.push(s);
     });
@@ -64,6 +70,19 @@ export function copySheet(id: string): void {
     });
     selectSheet(copy.id);
   });
+}
+
+/**
+ * CCFOLIA 的參照式聊天面板（一步復原）。關掉時拿掉欄位（存檔和以前相同）。
+ * key：paletteRefs（技能寫進參數）或 paletteRefsPointsOnly（只放有點數的技能）
+ */
+export function setPaletteOption(key: 'paletteRefs' | 'paletteRefsPointsOnly', on: boolean): void {
+  step(() =>
+    updateSheet((s) => {
+      if (on) s[key] = true;
+      else delete s[key];
+    }),
+  );
 }
 
 export function renameSheet(id: string, title: string): void {

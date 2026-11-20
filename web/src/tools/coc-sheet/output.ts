@@ -3,7 +3,12 @@
  * 列印與 PNG 直接用預覽排好的頁面（SheetView），所以三種輸出的版面相同。
  */
 import { type CcfoliaCharacterData, serializeCharacterClipboard } from '@/ccfolia';
-import { CHARACTERISTICS } from '@/core/coc';
+import {
+  assignParamLabels,
+  CHARACTERISTICS,
+  type ParamAssignment,
+  referenceNames,
+} from '@/core/coc';
 import { canvasToBlob } from '@/core/image';
 import {
   PAPER_SIZES,
@@ -12,7 +17,7 @@ import {
   rasterizeElement,
   stackCanvases,
 } from '@/core/paged';
-import type { PngPages, Sheet } from './model';
+import type { PngPages, Sheet, Skill } from './model';
 import { derived, skillDisplayName, skillValue, weaponValue } from './rules';
 import { SHEET_CSS, SHEET_ROOT_CLASS } from './sheetCss';
 import { S, SHEET } from './strings';
@@ -83,8 +88,79 @@ export function damageCommand(text: string): string {
 /** 傷害欄可以當指令嗎（有骰子或數字，不是「─」這類記號） */
 const isDamage = (t: string) => /\d/.test(t);
 
+/* ---------- 參照式聊天面板（2026-11-20，規格 1.12、3.9） ---------- */
+
+const C0 = S.ccfolia;
+/** 角色本來就有的狀態與參數的名稱（技能不能用這些名稱寫進參數） */
+export const SHEET_RESERVED_LABELS: readonly string[] = [
+  ...CHARACTERISTICS,
+  'DB',
+  C0.build,
+  C0.mov,
+  'HP',
+  'MP',
+  'SAN',
+  C0.luck,
+];
+
+/** 有點數的技能：職業、興趣、成長有一個大於 0，或技能值是直接填的 */
+export const skillHasPoints = (skill: Skill): boolean =>
+  [skill.occupation, skill.interest, skill.growth].some((v) => v !== null && v > 0) ||
+  skill.value !== null;
+
+/**
+ * 哪些技能寫進參數：名稱不是空的、技能值不是空白（聊天面板有那一行）；只放有點數的技能時其他的不列入
+ * （照舊寫數字，不算「寫不進參數」）。
+ */
+export function sheetSkillParams(sheet: Sheet): ParamAssignment {
+  const st = sheet.stats;
+  return assignParamLabels(
+    sheet.skills
+      .filter((sk) => skillDisplayName(sk) && skillValue(sk, st) !== null)
+      .filter((sk) => !sheet.paletteRefsPointsOnly || skillHasPoints(sk))
+      .map((sk) => ({ id: sk.id, name: skillDisplayName(sk) })),
+    SHEET_RESERVED_LABELS,
+  );
+}
+
 /** 聊天面板（每行一個） */
 export function chatPalette(sheet: Sheet): string {
+  return sheet.paletteRefs ? refPalette(sheet) : plainPalette(sheet);
+}
+
+/**
+ * 參照式：檢定寫成 `CC<={名稱}`；武器用的技能有寫進參數時也參照；傷害裡的屬性與狀態名稱（STR、HP…）參照；
+ * 不寫「//名稱=值」（參數已經有同名的值，規格 D21）。
+ */
+function refPalette(sheet: Sheet): string {
+  const C = S.ccfolia;
+  const st = sheet.stats;
+  const params = sheetSkillParams(sheet).labels;
+  const lines: string[] = [`CC<={SAN} ${C.sanRoll}`, `CC<={${C.luck}} ${C.luckRoll}`];
+  if (st.INT !== null) lines.push(`CC<={INT} ${C.idea}`);
+  if (st.EDU !== null) lines.push(`CC<={EDU} ${C.know}`);
+  for (const k of CHARACTERISTICS) if (st[k] !== null) lines.push(`CC<={${k}} ${k}`);
+  for (const skill of sheet.skills) {
+    const name = skillDisplayName(skill);
+    const v = skillValue(skill, st);
+    if (!name || v === null) continue;
+    const label = params.get(skill.id);
+    lines.push(label ? `CC<={${label}} ${name}` : `CC<=${v} ${name}`);
+  }
+  for (const w of sheet.weapons) {
+    const name = w.name.trim();
+    const v = weaponValue(w, sheet);
+    const label = w.skillId ? params.get(w.skillId) : undefined;
+    if (name && v !== null) lines.push(label ? `CC<={${label}} ${name}` : `CC<=${v} ${name}`);
+    if (isDamage(w.damage))
+      lines.push(
+        `${referenceNames(damageCommand(w.damage), [...CHARACTERISTICS, 'HP', 'MP', 'SAN'])} ${C.damage(name || C.weapon)}`,
+      );
+  }
+  return lines.join('\n');
+}
+
+function plainPalette(sheet: Sheet): string {
   const d = derived(sheet);
   const C = S.ccfolia;
   const lines: string[] = [`CC<={SAN} ${C.sanRoll}`, `CC<={${C.luck}} ${C.luckRoll}`];
@@ -123,6 +199,15 @@ export function ccfoliaData(sheet: Sheet): CcfoliaCharacterData {
   params.push({ label: 'DB', value: d.db ?? '0' });
   params.push({ label: C.build, value: s(d.build) });
   params.push({ label: C.mov, value: s(d.mov) });
+  /* 參照式：技能值接在後面 */
+  if (sheet.paletteRefs) {
+    const labels = sheetSkillParams(sheet).labels;
+    for (const sk of sheet.skills) {
+      const label = labels.get(sk.id);
+      const v = skillValue(sk, st);
+      if (label && v !== null) params.push({ label, value: String(v) });
+    }
+  }
   const info = sheet.info;
   const memo = [
     info.occupation && `${SHEET.info.occupation}：${info.occupation}`,
