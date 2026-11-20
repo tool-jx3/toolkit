@@ -10,10 +10,12 @@ import type { ColumnKind } from './words';
 /** 寫進輸出的字 */
 export const OUT = {
   /** 傷害的指令名稱（照本站 coc-sheet：「名稱（傷害）」；有附註時「名稱（傷害：附註）」） */
-  damageLabel: (label: string, note: string) =>
+  damageName: (label: string, note: string) =>
     note ? `${label}（傷害：${note}）` : `${label}（傷害）`,
   /** 有 SAN 時聊天面板第一行的名稱（同 coc-npc） */
   sanCheck: '理智檢定',
+  /** 有幸運時理智檢定下一行的名稱（同 coc-sheet） */
+  luckCheck: '幸運',
   /** 「加一個棋子」的預設名稱 */
   newPiece: '新的棋子',
   /** 素材 ZIP 的資料夾 */
@@ -260,7 +262,7 @@ export const S = {
   pasteTitle: '從角色卡網站貼上',
   pasteSummary: (n: number) => `貼上的棋子 ${n} 個`,
   pasteHelp:
-    '角色卡網站「輸出成 CCFOLIA 角色（ココフォリア出力）」複製的內容貼在這裡，會加在清單最後。直接貼進 CCFOLIA 時沒有的立繪與差分，可以在這裡加上再匯出；可以連續貼好幾個。',
+    '角色卡網站匯出給 CCFOLIA 的角色資料（「複製到剪貼簿」的 JSON）貼在這裡，會加在清單最後。直接貼進 CCFOLIA 時沒有的立繪與差分，可以在這裡加上再匯出；可以連續貼好幾個。',
   pasteAria: '角色卡網站複製的角色資料',
   pastePlaceholder: '{"kind":"character","data":{"name":"…"}}',
   pasteAdd: '加入',
@@ -268,7 +270,7 @@ export const S = {
   pasteClearTitle: (n: number) => `把貼上的 ${n} 個棋子從清單刪除？`,
   pasteClearConfirm: '刪除',
   pasteCleared: '已刪除貼上的棋子。',
-  pasteNone: '找不到角色資料。請把角色卡網站「輸出成 CCFOLIA 角色」複製的內容原樣貼上。',
+  pasteNone: '找不到角色資料。請把角色卡網站匯出給 CCFOLIA 的角色資料原樣貼上。',
   pasteEmpty: '請先在上面貼上複製的內容。',
   pasteAdded: (n: number) => `已加入 ${n} 個。`,
   pasteIcon:
@@ -498,6 +500,7 @@ export const S = {
     `已開啟原作的專案檔「${name}」${n ? `，${n} 張圖片放進圖片庫` : ''}`,
   openFailed: (msg: string) => `無法開啟專案檔：${msg}`,
   notProject: '這不是這個工具（或原作）的專案檔。',
+  newerProject: '這個專案檔是較新版本的工具存的，請重新整理頁面再試一次。',
   projectNotSaved:
     '瀏覽器的空間不足（或無法使用），專案檔的圖片只在這次開啟時有效；重新整理後要再開一次專案檔。',
 

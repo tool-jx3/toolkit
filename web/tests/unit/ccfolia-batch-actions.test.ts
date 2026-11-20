@@ -3,29 +3,31 @@
  */
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
-  addPasted,
   addPiece,
+  addSheetExport,
+  assignedPlaces,
   clearPasted,
-  confirmCurrent,
   copyPiece,
   deletePiece,
+  deleteShelfImage,
   editPiece,
   fillSample,
+  keepAndContinue,
+  loadProject,
   movePiece,
   rebuild,
-  removeImage,
   renamePiece,
   resetAll,
   setColumnKind,
   setLabelKind,
   setMode,
   setText,
-  usesOf,
   warningsOf,
 } from '@/tools/ccfolia-batch/actions';
 import { piecesOf, viewsOf } from '@/tools/ccfolia-batch/derived';
 import { defaultDoc } from '@/tools/ccfolia-batch/model';
-import { HISTORY_LIMIT, useDoc, useUi } from '@/tools/ccfolia-batch/store';
+import { HISTORY_LIMIT, PROJECT_VERSION, useDoc, useUi } from '@/tools/ccfolia-batch/store';
+import { S } from '@/tools/ccfolia-batch/strings';
 import { wordKey } from '@/tools/ccfolia-batch/words';
 
 const doc = () => useDoc.getState().data;
@@ -68,12 +70,12 @@ describe('讀法與欄的用途', () => {
 describe('確定與手動修改', () => {
   it('確定：留成已確定、輸入欄清空、可以接著輸入；復原回到輸入', () => {
     setText('A\nHP 1');
-    expect(confirmCurrent()).toBe(true);
+    expect(keepAndContinue()).toBe(true);
     expect(doc().memo).toBe('');
     expect(doc().kept.map((c) => [c.name, c.from, c.line])).toEqual([['A', 'kept', null]]);
     setText('乙 ×2\nHP 2');
     expect(names()).toEqual(['A', '乙A', '乙B']);
-    expect(confirmCurrent()).toBe(true);
+    expect(keepAndContinue()).toBe(true);
     expect(doc().kept).toHaveLength(3);
     expect(useUi.getState().status.list?.text).toBe(
       '已確定（加了 2 個，共 3 個）。輸入欄已清空，可以接著輸入下一位 NPC。',
@@ -131,8 +133,8 @@ describe('確定與手動修改', () => {
       c.image = 'i1';
       c.faces.push({ label: '笑', imageId: 'i1', imageName: '' });
     });
-    expect(usesOf(doc(), 'i1')).toEqual(['A', 'A的差分「笑」']);
-    removeImage('i1');
+    expect(assignedPlaces(doc(), 'i1')).toEqual(['A', 'A的差分「笑」']);
+    deleteShelfImage('i1');
     expect(doc().images).toEqual([]);
     expect(piecesOf(doc())[0]).toMatchObject({ image: 'none', faces: [{ imageId: null }] });
     expect(useUi.getState().status.shelf?.text).toBe('已刪除；指定了這張圖的地方變成「沒有圖」。');
@@ -142,9 +144,9 @@ describe('確定與手動修改', () => {
 describe('貼上與提醒', () => {
   it('貼上的棋子跟在讀到的後面，可以清掉', () => {
     setText('A\nHP 1');
-    expect(addPasted('nope')).toBe(false);
+    expect(addSheetExport('nope')).toBe(false);
     expect(
-      addPasted(JSON.stringify({ kind: 'character', data: { name: 'P', iconUrl: 'x' } })),
+      addSheetExport(JSON.stringify({ kind: 'character', data: { name: 'P', iconUrl: 'x' } })),
     ).toBe(true);
     expect(names()).toEqual(['A', 'P']);
     expect(useUi.getState().status.paste?.text).toContain('已加入 1 個。立繪沒有帶進來');
@@ -174,5 +176,18 @@ describe('復原', () => {
     expect(useDoc.temporal.getState().pastStates.length).toBe(150);
     t.undo();
     expect(doc().memo).toBe('A158');
+  });
+});
+
+describe('專案檔', () => {
+  it('較新版本的工具存的專案檔：不開、說明原因（目前的內容不動）', async () => {
+    setText('A\nHP 1');
+    const saved = { ...defaultDoc(), memo: 'B\nHP 2' };
+    await expect(loadProject(saved, PROJECT_VERSION + 1, new Map())).rejects.toThrow(
+      S.newerProject,
+    );
+    expect(doc().memo).toBe('A\nHP 1');
+    await loadProject(saved, PROJECT_VERSION, new Map());
+    expect(doc().memo).toBe('B\nHP 2');
   });
 });

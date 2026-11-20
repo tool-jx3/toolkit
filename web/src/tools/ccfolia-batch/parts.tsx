@@ -5,7 +5,7 @@ import { ImagePlus } from 'lucide-react';
 import { type DragEvent, type ReactNode, useEffect, useState } from 'react';
 import { filesInMemory, pickFiles } from '@/core/files';
 import { Button, cn, Notice, Select, ThumbnailImage } from '@/ui';
-import { addFiles } from './actions';
+import { addShelfFiles } from './actions';
 import type { ShelfImage } from './model';
 import { assets, markMissing, type StatusArea, useUi } from './store';
 import { S } from './strings';
@@ -69,7 +69,7 @@ export function Thumb({
   );
 }
 
-const hasFiles = (e: DragEvent): boolean => Array.from(e.dataTransfer.types).includes('Files');
+const carriesFiles = (e: DragEvent): boolean => Array.from(e.dataTransfer.types).includes('Files');
 
 /** 拖放目標：放開的圖片先加進圖片庫，再把第一張的 id 交給 onImage */
 export function useImageDrop(onImage: (id: string) => void, area: StatusArea) {
@@ -78,19 +78,19 @@ export function useImageDrop(onImage: (id: string) => void, area: StatusArea) {
     over,
     handlers: {
       onDragOver: (e: DragEvent) => {
-        if (!hasFiles(e)) return;
+        if (!carriesFiles(e)) return;
         e.preventDefault();
         e.dataTransfer.dropEffect = 'copy';
         setOver(true);
       },
       onDragLeave: () => setOver(false),
       onDrop: (e: DragEvent) => {
-        if (!hasFiles(e)) return;
+        if (!carriesFiles(e)) return;
         e.preventDefault();
         setOver(false);
         const files = Array.from(e.dataTransfer.files);
         void filesInMemory(files)
-          .then((list) => addFiles(list, area))
+          .then((list) => addShelfFiles(list, area))
           .then((ids) => {
             if (ids[0]) onImage(ids[0]);
           });
@@ -103,7 +103,7 @@ export function useImageDrop(onImage: (id: string) => void, area: StatusArea) {
 export async function pickOneImage(area: StatusArea): Promise<string | null> {
   const files = await pickFiles({ accept: IMAGE_ACCEPT });
   if (!files.length) return null;
-  const [id] = await addFiles(files, area);
+  const [id] = await addShelfFiles(files, area);
   return id ?? null;
 }
 

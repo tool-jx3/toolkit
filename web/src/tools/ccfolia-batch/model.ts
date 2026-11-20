@@ -143,41 +143,46 @@ export const SIZE_MAX = 100;
 
 /* ---------- id ---------- */
 
-let seq = 0;
-/** 工具內部的 id（圖片庫）；前綴＋時間＋亂數＋序號 */
-export function uid(prefix: string): string {
-  seq = (seq + 1) % 1296;
-  return `${prefix}${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}${seq.toString(36)}`;
+let issued = 0;
+/** 工具內部的 id（圖片庫）：前綴＋時間（36 進位）＋5 碼亂數＋流水號 */
+export function newLocalId(prefix: string): string {
+  issued = (issued + 1) % 1296;
+  const noise = Math.floor(Math.random() * 36 ** 5)
+    .toString(36)
+    .padStart(5, '0');
+  return [prefix, Date.now().toString(36), noise, issued.toString(36)].join('');
 }
 
 /* ---------- 預設值 ---------- */
 
-export const defaultOpts = (): Opts => ({
-  active: false,
+export const initialOpts = (): Opts => ({
+  /* 棋子 */
   size: CHARACTER_DEFAULT_SIZE,
-  commonCommands: '',
-  secret: false,
+  active: false,
   hideStatus: false,
+  secret: false,
+  commonCommands: '',
+  faceCommands: false,
+  /* 讀取 */
   roll: 'auto',
   secretRoll: false,
-  suffix: 'alpha',
-  proseToMemo: false,
   abilityChecks: false,
-  faceCommands: false,
+  proseToMemo: false,
+  suffix: 'alpha',
 });
 
 export function defaultDoc(): Doc {
   return {
-    images: [],
     mode: 'memo',
     memo: '',
     table: '',
-    columns: {},
     labels: {},
-    kept: [],
+    columns: {},
     pasted: [],
-    opts: defaultOpts(),
+    kept: [],
     edited: null,
+    images: [],
+    opts: initialOpts(),
   };
 }
 
@@ -209,15 +214,19 @@ export function newPiece(patch: Partial<Piece> = {}): Piece {
 
 /* ---------- 整理（自動儲存、專案檔讀回） ---------- */
 
-type Obj = Record<string, unknown>;
-const isObj = (v: unknown): v is Obj => typeof v === 'object' && v !== null && !Array.isArray(v);
-const str = (v: unknown): string => (typeof v === 'string' ? v : v == null ? '' : String(v));
-const finite = (v: unknown, d: number): number =>
-  typeof v === 'number' && Number.isFinite(v) ? v : d;
-const boolOrNull = (v: unknown): boolean | null => (typeof v === 'boolean' ? v : null);
+type Loose = Record<string, unknown>;
+const asRecord = (v: unknown): Loose =>
+  typeof v === 'object' && v !== null && !Array.isArray(v) ? (v as Loose) : {};
+const looseList = (v: unknown): Loose[] =>
+  Array.isArray(v) ? v.filter((x) => typeof x === 'object' && x !== null && !Array.isArray(x)) : [];
+const asText = (v: unknown): string => (v === null || v === undefined ? '' : `${v}`);
+const numberOr = (v: unknown, fallback: number): number =>
+  typeof v === 'number' && Number.isFinite(v) ? v : fallback;
+const flagOrNull = (v: unknown): boolean | null => (typeof v === 'boolean' ? v : null);
+const flagOr = (v: unknown, fallback: boolean): boolean => (typeof v === 'boolean' ? v : fallback);
 
-export const clampSize = (n: number): number =>
-  Math.min(Math.max(Math.round(n), SIZE_MIN), SIZE_MAX);
+export const clampPieceSize = (n: number): number =>
+  Math.max(SIZE_MIN, Math.min(SIZE_MAX, Math.round(n)));
 
 const PIECE_FROM: readonly PieceFrom[] = ['text', 'kept', 'paste', 'hand'];
 const LABEL_KINDS: readonly LabelKind[] = ['skill', 'status', 'param', 'ignore'];
@@ -244,134 +253,128 @@ const ROLLS: readonly RollStyle[] = ['auto', 'ccb', 'cc', 'd100', 'none'];
 export const isLabelKind = (v: unknown): v is LabelKind => LABEL_KINDS.includes(v as LabelKind);
 export const isColumnKind = (v: unknown): v is ColumnKind => COLUMN_KINDS.includes(v as ColumnKind);
 
+/** 棋子裡的文字欄位與「照全體設定」的開關 */
+const PIECE_TEXTS = ['name', 'memo', 'externalUrl', 'commands', 'imageName'] as const;
+const PIECE_SWITCHES = ['active', 'secret', 'hideStatus'] as const;
+
 /** 整理一個棋子（型別不對的欄位用預設值；清單裡不是物件的項目丟掉） */
 export function cleanPiece(v: unknown): Piece {
-  const c = isObj(v) ? v : {};
-  const line = typeof c.line === 'number' && Number.isFinite(c.line) && c.line > 0 ? c.line : null;
-  const size = finite(c.size, Number.NaN);
-  return {
-    line,
-    from: PIECE_FROM.includes(c.from as PieceFrom) ? (c.from as PieceFrom) : 'hand',
-    name: str(c.name),
-    memo: str(c.memo),
-    initiative: finite(c.initiative, 0),
-    externalUrl: str(c.externalUrl),
-    commands: str(c.commands),
-    imageName: str(c.imageName),
-    color: isCharacterColor(c.color) ? c.color : CHARACTER_DEFAULT_COLOR,
-    size: Number.isFinite(size) ? clampSize(size) : null,
-    active: boolOrNull(c.active),
-    secret: boolOrNull(c.secret),
-    invisible: c.invisible === true,
-    hideStatus: boolOrNull(c.hideStatus),
-    status: Array.isArray(c.status)
-      ? c.status.filter(isObj).map((s) => ({
-          label: str(s.label),
-          value: finite(s.value, 0),
-          max: finite(s.max, 0),
-        }))
-      : [],
-    params: Array.isArray(c.params)
-      ? c.params.filter(isObj).map((p) => ({ label: str(p.label), value: str(p.value) }))
-      : [],
-    image: c.image ? str(c.image) : 'auto',
-    autoFaces: c.autoFaces !== false,
-    faces: Array.isArray(c.faces)
-      ? c.faces.filter(isObj).map((f) => ({
-          label: str(f.label),
-          imageId: f.imageId ? str(f.imageId) : null,
-          imageName: str(f.imageName),
-        }))
-      : [],
-  };
+  const raw = asRecord(v);
+  const piece = newPiece();
+  for (const key of PIECE_TEXTS) piece[key] = asText(raw[key]);
+  for (const key of PIECE_SWITCHES) piece[key] = flagOrNull(raw[key]);
+  const line = numberOr(raw.line, 0);
+  piece.line = line > 0 ? line : null;
+  if (PIECE_FROM.includes(raw.from as PieceFrom)) piece.from = raw.from as PieceFrom;
+  else piece.from = 'hand';
+  piece.initiative = numberOr(raw.initiative, 0);
+  if (isCharacterColor(raw.color)) piece.color = raw.color;
+  const size = numberOr(raw.size, Number.NaN);
+  piece.size = Number.isNaN(size) ? null : clampPieceSize(size);
+  piece.invisible = raw.invisible === true;
+  piece.status = looseList(raw.status).map((x) => ({
+    label: asText(x.label),
+    value: numberOr(x.value, 0),
+    max: numberOr(x.max, 0),
+  }));
+  piece.params = looseList(raw.params).map((x) => ({
+    label: asText(x.label),
+    value: asText(x.value),
+  }));
+  piece.image = raw.image ? asText(raw.image) : 'auto';
+  piece.autoFaces = raw.autoFaces !== false;
+  piece.faces = looseList(raw.faces).map((x) => ({
+    label: asText(x.label),
+    imageId: x.imageId ? asText(x.imageId) : null,
+    imageName: asText(x.imageName),
+  }));
+  return piece;
 }
 
-const cleanPieces = (v: unknown): Piece[] =>
-  Array.isArray(v) ? v.filter(isObj).map(cleanPiece) : [];
+const cleanPieces = (v: unknown): Piece[] => looseList(v).map(cleanPiece);
 
-export function cleanImage(v: unknown): ShelfImage | null {
-  if (!isObj(v) || !v.id || !v.asset) return null;
-  return {
-    id: str(v.id),
-    name: str(v.name),
-    asset: str(v.asset),
-    type: str(v.type),
-    size: Number(v.size) || 0,
-  };
+export function tidyImage(v: unknown): ShelfImage | null {
+  const raw = asRecord(v);
+  if (!raw.id || !raw.asset) return null;
+  const [id, name, asset, type] = [raw.id, raw.name, raw.asset, raw.type].map(asText);
+  return { id, name, asset, type, size: Number(raw.size) || 0 };
 }
 
 export function cleanOpts(v: unknown): Opts {
-  const o = isObj(v) ? v : {};
-  const d = defaultOpts();
-  const bool = (x: unknown, dv: boolean) => (typeof x === 'boolean' ? x : dv);
-  const size = typeof o.size === 'number' ? o.size : Number(o.size);
-  return {
-    active: bool(o.active, d.active),
-    size: Number.isFinite(size) ? clampSize(size) : d.size,
-    commonCommands: typeof o.commonCommands === 'string' ? o.commonCommands : d.commonCommands,
-    secret: bool(o.secret, d.secret),
-    hideStatus: bool(o.hideStatus, d.hideStatus),
-    roll: ROLLS.includes(o.roll as RollStyle) ? (o.roll as RollStyle) : d.roll,
-    secretRoll: bool(o.secretRoll, d.secretRoll),
-    suffix: o.suffix === 'number' ? 'number' : d.suffix,
-    proseToMemo: bool(o.proseToMemo, d.proseToMemo),
-    abilityChecks: bool(o.abilityChecks, d.abilityChecks),
-    faceCommands: bool(o.faceCommands, d.faceCommands),
-  };
+  const raw = asRecord(v);
+  const base = initialOpts();
+  const size = typeof raw.size === 'number' ? raw.size : Number(raw.size);
+  const switches = [
+    'active',
+    'secret',
+    'hideStatus',
+    'secretRoll',
+    'proseToMemo',
+    'abilityChecks',
+    'faceCommands',
+  ] as const;
+  const out: Opts = { ...base };
+  for (const key of switches) out[key] = flagOr(raw[key], base[key]);
+  if (Number.isFinite(size)) out.size = clampPieceSize(size);
+  if (typeof raw.commonCommands === 'string') out.commonCommands = raw.commonCommands;
+  if (ROLLS.includes(raw.roll as RollStyle)) out.roll = raw.roll as RollStyle;
+  if (raw.suffix === 'number') out.suffix = 'number';
+  return out;
 }
 
-function cleanRecord<T>(v: unknown, ok: (x: unknown) => x is T): Record<string, T> {
-  const out: Record<string, T> = {};
-  if (!isObj(v)) return out;
-  for (const [k, x] of Object.entries(v)) if (k !== '__proto__' && ok(x)) out[k] = x;
-  return out;
+/** 物件裡值合格的項目（`__proto__` 不收） */
+function keepValid<T>(v: unknown, ok: (x: unknown) => x is T): Record<string, T> {
+  const entries = Object.entries(asRecord(v)).filter(([k, x]) => k !== '__proto__' && ok(x));
+  return Object.fromEntries(entries) as Record<string, T>;
 }
 
 /** 存檔、專案檔讀回時整理（不是物件時回到預設；缺的欄位補預設；格式不對的項目丟掉） */
 export function cleanDoc(v: unknown): Doc {
-  const d = defaultDoc();
-  if (!isObj(v)) return d;
-  return {
-    images: Array.isArray(v.images)
-      ? v.images.map(cleanImage).filter((x): x is ShelfImage => !!x)
-      : [],
-    mode: v.mode === 'table' ? 'table' : 'memo',
-    memo: str(v.memo),
-    table: str(v.table),
-    columns: cleanRecord(v.columns, isColumnKind),
-    labels: cleanRecord(v.labels, isLabelKind),
-    kept: cleanPieces(v.kept),
-    pasted: cleanPieces(v.pasted),
-    opts: cleanOpts(v.opts),
-    edited: Array.isArray(v.edited) ? cleanPieces(v.edited) : null,
-  };
+  const raw = asRecord(v);
+  const doc = defaultDoc();
+  if (raw !== v) return doc;
+  doc.mode = raw.mode === 'table' ? 'table' : 'memo';
+  doc.memo = asText(raw.memo);
+  doc.table = asText(raw.table);
+  doc.labels = keepValid(raw.labels, isLabelKind);
+  doc.columns = keepValid(raw.columns, isColumnKind);
+  doc.pasted = cleanPieces(raw.pasted);
+  doc.kept = cleanPieces(raw.kept);
+  doc.edited = Array.isArray(raw.edited) ? cleanPieces(raw.edited) : null;
+  doc.images = Array.isArray(raw.images)
+    ? raw.images.map(tidyImage).filter((x): x is ShelfImage => x !== null)
+    : [];
+  doc.opts = cleanOpts(raw.opts);
+  return doc;
 }
 
 /* ---------- 小工具 ---------- */
 
 /** 去掉副檔名；空白時 fallback */
-export function baseName(fileName: string, fallback: string): string {
-  return String(fileName || '').replace(/\.[^.]+$/, '') || fallback;
+export function fileStem(fileName: string, fallback: string): string {
+  const stem = String(fileName || '').replace(/\.[^.]+$/, '');
+  return stem === '' ? fallback : stem;
 }
 
+const MIB = 1024 ** 2;
 /** 大小的寫法：未滿 1 MiB「n KB」（至少 1），其餘「x.x MB」 */
-export function sizeText(bytes: number): string {
-  return bytes < 1024 * 1024
-    ? `${Math.max(1, Math.round(bytes / 1024))} KB`
-    : `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+export function bytesLabel(bytes: number): string {
+  if (bytes >= MIB) return `${(bytes / MIB).toFixed(1)} MB`;
+  return `${Math.round(bytes / 1024) || 1} KB`;
 }
 
 /** 檔名用的時間：YYYYMMDD-HHMM（當地時間） */
-export function stamp(d = new Date()): string {
-  const p = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}`;
+export function fileStamp(at = new Date()): string {
+  const two = (n: number) => `${n}`.padStart(2, '0');
+  const day = `${at.getFullYear()}${two(at.getMonth() + 1)}${two(at.getDate())}`;
+  return `${day}-${two(at.getHours())}${two(at.getMinutes())}`;
 }
 
 export const isTooBig = (img: ShelfImage | null | undefined): boolean =>
   !!img && img.size > MAX_IMAGE_BYTES;
 
 /** 棋子的實際值（null＝照全體設定） */
-export const sizeOf = (p: Piece, o: Opts): number => p.size ?? o.size;
-export const activeOf = (p: Piece, o: Opts): boolean => p.active ?? o.active;
-export const secretOf = (p: Piece, o: Opts): boolean => p.secret ?? o.secret;
-export const hideOf = (p: Piece, o: Opts): boolean => p.hideStatus ?? o.hideStatus;
+export const pieceSize = (p: Piece, o: Opts): number => p.size ?? o.size;
+export const onBoard = (p: Piece, o: Opts): boolean => p.active ?? o.active;
+export const isSecret = (p: Piece, o: Opts): boolean => p.secret ?? o.secret;
+export const hidesStatus = (p: Piece, o: Opts): boolean => p.hideStatus ?? o.hideStatus;

@@ -7,17 +7,10 @@
  * - 名稱之外也比對「立繪的名稱」（表格的立繪欄、×N 的複本是原本的名字），所以「黑影 A～C」共用「黑影」的圖。
  * - 本站的「角色差分管理器」開了編號時輸出「名稱01_笑」：名稱後面接 2 位數以上的編號、再接分隔與差分名的，
  *   也當成那個名稱的差分（本站新增，5. D 項）。
- * 原作照 app.v1.js 的 matchImages／portraitOf／facesOf（MIT）。
+ * 對應的規則參考原作（shiki365／キャラクター一括メーカー，MIT）。
  */
 import type { Piece, ShelfImage } from './model';
 import { wordKey } from './words';
-
-const norm = (s: string): string =>
-  String(s || '')
-    .normalize('NFKC')
-    .trim()
-    .toLowerCase();
-const SEP = /^[\s_\-@([]/;
 
 export interface AutoImages {
   /** 和「立繪的名稱」同名的圖 */
@@ -28,75 +21,115 @@ export interface AutoImages {
   faces: { label: string; image: ShelfImage }[];
 }
 
-/**
- * 每張圖分給名稱是它開頭的棋子（最長的名稱優先）。回傳依棋子的位置。
- */
-export function matchImages(pieces: readonly Piece[], images: readonly ShelfImage[]): AutoImages[] {
-  const out: AutoImages[] = pieces.map(() => ({ byImageName: null, byName: null, faces: [] }));
-  const bases: { k: string; i: number; from: 'byImageName' | 'byName' }[] = [];
-  pieces.forEach((p, i) => {
-    if (norm(p.imageName)) bases.push({ k: norm(p.imageName), i, from: 'byImageName' });
-    if (norm(p.name)) bases.push({ k: norm(p.name), i, from: 'byName' });
-  });
-  for (const im of images) {
-    const n = String(im.name || '')
-      .normalize('NFKC')
-      .trim();
-    const low = n.toLowerCase();
-    let best = 0;
-    let hits: { b: (typeof bases)[number]; rest: string }[] = [];
-    for (const b of bases) {
-      let rest: string | null = null;
-      if (low === b.k) rest = '';
-      else if (low.startsWith(b.k)) {
-        const after = low.slice(b.k.length);
-        if (SEP.test(after)) rest = n.slice(b.k.length);
-        else {
-          /* 差分管理器的編號：「名稱01_笑」 */
-          const num = /^\d{2,}(?=[\s_\-@([])/.exec(after);
-          if (num) rest = n.slice(b.k.length + num[0].length);
-        }
-      }
-      if (rest === null) continue;
-      if (b.k.length > best) {
-        best = b.k.length;
-        hits = [{ b, rest }];
-      } else if (b.k.length === best) hits.push({ b, rest });
-    }
-    for (const { b, rest } of hits) {
-      const a = out[b.i];
+/** 比對的起點：某個棋子的名稱或立繪的名稱 */
+interface Anchor {
+  /** 比對用的寫法（NFKC、去頭尾空白、小寫） */
+  key: string;
+  piece: number;
+  slot: 'byImageName' | 'byName';
+}
+
+const shown = (s: string): string =>
+  String(s || '')
+    .normalize('NFKC')
+    .trim();
+const FACE_SEP = '[\\s_\\-@([]';
+const STARTS_WITH_SEP = new RegExp(`^${FACE_SEP}`);
+/** 差分管理器的編號：「名稱01_笑」的「01」 */
+const SERIAL = new RegExp(`^\\d{2,}(?=${FACE_SEP})`);
+const LEADING_SEPS = new RegExp(`^${FACE_SEP}+`);
+
+/** 圖片名稱接在起點後面的部分：同名 → ''；「_笑」「01_笑」→ 後面的原文；不是這個起點的圖時 null */
+function restAfter(name: string, lower: string, key: string): string | null {
+  if (lower === key) return '';
+  if (!lower.startsWith(key)) return null;
+  const tail = lower.slice(key.length);
+  if (STARTS_WITH_SEP.test(tail)) return name.slice(key.length);
+  const serial = SERIAL.exec(tail)?.[0];
+  return serial ? name.slice(key.length + serial.length) : null;
+}
+
+/** 「_笑」「(笑)」→「笑」 */
+const faceLabel = (rest: string): string =>
+  rest
+    .replace(LEADING_SEPS, '')
+    .replace(/[)\]]\s*$/, '')
+    .trim();
+
+/** 一張圖對到的起點：只留最長的（一樣長的都留，依棋子的順序） */
+function longestAnchors(
+  anchors: readonly Anchor[],
+  name: string,
+): { anchor: Anchor; rest: string }[] {
+  const lower = name.toLowerCase();
+  const found: { anchor: Anchor; rest: string }[] = [];
+  for (const anchor of anchors) {
+    /* anchors 依長度由長到短排好：比已經對到的短就不用再看 */
+    if (found.length && anchor.key.length < found[0].anchor.key.length) break;
+    const rest = restAfter(name, lower, anchor.key);
+    if (rest !== null) found.push({ anchor, rest });
+  }
+  return found;
+}
+
+/** 每張圖分給名稱是它開頭的棋子（最長的名稱優先）；回傳依棋子的位置 */
+export function assignShelfImages(
+  pieces: readonly Piece[],
+  images: readonly ShelfImage[],
+): AutoImages[] {
+  const result = pieces.map((): AutoImages => ({ byImageName: null, byName: null, faces: [] }));
+  const anchors = pieces
+    .flatMap((p, piece): Anchor[] => [
+      { key: shown(p.imageName).toLowerCase(), piece, slot: 'byImageName' },
+      { key: shown(p.name).toLowerCase(), piece, slot: 'byName' },
+    ])
+    .filter((a) => a.key !== '')
+    .sort((a, b) => b.key.length - a.key.length);
+  for (const image of images) {
+    for (const { anchor, rest } of longestAnchors(anchors, shown(image.name))) {
+      const target = result[anchor.piece];
       if (rest === '') {
-        if (!a[b.from]) a[b.from] = im;
+        target[anchor.slot] ??= image;
         continue;
       }
-      const label = rest
-        .replace(/^[\s_\-@([]+/, '')
-        .replace(/[)\]]\s*$/, '')
-        .trim();
-      if (label && !a.faces.some((f) => f.image === im)) a.faces.push({ label, image: im });
+      const label = faceLabel(rest);
+      if (label !== '' && target.faces.every((f) => f.image !== image)) {
+        target.faces.push({ label, image });
+      }
     }
   }
-  return out;
+  return result;
 }
 
 /** 依名稱找圖片庫的圖（wordKey 比對；沒有時 null） */
-export function imageByName(images: readonly ShelfImage[], name: string): ShelfImage | null {
-  const k = wordKey(name);
-  return k ? (images.find((im) => wordKey(im.name) === k) ?? null) : null;
+export function shelfImageNamed(images: readonly ShelfImage[], name: string): ShelfImage | null {
+  const want = wordKey(name);
+  if (!want) return null;
+  return images.find((im) => wordKey(im.name) === want) ?? null;
 }
 
-export const imageById = (images: readonly ShelfImage[], id: string | null): ShelfImage | null =>
-  id ? (images.find((im) => im.id === id) ?? null) : null;
+export function shelfImageById(
+  images: readonly ShelfImage[],
+  id: string | null,
+): ShelfImage | null {
+  if (!id) return null;
+  return images.find((im) => im.id === id) ?? null;
+}
 
 /** 棋子的立繪：'none' 沒有、指定的那張、'auto' 時同名的圖（立繪的名稱優先） */
-export function portraitOf(
+export function pickPortrait(
   p: Piece,
   auto: AutoImages | undefined,
   images: readonly ShelfImage[],
 ): ShelfImage | null {
-  if (p.image === 'none') return null;
-  if (p.image !== 'auto') return imageById(images, p.image);
-  return auto ? (auto.byImageName ?? auto.byName) : null;
+  switch (p.image) {
+    case 'none':
+      return null;
+    case 'auto':
+      return auto?.byImageName ?? auto?.byName ?? null;
+    default:
+      return shelfImageById(images, p.image);
+  }
 }
 
 /** 一個差分（手動的或自動找到的） */
@@ -109,26 +142,28 @@ export interface FaceView {
   index: number;
 }
 
-/** 棋子的差分：手動的（與表格的）在前，再接自動找到的（標籤和手動的相同的不重複） */
-export function facesOf(
+/** 棋子的差分：手動的（與表格的）在前，再接自動找到的（標籤和前面相同的不重複） */
+export function listFaces(
   p: Piece,
   auto: AutoImages | undefined,
   images: readonly ShelfImage[],
 ): FaceView[] {
-  const list: FaceView[] = p.faces.map((f, index) => ({
-    label: f.label,
-    image: imageById(images, f.imageId) ?? imageByName(images, f.imageName),
-    auto: false,
-    index,
-  }));
-  if (p.autoFaces && auto) {
-    const used = new Set(list.map((f) => wordKey(f.label)));
-    for (const f of auto.faces) {
-      const k = wordKey(f.label);
-      if (used.has(k)) continue;
-      used.add(k);
-      list.push({ label: f.label, image: f.image, auto: true, index: -1 });
-    }
+  const manual = p.faces.map(
+    (f, index): FaceView => ({
+      label: f.label,
+      image: shelfImageById(images, f.imageId) ?? shelfImageNamed(images, f.imageName),
+      auto: false,
+      index,
+    }),
+  );
+  if (!p.autoFaces || !auto) return manual;
+  const taken = new Set(manual.map((f) => wordKey(f.label)));
+  const found: FaceView[] = [];
+  for (const { label, image } of auto.faces) {
+    const key = wordKey(label);
+    if (taken.has(key)) continue;
+    taken.add(key);
+    found.push({ label, image, auto: true, index: -1 });
   }
-  return list;
+  return [...manual, ...found];
 }

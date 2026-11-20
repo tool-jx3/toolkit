@@ -5,8 +5,9 @@
 import { checkRoomZip, sniffImageMime } from '@/ccfolia';
 import { importAssetFiles } from '@/core/assets';
 import { downloadBlob } from '@/core/files';
+import { ProjectFileError } from '@/core/storage';
 import {
-  ensureEdited,
+  freezeList,
   matchesOf,
   type PieceView,
   parsedOf,
@@ -15,24 +16,24 @@ import {
   viewsOf,
 } from './derived';
 import { readLegacyProject } from './legacy';
-import { imageByName } from './match';
+import { shelfImageNamed } from './match';
 import {
-  baseName,
   cleanDoc,
   cleanPiece,
   type Doc,
   defaultDoc,
+  fileStamp,
+  fileStem,
   type InputMode,
   isTooBig,
   type LabelKind,
   MAX_IMAGE_BYTES,
   MAX_PIECES,
+  newLocalId,
   newPiece,
   type Opts,
   type Piece,
   type ShelfImage,
-  stamp,
-  uid,
 } from './model';
 import {
   type AssetsInput,
@@ -41,13 +42,23 @@ import {
   type OutImage,
   type OutPiece,
 } from './output';
-import { parsePieces } from './pieces';
-import { assets, markMissing, type StatusArea, say, select, setBusy, useDoc, useUi } from './store';
+import { readSheetExport } from './pieces';
+import {
+  assets,
+  markMissing,
+  PROJECT_VERSION,
+  type StatusArea,
+  say,
+  select,
+  setBusy,
+  useDoc,
+  useUi,
+} from './store';
 import { memoHintText, OUT, S, SAMPLES, tableHintText } from './strings';
 import type { ColumnKind } from './words';
 
 const doc = (): Doc => useDoc.getState().data;
-const update = (recipe: (d: Doc) => void): void => useDoc.getState().update(recipe);
+const mutate = (recipe: (d: Doc) => void): void => useDoc.getState().update(recipe);
 const errorText = (e: unknown): string => (e instanceof Error ? e.message : String(e));
 
 /** 記成獨立的一步復原（不和前後 0.4 秒內的變更合併） */
@@ -60,73 +71,93 @@ function asStep(fn: () => void): void {
 
 /* =================== 圖片庫 =================== */
 
+/** 一個檔案的內容與格式（依檔頭認；讀不了或不是支援的圖片時 null） */
+async function readImageFile(
+  file: File,
+): Promise<{ bytes: Uint8Array<ArrayBuffer>; type: string } | null> {
+  try {
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    const type = sniffImageMime(bytes);
+    return type ? { bytes, type } : null;
+  } catch {
+    return null;
+  }
+}
+
+/** 放進圖片庫的結果：新加的、和既有的同內容、格式不符、太大的張數 */
+interface ShelfTally {
+  added: number;
+  same: number;
+  bad: number;
+  big: number;
+  notSaved: boolean;
+}
+
+function shelfMessage(t: ShelfTally): { text: string; tone: 'warning' | 'success' } | null {
+  const parts = [
+    t.added > 0 && S.added(t.added),
+    t.added > 0 && t.notSaved && S.addedNotSaved,
+    t.same > 0 && S.same(t.same),
+    t.bad > 0 && S.badFormat(t.bad),
+    t.big > 0 && S.tooBig(t.big),
+  ].filter((x): x is string => typeof x === 'string');
+  if (parts.length === 0) return null;
+  const warn = t.bad > 0 || t.big > 0 || (t.added > 0 && t.notSaved);
+  return { text: parts.join(''), tone: warn ? 'warning' : 'success' };
+}
+
 /**
  * 把檔案放進圖片庫（規格 F05、F06）：依檔頭認格式，同內容已經在圖片庫的沿用原本那張。
  * 回傳每個可用檔案的圖片庫 id（依順序；格式不符的不在裡面）。
  */
-export async function addFiles(
+export async function addShelfFiles(
   files: readonly File[],
   area: StatusArea = 'shelf',
 ): Promise<string[]> {
-  const ids: string[] = [];
+  const result: string[] = [];
   const fresh: ShelfImage[] = [];
-  let bad = 0;
-  let big = 0;
-  let same = 0;
-  let notSaved = false;
+  const tally: ShelfTally = { added: 0, same: 0, bad: 0, big: 0, notSaved: false };
   for (const file of files) {
-    let bytes: Uint8Array<ArrayBuffer>;
-    try {
-      bytes = new Uint8Array(await file.arrayBuffer());
-    } catch {
-      bad++;
+    const read = await readImageFile(file);
+    if (read === null) {
+      tally.bad += 1;
       continue;
     }
-    const type = sniffImageMime(bytes);
-    if (!type) {
-      bad++;
+    const stored = await assets.add(new Blob([read.bytes], { type: read.type }));
+    markMissing([stored.id], false);
+    tally.notSaved ||= !stored.persisted;
+    const existing =
+      doc().images.find((im) => im.asset === stored.id) ??
+      fresh.find((im) => im.asset === stored.id);
+    if (existing) {
+      tally.same += 1;
+      result.push(existing.id);
       continue;
     }
-    const r = await assets.add(new Blob([bytes], { type }));
-    markMissing([r.id], false);
-    if (!r.persisted) notSaved = true;
-    const had = [...doc().images, ...fresh].find((im) => im.asset === r.id);
-    if (had) {
-      ids.push(had.id);
-      same++;
-      continue;
-    }
-    const im: ShelfImage = {
-      id: uid('i'),
-      name: baseName(file.name, S.fallbackImageName),
-      asset: r.id,
-      type,
-      size: bytes.length,
+    const image: ShelfImage = {
+      id: newLocalId('i'),
+      name: fileStem(file.name, S.fallbackImageName),
+      asset: stored.id,
+      type: read.type,
+      size: read.bytes.length,
     };
-    fresh.push(im);
-    ids.push(im.id);
-    if (bytes.length > MAX_IMAGE_BYTES) big++;
+    fresh.push(image);
+    result.push(image.id);
+    tally.added += 1;
+    if (image.size > MAX_IMAGE_BYTES) tally.big += 1;
   }
-  if (fresh.length) {
-    update((d) => {
+  if (fresh.length > 0) {
+    mutate((d) => {
       d.images.push(...fresh);
     });
   }
-  const added = ids.length - same;
-  const parts: string[] = [];
-  if (added) parts.push(S.added(added));
-  if (added && notSaved) parts.push(S.addedNotSaved);
-  if (same) parts.push(S.same(same));
-  if (bad) parts.push(S.badFormat(bad));
-  if (big) parts.push(S.tooBig(big));
-  if (parts.length) {
-    say(area, parts.join(''), bad || big || (added && notSaved) ? 'warning' : 'success');
-  }
-  return ids;
+  const message = shelfMessage(tally);
+  if (message) say(area, message.text, message.tone);
+  return result;
 }
 
 export function renameImage(id: string, name: string): void {
-  update((d) => {
+  mutate((d) => {
     const im = d.images.find((x) => x.id === id);
     if (im) im.name = name;
   });
@@ -134,44 +165,42 @@ export function renameImage(id: string, name: string): void {
 
 const allLists = (d: Doc): Piece[][] => [d.kept, d.pasted, ...(d.edited ? [d.edited] : [])];
 
+/** 每個清單裡的棋子各一次（同一個物件在兩個清單裡時只算一次） */
+function eachPiece(d: Doc): Piece[] {
+  return [...new Set(allLists(d).flat())];
+}
+
 /** 指定了這張圖的地方（棋子的立繪、差分；用名稱自動對到的不算） */
-export function usesOf(d: Doc, imageId: string): string[] {
-  const names: string[] = [];
-  const seen = new Set<Piece>();
-  for (const list of allLists(d)) {
-    for (const c of list) {
-      if (seen.has(c)) continue;
-      seen.add(c);
-      const name = c.name || S.noNameRow;
-      if (c.image === imageId) names.push(name);
-      for (const f of c.faces) {
-        if (f.imageId === imageId) names.push(S.faceOfName(name, f.label || OUT.faceFallback));
-      }
-    }
-  }
-  return names;
+export function assignedPlaces(d: Doc, imageId: string): string[] {
+  return eachPiece(d).flatMap((c) => {
+    const who = c.name || S.noNameRow;
+    const asFace = c.faces
+      .filter((f) => f.imageId === imageId)
+      .map((f) => S.faceOfName(who, f.label || OUT.faceFallback));
+    return c.image === imageId ? [who, ...asFace] : asFace;
+  });
 }
 
 /** 刪除（確認由元件做）：指定了這張圖的地方變成「沒有圖」 */
-export function removeImage(id: string): void {
-  const used = usesOf(doc(), id).length > 0;
-  update((d) => {
-    for (const list of allLists(d)) {
-      for (const c of list) {
-        if (c.image === id) c.image = 'none';
-        for (const f of c.faces) if (f.imageId === id) f.imageId = null;
-      }
+export function deleteShelfImage(id: string): void {
+  const wasUsed = assignedPlaces(doc(), id).length > 0;
+  mutate((d) => {
+    for (const c of allLists(d).flat()) {
+      if (c.image === id) c.image = 'none';
+      c.faces.forEach((f) => {
+        if (f.imageId === id) f.imageId = null;
+      });
     }
-    d.images = d.images.filter((x) => x.id !== id);
+    d.images = d.images.filter((im) => im.id !== id);
   });
-  say('shelf', used ? S.deletedUsed : S.deleted, 'success');
+  say('shelf', wasUsed ? S.deletedUsed : S.deleted, 'success');
 }
 
 /* =================== 輸入與讀取方式 =================== */
 
 /** 切換輸入的方式（手動修改中的確認由元件做）：取消手動修改 */
 export function setMode(mode: InputMode): void {
-  update((d) => {
+  mutate((d) => {
     d.mode = mode;
     d.edited = null;
   });
@@ -179,21 +208,21 @@ export function setMode(mode: InputMode): void {
 }
 
 export function setText(text: string): void {
-  update((d) => {
+  mutate((d) => {
     if (d.mode === 'table') d.table = text;
     else d.memo = text;
   });
 }
 
 export function setOpts(patch: Partial<Opts>): void {
-  update((d) => {
+  mutate((d) => {
     Object.assign(d.opts, patch);
   });
 }
 
 /** 改一個標籤的讀法（和自動判斷相同時不記） */
 export function setLabelKind(key: string, kind: LabelKind, auto: string): void {
-  update((d) => {
+  mutate((d) => {
     if (kind === auto) delete d.labels[key];
     else d.labels[key] = kind;
   });
@@ -201,7 +230,7 @@ export function setLabelKind(key: string, kind: LabelKind, auto: string): void {
 
 /** 改一欄的用途（和自動判斷相同時不記） */
 export function setColumnKind(header: string, kind: ColumnKind, auto: ColumnKind): void {
-  update((d) => {
+  mutate((d) => {
     if (kind === auto) delete d.columns[header];
     else d.columns[header] = kind;
   });
@@ -209,7 +238,7 @@ export function setColumnKind(header: string, kind: ColumnKind, auto: ColumnKind
 
 /** 填入範例（確認由元件做）：表格時欄的用途也清掉 */
 export function fillSample(): void {
-  update((d) => {
+  mutate((d) => {
     if (d.mode === 'table') {
       d.table = SAMPLES.table;
       d.columns = {};
@@ -222,17 +251,17 @@ export function fillSample(): void {
 /* =================== 角色卡網站貼上 =================== */
 
 /** 加入貼上的角色資料（F29）；成功時回傳 true（元件清空輸入欄） */
-export function addPasted(text: string): boolean {
+export function addSheetExport(text: string): boolean {
   if (!text.trim()) {
     say('paste', S.pasteEmpty, 'danger');
     return false;
   }
-  const r = parsePieces(text);
+  const r = readSheetExport(text);
   if (!r.pieces.length) {
     say('paste', S.pasteNone, 'danger');
     return false;
   }
-  update((d) => {
+  mutate((d) => {
     d.pasted.push(...r.pieces.map(cleanPiece));
     if (d.edited) d.edited.push(...r.pieces.map(cleanPiece));
   });
@@ -247,7 +276,7 @@ export function addPasted(text: string): boolean {
 
 /** 清掉貼上的棋子（確認由元件做；手動修改中由修改欄一個一個刪） */
 export function clearPasted(): void {
-  update((d) => {
+  mutate((d) => {
     d.pasted = [];
   });
   say('paste', S.pasteCleared, 'success');
@@ -259,8 +288,8 @@ export function clearPasted(): void {
 export function editPiece(i: number, fn: (c: Piece, list: Piece[]) => void): void {
   const base = piecesOf(doc());
   if (i < 0 || i >= base.length) return;
-  update((d) => {
-    const list = ensureEdited(d, base);
+  mutate((d) => {
+    const list = freezeList(d, base);
     const c = list[i];
     if (c) fn(c, list);
   });
@@ -270,8 +299,10 @@ export function editPiece(i: number, fn: (c: Piece, list: Piece[]) => void): voi
 export function renamePiece(i: number, name: string): void {
   const d0 = doc();
   const pieces = piecesOf(d0);
-  const found = matchesOf(pieces, d0.images)[i];
-  const under = found && (found.byName || found.faces.length) ? pieces[i]?.name : '';
+  const auto = matchesOf(pieces, d0.images)[i];
+  /* 靠名稱對到立繪或差分時，舊的名稱記成立繪的名稱 */
+  const matchedByName = !!auto && (auto.byName !== null || auto.faces.length > 0);
+  const under = matchedByName ? (pieces[i]?.name ?? '') : '';
   editPiece(i, (c) => {
     if (!c.imageName && under) c.imageName = under;
     c.name = name;
@@ -308,8 +339,8 @@ export function deletePiece(i: number): void {
 export function addPiece(): void {
   const base = piecesOf(doc());
   let at = 0;
-  update((d) => {
-    const list = ensureEdited(d, base);
+  mutate((d) => {
+    const list = freezeList(d, base);
     list.push(
       newPiece({
         from: 'hand',
@@ -324,7 +355,7 @@ export function addPiece(): void {
 
 /** 從輸入重做（確認由元件做） */
 export function rebuild(): void {
-  update((d) => {
+  mutate((d) => {
     d.edited = null;
   });
   select(-1);
@@ -332,14 +363,14 @@ export function rebuild(): void {
 }
 
 /** 確定，換下一位 NPC（F32）：目前的清單（含手動修改）留成已確定，輸入欄清空 */
-export function confirmCurrent(): boolean {
+export function keepAndContinue(): boolean {
   const d0 = doc();
   const list = piecesOf(d0);
   if (!list.length) return false;
   const before = d0.kept.length;
   /* 獨立的一步：復原時輸入欄的文字回來 */
   asStep(() =>
-    update((d) => {
+    mutate((d) => {
       d.kept = list.map((c) => ({ ...cleanPiece(c), from: 'kept', line: null }));
       d.edited = null;
       d.pasted = [];
@@ -368,10 +399,11 @@ function imageReader() {
       markMissing([im.asset], true);
       throw new UserError(S.exportMissing(im.name));
     }
+    const buffer = await blob.arrayBuffer();
     const out: OutImage = {
       key: im.asset,
-      bytes: new Uint8Array(await blob.arrayBuffer()),
       type: im.type || blob.type,
+      bytes: new Uint8Array(buffer),
     };
     cache.set(im.asset, out);
     return out;
@@ -380,28 +412,20 @@ function imageReader() {
 
 /** 匯出用的棋子（圖片的位元組讀好） */
 async function outPiece(v: PieceView, read: ReturnType<typeof imageReader>): Promise<OutPiece> {
-  const c = v.piece;
-  const faces: OutPiece['faces'][number][] = [];
-  for (const f of v.faces) {
-    const image = await read(f.image);
-    if (image) faces.push({ label: f.label, image });
+  const withImages: OutPiece['faces'][number][] = [];
+  for (const { label, image } of v.faces) {
+    const loaded = await read(image);
+    if (loaded) withImages.push({ label, image: loaded });
   }
+  const portrait = await read(v.portrait);
+  const { name, memo, initiative, externalUrl, status, params, color, invisible } = v.piece;
+  /* 全體設定套用後的值（大小、盤面、不公開、清單）與接好的聊天面板用 view 的 */
+  const { commands, size, active, secret, hideStatus } = v;
   return {
-    name: c.name,
-    memo: c.memo,
-    initiative: c.initiative,
-    externalUrl: c.externalUrl,
-    status: c.status,
-    params: c.params,
-    commands: v.commands,
-    color: c.color,
-    size: v.size,
-    active: v.active,
-    secret: v.secret,
-    invisible: c.invisible,
-    hideStatus: v.hideStatus,
-    image: await read(v.portrait),
-    faces,
+    ...{ name, memo, initiative, externalUrl, status, params, color, invisible },
+    ...{ commands, size, active, secret, hideStatus },
+    image: portrait,
+    faces: withImages,
   };
 }
 
@@ -428,7 +452,7 @@ export async function exportRoomZip(): Promise<void> {
     }
     downloadBlob(
       new Blob([built.bytes], { type: 'application/zip' }),
-      `ccfolia-batch-${stamp()}.zip`,
+      `ccfolia-batch-${fileStamp()}.zip`,
     );
     const big = new Set(
       views.flatMap((v) => [v.portrait, ...v.faces.map((f) => f.image)]).filter(isTooBig),
@@ -493,7 +517,7 @@ export async function exportAssetsZip(): Promise<void> {
     }
     downloadBlob(
       new Blob([built.bytes], { type: 'application/zip' }),
-      `ccfolia-batch-assets-${stamp()}.zip`,
+      `ccfolia-batch-assets-${fileStamp()}.zip`,
     );
     say('export', S.assetsDone(built.count), 'success');
   } catch (e) {
@@ -514,7 +538,7 @@ export function viewAt(i: number): PieceView | null {
 
 /* =================== 專案檔 =================== */
 
-export const projectData = (): Doc => doc();
+export const currentDoc = (): Doc => doc();
 
 /** 專案檔附帶的圖片（圖片庫的圖） */
 export async function projectFiles(): Promise<{ name: string; data: Uint8Array }[]> {
@@ -523,8 +547,10 @@ export async function projectFiles(): Promise<{ name: string; data: Uint8Array }
 
 /** 圖片庫合併：讀進來的在前，目前的圖片庫裡 id 不同的接在後面（同原作） */
 function mergeShelf(next: Doc): Doc {
-  const ids = new Set(next.images.map((im) => im.id));
-  return { ...next, images: [...next.images, ...doc().images.filter((im) => !ids.has(im.id))] };
+  const incoming = new Set<string>();
+  for (const im of next.images) incoming.add(im.id);
+  const kept = doc().images.filter((im) => !incoming.has(im.id));
+  return { ...next, images: [...next.images, ...kept] };
 }
 
 async function checkMissing(d: Doc): Promise<void> {
@@ -543,11 +569,13 @@ function replaceAsStep(next: Doc): void {
   asStep(() => useDoc.getState().replace(next));
 }
 
-/** 開啟本站的專案檔（F52）；回傳存不進瀏覽器的圖片數 */
+/** 開啟本站的專案檔（F52）；較新版本的工具存的不開（丟出說明的錯誤）；回傳存不進瀏覽器的圖片數 */
 export async function loadProject(
   data: unknown,
+  version: number,
   files: Map<string, Uint8Array>,
 ): Promise<{ notPersisted: number }> {
+  if (version > PROJECT_VERSION) throw new ProjectFileError(S.newerProject);
   const next = cleanDoc(data);
   const r = await importAssetFiles(assets, files);
   const merged = mergeShelf(next);
@@ -599,6 +627,12 @@ export function resetAll(): void {
 /** 目前的輸入有沒有文字 */
 export const hasInput = (d: Doc): boolean => !!(d.mode === 'table' ? d.table : d.memo).trim();
 
+/** ×N 的複本：名稱是「立繪的名稱」接上 A、B…或 1、2…（找不到圖時不另外提醒，原本的名字會提醒） */
+const isCopyOf = (c: Piece): boolean => {
+  if (!c.name.startsWith(c.imageName)) return false;
+  return /^ ?[A-Z\d]+$/.test(c.name.slice(c.imageName.length));
+};
+
 /**
  * 清單上方的提醒（F28）：讀取的提示（最多 8 則＋「還有 n 則」；手動修改中不顯示）、
  * 指定了名稱但圖片庫找不到的圖（×N 的複本不算）、同名的棋子。
@@ -612,24 +646,24 @@ export function warningsOf(d: Doc): string[] {
     if (hints.length > 8) out.push(S.moreHints(hints.length - 8));
   }
   const pieces = piecesOf(d);
-  const lost: string[] = [];
-  for (const c of pieces) {
-    const name = c.name || S.noNameRow;
-    const copy =
-      c.name.startsWith(c.imageName) && /^ ?[A-Z0-9]+$/.test(c.name.slice(c.imageName.length));
-    if (c.image === 'auto' && c.imageName && !copy && !imageByName(d.images, c.imageName)) {
-      lost.push(S.lostPortrait(name, c.imageName));
-    }
-    for (const f of c.faces) {
-      if (!f.imageId && f.imageName && !imageByName(d.images, f.imageName)) {
-        lost.push(S.lostFace(name, f.label, f.imageName));
-      }
-    }
-  }
-  if (lost.length) out.push(S.lostImages(lost.slice(0, 6), Math.max(0, lost.length - 6)));
-  const count = new Map<string, number>();
-  for (const c of pieces) if (c.name) count.set(c.name, (count.get(c.name) ?? 0) + 1);
-  const dup = [...count].filter(([, n]) => n > 1).map(([name]) => name);
-  if (dup.length) out.push(S.dupNames(dup.slice(0, 6)));
+  const notOnShelf = (imageName: string) =>
+    imageName !== '' && !shelfImageNamed(d.images, imageName);
+  const lost = pieces.flatMap((c) => {
+    const who = c.name || S.noNameRow;
+    const portrait =
+      c.image === 'auto' && !isCopyOf(c) && notOnShelf(c.imageName)
+        ? [S.lostPortrait(who, c.imageName)]
+        : [];
+    const faces = c.faces
+      .filter((f) => !f.imageId && notOnShelf(f.imageName))
+      .map((f) => S.lostFace(who, f.label, f.imageName));
+    return [...portrait, ...faces];
+  });
+  if (lost.length > 0) out.push(S.lostImages(lost.slice(0, 6), Math.max(0, lost.length - 6)));
+  /* 同名的棋子（依第一次出現的順序） */
+  const tally = new Map<string, number>();
+  for (const { name } of pieces) if (name !== '') tally.set(name, (tally.get(name) ?? 0) + 1);
+  const repeated = [...tally.keys()].filter((name) => (tally.get(name) ?? 0) > 1);
+  if (repeated.length > 0) out.push(S.dupNames(repeated.slice(0, 6)));
   return out;
 }

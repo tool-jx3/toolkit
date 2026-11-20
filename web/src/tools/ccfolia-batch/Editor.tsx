@@ -20,7 +20,7 @@ import {
 import { OptionalNumberInput } from '@/ui/OptionalNumberInput';
 import { copyPiece, deletePiece, editPiece, movePiece, renamePiece, viewAt } from './actions';
 import type { PieceView } from './derived';
-import { isTooBig, type Piece, SIZE_MAX, SIZE_MIN, sizeText } from './model';
+import { bytesLabel, isTooBig, type Piece, SIZE_MAX, SIZE_MIN } from './model';
 import { pieceClipboard } from './output';
 import { ImageSelect, Thumb, useImageDrop } from './parts';
 import { useDoc } from './store';
@@ -361,7 +361,7 @@ export function Editor({ i, view, count }: { i: number; view: PieceView; count: 
             ) : null}
             {isTooBig(p) && p ? (
               <span className="text-xs text-warning">
-                {S.edPortraitBig(p.name, sizeText(p.size))}
+                {S.edPortraitBig(p.name, bytesLabel(p.size))}
               </span>
             ) : null}
           </div>

@@ -28,3 +28,10 @@ export function alternation(words: readonly string[]): string {
 export function keySet(words: readonly string[]): Set<string> {
   return new Set(words.map(wordKey));
 }
+
+/** 讀 JSON 時的物件（不含陣列） */
+export type JsonRecord = Record<string, unknown>;
+export const isRecord = (v: unknown): v is JsonRecord =>
+  typeof v === 'object' && v !== null && !Array.isArray(v);
+/** 陣列裡的物件（不是陣列時空的） */
+export const recordsIn = (v: unknown): JsonRecord[] => (Array.isArray(v) ? v.filter(isRecord) : []);

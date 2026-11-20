@@ -3,7 +3,7 @@
  * 日文、英文的案例照原作 _dev/test.js 的預期。
  */
 import { describe, expect, it } from 'vitest';
-import { parsePieces } from '@/tools/ccfolia-batch/pieces';
+import { readSheetExport } from '@/tools/ccfolia-batch/pieces';
 import { SAMPLES, tableHintText } from '@/tools/ccfolia-batch/strings';
 import { parseTable } from '@/tools/ccfolia-batch/table';
 
@@ -164,7 +164,7 @@ describe('從角色卡網站貼上', () => {
   };
 
   it('一個、陣列、接著貼、包成字串、不是角色資料', () => {
-    const r = parsePieces(JSON.stringify(one));
+    const r = readSheetExport(JSON.stringify(one));
     const [c] = r.pieces;
     expect([c.name, c.initiative, c.color, c.size, c.secret, c.commands, c.from]).toEqual([
       '探索者',
@@ -178,15 +178,17 @@ describe('從角色卡網站貼上', () => {
     expect(r.withIcon).toBe(1);
     expect(c.status).toEqual([{ label: 'HP', value: 11, max: 11 }]);
     expect(c.params).toEqual([{ label: 'STR', value: '10' }]);
-    expect(parsePieces(JSON.stringify([one, one])).pieces).toHaveLength(2);
-    expect(parsePieces(`${JSON.stringify(one)}\n${JSON.stringify(one)}`).pieces).toHaveLength(2);
-    expect(parsePieces(JSON.stringify(JSON.stringify(one))).pieces).toHaveLength(1);
-    expect(parsePieces('名前\tHP').pieces).toHaveLength(0);
-    expect(parsePieces('{"kind":"other","data":{}}').pieces).toHaveLength(0);
+    expect(readSheetExport(JSON.stringify([one, one])).pieces).toHaveLength(2);
+    expect(readSheetExport(`${JSON.stringify(one)}\n${JSON.stringify(one)}`).pieces).toHaveLength(
+      2,
+    );
+    expect(readSheetExport(JSON.stringify(JSON.stringify(one))).pieces).toHaveLength(1);
+    expect(readSheetExport('名前\tHP').pieces).toHaveLength(0);
+    expect(readSheetExport('{"kind":"other","data":{}}').pieces).toHaveLength(0);
   });
 
   it('數值寫成文字也讀、顏色不對時用預設', () => {
-    const { pieces } = parsePieces(
+    const { pieces } = readSheetExport(
       JSON.stringify({
         kind: 'character',
         data: {

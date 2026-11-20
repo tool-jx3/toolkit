@@ -18,7 +18,7 @@ import {
   serializeCharacterClipboard,
 } from '@/ccfolia';
 import { safeFileName, uniqueFileName, zipFiles } from '@/core/files';
-import { clampSize, MAX_PIECES, type PieceParam, type PieceStatus } from './model';
+import { clampPieceSize, MAX_PIECES, type PieceParam, type PieceStatus } from './model';
 
 /** 要放進 ZIP 的一張圖（同一個 key 只算一次雜湊、只放一個檔） */
 export interface OutImage {
@@ -75,25 +75,44 @@ export const BOARD_PER_ROW = 8;
 export function boardPositions(
   list: readonly Pick<OutPiece, 'active' | 'size'>[],
 ): ({ x: number; y: number } | null)[] {
-  let inRow = 0;
-  let rowX = 0;
-  let rowY = 0;
-  let rowHeight = 0;
-  return list.map((c) => {
-    if (!c.active) return null;
-    const size = clampSize(c.size);
-    if (inRow === BOARD_PER_ROW) {
-      rowY += rowHeight;
-      rowX = 0;
-      rowHeight = 0;
-      inRow = 0;
+  const spots: ({ x: number; y: number } | null)[] = list.map(() => null);
+  const shown = list.flatMap((c, index) =>
+    c.active ? [{ index, cells: clampPieceSize(c.size) }] : [],
+  );
+  let top = 0;
+  for (let first = 0; first < shown.length; first += BOARD_PER_ROW) {
+    const row = shown.slice(first, first + BOARD_PER_ROW);
+    let left = 0;
+    for (const { index, cells } of row) {
+      spots[index] = { x: left * GRID_PX, y: top * GRID_PX };
+      left += cells;
     }
-    const at = { x: rowX * GRID_PX, y: rowY * GRID_PX };
-    rowX += size;
-    rowHeight = Math.max(rowHeight, size);
-    inRow++;
-    return at;
-  });
+    top += Math.max(...row.map((r) => r.cells));
+  }
+  return spots;
+}
+
+/** 房間 ZIP 與剪貼簿共用的欄位（大小限制在範圍內、顏色不對時用預設、空的參數不放） */
+function characterFields(c: Omit<OutPiece, 'image' | 'faces'>) {
+  const cells = clampPieceSize(c.size);
+  return {
+    name: c.name,
+    memo: c.memo,
+    commands: c.commands,
+    externalUrl: c.externalUrl,
+    initiative: Number.isFinite(c.initiative) ? c.initiative : 0,
+    color: isCharacterColor(c.color) ? c.color : CHARACTER_DEFAULT_COLOR,
+    width: cells,
+    height: cells,
+    status: c.status.map(({ label, value, max }) => ({ label, value, max })),
+    params: c.params
+      .filter((p) => p.label !== '' || p.value !== '')
+      .map(({ label, value }) => ({ label, value })),
+    active: c.active,
+    secret: c.secret,
+    invisible: c.invisible,
+    hideStatus: c.hideStatus,
+  };
 }
 
 /**
@@ -107,55 +126,37 @@ export async function buildPiecesZip(
   if (list.length > MAX_PIECES) throw new Error(`too many pieces (${list.length} > ${MAX_PIECES})`);
   const packed = new Map<string, RoomImageFile>();
   const files: string[] = [];
-  const fileName = async (img: OutImage | null): Promise<string | null> => {
-    if (!img) return null;
-    let f = packed.get(img.key);
-    if (!f) {
-      f = await packRoomImage(img.bytes, img.type);
-      packed.set(img.key, f);
-      if (!files.includes(f.name)) files.push(f.name);
-    }
-    return f.name;
+  /** 圖 → ZIP 裡的檔名（第一次用到時打包） */
+  const packOnce = async (img: OutImage | null): Promise<string | null> => {
+    if (img === null) return null;
+    const known = packed.get(img.key);
+    if (known) return known.name;
+    const file = await packRoomImage(img.bytes, img.type);
+    packed.set(img.key, file);
+    if (!files.includes(file.name)) files.push(file.name);
+    return file.name;
   };
-  /* 以秒為基準：之後讀入的排在先前讀入的後面 */
-  const base = Math.floor(now / 1000);
-  const at = boardPositions(list);
+  const positions = boardPositions(list);
+  /* order 以秒為基準：之後讀入的排在先前讀入的後面 */
+  const firstOrder = Math.floor(now / 1000);
   const characters: Record<string, CcfoliaRoomCharacter> = {};
-  for (let i = 0; i < list.length; i++) {
-    const c = list[i];
-    const size = clampSize(c.size);
-    const faces = [];
-    for (const f of c.faces) {
-      const iconUrl = await fileName(f.image);
-      if (iconUrl) faces.push({ label: f.label, iconUrl });
+  for (const [index, c] of list.entries()) {
+    const faces: { label: string; iconUrl: string }[] = [];
+    for (const { label, image } of c.faces) {
+      const iconUrl = await packOnce(image);
+      if (iconUrl !== null) faces.push({ label, iconUrl });
     }
+    const iconUrl = await packOnce(c.image);
     characters[newId()] = createRoomCharacter({
-      name: c.name,
-      memo: c.memo,
-      initiative: Number.isFinite(c.initiative) ? c.initiative : 0,
-      externalUrl: c.externalUrl,
-      status: c.status.map((s) => ({ label: s.label, value: s.value, max: s.max })),
-      params: c.params
-        .filter((p) => p.label || p.value)
-        .map((p) => ({ label: p.label, value: p.value })),
-      iconUrl: await fileName(c.image),
+      ...characterFields(c),
+      ...positions[index],
+      iconUrl,
       faces,
-      ...(at[i] ?? {}),
-      width: size,
-      height: size,
-      active: c.active,
-      secret: c.secret,
-      invisible: c.invisible,
-      hideStatus: c.hideStatus,
-      color: isCharacterColor(c.color) ? c.color : CHARACTER_DEFAULT_COLOR,
-      commands: c.commands,
-      order: base + i,
+      order: firstOrder + index,
     });
   }
-  const built = buildRoomZip(createAppendRoomData({ characters }), packed.values(), {
-    token,
-    ...(mtime ? { mtime } : {}),
-  });
+  const room = createAppendRoomData({ characters });
+  const built = buildRoomZip(room, packed.values(), { token, ...(mtime ? { mtime } : {}) });
   return { bytes: built.bytes, data: built.data, files };
 }
 
@@ -195,7 +196,7 @@ export function buildAssetsZip(
   const used = new Set<string>();
   const names = new Set<string>();
   const entries: { name: string; data: Uint8Array }[] = [];
-  const put = (dir: string, base: string, im: OutImage | null) => {
+  const addOnce = (dir: string, base: string, im: OutImage | null) => {
     if (!im || used.has(im.key)) return;
     used.add(im.key);
     const stem = safeFileName(base, { fallback: T.imageFallback });
@@ -204,10 +205,11 @@ export function buildAssetsZip(
   };
   for (const p of input.pieces) {
     const base = p.base || T.noName;
-    put(T.folders.portrait, base, p.portrait);
-    for (const f of p.faces) put(T.folders.face, `${base}_${f.label || T.faceFallback}`, f.image);
+    addOnce(T.folders.portrait, base, p.portrait);
+    for (const f of p.faces)
+      addOnce(T.folders.face, `${base}_${f.label || T.faceFallback}`, f.image);
   }
-  for (const im of input.shelf) put(T.folders.other, im.name, im);
+  for (const im of input.shelf) addOnce(T.folders.other, im.name, im);
   return {
     bytes: entries.length
       ? zipFiles(entries, { level: 0, ...(mtime ? { mtime } : {}) })
@@ -238,24 +240,5 @@ export const CLIPBOARD_FIELDS = Object.freeze([
 
 /** 一個棋子的 CCFOLIA 角色剪貼簿 JSON（在 CCFOLIA 的房間貼上就新增這個角色；2 格縮排） */
 export function pieceClipboard(c: Omit<OutPiece, 'image' | 'faces'>): string {
-  const size = clampSize(c.size);
-  return serializeCharacterClipboard(
-    {
-      name: c.name,
-      memo: c.memo,
-      initiative: c.initiative,
-      externalUrl: c.externalUrl,
-      status: c.status.map((s) => ({ ...s })),
-      params: c.params.filter((p) => p.label || p.value).map((p) => ({ ...p })),
-      width: size,
-      height: size,
-      active: c.active,
-      secret: c.secret,
-      invisible: c.invisible,
-      hideStatus: c.hideStatus,
-      color: isCharacterColor(c.color) ? c.color : CHARACTER_DEFAULT_COLOR,
-      commands: c.commands,
-    },
-    { fields: CLIPBOARD_FIELDS },
-  );
+  return serializeCharacterClipboard(characterFields(c), { fields: CLIPBOARD_FIELDS });
 }

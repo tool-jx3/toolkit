@@ -17,7 +17,7 @@ import {
   useConfirm,
 } from '@/ui';
 import {
-  addPasted,
+  addSheetExport,
   clearPasted,
   fillSample,
   hasInput,
@@ -214,7 +214,7 @@ function PasteSection() {
           size="sm"
           icon={<ClipboardPaste />}
           onClick={() => {
-            if (addPasted(text)) setTextValue('');
+            if (addSheetExport(text)) setTextValue('');
           }}
         >
           {S.pasteAdd}

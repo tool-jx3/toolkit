@@ -4,7 +4,12 @@
  * 繁中、簡中的案例是本站補的寫法。
  */
 import { describe, expect, it } from 'vitest';
-import { commandLabel, type MemoOptions, parseMemo, rollPrefix } from '@/tools/ccfolia-batch/memo';
+import {
+  commandLabel,
+  type MemoOptions,
+  readNpcText,
+  rollPrefix,
+} from '@/tools/ccfolia-batch/memo';
 import { chipText, memoHintText } from '@/tools/ccfolia-batch/strings';
 import { wordKey } from '@/tools/ccfolia-batch/words';
 
@@ -16,7 +21,7 @@ const O: MemoOptions = {
   abilityChecks: false,
   labels: {},
 };
-const read = (text: string, o: Partial<MemoOptions> = {}) => parseMemo(text, { ...O, ...o });
+const read = (text: string, o: Partial<MemoOptions> = {}) => readNpcText(text, { ...O, ...o });
 const one = (text: string, o: Partial<MemoOptions> = {}) =>
   read(`X\n${text}`, { roll: 'ccb', ...o }).pieces[0];
 const sum = (c: ReturnType<typeof one>) => [
@@ -346,6 +351,103 @@ describe('繁中、簡中的劇本', () => {
     expect(read('A\nSAN 50\nCCB<={SAN} 正気度ロール').pieces[0].commands).toBe(
       'CCB<={SAN} 正気度ロール',
     );
+  });
+});
+
+describe('名字行、傷害、狀態的細節', () => {
+  it('名字行：括號裡的逗號不切（全形、半形、【】〈〉《》「」）', () => {
+    const name = (line: string) => read(`${line}\nHP 10`, { proseToMemo: true }).pieces[0];
+    expect([name('老人（72 歲，退休教師）').name, name('老人（72 歲，退休教師）').memo]).toEqual([
+      '老人',
+      '(72 歲,退休教師)',
+    ]);
+    expect(name('老人（72 歲，退休教師），村長').name).toBe('老人');
+    expect(name('老人（72 歲，退休教師），村長').memo).toBe('村長\n(72 歲,退休教師)');
+    expect(name('傑克〈開膛手，倫敦〉、殺人魔').name).toBe('傑克〈開膛手,倫敦〉');
+    expect(name('瑪莉「女僕、管家」').name).toBe('瑪莉「女僕、管家」');
+    expect(name('陳老闆，雜貨店老闆').name).toBe('陳老闆');
+  });
+
+  it('傷害加值、伤害加成、ダメボ 寫在算式裡：換成 {DB}（有 DB 參數時），不變成附註', () => {
+    const t = (rows: string) => one(`DB +1D4\n${rows}`).commands.split('\n');
+    expect(t('鬥毆 60%，傷害 1D3+傷害加值')).toEqual(['CCB<=60 鬥毆', '1D3{DB} 鬥毆（傷害）']);
+    expect(t('斗殴 55% 伤害 1d3+伤害加值')).toEqual(['CCB<=55 斗殴', '1d3{DB} 斗殴（傷害）']);
+    expect(t('格鬥 50%（1D6 + 傷害加成）')).toEqual(['CCB<=50 格鬥', '1D6{DB} 格鬥（傷害）']);
+    expect(t('こぶし 50 1d3+ダメボ')).toEqual(['CCB<=50 こぶし', '1d3{DB} こぶし（傷害）']);
+    /* 沒有 DB 參數時照寫成 +DB */
+    expect(one('斗殴 55% 伤害 1d3+伤害加值').commands).toBe('CCB<=55 斗殴\n1d3+DB 斗殴（傷害）');
+  });
+
+  it('括號裡的附註照原文（不插空白）', () => {
+    expect(one('手槍 40%（1D10，射程15米）').commands).toBe(
+      'CCB<=40 手槍\n1D10 手槍（傷害：射程15米）',
+    );
+  });
+
+  it('技能下一行只有括號的骰子式：那個技能的傷害（上一行最後是技能時）', () => {
+    const c = one('DB +1D4\n鬥毆 60%\n（1D3+DB）\nHP 10\n（1D6）');
+    expect(c.commands).toBe('CCB<=60 鬥毆\n1D3{DB} 鬥毆（傷害）');
+    expect(c.source.map((s) => s.state)).toEqual(['name', 'read', 'read', 'read', 'read', 'skip']);
+    /* 中間隔了別的行時不接 */
+    expect(one('鬥毆 60%\nHP 10\n（1D3）').commands).toBe('CCB<=60 鬥毆');
+  });
+
+  it('SAN、MP、HP 的中文寫法（繁中、簡中）', () => {
+    const { labels } = read(
+      [
+        'X',
+        '理智點 50 魔力點 10 體力 12',
+        '理智值 40 SAN 值 30 魔法值 5 耐久值 8 生命值 9',
+        '理智点 20 魔力点 3 体力 4',
+      ].join('\n'),
+    );
+    expect(labels.map((l) => `${l.written}→${l.label}`)).toEqual([
+      '理智點→SAN',
+      '魔力點→MP',
+      '體力→HP',
+      '理智值→SAN',
+      'SAN 值→SAN',
+      '魔法值→MP',
+      '耐久值→HP',
+      '生命值→HP',
+      '理智点→SAN',
+      '魔力点→MP',
+      '体力→HP',
+    ]);
+  });
+
+  it('幸運（幸运、LUK）是狀態，聊天面板在理智檢定後面加「判定{幸運} 幸運」', () => {
+    const c = one('SAN 50 幸運 60\n閃避 40');
+    expect(sum(c)[0]).toBe('SAN 50/50,幸運 60/60');
+    expect(c.commands.split('\n')).toEqual([
+      'CCB<={SAN} 理智檢定',
+      'CCB<={幸運} 幸運',
+      'CCB<=40 閃避',
+    ]);
+    expect(one('幸运 45').status).toEqual([{ label: '幸運', value: 45, max: 45 }]);
+    expect(one('LUK 55').commands).toBe('CCB<={幸運} 幸運');
+    /* 寫好的指令裡已經有時不加；0 時不加 */
+    expect(one('LUK 60\nCCB<=60 幸運').commands).toBe('CCB<=60 幸運');
+    expect(one('幸運 0').commands).toBe('');
+  });
+
+  it('SAN 是 0 時不加理智檢定', () => {
+    expect(one('SAN 0/0 HP 5\n回避 30').commands).toBe('CCB<=30 回避');
+    expect(one('理智：0\n回避 30').commands).toBe('CCB<=30 回避');
+  });
+
+  it('行首的項目符號與編號（- • · ・ * 1. 1、）', () => {
+    const c = read(
+      '- 艾莉絲\n• HP 10\n・閃避 40%\n1. 鬥毆 50%\n2、偵查 60%\n* 聆聽 50\n· 心理學 30',
+    ).pieces[0];
+    expect(c.name).toBe('艾莉絲');
+    expect(sum(c)).toEqual([
+      'HP 10/10',
+      '',
+      'CCB<=40 閃避\nCCB<=50 鬥毆\nCCB<=60 偵查\nCCB<=50 聆聽\nCCB<=30 心理學',
+    ]);
+    /* 「---」「1.5 倍」不是項目符號 */
+    expect(read('A\n---\n1.5 倍', { proseToMemo: true }).pieces[0].memo).toBe('---');
   });
 });
 

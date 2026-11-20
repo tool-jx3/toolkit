@@ -3,9 +3,9 @@
  */
 import { Trash2 } from 'lucide-react';
 import { FileDrop, IconButton, Section, TextInput, useConfirm } from '@/ui';
-import { addFiles, removeImage, renameImage, usesOf } from './actions';
+import { addShelfFiles, assignedPlaces, deleteShelfImage, renameImage } from './actions';
 import { viewsOf } from './derived';
-import { isTooBig, type ShelfImage, sizeText } from './model';
+import { bytesLabel, isTooBig, type ShelfImage } from './model';
 import { IMAGE_ACCEPT, StatusLine, Thumb } from './parts';
 import { useDoc, useUi } from './store';
 import { S } from './strings';
@@ -17,7 +17,7 @@ function ImageCell({ image, use }: { image: ShelfImage; use: string | undefined 
   const label = image.name || S.noNameRow;
 
   const remove = async () => {
-    const names = usesOf(useDoc.getState().data, image.id);
+    const names = assignedPlaces(useDoc.getState().data, image.id);
     const ok = await confirm(
       names.length
         ? {
@@ -33,7 +33,7 @@ function ImageCell({ image, use }: { image: ShelfImage; use: string | undefined 
           }
         : { title: S.deleteTitle(label), confirmLabel: S.deleteConfirm, danger: true },
     );
-    if (ok) removeImage(image.id);
+    if (ok) deleteShelfImage(image.id);
   };
 
   return (
@@ -60,7 +60,7 @@ function ImageCell({ image, use }: { image: ShelfImage; use: string | undefined 
           className={missing || big ? 'truncate text-warning' : 'truncate'}
           data-testid="image-info"
         >
-          {missing ? S.imageMissing : `${sizeText(image.size)}${big ? S.imageTooBig : ''}`}
+          {missing ? S.imageMissing : `${bytesLabel(image.size)}${big ? S.imageTooBig : ''}`}
         </span>
         <IconButton
           label={S.deleteImage(label)}
@@ -97,7 +97,7 @@ export function ShelfPanel() {
           label={S.dropLabel}
           buttonLabel={S.dropButton}
           hint={S.dropHint}
-          onFiles={(files) => void addFiles(files, 'shelf')}
+          onFiles={(files) => void addShelfFiles(files, 'shelf')}
         />
         <StatusLine area="shelf" />
         {images.length ? (

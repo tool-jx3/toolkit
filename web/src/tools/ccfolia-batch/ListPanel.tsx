@@ -5,7 +5,7 @@
 import { CheckCheck, Plus, RotateCcw } from 'lucide-react';
 import { type KeyboardEvent, useEffect, useRef } from 'react';
 import { Button, cn, Notice, revealInScroller, Section, useConfirm } from '@/ui';
-import { addPiece, confirmCurrent, rebuild } from './actions';
+import { addPiece, keepAndContinue, rebuild } from './actions';
 import { type PieceView, readPieceAt, viewsOf } from './derived';
 import { Editor } from './Editor';
 import { Preview, SourceView } from './Preview';
@@ -144,7 +144,7 @@ export function ListPanel() {
   };
 
   const doConfirm = () => {
-    if (!confirmCurrent()) return;
+    if (!keepAndContinue()) return;
     const box = document.querySelector<HTMLTextAreaElement>(
       '[data-testid="memo"], [data-testid="table"]',
     );

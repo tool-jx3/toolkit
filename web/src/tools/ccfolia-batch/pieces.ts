@@ -1,12 +1,15 @@
 /**
- * 角色卡網站「輸出成 CCFOLIA 角色」的資料（CCFOLIA 的剪貼簿格式 `{"kind":"character","data":{…}}`）→ 棋子（規格 3.5）。
+ * 角色卡網站匯出給 CCFOLIA 的角色資料（CCFOLIA 的剪貼簿格式 `{"kind":"character","data":{…}}`）→ 棋子（規格 3.5）。
  *
- * 也讀得懂：好幾個放在陣列裡、好幾個前後接著貼、整段被包成一個字串。`iconUrl` 不讀（CCFOLIA 的棋子不收別的網站的圖），
- * 只記下有沒有，讓畫面提醒「立繪要放進圖片庫」。規則照原作（parse.v1.js 的 parsePieces，MIT）。
+ * 貼上的文字可能是：一個、放在陣列裡的好幾個、前後接著貼的好幾個、整段被包成一個 JSON 字串。
+ * 做法：整段能當 JSON 讀時只看它；不能時把最外層的 `{…}` 一段一段切出來各自讀。讀到的值往裡面找
+ * `kind: "character"` 的物件（陣列逐項、字串再當 JSON 讀一次）。
+ * `iconUrl` 不讀（CCFOLIA 的棋子不收別的網站的圖），只記下有沒有，讓畫面提醒「立繪要放進圖片庫」。
+ * 可以讀的寫法參考原作（shiki365／キャラクター一括メーカー，MIT）。
  */
 import { isCharacterColor } from '@/ccfolia';
-import { clampSize, newPiece, type Piece } from './model';
-import { readNumber } from './text';
+import { clampPieceSize, newPiece, type Piece } from './model';
+import { isRecord, type JsonRecord, readNumber, recordsIn } from './text';
 
 export interface PastedPieces {
   pieces: Piece[];
@@ -14,86 +17,98 @@ export interface PastedPieces {
   withIcon: number;
 }
 
-type Obj = Record<string, unknown>;
-const isObj = (v: unknown): v is Obj => typeof v === 'object' && v !== null && !Array.isArray(v);
-const str = (v: unknown): string => (typeof v === 'string' ? v : '');
-
-/** 文字裡的每一個角色資料（data 部分） */
-function findCharacters(text: string): Obj[] {
-  const found: Obj[] = [];
-  const take = (v: unknown): void => {
-    if (typeof v === 'string') {
-      try {
-        take(JSON.parse(v));
-      } catch {
-        /* 不是 JSON 的字串 */
-      }
-      return;
-    }
-    if (Array.isArray(v)) {
-      for (const x of v) take(x);
-      return;
-    }
-    if (isObj(v) && v.kind === 'character' && isObj(v.data)) found.push(v.data);
-  };
-  const s = String(text ?? '').trim();
+const parseOrUndefined = (json: string): unknown => {
   try {
-    take(JSON.parse(s));
+    return JSON.parse(json);
   } catch {
-    /* 好幾個物件前後接著：在最外層的大括號切開 */
-    let depth = 0;
-    let start = -1;
-    let inString = false;
-    for (let i = 0; i < s.length; i++) {
-      const ch = s[i];
-      if (inString) {
-        if (ch === '\\') i++;
-        else if (ch === '"') inString = false;
-        continue;
-      }
-      if (ch === '"') inString = true;
-      else if (ch === '{') {
-        if (depth++ === 0) start = i;
-      } else if (ch === '}' && depth > 0 && --depth === 0) {
-        try {
-          take(JSON.parse(s.slice(start, i + 1)));
-        } catch {
-          /* 壞掉的一段跳過 */
-        }
-      }
+    return undefined;
+  }
+};
+
+/** 最外層的每一段 `{…}`（字串裡的大括號不算） */
+function* outerObjects(s: string): Generator<string> {
+  let depth = 0;
+  let open = 0;
+  let quoted = false;
+  let escaped = false;
+  for (let at = 0; at < s.length; at++) {
+    const ch = s.charAt(at);
+    if (quoted) {
+      if (escaped) escaped = false;
+      else if (ch === '\\') escaped = true;
+      else if (ch === '"') quoted = false;
+    } else if (ch === '"') {
+      quoted = true;
+    } else if (ch === '{') {
+      if (depth === 0) open = at;
+      depth += 1;
+    } else if (ch === '}' && depth > 0) {
+      depth -= 1;
+      if (depth === 0) yield s.slice(open, at + 1);
     }
   }
-  return found;
 }
 
-/** 貼上的角色資料 → 棋子（數值寫成文字的「11」也讀；顏色不是 #rrggbb 時用預設） */
-export function parsePieces(text: string): PastedPieces {
-  const list = findCharacters(text);
-  const bool = (v: unknown): boolean | null => (typeof v === 'boolean' ? v : null);
-  const pieces = list.map((d) =>
-    newPiece({
-      line: null,
-      from: 'paste',
-      name: str(d.name),
-      memo: str(d.memo),
-      initiative: readNumber(d.initiative) ?? 0,
-      externalUrl: str(d.externalUrl),
-      commands: str(d.commands),
-      ...(isCharacterColor(d.color) ? { color: d.color } : {}),
-      size: typeof d.width === 'number' && Number.isFinite(d.width) ? clampSize(d.width) : null,
-      secret: bool(d.secret),
-      invisible: d.invisible === true,
-      hideStatus: bool(d.hideStatus),
-      status: (Array.isArray(d.status) ? d.status : []).filter(isObj).map((x) => ({
-        label: String(x.label ?? ''),
-        value: readNumber(x.value) || 0,
-        max: readNumber(x.max) || 0,
-      })),
-      params: (Array.isArray(d.params) ? d.params : []).filter(isObj).map((x) => ({
-        label: String(x.label ?? ''),
-        value: String(x.value ?? ''),
-      })),
-    }),
-  );
-  return { pieces, withIcon: list.filter((d) => !!d.iconUrl).length };
+/** 讀到的值裡的角色資料（data 部分），依出現的順序 */
+function* charactersIn(value: unknown): Generator<JsonRecord> {
+  if (typeof value === 'string') {
+    const inner = parseOrUndefined(value);
+    if (inner !== undefined) yield* charactersIn(inner);
+  } else if (Array.isArray(value)) {
+    for (const item of value) yield* charactersIn(item);
+  } else if (isRecord(value) && value.kind === 'character' && isRecord(value.data)) {
+    yield value.data;
+  }
+}
+
+/** 貼上的文字 → 每一個角色資料 */
+function characterData(text: string): JsonRecord[] {
+  const s = String(text ?? '').trim();
+  const whole = parseOrUndefined(s);
+  if (whole !== undefined) return [...charactersIn(whole)];
+  return [...outerObjects(s)].flatMap((chunk) => {
+    const value = parseOrUndefined(chunk);
+    return value === undefined ? [] : [...charactersIn(value)];
+  });
+}
+
+const textOf = (v: unknown): string => (typeof v === 'string' ? v : '');
+const flagOrNull = (v: unknown): boolean | null => (typeof v === 'boolean' ? v : null);
+
+/** 一個角色資料 → 棋子（數值寫成文字的「11」也讀；顏色不是 #rrggbb 時用預設） */
+function pieceFromExport(d: JsonRecord): Piece {
+  const width = typeof d.width === 'number' && Number.isFinite(d.width) ? d.width : null;
+  const piece = newPiece({
+    line: null,
+    from: 'paste',
+    name: textOf(d.name),
+    memo: textOf(d.memo),
+    commands: textOf(d.commands),
+    externalUrl: textOf(d.externalUrl),
+    initiative: readNumber(d.initiative) ?? 0,
+    size: width === null ? null : clampPieceSize(width),
+    secret: flagOrNull(d.secret),
+    hideStatus: flagOrNull(d.hideStatus),
+    invisible: d.invisible === true,
+    status: recordsIn(d.status).map((s) => ({
+      label: String(s.label ?? ''),
+      value: readNumber(s.value) ?? 0,
+      max: readNumber(s.max) ?? 0,
+    })),
+    params: recordsIn(d.params).map((p) => ({
+      label: String(p.label ?? ''),
+      value: String(p.value ?? ''),
+    })),
+  });
+  if (isCharacterColor(d.color)) piece.color = d.color;
+  return piece;
+}
+
+/** 讀貼上的角色資料 */
+export function readSheetExport(text: string): PastedPieces {
+  const found = characterData(text);
+  return {
+    pieces: found.map(pieceFromExport),
+    withIcon: found.reduce((n, d) => (d.iconUrl ? n + 1 : n), 0),
+  };
 }

@@ -2,18 +2,18 @@
  * 由狀態算出來的東西（不依賴 React）：讀取的結果、目前的清單（手動修改中用固定的清單）、圖片的對應、
  * 棋子的實際值（全體設定套上去、共用的聊天面板接上去）。同樣的輸入回傳同一個結果（元件與動作都用它）。
  */
-import { type AutoImages, facesOf, matchImages, portraitOf } from './match';
-import { type LabelInfo, type MemoHint, parseMemo, type ReadPiece } from './memo';
+import { type AutoImages, assignShelfImages, listFaces, pickPortrait } from './match';
+import { type LabelInfo, type MemoHint, type ReadPiece, readNpcText } from './memo';
 import {
-  activeOf,
   cleanPiece,
   type Doc,
-  hideOf,
+  hidesStatus,
+  isSecret,
   type Opts,
+  onBoard,
   type Piece,
+  pieceSize,
   type ShelfImage,
-  secretOf,
-  sizeOf,
 } from './model';
 import { parseTable, type TableColumn, type TableHint } from './table';
 
@@ -62,7 +62,7 @@ export function parsedOf(doc: Doc): Parsed {
       tableHints: r.hints,
     };
   } else {
-    const r = parseMemo(text, { ...doc.opts, labels: doc.labels });
+    const r = readNpcText(text, { ...doc.opts, labels: doc.labels });
     out = {
       mode: 'memo',
       pieces: r.pieces,
@@ -118,7 +118,7 @@ let lastMatch: {
 export function matchesOf(pieces: readonly Piece[], images: readonly ShelfImage[]): AutoImages[] {
   const p = lastMatch;
   if (p && p.pieces === pieces && p.images === images) return p.out;
-  const out = matchImages(pieces, images);
+  const out = assignShelfImages(pieces, images);
   lastMatch = { pieces, images, out };
   return out;
 }
@@ -127,7 +127,7 @@ export function matchesOf(pieces: readonly Piece[], images: readonly ShelfImage[
 export interface PieceView {
   piece: Piece;
   portrait: ShelfImage | null;
-  faces: ReturnType<typeof facesOf>;
+  faces: ReturnType<typeof listFaces>;
   size: number;
   active: boolean;
   secret: boolean;
@@ -143,7 +143,7 @@ export function viewOf(
   images: readonly ShelfImage[],
   opts: Opts,
 ): PieceView {
-  const faces = facesOf(piece, auto, images);
+  const faces = listFaces(piece, auto, images);
   const faceLines = opts.faceCommands
     ? faces.filter((f) => f.image && f.label.trim()).map((f) => `@${f.label.trim()}`)
     : [];
@@ -152,12 +152,12 @@ export function viewOf(
     .join('\n');
   return {
     piece,
-    portrait: portraitOf(piece, auto, images),
+    portrait: pickPortrait(piece, auto, images),
     faces,
-    size: sizeOf(piece, opts),
-    active: activeOf(piece, opts),
-    secret: secretOf(piece, opts),
-    hideStatus: hideOf(piece, opts),
+    size: pieceSize(piece, opts),
+    active: onBoard(piece, opts),
+    secret: isSecret(piece, opts),
+    hideStatus: hidesStatus(piece, opts),
     commands,
   };
 }
@@ -184,7 +184,7 @@ export function viewsOf(doc: Doc): PieceView[] {
  * 手動修改的第一步：把目前的清單（base，在 Immer 的 recipe 外面用 piecesOf 算好）複製下來固定。
  * d 是 Immer 的 draft。
  */
-export function ensureEdited(d: Doc, base: readonly Piece[]): Piece[] {
+export function freezeList(d: Doc, base: readonly Piece[]): Piece[] {
   if (!d.edited) d.edited = base.map(cleanPiece);
   return d.edited;
 }

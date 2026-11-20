@@ -17,10 +17,10 @@ import {
   useToast,
   withShortcut,
 } from '@/ui';
-import { loadLegacyProject, loadProject, projectData, projectFiles, resetAll } from './actions';
+import { currentDoc, loadLegacyProject, loadProject, projectFiles, resetAll } from './actions';
 import { InputPanel } from './InputPanel';
 import { ListPanel } from './ListPanel';
-import { stamp } from './model';
+import { fileStamp } from './model';
 import { ImportGuide, OutputPanel } from './OutputPanel';
 import { SettingsPanel } from './SettingsPanel';
 import { ShelfPanel } from './ShelfPanel';
@@ -43,17 +43,17 @@ function Usage() {
   );
 }
 
-const hasFiles = (e: DragEvent) => Array.from(e.dataTransfer?.types ?? []).includes('Files');
+const carriesFiles = (e: DragEvent) => Array.from(e.dataTransfer?.types ?? []).includes('Files');
 
 /** 拖到拖放區以外的檔案：不讓瀏覽器打開它，提示拖到哪裡 */
 function DropGuard() {
   const toast = useToast();
   useEffect(() => {
     const over = (e: DragEvent) => {
-      if (hasFiles(e)) e.preventDefault();
+      if (carriesFiles(e)) e.preventDefault();
     };
     const drop = (e: DragEvent) => {
-      if (!hasFiles(e) || e.defaultPrevented) return;
+      if (!carriesFiles(e) || e.defaultPrevented) return;
       e.preventDefault();
       toast({ title: S.dropOutside, tone: 'warning', replace: true });
     };
@@ -89,15 +89,15 @@ function HeaderActions() {
       <ProjectMenu
         toolId={TOOL_ID}
         version={PROJECT_VERSION}
-        getData={projectData}
+        getData={currentDoc}
         getFiles={projectFiles}
         openAccept=".zip,.json,application/zip,application/json"
-        fileNameFor={() => `ccfolia-batch-project-${stamp()}`}
+        fileNameFor={() => `ccfolia-batch-project-${fileStamp()}`}
         savedAt={savedAt}
         statusText={saveError ? S.autosaveFailed : undefined}
         confirmOpen={false}
-        onLoad={async (data, _file, files) => {
-          const r = await loadProject(data, files);
+        onLoad={async (data, project, files) => {
+          const r = await loadProject(data, project.version, files);
           return { warnings: [r.notPersisted > 0 && S.projectNotSaved] };
         }}
         onForeignFile={async (file, bytes) => {

@@ -7,13 +7,13 @@ import { checkRoomZip, parseCharacterClipboard, ROOM_TOKEN_RE, readRoomZip } fro
 import { sha256Hex, unzipFiles } from '@/core/files';
 import { parseProjectBytes, serializeProjectZip } from '@/core/storage';
 import { viewOf } from '@/tools/ccfolia-batch/derived';
-import { dataUrlBytes, readLegacyProject } from '@/tools/ccfolia-batch/legacy';
-import { facesOf, matchImages, portraitOf } from '@/tools/ccfolia-batch/match';
+import { decodeDataUrl, readLegacyProject } from '@/tools/ccfolia-batch/legacy';
+import { assignShelfImages, listFaces, pickPortrait } from '@/tools/ccfolia-batch/match';
 import {
   cleanDoc,
   cleanPiece,
   defaultDoc,
-  defaultOpts,
+  initialOpts,
   newPiece,
   type ShelfImage,
 } from '@/tools/ccfolia-batch/model';
@@ -55,14 +55,14 @@ describe('圖片的對應', () => {
       img('アリス@照れ'),
       img('アリスト'),
     ];
-    const m = matchImages(pieces, images);
+    const m = assignShelfImages(pieces, images);
     expect(m[0].byName?.name).toBe('アリス');
     expect(m[0].faces.map((f) => f.label)).toEqual(['笑顔', '泣き', '照れ']);
     expect(m[1].faces.map((f) => f.label)).toEqual(['笑顔']);
     expect(m[2].byImageName?.name).toBe('黒い影');
     expect(m[2].faces.map((f) => f.label)).toEqual(['怒り']);
     expect(m[3].faces.map((f) => f.label)).toEqual(['怒り']);
-    expect(portraitOf(pieces[3], m[3], images)?.name).toBe('黒い影');
+    expect(pickPortrait(pieces[3], m[3], images)?.name).toBe('黒い影');
   });
 
   it('角色差分管理器的編號（名稱01_笑）也是差分；全形與大小寫照樣對得上', () => {
@@ -74,7 +74,7 @@ describe('圖片的對應', () => {
       img('ｂｏｂ'),
       img('BOB（笑）'),
     ];
-    const m = matchImages(pieces, images);
+    const m = assignShelfImages(pieces, images);
     expect(m[0].faces.map((f) => f.label)).toEqual(['笑', '哭']);
     expect(m[1].byName?.name).toBe('ｂｏｂ');
     expect(m[1].faces.map((f) => f.label)).toEqual(['笑']);
@@ -87,24 +87,24 @@ describe('圖片的對應', () => {
       image: 'other',
       faces: [{ label: '笑', imageId: 'other', imageName: '' }],
     });
-    const [m] = matchImages([p], images);
-    expect(portraitOf(p, m, images)?.name).toBe('other');
-    expect(portraitOf({ ...p, image: 'none' }, m, images)).toBeNull();
-    expect(facesOf(p, m, images).map((f) => [f.label, f.image?.name, f.auto])).toEqual([
+    const [m] = assignShelfImages([p], images);
+    expect(pickPortrait(p, m, images)?.name).toBe('other');
+    expect(pickPortrait({ ...p, image: 'none' }, m, images)).toBeNull();
+    expect(listFaces(p, m, images).map((f) => [f.label, f.image?.name, f.auto])).toEqual([
       ['笑', 'other', false],
       ['哭', 'A_哭', true],
     ]);
-    expect(facesOf({ ...p, autoFaces: false }, m, images)).toHaveLength(1);
+    expect(listFaces({ ...p, autoFaces: false }, m, images)).toHaveLength(1);
     /* 表格的「差分：」欄只寫了圖片名稱 */
     const q = newPiece({ name: 'B', faces: [{ label: '怒', imageId: null, imageName: 'a_哭' }] });
-    expect(facesOf(q, undefined, images)[0].image?.name).toBe('A_哭');
+    expect(listFaces(q, undefined, images)[0].image?.name).toBe('A_哭');
   });
 
   it('實際值：全體設定、共用的聊天面板、差分的 @ 名稱', () => {
     const images = [img('A'), img('A_笑')];
     const p = newPiece({ name: 'A', commands: 'CC<=50 閃避', size: null, secret: true });
-    const [m] = matchImages([p], images);
-    const opts = { ...defaultOpts(), size: 6, commonCommands: '1d100 骰子', faceCommands: true };
+    const [m] = assignShelfImages([p], images);
+    const opts = { ...initialOpts(), size: 6, commonCommands: '1d100 骰子', faceCommands: true };
     const v = viewOf(p, m, images, opts);
     expect([v.size, v.active, v.secret, v.hideStatus]).toEqual([6, false, true, false]);
     expect(v.commands).toBe('CC<=50 閃避\n1d100 骰子\n@笑');
@@ -401,6 +401,6 @@ describe('整理與專案檔', () => {
     ]);
     expect([doc.opts.roll, doc.opts.size, doc.opts.suffix]).toEqual(['cc', 6, 'number']);
     expect(readLegacyProject({ app: 'other' })).toBeNull();
-    expect(dataUrlBytes('data:text/plain,a%20b')?.bytes).toEqual(new Uint8Array([97, 32, 98]));
+    expect(decodeDataUrl('data:text/plain,a%20b')?.bytes).toEqual(new Uint8Array([97, 32, 98]));
   });
 });
