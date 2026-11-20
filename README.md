@@ -193,7 +193,7 @@ CI（GitHub Actions）在 pull request 與 main 上跑 `npm test`、lint、typec
 | `height-board` | [立繪身高比較板](https://tool-jx3.github.io/toolkit/tools/height-board/) | [woolwag3338/character-height-board](https://github.com/woolwag3338/character-height-board) |
 | `emotion-maker` | [表情產生器](https://tool-jx3.github.io/toolkit/tools/emotion-maker/) | [sotsotssi/emotion-maker](https://github.com/sotsotssi/emotion-maker) |
 | `cutin` | [切入素材產生器](https://tool-jx3.github.io/toolkit/tools/cutin/) | [Taku-Taku-Taku/cutin-maker](https://github.com/Taku-Taku-Taku/cutin-maker) |
-| `scene-transition` | [場景轉換素材產生器](https://tool-jx3.github.io/toolkit/tools/scene-transition/) | [shiki365/scene-transition-maker](https://github.com/shiki365/scene-transition-maker) |
+| `scene-transition` | [場景轉換素材產生器](https://tool-jx3.github.io/toolkit/tools/scene-transition/) | [shiki365/scene-transition-maker](https://github.com/shiki365/scene-transition-maker)、[くま。／演出APNGメーカー](https://github.com/KumachanSteps/trpg-web-tools)（剪影轉場、預覽的立繪） |
 | `loading-maker` | [讀取動畫產生器](https://tool-jx3.github.io/toolkit/tools/loading-maker/) | [sotsotssi/loading-maker](https://github.com/sotsotssi/loading-maker) |
 | `bg-motion` | [動態背景產生器](https://tool-jx3.github.io/toolkit/tools/bg-motion/) | [くま。／TRPG WEBツール観測所](https://kumachansteps.github.io/trpg-web-tools/)、[utiyoso/kirikae-maker](https://github.com/utiyoso/kirikae-maker)（圖片切換） |
 | `screenshot-fx` | [截圖演出產生器](https://tool-jx3.github.io/toolkit/tools/screenshot-fx/) | [KIIN／スクショ演出スタジオ](https://screenshot-studio-8n8.pages.dev/) |
