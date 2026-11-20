@@ -12,6 +12,7 @@
  * - characterData（G5）：角色資料（剪貼簿 JSON）的型別、讀取（四種錯誤）、型別修正、輸出、檔名
  * - editScreen（G5）：「キャラクター編集」對話框整頁複製文字的解析
  * - room（G5）：房間資料 `__data.json` 的型別、預設值（room、scene、marker、item、character、effect、note）、ID 與權杖
+ * - roomPage（G4，2026-11-20）：房間畫面的介面部分與選擇器（chat-window 的「隱藏介面」；依 ccfoliaCSS、ngo1009db-hub 的記錄）
  * - roomZip（G5）：房間 ZIP 的圖片檔名（SHA-256）、寫入與自我檢查、讀取與引用清單、改名重寫
  * - board（G5）：盤面的格（24 px）、中心 ↔ 左上角、取整、前景的建議格數
  * - log（G5）：聊天日誌 HTML（舊格式／新格式）的解析與多檔合併
@@ -27,6 +28,7 @@ export * from './dom';
 export * from './editScreen';
 export * from './log';
 export * from './room';
+export * from './roomPage';
 export * from './roomZip';
 export * from './targets';
 export * from './urls';

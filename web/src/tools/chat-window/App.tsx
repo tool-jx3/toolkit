@@ -12,8 +12,16 @@ import {
   withShortcut,
 } from '@/ui';
 import { buildChatCss } from './css';
-import { Preview, resetPreviewMessages, scene } from './Preview';
-import { BasicPanel, MessagePanel, MotionPanel, ObsPanel, TextPanel, WindowPanel } from './panels';
+import { Preview, resetPreviewMessages, roomCssOf, roomScene, scene } from './Preview';
+import {
+  BasicPanel,
+  MessagePanel,
+  MotionPanel,
+  ObsPanel,
+  RoomPanel,
+  TextPanel,
+  WindowPanel,
+} from './panels';
 import { type ChatSettings, projectFileName } from './settings';
 import {
   PROJECT_VERSION,
@@ -71,6 +79,8 @@ export function App() {
       preview: () => usePreview.getState().data,
       scene,
       buildCss: (d: unknown) => buildChatCss(normalizeChatSettings(d)),
+      buildRoomCss: (d: unknown) => roomCssOf(normalizeChatSettings(d)),
+      roomScene,
       templates: TEMPLATES.map((t) => t.id),
       applyTemplate: (id: string) => {
         const t = getTemplate(id);
@@ -162,6 +172,7 @@ export function App() {
               { value: 'text', label: S.tabs.text, content: <TextPanel /> },
               { value: 'motion', label: S.tabs.motion, content: <MotionPanel /> },
               { value: 'obs', label: S.tabs.obs, content: <ObsPanel roomRef={roomRef} /> },
+              { value: 'room', label: S.tabs.room, content: <RoomPanel /> },
             ]}
           />
         </>

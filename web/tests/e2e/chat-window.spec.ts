@@ -389,6 +389,8 @@ test.describe('聊天視窗產生器', () => {
       fade: false,
       count: 1,
       scroll: true,
+      /* 以前的捲法（整個文字欄一起捲）；名字固定的捲法另見 F113 的測試 */
+      scrollPinName: false,
       scrollDelay: 2,
       scrollDuration: 10,
       boxShape: 'card',
@@ -638,37 +640,37 @@ test.describe('聊天視窗產生器', () => {
     await set(page, { count: 11, room: 'Room_1234' });
     await page.getByRole('radio', { name: '秘匿分頁' }).click();
     await page.getByRole('radio', { name: '深色背景' }).click();
-    /* 分頁列：方向鍵（頭尾循環）、Home／End */
+    /* 分頁列：方向鍵（頭尾循環）、Home／End（最後一個分頁是 2026-11-20 加的「隱藏介面」） */
     const first = page.getByRole('tab', { name: '基本' });
-    const obs = page.getByRole('tab', { name: 'OBS' });
+    const last = page.getByRole('tab', { name: '隱藏介面' });
     await first.click();
     await expect(first).toBeFocused();
     await page.keyboard.press('ArrowLeft');
-    await expect(obs).toBeFocused();
-    await expect(obs).toHaveAttribute('aria-selected', 'true');
+    await expect(last).toBeFocused();
+    await expect(last).toHaveAttribute('aria-selected', 'true');
     await page.keyboard.press('Home');
     await expect(first).toHaveAttribute('aria-selected', 'true');
     await expect(first).toBeFocused();
     await page.keyboard.press('End');
-    await expect(obs).toHaveAttribute('aria-selected', 'true');
+    await expect(last).toHaveAttribute('aria-selected', 'true');
     await page.keyboard.press('ArrowLeft');
-    await expect(page.getByRole('tab', { name: '動態' })).toHaveAttribute('aria-selected', 'true');
+    await expect(page.getByRole('tab', { name: 'OBS' })).toHaveAttribute('aria-selected', 'true');
     /* Radix 的分頁在下一個計時器才移動焦點：連按時等焦點到了再按下一下（忙的時候按鍵會比計時器先處理） */
     await page.keyboard.press('ArrowRight');
-    await expect(obs).toBeFocused();
+    await expect(last).toBeFocused();
     await page.keyboard.press('ArrowRight');
     await expect(first).toHaveAttribute('aria-selected', 'true');
     await page.keyboard.press('ArrowLeft');
-    await expect(obs).toBeFocused();
+    await expect(last).toBeFocused();
     await page.keyboard.press('ArrowLeft');
-    await expect(page.getByRole('tab', { name: '動態' })).toHaveAttribute('aria-selected', 'true');
+    await expect(page.getByRole('tab', { name: 'OBS' })).toHaveAttribute('aria-selected', 'true');
     await page.waitForTimeout(600);
     await page.reload();
     await page.waitForFunction(
       () => !!(window as unknown as { __chatWindow?: unknown }).__chatWindow,
     );
     expect(await settings(page)).toMatchObject({ count: 11, room: 'Room_1234' });
-    await expect(page.getByRole('tab', { name: '動態' })).toHaveAttribute('aria-selected', 'true');
+    await expect(page.getByRole('tab', { name: 'OBS' })).toHaveAttribute('aria-selected', 'true');
     await expect(page.getByRole('radio', { name: '秘匿分頁' })).toHaveAttribute(
       'aria-checked',
       'true',
@@ -787,6 +789,7 @@ test.describe('聊天視窗產生器', () => {
       enter: 'none',
       count: 1,
       scroll: true,
+      scrollPinName: false,
       scrollDelay: 2,
       scrollDuration: 10,
       boxShape: 'card',
@@ -927,7 +930,7 @@ test.describe('聊天視窗產生器', () => {
       mask: masks(page),
     });
     await noHorizontalScroll(page);
-    for (const tab of ['視窗', '訊息', '文字', '動態', 'OBS']) {
+    for (const tab of ['視窗', '訊息', '文字', '動態', 'OBS', '隱藏介面']) {
       await page.getByRole('tab', { name: tab }).click();
       await noHorizontalScroll(page);
     }

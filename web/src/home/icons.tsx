@@ -92,6 +92,7 @@ import {
   Trophy,
   UserCog,
   Users,
+  UsersRound,
   WandSparkles,
   Waves,
   Wrench,
@@ -142,6 +143,7 @@ const ICONS: Record<string, LucideIcon> = {
   'log-converter': ScrollText,
   'scenario-cards': LayoutGrid,
   'scenario-text': TextQuote,
+  'ccfolia-batch': UsersRound,
   /* G6 劇本與紀錄 */
   'scenario-editor': BookOpen,
   'coc-typesetter': Newspaper,

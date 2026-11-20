@@ -61,9 +61,10 @@ export function selectNpc(id: string): void {
   useView.getState().patch({ currentId: id });
 }
 
-/** 新增（版本同目前的 NPC），並切到新的 */
+/** 新增（版本與參照式聊天面板同目前的 NPC），並切到新的 */
 export function addNpc(): void {
-  const npc = newNpc(getCurrent().edition);
+  const cur = getCurrent();
+  const npc: Npc = { ...newNpc(cur.edition), ...(cur.paletteRefs ? { paletteRefs: true } : {}) };
   step(() =>
     useNpcs.getState().update((d) => {
       d.npcs.push(npc);
@@ -83,6 +84,16 @@ export function removeNpc(id: string): void {
     }),
   );
   if (wasCurrent) selectNpc(useNpcs.getState().data.npcs[0].id);
+}
+
+/** 參照式聊天面板的開關（一步復原；關掉時拿掉欄位，存檔和以前相同） */
+export function setPaletteRefs(on: boolean): void {
+  step(() =>
+    updateCurrent((n) => {
+      const { paletteRefs: _, ...rest } = n;
+      return on ? { ...rest, paletteRefs: true } : rest;
+    }),
+  );
 }
 
 /** 切換版本：重新算衍生值（屬性的值不換算） */

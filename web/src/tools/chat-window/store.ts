@@ -18,10 +18,14 @@ import type { ChatSettings } from './settings';
 import { initialSettings, normalizeChatSettings } from './templates';
 
 export const TOOL_ID = 'chat-window';
-export const PROJECT_VERSION = 1;
+/**
+ * 專案檔與自動存檔的版本。2026-11-20 起是 2（名字固定、只捲本文；訊息消失後視窗也消失；隱藏 CCFOLIA 介面）。
+ * 版本 1 的自動存檔照讀：經過 migrate 整理，沒有「名字固定、只捲本文」欄位的存檔維持以前的捲法（D2）。
+ */
+export const PROJECT_VERSION = 2;
 
 export const useChat = createToolStore<ChatSettings>(TOOL_ID, initialSettings(), {
-  version: 1,
+  version: 2,
   coalesceMs: 0,
   historyLimit: 150,
   migrate: (persisted) => normalizeChatSettings(persisted),
@@ -31,7 +35,7 @@ export const useChat = createToolStore<ChatSettings>(TOOL_ID, initialSettings(),
 useChat.setState({ data: normalizeChatSettings(useChat.getState().data) });
 useChat.temporal.getState().clear();
 
-export type SettingsTab = 'basic' | 'window' | 'message' | 'text' | 'motion' | 'obs';
+export type SettingsTab = 'basic' | 'window' | 'message' | 'text' | 'motion' | 'obs' | 'room';
 export const SETTINGS_TABS: readonly SettingsTab[] = [
   'basic',
   'window',
@@ -39,6 +43,7 @@ export const SETTINGS_TABS: readonly SettingsTab[] = [
   'text',
   'motion',
   'obs',
+  'room',
 ];
 
 export interface PreviewState {

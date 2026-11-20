@@ -53,7 +53,7 @@
 | `collage-letter` | 匿名拼貼信產生器 | [sotsotssi/collage-letter](https://github.com/sotsotssi/collage-letter) | `b8a22a1` |
 | `status-bar` | 狀態條產生器 | [shiki365/status-bar-maker](https://github.com/shiki365/status-bar-maker) | `b8a22a1` |
 | `message-box` | 訊息框產生器 | [shiki365/message-box-maker](https://github.com/shiki365/message-box-maker) | `b8a22a1` |
-| `chat-window` | 聊天視窗產生器 | [shiki365/chat-window-maker](https://github.com/shiki365/chat-window-maker) | `b8a22a1` |
+| `chat-window` | 聊天視窗產生器 | [shiki365/chat-window-maker](https://github.com/shiki365/chat-window-maker)（2026-09-16 起 MIT）、[yudukiak/ccfoliaCSS](https://github.com/yudukiak/ccfoliaCSS)（MIT；「隱藏介面」分頁） | `b8a22a1` |
 | `obs-tachie` | Discord 通話立繪產生器 | [max-enterme/obs-tachie-generator](https://github.com/max-enterme/obs-tachie-generator) | `b8a22a1` |
 | `ccfolia-cropper` | 立繪裁切器 | [kimtaehee2018-maker/ccfolia-cropper](https://github.com/kimtaehee2018-maker/ccfolia-cropper) | `b8a22a1` |
 | `icon-maker` | 簡易頭像產生器 | [くま。／TRPG WEBツール観測所](https://kumachansteps.github.io/trpg-web-tools/)（`kantan-icon-maker`） | `b8a22a1` |
@@ -87,11 +87,11 @@
 | `music-frame` | 音樂播放畫面產生器 | [zZnaptime／MVmaker](https://github.com/zZnaptime)（未授權；原作的 repo 2026-11 起不公開，連到作者的 GitHub） | —（新收錄，沒有舊版） |
 | `bg-remover` | 立繪去背工具 | [SkyTNT/anime-segmentation](https://github.com/SkyTNT/anime-segmentation)（Apache-2.0） | —（新收錄，沒有舊版） |
 | `coc-dice` | CoC 擲骰工具 | [ihoukentiku/ihoukentiku.github.io](https://github.com/ihoukentiku/ihoukentiku.github.io)（MIT；舊版 trpg-lab 的擲骰頁與 BCDice 傷害加總頁合併） | `6957b28` |
-| `coc-npc` | CoC NPC 產生器 | [ihoukentiku/ihoukentiku.github.io](https://github.com/ihoukentiku/ihoukentiku.github.io)（MIT；舊版 trpg-lab 的 NPC 頁） | `6957b28` |
+| `coc-npc` | CoC NPC 產生器 | [ihoukentiku/ihoukentiku.github.io](https://github.com/ihoukentiku/ihoukentiku.github.io)（MIT；舊版 trpg-lab 的 NPC 頁）、[65256619ko-sudo/TRPG_Char_Maker](https://github.com/65256619ko-sudo/TRPG_Char_Maker)（MIT；參照式聊天面板） | `6957b28` |
 | `npc-names` | NPC 名字產生器 | 本站原創，沒有原作（名字資料的出處見下方；考據語料：[弄墨 Inknomu《角色姓名產生器》](https://inknomu.com/namegen/)，CC BY 4.0） | —（新收錄，沒有舊版） |
 | `grid-maker` | 網格產生器 | [ihoukentiku/ihoukentiku.github.io](https://github.com/ihoukentiku/ihoukentiku.github.io)（MIT；舊版 trpg-lab 的方格與六角格產生器合併） | `6957b28` |
 | `range-ruler` | 距離量尺產生器 | [ihoukentiku/ihoukentiku.github.io](https://github.com/ihoukentiku/ihoukentiku.github.io)（MIT；舊版 trpg-lab 的方格與六角格量尺合併） | `6957b28` |
-| `coc-sheet` | CoC 7 版調查員角色卡 | [ihoukentiku/ihoukentiku.github.io](https://github.com/ihoukentiku/ihoukentiku.github.io)（MIT；舊版 trpg-lab 的調查員角色卡） | `6b497bd` |
+| `coc-sheet` | CoC 7 版調查員角色卡 | [ihoukentiku/ihoukentiku.github.io](https://github.com/ihoukentiku/ihoukentiku.github.io)（MIT；舊版 trpg-lab 的調查員角色卡）、[65256619ko-sudo/TRPG_Char_Maker](https://github.com/65256619ko-sudo/TRPG_Char_Maker)（MIT；參照式聊天面板） | `6b497bd` |
 | `map-editor` | 地圖編輯器 | [ihoukentiku/ihoukentiku.github.io](https://github.com/ihoukentiku/ihoukentiku.github.io)（MIT；舊版 trpg-lab 的地圖一覽與地圖編輯器合併） | `6b497bd` |
 | `ai-fail` | AI 誤判梗圖產生器 | [swoonqx/ai-fails-meme-maker](https://github.com/swoonqx/ai-fails-meme-maker)（未授權） | —（新收錄，沒有舊版） |
 | `discord-color` | Discord 彩色文字產生器 | [rebane2001／Discord Colored Text Generator](https://gist.github.com/rebane2001/07f2d8e80df053c70a1576d27eabe97c)（公有領域，Unlicense） | —（新收錄，沒有舊版） |
@@ -131,6 +131,7 @@
 | `fantasy-gen` | 奇幻隨機產生器 | [Sly Flourish／Lazy GM Tools](https://github.com/mshea/lazy_gm_tools)（`generators`，引擎 CC0；名稱 SRD 5.1、SRD 5.2.1、BFRD 1.0、5e Artisanal Database 的共用詞，CC BY 4.0） | —（新收錄，沒有舊版） |
 | `floria-veins` | 魔法脈繪製工具（翠緑のフローリア） | [Nuts-ABCd／floria_canvas](https://github.com/Nuts-ABCd/floria_canvas)（MIT；作品『翠緑のフローリア』的權利屬於猫憑／六畳間幻想空間） | —（新收錄，沒有舊版） |
 | `plot-deck` | 劇本骨架抽卡 | [Xelltis エノキ／Kadan](https://www.xelltis.com/)（BOOTH 販售的工具，All rights reserved；條款禁止再散布、整批轉載收錄的卡文、用收錄的卡文做同目的的製品：只參考功能） | —（新收錄，沒有舊版） |
+| `ccfolia-batch` | CCFOLIA 角色批次產生器 | [shiki365/character-batch-maker](https://github.com/shiki365/character-batch-maker)（MIT） | —（新收錄，沒有舊版） |
 | `anime-rig` | 2.5D 動態立繪 | [852wa/Anime2.5DRig](https://github.com/852wa/Anime2.5DRig)（MIT） | `6957b28` |
 
 `music-frame` 是照 [docs/refactor/PROCESS.md](docs/refactor/PROCESS.md) 第 6 節「新工具引入流程」直接在新框架做的工具，沒有收錄過原作的副本（原作 commit `0c24db2`）。原作未附授權條款，預設封面、預設文字與說明都由本站自做，只照原作的功能、版面與數值。
@@ -222,6 +223,10 @@
 `floria-veins` 照新工具引入流程直接在新框架做：參考 Nuts-ABCd/floria_canvas（commit `5a9a582`，2026-09-12；MIT，授權全文在 `web/src/tools/floria-veins/UPSTREAM_LICENSE`，併入通知檔）的程式改寫成本站的結構（線的交點、吸附、移動・反轉・旋轉的算法和原作在瀏覽器裡比對過相同），原作附的範例資料沿用（MIT，翻成繁中）；可以讀寫原作的資料格式。原作是同人 TRPG『翠緑のフローリア』（權利屬於猫憑／六畳間幻想空間）的二次創作工具；權利人的二次創作規定在這個環境讀不到，所以只做繪圖功能、不收規則書的內容（魔法植物、規則說明、數值表），工具頁面裡註明權利人與「愛好者製作的非官方工具」，頁尾只放靈感來源（使用者 2026-11-10 決定收錄）。
 
 `plot-deck` 照新工具引入流程直接在新框架做：原作是 Xelltis エノキ 的「Kadan」現代與奇幻兩個體驗版（BOOTH 販售的製品版的體驗版，使用者 2026-11-15 上傳），授權 All rights reserved，條款禁止再散布、散布改作版或一部分、整批轉載收錄的卡文、用收錄的卡文做同目的的製品、取出效果音，不放 `UPSTREAM_LICENSE`。只參考功能、互動流程、演算法與數值（卡的種類與欄位、抽卡的偏好倍率與連動〔和原作逐條相同〕、問題與回答的流程、推理至少 3 條線索的檢查、文件的構成），程式照本站的結構重寫；**卡（現代 118 張、奇幻 110 張）、題材與氣氛、介面與說明文字全部本站自己寫（繁中）**：第一版驗證時發現有照原作的卡寫的與翻譯的文字，全部作廢重寫，寫完拿原作的全部卡逐張比對過（規格 D2、D3、6 節）。原作的「複製給 AI 的提示詞」、效果音、起動畫面與 Kadan ダンジョン 不做；原作的範例、logo、字型與畫面的設計不用。頁尾的靈感來源連到作者的網站。
+
+`ccfolia-batch` 照新工具引入流程直接在新框架做：參考 shiki365/character-batch-maker（「キャラクター一括メーカー」v1.4，commit `423a28a`，2026-11-18；MIT，授權全文在 `web/src/tools/ccfolia-batch/UPSTREAM_LICENSE`，併入通知檔）。讀法的規則、試算表的欄名對照與房間 ZIP 的構成照原作，程式照本站的結構改寫（第一版驗證時解析核心和原作太像，照本站的結構重寫，規格 D22、6 節），房間 ZIP 用本站的 `@/ccfolia` 共用模組寫；詞表補了繁中與簡中（中文劇本的 NPC 資料），範例改寫成繁中。原作的 OGP 圖、圖示與配色不用；可以讀原作存的專案檔。
+
+`chat-window` 2026-11-20 跟進 shiki365/chat-window-maker v1.12／v1.14（commit `157fcb6`；原作 2026-09-16 起 MIT，這次跟進的部分附 `UPSTREAM_LICENSE`），並參考 yudukiak/ccfoliaCSS（commit `a3e1365`，MIT）做「隱藏介面」分頁（隱藏 CCFOLIA 介面的房間 CSS；選擇器另參考 ngo1009db-hub/ccfolia-obs-css，未授權，只取 CCFOLIA 頁面結構的事實）。`coc-npc`、`coc-sheet` 的參照式聊天面板參考 65256619ko-sudo/TRPG_Char_Maker（commit `57d61bf`，MIT，`UPSTREAM_LICENSE` 加一段）。
 
 `log-converter` 的 EPUB 匯出（2026-10）參考 sotsotssi/CcfoliaLogConverter 的功能（原作沒有授權條款：只照功能與做法，程式、介面文字與版面都由本站自做）；原作在控制字元、`<wbr>`、`<font>` 與新格式的日誌會產生不合規的電子書或遺失內容，本站的輸出都通過 epubcheck。
 

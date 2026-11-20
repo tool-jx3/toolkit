@@ -305,3 +305,113 @@ describe('舊存檔與專案檔', () => {
     expect(readProject({ npcs: [{ id: 'a' }], currentId: 'z' })?.currentId).toBe('a');
   });
 });
+
+describe('參照式聊天面板（2026-11-20，F38～F43）', () => {
+  /** 7 版：屬性、技能（含同名、和屬性同名、有大括號、名稱空白）、指令（DB、屬性名稱、組合技能） */
+  function sample(edition: 7 | 6 = 7): Npc {
+    let npc: Npc = {
+      ...newNpc(7),
+      name: '測試',
+      abilities: Object.fromEntries(
+        (['STR', 'CON', 'POW', 'DEX', 'APP', 'SIZ', 'INT', 'EDU'] as const).map((k, i) => [
+          k,
+          { dice: '', value: (edition === 7 ? 50 : 10) + i },
+        ]),
+      ) as Npc['abilities'],
+      skills: [
+        { id: 'a', name: '偵查', value: 60 },
+        { id: 'b', name: '偵查', value: 40 },
+        { id: 'c', name: 'str', value: 1 },
+        { id: 'd', name: '{x}', value: 2 },
+        { id: 'e', name: ' 聆聽 ', value: 50 },
+        { id: 'f', name: '', value: 9 },
+      ],
+      commands: [
+        { id: 'x', name: '拳擊', expr: '1D3+DB' },
+        { id: 'y', name: '', expr: '1D6+STR' },
+        { id: 'z', name: '組合', expr: 'CBR({偵查},{聆聽})' },
+      ],
+      mov: '8',
+      paletteRefs: true,
+    };
+    npc = recalc({ ...npc, edition });
+    return npc;
+  }
+
+  it('沒開時（沒有這個欄位）輸出和以前一樣；整理時只有開的時候留下欄位', () => {
+    const off = { ...sample() };
+    delete off.paletteRefs;
+    expect(chatPalette(off)).toContain('CC<=60 偵查');
+    expect(chatPalette(off)).toContain('//STR=50');
+    expect(chatPalette(off)).toContain('1D6+STR');
+    expect('paletteRefs' in sanitizeNpc(off)).toBe(false);
+    expect(sanitizeNpc({ ...off, paletteRefs: false }).paletteRefs).toBeUndefined();
+    expect(sanitizeNpc({ ...off, paletteRefs: 'yes' }).paletteRefs).toBeUndefined();
+    expect(sanitizeNpc(sample()).paletteRefs).toBe(true);
+  });
+
+  it('7 版的聊天面板：檢定用 {名稱}，不寫 //名稱=值；寫不進參數的技能照舊寫數字', () => {
+    expect(chatPalette(sample())).toBe(
+      [
+        'CC<={SAN} 理智檢定',
+        'CC<={STR} STR',
+        'CC<={CON} CON',
+        'CC<={POW} POW',
+        'CC<={DEX} DEX',
+        'CC<={APP} APP',
+        'CC<={SIZ} SIZ',
+        'CC<={INT} INT',
+        'CC<={EDU} EDU',
+        'CC<={偵查} 偵查',
+        'CC<=40 偵查',
+        'CC<=1 str',
+        'CC<=2 {x}',
+        'CC<={聆聽}  聆聽 ',
+        '1D3+{DB} 拳擊',
+        '1D6+{STR}',
+        'CBR({偵查},{聆聽}) 組合',
+      ].join('\n'),
+    );
+  });
+
+  it('JSON：技能的成功率接在參數最後；狀態不變', () => {
+    const d = ccfoliaData(sample());
+    expect(d.params?.map((p) => `${p.label}=${p.value}`)).toEqual([
+      'STR=50',
+      'CON=51',
+      'POW=52',
+      'DEX=53',
+      'APP=54',
+      'SIZ=55',
+      'INT=56',
+      'EDU=57',
+      `DB=${d.params?.[8].value}`,
+      `體格=${d.params?.[9].value}`,
+      'MOV=8',
+      '偵查=60',
+      '聆聽=50',
+    ]);
+    expect(d.status?.map((s) => s.label)).toEqual(['HP', 'MP', 'SAN']);
+    expect(d.commands).toBe(chatPalette(sample()));
+    expect(parseCharacterClipboard(ccfoliaJson(sample())).ok).toBe(true);
+  });
+
+  it('6 版：屬性 {STR}*5、CC／CCB；SAN 關掉時沒有理智檢定、算式裡的 SAN 不換', () => {
+    const v6 = { ...sample(6), commandType: 'CCB' as const };
+    const p = chatPalette(v6);
+    expect(p.split('\n').slice(0, 3)).toEqual([
+      'CCB<={SAN} 理智檢定',
+      'CCB<={STR}*5 STR',
+      'CCB<={CON}*5 CON',
+    ]);
+    expect(p).toContain('CCB<={偵查} 偵查');
+    expect(ccfoliaData(v6).params?.map((x) => x.label)).toContain('移動力');
+    const noSan = {
+      ...sample(),
+      sanEnabled: false,
+      commands: [{ id: 'q', name: '', expr: '1D6+SAN+HP' }],
+    };
+    expect(chatPalette(noSan)).not.toContain('理智檢定');
+    expect(chatPalette(noSan)).toContain('1D6+SAN+{HP}');
+  });
+});

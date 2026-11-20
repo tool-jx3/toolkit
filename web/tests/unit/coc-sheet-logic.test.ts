@@ -34,6 +34,8 @@ import {
   damageCommand,
   outputTitle,
   pngFileName,
+  sheetSkillParams,
+  skillHasPoints,
 } from '@/tools/coc-sheet/output';
 import {
   autoDerived,
@@ -429,6 +431,109 @@ describe('CCFOLIA 角色資料', () => {
     expect(damageCommand('1d6+db')).toBe('1d6+{DB}');
     expect(damageCommand('DBX+1')).toBe('DBX+1');
     expect(damageCommand('2D6')).toBe('2D6');
+  });
+});
+
+describe('參照式聊天面板（2026-11-20，F68～F73）', () => {
+  /** 林子安＋偵查 50 點、圖書館使用成長 5、科學（化學）直接填 31、兩列「騎術」、手槍、沒名稱的武器 */
+  function refSheet(): Sheet {
+    const s = sample();
+    byKey(s, 'spotHidden').occupation = 50;
+    byKey(s, 'libraryUse').growth = 5;
+    byKey(s, 'cthulhuMythos').value = 3;
+    const sci = byKey(s, 'science');
+    sci.specialty = '化學';
+    sci.value = 31;
+    s.skills[9].name = '騎術';
+    s.skills[9].base = 5;
+    s.skills[10].name = '騎術';
+    s.skills[10].value = 40;
+    s.weapons.push(
+      newWeapon({ name: '手槍', skillId: byKey(s, 'firearmsHandgun').id, damage: '1D10' }),
+      newWeapon({ name: '', value: 40, damage: '1D6 + DB + STR' }),
+    );
+    s.paletteRefs = true;
+    return s;
+  }
+
+  it('沒開時輸出和以前一樣；整理時只有開的時候留下欄位', () => {
+    const off = refSheet();
+    delete off.paletteRefs;
+    expect(chatPalette(off)).toContain('CC<=75 偵查');
+    expect(chatPalette(off)).toContain('//STR=50');
+    expect('paletteRefs' in sanitizeSheet(off)).toBe(false);
+    expect('paletteRefsPointsOnly' in sanitizeSheet({ ...off, paletteRefsPointsOnly: 1 })).toBe(
+      false,
+    );
+    expect(sanitizeSheet(refSheet()).paletteRefs).toBe(true);
+    expect(
+      sanitizeSheet({ ...refSheet(), paletteRefsPointsOnly: true }).paletteRefsPointsOnly,
+    ).toBe(true);
+  });
+
+  it('聊天面板：檢定用 {名稱}、武器跟著技能的參照、傷害裡的屬性也參照，不寫 //名稱=值', () => {
+    const lines = chatPalette(refSheet()).split('\n');
+    expect(lines.slice(0, 4)).toEqual([
+      'CC<={SAN} 理智檢定',
+      'CC<={幸運} 幸運',
+      'CC<={INT} 靈感',
+      'CC<={EDU} 知識',
+    ]);
+    expect(lines).toContain('CC<={STR} STR');
+    expect(lines).toContain('CC<={偵查} 偵查');
+    expect(lines).toContain('CC<={科學（化學）} 科學（化學）');
+    expect(lines).toContain('CC<={騎術} 騎術');
+    /* 第二列「騎術」名稱重複：寫數字 */
+    expect(lines).toContain('CC<=40 騎術');
+    expect(lines).toContain('CC<={格鬥（鬥毆）} 徒手');
+    expect(lines).toContain('1D3+{DB} 徒手（傷害）');
+    expect(lines).toContain('CC<={射擊（手槍）} 手槍');
+    expect(lines).toContain('1D6+{DB}+{STR} 武器（傷害）');
+    expect(lines.some((l) => l.startsWith('//'))).toBe(false);
+  });
+
+  it('JSON：技能值接在參數最後（全部有技能值的技能）；只放有點數的技能時其他寫數字', () => {
+    const s = refSheet();
+    const labels = (x: Sheet) => ccfoliaData(x).params?.map((p) => p.label) ?? [];
+    const all = labels(s);
+    expect(all.slice(0, 11)).toEqual([
+      'STR',
+      'CON',
+      'POW',
+      'DEX',
+      'APP',
+      'SIZ',
+      'INT',
+      'EDU',
+      'DB',
+      '體格',
+      'MOV',
+    ]);
+    expect(all).toContain('偵查');
+    expect(all).toContain('恐嚇');
+    expect(all.filter((l) => l === '騎術')).toHaveLength(1);
+    expect(ccfoliaData(s).params?.find((p) => p.label === '偵查')?.value).toBe('75');
+    expect(sheetSkillParams(s).skipped.map((x) => [x.name, x.reason])).toEqual([
+      ['騎術', 'duplicate'],
+    ]);
+    s.paletteRefsPointsOnly = true;
+    expect(labels(s).slice(11)).toEqual([
+      '科學（化學）',
+      '騎術',
+      '克蘇魯神話',
+      '圖書館使用',
+      '偵查',
+    ]);
+    const lines = chatPalette(s).split('\n');
+    expect(lines).toContain('CC<=15 恐嚇');
+    expect(lines).toContain('CC<=25 徒手');
+    expect(lines).toContain('CC<={偵查} 偵查');
+    /* 只放有點數時第一列「騎術」沒點數，第二列（直接填 40）寫進參數 */
+    expect(lines).toContain('CC<=5 騎術');
+    expect(lines).toContain('CC<={騎術} 騎術');
+    expect(skillHasPoints(byKey(s, 'spotHidden'))).toBe(true);
+    expect(skillHasPoints(byKey(s, 'intimidate'))).toBe(false);
+    expect(parseCharacterClipboard(ccfoliaJson(s)).ok).toBe(true);
   });
 });
 

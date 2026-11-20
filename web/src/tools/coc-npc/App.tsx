@@ -22,7 +22,14 @@ import {
 import { ItemListEditor } from '@/ui/ItemListEditor';
 import { addNpc, removeNpc, rollAll, selectNpc } from './actions';
 import { EditForm } from './EditForm';
-import { currentNpc, type Npc, type NpcProject, readProject, TOOL_ID } from './logic';
+import {
+  currentNpc,
+  type Npc,
+  type NpcProject,
+  PROJECT_VERSION,
+  readProject,
+  TOOL_ID,
+} from './logic';
 import { OutputPanel } from './OutputPanel';
 import { useNpcs, useView } from './store';
 import { OUT, S } from './strings';
@@ -90,6 +97,7 @@ export function App() {
       />
       <ProjectMenu<NpcProject>
         toolId={TOOL_ID}
+        version={PROJECT_VERSION}
         getData={() => ({ ...useNpcs.getState().data, currentId: npc.id })}
         onLoad={(raw) => {
           const project = readProject(raw);

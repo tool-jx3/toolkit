@@ -3,14 +3,16 @@
  */
 import { RotateCcw } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
-import { chatUrlFrom } from '@/ccfolia';
+import { chatUrlFrom, roomUrlFrom } from '@/ccfolia';
 import { createChatScene } from '@/ccfolia/mock/chat';
+import { createRoomUiScene, ROOM_UI_PREVIEW_SIZE } from '@/ccfolia/mock/roomUi';
 import { Button, Field, Notice, Section, Segmented } from '@/ui';
 import { CssExportPanel, SourceUrlField } from '@/ui/CssExport';
 import { CssPreviewFrame } from '@/ui/CssPreviewFrame';
 import { MessageComposer } from '@/ui/MessageComposer';
 import { TextRow, useSettings } from './controls';
 import { buildChatCss } from './css';
+import { buildRoomCss } from './roomUi';
 import {
   customMessage,
   isDiceKind,
@@ -26,7 +28,7 @@ import {
   tabIndex,
   testMessage,
 } from './samples';
-import { fileStem, scrollActive } from './settings';
+import { type ChatSettings, fileStem, scrollActive } from './settings';
 import { setStatus, usePreview, useStatus } from './store';
 import { S } from './strings';
 import { getTemplate } from './templates';
@@ -35,6 +37,12 @@ import { getTemplate } from './templates';
 export const scene = createChatScene({
   tabs: sampleTabs(),
   selected: tabIndex(usePreview.getState().data.tab),
+});
+
+/** 「隱藏介面」分頁的預覽：模擬的房間畫面（聊天欄是聊天頁的模擬，接上聊天視窗的 CSS 時看得到） */
+export const roomScene = createRoomUiScene({
+  labels: S.room.parts,
+  chat: { tabs: sampleTabs(), selected: 0 },
 });
 
 /** 測試訊息各種類已送出的次數（輪流使用範例） */
@@ -67,6 +75,17 @@ export function useCss(): string {
     () => buildChatCss(s, { templateName: getTemplate(s.templateId)?.name ?? null }),
     [s],
   );
+}
+
+/** 隱藏介面的 CSS（後面接聊天視窗的 CSS 時，聊天視窗那段不含開頭說明） */
+export function roomCssOf(s: ChatSettings): string {
+  return buildRoomCss({
+    room: s.room,
+    hide: s.roomHide,
+    chatCss: s.roomMerge ? buildChatCss(s, { header: false }) : null,
+    partName: (id) => S.room.parts[id],
+    size: { width: s.width, height: s.height },
+  });
 }
 
 function StatusLine() {
@@ -200,7 +219,85 @@ function Output({ css, onGotoRoom }: { css: string; onGotoRoom: () => void }) {
   );
 }
 
+function RoomOutput({ css, onGotoRoom }: { css: string; onGotoRoom: () => void }) {
+  const s = useSettings();
+  const url = roomUrlFrom(s.room);
+  return (
+    <Section title={S.room.output} fixed>
+      <TextRow k="fileName" label={S.output.fileName} hint={S.output.fileNameHint} />
+      <Field label={S.room.url}>
+        <SourceUrlField
+          url={url}
+          placeholder={S.obs.urlPlaceholder}
+          missingWarning={S.room.missingUrl}
+          missingAction={
+            <Button size="sm" onClick={onGotoRoom}>
+              {S.output.gotoRoom}
+            </Button>
+          }
+          copiedMessage={S.output.urlCopied}
+          onCopy={(ok) =>
+            setStatus(ok ? S.output.urlCopied : S.output.urlCopyFailed, ok ? 'success' : 'danger')
+          }
+        />
+      </Field>
+      <CssExportPanel
+        css={css}
+        fileName={`${fileStem(s.fileName)}${S.room.fileSuffix}`}
+        fallbackFileName={`chatwindow${S.room.fileSuffix}`}
+        status={null}
+        onCopy={(ok) =>
+          setStatus(ok ? S.room.copied : S.output.copyFailed, ok ? 'success' : 'danger')
+        }
+        onSave={(name) => setStatus(S.output.saved(name), 'success')}
+      />
+    </Section>
+  );
+}
+
+/** 「隱藏介面」分頁：房間畫面的預覽與隱藏介面的 CSS */
+function RoomPreview({ onGotoRoom }: { onGotoRoom: () => void }) {
+  const s = useSettings();
+  const css = useMemo(() => roomCssOf(s), [s]);
+  const background = usePreview((st) => st.data.background);
+  const patch = usePreview((st) => st.patch);
+  const [hover, setHover] = useState(false);
+  useEffect(() => roomScene.showChatTag(!s.roomMerge), [s.roomMerge]);
+  return (
+    <>
+      <StatusLine />
+      <CssPreviewFrame
+        width={ROOM_UI_PREVIEW_SIZE.width}
+        height={ROOM_UI_PREVIEW_SIZE.height}
+        css={css}
+        scene={roomScene}
+        maxHeight={620}
+        pointer="hover"
+        background={background}
+        onBackgroundChange={(bg) => patch({ background: bg })}
+        backgrounds={['scene', 'checker', 'dark', 'light']}
+        hover={hover}
+        onHoverChange={setHover}
+        label={S.room.preview}
+        className="shrink-0"
+        pauseAt={PAUSE_AT}
+        sizeNote={S.room.previewNote}
+      />
+      <RoomOutput css={css} onGotoRoom={onGotoRoom} />
+    </>
+  );
+}
+
 export function Preview({ onGotoRoom }: { onGotoRoom: () => void }) {
+  const settingsTab = usePreview((st) => st.data.settingsTab);
+  return settingsTab === 'room' ? (
+    <RoomPreview onGotoRoom={onGotoRoom} />
+  ) : (
+    <ChatPreview onGotoRoom={onGotoRoom} />
+  );
+}
+
+function ChatPreview({ onGotoRoom }: { onGotoRoom: () => void }) {
   const s = useSettings();
   const css = useCss();
   const tab = usePreview((st) => st.data.tab);

@@ -36,7 +36,7 @@
 [arcana-hanna](https://github.com/arcana-hanna) 與
 [CyberDelaai](https://github.com/CyberDelaai) 與
 [Sectr99](https://github.com/Sectr99) 與
-[SkyTNT](https://github.com/SkyTNT) 等人製作的網頁小工具與開源專案為靈感來源的 90 個 TRPG 工具合輯（NPC 名字產生器由本站原創；「文字演出產生器」以くま。的工具為靈感，由本 repo 以無塵室方式獨立撰寫；其中三個工具的作者不明），另外連到 JIZURA 字面與 Azgaar 的 Fantasy Map Generator 的原站。所有工具都由本站以共用的框架改寫，只有繁體中文介面。
+[SkyTNT](https://github.com/SkyTNT) 等人製作的網頁小工具與開源專案為靈感來源的 91 個 TRPG 工具合輯（NPC 名字產生器由本站原創；「文字演出產生器」以くま。的工具為靈感，由本 repo 以無塵室方式獨立撰寫；其中三個工具的作者不明），另外連到 JIZURA 字面與 Azgaar 的 Fantasy Map Generator 的原站。所有工具都由本站以共用的框架改寫，只有繁體中文介面。
 
 **https://tool-jx3.github.io/toolkit/**
 
@@ -57,7 +57,7 @@
 | [立繪裁切器](https://tool-jx3.github.io/toolkit/tools/ccfolia-cropper/) | 依 CCFOLIA 的版面比例自動對齊頭部或角色中央，批次裁切立繪 |
 | [選角畫面產生器](https://tool-jx3.github.io/toolkit/tools/character-select/) | 做出格鬥遊戲那樣的選角畫面，1P～4P 游標依序挑角色，輸出成動畫或可互動的 HTML |
 | [角色資料編輯器](https://tool-jx3.github.io/toolkit/tools/character-editor/) | 在 CCFOLIA 外編輯角色的 JSON：狀態、參數、聊天面板都能改，也能直接讀編輯畫面貼上的文字 |
-| [聊天視窗產生器](https://tool-jx3.github.io/toolkit/tools/chat-window/) | 做出自訂 CSS，把 CCFOLIA 的骰子結果與秘匿聊天以喜歡的樣式顯示在 OBS 上，可在預覽中一邊送訊息一邊調整 |
+| [聊天視窗產生器](https://tool-jx3.github.io/toolkit/tools/chat-window/) | 做出自訂 CSS，把 CCFOLIA 的骰子結果與秘匿聊天以喜歡的樣式顯示在 OBS 上，可在預覽中一邊送訊息一邊調整；訊息消失後整個視窗也能跟著淡出、長訊息可以只捲本文，另有「隱藏介面」分頁產生直播用、隱藏 CCFOLIA 介面的房間 CSS |
 | [訊息框產生器](https://tool-jx3.github.io/toolkit/tools/message-box/) | 做出自訂 CSS，把 CCFOLIA 發言時出現在畫面下方、附立繪的訊息框以喜歡的樣式顯示在 OBS 上；8 種範本可再細調，預覽中能送出範例訊息、一邊看一邊調整 |
 | [UI 框素材產生器](https://tool-jx3.github.io/toolkit/tools/ui-frame/) | 選一組世界觀預設與主色，做出整套透明 PNG 的 UI 框：CCFOLIA 螢幕面板與 OBS 用的畫面外框、角色框、狀態徽章、骰子面板、留言板，或文字冒險遊戲的訊息框、名字框、四種狀態的選項與系統按鈕（附 TyranoScript 配置程式碼），一次打包 ZIP |
 | [立繪尺寸統一器](https://tool-jx3.github.io/toolkit/tools/portrait-size/) | 把同一角色的差分立繪裁掉透明邊並統一寬度，切換立繪時棋子圖就不會忽大忽小；也能單張拿來裁邊與轉 WebP |
@@ -108,6 +108,7 @@
 | [奇幻隨機產生器](https://tool-jx3.github.io/toolkit/tools/fantasy-gen/) | 跑 5e 等奇幻 TRPG 時臨時要的東西一鍵產生：NPC、委託、陷阱、地點與地名、地標、遺物、法術捲軸、法術書、獨特武器與護甲、寶藏，可以鎖定某一欄重抽，也能自己寫產生器 |
 | [魔法脈繪製工具（翠緑のフローリア）](https://tool-jx3.github.io/toolkit/tools/floria-veins/) | 同人 TRPG『翠緑のフローリア』用的魔法脈繪圖板：在方格上畫直線與多角形、把線圍出來的範圍塗色、標傷害格，PC、BOSS、隨從好幾張畫布一起管理、全員一覽、匯出 PNG，也能讀寫原作工具的資料（只有繪圖功能，不含規則書的內容） |
 | [劇本骨架抽卡](https://tool-jx3.github.io/toolkit/tools/plot-deck/) | 用卡片拼出 TRPG 劇本的骨架（不限規則系統）：選題材與氣氛，抽餘韻、導入、障礙、真相、結局、舞台、焦點、線索、NPC 與每位 PC 的關係和秘密，卡會偏向彼此合得來的；可以重抽、鎖定、自己挑，回答卡上的提問、把線索放進場景並檢查每道推理題的線索夠不夠，排成一份成品（列印／PDF、HTML、純文字，或送去劇本排版台）；現代與奇幻兩套卡，全部本站自己寫 |
+| [CCFOLIA 角色批次產生器](https://tool-jx3.github.io/toolkit/tools/ccfolia-batch/) | 把劇本的 NPC 一次做成一批 CCFOLIA 棋子：幾行速記、直接貼上劇本的 NPC 資料（日文、繁中、簡中都讀得懂）、試算表或角色卡網站匯出的資料，狀態、參數、聊天面板、立繪與表情差分一起帶進去，「×3」一次做好幾個；匯出讀入房間就出現的 ZIP |
 | [JIZURA 字面](https://tool-jx3.github.io/toolkit/tools/jizura/) | 貼上歌詞、點按拍點，自動排出文字 PV（歌詞動態影片）：一鍵換方案，版面、登場、特效等可以逐段替換，匯出 MP4、綠幕、黑幕或 PNG 序列（連到原作者網站的官方繁中版） |
 | [奇幻世界地圖產生器](https://azgaar.github.io/Fantasy-Map-Generator/) | 一鍵產生整片大陸的奇幻世界地圖：地形、氣候、河流、國家、城鎮、文化、宗教與道路都能逐項編輯，匯出 PNG、SVG 或存成地圖檔（連到 Azgaar 的 Fantasy Map Generator 原站，英文介面） |
 | [2.5D 動態立繪](https://tool-jx3.github.io/toolkit/tools/anime-rig/) | 拖進分好部件的 PSD 就自動綁定、當場動起來：眨眼、嘴型、頭髮物理（直接接受 [see-through](https://github.com/shitagaki-lab/see-through) 從單張插圖拆出來的 PSD，連深度 PSD 一起給時轉頭更立體），可以用攝影機（臉部追蹤，模型第一次使用時下載約 3.8 MB）或麥克風帶動，匯出透明 PNG 或影片 |
@@ -182,7 +183,7 @@ CI（GitHub Actions）在 pull request 與 main 上跑 `npm test`、lint、typec
 | `collage-letter` | [匿名拼貼信產生器](https://tool-jx3.github.io/toolkit/tools/collage-letter/) | [sotsotssi/collage-letter](https://github.com/sotsotssi/collage-letter) |
 | `status-bar` | [狀態條產生器](https://tool-jx3.github.io/toolkit/tools/status-bar/) | [shiki365/status-bar-maker](https://github.com/shiki365/status-bar-maker) |
 | `message-box` | [訊息框產生器](https://tool-jx3.github.io/toolkit/tools/message-box/) | [shiki365/message-box-maker](https://github.com/shiki365/message-box-maker) |
-| `chat-window` | [聊天視窗產生器](https://tool-jx3.github.io/toolkit/tools/chat-window/) | [shiki365/chat-window-maker](https://github.com/shiki365/chat-window-maker) |
+| `chat-window` | [聊天視窗產生器](https://tool-jx3.github.io/toolkit/tools/chat-window/) | [shiki365/chat-window-maker](https://github.com/shiki365/chat-window-maker)、[yudukiak/ccfoliaCSS](https://github.com/yudukiak/ccfoliaCSS)（隱藏介面） |
 | `obs-tachie` | [Discord 通話立繪產生器](https://tool-jx3.github.io/toolkit/tools/obs-tachie/) | [max-enterme/obs-tachie-generator](https://github.com/max-enterme/obs-tachie-generator) |
 | `ccfolia-cropper` | [立繪裁切器](https://tool-jx3.github.io/toolkit/tools/ccfolia-cropper/) | [kimtaehee2018-maker/ccfolia-cropper](https://github.com/kimtaehee2018-maker/ccfolia-cropper) |
 | `icon-maker` | [簡易頭像產生器](https://tool-jx3.github.io/toolkit/tools/icon-maker/) | [くま。／TRPG WEBツール観測所](https://kumachansteps.github.io/trpg-web-tools/) |
@@ -219,12 +220,12 @@ CI（GitHub Actions）在 pull request 與 main 上跑 `npm test`、lint、typec
 | `music-frame` | [音樂播放畫面產生器](https://tool-jx3.github.io/toolkit/tools/music-frame/) | [zZnaptime／MVmaker](https://github.com/zZnaptime)（原作的 repo 2026-11 起不公開） |
 | `bg-remover` | [立繪去背工具](https://tool-jx3.github.io/toolkit/tools/bg-remover/) | [SkyTNT/anime-segmentation](https://github.com/SkyTNT/anime-segmentation) |
 | `coc-dice` | [CoC 擲骰工具](https://tool-jx3.github.io/toolkit/tools/coc-dice/) | [ihoukentiku/ihoukentiku.github.io](https://github.com/ihoukentiku/ihoukentiku.github.io) |
-| `coc-npc` | [CoC NPC 產生器](https://tool-jx3.github.io/toolkit/tools/coc-npc/) | [ihoukentiku/ihoukentiku.github.io](https://github.com/ihoukentiku/ihoukentiku.github.io) |
+| `coc-npc` | [CoC NPC 產生器](https://tool-jx3.github.io/toolkit/tools/coc-npc/) | [ihoukentiku/ihoukentiku.github.io](https://github.com/ihoukentiku/ihoukentiku.github.io)、[65256619ko-sudo/TRPG_Char_Maker](https://github.com/65256619ko-sudo/TRPG_Char_Maker)（參照式聊天面板） |
 | `npc-names` | [NPC 名字產生器](https://tool-jx3.github.io/toolkit/tools/npc-names/) | 本站原創（名字資料：willnet/gimei、japanese-personal-name-dataset、內政部姓名統計、美國社會安全局與人口普查；考據語料：[弄墨 Inknomu《角色姓名產生器》](https://inknomu.com/namegen/)〔CC BY 4.0〕） |
 | `grid-maker` | [網格產生器](https://tool-jx3.github.io/toolkit/tools/grid-maker/) | [ihoukentiku/ihoukentiku.github.io](https://github.com/ihoukentiku/ihoukentiku.github.io) |
 | `range-ruler` | [距離量尺產生器](https://tool-jx3.github.io/toolkit/tools/range-ruler/) | [ihoukentiku/ihoukentiku.github.io](https://github.com/ihoukentiku/ihoukentiku.github.io) |
 | `anime-rig` | [2.5D 動態立繪](https://tool-jx3.github.io/toolkit/tools/anime-rig/) | [852wa/Anime2.5DRig](https://github.com/852wa/Anime2.5DRig) |
-| `coc-sheet` | [CoC 7 版調查員角色卡](https://tool-jx3.github.io/toolkit/tools/coc-sheet/) | [ihoukentiku/ihoukentiku.github.io](https://github.com/ihoukentiku/ihoukentiku.github.io) |
+| `coc-sheet` | [CoC 7 版調查員角色卡](https://tool-jx3.github.io/toolkit/tools/coc-sheet/) | [ihoukentiku/ihoukentiku.github.io](https://github.com/ihoukentiku/ihoukentiku.github.io)、[65256619ko-sudo/TRPG_Char_Maker](https://github.com/65256619ko-sudo/TRPG_Char_Maker)（參照式聊天面板） |
 | `map-editor` | [地圖編輯器](https://tool-jx3.github.io/toolkit/tools/map-editor/) | [ihoukentiku/ihoukentiku.github.io](https://github.com/ihoukentiku/ihoukentiku.github.io) |
 | `ai-fail` | [AI 誤判梗圖產生器](https://tool-jx3.github.io/toolkit/tools/ai-fail/) | [swoonqx/ai-fails-meme-maker](https://github.com/swoonqx/ai-fails-meme-maker) |
 | `discord-color` | [Discord 彩色文字產生器](https://tool-jx3.github.io/toolkit/tools/discord-color/) | [rebane2001／Discord Colored Text Generator](https://gist.github.com/rebane2001/07f2d8e80df053c70a1576d27eabe97c) |
@@ -261,6 +262,7 @@ CI（GitHub Actions）在 pull request 與 main 上跑 `npm test`、lint、typec
 | `fantasy-gen` | [奇幻隨機產生器](https://tool-jx3.github.io/toolkit/tools/fantasy-gen/) | [Sly Flourish／Lazy GM Tools](https://github.com/mshea/lazy_gm_tools) |
 | `floria-veins` | [魔法脈繪製工具（翠緑のフローリア）](https://tool-jx3.github.io/toolkit/tools/floria-veins/) | [Nuts-ABCd／floria_canvas](https://github.com/Nuts-ABCd/floria_canvas) |
 | `plot-deck` | [劇本骨架抽卡](https://tool-jx3.github.io/toolkit/tools/plot-deck/) | [Xelltis エノキ／Kadan](https://www.xelltis.com/)（只參考功能） |
+| `ccfolia-batch` | [CCFOLIA 角色批次產生器](https://tool-jx3.github.io/toolkit/tools/ccfolia-batch/) | [shiki365/character-batch-maker](https://github.com/shiki365/character-batch-maker) |
 
 開發與建置見 [web/README.md](web/README.md)；流程與規格見 [docs/refactor/](docs/refactor/PLAN.md)。
 
