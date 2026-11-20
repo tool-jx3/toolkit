@@ -1092,7 +1092,7 @@ export const TOOLS: readonly ToolEntry[] = [
     summary:
       '把劇本的 NPC 一次做成一批 CCFOLIA 棋子：幾行速記、直接貼上劇本的 NPC 資料（日文、繁中、簡中）、試算表或角色卡網站的 CCFOLIA 輸出都讀得懂，狀態、參數、聊天面板、立繪與差分一起帶進去，「×3」一次做好幾個；匯出成讀入房間就出現的 ZIP。',
     group: 'G5',
-    status: 'next',
+    status: 'live',
     inspiration: {
       name: 'shiki365／キャラクター一括メーカー',
       url: 'https://github.com/shiki365/character-batch-maker',

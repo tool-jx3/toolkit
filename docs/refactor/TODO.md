@@ -9,7 +9,7 @@
 
 ## 進行中
 
-- CCFOLIA 角色批次產生器（`ccfolia-batch`，參考 shiki365／キャラクター一括メーカー v1.4 `423a28a`，MIT；原本在第二節）：實作完成（registry `next`），等對等驗證與主控裁定規格 5. 的 D1（聊天面板不加【】）、D2（理智檢定、能力值判定預設關、不寫 // 變數）、D3（6 版自動用 CCB）、D5（「備註」小標不讀）、D14（id 與名稱）。原作的功能都做了；這一列原本提的「做成 coc-npc 的貼上讀入」沒有做（另開了工具）。
+（沒有）
 
 ## 一、已收錄工具的原作更新
 
@@ -112,6 +112,7 @@
 | log-converter | [SKANA314/ccfolia_log_to_movie](https://github.com/SKANA314/ccfolia_log_to_movie)（`a061421`，2026-09-08） | 未授權 | 日誌轉成 VOICEVOX／COEIROINK／ゆっくりムービーメーカー4 的台本（txt、csv）：改角色名、指定聲音的樣式、拿掉某些角色（PL 閒聊）。台灣用的語音合成不同，優先度低 | 小 |
 | character-editor | CoC 以外系統的 CCFOLIA 角色範本（參考：上面「特技表工具」的 insane-ccfolia-converter、[Gurei-471/MagicaLogiaCcfoliaExport](https://github.com/Gurei-471/MagicaLogiaCcfoliaExport)〔MIT，jQuery〕、tororo4096/dnd_ccfolia〔未授權〕等） | 轉換器多為未授權；規則內容的授權見「其他系統的內容授權」 | インセイン、シノビガミ、エモクロア、ダブルクロス、D&D 5e 等的「系統範本」：欄位 → 算能力值 → 產生 `status`／`params`／`commands`（チャパレ）／`memo`。欄位、公式、チャパレ的範本自己寫；**不抓外部的角色卡網站**（キャラクター保管所、ゆとシート：外部 API）；不內建規則書的效果文與各種表（D&D 用 SRD 5.1／5.2 的英文自己翻） | 中 |
 | ccfolia-cropper | [yyyyyyy0/tachieasy](https://github.com/yyyyyyy0/tachieasy)（`94e1288`，2026-11-07 封存，搬到 tools.takushura.app〔這個環境連不到〕；Vite＋TS，單檔） | MIT（Copyright 2026 yyyyyyy0；沿用要附 UPSTREAM_LICENSE） | 立繪的「同一個框批次裁切＋拼成一張」：多張圖套同一個裁切範圍（比例模式可以混不同尺寸，像素模式要同尺寸；觸控拖曳與縮放），裁好的排成 列×欄 的一張圖（格距、外側留白、fit／cover、透明或自選背景、PNG／JPEG 品質），個別下載或下載拼好的圖。本站已經有批次下載，缺「同一個框套全部」與「拼成一張」（表情差分一覽、角色一覽圖） | 小 |
+| ccfolia-batch | 本站（2026-11-20 上線後驗證者留下的小遺漏） | — | 讀法：行中間的編號（「1. HP 12 2. 閃避 30」的第二個項目讀成「2. 閃避」）、名字行括號裡的日文頓號（「《陳 明(チェン、ミン)》」留著括號）、「體力點」沒有對到 HP（「讀到的標籤」可以手動改） | 小 |
 
 ## 內部改善
 
@@ -332,3 +333,4 @@ CoC 以外的系統的工具常常內嵌規則書的資料（技能、特技表�
 - 2026-11-15：使用者上傳 Xelltis エノキ「Kadan」現代・奇幻 兩個體驗版問「這可以加入嗎？」，選「新工具、現代＋奇幻」、AI 提示詞不做：新工具「劇本骨架抽卡」（plot-deck，G6）。原作 All rights reserved、條款禁止用收錄的卡文做同目的的製品，只參考功能與抽卡的倍率；第一版驗證時發現有照原作的卡寫的與翻譯的文字，卡（現代 118、奇幻 110 張）、題材與氣氛、介面文字全部作廢重寫，拿原作的全部卡（製品版 381／402 張）比對過（規格 D2、D3、6 節）。補卡留在第三節。
 - 2026-11-20：上游檢查（GitHub 來源 182 個＋1 個 gist，`git ls-remote` 與 HTTP 狀態一次掃完；11-12 之後 22 個有新 commit；沒有改名或改寫歷史）。**zZnaptime/MVmaker 不公開了**：music-frame 頁尾的靈感來源改連到作者的 GitHub（registry、e2e、README、ATTRIBUTION、規格）；Chat2Img 搬到 purewith.me（GitHub 版只剩搬家通知）。**saturn97v/Color-shelf 11-15 加了 All rights reserved 的作者條款**：ATTRIBUTION 與 color-palette 規格的標示改寫（本站做法不變）。**くま。的利用規約 11-19 加了「請不要用 AI 或其他工具複製本站的程式」**：使用者決定做法照舊（只參考功能、自己改寫，不複製），已上線的 10 個工具不另外處理（PLAN.md 授權特別注意）。第一節：新增 NTSCRT `35aca7e`（VCR 階段、10 個預設集），更新 chat-window-maker v1.14、卓準備カレンダー v0.36、卓ログトラッカー v1.108；第二、三節：更新 papermini、音樂盒房間 v0.54、trials 的半格貼齊、756y 的差分 ZIP、MOMO_MusicCloud、floria_canvas 的測試頁；第四節：HTML-in-Canvas 在 Chrome 157 正式上線但 Firefox、Safari 沒有；text-apng-maker-ex 的內容成了 main 上限定測試的「演出APNGメーカー」；OBS TRPGサポーター v0.1 已在 main；其餘條件沒成立。不在 GitHub 的原作（BOOTH、Xelltis、各 pages.dev／github.io）仍連不到。token-workshop、ntsc-rs 沒有新東西。
 - 2026-11-20：新 repo 搜尋（已收錄與追蹤的作者約 115 個、GitHub 網頁搜尋 19 組查詢〔用 OR 併成組〕、clone 讀過約 60 個；這一週沒有大的新工具）。新增：第二節的 CCFOLIA 角色批次產生器（shiki365/character-batch-maker，MIT）、追逐面板補 MIT 的 7 版規則引擎（mkapornaky/coc-chase-manager）；第三節的 coc-sheet 6 版與參照式聊天面板（65256619ko-sudo/TRPG_Char_Maker，MIT）、PSD／CLIP 的部件組合（saturn97v/character-portrait-studio，作者條款）、3D 骰的 dice-simulator（MIT）、OBS 用的 CCFOLIA 介面隱藏 CSS（yudukiak/ccfoliaCSS，MIT）；第四節的 KPレスroomメーカー（utiyoso，BOOTH，程式沒讀到）。排除的在「不收的」2026-11-20 那一段。追蹤的新作者：65256619ko-sudo、mkapornaky；cp-20/trpg-session-logging 目前是空 repo，下次再看。Tetoriapot 在 GitHub 搜尋裡不出現，要看它的 repo 列表；booth.pm 在這個環境連不到。
+- 2026-11-20：新工具「CCFOLIA 角色批次產生器」（ccfolia-batch，G5；參考 shiki365/character-batch-maker v1.4，MIT）上線，移出第二節：速記、劇本貼上（日文、繁中、簡中）、試算表、角色卡網站的 JSON 三種輸入，立繪與差分的對應，房間 ZIP 與素材 ZIP。第一版驗證時解析核心和原作太像（部分接近逐行轉寫），照本站的結構重寫（規格 D22、6 節）；留下的小遺漏記在第三節。
