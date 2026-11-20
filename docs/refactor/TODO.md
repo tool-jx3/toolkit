@@ -142,6 +142,7 @@
   補的時候標好題材、氣氛、舞台的種類、真相的相性（合不來只標說得通的）與餘韻合的真相與結局（`tests/unit/plot-deck-data.test.ts` 的張數表一起改）。
   原作的「傾向」（主題的釘選）與回答例子的通用「種類表」體驗版沒有資料、沒有做（規格 F94、F97），補卡之後再評估。
 - family-tree：Ctrl＋滾輪（含觸控板捏合）改成依位移量連續縮放（scenario-timeline 的做法）；SVG 嵌字改用共用的 `googleFontSubsetCss`（`@/core/fonts`，2026-10-29 新增）。
+- room-zip 的 e2e「淡入淡出動態圖：從素材產生 APNG…」與「…產生中按 Esc 也關閉…（F285）」：2026-11-20 這個容器的 Chromium 153（headless）下兩項都在點「淡入淡出動態圖」時逾時——按鈕被頁首（sticky）與下方的「已選 1 張」批次面板（sticky）擋住，Playwright 捲動後仍被蓋住。main `a2223e0` 也一樣（不是 11-20 這批造成的）。修法：點之前把按鈕捲到畫面中間（`scrollIntoView({ block: 'center' })`），或檢查窄高度時批次面板是否該蓋住素材頁的按鈕（可能是真的版面問題）。（2026-11-20）
 - music-frame 的 e2e「影片（逐格）：有音樂的區間 → MP4」假設瀏覽器有 AAC 編碼器：2026-11-20 這個容器的 Chromium 153（headless）`AudioEncoder.isConfigSupported(mp4a.40.2)` 是 false，照規格 3.x 只給 MOV（H.264＋PCM），這一項找不到 MP4 而失敗（其餘 28 項通過；和當天的改動無關）。把斷言改成依瀏覽器的能力（有 AAC 驗 MP4、沒有驗 MOV 的封裝與聲音）。（2026-11-20）
 - CCFOLIA 的 APNG：くま。的「演出APNGメーカー」README 寫 CCFOLIA v1.33.5 以後 APNG 有時播放不順，可以改用 WebP（二手消息）。本站的匯出面板已經有 WebP；先在 CCFOLIA 實測，屬實的話在 text-fx、typewriter、cutin、scene-transition 等工具的說明加一句提示。（2026-11-20）
 
