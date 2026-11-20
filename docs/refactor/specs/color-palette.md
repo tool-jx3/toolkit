@@ -13,7 +13,7 @@
 
 靈感來源：sotsotssi/CharColorPalette（<https://github.com/sotsotssi/CharColorPalette>）；色票櫃參考 saturn97v/Color-shelf
 （<https://github.com/saturn97v/Color-shelf>）、配色卡參考 dearmysn1p3r/Colorpalettecard_Maker
-（<https://github.com/dearmysn1p3r/Colorpalettecard_Maker>），兩者都未授權，只參考功能、選項與數值（頁尾的靈感來源維持 CharColorPalette）。
+（<https://github.com/dearmysn1p3r/Colorpalettecard_Maker>），兩者都未授權（Color-shelf 2026-11-15 加了 All rights reserved 的作者條款），只參考功能、選項與數值（頁尾的靈感來源維持 CharColorPalette）。
 
 ## 1. 功能清單（對等驗證以此為準）
 
@@ -63,7 +63,7 @@
 | F42 | 回首頁連結 | 舊版有回 TRPG Toolkit 首頁的連結。新版由共用外框提供。 | — | 目視 |
 
 2026-10-27 併入兩個原作（只參考功能、選項與數值；程式、版面、外觀、範例、文字都是本站自己的）：
-**saturn97v/Color-shelf**（캐릭터 컬러 정리함，<https://github.com/saturn97v/Color-shelf>，未授權，以下簡稱 CS）與
+**saturn97v/Color-shelf**（캐릭터 컬러 정리함，<https://github.com/saturn97v/Color-shelf>，未授權〔2026-11-15 起作者條款〕，以下簡稱 CS）與
 **dearmysn1p3r/Colorpalettecard_Maker**（<https://github.com/dearmysn1p3r/Colorpalettecard_Maker>，未授權，以下簡稱 PC）。
 三種呈現（配色條、色票櫃、配色卡）共用同一份**角色清單**：配色條的每一條就是一位角色、每一段就是角色的一個部位。
 下表「來源」：CS、PC、本站（brief 要求或本站加的）。沒有用到新功能時，配色條的行為與輸出不變（1.3 F92、5.）。
