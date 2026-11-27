@@ -133,6 +133,7 @@
 | `plot-deck` | 劇本骨架抽卡 | [Xelltis エノキ／Kadan](https://www.xelltis.com/)（BOOTH 販售的工具，All rights reserved；條款禁止再散布、整批轉載收錄的卡文、用收錄的卡文做同目的的製品：只參考功能） | —（新收錄，沒有舊版） |
 | `ccfolia-batch` | CCFOLIA 角色批次產生器 | [shiki365/character-batch-maker](https://github.com/shiki365/character-batch-maker)（MIT） | —（新收錄，沒有舊版） |
 | `char-cutin` | 立繪切入產生器 | [あまやどり／カットインジェネレーター](https://nureenishi.booth.pm/)（BOOTH 販售的工具，使用者上傳的 v1.1.0 體驗版；未授權） | —（新收錄，沒有舊版） |
+| `cross-section` | 斷面圖產生器 | [KIIN／階層・連結マップ制作スタジオ](https://kiin.booth.pm/)（BOOTH 販售的工具，使用者上傳的 Pro v1.0；未授權） | —（新收錄，沒有舊版） |
 | `anime-rig` | 2.5D 動態立繪 | [852wa/Anime2.5DRig](https://github.com/852wa/Anime2.5DRig)（MIT） | `6957b28` |
 
 `music-frame` 是照 [docs/refactor/PROCESS.md](docs/refactor/PROCESS.md) 第 6 節「新工具引入流程」直接在新框架做的工具，沒有收錄過原作的副本（原作 commit `0c24db2`）。原作未附授權條款，預設封面、預設文字與說明都由本站自做，只照原作的功能、版面與數值。
@@ -232,6 +233,8 @@
 `scene-transition` 2026-11-20 參考くま。的「演出APNGメーカー」（KumachanSteps/trpg-web-tools 的 `tools/effect-apng-maker/`，v0.42，commit `1d84d98`，限定測試版）補了剪影轉場 4 種（花瓣飛舞、羽毛飄落、眨眼、蝙蝠群）與預覽的立繪。原作沒有授權條款，利用規約禁止轉載與二次利用，2026-11-19 起又請求不要用 AI 等工具複製程式；只參考功能、行為與數值，程式、剪影的外形（程式畫的多邊形）、介面文字都由本站自做，原作用的蝙蝠圖與花瓣、羽毛的曲線不用（規格 D101、6.1 節）。頁尾的靈感來源照舊只有 shiki365/scene-transition-maker。
 
 `char-cutin` 照新工具引入流程直接在新框架做：參考あまやどり的「カットインジェネレーター」（BOOTH 販售，使用者 2026-11-27 上傳的 v1.1.0 體驗版）。原作沒有開放授權，利用規約禁止再散布、轉賣、讓與與改作後散布；只參考功能、六種型的節奏與配置的數值、臉的自動對準的做法，程式、圖形、配色、說明與範例都由本站自做（規格 D18、6 節）。原作的圖示、樣式表與打包的字型檔、函式庫都不用；毛筆字型 Yuji Boku（SIL OFL 1.1）從 Google Fonts 載入，當成可選的字型之一。
+
+`cross-section` 照新工具引入流程直接在新框架做，分兩批（第一批＝縱向的建築斷面，2026-11-27 上線）：參考 KIIN 的「階層・連結マップ制作スタジオ」（BOOTH 販售，使用者 2026-11-27 上傳的 Pro v1.0）。原作沒有授權條款，照本站對 KIIN 工具一貫的處理，只參考功能、規則與數值（區域整理的規則、上限、匯出尺寸、偽裝的規則）；程式、30 種設備的圖形與構成、6 種樣式的配色、範例、說明都由本站自做（第一版驗證時配色與設備的構成太接近原作，整套重新設計，規格 D25、6 節）。原作內建的切入動畫、無聲 MP3 與 KIIN 的標誌不用；可以讀原作存的縱向作業 JSON。
 
 `log-converter` 的 EPUB 匯出（2026-10）參考 sotsotssi/CcfoliaLogConverter 的功能（原作沒有授權條款：只照功能與做法，程式、介面文字與版面都由本站自做）；原作在控制字元、`<wbr>`、`<font>` 與新格式的日誌會產生不合規的電子書或遺失內容，本站的輸出都通過 epubcheck。
 
