@@ -136,6 +136,28 @@ async function noHorizontalScroll(page: Page) {
   expect(sw, '不應出現橫向捲動').toBeLessThanOrEqual(cw);
 }
 
+/** 對話框裡每個按鈕、選項都在對話框的範圍裡，字沒有被切掉（2026-11-27 修正第 1 輪：KP 準備包的按鈕在 360／320 寬超出） */
+async function insideDialog(page: Page) {
+  const bad = await page.evaluate(() => {
+    const d = document.querySelector('[role=dialog]');
+    if (!d) return ['沒有對話框'];
+    const box = d.getBoundingClientRect();
+    const out: string[] = [];
+    for (const e of d.querySelectorAll<HTMLElement>(
+      'button,[role=radio],[role=switch],[role=checkbox],[role=combobox]',
+    )) {
+      const r = e.getBoundingClientRect();
+      if (!r.width) continue;
+      if (r.left < box.left - 1 || r.right > box.right + 1 || e.scrollWidth > e.clientWidth + 1)
+        out.push(
+          `${(e.innerText || e.getAttribute('aria-label') || '').trim()}@${Math.round(r.left)}..${Math.round(r.right)}`,
+        );
+    }
+    return out;
+  });
+  expect(bad, '對話框裡超出或被切掉的按鈕').toEqual([]);
+}
+
 async function pick(page: Page, testId: string, option: string) {
   await page.getByTestId(testId).click();
   await page.getByRole('option', { name: option, exact: true }).click();
@@ -649,9 +671,11 @@ test.describe('窄畫面（橫向車廂）', () => {
       const dialog = page.getByTestId('export-dialog');
       await expect(dialog).toBeVisible();
       await noHorizontalScroll(page);
+      await insideDialog(page);
       await page.getByRole('radio', { name: 'CCFOLIA 房間 ZIP' }).click();
       await expect(page.getByTestId('zip-pane')).toBeVisible();
       await noHorizontalScroll(page);
+      await insideDialog(page);
       await page.getByRole('radio', { name: '圖片（PNG）' }).click();
       expect(errors).toEqual([]);
     });

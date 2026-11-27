@@ -21,7 +21,7 @@ import type { Audience, EnvId, SectionDoc } from '../model/types';
 import { S } from '../strings';
 import { type Board, GUIDE_PX, type MaskStyle, type Panel, type SceneDef } from './plan';
 
-export const pngBytes = async (c: HTMLCanvasElement): Promise<Uint8Array> =>
+export const canvasPng = async (c: HTMLCanvasElement): Promise<Uint8Array> =>
   new Uint8Array(await (await canvasToBlob(c, 'image/png')).arrayBuffer());
 
 function canvas(w: number, h: number): { c: HTMLCanvasElement; g: CanvasRenderingContext2D } {
@@ -129,7 +129,7 @@ export async function wallpaperPng(key: SceneDef['key']): Promise<Uint8Array> {
   v.addColorStop(1, 'rgba(0, 0, 0, 0.45)');
   g.fillStyle = v;
   g.fillRect(0, 0, 1280, 720);
-  return pngBytes(c);
+  return canvasPng(c);
 }
 
 /** 從盤面大小的畫布裁下一塊（逐像素；世界座標的範圍） */
@@ -138,7 +138,7 @@ export async function cropPng(src: HTMLCanvasElement, b: Board, r: Rect): Promis
   const sy = Math.round((b.padT + r.y - b.world.y) * b.cell);
   const { c, g } = canvas(r.w * b.cell, r.h * b.cell);
   g.drawImage(src, sx, sy, c.width, c.height, 0, 0, c.width, c.height);
-  return pngBytes(c);
+  return canvasPng(c);
 }
 
 /* ---------- 遮罩 ---------- */
@@ -156,7 +156,7 @@ function plate(
   const x = (w - pw) / 2;
   const y = (h - ph) / 2;
   g.save();
-  g.fillStyle = '#fbe5ec';
+  g.fillStyle = '#fedfec';
   g.strokeStyle = '#7c4dff';
   g.lineWidth = Math.max(2, cell * 0.06);
   g.beginPath();
@@ -260,7 +260,7 @@ function sign(g: CanvasRenderingContext2D, w: number, h: number, cell: number) {
 }
 
 /** 一個遮罩（區域的大小；整塊不透明） */
-export async function maskPng(
+export async function coverPng(
   style: MaskStyle,
   r: Rect,
   cell: number,
@@ -278,7 +278,7 @@ export async function maskPng(
   g.lineWidth = Math.max(2, cell * 0.05);
   g.strokeRect(g.lineWidth / 2, g.lineWidth / 2, w - g.lineWidth, h - g.lineWidth);
   plate(g, w, h, cell, code, label);
-  return pngBytes(c);
+  return canvasPng(c);
 }
 
 /* ---------- KP 操作說明 ---------- */
@@ -312,7 +312,7 @@ export async function guidePng(o: GuideInfo): Promise<Uint8Array> {
   const { w: W, h: H } = GUIDE_PX;
   const { c, g } = canvas(W, H);
   const ink = '#262646';
-  g.fillStyle = '#ffecfc';
+  g.fillStyle = '#ffecfd';
   g.fillRect(0, 0, W, H);
   g.fillStyle = '#5b3fd1';
   g.fillRect(0, 0, W, 96);
@@ -395,7 +395,7 @@ export async function guidePng(o: GuideInfo): Promise<Uint8Array> {
     g.font = `400 14px ${SANS}`;
     g.fillText(S.zip.guideMore(o.panels.length - max), rx + 10, ry);
   }
-  return pngBytes(c);
+  return canvasPng(c);
 }
 
 /** 房間 ZIP 用到的字（字型只載這些） */

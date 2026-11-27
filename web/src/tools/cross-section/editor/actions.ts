@@ -28,13 +28,13 @@ import {
 import { type SampleId, sampleDoc } from '../model/samples';
 import { trainLayoutOf } from '../model/trainLayout';
 import {
-  addCar,
   carRoomAt,
+  coupleCar,
+  detachCar,
   findCarRoom,
   mergeCarRoom,
   moveCar,
   placeTrainNote,
-  removeCar,
   setCarType,
   setLocoKind,
   settleTrain,
@@ -204,7 +204,7 @@ export function addCarOf(type: CarType): void {
   }
   let id: string | null = null;
   editTrain((t) => {
-    id = addCar(t, type)?.id ?? null;
+    id = coupleCar(t, type)?.id ?? null;
   });
   if (id) setEditor({ sel: { kind: 'car', id } });
   editor.fitView();
@@ -217,7 +217,7 @@ export function deleteCar(id: string): void {
     return;
   }
   editTrain((t) => {
-    removeCar(t, id);
+    detachCar(t, id);
   });
   setEditor({ sel: null });
   editor.fitView();

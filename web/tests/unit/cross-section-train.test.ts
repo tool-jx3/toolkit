@@ -10,15 +10,15 @@ import { blankTrainDoc, ensureTrain } from '@/tools/cross-section/model/factory'
 import { fromOriginal, normalizeDoc } from '@/tools/cross-section/model/normalize';
 import { makeNote, newFixture } from '@/tools/cross-section/model/ops';
 import { sampleDoc, TRAIN_SAMPLE_IDS } from '@/tools/cross-section/model/samples';
-import { isFolded, ROW_H, trainLayoutOf, underId } from '@/tools/cross-section/model/trainLayout';
+import { ROW_H, trainLayoutOf, twoRows, underId } from '@/tools/cross-section/model/trainLayout';
 import {
-  addCar,
   blankTrain,
+  coupleCar,
+  detachCar,
   mergeCarRoom,
   moveCar,
   moveCarDivider,
   placeTrainNote,
-  removeCar,
   setCarType,
   setLocoKind,
   settleTrain,
@@ -76,7 +76,7 @@ function expectTidy(t: Train) {
 
 describe('排法與幾何', () => {
   it('自動：4 節以上折成兩排（多的一節在上排）；兩段折返 2 節以上就折；一列不折', () => {
-    expect([1, 2, 3, 4, 7, 10].map((n) => isFolded('auto', n))).toEqual([
+    expect([1, 2, 3, 4, 7, 10].map((n) => twoRows('auto', n))).toEqual([
       false,
       false,
       false,
@@ -84,10 +84,10 @@ describe('排法與幾何', () => {
       true,
       true,
     ]);
-    expect([1, 2, 3].map((n) => isFolded('folded', n))).toEqual([false, true, true]);
-    expect(isFolded('single', 10)).toBe(false);
+    expect([1, 2, 3].map((n) => twoRows('folded', n))).toEqual([false, true, true]);
+    expect(twoRows('single', 10)).toBe(false);
     const t = blankTrain();
-    for (const type of ['coach', 'dining', 'lounge', 'observation'] as const) addCar(t, type);
+    for (const type of ['coach', 'dining', 'lounge', 'observation'] as const) coupleCar(t, type);
     const T = trainLayoutOf(t);
     expect(T.folded).toBe(true);
     expect(T.rows.map((r) => r.cars.map((c) => c.index + 1))).toEqual([
@@ -110,7 +110,7 @@ describe('排法與幾何', () => {
       [14, 1],
       [29, 1],
     ]);
-    for (let i = 0; i < 3; i++) addCar(t, 'coach');
+    for (let i = 0; i < 3; i++) coupleCar(t, 'coach');
     const F = trainLayoutOf(t);
     expect(F.rows.map((r) => [r.y, r.cabin, r.floor, r.rail])).toEqual([
       [0, 2, 8, 10],
@@ -145,18 +145,18 @@ describe('排法與幾何', () => {
 describe('車廂的增減與區域', () => {
   it('最多 10 節、至少 1 節；挪位置；拿掉時設備與備註一起拿掉', () => {
     const t = blankTrain();
-    while (t.cars.length < MAX_CARS) expect(addCar(t, 'berth')).not.toBeNull();
-    expect(addCar(t, 'berth')).toBeNull();
+    while (t.cars.length < MAX_CARS) expect(coupleCar(t, 'berth')).not.toBeNull();
+    expect(coupleCar(t, 'berth')).toBeNull();
     const victim = t.cars[2];
     const n = makeNote('x');
     placeTrainNote(t, n, trainLayoutOf(t).cars[2].x + 3, 5);
     t.notes.push(n);
     expect(n.room).toBe(victim.rooms[0].id);
-    expect(removeCar(t, victim.id)).toBe(true);
+    expect(detachCar(t, victim.id)).toBe(true);
     expect(t.items.some((it) => victim.rooms.some((r) => r.id === it.room))).toBe(false);
     expect(t.notes).toHaveLength(0);
-    while (t.cars.length > 1) removeCar(t, t.cars[0].id);
-    expect(removeCar(t, t.cars[0].id)).toBe(false);
+    while (t.cars.length > 1) detachCar(t, t.cars[0].id);
+    expect(detachCar(t, t.cars[0].id)).toBe(false);
     const u = blankTrain();
     const [a, b] = u.cars;
     expect(moveCar(u, b.id, -1)).toBe(true);
@@ -168,7 +168,7 @@ describe('車廂的增減與區域', () => {
   it('9 種車廂的預設都排得滿；換種類時區域與設備換掉', () => {
     const t = blankTrain();
     for (const type of CAR_TYPES) setCarType(t, t.cars[1].id, type);
-    for (const type of CAR_TYPES) addCar(t, type);
+    for (const type of CAR_TYPES) coupleCar(t, type);
     expectTidy(t);
     const car = t.cars[1];
     setCarType(t, car.id, 'dining');

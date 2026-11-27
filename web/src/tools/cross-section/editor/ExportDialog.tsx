@@ -166,7 +166,12 @@ function ZipPane({ o }: { o: ZipOptions }) {
         <br />
         {S.zip.summaryCounts(info.scenes, info.masks, info.camos, info.cuts)}
       </p>
-      <p className="m-0 text-xs text-muted">{S.zip.note}</p>
+      <ul className="m-0 flex list-disc flex-col gap-1 pl-4 text-xs leading-relaxed text-muted">
+        <li>{S.zip.packHint}</li>
+        <li>{S.zip.note}</li>
+        <li>{S.zip.leakNote}</li>
+        {train ? <li>{S.zip.wideNote}</li> : null}
+      </ul>
     </div>
   );
 }

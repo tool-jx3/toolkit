@@ -1,7 +1,7 @@
 /**
  * 列車用的顏色（本站自己配）：彩色樣式是淡彩的車身（每種車廂一色）、靛灰的底盤、淡色的天空；
  * 其他五種樣式是由那個樣式的紙、墨、結構的顏色調出來的定值（樣式只換顏色，結構不變）。
- * 每個顏色都和原作的顏色保持距離（ΔE76 10 以上；規格 3.13）。
+ * 每個顏色都和原作資料夾裡所有檔的顏色保持距離（ΔE76 10 以上，或三個通道都差 12 以上；規格 3.7、3.13）。
  */
 import type { CarType, Scenery, StyleId } from '../model/types';
 import type { Palette } from './palette';
@@ -37,11 +37,11 @@ const TRAIN: Record<StyleId, TrainColors> = {
     livery: {
       loco: '#7a7fa6',
       suite: '#9fb7e8',
-      berth: '#a7d5c2',
+      berth: '#aaddc5',
       dining: '#e8a9a0',
       lounge: '#c9b0e6',
       coach: '#a6c4e0',
-      baggage: '#cece92',
+      baggage: '#ccce92',
       observation: '#b8d69a',
       escort: '#b4b4c8',
     },
@@ -49,7 +49,7 @@ const TRAIN: Record<StyleId, TrainColors> = {
     wheel: '#8a8aa6',
     rail: '#6c6e8a',
     sleeper: '#c2c2d4',
-    ballast: '#e1c3ba',
+    ballast: '#ebc9c0',
     glass: '#cfe4ff',
     blind: '#e6d2f0',
     smoke: '#e4e0f2',
@@ -122,18 +122,18 @@ const TRAIN: Record<StyleId, TrainColors> = {
     blind: '#e1b28f',
     smoke: '#e6b590',
     sky: {
-      starlit: ['#ecbd94', '#f7cd9e'],
-      blizzard: ['#f2c598', '#f6cc9c'],
-      viaduct: ['#e5b38c', '#f6cc9c'],
+      starlit: ['#ecbd94', '#fccd9f'],
+      blizzard: ['#f4c599', '#fdce9f'],
+      viaduct: ['#e5b38c', '#fdce9f'],
       tunnel: ['#bd8d75', '#d4a583'],
-      meadow: ['#f0c396', '#f6cc9c'],
+      meadow: ['#f2c397', '#fdce9f'],
     },
     far: '#d3a481',
     lining: '#cc9e81',
     girder: '#c3947b',
     field: '#e7b893',
     star: '#4e2a18',
-    moon: '#b5872b',
+    moon: '#ad801e',
   },
   draft: {
     livery: {
@@ -157,7 +157,7 @@ const TRAIN: Record<StyleId, TrainColors> = {
     smoke: '#eae0ef',
     sky: {
       starlit: ['#cbc8d8', '#e3dae8'],
-      blizzard: ['#f4e5f5', '#ffedff'],
+      blizzard: ['#f4e5f6', '#ffedff'],
       viaduct: ['#d7ccdc', '#ffedff'],
       tunnel: ['#9d9ab2', '#b4b1c5'],
       meadow: ['#e6dae7', '#ffedff'],
@@ -201,7 +201,7 @@ const TRAIN: Record<StyleId, TrainColors> = {
     girder: '#584566',
     field: '#261c34',
     star: '#efe0f5',
-    moon: '#e2b76d',
+    moon: '#e8b769',
   },
   terminal: {
     livery: {
@@ -215,24 +215,24 @@ const TRAIN: Record<StyleId, TrainColors> = {
       observation: '#2a1b03',
       escort: '#332005',
     },
-    chassis: '#674713',
-    wheel: '#47310b',
-    rail: '#7d5517',
+    chassis: '#6e4e1e',
+    wheel: '#442f0a',
+    rail: '#7c5415',
     sleeper: '#201b00',
     ballast: '#261301',
-    glass: '#6e4a12',
-    blind: '#503811',
+    glass: '#764e13',
+    blind: '#473210',
     smoke: '#3e2d0a',
     sky: {
       starlit: ['#1b1900', '#2c1d03'],
       blizzard: ['#1e1b01', '#281404'],
       viaduct: ['#352106', '#2e1e03'],
-      tunnel: ['#624412', '#412c0a'],
+      tunnel: ['#6c4e1e', '#412c0a'],
       meadow: ['#1d1a00', '#322002'],
     },
-    far: '#543a11',
-    lining: '#4c340c',
-    girder: '#573c0f',
+    far: '#4b3202',
+    lining: '#472f02',
+    girder: '#4d3202',
     field: '#3c240b',
     star: '#ffb43a',
     moon: '#e4b45f',

@@ -17,10 +17,10 @@ import {
   cutinsOf,
   DEFAULT_ZIP,
   guideSpot,
+  MUTE_CLIP,
   panelSpot,
   panelsOf,
   roomDataOf,
-  SILENT_MP3,
   scenesOf,
   tableRows,
   type ZipOptions,
@@ -231,9 +231,9 @@ describe('房間資料與 ZIP', () => {
 
 describe('無聲 MP3', () => {
   it('2.6 秒（和切入一樣長）、44.1 kHz 單聲道 64 kbps；Info 標頭寫好延遲與填充，解出來剛好 2.6 秒', async () => {
-    expect(SILENT_MP3).toEqual({ seconds: 2.6, sampleRate: 44100, channels: 1, kbps: 64 });
+    expect(MUTE_CLIP).toEqual({ seconds: 2.6, sampleRate: 44100, channels: 1, kbps: 64 });
     const bytes = await encodeMp3Loop(
-      createSilence(SILENT_MP3.seconds, { sampleRate: 44100, channels: 1 }),
+      createSilence(MUTE_CLIP.seconds, { sampleRate: 44100, channels: 1 }),
       { kbps: 64 },
     );
     const frames = listMp3Frames(bytes);

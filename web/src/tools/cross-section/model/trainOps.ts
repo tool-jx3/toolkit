@@ -7,7 +7,7 @@
  * 合併時被併掉的那間的設備與備註搬過去；祕密區域併進一般區域時一律改成 GM 專用。機關車沒有床下的祕密空間。
  */
 import { S } from '../strings';
-import { LOCO_ROOM_NAMES, presetOf } from './cars';
+import { fitoutOf, LOCO_ROOM_NAMES } from './cars';
 import { isFixtureKind } from './catalog';
 import { inRect } from './layout';
 import {
@@ -39,7 +39,7 @@ import {
 function furnishCar(t: Train, car: Car, type: CarType): void {
   car.rooms = [];
   let x = 0;
-  for (const [name, x1, wall, items, role, open] of presetOf(type, t.loco)) {
+  for (const [name, x1, wall, items, role, open] of fitoutOf(type, t.loco)) {
     const room: CarRoom = { id: uid('cr'), name, wall, secret: false, hideName: false, x0: x, x1 };
     if (role) room.role = role;
     if (open) room.open = true;
@@ -143,7 +143,7 @@ export function settleTrain(t: Train): boolean {
 /* ---------- 車廂 ---------- */
 
 /** 在最後面接一節；滿 10 節時回傳 null */
-export function addCar(t: Train, type: CarType): Car | null {
+export function coupleCar(t: Train, type: CarType): Car | null {
   if (t.cars.length >= MAX_CARS) return null;
   const car = makeCar(t, type);
   t.cars.push(car);
@@ -152,7 +152,7 @@ export function addCar(t: Train, type: CarType): Car | null {
 }
 
 /** 拿掉一節（至少留一節）：裡面的設備與備註一起拿掉 */
-export function removeCar(t: Train, id: string): boolean {
+export function detachCar(t: Train, id: string): boolean {
   const at = t.cars.findIndex((c) => c.id === id);
   if (at < 0 || t.cars.length < 2) return false;
   t.cars.splice(at, 1);
@@ -190,7 +190,7 @@ export function setCarType(t: Train, id: string, type: CarType): void {
  */
 export function setLocoKind(t: Train, kind: LocoKind): void {
   t.loco = kind;
-  const preset = presetOf('loco', kind);
+  const preset = fitoutOf('loco', kind);
   const names = { cab: '', engine: '' };
   for (const [name, , , , role] of preset)
     if (role === 'cab' || role === 'engine') names[role] = name;

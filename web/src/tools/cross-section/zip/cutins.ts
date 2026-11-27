@@ -12,12 +12,12 @@ import { EXPORT_TARGETS } from '@/ccfolia/targets';
 import { createEncoder } from '@/core/encode';
 import { SANS } from '../draw/text';
 import { S } from '../strings';
-import { type CutinKind, SILENT_MP3 } from './plan';
+import { type CutinKind, MUTE_CLIP } from './plan';
 
 export const CUTIN_W = 640;
 export const CUTIN_H = 320;
 /** 切入的長度＝無聲 MP3 的長度（播一次剛好結束） */
-export const CUTIN_SECONDS = SILENT_MP3.seconds;
+export const CUTIN_SECONDS = MUTE_CLIP.seconds;
 /** CCFOLIA 切入的容量上限 */
 export const CUTIN_LIMIT = EXPORT_TARGETS['ccfolia-cutin'].maxBytes;
 
@@ -95,8 +95,8 @@ export function drawCutin(g: CanvasRenderingContext2D, kind: CutinKind, t: numbe
     const bx = W * 0.17;
     if (lit) {
       const glow = g.createRadialGradient(bx, cy - 6, 0, bx, cy - 6, 90);
-      glow.addColorStop(0, 'rgba(251, 236, 144, 0.6)');
-      glow.addColorStop(1, 'rgba(251, 236, 144, 0)');
+      glow.addColorStop(0, 'rgba(251, 238, 146, 0.6)');
+      glow.addColorStop(1, 'rgba(251, 238, 146, 0)');
       g.fillStyle = glow;
       g.fillRect(bx - 90, cy - 96, 180, 180);
     }

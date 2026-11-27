@@ -650,7 +650,7 @@ const ORIG_SCENERY: Record<string, Scenery> = {
 };
 
 /** 車廂名字前面原作自動加的「N号車 · 」（日、英、韓）拿掉 */
-const stripCarNumber = (name: string): string =>
+const dropCarOrdinal = (name: string): string =>
   name.replace(/^\s*(?:\d+号車|Car\s*\d+|\d+호차)\s*[·・:-]\s*/i, '').trim();
 
 /** 原作的列車（車廂、區域、連結器、床下）；一節都讀不到時 null。rooms／unders＝原作的 id → 本站的 */
@@ -695,7 +695,7 @@ function originalTrain(
     const car: Car = {
       id: id(c.id, 'car'),
       type,
-      name: stripCarNumber(str(c.name, '', CAPS.name)) || S.cars[type],
+      name: dropCarOrdinal(str(c.name, '', CAPS.name)) || S.cars[type],
       rooms: list,
       coupler: ORIG_COUPLER[String(c.couplerAfter)] ?? 'normal',
       hatch: c.roofHatch === undefined ? type !== 'loco' : c.roofHatch === true,

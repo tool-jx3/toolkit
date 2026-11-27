@@ -21,12 +21,12 @@ import { S } from '../strings';
 import { encodeCutin } from './cutins';
 import {
   boardCanvas,
+  canvasPng,
+  coverPng,
   cropPng,
   drawScenePlate,
   ensureZipFonts,
   guidePng,
-  maskPng,
-  pngBytes,
   wallpaperPng,
   zipText,
 } from './images';
@@ -34,10 +34,10 @@ import {
   type Board,
   boardOf,
   cutinsOf,
+  MUTE_CLIP,
   type Panel,
   panelsOf,
   roomDataOf,
-  SILENT_MP3,
   scenesOf,
   tableRows,
   type ZipOptions,
@@ -98,7 +98,7 @@ export async function buildRoom(
     const c = boardCanvas(doc, plan, b, sd.env, sd.flood, 'reveal');
     drawScenePlate(c, doc, b, sd);
     sceneImages.push({
-      fg: await add(await pngBytes(c)),
+      fg: await add(await canvasPng(c)),
       bg: await add(await wallpaperPng(sd.key)),
     });
   }
@@ -112,17 +112,17 @@ export async function buildRoom(
     const bytes =
       p.kind === 'camo'
         ? await cropPng(pl, b, p.rect)
-        : await maskPng(o.mask, p.rect, b.cell, p.code, p.label, seedOf(p.code));
+        : await coverPng(o.mask, p.rect, b.cell, p.code, p.label, seedOf(p.code));
     panelImages.push(await add(bytes));
   }
-  const sceneNames = scenes.map((s) => s.name);
+  const sceneTitles = scenes.map((s) => s.name);
   const cutNames = cuts.map((c) => c.name);
   const guideImage = o.guide
     ? await add(
         await guidePng({
           title: doc.title,
           board: b,
-          scenes: sceneNames,
+          scenes: sceneTitles,
           cutins: cutNames,
           panels,
           safe: true,
@@ -153,7 +153,7 @@ export async function buildRoom(
   const guide = await guidePng({
     title: doc.title,
     board: b,
-    scenes: sceneNames,
+    scenes: sceneTitles,
     cutins: cutNames,
     panels,
     safe: false,
@@ -165,7 +165,7 @@ export async function buildRoom(
     fileName: S.zip.roomName(safeTitle(doc.title), o.blind),
     board: b,
     panels,
-    scenes: sceneNames,
+    scenes: sceneTitles,
     cutins: cutNames,
     guide,
     table: toCsv(tableRows(panels), { bom: true, guard: true }),
@@ -174,7 +174,7 @@ export async function buildRoom(
 
 /** 自動結束用的無聲 MP3（2.6 秒、44.1 kHz 單聲道 64 kbps；和切入一樣長） */
 export function silentMp3(signal?: AbortSignal): Promise<Uint8Array> {
-  const { seconds, sampleRate, channels, kbps } = SILENT_MP3;
+  const { seconds, sampleRate, channels, kbps } = MUTE_CLIP;
   return encodeMp3(createSilence(seconds, { sampleRate, channels }), { kbps }, { signal });
 }
 

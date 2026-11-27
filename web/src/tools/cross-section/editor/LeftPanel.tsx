@@ -318,24 +318,22 @@ function TrainTab() {
   const full = t.cars.length >= MAX_CARS;
   return (
     <div className="flex flex-col gap-3" data-testid="train-build">
-      <div className="grid grid-cols-2 gap-2">
-        <Field label={S.train.loco}>
-          <Select
-            value={t.loco}
-            onValueChange={(v: LocoKind) => act.setLoco(v)}
-            options={LOCO_KINDS.map((v) => ({ value: v, label: S.locos[v] }))}
-            data-testid="loco-select"
-          />
-        </Field>
-        <Field label={S.train.arrange}>
-          <Select
-            value={t.arrange}
-            onValueChange={(v: Arrange) => act.setArrange(v)}
-            options={ARRANGES.map((v) => ({ value: v, label: S.arranges[v] }))}
-            data-testid="arrange-select"
-          />
-        </Field>
-      </div>
+      <Field label={S.train.loco}>
+        <Select
+          value={t.loco}
+          onValueChange={(v: LocoKind) => act.setLoco(v)}
+          options={LOCO_KINDS.map((v) => ({ value: v, label: S.locos[v] }))}
+          data-testid="loco-select"
+        />
+      </Field>
+      <Field label={S.train.arrange}>
+        <Select
+          value={t.arrange}
+          onValueChange={(v: Arrange) => act.setArrange(v)}
+          options={ARRANGES.map((v) => ({ value: v, label: S.arranges[v] }))}
+          data-testid="arrange-select"
+        />
+      </Field>
       <Field label={S.train.scenery}>
         <Select
           value={t.scenery}
@@ -372,7 +370,7 @@ function TrainTab() {
             onClick={() => act.addCarOf(type)}
             data-testid="add-car"
           >
-            {S.train.addCar}
+            {S.train.coupleCar}
           </Button>
         </div>
         <ul className="m-0 flex list-none flex-col gap-1 p-0" data-testid="car-list">

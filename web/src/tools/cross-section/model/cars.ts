@@ -18,7 +18,7 @@ type Slot = readonly [
 
 const R = S.carRooms;
 
-export const CAR_PRESETS: Record<Exclude<CarType, 'loco'>, readonly Slot[]> = {
+export const CAR_FITOUT: Record<Exclude<CarType, 'loco'>, readonly Slot[]> = {
   suite: [
     [
       R.suiteA,
@@ -189,7 +189,7 @@ export const CAR_PRESETS: Record<Exclude<CarType, 'loco'>, readonly Slot[]> = {
   ],
 };
 
-export const LOCO_PRESETS: Record<LocoKind, readonly Slot[]> = {
+export const LOCO_FITOUT: Record<LocoKind, readonly Slot[]> = {
   steam: [
     [
       R.boilerRoom,
@@ -238,8 +238,8 @@ export const LOCO_PRESETS: Record<LocoKind, readonly Slot[]> = {
   ],
 };
 
-export const presetOf = (type: CarType, loco: LocoKind): readonly Slot[] =>
-  type === 'loco' ? LOCO_PRESETS[loco] : CAR_PRESETS[type];
+export const fitoutOf = (type: CarType, loco: LocoKind): readonly Slot[] =>
+  type === 'loco' ? LOCO_FITOUT[loco] : CAR_FITOUT[type];
 
 /** 機關車的區域預設的名字（換蒸氣／電氣時，沒改過的名字跟著換） */
 export const LOCO_ROOM_NAMES = new Set([R.boilerRoom, R.cab, R.machineRoom]);

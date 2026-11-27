@@ -177,7 +177,7 @@ export const S = {
     roofRoute: '車頂的移動路線與艙口',
     cars: '車廂（前 → 後）',
     carCount: (n: number, max: number) => `${n}／${max} 節`,
-    addCar: '連結',
+    coupleCar: '連結',
     newCarType: '要連結的車廂',
     carNo: (n: number) => `${n} 車`,
     carRooms: (n: number) => `${n} 間`,
@@ -674,7 +674,9 @@ export const S = {
     summaryCounts: (scenes: number, masks: number, camos: number, cuts: number) =>
       `場景 ${scenes}・遮罩 ${masks}・祕密的偽裝 ${camos}・切入 ${cuts}`,
     download: '下載房間 ZIP',
-    pack: 'KP 準備包（房間 ZIP＋無聲 MP3＋說明圖＋對照表）',
+    pack: 'KP 準備包',
+    packHint:
+      'KP 準備包：房間 ZIP、無聲 MP3、KP 操作說明圖（完整的名字）、遮罩對照表（CSV）放在一個 ZIP。',
     mp3: '只存無聲 MP3',
     guidePng: '只存 KP 操作說明圖',
     busy: '準備中…',
@@ -694,6 +696,10 @@ export const S = {
     failed: '房間 ZIP 做不出來，請再試一次',
     checkFailed: '房間 ZIP 的自我檢查沒通過，請回報',
     note: '圖都是在這台電腦上畫的。CCFOLIA 的房間 ZIP 不能放聲音：切入要播一次就自動結束時，把無聲 MP3 設成切入的音效（說明圖與 KP 準備包裡有寫）。',
+    leakNote:
+      '遮罩與偽裝是蓋在前景上的螢幕面板：前景圖本身就畫著祕密區域的內容，PL 拿到圖檔就看得到（用面板遮住的做法本身的限制）。',
+    wideNote:
+      '列車排成一列時前景圖很寬（10 節約 6700 px）；在 CCFOLIA 讀不進去的話，把上面的「列車的排法（這次匯出）」改成兩段折返再匯出。',
     mp3Name: '切入自動結束用_無聲2.6秒.mp3',
     roomName: (title: string, blind: boolean) =>
       `${title}_CCFOLIA房間${blind ? '_無記名' : ''}.zip`,
@@ -717,7 +723,7 @@ export const S = {
       '讀入：CCFOLIA 開一個新房間，在房間設定的「匯入」讀這個 ZIP。',
       (cols: number, rows: number, cell: number, big: boolean) =>
         `盤面 ${cols} × ${rows} 格（前景每格 ${cell} px）；棋子建議 ${big ? '4～6' : '2～3'} 格。右邊與下面留給聊天與立繪。`,
-      '公開房間：在「螢幕面板（スクリーンパネル）」的一覽按眼睛的圖示關掉，那間的遮罩就拿掉。面板的位置固定、點了會穿過去（不擋棋子）。',
+      '公開房間：在「螢幕面板」的一覽按眼睛的圖示關掉，那間的遮罩就拿掉。面板的位置固定、點了會穿過去（不擋棋子）。',
       '祕密區域：S- 開頭的面板平常是偽裝（和周圍的牆一模一樣，每個場景都不會露出來），找到時關掉眼睛，房間就出現。',
       (names: string) => `場景：${names}。換場景不影響遮罩。`,
       (names: string) => `切入：在聊天打 ${names}。`,
@@ -808,6 +814,6 @@ export const S = {
       '畫布上方切換四種環境（1～4：白天・平常、夜・雨、停電・緊急照明、事件後）、淹水、GM 用／PL 用（G）。',
       '「完成」分頁選圖面的樣式、紙的老舊與顯示的項目；「匯出」選圖片（範圍、對象、環境與大小，或事件前後各存一張），或 CCFOLIA 房間 ZIP（每個區域的遮罩、祕密區域的偽裝、四個場景、切入、KP 準備包）。',
     ],
-    note: '自動儲存在這台電腦的瀏覽器；要帶到別台電腦或備份時從「專案」選單存成專案檔（也可以開原作存的作業 JSON，縱向與橫向都可以）。CCFOLIA 房間 ZIP 不能放聲音：切入要播一次就結束時，把附的無聲 MP3 設成切入的音效。',
+    note: '自動儲存在這台電腦的瀏覽器；要帶到別台電腦或備份時從「專案」選單存成專案檔（也可以開原作存的作業 JSON，縱向與橫向都可以）。CCFOLIA 房間 ZIP 不能放聲音：切入要播一次就結束時，把附的無聲 MP3 設成切入的音效。房間 ZIP 的前景圖本身就畫著祕密區域（遮罩是蓋在上面的螢幕面板），PL 拿到圖檔就看得到；10 節排成一列時前景圖很寬，CCFOLIA 讀不進去的話改用兩段折返（「這次匯出」的排法）。',
   },
 };

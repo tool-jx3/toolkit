@@ -76,7 +76,7 @@ export interface TrainLayout {
 }
 
 /** 這個排法、這麼多節時折不折成兩排 */
-export const isFolded = (arrange: Arrange, n: number): boolean =>
+export const twoRows = (arrange: Arrange, n: number): boolean =>
   arrange === 'folded' ? n >= 2 : arrange === 'auto' && n >= 4;
 
 /** 床下的祕密空間當成一間（備註、點選、CCFOLIA 的偽裝用） */
@@ -95,7 +95,7 @@ export function trainLayoutOf(
   arrange = t.arrange,
 ): TrainLayout {
   const cars = t.cars;
-  const folded = isFolded(arrange, cars.length);
+  const folded = twoRows(arrange, cars.length);
   const split = folded ? Math.ceil(cars.length / 2) : cars.length;
   const groups = folded ? [cars.slice(0, split), cars.slice(split)] : [cars];
   const rows: RowBox[] = [];

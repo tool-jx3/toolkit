@@ -287,7 +287,7 @@ export function zipDoc(doc: SectionDoc, arrange: Arrange): SectionDoc {
 /* ---------- 房間資料 ---------- */
 
 /** 自動結束用的無聲 MP3：和切入一樣長（2.6 秒）、44.1 kHz 單聲道 64 kbps */
-export const SILENT_MP3 = { seconds: 2.6, sampleRate: 44100, channels: 1, kbps: 64 } as const;
+export const MUTE_CLIP = { seconds: 2.6, sampleRate: 44100, channels: 1, kbps: 64 } as const;
 
 /** 房間的背景色（盤面外） */
 export const ROOM_BACKGROUND = '#180d23';
