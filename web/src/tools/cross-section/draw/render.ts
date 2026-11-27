@@ -141,7 +141,7 @@ function drawRoomFixtures(
     if (p.id === 'color' && def.hang === 'floor' && !def.flat) {
       c.beginPath();
       c.ellipse(0, 0.02, def.width * 0.46, 0.07, 0, 0, Math.PI * 2);
-      c.fillStyle = alpha('#565c4c', 0.28);
+      c.fillStyle = alpha(p.ink, 0.16);
       c.fill();
     }
     const ceil = def.reach && !pl.tilt ? (CEIL_T + FLOOR_T - rb.h) / pl.scale : null;
@@ -231,7 +231,7 @@ function wallGrain(c: Ctx, r: Rect, tone: WallTone, color: string): void {
 /** PL 用：地上的祕密區域偽裝成砌石的牆 */
 function drawCamo(k: Kit, r: Rect): void {
   const { c, p } = k;
-  c.fillStyle = p.camo;
+  c.fillStyle = p.disguise;
   c.fillRect(r.x, r.y, r.w, r.h);
   c.save();
   c.beginPath();
@@ -256,7 +256,7 @@ function drawCamo(k: Kit, r: Rect): void {
 
 function drawRoomShell(k: Kit, rb: RoomBox): Rect {
   const { c, p } = k;
-  hatchRect(c, rb.x, rb.y, rb.w, rb.h, p.structure, p.hatch);
+  hatchRect(c, rb.x, rb.y, rb.w, rb.h, p.slab, p.hatch);
   const inn = interiorOf(rb);
   c.fillStyle = p.walls[rb.room.wall] ?? p.walls.plaster;
   c.fillRect(inn.x, inn.y, inn.w, inn.h);
@@ -270,7 +270,7 @@ function drawRoomShell(k: Kit, rb: RoomBox): Rect {
     0.022,
     alpha(p.ink, 0.22),
   );
-  c.fillStyle = alpha(p.structure, 0.45);
+  c.fillStyle = alpha(p.slab, 0.45);
   c.fillRect(inn.x, inn.y + inn.h - 0.16, inn.w, 0.16);
   box(k, inn.x, inn.y, inn.w, inn.h, null, 0.042);
   box(k, rb.x + 0.05, rb.y + 0.05, rb.w - 0.1, rb.h - 0.1, null, 0.04);
@@ -356,16 +356,16 @@ export function noteShape(c: Ctx, L: Layout, n: Note): NoteShape {
   const single = Math.max(2, textWidth(c, n.text, noteFont(base)) + 0.65);
   if (!owner) return made(px, py, single, base * 1.8, [n.text], base);
   const a = noteArea(owner, 0.14, 0.16);
-  const roomW = Math.max(1.2, a.w);
-  const roomH = Math.max(0.8, a.h);
+  const areaW = Math.max(1.2, a.w);
+  const areaH = Math.max(0.8, a.h);
   /* 一行放不下時字縮小、換行 */
-  const size = single > roomW ? Math.min(base, clamp(base * 0.74, 0.24, 0.32)) : base;
+  const size = single > areaW ? Math.min(base, clamp(base * 0.74, 0.24, 0.32)) : base;
   const lh = size * NOTE_LINE;
-  const rows = clamp(Math.floor((roomH - 0.24) / lh), 1, 8);
-  const lines = wrapText(c, n.text, Math.max(0.8, roomW - 0.42), noteFont(size), rows);
-  const widest = lines.reduce((m, l) => Math.max(m, textWidth(c, l, noteFont(size))), size);
-  const w = Math.min(roomW, Math.max(1.6, widest + 0.48));
-  const h = Math.min(roomH, lh * lines.length + 0.3);
+  const rows = clamp(Math.floor((areaH - 0.24) / lh), 1, 8);
+  const lines = wrapText(c, n.text, Math.max(0.8, areaW - 0.42), noteFont(size), rows);
+  const longest = lines.reduce((m, l) => Math.max(m, textWidth(c, l, noteFont(size))), size);
+  const w = Math.min(areaW, Math.max(1.6, longest + 0.48));
+  const h = Math.min(areaH, lh * lines.length + 0.3);
   return made(
     keepInside(px, a.x, a.x + a.w, w / 2),
     keepInside(py, a.y, a.y + a.h, h / 2 + 0.04),
@@ -484,7 +484,7 @@ export function drawScene(c: Ctx, doc: SectionDoc, L: Layout, o: SceneOpts): voi
   drawRoof(k, doc, L);
 
   const lights: LightSpot[] = [];
-  const secretLights: LightSpot[] = [];
+  const hiddenGlows: LightSpot[] = [];
   const interiors: Rect[] = [];
   const secretInteriors: Rect[] = [];
   const named: { rb: RoomBox; gm: boolean }[] = [];
@@ -498,7 +498,7 @@ export function drawScene(c: Ctx, doc: SectionDoc, L: Layout, o: SceneOpts): voi
     const secret = rb.room.secret;
     const inn = drawRoomShell(k, rb);
     (secret ? secretInteriors : interiors).push(inn);
-    drawRoomFixtures(k, doc, rb, o.audience, o.env, secret ? secretLights : lights, sel);
+    drawRoomFixtures(k, doc, rb, o.audience, o.env, secret ? hiddenGlows : lights, sel);
     if (secret && o.audience === 'gm') {
       c.setLineDash([0.26, 0.16]);
       box(k, inn.x + 0.08, inn.y + 0.08, inn.w - 0.16, inn.h - 0.16, null, 0.07, p.gm);
@@ -521,8 +521,8 @@ export function drawScene(c: Ctx, doc: SectionDoc, L: Layout, o: SceneOpts): voi
   }
   /* 太窄、放不下區域的縫畫成牆 */
   for (const f of L.floors)
-    for (const g of f.gaps) {
-      hatchRect(c, g.x0, f.y0, g.x1 - g.x0, f.y1 - f.y0, p.structure, p.hatch);
+    for (const g of f.slivers) {
+      hatchRect(c, g.x0, f.y0, g.x1 - g.x0, f.y1 - f.y0, p.slab, p.hatch);
       box(k, g.x0, f.y0, g.x1 - g.x0, f.y1 - f.y0, null, 0.035);
     }
   for (const s of L.shafts) {
@@ -545,12 +545,12 @@ export function drawScene(c: Ctx, doc: SectionDoc, L: Layout, o: SceneOpts): voi
   }
   /* 淹水（地下的部分；沒有地下時整棟） */
   if (o.flood > 0) {
-    const top = L.totalH > L.glY ? L.glY : 0;
-    drawFlood(k, interiors, top, L.totalH, o.flood);
-    drawFlood(k, secretInteriors, top, L.totalH, o.flood);
+    const top = L.stackDepth > L.groundY ? L.groundY : 0;
+    drawFlood(k, interiors, top, L.stackDepth, o.flood);
+    drawFlood(k, secretInteriors, top, L.stackDepth, o.flood);
   }
   drawLighting(k, o.env, interiors, lights);
-  drawLighting(k, o.env, secretInteriors, secretLights);
+  drawLighting(k, o.env, secretInteriors, hiddenGlows);
   if (doc.grid) {
     for (const group of [interiors, secretInteriors]) {
       if (!group.length) continue;
@@ -561,9 +561,9 @@ export function drawScene(c: Ctx, doc: SectionDoc, L: Layout, o: SceneOpts): voi
       c.beginPath();
       for (let x = 1; x < L.width; x++) {
         c.moveTo(x, 0);
-        c.lineTo(x, L.totalH);
+        c.lineTo(x, L.stackDepth);
       }
-      for (let y = 1; y < L.totalH; y++) {
+      for (let y = 1; y < L.stackDepth; y++) {
         c.moveTo(0, y);
         c.lineTo(L.width, y);
       }

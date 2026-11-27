@@ -4,18 +4,19 @@
  */
 import { describe, expect, it } from 'vitest';
 import { blankDoc } from '@/tools/cross-section/model/factory';
-import { layoutOf, spacesOf } from '@/tools/cross-section/model/layout';
+import { layoutOf, partition } from '@/tools/cross-section/model/layout';
 import {
   addFloor,
   addShaft,
   freeShaftX,
-  makeFixture,
   makeNote,
   mergeFloor,
   moveDivider,
+  newFixture,
   placeNote,
   removeFloor,
   setRoomWidth,
+  setShaftEnd,
   settle,
   splitFloor,
 } from '@/tools/cross-section/model/ops';
@@ -31,14 +32,14 @@ const floor = (d: SectionDoc, level: number) => {
 /** 每層的區域排滿每一段空間、整數格、至少 4 格、不和公開通道重疊 */
 function expectTiled(d: SectionDoc) {
   for (const f of d.building.floors) {
-    const { bays, slots } = spacesOf(d.building, f.level);
+    const { spaces, cuts } = partition(d.building, f.level);
     const rooms = [...f.rooms].sort((a, b) => a.x0 - b.x0);
     for (const r of rooms) {
       expect(Number.isInteger(r.x0) && Number.isInteger(r.x1)).toBe(true);
       expect(r.x1 - r.x0).toBeGreaterThanOrEqual(MIN_ROOM);
-      for (const s of slots) expect(r.x1 <= s.x0 || r.x0 >= s.x1).toBe(true);
+      for (const s of cuts) expect(r.x1 <= s.x0 || r.x0 >= s.x1).toBe(true);
     }
-    for (const b of bays) {
+    for (const b of spaces) {
       const inBay = rooms.filter((r) => r.x0 >= b.x0 && r.x1 <= b.x1);
       expect(inBay[0]?.x0).toBe(b.x0);
       expect(inBay[inBay.length - 1]?.x1).toBe(b.x1);
@@ -52,8 +53,8 @@ describe('幾何', () => {
     const d = blankDoc();
     const L = layoutOf(d);
     expect(L.floors.map((f) => f.floor.level)).toEqual([1, -1]);
-    expect(L.floors[0].slots.map((s) => [s.x0, s.x1])).toEqual([[16, 19]]);
-    expect(L.floors[0].bays).toEqual([
+    expect(L.floors[0].cuts.map((s) => [s.x0, s.x1])).toEqual([[16, 19]]);
+    expect(L.floors[0].spaces).toEqual([
       { x0: 0, x1: 16 },
       { x0: 19, x1: 36 },
     ]);
@@ -63,7 +64,7 @@ describe('幾何', () => {
     ]);
     /* 世界：左 4、右 2、屋頂 3＋天空 2、地層 3 */
     expect(L.world).toEqual({ x: -4, y: -5, w: 42, h: 12 + 5 + 3 });
-    expect(L.glY).toBe(6);
+    expect(L.groundY).toBe(6);
     expect(L.storey).toBe(6);
     expectTiled(d);
   });
@@ -73,20 +74,20 @@ describe('幾何', () => {
     d.building.rooftop = false;
     d.building.storey = 5;
     const L = layoutOf(d);
-    expect(L.roofH).toBe(1);
+    expect(L.roofDepth).toBe(1);
     expect(L.world.y).toBe(-3);
-    expect(L.totalH).toBe(10);
-    expect(L.glY).toBe(5);
+    expect(L.stackDepth).toBe(10);
+    expect(L.groundY).toBe(5);
   });
 
   it('沒有 1F 時地面在最下面的地上樓層；全是地下時在最上面', () => {
     const d = blankDoc();
     floor(d, 1).level = 2;
     settle(d);
-    expect(layoutOf(d).glY).toBe(6);
+    expect(layoutOf(d).groundY).toBe(6);
     d.building.floors = d.building.floors.filter((f) => f.level < 0);
     settle(d);
-    expect(layoutOf(d).glY).toBe(0);
+    expect(layoutOf(d).groundY).toBe(0);
   });
 
   it('範例都排得整齊', () => {
@@ -139,6 +140,58 @@ describe('樓層', () => {
 });
 
 describe('區域', () => {
+  it('一開始就超過容量：多的由右往左併進左鄰（左鄰不加寬，只搬設備），再照比例分（和原作同樣的結果）', () => {
+    const d = blankDoc();
+    d.building.width = 30;
+    d.building.shafts = [
+      {
+        id: 'el',
+        kind: 'elevator',
+        x: 15,
+        top: 1,
+        bottom: 1,
+        cab: 1,
+        cabState: 'normal',
+        secret: false,
+      },
+    ];
+    const room = (id: string, x0: number, x1: number) => ({
+      id,
+      name: id,
+      use: 'empty' as const,
+      wall: 'plaster' as const,
+      secret: false,
+      hideName: false,
+      x0,
+      x1,
+    });
+    d.building.floors = [
+      {
+        id: 'f1',
+        level: 1,
+        name: '',
+        rooms: [
+          room('a', 0, 7),
+          room('b', 7, 8),
+          room('c', 8, 9),
+          room('d', 9, 15),
+          room('e', 18, 30),
+        ],
+      },
+    ];
+    d.items = [newFixture('d', 'crates', { rx: 0.5 })];
+    settle(d);
+    const rooms = floor(d, 1).rooms.map((r) => [r.id, r.x0, r.x1]);
+    /* 左段 15 格放 3 間：d 併進 c（c 不加寬），比例 7：4：4 → 7、4、4 */
+    expect(rooms).toEqual([
+      ['a', 0, 7],
+      ['b', 7, 11],
+      ['c', 11, 15],
+      ['e', 18, 30],
+    ]);
+    expect(d.items[0].room).toBe('c');
+  });
+
   it('多一間：分開最寬的那間（中間取整數）；最多 5 間；不到 8 格不分', () => {
     const d = blankDoc();
     const f = floor(d, 1);
@@ -163,7 +216,7 @@ describe('區域', () => {
     ];
     settle(narrow);
     const nf = floor(narrow, 1);
-    expect(layoutOf(narrow).floors[0].gaps).toEqual([{ x0: 29, x1: 30 }]);
+    expect(layoutOf(narrow).floors[0].slivers).toEqual([{ x0: 29, x1: 30 }]);
     expect(nf.rooms.map((r) => r.x1 - r.x0)).toEqual([7, 7, 7]);
     expect(splitFloor(narrow, nf.id)).toBe('narrow');
   });
@@ -174,8 +227,8 @@ describe('區域', () => {
     const right = f.rooms[1];
     d.items = d.items.filter((it) => it.room !== right.id);
     d.items.push(
-      makeFixture(right.id, 'crates', { rx: 0.1 }),
-      makeFixture(right.id, 'crates', { rx: 0.9 }),
+      newFixture(right.id, 'crates', { rx: 0.1 }),
+      newFixture(right.id, 'crates', { rx: 0.9 }),
     );
     splitFloor(d, f.id);
     const added = f.rooms.find((r) => r.x0 === 27);
@@ -187,11 +240,11 @@ describe('區域', () => {
     const d = blankDoc();
     const f = floor(d, 1);
     splitFloor(d, f.id);
-    const victim = f.rooms.find((r) => r.x0 === 27);
-    const survivor = f.rooms.find((r) => r.x1 === 27);
-    if (!victim || !survivor) throw new Error('rooms');
-    victim.secret = true;
-    d.items.push(makeFixture(victim.id, 'altar', { rx: 0.5 }));
+    const gone = f.rooms.find((r) => r.x0 === 27);
+    const keeper = f.rooms.find((r) => r.x1 === 27);
+    if (!gone || !keeper) throw new Error('rooms');
+    gone.secret = true;
+    d.items.push(newFixture(gone.id, 'altar', { rx: 0.5 }));
     const n = makeNote('秘');
     placeNote(d, n, 31, 3);
     d.notes.push(n);
@@ -202,8 +255,8 @@ describe('區域', () => {
       [19, 36],
     ]);
     const moved = d.items.find((it) => it.kind === 'altar');
-    expect(moved).toMatchObject({ room: survivor.id, secret: true });
-    expect(d.notes[0]).toMatchObject({ room: survivor.id, secret: true });
+    expect(moved).toMatchObject({ room: keeper.id, secret: true });
+    expect(d.notes[0]).toMatchObject({ room: keeper.id, secret: true });
     /* 位置照建築裡的位置換算：原本在 27～36 的中間 → 合併後的右邊 */
     expect(moved?.rx).toBeGreaterThan(0.6);
     expect(mergeFloor(d, f.id).ok).toBe(false);
@@ -235,11 +288,11 @@ describe('通道', () => {
     expect(s).toMatchObject({ top: 1, bottom: -1, secret: false });
     expect(s?.x).not.toBe(16);
     const L = layoutOf(d);
-    const xs = L.floors[0].slots.map((v) => [v.x0, v.x1]);
+    const xs = L.floors[0].cuts.map((v) => [v.x0, v.x1]);
     for (let i = 1; i < xs.length; i++) expect(xs[i][0]).toBeGreaterThanOrEqual(xs[i - 1][1]);
     const duct = addShaft(d, 'duct');
     expect(duct).toMatchObject({ x: 34, secret: true });
-    expect(layoutOf(d).floors[0].slots).toHaveLength(2);
+    expect(layoutOf(d).floors[0].cuts).toHaveLength(2);
     expectTiled(d);
     /* 寬 30 塞滿之後放不下 */
     const full = blankDoc();
@@ -249,7 +302,17 @@ describe('通道', () => {
     while (addShaft(full, 'switchback')) n++;
     expect(n).toBeGreaterThan(0);
     expect(freeShaftX(full.building, 4, 1, -1)).toBe(-1);
-    expect(layoutOf(full).floors[0].bays.some((b) => b.x1 - b.x0 >= MIN_ROOM)).toBe(true);
+    expect(layoutOf(full).floors[0].spaces.some((b) => b.x1 - b.x0 >= MIN_ROOM)).toBe(true);
+  });
+
+  it('上端選到比下端低時兩端對調（F33）', () => {
+    const s = { top: 2, bottom: -1 } as Parameters<typeof setShaftEnd>[0];
+    setShaftEnd(s, 'top', -2);
+    expect([s.top, s.bottom]).toEqual([-1, -2]);
+    setShaftEnd(s, 'bottom', 1);
+    expect([s.top, s.bottom]).toEqual([1, -1]);
+    setShaftEnd(s, 'top', 3);
+    expect([s.top, s.bottom]).toEqual([3, -1]);
   });
 
   it('兩條公開通道撞在一起時後面那條挪開；GM 專用的通道畫在區域上（不佔）', () => {
@@ -261,18 +324,18 @@ describe('通道', () => {
     b.secret = true;
     b.x = 2;
     settle(d);
-    expect(layoutOf(d).floors[0].slots.map((s) => s.shaft.id)).toEqual([a.id]);
+    expect(layoutOf(d).floors[0].cuts.map((s) => s.shaft.id)).toEqual([a.id]);
     expect(layoutOf(d).shafts.find((s) => s.shaft.id === 'b')?.x).toBe(2);
   });
 
-  it('太窄的縫畫成牆（gaps）；電梯車廂夾在經過的樓層', () => {
+  it('太窄的縫畫成牆（slivers）；電梯車廂夾在經過的樓層', () => {
     const d = blankDoc();
     d.building.shafts[0].x = 2;
     d.building.shafts[0].cab = 5;
     settle(d);
     const L = layoutOf(d);
-    expect(L.floors[0].gaps).toEqual([{ x0: 0, x1: 2 }]);
-    expect(L.floors[0].bays).toEqual([{ x0: 5, x1: 36 }]);
+    expect(L.floors[0].slivers).toEqual([{ x0: 0, x1: 2 }]);
+    expect(L.floors[0].spaces).toEqual([{ x0: 5, x1: 36 }]);
     expect([1, -1]).toContain(d.building.shafts[0].cab);
     expectTiled(d);
   });
@@ -283,7 +346,8 @@ describe('備註', () => {
     const d = blankDoc();
     const n = makeNote('調查的重點');
     expect(n.style).toBe('box');
-    expect(makeNote('A1').style).toBe('badge');
+    expect(makeNote('A1').style).toBe('box');
+    expect(makeNote('A1', 'badge').style).toBe('badge');
     placeNote(d, n, 8, 3);
     expect(n.room).toBe(floor(d, 1).rooms[0].id);
     expect([n.rx, n.ry]).toEqual([0.5, 0.5]);

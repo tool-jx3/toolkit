@@ -26,8 +26,9 @@ export function saveProjectFile(): void {
   notify(S.msg.saved(name), 'success');
 }
 
-/** 本站的專案檔（ProjectMenu 讀好 JSON 之後） */
-export function openProject(data: unknown): boolean {
+/** 本站的專案檔（ProjectMenu 讀好 JSON 之後）；較新版本的工具存的不開（丟出說明的錯誤） */
+export function openProject(data: unknown, version = DATA_VERSION): boolean {
+  if (version > DATA_VERSION) throw new ProjectFileError(S.project.newer);
   const doc = normalizeDoc(data);
   if (!doc) return false;
   loadDoc(doc);
@@ -40,6 +41,8 @@ export function skippedText(s: OriginalSkipped): string | undefined {
     s.items ? S.project.skippedItems(s.items) : '',
     s.notes ? S.project.skippedNotes(s.notes) : '',
     s.floors ? S.project.skippedFloors(s.floors) : '',
+    s.floorItems ? S.project.skippedFloorItems(s.floorItems) : '',
+    s.floorNotes ? S.project.skippedFloorNotes(s.floorNotes) : '',
   ].filter(Boolean);
   return parts.length ? S.project.originalSkipped(parts) : undefined;
 }
@@ -83,7 +86,7 @@ export async function openFile(file: File): Promise<void> {
   if (openForeign(new TextEncoder().encode(text))) return;
   try {
     const p = parseProject(text, TOOL_ID);
-    if (!openProject(p.data)) throw new ProjectFileError(S.project.badData);
+    if (!openProject(p.data, p.version)) throw new ProjectFileError(S.project.badData);
     notify(S.project.opened, 'success');
   } catch (e) {
     notify(S.project.openFailed, 'danger', {

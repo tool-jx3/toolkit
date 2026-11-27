@@ -19,7 +19,7 @@ const DRAW: Record<string, (k: Kit, o: DrawOpts) => void> = {
 export function drawFixture(k: Kit, kind: string, o: DrawOpts): void {
   const fn = DRAW[kind];
   if (fn) fn(k, o);
-  else box(k, -0.5, -1, 1, 1, k.p.body, 0.03);
+  else box(k, -0.5, -1, 1, 1, k.p.tint, 0.03);
 }
 
 export const hasDrawing = (kind: string): boolean => kind in DRAW;

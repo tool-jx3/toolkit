@@ -5,17 +5,17 @@
  * 壞掉的部分一律換成預設值或拿掉，不丟例外；整份認不出來（沒有任何樓層）時回傳 null。
  */
 import { isFixtureKind, isRoomUse } from './catalog';
-import { baseDoc } from './factory';
+import { emptyDoc } from './factory';
 import { roomIdsOf } from './layout';
 import { clamp, settle, uid } from './ops';
 import {
   CAB_STATES,
+  CAPS,
   type CabState,
   ENV_IDS,
   type EnvId,
   type Fixture,
   type Floor,
-  LIMITS,
   MAX_FLOORS,
   type Moment,
   type Note,
@@ -85,7 +85,7 @@ export function normalizeDoc(raw: unknown): SectionDoc | null {
   const rb = raw.building;
   if (!Array.isArray(rb.floors)) return null;
   const id = idPool();
-  const d = baseDoc();
+  const d = emptyDoc();
   const width = snapWidth(num(rb.width, 36, 24, 60));
   const floors: Floor[] = [];
   const levels = new Set<number>();
@@ -101,7 +101,7 @@ export function normalizeDoc(raw: unknown): SectionDoc | null {
       if (!isObj(r)) continue;
       const room: Room = {
         id: id(r.id, 'rm'),
-        name: str(r.name, '', LIMITS.name),
+        name: str(r.name, '', CAPS.name),
         use: isRoomUse(r.use) ? r.use : 'empty',
         wall: oneOf<WallTone>(WALL_TONES, r.wall, 'plaster'),
         secret: r.secret === true,
@@ -112,7 +112,7 @@ export function normalizeDoc(raw: unknown): SectionDoc | null {
       if (r.open === true) room.open = true;
       rooms.push(room);
     }
-    floors.push({ id: id(f.id, 'fl'), level, name: str(f.name, '', LIMITS.name), rooms });
+    floors.push({ id: id(f.id, 'fl'), level, name: str(f.name, '', CAPS.name), rooms });
   }
   if (!floors.length) return null;
   const shafts: Shaft[] = [];
@@ -133,7 +133,7 @@ export function normalizeDoc(raw: unknown): SectionDoc | null {
   const roomIds = roomIdsOf(floors);
   const items: Fixture[] = [];
   for (const it of Array.isArray(raw.items) ? raw.items : []) {
-    if (!isObj(it) || items.length >= LIMITS.items) continue;
+    if (!isObj(it) || items.length >= CAPS.items) continue;
     if (typeof it.room !== 'string' || !roomIds.has(it.room) || !isFixtureKind(it.kind)) continue;
     const f: Fixture = {
       id: id(it.id, 'it'),
@@ -154,11 +154,11 @@ export function normalizeDoc(raw: unknown): SectionDoc | null {
   }
   const notes: Note[] = [];
   for (const n of Array.isArray(raw.notes) ? raw.notes : []) {
-    if (!isObj(n) || notes.length >= LIMITS.notes) continue;
+    if (!isObj(n) || notes.length >= CAPS.notes) continue;
     const room = typeof n.room === 'string' && roomIds.has(n.room) ? n.room : null;
     const note: Note = {
       id: id(n.id, 'nt'),
-      text: str(n.text, '', LIMITS.note),
+      text: str(n.text, '', CAPS.note),
       style: n.style === 'badge' ? 'badge' : 'box',
       size: num(n.size, RANGES.noteSize.def, RANGES.noteSize.min, RANGES.noteSize.max),
       room,
@@ -177,8 +177,8 @@ export function normalizeDoc(raw: unknown): SectionDoc | null {
 
 function finish(d: SectionDoc, raw: Obj, draft: Draft, width: number): SectionDoc {
   const rb = isObj(raw.building) ? raw.building : {};
-  d.title = str(raw.title, d.title, LIMITS.title);
-  d.subtitle = str(raw.subtitle, d.subtitle, LIMITS.subtitle);
+  d.title = str(raw.title, d.title, CAPS.title);
+  d.subtitle = str(raw.subtitle, d.subtitle, CAPS.subtitle);
   d.style = oneOf<StyleId>(STYLE_IDS, raw.style, 'color');
   d.env = oneOf<EnvId>(ENV_IDS, raw.env, 'day');
   d.sky = oneOf<SkyId>(SKY_IDS, raw.sky, 'clear');
@@ -218,6 +218,9 @@ export interface OriginalSkipped {
   notes: number;
   /** 超過 12 層、重複的樓層 */
   floors: number;
+  /** 沒讀進來的樓層裡的設備、備註（和上面的分開算） */
+  floorItems: number;
+  floorNotes: number;
   /** 建築寬換成最接近的可選寬度（原本的寬） */
   width: number | null;
 }
@@ -323,17 +326,22 @@ export function fromOriginal(raw: Obj): { doc: SectionDoc; skipped: OriginalSkip
     items: 0,
     notes: 0,
     floors: 0,
+    floorItems: 0,
+    floorNotes: 0,
     width: width === rawWidth ? null : rawWidth,
   };
   const floors: Floor[] = [];
   const levels = new Set<number>();
   const roomIds = new Map<string, string>();
+  /** 沒讀進來的樓層的區域（原作的 id） */
+  const droppedRooms = new Set<string>();
   for (const f of rb.floors) {
     if (!isObj(f) || !Array.isArray(f.rooms) || typeof f.level !== 'number') continue;
     let level = Math.round(num(f.level, 1, -20, 20));
     if (level === 0) level = 1;
     if (levels.has(level) || floors.length >= MAX_FLOORS) {
       skipped.floors++;
+      for (const r of f.rooms) if (isObj(r) && typeof r.id === 'string') droppedRooms.add(r.id);
       continue;
     }
     levels.add(level);
@@ -344,7 +352,7 @@ export function fromOriginal(raw: Obj): { doc: SectionDoc; skipped: OriginalSkip
       if (typeof r.id === 'string') roomIds.set(r.id, rid);
       const room: Room = {
         id: rid,
-        name: str(r.name, '', LIMITS.name),
+        name: str(r.name, '', CAPS.name),
         use: ORIG_USE[String(r.preset)] ?? 'empty',
         wall: oneOf<WallTone>(WALL_TONES, r.wallTone, 'plaster'),
         secret: r.secret === true,
@@ -355,7 +363,7 @@ export function fromOriginal(raw: Obj): { doc: SectionDoc; skipped: OriginalSkip
       if (r.startOpen === true) room.open = true;
       rooms.push(room);
     }
-    floors.push({ id: id(f.id, 'fl'), level, name: str(f.label, '', LIMITS.name), rooms });
+    floors.push({ id: id(f.id, 'fl'), level, name: str(f.label, '', CAPS.name), rooms });
   }
   if (!floors.length) throw new OriginalFileError('empty');
   /* 寬換掉時，區域的左右照比例縮放（之後 settle 排成整數格） */
@@ -388,9 +396,13 @@ export function fromOriginal(raw: Obj): { doc: SectionDoc; skipped: OriginalSkip
       skipped.items++;
       continue;
     }
+    if (droppedRooms.has(String(it.roomId)) && !roomIds.has(String(it.roomId))) {
+      skipped.floorItems++;
+      continue;
+    }
     const room = roomIds.get(String(it.roomId));
     const kind = ORIG_KIND[String(it.asset)];
-    if (!room || !kind || items.length >= LIMITS.items) {
+    if (!room || !kind || items.length >= CAPS.items) {
       skipped.items++;
       continue;
     }
@@ -415,14 +427,18 @@ export function fromOriginal(raw: Obj): { doc: SectionDoc; skipped: OriginalSkip
   const notes: Note[] = [];
   for (const n of Array.isArray(raw.annotations) ? raw.annotations : []) {
     if (!isObj(n)) continue;
-    if (n.mode === 'horizontal' || notes.length >= LIMITS.notes) {
+    if (n.mode === 'horizontal' || notes.length >= CAPS.notes) {
       skipped.notes++;
+      continue;
+    }
+    if (typeof n.roomId === 'string' && droppedRooms.has(n.roomId) && !roomIds.has(n.roomId)) {
+      skipped.floorNotes++;
       continue;
     }
     const room = typeof n.roomId === 'string' ? (roomIds.get(n.roomId) ?? null) : null;
     const note: Note = {
       id: id(n.id, 'nt'),
-      text: str(n.text, '', LIMITS.note),
+      text: str(n.text, '', CAPS.note),
       style: n.variant === 'badge' ? 'badge' : 'box',
       size: num(n.size, RANGES.noteSize.def, RANGES.noteSize.min, RANGES.noteSize.max),
       room,
@@ -437,7 +453,7 @@ export function fromOriginal(raw: Obj): { doc: SectionDoc; skipped: OriginalSkip
     notes.push(note);
   }
   const doc = finish(
-    baseDoc(),
+    emptyDoc(),
     {
       title: raw.title,
       subtitle: raw.subtitle,

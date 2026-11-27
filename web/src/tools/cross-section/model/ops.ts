@@ -13,19 +13,20 @@ import {
   floorsTopDown,
   isGmShaft,
   layoutOf,
+  partition,
   passes,
   roomAt,
   roomIdsOf,
   type Span,
   shaftWidth,
-  spacesOf,
   touchingPairs,
 } from './layout';
 import {
   type Building,
+  CAPS,
   type Fixture,
   type Floor,
-  floorCode,
+  levelTag,
   MAX_FLOORS,
   MAX_ROOMS,
   MIN_ROOM,
@@ -73,7 +74,7 @@ export interface FixtureInit {
 }
 
 /** 新的設備（出現時機沒指定時照種類的預設：事件・異變只在事件後） */
-export function makeFixture(room: string, kind: string, init: FixtureInit = {}): Fixture {
+export function newFixture(room: string, kind: string, init: FixtureInit = {}): Fixture {
   const def = fixtureDef(kind);
   const it: Fixture = {
     id: uid('it'),
@@ -95,7 +96,7 @@ export function makeFixture(room: string, kind: string, init: FixtureInit = {}):
 export function furnish(doc: SectionDoc, roomId: string, use: RoomUse): void {
   doc.items = doc.items.filter((it) => it.room !== roomId);
   for (const [kind, rx, ry, flip, variant] of USE_PRESETS[use].items)
-    if (isFixtureKind(kind)) doc.items.push(makeFixture(roomId, kind, { rx, ry, flip, variant }));
+    if (isFixtureKind(kind)) doc.items.push(newFixture(roomId, kind, { rx, ry, flip, variant }));
 }
 
 /** 換用途：名字、內牆、設備一起換 */
@@ -120,33 +121,33 @@ const newRoom = (span: Span, use: RoomUse, name = S.uses[use]): Room => ({
 /* ---------- 合併 ---------- */
 
 /**
- * 把 victim 併進 survivor（兩間在同一層、相鄰）：設備與備註搬過去、位置照建築裡的位置換算。
+ * 把 gone 併進 keeper（兩間在同一層、相鄰）：設備與備註搬過去、位置照建築裡的位置換算。
  * 回傳：祕密區域的東西是否因此改成 GM 專用。區域本身的左右由呼叫的人改。
  */
-export function mergeRoomInto(doc: SectionDoc, victim: Room, survivor: Room): boolean {
-  const leak = victim.secret && !survivor.secret;
+export function mergeRoomInto(doc: SectionDoc, gone: Room, keeper: Room): boolean {
+  const leak = gone.secret && !keeper.secret;
   const merged: Span = {
-    x0: Math.min(victim.x0, survivor.x0),
-    x1: Math.max(victim.x1, survivor.x1),
+    x0: Math.min(gone.x0, keeper.x0),
+    x1: Math.max(gone.x1, keeper.x1),
   };
   for (const it of doc.items) {
-    const from = it.room === victim.id ? victim : it.room === survivor.id ? survivor : null;
+    const from = it.room === gone.id ? gone : it.room === keeper.id ? keeper : null;
     if (!from) continue;
     const x = itemX(from, it.rx);
     it.rx = round3(clamp(itemRx(merged, x), RANGES.rx.min, RANGES.rx.max));
-    if (from === victim) {
-      it.room = survivor.id;
+    if (from === gone) {
+      it.room = keeper.id;
       if (leak) it.secret = true;
     }
   }
   const width = merged.x1 - merged.x0;
   for (const n of doc.notes) {
-    const from = n.room === victim.id ? victim : n.room === survivor.id ? survivor : null;
+    const from = n.room === gone.id ? gone : n.room === keeper.id ? keeper : null;
     if (!from) continue;
     const x = from.x0 + n.rx * (from.x1 - from.x0);
     n.rx = round3(clamp((x - merged.x0) / width, 0.02, 0.98));
-    if (from === victim) {
-      n.room = survivor.id;
+    if (from === gone) {
+      n.room = keeper.id;
       if (leak) n.secret = true;
     }
   }
@@ -155,80 +156,126 @@ export function mergeRoomInto(doc: SectionDoc, victim: Room, survivor: Room): bo
 
 /* ---------- 整理 ---------- */
 
-/** 一層的區域重新排滿每一段空間（區域的寬度比例盡量照舊；空間不夠時併掉右邊的） */
+const crosses = (a: Span, b: Span) => a.x0 < b.x1 && b.x0 < a.x1;
+
+/** 上下有重疊（共用至少一層） */
+const sharesLevels = (a: Pick<Shaft, 'top' | 'bottom'>, b: Pick<Shaft, 'top' | 'bottom'>) =>
+  a.top >= b.bottom && b.top >= a.bottom;
+
+/** 從 start 開始由近到遠的整數位置（一樣遠時右邊先），只給 lo～hi 裡的 */
+function* nearestFirst(start: number, lo: number, hi: number, far: number): Generator<number> {
+  for (let d = 0; d <= far; d++) {
+    if (start + d >= lo && start + d <= hi) yield start + d;
+    if (d > 0 && start - d >= lo && start - d <= hi) yield start - d;
+  }
+}
+
+function firstOf<T>(list: Iterable<T>, ok: (v: T) => boolean): T | undefined {
+  for (const v of list) if (ok(v)) return v;
+  return undefined;
+}
+
+/** 點到一段的距離（在段裡是 0） */
+const gapTo = (sp: Span, x: number) => Math.max(0, sp.x0 - x, x - sp.x1);
+
+/** 離 x 最近的一段（一樣近時取左邊的） */
+function nearestSpan(spans: readonly Span[], x: number): number {
+  let best = 0;
+  spans.forEach((sp, i) => {
+    if (gapTo(sp, x) < gapTo(spans[best], x)) best = i;
+  });
+  return best;
+}
+
+/**
+ * 一段空間依區域原本的寬度比例分給每一間：先算每間想要的整數格，
+ * 再由左往右排，每間至少 4 格、右邊還沒排的也各留 4 格，最後一間拿剩下的。
+ */
+function shareOut(span: Span, row: Room[]): void {
+  const total = span.x1 - span.x0;
+  const weight = row.map((r) => Math.max(MIN_ROOM, r.x1 - r.x0 || total / row.length));
+  const sum = weight.reduce((a, v) => a + v, 0);
+  const wish = weight.map((v) => Math.round((v / sum) * total));
+  row.reduce((left, r, k) => {
+    const rest = row.length - 1 - k;
+    const right =
+      rest === 0 ? span.x1 : clamp(left + wish[k], left + MIN_ROOM, span.x1 - rest * MIN_ROOM);
+    r.x0 = left;
+    r.x1 = right;
+    return right;
+  }, span.x0);
+}
+
+/**
+ * 一層的區域重新排滿每一段空間：
+ * 1. 每間記下「中點最近的那一段」；
+ * 2. 沒有區域的段向還有兩間以上的段借一間（借最後記進去的），沒得借就放一間空房；
+ * 3. 每段放得下 ⌊寬 ÷ 4⌋ 間，多的由右往左併進左鄰（只搬設備與備註）；
+ * 4. 每段照比例分寬度。
+ * 回傳：合併時是否有祕密區域的東西改成 GM 專用。
+ */
 function settleFloor(doc: SectionDoc, floor: Floor): boolean {
-  const bays = spacesOf(doc.building, floor.level).bays;
-  if (bays.length === 0) {
+  const spans = partition(doc.building, floor.level).spaces;
+  if (spans.length === 0) {
     floor.rooms = [];
     return false;
   }
   if (floor.rooms.length === 0) {
-    const code = floorCode(floor.level);
-    floor.rooms = bays.map((bay, n) => newRoom(bay, 'empty', `${code}-${n + 1}`));
+    const tag = levelTag(floor.level);
+    floor.rooms = spans.map((sp, n) => newRoom(sp, 'empty', `${tag}-${n + 1}`));
     return false;
   }
-  /* 每間分到中點最近的那一段空間 */
-  const groups: Room[][] = bays.map(() => []);
-  for (const r of floor.rooms) {
-    const mid = (r.x0 + r.x1) / 2;
-    let best = 0;
-    let bestD = Number.POSITIVE_INFINITY;
-    bays.forEach((b, i) => {
-      const d = Math.abs(mid - clamp(mid, b.x0, b.x1));
-      if (d < bestD) {
-        bestD = d;
-        best = i;
-      }
-    });
-    groups[best].push(r);
-  }
-  /* 沒有分到的空間：從有兩間以上的借一間，都沒有就放一間空房 */
-  groups.forEach((g, i) => {
-    if (g.length) return;
-    const donor = groups.find((d) => d.length > 1);
-    const taken = donor?.pop();
-    g.push(taken ?? newRoom(bays[i], 'empty'));
+  const rooms = [...floor.rooms];
+  const home = rooms.map((r) => nearestSpan(spans, (r.x0 + r.x1) / 2));
+  const count = (i: number) => home.reduce((n, h) => n + (h === i ? 1 : 0), 0);
+  spans.forEach((sp, i) => {
+    if (count(i) > 0) return;
+    const lender = spans.findIndex((_, j) => count(j) > 1);
+    if (lender >= 0) home[home.lastIndexOf(lender)] = i;
+    else {
+      rooms.push(newRoom(sp, 'empty'));
+      home.push(i);
+    }
   });
   let leaked = false;
-  const out: Room[] = [];
-  groups.forEach((g, i) => {
-    const bay = bays[i];
-    const row = g.sort((a, b) => a.x0 - b.x0);
-    /* 放不下的從右邊開始併進左鄰 */
-    const room = Math.max(1, Math.floor((bay.x1 - bay.x0) / MIN_ROOM));
-    while (row.length > room) {
-      const gone = row.pop() as Room;
-      const into = row[row.length - 1];
-      if (mergeRoomInto(doc, gone, into)) leaked = true;
-      into.x1 = Math.max(into.x1, gone.x1);
-    }
-    shareOut(bay, row);
-    out.push(...row);
+  floor.rooms = spans.flatMap((sp, i) => {
+    const row = rooms.filter((_, k) => home[k] === i).sort((a, b) => a.x0 - b.x0);
+    const fit = Math.max(1, Math.floor((sp.x1 - sp.x0) / MIN_ROOM));
+    for (let k = row.length - 1; k >= fit; k--)
+      if (mergeRoomInto(doc, row[k], row[k - 1])) leaked = true;
+    row.length = Math.min(row.length, fit);
+    shareOut(sp, row);
+    return row;
   });
-  floor.rooms = out;
   return leaked;
 }
 
-/** 一段空間依區域原本的寬度比例分成整數格：每間至少 4 格，最後一間補到底 */
-function shareOut(bay: Span, row: Room[]): void {
-  const span = bay.x1 - bay.x0;
-  const share = row.map((r) => Math.max(MIN_ROOM, r.x1 - r.x0 || span / row.length));
-  const sum = share.reduce((a, v) => a + v, 0);
-  let edge = bay.x0;
-  row.forEach((r, k) => {
-    const after = row.length - 1 - k;
-    const w =
-      after === 0
-        ? bay.x1 - edge
-        : clamp(Math.round((share[k] / sum) * span), MIN_ROOM, bay.x1 - edge - after * MIN_ROOM);
-    r.x0 = edge;
-    edge += w;
-    r.x1 = edge;
-  });
+/** 通道的上下端夾在現有的樓層裡（上下顛倒時對調）；通風管一定是 GM 專用 */
+function tidyEnds(s: Shaft, hi: number, lo: number): void {
+  if (s.kind === 'duct') s.secret = true;
+  const a = clamp(Math.round(s.top), lo, hi);
+  const z = clamp(Math.round(s.bottom), lo, hi);
+  s.top = Math.max(a, z);
+  s.bottom = Math.min(a, z);
 }
 
-/** 有沒有和別的公開通道在同一層的同一段重疊 */
-const overlapsVertically = (a: Shaft, b: Shaft) => a.top >= b.bottom && b.top >= a.bottom;
+/** 通道的位置：GM 專用的照原位；公開的避開已經排好、上下有重疊的公開通道，找最近的空位（找不到就照原位） */
+function shaftSpot(b: Building, s: Shaft, settled: readonly Shaft[]): number {
+  const w = shaftWidth(s);
+  const want = clamp(Math.round(s.x), 0, Math.max(0, b.width - w));
+  if (isGmShaft(s)) return want;
+  const others = settled
+    .filter((o) => sharesLevels(o, s))
+    .map((o) => ({ x0: o.x, x1: o.x + shaftWidth(o) }));
+  const free = (x: number) => !others.some((o) => crosses(o, { x0: x, x1: x + w }));
+  return firstOf(nearestFirst(want, 0, b.width - w, b.width), free) ?? want;
+}
+
+/** 電梯的車廂停在經過的樓層（不在時停中間那層） */
+function parkCab(s: Shaft, levels: readonly number[]): void {
+  const stops = levels.filter((l) => passes(s, l));
+  if (stops.length && !stops.includes(s.cab)) s.cab = stops[Math.floor(stops.length / 2)];
+}
 
 /**
  * 改完結構之後整理一次：樓層由上往下排、通道的上下端夾在現有的樓層裡、公開通道不重疊、
@@ -239,50 +286,18 @@ export function settle(doc: SectionDoc): boolean {
   const b = doc.building;
   b.floors = floorsTopDown(b.floors);
   const levels = b.floors.map((f) => f.level);
-  /* 已經由上往下排好：第一個最高、最後一個最低 */
   const hi = levels[0] ?? 1;
   const lo = levels[levels.length - 1] ?? 1;
-  const W = b.width;
-  const placed: Shaft[] = [];
+  const settled: Shaft[] = [];
   for (const s of b.shafts) {
-    const w = SHAFT_WIDTH[s.kind] ?? 3;
-    if (s.kind === 'duct') s.secret = true;
-    let top = clamp(Math.round(s.top), lo, hi);
-    let bottom = clamp(Math.round(s.bottom), lo, hi);
-    if (top < bottom) [top, bottom] = [bottom, top];
-    s.top = top;
-    s.bottom = bottom;
-    const want = clamp(Math.round(s.x), 0, Math.max(0, W - w));
-    if (isGmShaft(s)) s.x = want;
-    else {
-      const blockers = placed.filter((p) => overlapsVertically(p, s));
-      const hits = (x: number) => blockers.some((p) => x < p.x + shaftWidth(p) && x + w > p.x);
-      let x = want;
-      if (hits(x)) {
-        for (let d = 1; d <= W; d++) {
-          if (want + d <= W - w && !hits(want + d)) {
-            x = want + d;
-            break;
-          }
-          if (want - d >= 0 && !hits(want - d)) {
-            x = want - d;
-            break;
-          }
-        }
-      }
-      s.x = x;
-      placed.push(s);
-    }
-    if (s.kind === 'elevator') {
-      const through = levels.filter((l) => l <= s.top && l >= s.bottom);
-      if (through.length && !through.includes(s.cab))
-        s.cab = through[Math.floor(through.length / 2)];
-    }
+    tidyEnds(s, hi, lo);
+    s.x = shaftSpot(b, s, settled);
+    if (!isGmShaft(s)) settled.push(s);
+    if (s.kind === 'elevator') parkCab(s, levels);
   }
-  let leaked = false;
-  for (const f of b.floors) if (settleFloor(doc, f)) leaked = true;
+  const leaks = b.floors.map((f) => settleFloor(doc, f));
   dropOrphans(doc);
-  return leaked;
+  return leaks.includes(true);
 }
 
 /** 區域不在了的設備與備註（自由放的備註不算）一起刪掉 */
@@ -343,31 +358,31 @@ export function splitFloor(doc: SectionDoc, floorId: string): SplitResult {
   const floor = floorById(doc, floorId);
   if (!floor) return 'narrow';
   if (floor.rooms.length >= MAX_ROOMS) return 'max';
-  const widest = [...floor.rooms].sort((a, b) => b.x1 - b.x0 - (a.x1 - a.x0))[0];
-  if (!widest || widest.x1 - widest.x0 < MIN_ROOM * 2) return 'narrow';
-  const mid = widest.x0 + Math.floor((widest.x1 - widest.x0) / 2);
-  const added = newRoom({ x0: mid, x1: widest.x1 }, 'empty');
-  added.wall = widest.wall;
+  const roomiest = [...floor.rooms].sort((a, b) => b.x1 - b.x0 - (a.x1 - a.x0))[0];
+  if (!roomiest || roomiest.x1 - roomiest.x0 < MIN_ROOM * 2) return 'narrow';
+  const mid = roomiest.x0 + Math.floor((roomiest.x1 - roomiest.x0) / 2);
+  const added = newRoom({ x0: mid, x1: roomiest.x1 }, 'empty');
+  added.wall = roomiest.wall;
   /* 右半邊的設備跟著搬到新的區域 */
   for (const it of doc.items) {
-    if (it.room !== widest.id) continue;
-    const x = itemX(widest, it.rx);
+    if (it.room !== roomiest.id) continue;
+    const x = itemX(roomiest, it.rx);
     if (x < mid) continue;
     it.room = added.id;
     it.rx = round3(clamp(itemRx(added, x), RANGES.rx.min, RANGES.rx.max));
   }
-  const keep: Span = { x0: widest.x0, x1: mid };
+  const keep: Span = { x0: roomiest.x0, x1: mid };
   for (const it of doc.items)
-    if (it.room === widest.id)
-      it.rx = round3(clamp(itemRx(keep, itemX(widest, it.rx)), RANGES.rx.min, RANGES.rx.max));
+    if (it.room === roomiest.id)
+      it.rx = round3(clamp(itemRx(keep, itemX(roomiest, it.rx)), RANGES.rx.min, RANGES.rx.max));
   for (const n of doc.notes) {
-    if (n.room !== widest.id) continue;
-    const x = widest.x0 + n.rx * (widest.x1 - widest.x0);
+    if (n.room !== roomiest.id) continue;
+    const x = roomiest.x0 + n.rx * (roomiest.x1 - roomiest.x0);
     const to = x < mid ? keep : added;
     if (to === added) n.room = added.id;
     n.rx = round3(clamp((x - to.x0) / (to.x1 - to.x0), 0.02, 0.98));
   }
-  widest.x1 = mid;
+  roomiest.x1 = mid;
   floor.rooms.push(added);
   settle(doc);
   if (!doc.items.some((it) => it.room === added.id)) furnish(doc, added.id, 'empty');
@@ -442,6 +457,17 @@ export function roomWidthRange(
 
 /* ---------- 通道 ---------- */
 
+/** 這些範圍蓋不到的地方（0～W）裡最長的一段 */
+function longestOpening(spans: readonly Span[], W: number): number {
+  let edge = 0;
+  let best = 0;
+  for (const s of [...spans].sort((a, c) => a.x0 - c.x0)) {
+    best = Math.max(best, s.x0 - edge);
+    edge = Math.max(edge, s.x1);
+  }
+  return Math.max(best, W - edge);
+}
+
 /**
  * 找一個放得下的位置（經過的樓層都不和別的公開通道重疊，而且每層至少留一段 4 格的空間）：
  * 從 prefer 往左右找最近的；找不到回傳 -1。
@@ -456,29 +482,17 @@ export function freeShaftX(
 ): number {
   const W = b.width;
   const w = clamp(Math.round(width), 1, Math.max(1, W - MIN_ROOM));
-  const probe = { top, bottom } as Shaft;
-  const blockers = b.shafts
-    .filter((s) => !isGmShaft(s) && s.id !== exclude && overlapsVertically(s, probe))
+  const others = b.shafts
+    .filter((s) => !isGmShaft(s) && s.id !== exclude && sharesLevels(s, { top, bottom }))
     .map((s) => ({ x0: s.x, x1: s.x + shaftWidth(s) }));
-  const ok = (x: number) => {
-    if (x < 0 || x + w > W) return false;
-    if (blockers.some((s) => x < s.x1 && x + w > s.x0)) return false;
-    const all = [...blockers, { x0: x, x1: x + w }].sort((a, c) => a.x0 - c.x0);
-    let cur = 0;
-    let widest = 0;
-    for (const s of all) {
-      widest = Math.max(widest, s.x0 - cur);
-      cur = Math.max(cur, s.x1);
-    }
-    widest = Math.max(widest, W - cur);
-    return widest >= MIN_ROOM;
+  const fits = (x: number) => {
+    const mine = { x0: x, x1: x + w };
+    return (
+      !others.some((o) => crosses(o, mine)) && longestOpening([...others, mine], W) >= MIN_ROOM
+    );
   };
   const start = clamp(Math.round(prefer ?? (W - w) / 2), 0, W - w);
-  for (let d = 0; d <= W; d++) {
-    if (ok(start + d)) return start + d;
-    if (d > 0 && ok(start - d)) return start - d;
-  }
-  return -1;
+  return firstOf(nearestFirst(start, 0, W - w, W), fits) ?? -1;
 }
 
 /** 加一條通道（經過所有樓層）；放不下時回傳 null */
@@ -506,6 +520,13 @@ export function addShaft(doc: SectionDoc, kind: ShaftKind): Shaft | null {
   b.shafts.push(s);
   settle(doc);
   return s;
+}
+
+/** 改通道的一端：上端選到比下端低（或下端比上端高）時兩端對調 */
+export function setShaftEnd(s: Shaft, end: 'top' | 'bottom', level: number): void {
+  const other = end === 'top' ? s.bottom : s.top;
+  s.top = Math.max(level, other);
+  s.bottom = Math.min(level, other);
 }
 
 export function removeShaft(doc: SectionDoc, id: string): boolean {
@@ -554,12 +575,11 @@ export function placeNote(doc: SectionDoc, n: Note, x: number, y: number): void 
 }
 
 /** 新的備註（三個字以內畫成圓形的編號） */
-export function makeNote(text: string): Note {
-  const t = text.slice(0, 60);
+export function makeNote(text: string, style: Note['style'] = 'box'): Note {
   return {
     id: uid('nt'),
-    text: t,
-    style: [...t].length <= 3 ? 'badge' : 'box',
+    text: text.slice(0, CAPS.note),
+    style,
     size: RANGES.noteSize.def,
     room: null,
     rx: 0.5,

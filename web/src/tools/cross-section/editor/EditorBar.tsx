@@ -4,7 +4,7 @@
 import { Download, LayoutTemplate, Redo2, Undo2, Waves } from 'lucide-react';
 import { historyGesture, useUndoRedo } from '@/core/storage';
 import { Button, IconButton, Segmented, TextInput, withShortcut } from '@/ui';
-import { ENV_IDS, type EnvId, LIMITS, RANGES } from '../model/types';
+import { CAPS, ENV_IDS, type EnvId, RANGES } from '../model/types';
 import { S } from '../strings';
 import * as act from './actions';
 import { openExport } from './ExportDialog';
@@ -32,7 +32,7 @@ export function EditorBar() {
       </Button>
       <TextInput
         value={title}
-        maxLength={LIMITS.title}
+        maxLength={CAPS.title}
         aria-label={S.bar.title}
         className="h-7 w-44 min-w-0 max-w-full text-sm"
         data-testid="doc-title"

@@ -34,7 +34,7 @@ export function App() {
               notify(S.project.openFailed, 'danger', { description: n.message });
             else if (n.kind === 'opened') notify(S.project.opened, 'success');
           }}
-          onLoad={(data) => openProject(data)}
+          onLoad={(data, file) => openProject(data, file.version)}
           onForeignFile={(_file, bytes) => openForeign(bytes)}
           onReset={act.newBlank}
           savedAt={savedAt}

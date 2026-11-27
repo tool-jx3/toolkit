@@ -10,7 +10,7 @@ export const FIXTURE_CATEGORIES: readonly FixtureCategory[] = ['facility', 'open
 /** 掛的位置：地板上、牆上（可以調高度）、天花板下 */
 export type Hang = 'floor' | 'wall' | 'ceiling';
 
-export type LightColor = 'warm' | 'cold' | 'emergency';
+export type LightColor = 'amber' | 'frost' | 'alarm';
 
 export interface FixtureDef {
   kind: string;
@@ -19,11 +19,11 @@ export interface FixtureDef {
   width: number;
   height: number;
   hang: Hang;
-  /** 光：半徑（格）、顏色、光的中心離底部多高（往上是負的） */
+  /** 光：半徑（格）、顏色、光的中心離底部多高（往上是負的）；位置是各件自己的光源（燈泡、螢幕、火） */
   glow?: { radius: number; tone: LightColor; lift: number };
   /** 停電時也亮著（緊急照明、自己有電源的設備、火與火花） */
   backup?: boolean;
-  /** 從地板一路接到天花板（手術燈的吊臂、鍋爐的煙道、梯子） */
+  /** 從地板一路接到天花板（手術燈的吊桿、鍋爐的煙道、梯子） */
   reach?: boolean;
   /** 貼在地上的（不畫落影） */
   flat?: boolean;
@@ -38,55 +38,54 @@ type Extra = {
   backup?: true;
   reach?: true;
   flat?: true;
-  after?: true;
   styles?: readonly string[];
 };
 type Row = readonly [kind: string, width: number, height: number, hang: Hang, extra?: Extra];
 
-/* 一列一種：種類、寬、高、掛的位置、其他（光〔半徑、顏色、高度〕…） */
+/* 一列一種：種類、寬、高、掛的位置、其他（光〔半徑、顏色、高度〕…）。尺寸照本站自己畫的圖 */
 const TABLE: Record<FixtureCategory, readonly Row[]> = {
   facility: [
-    ['tank', 2, 4.1, 'floor', { glow: [2.4, 'cold', -2.2], backup: true }],
-    ['console', 3.1, 2.35, 'floor', { glow: [2.1, 'cold', -1.5], backup: true }],
-    ['surgery', 3.4, 4.5, 'floor', { glow: [2.8, 'cold', -3.5], reach: true }],
-    ['bench', 3.4, 2.3, 'floor', { styles: ['lab', 'kitchen'] }],
-    ['bed', 3.1, 1.75, 'floor'],
-    ['shelf', 2.7, 3.85, 'floor'],
-    ['desk', 3, 2.05, 'floor', { glow: [1.8, 'warm', -1.5] }],
-    ['counter', 3.4, 2.2, 'floor', { glow: [1.9, 'warm', -1.6] }],
-    ['locker', 2.5, 3.1, 'floor'],
+    ['tank', 2.5, 4.0, 'floor', { glow: [2.3, 'frost', -0.35], backup: true }],
+    ['console', 3.2, 2.8, 'floor', { glow: [2.1, 'frost', -1.92], backup: true }],
+    ['surgery', 3.6, 4.5, 'floor', { glow: [2.6, 'frost', -3.05], reach: true }],
+    ['bench', 3.4, 2.6, 'floor', { styles: ['lab', 'kitchen'] }],
+    ['bed', 3.2, 2.3, 'floor'],
+    ['shelf', 2.8, 4.0, 'floor'],
+    ['desk', 3.4, 2.2, 'floor', { glow: [1.8, 'amber', -1.95] }],
+    ['counter', 3.6, 2.8, 'floor', { glow: [1.9, 'amber', -2.05] }],
+    ['locker', 2.7, 3.45, 'floor'],
     [
       'boiler',
+      3.8,
       3.6,
-      3.5,
       'floor',
-      { glow: [2, 'warm', -1.2], reach: true, styles: ['steam', 'electric'] },
+      { glow: [2, 'amber', -0.55], reach: true, styles: ['steam', 'electric'] },
     ],
-    ['pipes', 4.4, 1.15, 'ceiling'],
-    ['crates', 2.8, 2.1, 'floor'],
-    ['altar', 3.6, 3.3, 'floor', { glow: [2.7, 'warm', -2] }],
-    ['lamp', 1.7, 1.05, 'ceiling', { glow: [3.2, 'warm', -0.6] }],
-    ['camera', 1.3, 0.9, 'ceiling'],
-    ['exit', 1.5, 0.85, 'ceiling', { glow: [2, 'emergency', -0.4], backup: true }],
+    ['pipes', 4.6, 1.4, 'ceiling'],
+    ['crates', 3.0, 1.8, 'floor'],
+    ['altar', 3.6, 3.0, 'floor', { glow: [2.4, 'amber', -0.55] }],
+    ['lamp', 1.0, 1.5, 'ceiling', { glow: [3, 'amber', -0.32] }],
+    ['camera', 1.2, 0.8, 'ceiling'],
+    ['exit', 1.8, 0.8, 'ceiling', { glow: [2, 'frost', -0.47], backup: true }],
   ],
   opening: [
-    ['door', 1.85, 3.45, 'floor'],
-    ['blastdoor', 2.05, 3.55, 'floor'],
-    ['bars', 2.1, 3.6, 'floor'],
-    ['window', 2.5, 2, 'wall'],
-    ['hatch', 1.5, 4.8, 'floor', { reach: true }],
+    ['door', 2.0, 3.6, 'floor'],
+    ['blastdoor', 2.4, 3.6, 'floor'],
+    ['bars', 2.2, 3.6, 'floor'],
+    ['window', 2.4, 2.4, 'wall'],
+    ['hatch', 1.4, 4.8, 'floor', { reach: true }],
   ],
   /* 事件・異變：預設只在事件後 */
   incident: [
-    ['bloodwall', 2.5, 2.6, 'wall'],
-    ['bloodpool', 2.6, 0.75, 'floor', { flat: true }],
-    ['chalk', 3, 1.55, 'floor', { flat: true }],
-    ['upset', 2.8, 1.65, 'floor'],
-    ['boards', 2.6, 2.9, 'floor'],
-    ['glass', 2.3, 0.9, 'floor', { flat: true }],
-    ['spark', 1.8, 2.2, 'ceiling', { glow: [2.2, 'cold', -1.4], backup: true }],
-    ['talisman', 2.1, 2.4, 'wall'],
-    ['rubble', 3.1, 2.5, 'floor', { glow: [3, 'warm', -1.1], backup: true }],
+    ['bloodwall', 2.2, 2.3, 'wall'],
+    ['bloodpool', 3.0, 0.5, 'floor', { flat: true }],
+    ['chalk', 2.9, 0.7, 'floor', { flat: true }],
+    ['upset', 2.8, 1.4, 'floor'],
+    ['boards', 2.8, 2.9, 'floor'],
+    ['glass', 2.5, 0.9, 'floor', { flat: true }],
+    ['spark', 1.6, 1.8, 'ceiling', { glow: [2.2, 'frost', -0.72], backup: true }],
+    ['talisman', 2.4, 2.2, 'wall'],
+    ['rubble', 3.2, 2.6, 'floor', { glow: [2.8, 'amber', -0.45], backup: true }],
   ],
 };
 
@@ -110,7 +109,7 @@ export const isFixtureKind = (kind: unknown): kind is string =>
 
 /** 變電設備（鍋爐的另一種樣式）的光是冷色 */
 export const lightColorOf = (d: FixtureDef, variant?: string): LightColor | null =>
-  d.glow ? (d.kind === 'boiler' && variant === 'electric' ? 'cold' : d.glow.tone) : null;
+  d.glow ? (d.kind === 'boiler' && variant === 'electric' ? 'frost' : d.glow.tone) : null;
 
 /* ---------- 區域的用途：選了就換內牆與一組設備（本站自己的配置） ---------- */
 

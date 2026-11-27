@@ -1,11 +1,11 @@
 /**
- * 範例（本站自己做的題材與配置）：霧丘洋館、白樺療養院、第九地下觀測所、渡鴉鐘塔。
+ * 範例（本站自己做的題材與配置）：霧丘洋館、白樺療養院、舊環線廢站、渡鴉鐘塔。
  * 都可以自由改；開範例是一步復原。
  */
 import { S } from '../strings';
-import { baseDoc, floorOf, furnishAll } from './factory';
+import { emptyDoc, floorOf, furnishAll } from './factory';
 import { layoutOf } from './layout';
-import { makeFixture, makeNote, placeNote, uid } from './ops';
+import { makeNote, newFixture, placeNote, uid } from './ops';
 import type { Fixture, Room, SectionDoc, Shaft, ShaftKind } from './types';
 
 export const SAMPLE_IDS = ['manor', 'sanatorium', 'station', 'tower'] as const;
@@ -41,7 +41,7 @@ type Extra = [room: string, kind: string, rx: number, more?: Partial<Fixture>];
 
 function addItems(doc: SectionDoc, list: readonly Extra[]): void {
   for (const [name, kind, rx, more] of list) {
-    const it = makeFixture(roomNamed(doc, name).id, kind, { rx, ry: more?.ry });
+    const it = newFixture(roomNamed(doc, name).id, kind, { rx, ry: more?.ry });
     Object.assign(it, more);
     /* { only: undefined }＝兩種狀態都有（事件・異變的種類預設只在事件後） */
     if (more && 'only' in more && more.only === undefined) delete it.only;
@@ -76,7 +76,7 @@ function patchFirst(doc: SectionDoc, room: string, kind: string, patch: Partial<
 
 function manor(): SectionDoc {
   const N = S.samples.manor.rooms;
-  const d = baseDoc();
+  const d = emptyDoc();
   Object.assign(d, {
     title: S.samples.manor.name,
     subtitle: S.samples.manor.subtitle,
@@ -118,13 +118,13 @@ function manor(): SectionDoc {
   patchFirst(d, N.master, 'window', { smashed: true });
   patchFirst(d, N.study, 'shelf', { upset: true });
   addNote(d, N.cellar, S.samples.manor.notes[0], 0.45, 0.4, { secret: true });
-  addNote(d, N.chapel, '1', 0.3, 0.45);
+  addNote(d, N.chapel, '1', 0.3, 0.45, { style: 'badge' });
   return d;
 }
 
 function sanatorium(): SectionDoc {
   const N = S.samples.sanatorium.rooms;
-  const d = baseDoc();
+  const d = emptyDoc();
   Object.assign(d, {
     title: S.samples.sanatorium.name,
     subtitle: S.samples.sanatorium.subtitle,
@@ -175,14 +175,14 @@ function sanatorium(): SectionDoc {
   patchFirst(d, N.director, 'window', { smashed: true });
   patchFirst(d, N.morgue, 'bars', { smashed: true });
   addNote(d, N.isolation, S.samples.sanatorium.notes[0], 0.45, 0.5, { secret: true });
-  addNote(d, N.wardA, 'A', 0.7, 0.5);
-  addNote(d, N.director, 'B', 0.3, 0.5);
+  addNote(d, N.wardA, 'A', 0.7, 0.5, { style: 'badge' });
+  addNote(d, N.director, 'B', 0.3, 0.5, { style: 'badge' });
   return d;
 }
 
 function station(): SectionDoc {
   const N = S.samples.station.rooms;
-  const d = baseDoc();
+  const d = emptyDoc();
   Object.assign(d, {
     title: S.samples.station.name,
     subtitle: S.samples.station.subtitle,
@@ -197,24 +197,24 @@ function station(): SectionDoc {
   d.building.roof = 'sawtooth';
   d.building.floors = [
     floorOf(1, S.samples.station.floors[0], [
-      [N.gate, 'lobby', 18],
-      [N.guard, 'control', 44],
+      [N.entrance, 'lobby', 18],
+      [N.kiosk, 'storage', 44],
     ]),
     floorOf(-1, S.samples.station.floors[1], [
-      [N.office, 'office', 18],
-      [N.monitor, 'control', 44],
+      [N.gates, 'lobby', 18],
+      [N.master, 'office', 44],
     ]),
     floorOf(-2, S.samples.station.floors[2], [
-      [N.culture, 'lab', 18],
-      [N.holding, 'cell', 44],
+      [N.platform, 'empty', 18],
+      [N.bunks, 'ward', 44],
     ]),
     floorOf(-3, S.samples.station.floors[3], [
-      [N.power, 'machine', 18],
-      [N.store, 'storage', 44],
+      [N.infirmary, 'surgery', 18],
+      [N.galley, 'kitchen', 44],
     ]),
     floorOf(-4, S.samples.station.floors[4], [
-      [N.sump, 'empty', 18],
-      [N.core, 'ritual', 44, true],
+      [N.terminus, 'empty', 18],
+      [N.shrine, 'ritual', 44, true],
     ]),
   ];
   d.building.shafts = [
@@ -224,22 +224,23 @@ function station(): SectionDoc {
   ];
   furnishAll(d);
   addItems(d, [
-    [N.culture, 'glass', 0.3],
-    [N.culture, 'bloodwall', 0.65, { ry: 0.5 }],
-    [N.holding, 'boards', 0.18],
-    [N.power, 'spark', 0.7],
-    [N.sump, 'pipes', 0.5, { only: undefined }],
-    [N.sump, 'crates', 0.7, { only: undefined }],
-    [N.monitor, 'upset', 0.55],
+    [N.platform, 'lamp', 0.3, { only: undefined }],
+    [N.platform, 'exit', 0.7, { only: undefined }],
+    [N.infirmary, 'glass', 0.3],
+    [N.infirmary, 'bloodwall', 0.65, { ry: 0.5 }],
+    [N.bunks, 'boards', 0.82],
+    [N.galley, 'spark', 0.7],
+    [N.terminus, 'pipes', 0.5, { only: undefined }],
+    [N.terminus, 'crates', 0.7, { only: undefined }],
+    [N.gates, 'upset', 0.55],
   ]);
-  patchFirst(d, N.power, 'boiler', { variant: 'electric' });
-  addNote(d, N.core, S.samples.station.notes[0], 0.5, 0.45, { secret: true });
+  addNote(d, N.shrine, S.samples.station.notes[0], 0.5, 0.45, { secret: true });
   return d;
 }
 
 function tower(): SectionDoc {
   const N = S.samples.tower.rooms;
-  const d = baseDoc();
+  const d = emptyDoc();
   Object.assign(d, {
     title: S.samples.tower.name,
     subtitle: S.samples.tower.subtitle,

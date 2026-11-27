@@ -364,7 +364,14 @@ describe('原作的作業 JSON', () => {
       rx: 0.8,
     });
     expect(doc.notes[0].room).toBe(altar?.id);
-    expect(skipped).toEqual({ items: 2, notes: 1, floors: 0, width: null });
+    expect(skipped).toEqual({
+      items: 2,
+      notes: 1,
+      floors: 0,
+      floorItems: 0,
+      floorNotes: 0,
+      width: null,
+    });
     expect(doc.train).toBeUndefined();
   });
 
@@ -377,6 +384,33 @@ describe('原作的作業 JSON', () => {
     expect(skipped.width).toBe(60);
     expect(skipped.floors).toBe(1);
     expect(doc.building.floors[0].rooms.every((r) => r.x1 <= 48)).toBe(true);
+  });
+
+  it('超過 12 層時沒讀進來的樓層裡的設備與備註分開計算（不算進認不出來的設備）', () => {
+    const raw = originalFile();
+    const base = raw.building.floors[0];
+    raw.building.floors = Array.from({ length: 14 }, (_, i) => ({
+      ...base,
+      id: `f${i}`,
+      level: 14 - i,
+      rooms: [{ ...base.rooms[0], id: `room${i}` }],
+    }));
+    raw.items = [
+      { id: 'a', mode: 'vertical', roomId: 'room0', asset: 'cctv', rx: 0.5 },
+      { id: 'b', mode: 'vertical', roomId: 'room12', asset: 'cctv', rx: 0.5 },
+      { id: 'c', mode: 'vertical', roomId: 'room13', asset: 'cctv', rx: 0.5 },
+      { id: 'd', mode: 'vertical', roomId: 'room1', asset: 'no-such-thing', rx: 0.5 },
+    ];
+    Object.assign(raw, {
+      annotations: [
+        { id: 'n', mode: 'vertical', roomId: 'room13', text: '頂樓', rx: 0.5, ry: 0.5 },
+      ],
+    });
+    const { doc, skipped } = fromOriginal(raw);
+    expect(doc.building.floors).toHaveLength(12);
+    expect(skipped).toMatchObject({ floors: 2, floorItems: 2, floorNotes: 1, items: 1, notes: 0 });
+    expect(doc.items).toHaveLength(1);
+    expect(doc.notes).toHaveLength(0);
   });
 
   it('橫向車廂的作業檔、沒有樓層的檔案：讀不了（說明原因）', () => {

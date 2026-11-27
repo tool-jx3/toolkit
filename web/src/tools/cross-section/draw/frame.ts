@@ -1,12 +1,12 @@
 /**
  * 圖框與標題欄（本站自己的版面）：外框兩道線；上方左邊是小標「建築斷面圖」、作品名（明朝）、副標題・環境・淹水；
  * 上方右邊是給誰看的標籤（GM 用／PL 用／公開差分用）；下方左邊是比例與樓層數，右邊是比例尺（0、2、4 m）。
- * 也包括左邊的樓層標示（樓層代號、樓板的高度、GL ±0.0）。
+ * 也包括左邊的樓層標示（旗形的標籤：樓層代號、樓板的高度；地面的水準點記號與「GL ±0」）。
  */
 import type { Layout, Rect } from '../model/layout';
-import { type Audience, CELL_M, type EnvId, floorCode, type SectionDoc } from '../model/types';
+import { type Audience, CELL_M, type EnvId, levelTag, type SectionDoc } from '../model/types';
 import { S } from '../strings';
-import { box, type Kit, poly, seg } from './kit';
+import { box, type Kit, poly, seg, shape } from './kit';
 import { alpha } from './palette';
 import { drawText, fitText, SANS, SERIF, textWidth } from './text';
 
@@ -34,39 +34,60 @@ const fmtM = (v: number) => {
   return `${r > 0 ? '+' : '−'}${Math.abs(r).toFixed(1)}`;
 };
 
-/** 左邊的樓層標示：代號、樓板的高度（以 GL 為 0）、GL 的記號 */
+/** 左邊的樓層標示：指向建築的旗形標籤（樓層代號＋樓板的高度，以 GL 為 0），地面是水準點的記號（四分圓）＋「GL」 */
 export function drawElevation(k: Kit, L: Layout): void {
-  const { p } = k;
+  const { c, p } = k;
   for (const f of L.floors) {
     const my = f.y0 + (f.y1 - f.y0) / 2;
-    const under = f.floor.level < 0;
-    const bg = under ? p.earth[0] : p.paper;
-    const fg = under && !p.dark && p.id === 'color' ? '#f1e9d2' : p.ink;
-    seg(k, -0.45, f.y0, 0, f.y0, 0.04);
-    box(k, -3.45, my - 0.6, 2.65, 1.2, bg, 0.04, p.ink, 0.18);
-    drawText(k.c, floorCode(f.floor.level), -2.12, my - 0.02, {
-      size: 0.56,
+    poly(
+      k,
+      [-3.3, my - 0.5, -1.2, my - 0.5, -0.8, my, -1.2, my + 0.5, -3.3, my + 0.5],
+      p.paper,
+      0.035,
+    );
+    seg(k, -0.8, my, -0.2, my, 0.02, alpha(p.ink, 0.5));
+    drawText(c, levelTag(f.floor.level), -1.35, my - 0.06, {
+      size: 0.5,
       weight: 700,
-      align: 'center',
+      align: 'right',
       baseline: 'middle',
-      color: fg,
+      color: p.ink,
     });
-    drawText(k.c, `FL ${fmtM((L.glY - f.y1) * CELL_M)}`, -2.12, my + 0.38, {
-      size: 0.22,
-      align: 'center',
+    drawText(c, `FL ${fmtM((L.groundY - f.y1) * CELL_M)}`, -1.35, my + 0.3, {
+      size: 0.2,
+      align: 'right',
       baseline: 'middle',
-      color: alpha(fg, 0.8),
+      color: alpha(p.ink, 0.75),
     });
   }
+  /* 水準點：圓分四份，右上與左下塗滿 */
   const gx = -0.55;
-  poly(k, [gx, L.glY, gx - 0.4, L.glY - 0.4, gx + 0.4, L.glY - 0.4], p.brass, 0.03);
-  box(k, -3.7, L.glY - 0.7, 2.6, 0.6, p.paper, 0.035, p.ink, 0.14);
-  drawText(k.c, 'GL ±0.0', -2.4, L.glY - 0.39, {
-    size: 0.36,
+  const gy = L.groundY;
+  seg(k, -3.1, gy, -0.1, gy, 0.035);
+  shape(k, () => c.arc(gx, gy, 0.24, 0, Math.PI * 2), p.paper, 0.035);
+  for (const start of [-Math.PI / 2, Math.PI / 2])
+    shape(
+      k,
+      () => {
+        c.moveTo(gx, gy);
+        c.arc(gx, gy, 0.24, start, start + Math.PI / 2);
+        c.closePath();
+      },
+      p.ink,
+      0,
+    );
+  drawText(c, 'GL', -1.0, gy - 0.2, {
+    size: 0.34,
     weight: 700,
-    align: 'center',
-    baseline: 'middle',
+    align: 'right',
+    baseline: 'alphabetic',
     color: p.ink,
+  });
+  drawText(c, '±0', -1.0, gy + 0.12, {
+    size: 0.24,
+    align: 'right',
+    baseline: 'top',
+    color: alpha(p.ink, 0.8),
   });
 }
 

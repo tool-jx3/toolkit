@@ -8,6 +8,10 @@ import type { EnvId, SectionDoc, SkyId } from '../model/types';
 import { box, type Ctx, faded, type Kit, rng, seg, shape } from './kit';
 import { alpha } from './palette';
 
+/** 雨絲與閃電的顏色 */
+const RAIN = '#dce7fb';
+const BOLT = '#b9d0ff';
+
 /** 這個環境實際畫的天候 */
 export const skyFor = (sky: SkyId, env: EnvId): SkyId =>
   (env === 'night' || env === 'blackout') && sky === 'clear' ? 'rain' : sky;
@@ -15,11 +19,11 @@ export const skyFor = (sky: SkyId, env: EnvId): SkyId =>
 export function drawSky(k: Kit, doc: SectionDoc, L: Layout, env: EnvId): void {
   const { c, p } = k;
   const w = L.world;
-  const h = L.glY - w.y;
+  const h = L.groundY - w.y;
   if (h <= 0.05) return;
   const sky = skyFor(doc.sky, env);
   const [top, bottom] = env === 'blackout' && p.id === 'color' ? p.sky.blackout : p.sky[sky];
-  const g = c.createLinearGradient(0, w.y, 0, L.glY);
+  const g = c.createLinearGradient(0, w.y, 0, L.groundY);
   g.addColorStop(0, top);
   g.addColorStop(1, bottom);
   c.fillStyle = g;
@@ -30,16 +34,16 @@ export function drawSky(k: Kit, doc: SectionDoc, L: Layout, env: EnvId): void {
   shape(
     k,
     () => {
-      c.moveTo(w.x, L.glY);
+      c.moveTo(w.x, L.groundY);
       let x = w.x;
       while (x < w.x + w.w + 1) {
         const rad = 0.45 + r() * 0.55;
         const hgt = 0.3 + r() * 0.9;
-        c.lineTo(x, L.glY - hgt);
-        c.arc(x + rad, L.glY - hgt, rad, Math.PI, 0);
+        c.lineTo(x, L.groundY - hgt);
+        c.arc(x + rad, L.groundY - hgt, rad, Math.PI, 0);
         x += rad * 2 - 0.15;
       }
-      c.lineTo(w.x + w.w, L.glY);
+      c.lineTo(w.x + w.w, L.groundY);
       c.closePath();
     },
     alpha(p.ink, p.dark ? 0.15 : 0.11),
@@ -74,7 +78,7 @@ export function drawSky(k: Kit, doc: SectionDoc, L: Layout, env: EnvId): void {
       c.moveTo(x, y);
       c.lineTo(x - len * 0.26, y + len);
     }
-    c.strokeStyle = p.dark || p.id === 'color' ? alpha('#bcd5de', 0.34) : alpha(p.ink, 0.3);
+    c.strokeStyle = p.dark || p.id === 'color' ? alpha(RAIN, 0.34) : alpha(p.ink, 0.3);
     c.lineWidth = 0.03;
     c.stroke();
   }
@@ -93,16 +97,16 @@ export function drawSky(k: Kit, doc: SectionDoc, L: Layout, env: EnvId): void {
       x - 0.1,
       y + 4.25,
       x - 1.1,
-      Math.min(L.glY - 0.4, y + 6.6),
+      Math.min(L.groundY - 0.4, y + 6.6),
     ];
     const path = () => {
       c.moveTo(bolt[0], bolt[1]);
       for (let i = 2; i < bolt.length; i += 2) c.lineTo(bolt[i], bolt[i + 1]);
     };
-    shape(k, () => c.ellipse(x, y, 2.2, 0.5, 0, 0, Math.PI * 2), alpha('#a2d8ff', 0.2), 0);
+    shape(k, () => c.ellipse(x, y, 2.2, 0.5, 0, 0, Math.PI * 2), alpha(BOLT, 0.2), 0);
     c.lineCap = 'round';
-    shape(k, path, null, 0.22, alpha('#a2d8ff', 0.34));
-    shape(k, path, null, 0.07, alpha('#f6fbff', 0.9));
+    shape(k, path, null, 0.22, alpha(BOLT, 0.34));
+    shape(k, path, null, 0.07, alpha('#ffffff', 0.9));
     c.lineCap = 'butt';
   }
 }
@@ -110,11 +114,11 @@ export function drawSky(k: Kit, doc: SectionDoc, L: Layout, env: EnvId): void {
 export function drawEarth(k: Kit, doc: SectionDoc, L: Layout): void {
   const { c, p } = k;
   const w = L.world;
-  const y0 = L.glY;
+  const y0 = L.groundY;
   const bottom = w.y + w.h;
   const h = bottom - y0;
   if (h <= 0.05) return;
-  const [topSoil, midSoil, deep] = p.earth;
+  const [topSoil, midSoil, deep] = p.strata;
   c.fillStyle = deep;
   c.fillRect(w.x, y0, w.w, h);
   /* 表土與中層：起伏的邊界 */
@@ -179,7 +183,7 @@ export function drawEarth(k: Kit, doc: SectionDoc, L: Layout): void {
   }
   c.restore();
   /* 地面 */
-  box(k, w.x, y0 - 0.06, w.w, 0.2, p.structure, 0.035);
+  box(k, w.x, y0 - 0.06, w.w, 0.2, p.slab, 0.035);
   seg(k, w.x, y0, w.x + w.w, y0, 0.06);
 }
 

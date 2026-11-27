@@ -7,7 +7,7 @@ import { drawScene, placeFixture } from '@/tools/cross-section/draw/render';
 import { wrapText } from '@/tools/cross-section/draw/text';
 import { blankDoc } from '@/tools/cross-section/model/factory';
 import { layoutOf } from '@/tools/cross-section/model/layout';
-import { addShaft, makeFixture, makeNote, placeNote } from '@/tools/cross-section/model/ops';
+import { addShaft, makeNote, newFixture, placeNote } from '@/tools/cross-section/model/ops';
 import { sampleDoc } from '@/tools/cross-section/model/samples';
 import type { Audience, EnvId, SectionDoc } from '@/tools/cross-section/model/types';
 import {
@@ -60,14 +60,14 @@ describe('出現的時機', () => {
   });
 
   it('事件・異變的設備預設只在事件後；放置時可以改', () => {
-    expect(makeFixture('r', 'bloodwall').only).toBe('after');
-    expect(makeFixture('r', 'bloodwall', { only: 'any' }).only).toBeUndefined();
-    expect(makeFixture('r', 'tank').only).toBeUndefined();
-    expect(makeFixture('r', 'tank', { only: 'before' }).only).toBe('before');
+    expect(newFixture('r', 'bloodwall').only).toBe('after');
+    expect(newFixture('r', 'bloodwall', { only: 'any' }).only).toBeUndefined();
+    expect(newFixture('r', 'tank').only).toBeUndefined();
+    expect(newFixture('r', 'tank', { only: 'before' }).only).toBe('before');
   });
 
   it('GM 專用的設備只在 GM 用出現', () => {
-    const it = { ...makeFixture('r', 'tank'), secret: true };
+    const it = { ...newFixture('r', 'tank'), secret: true };
     expect(fixtureShown(it, 'gm', 'before')).toBe(true);
     expect(fixtureShown(it, 'player', 'before')).toBe(false);
     expect(fixtureShown(it, 'reveal', 'before')).toBe(false);
@@ -138,7 +138,7 @@ describe('畫出來的圖', () => {
     const sec = d.building.floors.find((f) => f.level === -1)?.rooms[1];
     const pub = d.building.floors.find((f) => f.level === 1)?.rooms[0];
     if (!sec || !pub) throw new Error('rooms');
-    d.items.push(makeFixture(sec.id, 'altar'), { ...makeFixture(pub.id, 'tank'), secret: true });
+    d.items.push(newFixture(sec.id, 'altar'), { ...newFixture(pub.id, 'tank'), secret: true });
     const n = { ...makeNote('GM 的筆記'), secret: true };
     placeNote(d, n, 3, 3);
     d.notes.push(n);
@@ -163,27 +163,24 @@ describe('畫出來的圖', () => {
 
   it('設備的位置：太寬時自動縮小、夾在區域裡；牆上的照高度；事件後倒下時傾斜', () => {
     const r = { x: 10, y: 0, w: 4, h: 6 };
-    const wide = placeFixture(r, makeFixture('a', 'pipes', { rx: 0.95 }), false);
+    const wide = placeFixture(r, newFixture('a', 'pipes', { rx: 0.95 }), false);
     expect(wide?.scale).toBeLessThan(1);
     expect((wide?.x ?? 0) + (wide?.w ?? 0) / 2).toBeLessThanOrEqual(14 - 0.32 + 1e-9);
     const win = placeFixture(
       { x: 0, y: 0, w: 12, h: 6 },
-      makeFixture('a', 'window', { ry: 0.5 }),
+      newFixture('a', 'window', { ry: 0.5 }),
       false,
     );
-    expect(win?.y).toBeCloseTo(0.52 + 0.5 * (6 - 0.52 - 0.34) + 1, 5);
+    expect(win?.y).toBeCloseTo(0.52 + 0.5 * (6 - 0.52 - 0.34) + 1.2, 5);
     const fallen = placeFixture(
       { x: 0, y: 0, w: 12, h: 6 },
-      { ...makeFixture('a', 'shelf'), upset: true },
+      { ...newFixture('a', 'shelf'), upset: true },
       true,
     );
     expect(fallen?.tilt).not.toBe(0);
     expect(
-      placeFixture(
-        { x: 0, y: 0, w: 12, h: 6 },
-        { ...makeFixture('a', 'shelf'), upset: true },
-        false,
-      )?.tilt,
+      placeFixture({ x: 0, y: 0, w: 12, h: 6 }, { ...newFixture('a', 'shelf'), upset: true }, false)
+        ?.tilt,
     ).toBe(0);
   });
 });

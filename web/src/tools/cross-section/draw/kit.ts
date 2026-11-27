@@ -110,6 +110,19 @@ export function dot(
   shape(k, () => k.c.arc(x, y, r, 0, Math.PI * 2), fill, lw, stroke);
 }
 
+export function oval(
+  k: Kit,
+  x: number,
+  y: number,
+  rx: number,
+  ry: number,
+  fill: string | null,
+  lw = 0.03,
+  stroke: string | null = k.p.ink,
+): void {
+  shape(k, () => k.c.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2), fill, lw, stroke);
+}
+
 /** 暫時改透明度畫一段 */
 export function faded(k: Kit, a: number, draw: () => void): void {
   const prev = k.c.globalAlpha;

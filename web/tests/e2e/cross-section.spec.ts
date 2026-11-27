@@ -131,10 +131,11 @@ test('從哪個舞台開始：範例、新的縱向斷面、繼續；車廂是�
   const dialog = page.getByRole('dialog', { name: '從哪個舞台開始' });
   await expect(dialog).toBeVisible();
   await expect(dialog.getByTestId('start-train')).toBeDisabled();
+  await expect(dialog.getByTestId('start-train')).toContainText('之後會做');
   await expect(dialog.getByTestId('samples').getByRole('button')).toHaveCount(4);
   await dialog.getByTestId('sample-station').click();
   await expect(dialog).toBeHidden();
-  expect((await doc(page)).title).toBe('第九地下觀測所');
+  expect((await doc(page)).title).toBe('舊環線廢站');
   await page.getByTestId('undo').click();
   expect((await doc(page)).title).toBe('霧丘洋館');
   await page.getByTestId('open-start').click();
@@ -177,6 +178,13 @@ test('構造：加地上層與地下層、增減區域、刪掉一層、建築�
     ['elevator', 1, -1],
     ['ladder', 2, -2],
   ]);
+  /* 上端選到比下端低的樓層：兩端對調（F33） */
+  const panel = page.getByTestId('shaft-panel');
+  await panel.getByRole('combobox', { name: '下端' }).click();
+  await page.getByRole('option', { name: 'B1F', exact: true }).click();
+  await panel.getByRole('combobox', { name: '上端' }).click();
+  await page.getByRole('option', { name: 'B2F', exact: true }).click();
+  expect((await doc(page)).building.shafts[1]).toMatchObject({ top: -1, bottom: -2 });
   /* 最多 12 層 */
   await page.evaluate(() => {
     const h = (window as unknown as { __crossSection: Hook }).__crossSection;
@@ -436,7 +444,21 @@ test('專案檔：存了再開回來相同；開啟原作的作業 JSON；車廂
     mimeType: 'application/json',
     buffer: Buffer.from(JSON.stringify({ ...legacy, mode: 'horizontal', title: '列車' })),
   });
-  await expect(page.getByText('這是橫向車廂的作業檔，第二批才能開', { exact: true })).toBeVisible();
+  await expect(page.getByText('這是橫向車廂的作業檔，之後才能開', { exact: true })).toBeVisible();
+  expect((await doc(page)).title).toBe('舊的大樓');
+  /* 較新版本的工具存的專案檔：說明、不開 */
+  await page.getByRole('button', { name: '專案' }).click();
+  const chooser4 = await waitForFileChooser(page, () =>
+    page.getByRole('menuitem', { name: '開啟專案檔…' }).click(),
+  );
+  await chooser4.setFiles({
+    name: 'newer.json',
+    mimeType: 'application/json',
+    buffer: Buffer.from(JSON.stringify({ ...saved, version: 99 })),
+  });
+  await expect(
+    page.getByText('這個專案檔是較新版本的工具存的，請更新頁面後再開。', { exact: true }),
+  ).toBeVisible();
   expect((await doc(page)).title).toBe('舊的大樓');
   expect(errors).toEqual([]);
 });

@@ -5,7 +5,7 @@
  * - 公開的通道（電梯、兩種樓梯、梯子）在它經過的每一層佔一段整數格（寬見 SHAFT_WIDTH），區域不會和它重疊；
  *   兩條公開通道在同一層撞在一起時，後面那條往右挪到前一條的右邊（放不下就那一層不佔）。
  * - GM 專用的通道與祕密通風管不佔位置（畫在區域上面，PL 用的圖不畫）。
- * - 一層扣掉通道之後的每一段，寬 4 格以上才放區域（「空間」）；更窄的縫畫成牆（`gaps`）。
+ * - 一層扣掉通道之後的每一段，寬 4 格以上才放區域（「空間」）；更窄的縫畫成牆（`slivers`）。
  * - 世界的範圍：建築左邊留 4 格（樓層的標示）、右邊 2 格、上面是屋頂＋2 格的天空、下面 3 格的地層。
  */
 import {
@@ -30,7 +30,7 @@ export interface Rect {
   h: number;
 }
 
-export interface Slot extends Span {
+export interface Cut extends Span {
   shaft: Shaft;
 }
 
@@ -41,11 +41,11 @@ export interface FloorBox {
   y0: number;
   y1: number;
   /** 公開通道佔掉的位置 */
-  slots: Slot[];
+  cuts: Cut[];
   /** 可以放區域的空間（寬 ≥ 4） */
-  bays: Span[];
+  spaces: Span[];
   /** 太窄、畫成牆的縫 */
-  gaps: Span[];
+  slivers: Span[];
 }
 
 export interface RoomBox extends Rect {
@@ -65,11 +65,11 @@ export interface Layout {
   width: number;
   storey: number;
   /** 屋頂的高度（RF 顯示時 3 格，不顯示時 1 格） */
-  roofH: number;
+  roofDepth: number;
   /** 所有樓層的高度 */
-  totalH: number;
+  stackDepth: number;
   /** 地面（GL）的 y */
-  glY: number;
+  groundY: number;
   floors: FloorBox[];
   rooms: RoomBox[];
   shafts: ShaftBox[];
@@ -118,47 +118,47 @@ export function roomIdsOf(floors: readonly Floor[]): Set<string> {
 const clampInt = (v: number, lo: number, hi: number) =>
   Math.min(hi, Math.max(lo, Math.round(Number.isFinite(v) ? v : lo)));
 
-/** 這一層被公開通道佔掉的位置（左到右、不重疊） */
-export function slotsOf(b: Pick<Building, 'width' | 'shafts'>, level: number): Slot[] {
+/**
+ * 這一層被公開通道佔掉的位置（左到右、不重疊）：照通道的位置由左往右排，
+ * 和左邊已經排好的重疊時往右推到它的右邊；推出建築外的不排（那一層照樣有牆）。
+ */
+export function cutsAt(b: Pick<Building, 'width' | 'shafts'>, level: number): Cut[] {
   const W = b.width;
-  const wanted = b.shafts
+  const queue = b.shafts
     .filter((s) => !isGmShaft(s) && passes(s, level))
     .map((s) => {
       const w = shaftWidth(s);
-      const x0 = clampInt(s.x, 0, Math.max(0, W - w));
-      return { shaft: s, x0, x1: x0 + w };
+      return { shaft: s, w, x: clampInt(s.x, 0, Math.max(0, W - w)) };
     })
-    .sort((a, c) => a.x0 - c.x0);
-  const out: Slot[] = [];
-  for (const s of wanted) {
-    const prev = out[out.length - 1];
-    if (prev && s.x0 < prev.x1) {
-      const w = s.x1 - s.x0;
-      if (prev.x1 + w <= W) out.push({ shaft: s.shaft, x0: prev.x1, x1: prev.x1 + w });
-    } else out.push(s);
+    .sort((a, c) => a.x - c.x);
+  const cuts: Cut[] = [];
+  let reach = Number.NEGATIVE_INFINITY;
+  for (const { shaft, w, x } of queue) {
+    const from = Math.max(x, reach);
+    if (from + w > W) continue;
+    cuts.push({ shaft, x0: from, x1: from + w });
+    reach = from + w;
   }
-  return out;
+  return cuts;
 }
 
-/** 這一層可以放區域的空間與太窄的縫 */
-export function spacesOf(
+/** 一層切開來：通道佔的位置、放得下區域的空間（≥ 4 格）、太窄的縫（畫成牆） */
+export function partition(
   b: Pick<Building, 'width' | 'shafts'>,
   level: number,
-): { slots: Slot[]; bays: Span[]; gaps: Span[] } {
-  const slots = slotsOf(b, level);
-  const bays: Span[] = [];
-  const gaps: Span[] = [];
-  let x = 0;
-  const take = (to: number) => {
-    if (to - x >= MIN_ROOM) bays.push({ x0: x, x1: to });
-    else if (to > x) gaps.push({ x0: x, x1: to });
-  };
-  for (const s of slots) {
-    take(s.x0);
-    x = Math.max(x, s.x1);
+): { cuts: Cut[]; spaces: Span[]; slivers: Span[] } {
+  const cuts = cutsAt(b, level);
+  /* 通道之間（與兩端）的空白：[0, 第一條的左], [第一條的右, 第二條的左], …, [最後一條的右, 寬] */
+  const edges = [0, ...cuts.flatMap((c) => [c.x0, c.x1]), b.width];
+  const spaces: Span[] = [];
+  const slivers: Span[] = [];
+  for (let i = 0; i < edges.length; i += 2) {
+    const run = { x0: edges[i], x1: edges[i + 1] };
+    const w = run.x1 - run.x0;
+    if (w >= MIN_ROOM) spaces.push(run);
+    else if (w > 0) slivers.push(run);
   }
-  take(b.width);
-  return { slots, bays, gaps };
+  return { cuts, spaces, slivers };
 }
 
 /** 屋頂的高度 */
@@ -175,13 +175,12 @@ export function layoutOf(doc: Pick<SectionDoc, 'building'>): Layout {
     index,
     y0: index * fh,
     y1: (index + 1) * fh,
-    ...spacesOf(b, floor.level),
+    ...partition(b, floor.level),
   }));
-  const totalH = ordered.length * fh;
-  /* 地面：1F 的下緣；沒有 1F 時是最下面的地上樓層的下緣；全是地下時是最上面 */
-  const first = floors.find((f) => f.floor.level === 1);
-  const lowestAbove = [...floors].reverse().find((f) => f.floor.level > 0);
-  const glY = first ? first.y1 : lowestAbove ? lowestAbove.y1 : 0;
+  const stackDepth = ordered.length * fh;
+  /* 地面：地上的樓層裡最低的那層（通常是 1F）的下緣；全是地下時是最上面 */
+  const aboveGround = floors.filter((f) => f.floor.level > 0);
+  const groundY = aboveGround.length ? aboveGround[aboveGround.length - 1].y1 : 0;
 
   const rooms: RoomBox[] = [];
   for (const f of floors)
@@ -202,7 +201,7 @@ export function layoutOf(doc: Pick<SectionDoc, 'building'>): Layout {
     if (!through.length) continue;
     /* 公開的通道畫在那一層實際佔到的位置（被擠開時跟著挪；最上一層的位置） */
     const slot = through
-      .map((f) => f.slots.find((s) => s.shaft === shaft))
+      .map((f) => f.cuts.find((s) => s.shaft === shaft))
       .find((s) => s !== undefined);
     const w = shaftWidth(shaft);
     const x = slot ? slot.x0 : clampInt(shaft.x, 0, Math.max(0, W - w));
@@ -211,14 +210,14 @@ export function layoutOf(doc: Pick<SectionDoc, 'building'>): Layout {
     shafts.push({ shaft, x, y: y0, w, h: y1 - y0, floors: through });
   }
 
-  const roofH = roofHeight(b);
-  const top = roofH + MARGIN.sky;
+  const roofDepth = roofHeight(b);
+  const top = roofDepth + MARGIN.sky;
   return {
     width: W,
     storey: fh,
-    roofH,
-    totalH,
-    glY,
+    roofDepth,
+    stackDepth,
+    groundY,
     floors,
     rooms,
     shafts,
@@ -226,7 +225,7 @@ export function layoutOf(doc: Pick<SectionDoc, 'building'>): Layout {
       x: -MARGIN.left,
       y: -top,
       w: W + MARGIN.left + MARGIN.right,
-      h: totalH + top + MARGIN.ground,
+      h: stackDepth + top + MARGIN.ground,
     },
   };
 }

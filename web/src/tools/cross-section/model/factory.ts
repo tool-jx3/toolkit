@@ -5,7 +5,7 @@ import { S } from '../strings';
 import { applyUse, settle, uid } from './ops';
 import type { Floor, RoomUse, SectionDoc } from './types';
 
-export function baseDoc(): SectionDoc {
+export function emptyDoc(): SectionDoc {
   return {
     mode: 'building',
     title: S.defaults.title,
@@ -68,7 +68,7 @@ export function furnishAll(doc: SectionDoc): SectionDoc {
 }
 
 export function blankDoc(): SectionDoc {
-  const d = baseDoc();
+  const d = emptyDoc();
   d.building.floors = [
     floorOf(1, S.floor.aboveName, [
       [S.uses.lobby, 'lobby', 16],

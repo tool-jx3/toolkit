@@ -11,8 +11,8 @@ import { layoutOf } from '../model/layout';
 import { roomWidthRange, setRoomWidth, shaftFloors } from '../model/ops';
 import {
   CAB_STATES,
-  floorCode,
-  LIMITS,
+  CAPS,
+  levelTag,
   type Moment,
   RANGES,
   type RoomUse,
@@ -91,11 +91,11 @@ function RoomPanel({ doc, id }: { doc: SectionDoc; id: string }) {
   const w = room.x1 - room.x0;
   return (
     <div className="flex flex-col gap-3" data-testid="room-panel">
-      <Head title={I.room} sub={floor ? `${floorCode(floor.level)} ${floor.name}` : undefined} />
+      <Head title={I.room} sub={floor ? `${levelTag(floor.level)} ${floor.name}` : undefined} />
       <Field label={I.roomName}>
         <TextInput
           value={room.name}
-          maxLength={LIMITS.name}
+          maxLength={CAPS.name}
           data-testid="room-name"
           onFocus={g.begin}
           onBlur={g.commit}
@@ -106,7 +106,7 @@ function RoomPanel({ doc, id }: { doc: SectionDoc; id: string }) {
         <Field label={I.floorName}>
           <TextInput
             value={floor.name}
-            maxLength={LIMITS.name}
+            maxLength={CAPS.name}
             onFocus={g.begin}
             onBlur={g.commit}
             onChange={(e) => act.patchFloorName(floor.id, e.target.value)}
@@ -181,7 +181,7 @@ function ShaftPanel({ doc, id }: { doc: SectionDoc; id: string }) {
   const s = doc.building.shafts.find((v) => v.id === id);
   if (!s) return null;
   const floors = [...doc.building.floors].sort((a, b) => b.level - a.level);
-  const levelOptions = floors.map((f) => ({ value: String(f.level), label: floorCode(f.level) }));
+  const levelOptions = floors.map((f) => ({ value: String(f.level), label: levelTag(f.level) }));
   const through = shaftFloors(doc.building, s);
   const w = S.shafts[s.kind];
   const maxX = Math.max(
@@ -218,24 +218,14 @@ function ShaftPanel({ doc, id }: { doc: SectionDoc; id: string }) {
         <Field label={I.top}>
           <Select
             value={String(s.top)}
-            onValueChange={(v) =>
-              act.updateShaft(id, (sh) => {
-                sh.top = Number(v);
-                if (sh.bottom > sh.top) sh.bottom = sh.top;
-              })
-            }
+            onValueChange={(v) => act.setShaftEndAt(id, 'top', Number(v))}
             options={levelOptions}
           />
         </Field>
         <Field label={I.bottom}>
           <Select
             value={String(s.bottom)}
-            onValueChange={(v) =>
-              act.updateShaft(id, (sh) => {
-                sh.bottom = Number(v);
-                if (sh.top < sh.bottom) sh.top = sh.bottom;
-              })
-            }
+            onValueChange={(v) => act.setShaftEndAt(id, 'bottom', Number(v))}
             options={levelOptions}
           />
         </Field>
@@ -250,7 +240,7 @@ function ShaftPanel({ doc, id }: { doc: SectionDoc; id: string }) {
                   sh.cab = Number(v);
                 })
               }
-              options={through.map((f) => ({ value: String(f.level), label: floorCode(f.level) }))}
+              options={through.map((f) => ({ value: String(f.level), label: levelTag(f.level) }))}
             />
           </Field>
           <Field label={I.cabState}>
@@ -404,13 +394,13 @@ function NotePanel({ doc, id }: { doc: SectionDoc; id: string }) {
         label={I.text}
         labelSuffix={
           <small className="text-xs text-muted tabular-nums">
-            {I.count([...n.text].length, LIMITS.note)}
+            {I.count([...n.text].length, CAPS.note)}
           </small>
         }
       >
         <TextInput
           value={n.text}
-          maxLength={LIMITS.note}
+          maxLength={CAPS.note}
           data-testid="note-text"
           onFocus={g.begin}
           onBlur={g.commit}

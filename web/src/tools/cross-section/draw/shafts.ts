@@ -18,7 +18,7 @@ export function drawShaft(k: Kit, L: Layout, s: ShaftBox, env: EnvId): void {
   const sh = s.shaft;
   if (sh.kind === 'duct') {
     const cx = s.x + s.w / 2;
-    box(k, s.x + 0.12, s.y + 0.25, s.w - 0.24, s.h - 0.5, alpha(p.steel, 0.5), 0.055, p.gm);
+    box(k, s.x + 0.12, s.y + 0.25, s.w - 0.24, s.h - 0.5, alpha(p.iron, 0.5), 0.055, p.gm);
     for (const f of s.floors) {
       c.setLineDash([0.22, 0.12]);
       seg(k, cx - 1.4, f.y0 + 0.48, cx + 1.4, f.y0 + 0.48, 0.16, alpha(p.gm, 0.7));
@@ -37,21 +37,21 @@ export function drawShaft(k: Kit, L: Layout, s: ShaftBox, env: EnvId): void {
       : mix(p.walls.concrete, p.ink, 0.15);
   c.fillStyle = bg;
   c.fillRect(s.x, s.y, s.w, s.h);
-  hatchRect(c, s.x, s.y, SIDE, s.h, p.structure, p.hatch);
-  hatchRect(c, s.x + s.w - SIDE, s.y, SIDE, s.h, p.structure, p.hatch);
-  hatchRect(c, s.x, s.y, s.w, CAP, p.structure, p.hatch);
-  hatchRect(c, s.x, s.y + s.h - FLOOR_T, s.w, FLOOR_T, p.structure, p.hatch);
+  hatchRect(c, s.x, s.y, SIDE, s.h, p.slab, p.hatch);
+  hatchRect(c, s.x + s.w - SIDE, s.y, SIDE, s.h, p.slab, p.hatch);
+  hatchRect(c, s.x, s.y, s.w, CAP, p.slab, p.hatch);
+  hatchRect(c, s.x, s.y + s.h - FLOOR_T, s.w, FLOOR_T, p.slab, p.hatch);
   box(k, s.x, s.y, s.w, s.h, null, 0.04);
 
   /* 每層的出入口（相鄰的一般區域） */
   for (const f of s.floors) {
-    const floorY = f.y1 - FLOOR_T;
+    const floorLine = f.y1 - FLOOR_T;
     const dh = Math.min(3.2, L.storey - 1.35);
     const left = f.floor.rooms.some((r) => r.x1 === s.x && !r.secret);
     const right = f.floor.rooms.some((r) => r.x0 === s.x + s.w && !r.secret);
-    const door = sh.kind === 'elevator' ? p.brass : p.walls.plaster;
-    if (left) box(k, s.x + 0.02, floorY - dh, 0.16, dh, door, 0.025);
-    if (right) box(k, s.x + s.w - 0.18, floorY - dh, 0.16, dh, door, 0.025);
+    const door = sh.kind === 'elevator' ? p.gilt : p.walls.plaster;
+    if (left) box(k, s.x + 0.02, floorLine - dh, 0.16, dh, door, 0.025);
+    if (right) box(k, s.x + s.w - 0.18, floorLine - dh, 0.16, dh, door, 0.025);
   }
 
   const ix = s.x + SIDE;
@@ -61,9 +61,9 @@ export function drawShaft(k: Kit, L: Layout, s: ShaftBox, env: EnvId): void {
     for (const x of [ix + 0.2, ix + iw - 0.2])
       seg(k, x, s.y + CAP, x, s.y + s.h - FLOOR_T, 0.045, alpha(p.ink, 0.5));
     const py = s.y + 0.75;
-    dot(k, cx, py, 0.2, p.steel, 0.03);
+    dot(k, cx, py, 0.2, p.iron, 0.03);
     dot(k, cx, py, 0.06, p.ink, 0);
-    const lampColor = env === 'blackout' ? p.emergency : p.brass;
+    const lampColor = env === 'blackout' ? p.alarm : p.gilt;
     s.floors.forEach((f, i) => {
       c.setLineDash([0.16, 0.14]);
       seg(k, ix, f.y1 - FLOOR_T, ix + iw, f.y1 - FLOOR_T, 0.03, alpha(p.ink, 0.5));
@@ -100,7 +100,7 @@ export function drawShaft(k: Kit, L: Layout, s: ShaftBox, env: EnvId): void {
       c.rotate(0.19);
       c.translate(-cx, -(cy + ch / 2));
     }
-    box(k, cx - cw / 2, cy, cw, ch, p.steel, 0.05, p.ink, 0.05);
+    box(k, cx - cw / 2, cy, cw, ch, p.iron, 0.05, p.ink, 0.05);
     box(k, cx - cw / 2 + 0.15, cy + 0.32, cw - 0.3, ch - 0.42, p.walls.plaster, 0.025);
     seg(k, cx, cy + 0.32, cx, cy + ch - 0.1, 0.025, alpha(p.ink, 0.7));
     box(
@@ -109,7 +109,7 @@ export function drawShaft(k: Kit, L: Layout, s: ShaftBox, env: EnvId): void {
       cy + 0.1,
       cw - 0.64,
       0.13,
-      env === 'blackout' ? p.emergency : p.warm,
+      env === 'blackout' ? p.alarm : p.amber,
       0.015,
     );
     seg(
@@ -130,9 +130,9 @@ export function drawShaft(k: Kit, L: Layout, s: ShaftBox, env: EnvId): void {
     return;
   }
   if (stairs) {
-    const tread = p.dark ? mix(p.ink, p.paper, 0.55) : p.steel;
-    const tread2 = p.dark ? mix(p.ink, p.paper, 0.38) : p.structure;
-    const rail = p.dark ? p.warm : p.brass;
+    const tread = p.dark ? mix(p.ink, p.paper, 0.55) : p.iron;
+    const tread2 = p.dark ? mix(p.ink, p.paper, 0.38) : p.slab;
+    const rail = p.dark ? p.amber : p.gilt;
     const flight = (x0: number, y0: number, x1: number, y1: number, n: number, fill: string) => {
       shape(
         k,
@@ -179,7 +179,7 @@ export function drawShaft(k: Kit, L: Layout, s: ShaftBox, env: EnvId): void {
   for (const x of [cx - 0.38, cx + 0.38]) seg(k, x, s.y + 0.55, x, s.y + s.h - 0.36, 0.055);
   for (let y = s.y + 0.82; y < s.y + s.h - 0.4; y += 0.46)
     seg(k, cx - 0.38, y, cx + 0.38, y, 0.036);
-  for (const f of s.floors) box(k, ix, f.y1 - 0.36, iw, 0.16, p.steel, 0.028);
+  for (const f of s.floors) box(k, ix, f.y1 - 0.36, iw, 0.16, p.iron, 0.028);
 }
 
 /** GM 專用（祕密）的通道：外面再框一圈 GM 的虛線 */

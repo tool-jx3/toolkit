@@ -216,7 +216,7 @@ export const SHAFT_WIDTH: Record<ShaftKind, number> = {
   duct: 1,
 };
 
-export const LIMITS = {
+export const CAPS = {
   title: 64,
   subtitle: 80,
   name: 48,
@@ -242,7 +242,7 @@ export const isEnv = (v: unknown): v is EnvId => ENV_IDS.includes(v as EnvId);
 export const momentOfEnv = (env: EnvId): Moment => (env === 'after' ? 'after' : 'before');
 
 /** 樓層的代號：1F、2F…、B1F… */
-export const floorCode = (level: number): string => (level > 0 ? `${level}F` : `B${-level}F`);
+export const levelTag = (level: number): string => (level > 0 ? `${level}F` : `B${-level}F`);
 
 export type SelKind = 'room' | 'shaft' | 'item' | 'note';
 export interface SelRef {

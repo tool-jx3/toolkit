@@ -12,12 +12,13 @@ import {
   applyUse,
   clamp,
   clampCab,
-  makeFixture,
   makeNote,
   mergeFloor,
+  newFixture,
   placeNote,
   removeFloor,
   removeShaft,
+  setShaftEnd,
   setShaftKind,
   settle,
   splitFloor,
@@ -25,10 +26,10 @@ import {
 } from '../model/ops';
 import { type SampleId, sampleDoc } from '../model/samples';
 import {
+  CAPS,
   type EnvId,
   type Fixture,
-  floorCode,
-  LIMITS,
+  levelTag,
   type Note,
   RANGES,
   type Room,
@@ -151,7 +152,7 @@ export function addFloorAt(where: 'above' | 'below'): void {
   let code = '';
   edit((d) => {
     const f = addFloor(d, where);
-    if (f) code = floorCode(f.level);
+    if (f) code = levelTag(f.level);
   });
   if (code) notify(S.msg.floorAdded(code), 'success', { duration: 1800 });
   editor.fitView();
@@ -215,7 +216,7 @@ export function setRoomSecret(id: string, secret: boolean): void {
 export function patchFloorName(floorId: string, name: string): void {
   edit((d) => {
     const f = d.building.floors.find((v) => v.id === floorId);
-    if (f) f.name = name.slice(0, LIMITS.name);
+    if (f) f.name = name.slice(0, CAPS.name);
   });
 }
 
@@ -261,6 +262,9 @@ export function updateShaft(id: string, fn: (s: Draft<Shaft>, d: Draft<SectionDo
   });
 }
 
+export const setShaftEndAt = (id: string, end: 'top' | 'bottom', level: number): void =>
+  updateShaft(id, (s) => setShaftEnd(s, end, level));
+
 export const changeShaftKind = (id: string, kind: ShaftKind): void =>
   updateShaft(id, (s, d) => setShaftKind(d, s, kind));
 
@@ -274,7 +278,7 @@ export function placeFixtureAt(x: number, y: number): boolean {
     notify(S.msg.placeRoom, 'warning', { duration: 1800 });
     return false;
   }
-  if (doc.items.length >= LIMITS.items) {
+  if (doc.items.length >= CAPS.items) {
     notify(S.msg.dupLimit, 'warning');
     return false;
   }
@@ -284,7 +288,7 @@ export function placeFixtureAt(x: number, y: number): boolean {
   const rx = clamp((x - (hit.x + 0.32)) / usable, 0.08, 0.92);
   const ry = clamp((y - (hit.y + 0.54)) / Math.max(0.8, hit.h - 0.88), 0.2, 0.8);
   const phase = usePrefs.getState().data.phase;
-  const it = makeFixture(hit.room.id, st.kind, {
+  const it = newFixture(hit.room.id, st.kind, {
     rx,
     ry,
     only: phase === 'auto' ? undefined : phase,
@@ -313,7 +317,7 @@ export function duplicateItem(id: string): void {
   const doc = docNow();
   const it = doc.items.find((v) => v.id === id);
   if (!it) return;
-  if (doc.items.length >= LIMITS.items) {
+  if (doc.items.length >= CAPS.items) {
     notify(S.msg.dupLimit, 'warning');
     return;
   }
@@ -332,7 +336,7 @@ export function duplicateItem(id: string): void {
 
 export function placeNoteAt(x: number, y: number): void {
   const doc = docNow();
-  if (doc.notes.length >= LIMITS.notes) {
+  if (doc.notes.length >= CAPS.notes) {
     notify(S.msg.noteLimit, 'warning');
     return;
   }

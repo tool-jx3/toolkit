@@ -33,8 +33,8 @@ import { fixtureThumb } from '../draw/thumbs';
 import { FIXTURE_CATEGORIES, FIXTURES, type FixtureCategory } from '../model/catalog';
 import { floorsTopDown } from '../model/layout';
 import {
-  floorCode,
-  LIMITS,
+  CAPS,
+  levelTag,
   MAX_FLOORS,
   RANGES,
   ROOF_IDS,
@@ -152,7 +152,7 @@ function BuildTab() {
                 d.sky = v;
               })
             }
-            options={SKY_IDS.map((s) => ({ value: s, label: S.skies[s] }))}
+            options={SKY_IDS.map((s) => ({ value: s, label: S.weathers[s] }))}
           />
         </Field>
       </div>
@@ -205,7 +205,7 @@ function BuildTab() {
               ) : null}
               <div
                 className="flex min-w-0 items-center gap-1.5 rounded-md border border-border bg-surface-2 px-2 py-1"
-                data-testid={`floor-${floorCode(f.level)}`}
+                data-testid={`floor-${levelTag(f.level)}`}
               >
                 <button
                   type="button"
@@ -214,7 +214,7 @@ function BuildTab() {
                     f.rooms[0] && setEditor({ sel: { kind: 'room', id: f.rooms[0].id } })
                   }
                 >
-                  <b className="tabular-nums">{floorCode(f.level)}</b>{' '}
+                  <b className="tabular-nums">{levelTag(f.level)}</b>{' '}
                   <span className="text-muted">{f.name}</span>
                   <small className="block text-xs text-muted">
                     {S.build.rooms(f.rooms.length)}
@@ -277,7 +277,7 @@ function BuildTab() {
               >
                 <b>{S.shafts[s.kind]}</b>
                 <small className="block text-xs text-muted">
-                  {S.build.shaftInfo(s.x, floorCode(s.top), floorCode(s.bottom))}
+                  {S.build.shaftInfo(s.x, levelTag(s.top), levelTag(s.bottom))}
                   {s.secret || s.kind === 'duct' ? `・${S.build.gmTag}` : ''}
                 </small>
               </button>
@@ -405,7 +405,7 @@ function FinishTab() {
       <Field label={S.finish.title}>
         <TextInput
           value={d.title}
-          maxLength={LIMITS.title}
+          maxLength={CAPS.title}
           onFocus={g.begin}
           onBlur={g.commit}
           onChange={(e) =>
@@ -418,7 +418,7 @@ function FinishTab() {
       <Field label={S.finish.subtitle}>
         <TextInput
           value={d.subtitle}
-          maxLength={LIMITS.subtitle}
+          maxLength={CAPS.subtitle}
           onFocus={g.begin}
           onBlur={g.commit}
           onChange={(e) =>

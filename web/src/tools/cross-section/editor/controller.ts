@@ -57,11 +57,11 @@ export class SectionController {
   readonly view = { zoom: 16, ox: 0, oy: 0, w: 0, h: 0, dpr: 1 };
   private drag: Drag | null = null;
   private pointers = new Map<number, Pt>();
-  private spaceDown = false;
+  private panHeld = false;
   private raf = 0;
   private unsubs: (() => void)[] = [];
   private ro: ResizeObserver | null = null;
-  private fitted = false;
+  private didFit = false;
   /** 使用者自己縮放或移動過畫面（沒有時畫布大小改變就重新全體顯示） */
   private moved = false;
 
@@ -85,8 +85,8 @@ export class SectionController {
     on('wheel', (e) => this.onWheel(e), { passive: false });
     on('contextmenu', (e) => e.preventDefault());
     const blur = () => {
-      this.spaceDown = false;
-      if (this.drag) this.endDrag();
+      this.panHeld = false;
+      if (this.drag) this.finishDrag();
     };
     window.addEventListener('blur', blur);
     this.unsubs.push(() => window.removeEventListener('blur', blur));
@@ -111,7 +111,7 @@ export class SectionController {
     this.canvas = null;
     this.ctx = null;
     this.wrap = null;
-    this.fitted = false;
+    this.didFit = false;
   }
 
   /* ---------- 視角 ---------- */
@@ -138,9 +138,9 @@ export class SectionController {
     c.height = Math.round(h * dpr);
     c.style.width = `${w}px`;
     c.style.height = `${h}px`;
-    if (!this.fitted || !this.moved) {
+    if (!this.didFit || !this.moved) {
       this.fitView();
-      this.fitted = true;
+      this.didFit = true;
     } else {
       this.view.ox = w / 2 - cx * this.view.zoom;
       this.view.oy = h / 2 - cy * this.view.zoom;
@@ -188,7 +188,7 @@ export class SectionController {
   }
 
   setSpace(down: boolean): void {
-    this.spaceDown = down;
+    this.panHeld = down;
     if (this.canvas) this.canvas.style.cursor = down ? 'grab' : '';
   }
 
@@ -269,7 +269,7 @@ export class SectionController {
       };
       c.setPointerCapture(e.pointerId);
     };
-    if (st.tool === 'hand' || this.spaceDown || e.button === 1) {
+    if (st.tool === 'hand' || this.panHeld || e.button === 1) {
       pan();
       return;
     }
@@ -324,7 +324,7 @@ export class SectionController {
   }
 
   private startPinch(): void {
-    if (this.drag && this.drag.mode !== 'pan' && this.drag.mode !== 'pinch') this.endDrag();
+    if (this.drag && this.drag.mode !== 'pan' && this.drag.mode !== 'pinch') this.finishDrag();
     const [a, b] = [...this.pointers.values()];
     this.drag = {
       mode: 'pinch',
@@ -444,10 +444,10 @@ export class SectionController {
     }
     if (this.canvas?.hasPointerCapture(e.pointerId)) this.canvas.releasePointerCapture(e.pointerId);
     if (drag.mode === 'pan' && !drag.moved && !cancel) drag.tap?.();
-    this.endDrag();
+    this.finishDrag();
   }
 
-  private endDrag(): void {
+  private finishDrag(): void {
     const drag = this.drag;
     this.drag = null;
     if (drag && drag.mode !== 'pan' && drag.mode !== 'pinch') useDoc.endGesture();
@@ -461,7 +461,7 @@ export class SectionController {
 
   private updateCursor(s: Pt): void {
     const c = this.canvas;
-    if (!c || this.spaceDown) return;
+    if (!c || this.panHeld) return;
     const st = useEditor.getState();
     if (st.tool === 'hand') c.style.cursor = 'grab';
     else if (st.tool !== 'select' || st.audience === 'player')
