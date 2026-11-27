@@ -27,6 +27,7 @@
 [YouRanCoder](https://github.com/YouRanCoder) 與
 [momo102938](https://github.com/momo102938) 與
 [KIIN](https://kiin.booth.pm/) 與
+[あまやどり](https://nureenishi.booth.pm/) 與
 [Xelltis エノキ](https://www.xelltis.com/) 與
 [KKumuu](https://github.com/KKumuu) 與
 [utiyoso](https://github.com/utiyoso) 與
@@ -36,7 +37,7 @@
 [arcana-hanna](https://github.com/arcana-hanna) 與
 [CyberDelaai](https://github.com/CyberDelaai) 與
 [Sectr99](https://github.com/Sectr99) 與
-[SkyTNT](https://github.com/SkyTNT) 等人製作的網頁小工具與開源專案為靈感來源的 91 個 TRPG 工具合輯（NPC 名字產生器由本站原創；「文字演出產生器」以くま。的工具為靈感，由本 repo 以無塵室方式獨立撰寫；其中三個工具的作者不明），另外連到 JIZURA 字面與 Azgaar 的 Fantasy Map Generator 的原站。所有工具都由本站以共用的框架改寫，只有繁體中文介面。
+[SkyTNT](https://github.com/SkyTNT) 等人製作的網頁小工具與開源專案為靈感來源的 93 個 TRPG 工具合輯（NPC 名字產生器由本站原創；「文字演出產生器」以くま。的工具為靈感，由本 repo 以無塵室方式獨立撰寫；其中三個工具的作者不明），另外連到 JIZURA 字面與 Azgaar 的 Fantasy Map Generator 的原站。所有工具都由本站以共用的框架改寫，只有繁體中文介面。
 
 **https://tool-jx3.github.io/toolkit/**
 
@@ -109,6 +110,8 @@
 | [魔法脈繪製工具（翠緑のフローリア）](https://tool-jx3.github.io/toolkit/tools/floria-veins/) | 同人 TRPG『翠緑のフローリア』用的魔法脈繪圖板：在方格上畫直線與多角形、把線圍出來的範圍塗色、標傷害格，PC、BOSS、隨從好幾張畫布一起管理、全員一覽、匯出 PNG，也能讀寫原作工具的資料（只有繪圖功能，不含規則書的內容） |
 | [劇本骨架抽卡](https://tool-jx3.github.io/toolkit/tools/plot-deck/) | 用卡片拼出 TRPG 劇本的骨架（不限規則系統）：選題材與氣氛，抽餘韻、導入、障礙、真相、結局、舞台、焦點、線索、NPC 與每位 PC 的關係和秘密，卡會偏向彼此合得來的；可以重抽、鎖定、自己挑，回答卡上的提問、把線索放進場景並檢查每道推理題的線索夠不夠，排成一份成品（列印／PDF、HTML、純文字，或送去劇本排版台）；現代與奇幻兩套卡，全部本站自己寫 |
 | [CCFOLIA 角色批次產生器](https://tool-jx3.github.io/toolkit/tools/ccfolia-batch/) | 把劇本的 NPC 一次做成一批 CCFOLIA 棋子：幾行速記、直接貼上劇本的 NPC 資料（日文、繁中、簡中都讀得懂）、試算表或角色卡網站匯出的資料，狀態、參數、聊天面板、立繪與表情差分一起帶進去，「×3」一次做好幾個；匯出讀入房間就出現的 ZIP |
+| [立繪切入產生器](https://tool-jx3.github.io/toolkit/tools/char-cutin/) | 放進立繪與名字，做出跑團用的角色切入動畫：斬入、橫掠、眼部特寫、升起、重擊、VS 六種型，臉的位置自動對準、小標題自動編 ROUND；匯出 WebP／APNG（自動壓到 CCFOLIA 切入的 1 MB 以下）、影片、全員 ZIP 或登錄好切入的 CCFOLIA 房間 ZIP |
+| [斷面圖產生器](https://tool-jx3.github.io/toolkit/tools/cross-section/) | 把建築從側面切開畫成斷面圖：地上與地下最多 12 層、隔間與 13 種用途、電梯與樓梯等縱向通道、30 種側面的設備，6 種圖面樣式、白天／夜雨／停電／事件後與淹水，GM 用與 PL 用（祕密區域偽裝），匯出可以對齊 VTT 格子的 PNG |
 | [JIZURA 字面](https://tool-jx3.github.io/toolkit/tools/jizura/) | 貼上歌詞、點按拍點，自動排出文字 PV（歌詞動態影片）：一鍵換方案，版面、登場、特效等可以逐段替換，匯出 MP4、綠幕、黑幕或 PNG 序列（連到原作者網站的官方繁中版） |
 | [奇幻世界地圖產生器](https://azgaar.github.io/Fantasy-Map-Generator/) | 一鍵產生整片大陸的奇幻世界地圖：地形、氣候、河流、國家、城鎮、文化、宗教與道路都能逐項編輯，匯出 PNG、SVG 或存成地圖檔（連到 Azgaar 的 Fantasy Map Generator 原站，英文介面） |
 | [2.5D 動態立繪](https://tool-jx3.github.io/toolkit/tools/anime-rig/) | 拖進分好部件的 PSD 就自動綁定、當場動起來：眨眼、嘴型、頭髮物理（直接接受 [see-through](https://github.com/shitagaki-lab/see-through) 從單張插圖拆出來的 PSD，連深度 PSD 一起給時轉頭更立體），可以用攝影機（臉部追蹤，模型第一次使用時下載約 3.8 MB）或麥克風帶動，匯出透明 PNG 或影片 |
@@ -263,6 +266,8 @@ CI（GitHub Actions）在 pull request 與 main 上跑 `npm test`、lint、typec
 | `floria-veins` | [魔法脈繪製工具（翠緑のフローリア）](https://tool-jx3.github.io/toolkit/tools/floria-veins/) | [Nuts-ABCd／floria_canvas](https://github.com/Nuts-ABCd/floria_canvas) |
 | `plot-deck` | [劇本骨架抽卡](https://tool-jx3.github.io/toolkit/tools/plot-deck/) | [Xelltis エノキ／Kadan](https://www.xelltis.com/)（只參考功能） |
 | `ccfolia-batch` | [CCFOLIA 角色批次產生器](https://tool-jx3.github.io/toolkit/tools/ccfolia-batch/) | [shiki365/character-batch-maker](https://github.com/shiki365/character-batch-maker) |
+| `char-cutin` | [立繪切入產生器](https://tool-jx3.github.io/toolkit/tools/char-cutin/) | [あまやどり／カットインジェネレーター](https://nureenishi.booth.pm/) |
+| `cross-section` | [斷面圖產生器](https://tool-jx3.github.io/toolkit/tools/cross-section/) | [KIIN／階層・連結マップ制作スタジオ](https://kiin.booth.pm/) |
 
 開發與建置見 [web/README.md](web/README.md)；流程與規格見 [docs/refactor/](docs/refactor/PLAN.md)。
 

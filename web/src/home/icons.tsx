@@ -5,6 +5,7 @@ import {
   BookOpen,
   Box,
   BrickWall,
+  Building2,
   Calculator,
   CalendarDays,
   Camera,
@@ -20,6 +21,7 @@ import {
   Contact,
   Crop,
   Dices,
+  Drama,
   Earth,
   Eraser,
   Feather,
@@ -118,6 +120,7 @@ const ICONS: Record<string, LucideIcon> = {
   'bg-motion': Waves,
   'loading-maker': Loader,
   'screenshot-fx': ScanSearch,
+  'char-cutin': Drama,
   /* G3 立繪工作台 */
   'ccfolia-cropper': Crop,
   'portrait-size': Scaling,
@@ -201,6 +204,7 @@ const ICONS: Record<string, LucideIcon> = {
   'map-fx': Route,
   'world-map': Compass,
   'tile-map': BrickWall,
+  'cross-section': Building2,
   'combat-tracker': Swords,
   '5e-calc': Calculator,
   /* 其他網站 */

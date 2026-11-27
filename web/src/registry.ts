@@ -1098,6 +1098,27 @@ export const TOOLS: readonly ToolEntry[] = [
       url: 'https://github.com/shiki365/character-batch-maker',
     },
   },
+  {
+    id: 'char-cutin',
+    name: '立繪切入產生器',
+    summary:
+      '放進立繪與名字，做出跑團用的切入動畫：斬入、橫掠、眼部特寫、升起、重擊、VS 六種型，臉的位置自動對準、小標題自動編 ROUND。匯出 WebP／APNG（640 × 360 自動壓到 1 MB 以下，CCFOLIA 的切入直接用）、影片，或全員一次匯出成 ZIP、CCFOLIA 房間 ZIP。',
+    group: 'G2',
+    status: 'live',
+    inspiration: {
+      name: 'あまやどり／カットインジェネレーター',
+      url: 'https://nureenishi.booth.pm/',
+    },
+  },
+  {
+    id: 'cross-section',
+    name: '斷面圖產生器',
+    summary:
+      '把建築從側面切開畫成斷面圖：地上與地下最多 12 層，每層用隔間分成幾個區域，電梯、樓梯、梯子與祕密通風管貫穿好幾層，擺上培養槽、手術台、血跡等 30 種側面的設備；切換白天、夜、停電、事件後與淹水，祕密區域在 PL 用的圖裡偽裝成牆或地層，匯出 PNG（含對齊 VTT 的格子、事件前後兩張）。',
+    group: 'G10',
+    status: 'live',
+    inspiration: { name: 'KIIN／階層・連結マップ制作スタジオ', url: 'https://kiin.booth.pm/' },
+  },
 ];
 
 export function getTool(id: string): ToolEntry | undefined {
