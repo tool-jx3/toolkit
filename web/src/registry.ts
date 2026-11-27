@@ -1098,6 +1098,15 @@ export const TOOLS: readonly ToolEntry[] = [
       url: 'https://github.com/shiki365/character-batch-maker',
     },
   },
+  {
+    id: 'cross-section',
+    name: '斷面圖產生器',
+    summary:
+      '把建築從側面切開畫成斷面圖：地上與地下最多 12 層，每層用隔間分成幾個區域，電梯、樓梯、梯子與祕密通風管貫穿好幾層，擺上培養槽、手術台、血跡等 30 種側面的設備；切換白天、夜、停電、事件後與淹水，祕密區域在 PL 用的圖裡偽裝成牆或地層，匯出 PNG（含對齊 VTT 的格子、事件前後兩張）。',
+    group: 'G10',
+    status: 'next',
+    inspiration: { name: 'KIIN／階層・連結マップ制作スタジオ', url: 'https://kiin.booth.pm/' },
+  },
 ];
 
 export function getTool(id: string): ToolEntry | undefined {

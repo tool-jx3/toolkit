@@ -5,6 +5,7 @@ import {
   BookOpen,
   Box,
   BrickWall,
+  Building2,
   Calculator,
   CalendarDays,
   Camera,
@@ -201,6 +202,7 @@ const ICONS: Record<string, LucideIcon> = {
   'map-fx': Route,
   'world-map': Compass,
   'tile-map': BrickWall,
+  'cross-section': Building2,
   'combat-tracker': Swords,
   '5e-calc': Calculator,
   /* 其他網站 */
