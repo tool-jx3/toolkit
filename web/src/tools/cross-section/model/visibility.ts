@@ -6,7 +6,7 @@
  * - 公開差分用：祕密區域照常畫（不畫 GM 的虛線框），GM 專用的設備、備註、通道、不寫名字的名字一樣拿掉。
  * - 出現時機：只在事件前的東西在「事件後」的環境不畫，只在事件後的東西在其他三種環境不畫。
  */
-import { inRect, isGmShaft, type Layout, type RoomBox } from './layout';
+import { type Box, inRect, isGmShaft } from './layout';
 import type { Audience, Fixture, Moment, Note, Room, SectionDoc, Shaft } from './types';
 
 export const shownAt = (o: { only?: Moment }, m: Moment): boolean => !o.only || o.only === m;
@@ -14,7 +14,7 @@ export const shownAt = (o: { only?: Moment }, m: Moment): boolean => !o.only || 
 export type RoomLook = 'normal' | 'camo' | 'hidden';
 
 /** 區域怎麼畫：照常、偽裝成牆、不畫（地層照畫過去） */
-export function roomLook(r: Pick<RoomBox, 'room' | 'under'>, audience: Audience): RoomLook {
+export function roomLook(r: Pick<Box, 'room' | 'under'>, audience: Audience): RoomLook {
   if (audience !== 'player' || !r.room.secret) return 'normal';
   return r.under ? 'hidden' : 'camo';
 }
@@ -25,11 +25,16 @@ export const fixtureShown = (it: Fixture, audience: Audience, m: Moment): boolea
 export const shaftShown = (s: Shaft, audience: Audience): boolean =>
   audience === 'gm' || !isGmShaft(s);
 
-export const nameShown = (room: Room, audience: Audience): boolean =>
+export const nameShown = (room: Pick<Room, 'hideName' | 'secret'>, audience: Audience): boolean =>
   audience === 'gm' || (!room.hideName && !(audience === 'player' && room.secret));
 
+/** 有區域的平面（建築的 Layout、列車的區域＋床下的祕密空間） */
+export interface Boxes {
+  rooms: readonly Box[];
+}
+
 /** 備註的位置（建築的座標）與它所在的區域 */
-export function notePlace(L: Layout, n: Note): { x: number; y: number; owner: RoomBox | null } {
+export function notePlace(L: Boxes, n: Note): { x: number; y: number; owner: Box | null } {
   if (n.room) {
     const r = L.rooms.find((v) => v.room.id === n.room);
     if (r) return { x: r.x + n.rx * r.w, y: r.y + n.ry * r.h, owner: r };
@@ -38,7 +43,7 @@ export function notePlace(L: Layout, n: Note): { x: number; y: number; owner: Ro
 }
 
 /** 這則備註看得到嗎 */
-export function noteShown(L: Layout, n: Note, audience: Audience, m: Moment): boolean {
+export function noteShown(L: Boxes, n: Note, audience: Audience, m: Moment): boolean {
   if (!shownAt(n, m)) return false;
   if (audience === 'gm') return true;
   if (n.secret) return false;

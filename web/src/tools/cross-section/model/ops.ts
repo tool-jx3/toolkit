@@ -125,6 +125,22 @@ const newRoom = (span: Span, use: RoomUse, name = S.uses[use]): Room => ({
  * 回傳：祕密區域的東西是否因此改成 GM 專用。區域本身的左右由呼叫的人改。
  */
 export function mergeRoomInto(doc: SectionDoc, gone: Room, keeper: Room): boolean {
+  return mergeContents(doc, gone, keeper);
+}
+
+/** 兩間的左右與祕密（建築的區域、車廂裡的區域共用） */
+type Mergeable = Span & { id: string; secret: boolean };
+
+/**
+ * 合併時搬設備與備註（建築與列車共用）：lists 是那一邊的設備與備註（建築：doc；列車：doc.train）。
+ * 祕密區域併進一般區域時搬過去的東西一律改成 GM 專用。
+ */
+export function mergeContents(
+  lists: { items: Fixture[]; notes: Note[] },
+  gone: Mergeable,
+  keeper: Mergeable,
+): boolean {
+  const doc = lists;
   const leak = gone.secret && !keeper.secret;
   const merged: Span = {
     x0: Math.min(gone.x0, keeper.x0),
@@ -191,15 +207,14 @@ function nearestSpan(spans: readonly Span[], x: number): number {
  * 一段空間依區域原本的寬度比例分給每一間：先算每間想要的整數格，
  * 再由左往右排，每間至少 4 格、右邊還沒排的也各留 4 格，最後一間拿剩下的。
  */
-function shareOut(span: Span, row: Room[]): void {
+export function shareOut(span: Span, row: Span[], min: number = MIN_ROOM): void {
   const total = span.x1 - span.x0;
-  const weight = row.map((r) => Math.max(MIN_ROOM, r.x1 - r.x0 || total / row.length));
+  const weight = row.map((r) => Math.max(min, r.x1 - r.x0 || total / row.length));
   const sum = weight.reduce((a, v) => a + v, 0);
   const wish = weight.map((v) => Math.round((v / sum) * total));
   row.reduce((left, r, k) => {
     const rest = row.length - 1 - k;
-    const right =
-      rest === 0 ? span.x1 : clamp(left + wish[k], left + MIN_ROOM, span.x1 - rest * MIN_ROOM);
+    const right = rest === 0 ? span.x1 : clamp(left + wish[k], left + min, span.x1 - rest * min);
     r.x0 = left;
     r.x1 = right;
     return right;
@@ -403,14 +418,18 @@ export function mergeFloor(doc: SectionDoc, floorId: string): { ok: boolean; lea
 }
 
 /** 隔間（相鄰兩間的分界）可以移動的範圍 */
-export function dividerRange(left: Room, right: Room): { min: number; max: number } {
-  return { min: left.x0 + MIN_ROOM, max: right.x1 - MIN_ROOM };
+export function dividerRange(
+  left: Span,
+  right: Span,
+  least = MIN_ROOM,
+): { min: number; max: number } {
+  return { min: left.x0 + least, max: right.x1 - least };
 }
 
-/** 移動隔間（整數格；夾在兩間都至少 4 格的範圍裡）；有移動時回傳 true */
-export function moveDivider(left: Room, right: Room, x: number): boolean {
+/** 移動隔間（整數格；夾在兩間都至少 4 格〔車廂裡 3 格〕的範圍裡）；有移動時回傳 true */
+export function moveDivider(left: Span, right: Span, x: number, least = MIN_ROOM): boolean {
   if (left.x1 !== right.x0) return false;
-  const { min, max } = dividerRange(left, right);
+  const { min, max } = dividerRange(left, right, least);
   const nx = clamp(Math.round(x), min, max);
   if (nx === left.x1) return false;
   left.x1 = nx;
@@ -560,7 +579,16 @@ export function clampCab(doc: SectionDoc, s: Shaft): void {
 
 /** 把備註放到 (x, y)（建築的座標）：在區域裡時跟著那間區域，區域外就記世界座標 */
 export function placeNote(doc: SectionDoc, n: Note, x: number, y: number): void {
-  const hit = roomAt(layoutOf(doc), x, y);
+  pinNote(n, x, y, roomAt(layoutOf(doc), x, y));
+}
+
+/** 備註放到 (x, y)：hit＝那個點所在的區域（建築或車廂；沒有時記世界座標） */
+export function pinNote(
+  n: Note,
+  x: number,
+  y: number,
+  hit: { room: { id: string }; x: number; y: number; w: number; h: number } | undefined,
+): void {
   n.x = round3(x);
   n.y = round3(y);
   if (hit) {

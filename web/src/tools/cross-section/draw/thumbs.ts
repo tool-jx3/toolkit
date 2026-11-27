@@ -2,11 +2,11 @@
  * 縮圖：設備卡片（彩色樣式、置中）、範例與匯出的預覽（地圖本體或整張）。同一個鍵只畫一次。
  */
 import { fixtureDef } from '../model/catalog';
-import { layoutOf } from '../model/layout';
 import type { SectionDoc } from '../model/types';
 import { drawFixture } from './fixtures';
 import { paletteOf } from './palette';
-import { type Crop, drawScene, type SceneOpts, sceneRect } from './render';
+import type { Crop, SceneOpts } from './render';
+import { docRect, drawDoc, planOf } from './scene';
 
 const cache = new Map<string, string>();
 
@@ -38,9 +38,9 @@ export function docThumb(
   key?: string,
 ): string {
   if (key && cache.has(key)) return cache.get(key) ?? '';
-  const L = layoutOf(doc);
+  const plan = planOf(doc);
   const crop = o.crop ?? 'map';
-  const b = sceneRect(doc, L, crop);
+  const b = docRect(doc, crop, plan);
   const k = width / b.w;
   const c = document.createElement('canvas');
   c.width = Math.round(width);
@@ -48,7 +48,7 @@ export function docThumb(
   const ctx = c.getContext('2d');
   if (!ctx) return '';
   ctx.setTransform(k, 0, 0, k, -b.x * k, -b.y * k);
-  drawScene(ctx, doc, L, { ...o, crop });
+  drawDoc(ctx, doc, { ...o, crop }, plan);
   const url = c.toDataURL('image/png');
   if (key) cache.set(key, url);
   return url;

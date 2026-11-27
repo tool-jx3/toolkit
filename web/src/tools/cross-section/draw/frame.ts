@@ -17,7 +17,7 @@ export const SHEET_PAD = {
 } as const;
 
 /** 整張紙的範圍 */
-export function sheetRect(L: Layout, framed: boolean): Rect {
+export function sheetRect(L: { world: Rect }, framed: boolean): Rect {
   const pad = framed ? SHEET_PAD.framed : SHEET_PAD.plain;
   const w = L.world;
   return {
@@ -95,6 +95,8 @@ export interface FrameInfo {
   audience: Audience;
   env: EnvId;
   flood: number;
+  /** 列車（第二批）：小標「列車斷面圖」、下方寫車廂數（沒給時是建築的） */
+  cars?: number;
 }
 
 export function drawFrame(k: Kit, doc: SectionDoc, sheet: Rect, info: FrameInfo): void {
@@ -129,7 +131,7 @@ export function drawFrame(k: Kit, doc: SectionDoc, sheet: Rect, info: FrameInfo)
     color: p.ink,
   });
   const room = right - tw - 0.6 - left;
-  drawText(c, S.frame.caption, left, sheet.y + 1.3, {
+  drawText(c, info.cars === undefined ? S.frame.caption : S.train.caption, left, sheet.y + 1.3, {
     size: 0.32,
     color: alpha(p.ink, 0.72),
     tracking: 0.35,
@@ -157,7 +159,8 @@ export function drawFrame(k: Kit, doc: SectionDoc, sheet: Rect, info: FrameInfo)
   const fy = sheet.y + sheet.h - 1.05;
   const above = doc.building.floors.filter((f) => f.level > 0).length;
   const below = doc.building.floors.length - above;
-  drawText(c, S.frame.scale(above, below), left, fy, {
+  const scale = info.cars === undefined ? S.frame.scale(above, below) : S.train.scale(info.cars);
+  drawText(c, scale, left, fy, {
     size: 0.32,
     color: alpha(p.ink, 0.65),
     family: SANS,

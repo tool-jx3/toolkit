@@ -8,10 +8,10 @@
  * - 寬 × 高不超過 16,777,216 像素（iPhone、iPad 的畫布上限），超過的選項不能選。
  */
 import { ensureFont } from '@/core/fonts';
-import { layoutOf } from '../model/layout';
 import type { Audience, EnvId, SectionDoc } from '../model/types';
 import { S } from '../strings';
-import { type Crop, drawScene, sceneRect } from './render';
+import type { Crop } from './render';
+import { docRect, drawDoc, type Plan, planOf } from './scene';
 
 export const LONG_EDGES = [1600, 2400, 3600] as const;
 export const CELL_PX = [48, 50, 64, 70, 96, 100] as const;
@@ -40,9 +40,9 @@ export function exportSize(
   crop: Crop,
   longEdge: number,
   cellPx: number,
+  plan: Plan = planOf(doc),
 ): ExportSize {
-  const L = layoutOf(doc);
-  const b = sceneRect(doc, L, crop);
+  const b = docRect(doc, crop, plan);
   const cols = Math.round(b.w);
   const rows = Math.round(b.h);
   if (crop === 'vtt') return { width: cols * cellPx, height: rows * cellPx, cols, rows };
@@ -63,9 +63,9 @@ export const floodFor = (doc: SectionDoc, on: boolean): number =>
   on ? (doc.floodLevel > 0 ? Math.min(100, doc.floodLevel) : 34) : 0;
 
 export function renderPng(doc: SectionDoc, e: ExportSettings): HTMLCanvasElement {
-  const L = layoutOf(doc);
-  const b = sceneRect(doc, L, e.crop);
-  const size = exportSize(doc, e.crop, e.longEdge, e.cellPx);
+  const plan = planOf(doc);
+  const b = docRect(doc, e.crop, plan);
+  const size = exportSize(doc, e.crop, e.longEdge, e.cellPx, plan);
   const c = document.createElement('canvas');
   c.width = size.width;
   c.height = size.height;
@@ -79,18 +79,24 @@ export function renderPng(doc: SectionDoc, e: ExportSettings): HTMLCanvasElement
     (-b.x * size.width) / b.w,
     (-b.y * size.height) / b.h,
   );
-  drawScene(ctx, doc, L, {
-    audience: e.audience,
-    env: e.env,
-    flood: floodFor(doc, e.flood),
-    crop: e.crop,
-    transparent: e.transparent,
-  });
+  drawDoc(
+    ctx,
+    doc,
+    {
+      audience: e.audience,
+      env: e.env,
+      flood: floodFor(doc, e.flood),
+      crop: e.crop,
+      transparent: e.transparent,
+    },
+    plan,
+  );
   return c;
 }
 
 /** 圖上用到的字 */
 export function docText(doc: SectionDoc): string {
+  const t = doc.mode === 'train' ? doc.train : undefined;
   return [
     doc.title,
     doc.subtitle,
@@ -100,6 +106,17 @@ export function docText(doc: SectionDoc): string {
     ...Object.values(S.frame.audience),
     ...Object.values(S.envs),
     'GL±0.0FL+−1234567890BFm格≈層地上下·淹水%',
+    ...(t
+      ? [
+          ...t.cars.flatMap((c) => [c.name, c.underName, ...c.rooms.map((r) => r.name)]),
+          ...t.notes.map((n) => n.text),
+          S.train.caption,
+          S.train.scale(10),
+          S.train.toNext(10),
+          '車',
+          S.fragileText,
+        ]
+      : []),
   ].join('');
 }
 

@@ -5,6 +5,7 @@ import { box, type Kit } from '../kit';
 import { FACILITY_DRAW } from './facility';
 import { INCIDENT_DRAW } from './incidents';
 import { OPENING_DRAW } from './openings';
+import { TRAIN_DRAW } from './train';
 import type { DrawOpts } from './types';
 
 export { BREAKABLE } from './openings';
@@ -14,6 +15,7 @@ const DRAW: Record<string, (k: Kit, o: DrawOpts) => void> = {
   ...FACILITY_DRAW,
   ...OPENING_DRAW,
   ...INCIDENT_DRAW,
+  ...TRAIN_DRAW,
 };
 
 export function drawFixture(k: Kit, kind: string, o: DrawOpts): void {

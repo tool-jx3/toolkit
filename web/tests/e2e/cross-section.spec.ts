@@ -100,7 +100,9 @@ async function noHorizontalScroll(page: Page) {
   expect(sw, '不應出現橫向捲動').toBeLessThanOrEqual(cw);
 }
 
-test('開頁：範例「霧丘洋館」、三個分頁、30 種設備與搜尋、頁尾只有靈感來源', async ({ page }) => {
+test('開頁：範例「霧丘洋館」、三個分頁、36 種設備（2026-11-27 第二批加列車專用 6 種）與搜尋、頁尾只有靈感來源', async ({
+  page,
+}) => {
   const errors = await open(page);
   const d = await doc(page);
   expect(d.title).toBe('霧丘洋館');
@@ -111,7 +113,7 @@ test('開頁：範例「霧丘洋館」、三個分頁、30 種設備與搜尋�
   await expect(page.getByTestId('stat-secrets')).toHaveText('1');
   await page.getByRole('tab', { name: '設備・家具' }).click();
   const grid = page.getByTestId('fixture-grid');
-  await expect(grid.getByRole('button')).toHaveCount(30);
+  await expect(grid.getByRole('button')).toHaveCount(36);
   await page.getByRole('searchbox', { name: '搜尋設備' }).fill('血');
   await expect(grid.getByRole('button')).toHaveCount(2);
   await page.getByRole('searchbox', { name: '搜尋設備' }).fill('');
@@ -123,16 +125,15 @@ test('開頁：範例「霧丘洋館」、三個分頁、30 種設備與搜尋�
   expect(errors).toEqual([]);
 });
 
-test('從哪個舞台開始：範例、新的縱向斷面、繼續；車廂是第二批；換掉之後可以復原', async ({
-  page,
-}) => {
+test('從哪個舞台開始：範例、新的縱向斷面、繼續；換掉之後可以復原', async ({ page }) => {
   const errors = await open(page);
   await page.getByTestId('open-start').click();
   const dialog = page.getByRole('dialog', { name: '從哪個舞台開始' });
   await expect(dialog).toBeVisible();
-  await expect(dialog.getByTestId('start-train')).toBeDisabled();
-  await expect(dialog.getByTestId('start-train')).toContainText('之後會做');
+  /* 2026-11-27 第二批：新的橫向車廂可以按、橫向的範例 2 個（另見 cross-section-train.spec.ts） */
+  await expect(dialog.getByTestId('start-train')).toBeEnabled();
   await expect(dialog.getByTestId('samples').getByRole('button')).toHaveCount(4);
+  await expect(dialog.getByTestId('train-samples').getByRole('button')).toHaveCount(2);
   await dialog.getByTestId('sample-station').click();
   await expect(dialog).toBeHidden();
   expect((await doc(page)).title).toBe('舊環線廢站');
@@ -360,7 +361,9 @@ test('匯出 PNG：尺寸、透明、VTT 的格子、事件前後兩張', { tag:
   expect(errors).toEqual([]);
 });
 
-test('專案檔：存了再開回來相同；開啟原作的作業 JSON；車廂的檔案說明原因', async ({ page }) => {
+test('專案檔：存了再開回來相同；開啟原作的作業 JSON；沒有車廂的橫向檔說明原因', async ({
+  page,
+}) => {
   const errors = await open(page);
   await page.getByRole('button', { name: '專案' }).click();
   const [dl] = await Promise.all([
@@ -413,6 +416,7 @@ test('專案檔：存了再開回來相同；開啟原作的作業 JSON；車廂
     items: [
       { id: 'i', mode: 'vertical', roomId: 'r', asset: 'cctv', rx: 0.2 },
       { id: 'j', mode: 'vertical', roomId: 'r', asset: 'sleeper-berth', rx: 0.5 },
+      { id: 'k', mode: 'vertical', roomId: 'r', asset: 'no-such-thing', rx: 0.5 },
     ],
     annotations: [],
   };
@@ -429,12 +433,11 @@ test('專案檔：存了再開回來相同；開啟原作的作業 JSON；車廂
   const d = await doc(page);
   expect(d).toMatchObject({ style: 'blueprint', env: 'night', sky: 'rain' });
   expect(d.building).toMatchObject({ width: 30, rooftop: false, roof: 'sawtooth' });
-  expect(d.items.map((it) => it.kind)).toEqual(['camera']);
+  /* 2026-11-27 第二批：列車專用的設備放在建築裡也讀 */
+  expect(d.items.map((it) => it.kind)).toEqual(['camera', 'bunk']);
   await expect(page.getByText('已讀入原作的作業檔', { exact: true })).toBeVisible();
-  await expect(
-    page.getByText('沒有讀進來的：列車專用或認不出來的設備 1 件', { exact: true }),
-  ).toBeVisible();
-  /* 橫向車廂的作業檔 */
+  await expect(page.getByText('沒有讀進來的：認不出來的設備 1 件', { exact: true })).toBeVisible();
+  /* 橫向車廂的作業檔但沒有車廂（第二批起橫向的檔讀得懂，見 cross-section-train.spec.ts） */
   await page.getByRole('button', { name: '專案' }).click();
   const chooser3 = await waitForFileChooser(page, () =>
     page.getByRole('menuitem', { name: '開啟專案檔…' }).click(),
@@ -444,7 +447,9 @@ test('專案檔：存了再開回來相同；開啟原作的作業 JSON；車廂
     mimeType: 'application/json',
     buffer: Buffer.from(JSON.stringify({ ...legacy, mode: 'horizontal', title: '列車' })),
   });
-  await expect(page.getByText('這是橫向車廂的作業檔，之後才能開', { exact: true })).toBeVisible();
+  await expect(
+    page.getByText('這個橫向車廂的作業檔裡沒有車廂的資料', { exact: true }),
+  ).toBeVisible();
   expect((await doc(page)).title).toBe('舊的大樓');
   /* 較新版本的工具存的專案檔：說明、不開 */
   await page.getByRole('button', { name: '專案' }).click();

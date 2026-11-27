@@ -48,11 +48,16 @@ export interface FloorBox {
   slivers: Span[];
 }
 
-export interface RoomBox extends Rect {
+/** 一間區域的矩形（建築的區域、車廂裡的區域、床下的祕密空間共用的部分） */
+export interface Box extends Rect {
+  room: Pick<Room, 'id' | 'name' | 'wall' | 'secret' | 'hideName'>;
+  /** 地下的區域（PL 用時不畫）；列車的床下的祕密空間也是 */
+  under: boolean;
+}
+
+export interface RoomBox extends Box {
   room: Room;
   floor: Floor;
-  /** 地下的區域 */
-  under: boolean;
 }
 
 export interface ShaftBox extends Rect {

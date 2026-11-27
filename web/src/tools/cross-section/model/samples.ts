@@ -1,15 +1,20 @@
 /**
- * 範例（本站自己做的題材與配置）：霧丘洋館、白樺療養院、舊環線廢站、渡鴉鐘塔。
- * 都可以自由改；開範例是一步復原。
+ * 範例（本站自己做的題材與配置）：縱向的霧丘洋館、白樺療養院、舊環線廢站、渡鴉鐘塔；
+ * 橫向（第二批）的赤狐馬戲團專列、鐵鴉護送列車。都可以自由改；開範例是一步復原。
  */
 import { S } from '../strings';
-import { emptyDoc, floorOf, furnishAll } from './factory';
+import { blankDoc, emptyDoc, floorOf, furnishAll } from './factory';
 import { layoutOf } from './layout';
 import { makeNote, newFixture, placeNote, uid } from './ops';
-import type { Fixture, Room, SectionDoc, Shaft, ShaftKind } from './types';
+import { trainLayoutOf, underId } from './trainLayout';
+import { makeCar, placeTrainNote, settleTrain } from './trainOps';
+import type { Car, CarType, Fixture, Room, SectionDoc, Shaft, ShaftKind, Train } from './types';
 
+/** 縱向的範例 */
 export const SAMPLE_IDS = ['manor', 'sanatorium', 'station', 'tower'] as const;
-export type SampleId = (typeof SAMPLE_IDS)[number];
+/** 橫向的範例（第二批） */
+export const TRAIN_SAMPLE_IDS = ['circus', 'raven'] as const;
+export type SampleId = (typeof SAMPLE_IDS)[number] | (typeof TRAIN_SAMPLE_IDS)[number];
 
 const shaft = (
   kind: ShaftKind,
@@ -117,6 +122,7 @@ function manor(): SectionDoc {
   ]);
   patchFirst(d, N.master, 'window', { smashed: true });
   patchFirst(d, N.study, 'shelf', { upset: true });
+  roomNamed(d, N.hall).open = true;
   addNote(d, N.cellar, S.samples.manor.notes[0], 0.45, 0.4, { secret: true });
   addNote(d, N.chapel, '1', 0.3, 0.45, { style: 'badge' });
   return d;
@@ -174,6 +180,7 @@ function sanatorium(): SectionDoc {
   ]);
   patchFirst(d, N.director, 'window', { smashed: true });
   patchFirst(d, N.morgue, 'bars', { smashed: true });
+  roomNamed(d, N.lobby).open = true;
   addNote(d, N.isolation, S.samples.sanatorium.notes[0], 0.45, 0.5, { secret: true });
   addNote(d, N.wardA, 'A', 0.7, 0.5, { style: 'badge' });
   addNote(d, N.director, 'B', 0.3, 0.5, { style: 'badge' });
@@ -235,6 +242,7 @@ function station(): SectionDoc {
     [N.gates, 'upset', 0.55],
   ]);
   addNote(d, N.shrine, S.samples.station.notes[0], 0.5, 0.45, { secret: true });
+  roomNamed(d, N.entrance).open = true;
   return d;
 }
 
@@ -276,13 +284,175 @@ function tower(): SectionDoc {
     [N.vault, 'locker', 0.4, { only: undefined, secret: true }],
   ]);
   addNote(d, N.vault, S.samples.tower.notes[0], 0.5, 0.55, { secret: true });
+  roomNamed(d, N.entrance).open = true;
   return d;
 }
 
-const BUILD: Record<SampleId, () => SectionDoc> = { manor, sanatorium, station, tower };
+/* ---------- 橫向的範例 ---------- */
+
+/** 一節：[種類, 名字, 每一間的名字（照預設的分法；空字串＝照預設）] */
+type CarSpec = readonly [CarType, string, readonly string[]];
+
+function trainOf(specs: readonly CarSpec[], base: Omit<Train, 'cars' | 'items' | 'notes'>): Train {
+  const t: Train = { ...base, cars: [], items: [], notes: [] };
+  for (const [type, name, rooms] of specs) {
+    const car = makeCar(t, type);
+    car.name = name;
+    car.rooms.forEach((r, i) => {
+      if (rooms[i]) r.name = rooms[i];
+    });
+    t.cars.push(car);
+  }
+  settleTrain(t);
+  return t;
+}
+
+function carNamed(t: Train, name: string): Car {
+  const car = t.cars.find((c) => c.name === name);
+  if (!car) throw new Error(`sample car ${name}`);
+  return car;
+}
+
+function carRoom(t: Train, name: string) {
+  for (const c of t.cars) {
+    const r = c.rooms.find((v) => v.name === name);
+    if (r) return r;
+  }
+  throw new Error(`sample car room ${name}`);
+}
+
+function addTrainItems(t: Train, list: readonly Extra[]): void {
+  for (const [name, kind, rx, more] of list) {
+    const it = newFixture(carRoom(t, name).id, kind, { rx, ry: more?.ry });
+    Object.assign(it, more);
+    if (more && 'only' in more && more.only === undefined) delete it.only;
+    t.items.push(it);
+  }
+}
+
+/** 備註：在某一間（或床下的祕密空間：room 寫成 under:車廂名）的比例位置 */
+function addTrainNote(
+  t: Train,
+  room: string,
+  text: string,
+  rx: number,
+  ry: number,
+  more: Partial<ReturnType<typeof makeNote>> = {},
+) {
+  const T = trainLayoutOf(t);
+  const id = room.startsWith('under:')
+    ? underId(carNamed(t, room.slice(6)).id)
+    : carRoom(t, room).id;
+  const b = [...T.rooms, ...T.unders].find((v) => v.room.id === id);
+  if (!b) return;
+  const n = makeNote(text);
+  placeTrainNote(t, n, b.x + rx * b.w, b.y + ry * b.h);
+  Object.assign(n, more);
+  t.notes.push(n);
+}
+
+function circus(): SectionDoc {
+  const C = S.samples.circus;
+  const N = C.rooms;
+  const d = blankDoc();
+  Object.assign(d, {
+    mode: 'train',
+    title: C.name,
+    subtitle: C.subtitle,
+    wear: 20,
+    seed: 5170,
+  });
+  const t = trainOf(
+    [
+      ['loco', C.cars[0], []],
+      ['baggage', C.cars[1], [N.props, N.tamer]],
+      ['escort', C.cars[2], [N.keeper, N.cage]],
+      ['berth', C.cars[3], ['', '', '', '']],
+      ['dining', C.cars[4], []],
+      ['lounge', C.cars[5], [N.office, N.salon]],
+      ['observation', C.cars[6], []],
+    ],
+    { arrange: 'auto', loco: 'steam', scenery: 'meadow', roofRoute: true },
+  );
+  carNamed(t, C.cars[2]).coupler = 'locked';
+  const office = carRoom(t, N.office);
+  office.secret = true;
+  office.hideName = true;
+  const berth = carNamed(t, C.cars[3]);
+  berth.under = true;
+  berth.underName = N.stowaway;
+  carRoom(t, S.carRooms.washroom).open = true;
+  addTrainItems(t, [
+    [N.cage, 'bloodpool', 0.55],
+    [N.cage, 'boards', 0.85],
+    [N.props, 'upset', 0.75],
+    [S.carRooms.diningHall, 'glass', 0.5],
+    [S.carRooms.diningHall, 'upset', 0.62],
+    [N.salon, 'bloodwall', 0.5, { ry: 0.45 }],
+    [N.office, 'freight', 0.5, { only: undefined }],
+  ]);
+  addTrainNote(t, `under:${C.cars[3]}`, C.notes[0], 0.5, 0.5, { secret: true });
+  addTrainNote(t, N.cage, '1', 0.25, 0.45, { style: 'badge' });
+  addTrainNote(t, N.salon, '2', 0.5, 0.4, { style: 'badge' });
+  settleTrain(t);
+  d.train = t;
+  return d;
+}
+
+function raven(): SectionDoc {
+  const R = S.samples.raven;
+  const N = R.rooms;
+  const d = blankDoc();
+  Object.assign(d, {
+    mode: 'train',
+    title: R.name,
+    subtitle: R.subtitle,
+    style: 'noir',
+    env: 'night',
+    wear: 26,
+    seed: 6203,
+  });
+  const t = trainOf(
+    [
+      ['loco', R.cars[0], []],
+      ['coach', R.cars[1], [N.guards, '']],
+      ['escort', R.cars[2], [N.warden, N.prisoner]],
+      ['baggage', R.cars[3], [N.evidence, N.clerk]],
+    ],
+    { arrange: 'single', loco: 'electric', scenery: 'viaduct', roofRoute: true },
+  );
+  carNamed(t, R.cars[2]).coupler = 'bars';
+  const prison = carNamed(t, R.cars[2]);
+  prison.under = true;
+  prison.underName = N.hatch;
+  const ev = carRoom(t, N.evidence);
+  ev.secret = true;
+  ev.hideName = true;
+  addTrainItems(t, [
+    [N.prisoner, 'talisman', 0.82, { ry: 0.4 }],
+    [N.prisoner, 'chalk', 0.5],
+    [N.guards, 'spark', 0.5],
+    [N.clerk, 'bloodwall', 0.6, { ry: 0.5 }],
+  ]);
+  addTrainNote(t, N.evidence, R.notes[0], 0.5, 0.5, { secret: true });
+  addTrainNote(t, `under:${R.cars[2]}`, R.notes[1], 0.5, 0.5, { secret: true });
+  addTrainNote(t, N.prisoner, 'A', 0.3, 0.45, { style: 'badge' });
+  settleTrain(t);
+  d.train = t;
+  return d;
+}
+
+const BUILD: Record<SampleId, () => SectionDoc> = {
+  manor,
+  sanatorium,
+  station,
+  tower,
+  circus,
+  raven,
+};
 
 export function sampleDoc(id: SampleId): SectionDoc {
   return BUILD[id]();
 }
 
-export const isSampleId = (v: unknown): v is SampleId => SAMPLE_IDS.includes(v as SampleId);
+export const isSampleId = (v: unknown): v is SampleId => typeof v === 'string' && v in BUILD;
