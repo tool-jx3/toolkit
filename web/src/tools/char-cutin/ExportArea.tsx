@@ -6,14 +6,45 @@ import { Download, FolderArchive, Square, Users } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 import { useAssetBitmaps } from '@/core/assets';
 import { formatBytes } from '@/core/files';
-import { Button, ColorField, Field, Notice, ProgressBar, Section, Segmented } from '@/ui';
+import {
+  Button,
+  ColorField,
+  Field,
+  Notice,
+  ProgressBar,
+  Section,
+  Segmented,
+  TextInput,
+} from '@/ui';
 import { cancelExport, exportAll, exportRoom, exportSelected } from './actions';
 import { CUTIN_LIMIT, estimateShot, loadShotFonts } from './exporter';
-import { type Doc, type OutSettings, rivalActor } from './model';
-import { batchEntries } from './names';
+import {
+  type Actor,
+  clipChars,
+  type Doc,
+  MAX_CHARS,
+  type OutSettings,
+  RANGES,
+  rivalActor,
+} from './model';
+import { batchEntries, triggerName } from './names';
 import { previewHero, shotOf } from './shot';
-import { assets, update, useDoc, usePrefs, useUi } from './store';
+import { assets, gesture, update, useDoc, usePrefs, useUi } from './store';
 import { S } from './strings';
+
+/** 說明裡的範例（還沒有演員時） */
+const SAMPLE_HERO: Actor = {
+  id: 'sample',
+  image: 'sample',
+  name: '',
+  tag: '',
+  quote: '',
+  scale: RANGES.scale.def,
+  eyeY: 25,
+  eyeX: 50,
+  headLen: 1,
+  color: null,
+};
 
 const setOut = (fn: (o: OutSettings) => void): void =>
   update((d) => {
@@ -187,6 +218,32 @@ export function ExportSection() {
         </Button>
         <p className="m-0 text-xs text-muted">{video ? S.roomNoVideo : S.exportRoomHint}</p>
       </div>
+      <Field
+        label={S.fTriggerPrefix}
+        hint={S.triggerExample(
+          triggerName(
+            batchEntries(d)[0]?.hero ?? { ...SAMPLE_HERO, name: S.sample.name },
+            d.kind,
+            d.kind === 'versus' ? (rivalActor(d)?.name ?? d.mysteryName) : '',
+            o.triggerPrefix,
+          ),
+        )}
+      >
+        <TextInput
+          value={o.triggerPrefix}
+          className="max-w-32"
+          onFocus={gesture.begin}
+          onBlur={gesture.commit}
+          onChange={(ev) =>
+            setOut((x) => {
+              x.triggerPrefix = clipChars(
+                ev.target.value.replace(/\s+/g, ''),
+                MAX_CHARS.triggerPrefix,
+              );
+            })
+          }
+        />
+      </Field>
       {busy ? (
         <div className="flex items-center gap-2" data-testid="export-busy">
           <div className="min-w-0 flex-1">

@@ -1100,9 +1100,9 @@ export const TOOLS: readonly ToolEntry[] = [
   },
   {
     id: 'char-cutin',
-    name: '角色切入產生器',
+    name: '立繪切入產生器',
     summary:
-      '放進立繪與名字，做出跑團用的角色切入動畫：斬入、橫掠、眼部特寫、升起、重擊、VS 六種型，臉的位置自動對準、小標題自動編 ROUND。匯出 WebP／APNG（640 × 360 自動壓到 1 MB 以下，CCFOLIA 的切入直接用）、影片，或全員一次匯出成 ZIP、CCFOLIA 房間 ZIP。',
+      '放進立繪與名字，做出跑團用的切入動畫：斬入、橫掠、眼部特寫、升起、重擊、VS 六種型，臉的位置自動對準、小標題自動編 ROUND。匯出 WebP／APNG（640 × 360 自動壓到 1 MB 以下，CCFOLIA 的切入直接用）、影片，或全員一次匯出成 ZIP、CCFOLIA 房間 ZIP。',
     group: 'G2',
     status: 'next',
     inspiration: {

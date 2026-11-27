@@ -3,9 +3,9 @@
  * - 立繪的檔名 → 演員的名字：去掉副檔名、再去掉開頭的編號（「01_」「2-」「003 」）；剩下空白時用「名字」。
  * - 小標題的 ROUND 編號：清單由上而下 ROUND 01、ROUND 02…（100 人以上照實際位數）。
  * - 匯出檔名：一人＝「NN_名字_型.副檔名」、ZIP 裡＝「NN_名字.副檔名」（NN 是清單上的順序，VS 的對手不出現但不重新編號）、
- *   ZIP＝「角色切入_型_N人.zip」。
+ *   ZIP＝「立繪切入_型_N人.zip」。
  * - VS：全員匯出時對手以外的每個人各做一個「這個人 VS 對手」。
- * - CCFOLIA 房間的切入名稱：演員的名字（VS：「名字VS對手名字」），重複時加「2」「3」…。
+ * - CCFOLIA 房間的切入名稱：開頭（預設「@」）＋演員的名字（VS：「＋VS對手名字」），重複時加「2」「3」…。
  */
 import { safeFileName } from '@/core/files';
 import type { Actor, CutKind, Doc } from './model';
@@ -71,9 +71,13 @@ export function batchEntries(d: Pick<Doc, 'actors' | 'kind' | 'rival'>): CastEnt
 export const canLeadVersus = (d: Pick<Doc, 'kind' | 'rival'>, actorId: string): boolean =>
   !(d.kind === 'versus' && d.rival === actorId);
 
-/** 房間裡的切入名稱（觸發用）；VS 是「名字VS對手」 */
-export function triggerName(hero: Actor, kind: CutKind, rivalName: string): string {
-  const name = hero.name.trim() || S.unnamedFile;
+/**
+ * 房間裡的切入名稱（觸發用）：開頭＋名字；VS 是「開頭＋名字VS對手」。
+ * 開頭預設「@」：CCFOLIA 的切入在訊息以名稱結尾時播放（cutin 規格 3.1.4；沒有以官方文件核對），
+ * 名字本身當名稱時「我攻擊艾莉絲」也會播；加了「@」只有打「@艾莉絲」才播（名稱完全相同才播的規則下也照樣能用）。
+ */
+export function triggerName(hero: Actor, kind: CutKind, rivalName: string, prefix = '@'): string {
+  const name = `${prefix.trim()}${hero.name.trim() || S.unnamedFile}`;
   if (kind !== 'versus') return name;
   const r = rivalName.trim();
   return r ? `${name}VS${r}` : `${name}VS`;

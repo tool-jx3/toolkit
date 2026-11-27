@@ -398,7 +398,10 @@ export function exportRoom(): Promise<void> {
     const rivalName = d.kind === 'versus' ? (rivalActor(d)?.name ?? d.mysteryName) : '';
     const blobs: { name: string; blob: Blob }[] = [];
     const res = await renderEach(signal, (e, r) => {
-      blobs.push({ name: triggerName(e.hero, d.kind, rivalName), blob: r.blob });
+      blobs.push({
+        name: triggerName(e.hero, d.kind, rivalName, d.out.triggerPrefix),
+        blob: r.blob,
+      });
     });
     const names = uniqueNames(blobs.map((b) => b.name));
     const bytes = await buildCutinRoom(blobs.map((b, i) => ({ name: names[i], blob: b.blob })));

@@ -35,6 +35,10 @@ export interface Crew {
 export const BADGE_FONT: FontValue = { source: 'google', family: 'Noto Sans TC', weight: 900 };
 /** 重擊字的顏色與墨點 */
 const INK = '#111111';
+/** 墨點的大小以這個字級為準（大小 100 % 的字級＝round(720 × 0.66)） */
+const SPLASH_BASE = 475;
+/** SPLASH 的 x 大約在 ±這個值之內（128 × 1.4） */
+const SPLASH_SPREAD = 180;
 
 /* ---------- 剪影 ---------- */
 
@@ -361,12 +365,28 @@ function paintOne(c2d: Ctx, layer: Layer, crew: Crew): void {
       layer.chars.forEach((ch, i) => {
         c2d.fillText(ch, left + row.xs[i], 0);
       });
-      if (layer.splash)
+      if (layer.splash) {
+        /*
+         * 墨點沿著字的上緣散開：橫向範圍＝字的實際總寬、縱向以字的上緣（量字的墨跡）稍微往上為中心，
+         * 大小跟字級等比（字級 475 px＝大小 100 % 時半徑約 2～10 px）。原作把墨點固定在第二個字的上半，
+         * 落在字的黑色筆畫或臉的特寫底下時看不到（對等驗證 低 4）。
+         */
+        const top = Math.max(
+          ...layer.chars.map((ch) => c2d.measureText(ch).actualBoundingBoxAscent || 0),
+        );
+        const k = size / SPLASH_BASE;
         for (const d of SPLASH) {
           c2d.beginPath();
-          c2d.arc(row.total * 0.32 + d.x * 1.6, -size * 0.36 + d.y, d.r, 0, Math.PI * 2);
+          c2d.arc(
+            (d.x / SPLASH_SPREAD) * row.total * 0.48,
+            -(top || size * 0.4) - size * 0.05 + d.y * k,
+            d.r * 1.3 * k,
+            0,
+            Math.PI * 2,
+          );
           c2d.fill();
         }
+      }
       c2d.restore();
       return;
     }

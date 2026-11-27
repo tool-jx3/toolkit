@@ -1,5 +1,5 @@
 /**
- * 角色切入產生器（建置產物 next/char-cutin/）的端對端測試（規格 docs/refactor/specs/char-cutin.md）：
+ * 立繪切入產生器（建置產物 next/char-cutin/）的端對端測試（規格 docs/refactor/specs/char-cutin.md）：
  * - 開頁沒有錯誤、預設狀態、示意人形、頁尾只有靈感來源。
  * - 放立繪（檔名→名字、自然排序、臉的自動對準）、改名字與小標題、ROUND 編號、排序、拿掉、換圖、復原／重做。
  * - 六種型的預覽有畫；換型時樣式跟著換、這個型回到初始值。
@@ -97,7 +97,7 @@ async function open(page: Page, { clear = true } = {}) {
     });
     await page.reload();
   }
-  await expect(page.getByRole('heading', { level: 1, name: '角色切入產生器' })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: '立繪切入產生器' })).toBeVisible();
   await page.waitForFunction(() => !!(window as unknown as { __charCutin?: unknown }).__charCutin);
   return errors;
 }
@@ -420,7 +420,7 @@ test.describe('匯出', () => {
     const errors = await open(page);
     await addPortraits(page);
     const all = await download(page, '全員匯出成 ZIP（3 人）');
-    expect(all.name).toBe('角色切入_斬入_3人.zip');
+    expect(all.name).toBe('立繪切入_斬入_3人.zip');
     const files = unzipSync(all.bytes);
     expect(Object.keys(files)).toEqual(['01_艾莉絲.webp', '02_黑川.webp', '03_羅蘭.webp']);
     for (const f of Object.values(files)) expect(f.length).toBeLessThanOrEqual(1_000_000);
@@ -430,16 +430,16 @@ test.describe('匯出', () => {
     await page.getByRole('combobox', { name: '對手' }).click();
     await page.getByRole('option', { name: /黑川/ }).click();
     const vs = await download(page, '全員匯出成 ZIP（3 人）');
-    expect(vs.name).toBe('角色切入_VS_2人.zip');
+    expect(vs.name).toBe('立繪切入_VS_2人.zip');
     expect(Object.keys(unzipSync(vs.bytes))).toEqual(['01_艾莉絲.webp', '03_羅蘭.webp']);
     /* 房間 ZIP：每人一個切入 */
     const room = await download(page, 'CCFOLIA 房間 ZIP');
-    expect(room.name).toBe('角色切入_VS_CCFOLIA房間.zip');
+    expect(room.name).toBe('立繪切入_VS_CCFOLIA房間.zip');
     const rz = unzipSync(room.bytes);
     const data = JSON.parse(strFromU8(rz['__data.json']));
     expect(data.entities.room).toEqual({});
     const effects = Object.values(data.entities.effects) as { name: string; imageUrl: string }[];
-    expect(effects.map((e) => e.name)).toEqual(['艾莉絲VS黑川', '羅蘭VS黑川']);
+    expect(effects.map((e) => e.name)).toEqual(['@艾莉絲VS黑川', '@羅蘭VS黑川']);
     for (const e of effects) {
       expect(e.imageUrl).toMatch(/^[0-9a-f]{64}\.webp$/);
       expect(rz[e.imageUrl]).toBeTruthy();
@@ -450,6 +450,45 @@ test.describe('匯出', () => {
     await page.getByTestId('cast-row').nth(1).click();
     await page.getByRole('button', { name: '匯出選取的一人' }).click();
     await expect(page.getByTestId('export-status')).toHaveText(/選取的人是 VS 的對手/);
+    expect(errors).toEqual([]);
+  });
+
+  test('匯出中取消：一人、全員、房間都顯示「已取消匯出。」、按鈕恢復、沒有下載', {
+    tag: '@serial',
+  }, async ({ page }) => {
+    const errors = await open(page);
+    await addPortraits(page);
+    /* 做得久一點：APNG 1280 × 720、速度 0.3（一人約 128 格） */
+    await page.getByRole('radio', { name: 'APNG' }).click();
+    await page.getByRole('radio', { name: '1280 × 720' }).click();
+    await page.getByRole('tab', { name: '樣式' }).click();
+    await page.getByRole('slider', { name: '速度' }).press('Home');
+    expect(await hook(page, (h) => h.doc().styles.strike.pace)).toBe(0.3);
+    const downloads: string[] = [];
+    page.on('download', (d) => downloads.push(d.suggestedFilename()));
+    const busy = page.getByTestId('export-busy');
+    for (const name of ['匯出選取的一人', '全員匯出成 ZIP（3 人）', 'CCFOLIA 房間 ZIP']) {
+      await page.getByRole('button', { name }).click();
+      /* 等到真的在編碼（進度條動了）才取消 */
+      await expect
+        .poll(() =>
+          busy
+            .getByRole('progressbar')
+            .getAttribute('aria-valuenow')
+            .catch(() => '0'),
+        )
+        .not.toBe('0');
+      await busy.getByRole('button', { name: '取消' }).click();
+      await expect(page.getByTestId('export-status')).toHaveText('已取消匯出。');
+      await expect(busy).toHaveCount(0);
+      await expect(page.getByRole('button', { name })).toBeEnabled();
+    }
+    expect(downloads).toEqual([]);
+    /* 取消之後照常匯出得出來 */
+    await page.getByRole('slider', { name: '速度' }).press('End');
+    await page.getByRole('radio', { name: '640 × 360（1 MB 以下）' }).click();
+    const again = await download(page, '匯出選取的一人');
+    expect(again.name).toBe('01_艾莉絲_斬入.png');
     expect(errors).toEqual([]);
   });
 

@@ -3,6 +3,7 @@
  * 顏色、字型、速度、立繪放大、重擊字的配置是每種型各自的（換型時跟著換）；重擊的字本身全部的型共用。
  */
 import { RotateCcw } from 'lucide-react';
+import type { FontValue } from '@/core/fonts';
 import {
   Button,
   ColorField,
@@ -17,6 +18,7 @@ import {
   useConfirm,
 } from '@/ui';
 import { isDefaultStyle, resetKind, setKind } from './actions';
+import { fontCoverageNote } from './fonts';
 import {
   BASE_SWATCHES,
   CUT_KINDS,
@@ -200,48 +202,64 @@ export function ImpactSection() {
   );
 }
 
+function FontField({
+  label,
+  value,
+  previewText,
+  onChange,
+}: {
+  label: string;
+  value: FontValue;
+  previewText: string;
+  onChange: (v: FontValue) => void;
+}) {
+  const note = fontCoverageNote(value);
+  return (
+    <Field label={label} hint={note ?? undefined}>
+      <FontPicker value={value} previewText={previewText} onChange={onChange} />
+    </Field>
+  );
+}
+
 export function FontSection() {
   const kind = useDoc((s) => s.data.kind);
   const st = useDoc((s) => s.data.styles[s.data.kind]);
   const impactText = useDoc((s) => s.data.impactText);
   return (
     <Section title={S.textTitle} persistKey="char-cutin:fonts">
-      <Field label={S.fNameFont}>
-        <FontPicker
-          value={st.nameFont}
-          previewText={S.sample.name}
+      <FontField
+        label={S.fNameFont}
+        value={st.nameFont}
+        previewText={S.sample.name}
+        onChange={(v) =>
+          setStyle((x) => {
+            x.nameFont = v;
+          })
+        }
+      />
+      {kind !== 'versus' && kind !== 'impact' ? (
+        <FontField
+          label={S.fQuoteFont}
+          value={st.quoteFont}
+          previewText={S.sample.quote}
           onChange={(v) =>
             setStyle((x) => {
-              x.nameFont = v;
+              x.quoteFont = v;
             })
           }
         />
-      </Field>
-      {kind !== 'versus' && kind !== 'impact' ? (
-        <Field label={S.fQuoteFont}>
-          <FontPicker
-            value={st.quoteFont}
-            previewText={S.sample.quote}
-            onChange={(v) =>
-              setStyle((x) => {
-                x.quoteFont = v;
-              })
-            }
-          />
-        </Field>
       ) : null}
       {kind === 'impact' ? (
-        <Field label={S.fImpactFont}>
-          <FontPicker
-            value={st.impactFont}
-            previewText={impactText || '反擊'}
-            onChange={(v) =>
-              setStyle((x) => {
-                x.impactFont = v;
-              })
-            }
-          />
-        </Field>
+        <FontField
+          label={S.fImpactFont}
+          value={st.impactFont}
+          previewText={impactText || '反擊'}
+          onChange={(v) =>
+            setStyle((x) => {
+              x.impactFont = v;
+            })
+          }
+        />
       ) : null}
     </Section>
   );

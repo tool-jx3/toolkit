@@ -1,5 +1,5 @@
 /**
- * 角色切入產生器的介面文字（繁中；用詞照 DESIGN.md 第 5 節）。
+ * 立繪切入產生器的介面文字（繁中；用詞照 DESIGN.md 第 5 節）。
  */
 import type { CutKind } from './model';
 
@@ -121,6 +121,10 @@ export const S = {
   fNameFont: '名字的字型',
   fQuoteFont: '台詞的字型',
   fImpactFont: '重擊字的字型',
+  fontNoTc: (lang: string) => `這個字型是${lang}，缺的繁體字會用黑體代替。`,
+  fontLangJp: '日文字型',
+  fontLangKr: '韓文字型',
+  fontLangLatin: '只有英數字的字型',
 
   colorTitle: '顏色',
   fMain: '主色',
@@ -187,11 +191,14 @@ export const S = {
   exportAll: (n: number) => (n < 2 ? '全員匯出成 ZIP（兩人以上）' : `全員匯出成 ZIP（${n} 人）`),
   exportRoom: 'CCFOLIA 房間 ZIP',
   exportRoomHint:
-    '每個人做成房間的一個切入（名稱＝名字；VS 是「名字VS對手」，同名時後面加 2、3…）。在 CCFOLIA 的房間設定讀入這個 ZIP 就會多出這些切入，房間的其他設定不變；聊天欄送出以切入名稱結尾的訊息（例：「@名字」）就會播放。影片不能放進房間。',
+    '每個人做成房間的一個切入（名稱＝開頭＋名字；VS 是「開頭＋名字VS對手」，同名時後面加 2、3…）。在 CCFOLIA 的房間設定讀入這個 ZIP 就會多出這些切入，房間的其他設定不變。影片不能放進房間。',
+  fTriggerPrefix: '切入名稱的開頭',
+  triggerExample: (word: string) =>
+    `在聊天欄輸入「${word}」就會播放。開頭空白時名稱就是名字，訊息剛好以名字結尾時也會播放。`,
   roomNoVideo: '影片不能做成房間的切入，請選 WebP 或 APNG。',
   cancel: '取消',
   people: '人',
-  zipPrefix: '角色切入',
+  zipPrefix: '立繪切入',
   roomZipSuffix: 'CCFOLIA房間',
   unnamedFile: '未命名',
 

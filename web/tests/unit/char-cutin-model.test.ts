@@ -1,5 +1,5 @@
 /**
- * 角色切入產生器：資料的整理（舊版／壞掉的存檔、專案檔往返）、名稱與檔名、ROUND 編號、VS 的組合、房間的切入名稱。
+ * 立繪切入產生器：資料的整理（舊版／壞掉的存檔、專案檔往返）、名稱與檔名、ROUND 編號、VS 的組合、房間的切入名稱。
  */
 import { describe, expect, it } from 'vitest';
 import {
@@ -8,6 +8,7 @@ import {
   parseProjectBytes,
   serializeProjectZip,
 } from '@/core/storage';
+import { fontCoverageNote } from '@/tools/char-cutin/fonts';
 import {
   type Actor,
   CUT_KINDS,
@@ -69,11 +70,16 @@ describe('cleanDoc', () => {
       background: 'clear',
       color: '#00b140',
       once: false,
+      triggerPrefix: '@',
     });
-    /* 橫掠的名字用明體、速度 0.9；重擊字預設毛筆字 */
+    /* 橫掠的名字用明體、速度 0.9；重擊字預設思源宋體 Black（繁中完整） */
     expect(d.styles.glide.nameFont.family).toBe('Noto Serif TC');
     expect(d.styles.glide.pace).toBe(0.9);
-    expect(d.styles.impact.impactFont.family).toBe('Yuji Boku');
+    expect(d.styles.impact.impactFont).toEqual({
+      source: 'google',
+      family: 'Noto Serif TC',
+      weight: 900,
+    });
   });
 
   it('數值夾在範圍內、壞的演員丟掉、重複的 id 只留第一個、色碼轉小寫、對手找不到時回到謎之剪影', () => {
@@ -92,7 +98,14 @@ describe('cleanDoc', () => {
         strike: { main: '#FF0000', pace: 9, zoom: 1, nameFont: { source: 'evil', family: 'x' } },
         impact: { impact: { x: 999, gaps: [5, 0, 0, 200, 0, 0, 0] } },
       },
-      out: { format: 'gif', size: 'large', background: 'color', color: 'nope', once: true },
+      out: {
+        format: 'gif',
+        size: 'large',
+        background: 'color',
+        color: 'nope',
+        once: true,
+        triggerPrefix: ' ！！一二三四五六七八 ',
+      },
     });
     expect(d.actors.map((a) => a.id)).toEqual(['x1', 'x2']);
     expect(d.actors[0]).toMatchObject({ scale: 200, eyeY: 0, eyeX: 95, color: '#abcdef' });
@@ -110,7 +123,10 @@ describe('cleanDoc', () => {
       background: 'color',
       color: '#00b140',
       once: true,
+      triggerPrefix: '！！一二三四五六',
     });
+    /* 開頭可以空白（不會被補回「@」） */
+    expect(cleanDoc({ out: { triggerPrefix: '' } }).out.triggerPrefix).toBe('');
   });
 
   it('整理過的資料再整理一次不變', () => {
@@ -172,13 +188,13 @@ describe('名稱與檔名', () => {
     expect(nameFromFile('No.7_劍士.png')).toBe('No.7_劍士');
   });
 
-  it('一人：「NN_名字_型.副檔名」；ZIP 裡「NN_名字.副檔名」；ZIP「角色切入_型_N人.zip」', () => {
+  it('一人：「NN_名字_型.副檔名」；ZIP 裡「NN_名字.副檔名」；ZIP「立繪切入_型_N人.zip」', () => {
     expect(singleFileName(0, '艾莉絲', 'strike', 'webp')).toBe('01_艾莉絲_斬入.webp');
     expect(singleFileName(11, 'a/b:c', 'versus', 'png')).toBe('12_a_b_c_VS.png');
     expect(singleFileName(2, '   ', 'gaze', 'mp4')).toBe('03_未命名_眼部特寫.mp4');
     expect(zipEntryName(4, '黑川', 'png')).toBe('05_黑川.png');
-    expect(zipFileName('impact', 3)).toBe('角色切入_重擊_3人.zip');
-    expect(roomZipFileName('lift')).toBe('角色切入_升起_CCFOLIA房間.zip');
+    expect(zipFileName('impact', 3)).toBe('立繪切入_重擊_3人.zip');
+    expect(roomZipFileName('lift')).toBe('立繪切入_升起_CCFOLIA房間.zip');
   });
 
   it('VS：全員匯出時拿掉對手，序號照清單；對手不能當左邊', () => {
@@ -197,11 +213,27 @@ describe('名稱與檔名', () => {
     expect(canLeadVersus({ ...d, kind: 'strike' }, 'b')).toBe(true);
   });
 
-  it('房間的切入名稱：名字；VS 是「名字VS對手」；重複時加 2、3', () => {
-    expect(triggerName(actor('a', '艾莉絲'), 'strike', '')).toBe('艾莉絲');
-    expect(triggerName(actor('a', '艾莉絲'), 'versus', '？？？')).toBe('艾莉絲VS？？？');
-    expect(triggerName(actor('a', '艾莉絲'), 'versus', ' ')).toBe('艾莉絲VS');
-    expect(triggerName(actor('a', ''), 'gaze', '')).toBe('未命名');
+  it('房間的切入名稱：開頭（預設「@」）＋名字；VS 是「開頭＋名字VS對手」；開頭可以空白；重複時加 2、3', () => {
+    expect(triggerName(actor('a', '艾莉絲'), 'strike', '')).toBe('@艾莉絲');
+    expect(triggerName(actor('a', '艾莉絲'), 'strike', '', '')).toBe('艾莉絲');
+    expect(triggerName(actor('a', '艾莉絲'), 'strike', '', '#')).toBe('#艾莉絲');
+    expect(triggerName(actor('a', '艾莉絲'), 'versus', '？？？')).toBe('@艾莉絲VS？？？');
+    expect(triggerName(actor('a', '艾莉絲'), 'versus', ' ', '')).toBe('艾莉絲VS');
+    expect(triggerName(actor('a', ''), 'gaze', '')).toBe('@未命名');
     expect(uniqueNames(['甲', '乙', '甲', '甲'])).toEqual(['甲', '乙', '甲2', '甲3']);
+    expect(uniqueNames(['@甲', '@甲'])).toEqual(['@甲', '@甲2']);
+  });
+
+  it('不含繁中的 Google 字型（日文、韓文、只有英數字）時提醒；繁中字型、電腦字型不提醒', () => {
+    expect(fontCoverageNote({ source: 'google', family: 'Yuji Boku', weight: 400 })).toBe(
+      '這個字型是日文字型，缺的繁體字會用黑體代替。',
+    );
+    expect(fontCoverageNote({ source: 'google', family: 'Jua', weight: 400 })).toMatch(/韓文字型/);
+    expect(fontCoverageNote({ source: 'google', family: 'Cinzel', weight: 400 })).toMatch(
+      /只有英數字的字型/,
+    );
+    expect(fontCoverageNote({ source: 'google', family: 'Noto Serif TC', weight: 900 })).toBeNull();
+    expect(fontCoverageNote({ source: 'google', family: 'Chiron Hei HK', weight: 400 })).toBeNull();
+    expect(fontCoverageNote({ source: 'local', family: 'MS Gothic', weight: 400 })).toBeNull();
   });
 });

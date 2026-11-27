@@ -1,5 +1,5 @@
 /**
- * 角色切入產生器的資料：演員（立繪＋文字＋臉的位置）、六種型各自的樣式、匯出設定。
+ * 立繪切入產生器的資料：演員（立繪＋文字＋臉的位置）、六種型各自的樣式、匯出設定。
  * 全部是純資料（不依賴 React／DOM），存檔、專案檔、復原都搬這一份；立繪本身在資產庫（`store.ts` 的 assets），這裡只記 id。
  */
 import type { FontValue } from '@/core/fonts';
@@ -38,7 +38,14 @@ export const RANGES = {
 } as const;
 
 /** 文字欄的字數上限（字素） */
-export const MAX_CHARS = { name: 16, tag: 16, quote: 24, rivalName: 16, impact: 6 } as const;
+export const MAX_CHARS = {
+  name: 16,
+  tag: 16,
+  quote: 24,
+  rivalName: 16,
+  impact: 6,
+  triggerPrefix: 8,
+} as const;
 
 /* ---------- 資料 ---------- */
 
@@ -109,6 +116,8 @@ export interface OutSettings {
   color: string;
   /** 播放一次（播完變透明）；false＝重複 */
   once: boolean;
+  /** CCFOLIA 房間 ZIP：切入名稱的開頭（預設「@」，可以空白） */
+  triggerPrefix: string;
 }
 
 export interface Doc {
@@ -162,7 +171,8 @@ const style = (main: string, base: string, extra: Partial<KindStyle> = {}): Kind
   right: '#d9485f',
   nameFont: gothic(900),
   quoteFont: gothic(700),
-  impactFont: { source: 'google', family: 'Yuji Boku', weight: 400 },
+  /* 重擊字：繁中字完整、筆畫粗的思源宋體 Black（Yuji Boku 缺很多繁體字，留在字型清單裡當選項） */
+  impactFont: { source: 'google', family: 'Noto Serif TC', weight: 900 },
   zoom: RANGES.zoom.def,
   pace: RANGES.pace.def,
   impact: { x: 0, y: 0, size: 100, track: 0, gaps: [] },
@@ -194,6 +204,8 @@ export const DEFAULT_IMPACT_TEXT = '反擊';
 export const DEFAULT_MYSTERY_NAME = '？？？';
 /** 單色背景與影片的預設顏色（綠幕） */
 export const DEFAULT_OUT_COLOR = '#00b140';
+/** 房間 ZIP 的切入名稱的預設開頭 */
+export const DEFAULT_TRIGGER_PREFIX = '@';
 
 export function defaultDoc(): Doc {
   return {
@@ -213,6 +225,7 @@ export function defaultDoc(): Doc {
       background: 'clear',
       color: DEFAULT_OUT_COLOR,
       once: false,
+      triggerPrefix: DEFAULT_TRIGGER_PREFIX,
     },
   };
 }
@@ -359,6 +372,10 @@ export function cleanDoc(v: unknown): Doc {
       background: o.background === 'color' ? 'color' : 'clear',
       color: hexOr(o.color, d.out.color),
       once: o.once === true,
+      triggerPrefix:
+        typeof o.triggerPrefix === 'string'
+          ? clipChars(o.triggerPrefix.replace(/\s+/g, ''), MAX_CHARS.triggerPrefix)
+          : d.out.triggerPrefix,
     },
   };
 }
