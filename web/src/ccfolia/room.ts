@@ -194,7 +194,7 @@ export interface CcfoliaRoomCharacter {
   [key: string]: unknown;
 }
 
-/** カットイン（`entities.effects` 的一筆）：聊天輸入「@名稱」時播放 */
+/** カットイン（`entities.effects` 的一筆）：訊息以名稱結尾時播放（cutin 規格 3.1.4；沒有以官方文件核對） */
 export interface CcfoliaEffect {
   name: string;
   order: number;

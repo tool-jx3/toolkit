@@ -24,20 +24,42 @@ export function openEncodeWorker(): WorkerHandle<EncodeWorkerApi> {
   return wrapWorker<EncodeWorkerApi>(worker);
 }
 
-class WorkerEncoder implements Encoder {
+/**
+ * Worker 版的編碼器。**取消**（`abort()`）之後，還在等的 `addFrame`、`setStill`、`finish`（等 Worker 啟動、等排隊的格消化、
+ * 等封裝）一律以 AbortError（`DOMException('已取消', 'AbortError')`）拒絕，之後再呼叫也立刻拒絕——和主執行緒的編碼器相同。
+ * 以前只 terminate Worker，Worker 不會再回覆，等在排隊裡的 `addFrame`／`finish` 永遠不會回來，呼叫端就停在「匯出中」
+ * （char-cutin 對等驗證發現，2026-11-27）。沒有取消時行為與輸出不變。
+ * `handle` 可以換成假的 Worker（單元測試用）。
+ */
+export class WorkerEncoder implements Encoder {
   private readonly handle: WorkerHandle<EncodeWorkerApi>;
   private readonly ready: Promise<void>;
   private readonly inFlight = new Set<Promise<void>>();
   private failure: unknown = null;
+  private cancelled: DOMException | null = null;
+  /** abort() 時拒絕（還在等的呼叫和它賽跑） */
+  private readonly stopped: Promise<never>;
+  private stop: (e: DOMException) => void = () => {};
 
   constructor(
     spec: EncoderSpec,
     private readonly maxInFlight: number,
+    handle: WorkerHandle<EncodeWorkerApi> = openEncodeWorker(),
   ) {
-    this.handle = openEncodeWorker();
+    this.handle = handle;
     this.ready = this.handle.api.start(spec);
     /* Worker 載不到時 start 會拒絕（core/worker）；錯誤留給之後 await ready 的呼叫，這裡先接住免得變成未處理的拒絕 */
     this.ready.catch(() => {});
+    this.stopped = new Promise<never>((_, reject) => {
+      this.stop = reject;
+    });
+    this.stopped.catch(() => {});
+  }
+
+  /** 取消之後立刻拒絕；否則和 abort() 賽跑 */
+  private until<T>(p: Promise<T>): Promise<T> {
+    if (this.cancelled) return Promise.reject(this.cancelled);
+    return Promise.race([p, this.stopped]);
   }
 
   private track(p: Promise<void>) {
@@ -49,32 +71,36 @@ class WorkerEncoder implements Encoder {
   }
 
   async addFrame(rgba: RgbaPixels, ticks = 1): Promise<void> {
-    await this.ready;
+    await this.until(this.ready);
     if (this.failure) throw this.failure;
     const buf = ownBuffer(rgba);
     this.track(this.handle.api.add(transfer(buf, [buf.buffer]), ticks));
-    while (this.inFlight.size >= this.maxInFlight) await Promise.race(this.inFlight);
+    while (this.inFlight.size >= this.maxInFlight) await this.until(Promise.race(this.inFlight));
     if (this.failure) throw this.failure;
   }
 
   async setStill(rgba: RgbaPixels): Promise<void> {
-    await this.ready;
+    await this.until(this.ready);
     const buf = ownBuffer(rgba);
     this.track(this.handle.api.setStill(transfer(buf, [buf.buffer])));
   }
 
   async finish(): Promise<EncodedFile> {
     try {
-      await this.ready;
-      await Promise.all(this.inFlight);
+      await this.until(this.ready);
+      await this.until(Promise.all(this.inFlight));
       if (this.failure) throw this.failure;
-      return await this.handle.api.finish();
+      return await this.until(this.handle.api.finish());
     } finally {
       this.handle.terminate();
     }
   }
 
   abort(): void {
+    if (!this.cancelled) {
+      this.cancelled = new DOMException('已取消', 'AbortError');
+      this.stop(this.cancelled);
+    }
     this.handle.terminate();
   }
 }
