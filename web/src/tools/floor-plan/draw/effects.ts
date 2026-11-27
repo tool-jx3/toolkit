@@ -4,7 +4,7 @@
  * - 紙的污漬與摺痕：不規則的水漬（中間淡、邊緣一圈深、旁邊幾滴）＋橫的（有時再一條直的）摺痕。
  * 都用 canvas 的漸層與決定性的亂數（同樣的種子每次畫一樣），不用圖片。
  */
-import { wearPlan, wearStrength, wearTint } from '@/core/paperWear';
+import { drawPaperWear } from '@/core/paperWear';
 import { seeded } from './furniture/kit';
 import { type FloorTheme, isDarkTheme } from './themes';
 
@@ -143,7 +143,7 @@ export { wearPlan } from '@/core/paperWear';
 
 /**
  * 畫污漬與摺痕：sheet＝當成一張紙的範圍（目前座標系；編輯畫面是世界座標的地圖範圍，匯出是整張圖的像素），
- * strength 0.1～1。
+ * strength 0.1～1。畫法在共用的 `@/core/paperWear`（2026-11-27 搬過去，指令完全不變；斷面圖產生器也用）。
  */
 export function drawWear(
   c: Ctx,
@@ -152,69 +152,5 @@ export function drawWear(
   strength: number,
   theme: Pick<FloorTheme, 'bg'>,
 ): void {
-  if (!(strength > 0) || sheet.w <= 0 || sheet.h <= 0) return;
-  const plan = wearPlan(seed);
-  const dark = isDarkTheme(theme);
-  /* 淺色的紙：茶褐色的水漬；深色的紙：淡淡的白色水痕 */
-  const tint = wearTint(dark);
-  const rgba = (a: number) => `rgba(${tint[0]}, ${tint[1]}, ${tint[2]}, ${Math.max(0, a)})`;
-  const k = wearStrength(strength, dark);
-  const m = Math.min(sheet.w, sheet.h);
-  c.save();
-  for (const s of plan.stains) {
-    const cx = sheet.x + s.u * sheet.w;
-    const cy = sheet.y + s.v * sheet.h;
-    const r = s.r * m;
-    c.beginPath();
-    s.wobble.forEach((f, j) => {
-      const a = (j / s.wobble.length) * Math.PI * 2;
-      const x = cx + Math.cos(a) * r * f;
-      const y = cy + Math.sin(a) * r * f;
-      if (j) c.lineTo(x, y);
-      else c.moveTo(x, y);
-    });
-    c.closePath();
-    const g = c.createRadialGradient(cx, cy, r * 0.1, cx, cy, r * 1.15);
-    g.addColorStop(0, rgba(0.05 * k * s.alpha));
-    g.addColorStop(0.7, rgba(0.1 * k * s.alpha));
-    g.addColorStop(1, rgba(0.2 * k * s.alpha));
-    c.fillStyle = g;
-    c.fill();
-    /* 乾掉的邊緣：一圈深一點的細線 */
-    c.strokeStyle = rgba(0.22 * k * s.alpha);
-    c.lineWidth = Math.max(r * 0.03, m * 0.0015);
-    c.stroke();
-    c.fillStyle = rgba(0.14 * k * s.alpha);
-    for (const d of s.drops) {
-      c.beginPath();
-      c.arc(cx + d.du * r, cy + d.dv * r, d.r * r, 0, Math.PI * 2);
-      c.fill();
-    }
-  }
-  /* 摺痕：一條細亮線＋一側的暗帶 */
-  for (const f of plan.folds) {
-    const band = m * 0.012;
-    const pos = f.o === 'h' ? sheet.y + f.at * sheet.h : sheet.x + f.at * sheet.w;
-    const g =
-      f.o === 'h'
-        ? c.createLinearGradient(0, pos, 0, pos + band * f.side)
-        : c.createLinearGradient(pos, 0, pos + band * f.side, 0);
-    g.addColorStop(0, `rgba(0, 0, 0, ${0.16 * k})`);
-    g.addColorStop(1, 'rgba(0, 0, 0, 0)');
-    c.fillStyle = g;
-    if (f.o === 'h') c.fillRect(sheet.x, Math.min(pos, pos + band * f.side), sheet.w, band);
-    else c.fillRect(Math.min(pos, pos + band * f.side), sheet.y, band, sheet.h);
-    c.strokeStyle = `rgba(255, 255, 255, ${(dark ? 0.12 : 0.45) * k})`;
-    c.lineWidth = Math.max(m * 0.0015, band * 0.15);
-    c.beginPath();
-    if (f.o === 'h') {
-      c.moveTo(sheet.x, pos - (band * f.side) / 6);
-      c.lineTo(sheet.x + sheet.w, pos - (band * f.side) / 6);
-    } else {
-      c.moveTo(pos - (band * f.side) / 6, sheet.y);
-      c.lineTo(pos - (band * f.side) / 6, sheet.y + sheet.h);
-    }
-    c.stroke();
-  }
-  c.restore();
+  drawPaperWear(c, sheet, seed, strength, isDarkTheme(theme));
 }
