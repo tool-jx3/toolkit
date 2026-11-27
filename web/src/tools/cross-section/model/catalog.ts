@@ -1,11 +1,17 @@
 /**
- * 側面的設備與家具（第一批 30 種：設施・研究 16、門・窗・梯子 5、事件・異變 9；列車專用 6 種是第二批）。
+ * 側面的設備與家具（第一批 30 種：設施・研究 16、門・窗・梯子 5、事件・異變 9；第二批加列車專用 6 種）。
  * 大小（格）、掛的位置、光的範圍參考原作的數值；圖形與名字是本站自己的（draw/fixtures、strings.ts）。
  */
 import type { Moment, RoomUse, WallTone } from './types';
 
-export type FixtureCategory = 'facility' | 'opening' | 'incident';
-export const FIXTURE_CATEGORIES: readonly FixtureCategory[] = ['facility', 'opening', 'incident'];
+export type FixtureCategory = 'facility' | 'opening' | 'incident' | 'train';
+/** 分類的順序（列車專用排在最後，第一批的 30 種順序不變） */
+export const FIXTURE_CATEGORIES: readonly FixtureCategory[] = [
+  'facility',
+  'opening',
+  'incident',
+  'train',
+];
 
 /** 掛的位置：地板上、牆上（可以調高度）、天花板下 */
 export type Hang = 'floor' | 'wall' | 'ceiling';
@@ -31,6 +37,8 @@ export interface FixtureDef {
   only?: Moment;
   /** 可以選的樣式（第一個是預設） */
   styles?: readonly string[];
+  /** 樣式不同時光也不同（列車的運轉台：蒸氣是火室的門、電氣是儀表板） */
+  styleGlow?: Readonly<Record<string, { radius: number; tone: LightColor; lift: number }>>;
 }
 
 type Extra = {
@@ -39,6 +47,7 @@ type Extra = {
   reach?: true;
   flat?: true;
   styles?: readonly string[];
+  styleGlow?: Readonly<Record<string, readonly [number, LightColor, number]>>;
 };
 type Row = readonly [kind: string, width: number, height: number, hang: Hang, extra?: Extra];
 
@@ -87,6 +96,35 @@ const TABLE: Record<FixtureCategory, readonly Row[]> = {
     ['talisman', 2.4, 2.2, 'wall'],
     ['rubble', 3.2, 2.6, 'floor', { glow: [2.8, 'amber', -0.45], backup: true }],
   ],
+  /* 列車專用（第二批）：運轉台、餐桌、臥鋪、沙發、行李、貨櫃 */
+  train: [
+    [
+      'cabdesk',
+      3.0,
+      3.0,
+      'floor',
+      {
+        glow: [2.0, 'amber', -0.75],
+        styles: ['steam', 'electric'],
+        styleGlow: { electric: [1.8, 'frost', -1.45] },
+      },
+    ],
+    [
+      'diner',
+      3.6,
+      2.6,
+      'floor',
+      {
+        glow: [2.2, 'amber', -1.4],
+        styles: ['dining', 'coach'],
+        styleGlow: { coach: [1.6, 'amber', -2.15] },
+      },
+    ],
+    ['bunk', 3.4, 4.2, 'floor', { glow: [1.5, 'amber', -1.05] }],
+    ['settee', 3.6, 2.6, 'floor', { glow: [2.0, 'amber', -1.75] }],
+    ['luggage', 2.8, 2.6, 'floor'],
+    ['freight', 3.0, 3.2, 'floor'],
+  ],
 };
 
 export const FIXTURES: readonly FixtureDef[] = FIXTURE_CATEGORIES.flatMap((group) =>
@@ -97,6 +135,10 @@ export const FIXTURES: readonly FixtureDef[] = FIXTURE_CATEGORIES.flatMap((group
     if (x?.reach) d.reach = true;
     if (x?.flat) d.flat = true;
     if (x?.styles) d.styles = x.styles;
+    if (x?.styleGlow)
+      d.styleGlow = Object.fromEntries(
+        Object.entries(x.styleGlow).map(([k, [radius, tone, lift]]) => [k, { radius, tone, lift }]),
+      );
     if (group === 'incident') d.only = 'after';
     return d;
   }),
@@ -110,6 +152,17 @@ export const isFixtureKind = (kind: unknown): kind is string =>
 /** 變電設備（鍋爐的另一種樣式）的光是冷色 */
 export const lightColorOf = (d: FixtureDef, variant?: string): LightColor | null =>
   d.glow ? (d.kind === 'boiler' && variant === 'electric' ? 'frost' : d.glow.tone) : null;
+
+/** 這件設備的光（樣式有自己的光時用那個；顏色照 lightColorOf） */
+export function glowOf(
+  d: FixtureDef,
+  variant?: string,
+): { radius: number; tone: LightColor; lift: number } | null {
+  const own = variant ? d.styleGlow?.[variant] : undefined;
+  if (own) return own;
+  const tone = lightColorOf(d, variant);
+  return d.glow && tone ? { radius: d.glow.radius, tone, lift: d.glow.lift } : null;
+}
 
 /* ---------- 區域的用途：選了就換內牆與一組設備（本站自己的配置） ---------- */
 

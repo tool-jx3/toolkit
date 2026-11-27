@@ -1,9 +1,10 @@
 /**
- * 新的斷面圖：空白（1F 與 B1F、中間一座電梯）。
+ * 新的斷面圖：空白（1F 與 B1F、中間一座電梯）；新的橫向車廂（第二批）。
  */
 import { S } from '../strings';
 import { applyUse, settle, uid } from './ops';
-import type { Floor, RoomUse, SectionDoc } from './types';
+import { blankTrain } from './trainOps';
+import type { Floor, RoomUse, SectionDoc, Train } from './types';
 
 export function emptyDoc(): SectionDoc {
   return {
@@ -92,4 +93,20 @@ export function blankDoc(): SectionDoc {
     },
   ];
   return furnishAll(d);
+}
+
+/** 新的橫向車廂：空白的建築＋新的列車（機關車、普通客車、行李・貨物車），畫面是橫向 */
+export function blankTrainDoc(): SectionDoc {
+  const d = blankDoc();
+  d.mode = 'train';
+  d.title = S.train.newTitle;
+  d.subtitle = S.train.subtitle;
+  d.train = blankTrain();
+  return d;
+}
+
+/** 這份作品的列車（還沒有時建一列新的） */
+export function ensureTrain(d: SectionDoc): Train {
+  d.train ??= blankTrain();
+  return d.train;
 }

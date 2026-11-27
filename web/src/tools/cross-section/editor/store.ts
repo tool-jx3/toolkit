@@ -10,7 +10,8 @@ import type { Crop } from '../draw/render';
 import type { FixtureCategory } from '../model/catalog';
 import { normalizeDoc } from '../model/normalize';
 import { sampleDoc } from '../model/samples';
-import type { Audience, EnvId, Moment, SectionDoc, SelRef } from '../model/types';
+import type { Arrange, Audience, EnvId, Moment, SectionDoc, SelRef } from '../model/types';
+import { DEFAULT_ZIP, type ZipOptions } from '../zip/plan';
 
 export const TOOL_ID = 'cross-section';
 /** 存檔格式版本。1：第一批（縱向的建築斷面）。 */
@@ -46,8 +47,14 @@ export type LeftTab = 'build' | 'fixtures' | 'finish';
 /** 放置的出現時機：auto＝照種類 */
 export type PlacePhase = 'auto' | 'any' | Moment;
 
+/** 房間 ZIP 的設定（偏好；淹水與列車的排法在打開時帶入作品的） */
+export type ZipPrefs = Omit<ZipOptions, 'flood' | 'arrange'>;
+
 export interface Prefs {
   tab: LeftTab;
+  /** 匯出對話框的分頁（第二批） */
+  expTab: 'png' | 'zip';
+  zip: ZipPrefs;
   category: FixtureCategory | 'all';
   phase: PlacePhase;
   repeat: boolean;
@@ -60,8 +67,12 @@ export interface Prefs {
   };
 }
 
+const { flood: _flood, arrange: _arrange, ...zipDefaults } = DEFAULT_ZIP;
+
 export const usePrefs = createPreviewStore<Prefs>(TOOL_ID, {
   tab: 'build',
+  expTab: 'png',
+  zip: zipDefaults,
   category: 'all',
   phase: 'auto',
   repeat: true,
@@ -83,6 +94,9 @@ export interface EditorState {
   /** 匯出時選的環境與淹水（打開對話框時帶入畫面上的） */
   expEnv: EnvId;
   expFlood: boolean;
+  /** 房間 ZIP：加淹水的場景、列車的排法（打開時帶入作品的） */
+  zipFlood: boolean;
+  zipArrange: Arrange;
 }
 
 export const useEditor = create<EditorState>(() => ({
@@ -96,6 +110,8 @@ export const useEditor = create<EditorState>(() => ({
   query: '',
   expEnv: 'day',
   expFlood: false,
+  zipFlood: false,
+  zipArrange: 'auto',
 }));
 
 export const setEditor = (patch: Partial<EditorState>): void => useEditor.setState(patch);

@@ -1,5 +1,6 @@
 /**
- * 右側的屬性：沒選東西時是地圖概要；選了區域、通道、設備、備註時是各自的設定。
+ * 右側的屬性：沒選東西時是地圖概要；選了區域、通道、設備、備註時是各自的設定；
+ * 橫向（第二批）：車廂（種類、名字、連結器、車頂的艙口、床下的祕密空間、區域的增減）、車廂裡的區域。
  */
 import { Copy, Trash2, X } from 'lucide-react';
 import type { ReactNode } from 'react';
@@ -9,10 +10,16 @@ import { BREAKABLE } from '../draw/fixtures';
 import { fixtureDef, ROOM_USES } from '../model/catalog';
 import { layoutOf } from '../model/layout';
 import { roomWidthRange, setRoomWidth, shaftFloors } from '../model/ops';
+import { carRoomWidthRange, findCarRoom, setCarRoomWidth } from '../model/trainOps';
 import {
   CAB_STATES,
   CAPS,
+  CAR_TYPES,
+  type CarType,
+  COUPLERS,
+  type Coupler,
   levelTag,
+  MAX_CAR_ROOMS,
   type Moment,
   RANGES,
   type RoomUse,
@@ -54,6 +61,227 @@ function Stat({ label, value, testId }: { label: string; value: ReactNode; testI
       <b className="text-base tabular-nums" data-testid={testId}>
         {value}
       </b>
+    </div>
+  );
+}
+
+function TrainOverview({ doc }: { doc: SectionDoc }) {
+  const t = doc.train;
+  if (!t) return null;
+  const rooms = t.cars.flatMap((c) => c.rooms);
+  const secrets = rooms.filter((r) => r.secret).length + t.cars.filter((c) => c.under).length;
+  return (
+    <div className="flex flex-col gap-3">
+      <h2 className="m-0 text-sm font-semibold">{I.overview}</h2>
+      <div className="grid grid-cols-2 gap-1.5">
+        <Stat label={I.cars} value={t.cars.length} testId="stat-cars" />
+        <Stat label={I.rooms} value={rooms.filter((r) => !r.secret).length} testId="stat-rooms" />
+        <Stat label={I.secrets} value={secrets} testId="stat-secrets" />
+        <Stat label={I.items} value={t.items.length} testId="stat-items" />
+      </div>
+      <p className="m-0 text-xs text-muted">
+        {S.arranges[t.arrange]}・{S.sceneries[t.scenery]}
+      </p>
+      <ul className="m-0 flex list-disc flex-col gap-1 pl-4 text-xs leading-relaxed text-muted">
+        {I.trainTips.map((x) => (
+          <li key={x}>{x}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+/** CCFOLIA 房間 ZIP：一開始就公開（不蓋遮罩；祕密區域不能） */
+function OpenToggle({ id, open, secret }: { id: string; open: boolean; secret: boolean }) {
+  return (
+    <Checkbox
+      checked={open && !secret}
+      disabled={secret}
+      onCheckedChange={(v) => act.setRoomOpen(id, v)}
+      label={
+        <span className="flex flex-col">
+          <span>{I.open}</span>
+          <small className="text-xs text-muted">{secret ? I.openSecret : I.openHint}</small>
+        </span>
+      }
+    />
+  );
+}
+
+function CarPanel({ doc, id }: { doc: SectionDoc; id: string }) {
+  const t = doc.train;
+  const index = t?.cars.findIndex((c) => c.id === id) ?? -1;
+  const car = t?.cars[index];
+  if (!t || !car) return null;
+  const last = index === t.cars.length - 1;
+  return (
+    <div className="flex flex-col gap-3" data-testid="car-panel">
+      <Head title={I.car} sub={`${S.train.carNo(index + 1)}　${car.name}`} />
+      <Field label={I.carType} hint={I.carTypeHint}>
+        <Select
+          value={car.type}
+          onValueChange={(v: CarType) => act.changeCarType(id, v)}
+          options={CAR_TYPES.map((v) => ({ value: v, label: S.cars[v] }))}
+          data-testid="car-type"
+        />
+      </Field>
+      <Field label={I.carName}>
+        <TextInput
+          value={car.name}
+          maxLength={CAPS.name}
+          onFocus={g.begin}
+          onBlur={g.commit}
+          onChange={(e) => act.patchCar(id, { name: e.target.value })}
+          data-testid="car-name"
+        />
+      </Field>
+      <Field label={I.coupler} hint={last ? I.couplerLast : undefined}>
+        <Select
+          value={car.coupler}
+          disabled={last}
+          onValueChange={(v: Coupler) => act.patchCar(id, { coupler: v })}
+          options={COUPLERS.map((v) => ({ value: v, label: S.couplers[v] }))}
+          data-testid="car-coupler"
+        />
+      </Field>
+      {car.type === 'loco' ? null : (
+        <>
+          <Checkbox
+            checked={car.hatch}
+            onCheckedChange={(v) => act.patchCar(id, { hatch: v })}
+            label={
+              <span className="flex flex-col">
+                <span>{I.hatch}</span>
+                {t.roofRoute ? null : <small className="text-xs text-muted">{I.hatchHint}</small>}
+              </span>
+            }
+          />
+          <Checkbox
+            checked={car.under}
+            onCheckedChange={(v) => act.setCarUnder(id, v)}
+            label={
+              <span className="flex flex-col">
+                <span>{I.under}</span>
+                <small className="text-xs text-muted">{I.underHint}</small>
+              </span>
+            }
+          />
+          {car.under ? (
+            <Field label={I.underName}>
+              <TextInput
+                value={car.underName}
+                maxLength={CAPS.name}
+                onFocus={g.begin}
+                onBlur={g.commit}
+                onChange={(e) => act.patchCar(id, { underName: e.target.value })}
+              />
+            </Field>
+          ) : null}
+        </>
+      )}
+      <p className="m-0 text-xs text-muted tabular-nums">
+        {I.carInfo(
+          car.rooms.length,
+          MAX_CAR_ROOMS,
+          t.items.filter((it) => car.rooms.some((r) => r.id === it.room)).length,
+        )}
+      </p>
+      <div className="grid grid-cols-2 gap-1.5">
+        <Button size="sm" onClick={() => act.mergeCarRooms(id)} data-testid="car-merge">
+          {I.carFewer}
+        </Button>
+        <Button size="sm" onClick={() => act.splitCarRooms(id)} data-testid="car-split">
+          {I.carMore}
+        </Button>
+      </div>
+      <Button
+        size="sm"
+        variant="danger"
+        icon={<Trash2 />}
+        disabled={t.cars.length <= 1}
+        onClick={() => act.deleteCar(id)}
+      >
+        {S.train.delCar}
+      </Button>
+    </div>
+  );
+}
+
+function CarRoomPanel({ doc, id }: { doc: SectionDoc; id: string }) {
+  const t = doc.train;
+  const hit = t ? findCarRoom(t, id) : null;
+  if (!t || !hit) return null;
+  const { car, room } = hit;
+  const index = t.cars.indexOf(car);
+  const items = t.items.filter((it) => it.room === id).length;
+  const range = carRoomWidthRange(t, id);
+  const w = room.x1 - room.x0;
+  return (
+    <div className="flex flex-col gap-3" data-testid="room-panel">
+      <Head title={I.room} sub={`${S.train.carNo(index + 1)}　${car.name}`} />
+      <Field label={I.roomName}>
+        <TextInput
+          value={room.name}
+          maxLength={CAPS.name}
+          data-testid="room-name"
+          onFocus={g.begin}
+          onBlur={g.commit}
+          onChange={(e) => act.patchCarRoom(id, { name: e.target.value })}
+        />
+      </Field>
+      <Field label={I.wall}>
+        <Select
+          value={room.wall}
+          onValueChange={(v: WallTone) => act.patchCarRoom(id, { wall: v })}
+          options={WALL_TONES.map((x) => ({ value: x, label: S.walls[x] }))}
+        />
+      </Field>
+      <Field label={I.width} hint={range ? I.widthHint : I.widthFixedCar}>
+        <NumberInput
+          value={w}
+          min={range?.min ?? w}
+          max={range?.max ?? w}
+          step={1}
+          unit="格"
+          disabled={!range}
+          aria-label={I.width}
+          onChange={(v) =>
+            useDoc.getState().update((d) => {
+              if (d.train) setCarRoomWidth(d.train, id, Math.round(v));
+            })
+          }
+        />
+      </Field>
+      <Checkbox
+        checked={room.secret}
+        onCheckedChange={(v) => act.setCarRoomSecret(id, v)}
+        label={
+          <span className="flex flex-col">
+            <span>{I.secret}</span>
+            <small className="text-xs text-muted">{I.secretHintCar}</small>
+          </span>
+        }
+      />
+      <Checkbox
+        checked={room.hideName}
+        onCheckedChange={(v) => act.patchCarRoom(id, { hideName: v })}
+        label={I.hideName}
+      />
+      <OpenToggle id={id} open={!!room.open} secret={room.secret} />
+      <p className="m-0 text-xs text-muted tabular-nums">{I.roomInfo(w, items)}</p>
+      <div className="grid grid-cols-2 gap-1.5">
+        <Button size="sm" onClick={() => setEditor({ sel: { kind: 'car', id: car.id } })}>
+          {I.editCar}
+        </Button>
+        <Button
+          size="sm"
+          variant="danger"
+          disabled={!items}
+          onClick={() => act.clearCarRoomItems(id)}
+        >
+          {I.clearItems}
+        </Button>
+      </div>
     </div>
   );
 }
@@ -164,6 +392,7 @@ function RoomPanel({ doc, id }: { doc: SectionDoc; id: string }) {
         onCheckedChange={(v) => act.patchRoom(id, { hideName: v })}
         label={I.hideName}
       />
+      <OpenToggle id={id} open={!!room.open} secret={room.secret} />
       <p className="m-0 text-xs text-muted tabular-nums">{I.roomInfo(w, items)}</p>
       <div className="grid grid-cols-2 gap-1.5">
         <Button size="sm" onClick={() => act.splitFloorRooms(floorId)}>
@@ -281,7 +510,7 @@ function ShaftPanel({ doc, id }: { doc: SectionDoc; id: string }) {
 }
 
 function ItemPanel({ doc, id }: { doc: SectionDoc; id: string }) {
-  const it = doc.items.find((v) => v.id === id);
+  const it = act.listsOf(doc).items.find((v) => v.id === id);
   const def = it ? fixtureDef(it.kind) : undefined;
   if (!it || !def) return null;
   const phase: Phase = it.only ?? 'any';
@@ -295,7 +524,10 @@ function ItemPanel({ doc, id }: { doc: SectionDoc; id: string }) {
             onValueChange={(v) =>
               act.patchItem(id, { variant: v === def.styles?.[0] ? undefined : v })
             }
-            options={def.styles.map((v) => ({ value: v, label: S.variants[v] ?? v }))}
+            options={def.styles.map((v) => ({
+              value: v,
+              label: S.kindVariants[def.kind]?.[v] ?? S.variants[v] ?? v,
+            }))}
           />
         </Field>
       ) : null}
@@ -385,7 +617,7 @@ function ItemPanel({ doc, id }: { doc: SectionDoc; id: string }) {
 }
 
 function NotePanel({ doc, id }: { doc: SectionDoc; id: string }) {
-  const n = doc.notes.find((v) => v.id === id);
+  const n = act.listsOf(doc).notes.find((v) => v.id === id);
   if (!n) return null;
   return (
     <div className="flex flex-col gap-3" data-testid="note-panel">
@@ -452,14 +684,22 @@ export function Inspector() {
   const sel = useEditor((s) => s.sel);
   const audience = useEditor((s) => s.audience);
   const active = audience === 'player' ? null : sel;
+  const train = doc.mode === 'train' && !!doc.train;
   return (
     <div
       className="flex min-h-0 min-w-0 flex-col gap-3 rounded-md border border-border bg-surface p-3 lg:overflow-y-auto"
       data-testid="inspector"
     >
-      {!active ? <Overview doc={doc} /> : null}
-      {active?.kind === 'room' ? <RoomPanel doc={doc} id={active.id} /> : null}
-      {active?.kind === 'shaft' ? <ShaftPanel doc={doc} id={active.id} /> : null}
+      {!active ? train ? <TrainOverview doc={doc} /> : <Overview doc={doc} /> : null}
+      {active?.kind === 'room' ? (
+        train ? (
+          <CarRoomPanel doc={doc} id={active.id} />
+        ) : (
+          <RoomPanel doc={doc} id={active.id} />
+        )
+      ) : null}
+      {active?.kind === 'car' && train ? <CarPanel doc={doc} id={active.id} /> : null}
+      {active?.kind === 'shaft' && !train ? <ShaftPanel doc={doc} id={active.id} /> : null}
       {active?.kind === 'item' ? <ItemPanel doc={doc} id={active.id} /> : null}
       {active?.kind === 'note' ? <NotePanel doc={doc} id={active.id} /> : null}
     </div>

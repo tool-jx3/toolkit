@@ -4,8 +4,9 @@
  * 座標的單位是「格」（1 格約 0.55 m）：建築的左上角是 (0, 0)，x 往右、y 往下；最上面一層的頂是 y＝0。
  * 區域的左右是整數格（`x0`～`x1`），樓層的高度是 5 或 6 格。
  *
- * 第二批（橫向的連結車廂、CCFOLIA 房間 ZIP）預留：`mode`（之後加 'train'）、區域的 `open`（CCFOLIA 一開始就公開的房間）、
- * `train`、`ccfolia`（目前只照原樣保留，不讀也不畫）。
+ * 第二批（2026-11-27）：橫向的連結車廂（`mode: 'train'`、`train`：最多 10 節、每節 14 × 6 格，車廂裡的區域、連結器、
+ * 床下的祕密空間；列車的設備與備註放在 `train.items`、`train.notes`，和建築的分開），區域的 `open`（CCFOLIA 房間 ZIP
+ * 一開始就公開、不蓋遮罩）。同一份作品同時帶建築與列車，`mode` 決定畫面上編輯哪一邊。`ccfolia` 照原樣保留（不用）。
  */
 
 /** 圖面的樣式 */
@@ -171,9 +172,94 @@ export interface Building {
   shafts: Shaft[];
 }
 
+/** 編輯哪一邊：縱向的建築斷面、橫向的連結車廂 */
+export type Mode = 'building' | 'train';
+
+/* ---------- 橫向的連結車廂（第二批） ---------- */
+
+/** 車廂的種類（9 種）：機關車、一等個室臥鋪、二段臥鋪、餐車、休息・沙龍車、普通客車、行李・貨物車、展望車（最後尾）、監視・護送車 */
+export type CarType =
+  | 'loco'
+  | 'suite'
+  | 'berth'
+  | 'dining'
+  | 'lounge'
+  | 'coach'
+  | 'baggage'
+  | 'observation'
+  | 'escort';
+export const CAR_TYPES: readonly CarType[] = [
+  'loco',
+  'suite',
+  'berth',
+  'dining',
+  'lounge',
+  'coach',
+  'baggage',
+  'observation',
+  'escort',
+];
+
+/** 和下一節之間的連結器：照常、上鎖、鐵柵、分離 */
+export type Coupler = 'normal' | 'locked' | 'bars' | 'split';
+export const COUPLERS: readonly Coupler[] = ['normal', 'locked', 'bars', 'split'];
+
+/** 車外的景色：夜行・星空與鐵軌、暴風雪・雪原、霧中高架橋、隧道內（完全封閉）、白天的田園 */
+export type Scenery = 'starlit' | 'blizzard' | 'viaduct' | 'tunnel' | 'meadow';
+export const SCENERIES: readonly Scenery[] = ['starlit', 'blizzard', 'viaduct', 'tunnel', 'meadow'];
+
+/** 排法：自動（4 節以上兩段折返）、一列、兩段折返 */
+export type Arrange = 'auto' | 'single' | 'folded';
+export const ARRANGES: readonly Arrange[] = ['auto', 'single', 'folded'];
+
+/** 機關車：蒸氣、電氣 */
+export type LocoKind = 'steam' | 'electric';
+export const LOCO_KINDS: readonly LocoKind[] = ['steam', 'electric'];
+
+/** 車廂裡的一間（左右是車廂裡的格：0～14） */
+export interface CarRoom {
+  id: string;
+  name: string;
+  wall: WallTone;
+  secret: boolean;
+  hideName: boolean;
+  x0: number;
+  x1: number;
+  /** CCFOLIA 房間 ZIP：一開始就公開 */
+  open?: boolean;
+  /** 機關車的駕駛室、機器室；展望車最後面的展望台 */
+  role?: 'cab' | 'engine' | 'deck';
+}
+
+export interface Car {
+  id: string;
+  type: CarType;
+  name: string;
+  rooms: CarRoom[];
+  /** 和下一節之間的連結器（最後一節不畫） */
+  coupler: Coupler;
+  /** 車頂的艙口 */
+  hatch: boolean;
+  /** 床下的祕密空間（前後轉向架之間；機關車沒有） */
+  under: boolean;
+  underName: string;
+}
+
+export interface Train {
+  arrange: Arrange;
+  loco: LocoKind;
+  scenery: Scenery;
+  /** 車頂的移動路線 */
+  roofRoute: boolean;
+  cars: Car[];
+  /** 列車的設備與備註（和建築的分開放，room 是車廂裡的區域） */
+  items: Fixture[];
+  notes: Note[];
+}
+
 export interface SectionDoc {
-  /** 第二批會加 'train'（橫向的連結車廂） */
-  mode: 'building';
+  /** 畫面上編輯哪一邊（第二批加 'train'） */
+  mode: Mode;
   title: string;
   subtitle: string;
   style: StyleId;
@@ -193,8 +279,9 @@ export interface SectionDoc {
   building: Building;
   items: Fixture[];
   notes: Note[];
-  /** 第二批預留：讀進來的資料照原樣保留 */
-  train?: unknown;
+  /** 橫向的連結車廂（第二批；第一次切到橫向時才建立） */
+  train?: Train;
+  /** 讀進來的資料照原樣保留（CCFOLIA 房間 ZIP 的設定放在偏好，不放這裡） */
   ccfolia?: unknown;
 }
 
@@ -235,6 +322,14 @@ export const RANGES = {
   noteSize: { min: 0.3, max: 1.2, def: 0.46 },
 } as const;
 
+/** 列車：每節 14 × 6 格、連結的間隔 1 格、最多 10 節；車廂裡一間至少 3 格（所以最多 4 間） */
+export const CAR_W = 14;
+export const CAR_H = 6;
+export const CAR_GAP = 1;
+export const MAX_CARS = 10;
+export const MIN_CAR_ROOM = 3;
+export const MAX_CAR_ROOMS = 4;
+
 /** 1 格約幾公尺（比例尺） */
 export const CELL_M = 0.55;
 
@@ -244,7 +339,7 @@ export const momentOfEnv = (env: EnvId): Moment => (env === 'after' ? 'after' : 
 /** 樓層的代號：1F、2F…、B1F… */
 export const levelTag = (level: number): string => (level > 0 ? `${level}F` : `B${-level}F`);
 
-export type SelKind = 'room' | 'shaft' | 'item' | 'note';
+export type SelKind = 'room' | 'shaft' | 'item' | 'note' | 'car';
 export interface SelRef {
   kind: SelKind;
   id: string;

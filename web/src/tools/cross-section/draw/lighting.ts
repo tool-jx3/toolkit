@@ -25,7 +25,7 @@ export interface LightSpot {
 const DIM: Record<Exclude<EnvId, 'day'>, { tint: string; a: number }> = {
   night: { tint: '#1e1a46', a: 0.42 },
   blackout: { tint: '#07001c', a: 0.78 },
-  after: { tint: '#251e07', a: 0.48 },
+  after: { tint: '#251e04', a: 0.48 },
 };
 
 /** 淹水的深處 */
