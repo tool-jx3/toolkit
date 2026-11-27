@@ -1,8 +1,11 @@
 /**
- * 左側的三個分頁：構造（建築寬、樓層高、屋頂、天空、RF、樓層的增減與每層的區域數、縱向通道）、
- * 設備・家具（工具、搜尋、分類、放置的出現時機、連續放置、30 種設備）、完成（作品名、副標題、樣式、淹水、紙的老舊、顯示）。
+ * 左側的三個分頁：構造（縱向：建築寬、樓層高、屋頂、天空、RF、樓層的增減與每層的區域數、縱向通道；
+ * 橫向〔第二批〕：機關車、排法、車外的景色、車頂的移動路線、車廂的清單）、
+ * 設備・家具（工具、搜尋、分類、放置的出現時機、連續放置、36 種設備）、完成（作品名、副標題、樣式、淹水、紙的老舊、顯示）。
  */
 import {
+  ArrowDown,
+  ArrowUp,
   Building,
   Layers,
   MessageSquarePlus,
@@ -13,7 +16,7 @@ import {
   Sparkles,
   X,
 } from 'lucide-react';
-import { type ReactNode, useMemo } from 'react';
+import { type ReactNode, useMemo, useState } from 'react';
 import { historyGesture } from '@/core/storage';
 import {
   Button,
@@ -33,12 +36,21 @@ import { fixtureThumb } from '../draw/thumbs';
 import { FIXTURE_CATEGORIES, FIXTURES, type FixtureCategory } from '../model/catalog';
 import { floorsTopDown } from '../model/layout';
 import {
+  ARRANGES,
+  type Arrange,
   CAPS,
+  CAR_TYPES,
+  type CarType,
+  LOCO_KINDS,
+  type LocoKind,
   levelTag,
+  MAX_CARS,
   MAX_FLOORS,
   RANGES,
   ROOF_IDS,
   type RoofId,
+  SCENERIES,
+  type Scenery,
   SHAFT_KINDS,
   SKY_IDS,
   type SkyId,
@@ -296,6 +308,138 @@ function BuildTab() {
   );
 }
 
+/* ---------- 構造（橫向的連結車廂） ---------- */
+
+function TrainTab() {
+  const t = useDoc((s) => s.data.train);
+  const sel = useEditor((s) => s.sel);
+  const [type, setType] = useState<CarType>('coach');
+  if (!t) return null;
+  const full = t.cars.length >= MAX_CARS;
+  return (
+    <div className="flex flex-col gap-3" data-testid="train-build">
+      <div className="grid grid-cols-2 gap-2">
+        <Field label={S.train.loco}>
+          <Select
+            value={t.loco}
+            onValueChange={(v: LocoKind) => act.setLoco(v)}
+            options={LOCO_KINDS.map((v) => ({ value: v, label: S.locos[v] }))}
+            data-testid="loco-select"
+          />
+        </Field>
+        <Field label={S.train.arrange}>
+          <Select
+            value={t.arrange}
+            onValueChange={(v: Arrange) => act.setArrange(v)}
+            options={ARRANGES.map((v) => ({ value: v, label: S.arranges[v] }))}
+            data-testid="arrange-select"
+          />
+        </Field>
+      </div>
+      <Field label={S.train.scenery}>
+        <Select
+          value={t.scenery}
+          onValueChange={(v: Scenery) => act.setScenery(v)}
+          options={SCENERIES.map((v) => ({ value: v, label: S.sceneries[v] }))}
+          data-testid="scenery-select"
+        />
+      </Field>
+      <Checkbox
+        checked={t.roofRoute}
+        onCheckedChange={(v) => act.patchTrain({ roofRoute: v })}
+        label={S.train.roofRoute}
+      />
+      <section className="flex flex-col gap-1.5" aria-label={S.train.cars}>
+        <div className="flex items-center justify-between gap-2">
+          <h3 className="m-0 text-sm font-medium">{S.train.cars}</h3>
+          <span className="text-xs text-muted tabular-nums" data-testid="car-count">
+            {S.train.carCount(t.cars.length, MAX_CARS)}
+          </span>
+        </div>
+        <div className="flex min-w-0 items-end gap-1.5">
+          <Field label={S.train.newCarType} className="min-w-0 flex-1">
+            <Select
+              value={type}
+              onValueChange={(v: CarType) => setType(v)}
+              options={CAR_TYPES.map((v) => ({ value: v, label: S.cars[v] }))}
+              data-testid="new-car-type"
+            />
+          </Field>
+          <Button
+            size="sm"
+            icon={<Plus />}
+            disabled={full}
+            onClick={() => act.addCarOf(type)}
+            data-testid="add-car"
+          >
+            {S.train.addCar}
+          </Button>
+        </div>
+        <ul className="m-0 flex list-none flex-col gap-1 p-0" data-testid="car-list">
+          {t.cars.map((car, i) => {
+            const on = sel?.kind === 'car' && sel.id === car.id;
+            const secret = car.under || car.rooms.some((r) => r.secret);
+            return (
+              <li
+                key={car.id}
+                className={cn(
+                  'flex min-w-0 items-center gap-1 rounded-md border bg-surface-2 px-2 py-1',
+                  on ? 'border-accent' : 'border-border',
+                )}
+                data-testid={`car-${i + 1}`}
+              >
+                <button
+                  type="button"
+                  className="min-w-0 flex-1 truncate text-left text-sm focus-visible:ring-2 focus-visible:ring-focus focus-visible:outline-none"
+                  onClick={() => setEditor({ sel: { kind: 'car', id: car.id } })}
+                >
+                  <b className="tabular-nums">{S.train.carNo(i + 1)}</b>{' '}
+                  <span className="text-muted">{car.name}</span>
+                  <small className="block text-xs text-muted">
+                    {S.train.carRooms(car.rooms.length)}
+                    {i < t.cars.length - 1 && car.coupler !== 'normal'
+                      ? `・${S.couplers[car.coupler]}`
+                      : ''}
+                    {secret ? `・${S.build.secretTag}` : ''}
+                  </small>
+                </button>
+                <IconButton
+                  size="sm"
+                  icon={<ArrowUp />}
+                  label={S.train.up}
+                  disabled={i === 0}
+                  onClick={() => act.moveCarBy(car.id, -1)}
+                />
+                <IconButton
+                  size="sm"
+                  icon={<ArrowDown />}
+                  label={S.train.down}
+                  disabled={i === t.cars.length - 1}
+                  onClick={() => act.moveCarBy(car.id, 1)}
+                />
+                <IconButton
+                  size="sm"
+                  icon={<X />}
+                  label={S.train.delCar}
+                  disabled={t.cars.length <= 1}
+                  onClick={() => act.deleteCar(car.id)}
+                  data-testid="delete-car"
+                />
+              </li>
+            );
+          })}
+        </ul>
+      </section>
+      <Tip>{S.train.tip}</Tip>
+    </div>
+  );
+}
+
+function StructureTab() {
+  const mode = useDoc((s) => s.data.mode);
+  return mode === 'train' ? <TrainTab /> : <BuildTab />;
+}
+
 /* ---------- 設備・家具 ---------- */
 
 function FixturesTab() {
@@ -390,7 +534,6 @@ function FixturesTab() {
         })}
         {list.length ? null : <p className="col-span-full m-0 text-xs text-muted">{S.fx.none}</p>}
       </div>
-      <Tip>{S.fx.trainLater}</Tip>
     </div>
   );
 }
@@ -399,6 +542,7 @@ function FixturesTab() {
 
 function FinishTab() {
   const d = useDoc((s) => s.data);
+  const train = d.mode === 'train';
   const set = (fn: (x: typeof d) => void) => useDoc.getState().update(fn);
   return (
     <div className="flex flex-col gap-3">
@@ -482,7 +626,10 @@ function FinishTab() {
             }
           />
         </Field>
-        <Field label={S.finish.floodLevel} hint={S.finish.floodHint}>
+        <Field
+          label={S.finish.floodLevel}
+          hint={train ? S.finish.floodHintTrain : S.finish.floodHint}
+        >
           <Slider
             value={d.floodLevel}
             min={RANGES.flood.min}
@@ -522,7 +669,11 @@ function FinishTab() {
       <fieldset className="m-0 flex min-w-0 flex-col gap-1 border-0 p-0">
         <legend className="mb-1.5 p-0 text-sm font-medium">{S.finish.show}</legend>
         {(['grid', 'labels', 'elevation', 'frame'] as const).map((k) => (
-          <Field key={k} label={S.finish[k]} layout="inline">
+          <Field
+            key={k}
+            label={train && k === 'elevation' ? S.finish.carTags : S.finish[k]}
+            layout="inline"
+          >
             <Toggle
               checked={d[k]}
               onCheckedChange={(v) => {
@@ -550,7 +701,7 @@ export function LeftPanel() {
           if (v !== 'fixtures' && useEditor.getState().tool === 'place') act.setTool('select');
         }}
         items={[
-          { value: 'build', label: S.tabs.build, icon: <Building />, content: <BuildTab /> },
+          { value: 'build', label: S.tabs.build, icon: <Building />, content: <StructureTab /> },
           { value: 'fixtures', label: S.tabs.fixtures, icon: <Layers />, content: <FixturesTab /> },
           { value: 'finish', label: S.tabs.finish, icon: <Sparkles />, content: <FinishTab /> },
         ]}

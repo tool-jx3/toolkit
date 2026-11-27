@@ -1,10 +1,10 @@
 /**
- * 編輯列：範例與新的、作品名、四種環境（1～4）、淹水、GM 用／PL 用（G）、復原、重做、匯出圖片。
+ * 編輯列：範例與新的、縱向斷面／橫向車廂（第二批）、作品名、四種環境（1～4）、淹水、GM 用／PL 用（G）、復原、重做、匯出。
  */
 import { Download, LayoutTemplate, Redo2, Undo2, Waves } from 'lucide-react';
 import { historyGesture, useUndoRedo } from '@/core/storage';
 import { Button, IconButton, Segmented, TextInput, withShortcut } from '@/ui';
-import { CAPS, ENV_IDS, type EnvId, RANGES } from '../model/types';
+import { CAPS, ENV_IDS, type EnvId, type Mode, RANGES } from '../model/types';
 import { S } from '../strings';
 import * as act from './actions';
 import { openExport } from './ExportDialog';
@@ -19,6 +19,7 @@ export function EditorBar() {
   const env = useDoc((s) => s.data.env);
   const flood = useDoc((s) => s.data.flood);
   const level = useDoc((s) => s.data.floodLevel);
+  const mode = useDoc((s) => s.data.mode);
   return (
     <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1.5" data-testid="editor-bar">
       <Button
@@ -30,6 +31,13 @@ export function EditorBar() {
       >
         {S.bar.start}
       </Button>
+      <Segmented
+        size="sm"
+        aria-label={S.bar.mode}
+        value={mode}
+        onValueChange={(v: Mode) => act.setMode(v)}
+        options={(['building', 'train'] as const).map((v) => ({ value: v, label: S.modes[v] }))}
+      />
       <TextInput
         value={title}
         maxLength={CAPS.title}

@@ -4,18 +4,34 @@
  *
  * 壞掉的部分一律換成預設值或拿掉，不丟例外；整份認不出來（沒有任何樓層）時回傳 null。
  */
+
+import { S } from '../strings';
 import { isFixtureKind, isRoomUse } from './catalog';
-import { emptyDoc } from './factory';
+import { blankDoc, emptyDoc } from './factory';
 import { roomIdsOf } from './layout';
 import { clamp, settle, uid } from './ops';
+import { underId } from './trainLayout';
+import { settleTrain } from './trainOps';
 import {
+  ARRANGES,
+  type Arrange,
   CAB_STATES,
   CAPS,
+  CAR_TYPES,
+  CAR_W,
   type CabState,
+  type Car,
+  type CarRoom,
+  type CarType,
+  COUPLERS,
+  type Coupler,
   ENV_IDS,
   type EnvId,
   type Fixture,
   type Floor,
+  LOCO_KINDS,
+  type LocoKind,
+  MAX_CARS,
   MAX_FLOORS,
   type Moment,
   type Note,
@@ -23,6 +39,8 @@ import {
   ROOF_IDS,
   type RoofId,
   type Room,
+  SCENERIES,
+  type Scenery,
   type SectionDoc,
   SHAFT_KINDS,
   type Shaft,
@@ -31,6 +49,7 @@ import {
   type SkyId,
   STYLE_IDS,
   type StyleId,
+  type Train,
   WALL_TONES,
   type WallTone,
   WIDTHS,
@@ -79,6 +98,111 @@ interface Draft {
 }
 
 /* ---------- 本站的專案檔 ---------- */
+
+type Pool = ReturnType<typeof idPool>;
+
+/** 設備（本站的格式）：指到不存在的區域、認不出來的種類拿掉 */
+function readItems(list: unknown, roomIds: ReadonlySet<string>, id: Pool): Fixture[] {
+  const items: Fixture[] = [];
+  for (const it of Array.isArray(list) ? list : []) {
+    if (!isObj(it) || items.length >= CAPS.items) continue;
+    if (typeof it.room !== 'string' || !roomIds.has(it.room) || !isFixtureKind(it.kind)) continue;
+    const f: Fixture = {
+      id: id(it.id, 'it'),
+      room: it.room,
+      kind: it.kind,
+      rx: num(it.rx, 0.5, RANGES.rx.min, RANGES.rx.max),
+      ry: num(it.ry, 0.44, RANGES.ry.min, RANGES.ry.max),
+      scale: num(it.scale, 1, RANGES.scale.min, RANGES.scale.max),
+      flip: it.flip === true,
+    };
+    const only = moment(it.only);
+    if (only) f.only = only;
+    if (it.upset === true) f.upset = true;
+    if (it.smashed === true) f.smashed = true;
+    if (it.secret === true) f.secret = true;
+    if (typeof it.variant === 'string' && it.variant) f.variant = it.variant.slice(0, 16);
+    items.push(f);
+  }
+  return items;
+}
+
+/** 備註（本站的格式）：指到不存在的區域的改成區域外 */
+function readNotes(list: unknown, roomIds: ReadonlySet<string>, id: Pool): Note[] {
+  const notes: Note[] = [];
+  for (const n of Array.isArray(list) ? list : []) {
+    if (!isObj(n) || notes.length >= CAPS.notes) continue;
+    const room = typeof n.room === 'string' && roomIds.has(n.room) ? n.room : null;
+    const note: Note = {
+      id: id(n.id, 'nt'),
+      text: str(n.text, '', CAPS.note),
+      style: n.style === 'badge' ? 'badge' : 'box',
+      size: num(n.size, RANGES.noteSize.def, RANGES.noteSize.min, RANGES.noteSize.max),
+      room,
+      rx: num(n.rx, 0.5, 0.02, 0.98),
+      ry: num(n.ry, 0.5, 0.02, 0.98),
+      x: num(n.x, 0, -200, 400),
+      y: num(n.y, 0, -200, 400),
+    };
+    const only = moment(n.only);
+    if (only) note.only = only;
+    if (n.secret === true) note.secret = true;
+    notes.push(note);
+  }
+  return notes;
+}
+
+const ROLES = ['cab', 'engine', 'deck'] as const;
+
+/** 列車（本站的格式）：車廂認不出來或一節都沒有時回傳 undefined */
+function normalizeTrain(raw: unknown, id: Pool): Train | undefined {
+  if (!isObj(raw) || !Array.isArray(raw.cars)) return undefined;
+  const cars: Car[] = [];
+  for (const c of raw.cars) {
+    if (!isObj(c) || cars.length >= MAX_CARS) continue;
+    const type = oneOf<CarType>(CAR_TYPES, c.type, 'coach');
+    const rooms: CarRoom[] = [];
+    for (const r of Array.isArray(c.rooms) ? c.rooms : []) {
+      if (!isObj(r)) continue;
+      const room: CarRoom = {
+        id: id(r.id, 'cr'),
+        name: str(r.name, '', CAPS.name),
+        wall: oneOf<WallTone>(WALL_TONES, r.wall, 'wood'),
+        secret: r.secret === true,
+        hideName: r.hideName === true,
+        x0: Math.round(num(r.x0, 0, 0, CAR_W)),
+        x1: Math.round(num(r.x1, CAR_W, 0, CAR_W)),
+      };
+      if (r.open === true) room.open = true;
+      if (ROLES.includes(r.role as (typeof ROLES)[number])) room.role = r.role as CarRoom['role'];
+      rooms.push(room);
+    }
+    cars.push({
+      id: id(c.id, 'car'),
+      type,
+      name: str(c.name, S.cars[type], CAPS.name),
+      rooms,
+      coupler: oneOf<Coupler>(COUPLERS, c.coupler, 'normal'),
+      hatch: c.hatch === undefined ? type !== 'loco' : c.hatch === true,
+      under: c.under === true && type !== 'loco',
+      underName: str(c.underName, S.train.underName, CAPS.name),
+    });
+  }
+  if (!cars.length) return undefined;
+  const roomIds = new Set(cars.flatMap((c) => c.rooms.map((r) => r.id)));
+  const boxIds = new Set([...roomIds, ...cars.filter((c) => c.under).map((c) => underId(c.id))]);
+  const t: Train = {
+    arrange: oneOf<Arrange>(ARRANGES, raw.arrange, 'auto'),
+    loco: oneOf<LocoKind>(LOCO_KINDS, raw.loco, 'steam'),
+    scenery: oneOf<Scenery>(SCENERIES, raw.scenery, 'starlit'),
+    roofRoute: raw.roofRoute === undefined ? true : raw.roofRoute === true,
+    cars,
+    items: readItems(raw.items, roomIds, id),
+    notes: readNotes(raw.notes, boxIds, id),
+  };
+  settleTrain(t);
+  return t;
+}
 
 export function normalizeDoc(raw: unknown): SectionDoc | null {
   if (!isObj(raw) || !isObj(raw.building)) return null;
@@ -131,47 +255,12 @@ export function normalizeDoc(raw: unknown): SectionDoc | null {
     });
   }
   const roomIds = roomIdsOf(floors);
-  const items: Fixture[] = [];
-  for (const it of Array.isArray(raw.items) ? raw.items : []) {
-    if (!isObj(it) || items.length >= CAPS.items) continue;
-    if (typeof it.room !== 'string' || !roomIds.has(it.room) || !isFixtureKind(it.kind)) continue;
-    const f: Fixture = {
-      id: id(it.id, 'it'),
-      room: it.room,
-      kind: it.kind,
-      rx: num(it.rx, 0.5, RANGES.rx.min, RANGES.rx.max),
-      ry: num(it.ry, 0.44, RANGES.ry.min, RANGES.ry.max),
-      scale: num(it.scale, 1, RANGES.scale.min, RANGES.scale.max),
-      flip: it.flip === true,
-    };
-    const only = moment(it.only);
-    if (only) f.only = only;
-    if (it.upset === true) f.upset = true;
-    if (it.smashed === true) f.smashed = true;
-    if (it.secret === true) f.secret = true;
-    if (typeof it.variant === 'string' && it.variant) f.variant = it.variant.slice(0, 16);
-    items.push(f);
-  }
-  const notes: Note[] = [];
-  for (const n of Array.isArray(raw.notes) ? raw.notes : []) {
-    if (!isObj(n) || notes.length >= CAPS.notes) continue;
-    const room = typeof n.room === 'string' && roomIds.has(n.room) ? n.room : null;
-    const note: Note = {
-      id: id(n.id, 'nt'),
-      text: str(n.text, '', CAPS.note),
-      style: n.style === 'badge' ? 'badge' : 'box',
-      size: num(n.size, RANGES.noteSize.def, RANGES.noteSize.min, RANGES.noteSize.max),
-      room,
-      rx: num(n.rx, 0.5, 0.02, 0.98),
-      ry: num(n.ry, 0.5, 0.02, 0.98),
-      x: num(n.x, 0, -200, 400),
-      y: num(n.y, 0, -200, 400),
-    };
-    const only = moment(n.only);
-    if (only) note.only = only;
-    if (n.secret === true) note.secret = true;
-    notes.push(note);
-  }
+  /* 區域的 id 先全部認領（建築、車廂），之後才是設備與備註 */
+  const train = normalizeTrain(raw.train, id);
+  const items = readItems(raw.items, roomIds, id);
+  const notes = readNotes(raw.notes, roomIds, id);
+  if (train) d.train = train;
+  if (raw.mode === 'train' && train) d.mode = 'train';
   return finish(d, raw, { floors, shafts, items, notes }, width);
 }
 
@@ -198,7 +287,6 @@ function finish(d: SectionDoc, raw: Obj, draft: Draft, width: number): SectionDo
   };
   d.items = draft.items;
   d.notes = draft.notes;
-  if (raw.train !== undefined) d.train = raw.train;
   if (raw.ccfolia !== undefined) d.ccfolia = raw.ccfolia;
   settle(d);
   return d;
@@ -212,9 +300,9 @@ export class OriginalFileError extends Error {}
 
 /** 讀了但沒有用到的部分（讀完通知用；縱向的作業檔裡原作預設的車廂不算） */
 export interface OriginalSkipped {
-  /** 列車專用的設備（第二批）與認不出來的設備 */
+  /** 認不出來的設備（2026-11-27 第二批起列車專用的 6 種與車廂裡的設備都讀） */
   items: number;
-  /** 車廂裡的備註 */
+  /** 超過上限的備註（2026-11-27 第二批起車廂裡的備註也讀） */
   notes: number;
   /** 超過 12 層、重複的樓層 */
   floors: number;
@@ -223,6 +311,8 @@ export interface OriginalSkipped {
   floorNotes: number;
   /** 建築寬換成最接近的可選寬度（原本的寬） */
   width: number | null;
+  /** 超過 10 節的車廂 */
+  cars: number;
 }
 
 const ORIG_ROOF: Record<string, RoofId> = {
@@ -262,7 +352,7 @@ const ORIG_USE: Record<string, Room['use']> = {
   altar: 'ritual',
   empty: 'empty',
 };
-/** 原作的設備 → 本站的種類（列車專用的 6 種沒有對應） */
+/** 原作的設備 → 本站的種類（2026-11-27 第二批加列車專用的 6 種） */
 const ORIG_KIND: Record<string, string> = {
   'bio-tank': 'tank',
   console: 'console',
@@ -294,10 +384,18 @@ const ORIG_KIND: Record<string, string> = {
   'electric-spark': 'spark',
   'talisman-seal': 'talisman',
   'fire-rubble': 'rubble',
+  'loco-console': 'cabdesk',
+  'dining-table': 'diner',
+  'sleeper-berth': 'bunk',
+  'lounge-sofa': 'settee',
+  'luggage-stack': 'luggage',
+  'cargo-container': 'freight',
 };
 const ORIG_VARIANT: Record<string, Record<string, string>> = {
   boiler: { electric: 'electric' },
   bench: { galley: 'kitchen' },
+  cabdesk: { electric: 'electric' },
+  diner: { coach: 'coach' },
 };
 
 /** 看起來是原作的作業檔嗎（有 format 標記，或有原作格式的樓層） */
@@ -316,9 +414,10 @@ export function isOriginalFile(raw: unknown): raw is Obj {
 }
 
 export function fromOriginal(raw: Obj): { doc: SectionDoc; skipped: OriginalSkipped } {
-  if (raw.mode === 'horizontal') throw new OriginalFileError('train');
-  const rb = isObj(raw.building) ? raw.building : null;
-  if (!rb || !Array.isArray(rb.floors)) throw new OriginalFileError('empty');
+  /* 橫向車廂的檔（第二批）：列車一定要讀得到；建築讀得到就讀，讀不到換成空白的建築 */
+  const horizontal = raw.mode === 'horizontal';
+  const rb = isObj(raw.building) ? raw.building : {};
+  if (!horizontal && !Array.isArray(rb.floors)) throw new OriginalFileError('empty');
   const id = idPool();
   const rawWidth = Math.round(num(rb.widthCells, 36, 24, 60));
   const width = snapWidth(rawWidth);
@@ -329,13 +428,14 @@ export function fromOriginal(raw: Obj): { doc: SectionDoc; skipped: OriginalSkip
     floorItems: 0,
     floorNotes: 0,
     width: width === rawWidth ? null : rawWidth,
+    cars: 0,
   };
   const floors: Floor[] = [];
   const levels = new Set<number>();
   const roomIds = new Map<string, string>();
   /** 沒讀進來的樓層的區域（原作的 id） */
   const droppedRooms = new Set<string>();
-  for (const f of rb.floors) {
+  for (const f of Array.isArray(rb.floors) ? rb.floors : []) {
     if (!isObj(f) || !Array.isArray(f.rooms) || typeof f.level !== 'number') continue;
     let level = Math.round(num(f.level, 1, -20, 20));
     if (level === 0) level = 1;
@@ -365,7 +465,7 @@ export function fromOriginal(raw: Obj): { doc: SectionDoc; skipped: OriginalSkip
     }
     floors.push({ id: id(f.id, 'fl'), level, name: str(f.label, '', CAPS.name), rooms });
   }
-  if (!floors.length) throw new OriginalFileError('empty');
+  if (!floors.length && !horizontal) throw new OriginalFileError('empty');
   /* 寬換掉時，區域的左右照比例縮放（之後 settle 排成整數格） */
   if (skipped.width !== null)
     for (const f of floors)
@@ -389,45 +489,47 @@ export function fromOriginal(raw: Obj): { doc: SectionDoc; skipped: OriginalSkip
       secret: kind === 'duct' || s.secret === true,
     });
   }
+  const train = originalTrain(raw, id, skipped);
+  if (horizontal && !train) throw new OriginalFileError('empty-train');
   const items: Fixture[] = [];
   for (const it of Array.isArray(raw.items) ? raw.items : []) {
     if (!isObj(it)) continue;
     if (it.mode === 'horizontal') {
-      skipped.items++;
+      const f = train && originalItem(it, train.rooms.get(String(it.roomId)), id);
+      if (f && train.t.items.length < CAPS.items) train.t.items.push(f);
+      else skipped.items++;
       continue;
     }
     if (droppedRooms.has(String(it.roomId)) && !roomIds.has(String(it.roomId))) {
       skipped.floorItems++;
       continue;
     }
-    const room = roomIds.get(String(it.roomId));
-    const kind = ORIG_KIND[String(it.asset)];
-    if (!room || !kind || items.length >= CAPS.items) {
+    const f = originalItem(it, roomIds.get(String(it.roomId)), id);
+    if (!f || items.length >= CAPS.items) {
       skipped.items++;
       continue;
     }
-    const f: Fixture = {
-      id: id(it.id, 'it'),
-      room,
-      kind,
-      rx: num(it.rx, 0.5, RANGES.rx.min, RANGES.rx.max),
-      ry: num(it.ry, 0.44, RANGES.ry.min, RANGES.ry.max),
-      scale: num(it.scale, 1, RANGES.scale.min, RANGES.scale.max),
-      flip: it.flip === true,
-    };
-    const only = moment(it.phase);
-    if (only) f.only = only;
-    if (it.toppled === true) f.upset = true;
-    if (it.brokenAfter === true) f.smashed = true;
-    if (it.secret === true) f.secret = true;
-    const variant = ORIG_VARIANT[kind]?.[String(it.variant)];
-    if (variant) f.variant = variant;
     items.push(f);
   }
   const notes: Note[] = [];
   for (const n of Array.isArray(raw.annotations) ? raw.annotations : []) {
     if (!isObj(n)) continue;
-    if (n.mode === 'horizontal' || notes.length >= CAPS.notes) {
+    if (n.mode === 'horizontal') {
+      const list = train?.t.notes;
+      if (!train || !list || list.length >= CAPS.notes) {
+        skipped.notes++;
+        continue;
+      }
+      const room =
+        typeof n.roomId === 'string'
+          ? (train.rooms.get(n.roomId) ?? null)
+          : typeof n.underfloorCarId === 'string'
+            ? (train.unders.get(n.underfloorCarId) ?? null)
+            : null;
+      list.push(originalNote(n, room, id));
+      continue;
+    }
+    if (notes.length >= CAPS.notes) {
       skipped.notes++;
       continue;
     }
@@ -436,21 +538,7 @@ export function fromOriginal(raw: Obj): { doc: SectionDoc; skipped: OriginalSkip
       continue;
     }
     const room = typeof n.roomId === 'string' ? (roomIds.get(n.roomId) ?? null) : null;
-    const note: Note = {
-      id: id(n.id, 'nt'),
-      text: str(n.text, '', CAPS.note),
-      style: n.variant === 'badge' ? 'badge' : 'box',
-      size: num(n.size, RANGES.noteSize.def, RANGES.noteSize.min, RANGES.noteSize.max),
-      room,
-      rx: num(n.rx, 0.5, 0.02, 0.98),
-      ry: num(n.ry, 0.5, 0.02, 0.98),
-      x: num(n.x, 0, -200, 400),
-      y: num(n.y, 0, -200, 400),
-    };
-    const only = moment(n.phase);
-    if (only) note.only = only;
-    if (n.secret === true) note.secret = true;
-    notes.push(note);
+    notes.push(originalNote(n, room, id));
   }
   const doc = finish(
     emptyDoc(),
@@ -477,5 +565,156 @@ export function fromOriginal(raw: Obj): { doc: SectionDoc; skipped: OriginalSkip
     { floors, shafts, items, notes },
     width,
   );
+  if (!floors.length) {
+    /* 橫向的檔裡沒有建築：換成空白的建築（切到縱向時用） */
+    const blank = blankDoc();
+    doc.building = blank.building;
+    doc.items = blank.items;
+    doc.notes = [];
+  }
+  if (train) {
+    settleTrain(train.t);
+    doc.train = train.t;
+  }
+  if (horizontal) {
+    doc.mode = 'train';
+    if (typeof raw.subtitle !== 'string') doc.subtitle = S.train.subtitle;
+  }
   return { doc, skipped };
+}
+
+/** 原作的一件設備 → 本站的（認不出來的種類、區域不在時 null） */
+function originalItem(it: Obj, room: string | undefined, id: Pool): Fixture | null {
+  const kind = ORIG_KIND[String(it.asset)];
+  if (!room || !kind) return null;
+  const f: Fixture = {
+    id: id(it.id, 'it'),
+    room,
+    kind,
+    rx: num(it.rx, 0.5, RANGES.rx.min, RANGES.rx.max),
+    ry: num(it.ry, 0.44, RANGES.ry.min, RANGES.ry.max),
+    scale: num(it.scale, 1, RANGES.scale.min, RANGES.scale.max),
+    flip: it.flip === true,
+  };
+  const only = moment(it.phase);
+  if (only) f.only = only;
+  if (it.toppled === true) f.upset = true;
+  if (it.brokenAfter === true) f.smashed = true;
+  if (it.secret === true) f.secret = true;
+  const variant = ORIG_VARIANT[kind]?.[String(it.variant)];
+  if (variant) f.variant = variant;
+  return f;
+}
+
+function originalNote(n: Obj, room: string | null, id: Pool): Note {
+  const note: Note = {
+    id: id(n.id, 'nt'),
+    text: str(n.text, '', CAPS.note),
+    style: n.variant === 'badge' ? 'badge' : 'box',
+    size: num(n.size, RANGES.noteSize.def, RANGES.noteSize.min, RANGES.noteSize.max),
+    room,
+    rx: num(n.rx, 0.5, 0.02, 0.98),
+    ry: num(n.ry, 0.5, 0.02, 0.98),
+    x: num(n.x, 0, -200, 400),
+    y: num(n.y, 0, -200, 400),
+  };
+  const only = moment(n.phase);
+  if (only) note.only = only;
+  if (n.secret === true) note.secret = true;
+  return note;
+}
+
+const ORIG_CAR: Record<string, CarType> = {
+  locomotive: 'loco',
+  sleeper1: 'suite',
+  sleeper2: 'berth',
+  dining: 'dining',
+  lounge: 'lounge',
+  coach: 'coach',
+  baggage: 'baggage',
+  observation: 'observation',
+  guard: 'escort',
+};
+const ORIG_COUPLER: Record<string, Coupler> = {
+  normal: 'normal',
+  locked: 'locked',
+  bars: 'bars',
+  decoupled: 'split',
+};
+const ORIG_SCENERY: Record<string, Scenery> = {
+  'night-star': 'starlit',
+  blizzard: 'blizzard',
+  'fog-viaduct': 'viaduct',
+  tunnel: 'tunnel',
+  'day-country': 'meadow',
+};
+
+/** 車廂名字前面原作自動加的「N号車 · 」（日、英、韓）拿掉 */
+const stripCarNumber = (name: string): string =>
+  name.replace(/^\s*(?:\d+号車|Car\s*\d+|\d+호차)\s*[·・:-]\s*/i, '').trim();
+
+/** 原作的列車（車廂、區域、連結器、床下）；一節都讀不到時 null。rooms／unders＝原作的 id → 本站的 */
+function originalTrain(
+  raw: Obj,
+  id: Pool,
+  skipped: OriginalSkipped,
+): { t: Train; rooms: Map<string, string>; unders: Map<string, string> } | null {
+  const rt = isObj(raw.train) ? raw.train : null;
+  if (!rt || !Array.isArray(rt.cars)) return null;
+  const carW = Math.round(num(rt.carWidthCells, CAR_W, 10, 20));
+  const rooms = new Map<string, string>();
+  const unders = new Map<string, string>();
+  const cars: Car[] = [];
+  for (const c of rt.cars) {
+    if (!isObj(c) || !Array.isArray(c.rooms)) continue;
+    if (cars.length >= MAX_CARS) {
+      skipped.cars++;
+      continue;
+    }
+    const type = ORIG_CAR[String(c.type)] ?? 'berth';
+    const list: CarRoom[] = [];
+    for (const r of c.rooms) {
+      if (!isObj(r)) continue;
+      const rid = id(r.id, 'cr');
+      if (typeof r.id === 'string') rooms.set(r.id, rid);
+      const room: CarRoom = {
+        id: rid,
+        name: str(r.name, '', CAPS.name),
+        wall: oneOf<WallTone>(WALL_TONES, r.wallTone, 'wood'),
+        secret: r.secret === true,
+        hideName: r.labelPrivate === true,
+        /* 車廂寬不是 14 格的檔照比例換算（之後整理成整數格） */
+        x0: Math.round((num(r.x0, 0, 0, carW) * CAR_W) / carW),
+        x1: Math.round((num(r.x1, carW, 0, carW) * CAR_W) / carW),
+      };
+      if (r.startOpen === true) room.open = true;
+      if (r.isDeck === true) room.role = 'deck';
+      else if (type === 'loco') room.role = r.isCab === true ? 'cab' : 'engine';
+      list.push(room);
+    }
+    const car: Car = {
+      id: id(c.id, 'car'),
+      type,
+      name: stripCarNumber(str(c.name, '', CAPS.name)) || S.cars[type],
+      rooms: list,
+      coupler: ORIG_COUPLER[String(c.couplerAfter)] ?? 'normal',
+      hatch: c.roofHatch === undefined ? type !== 'loco' : c.roofHatch === true,
+      under: c.underfloorSecret === true && type !== 'loco',
+      underName: str(c.underfloorName, S.train.underName, CAPS.name) || S.train.underName,
+    };
+    if (typeof c.id === 'string' && car.under) unders.set(c.id, underId(car.id));
+    cars.push(car);
+  }
+  if (!cars.length) return null;
+  const arrange = String(rt.layout);
+  const t: Train = {
+    arrange: arrange === 'single' || arrange === 'folded' ? arrange : 'auto',
+    loco: rt.locoStyle === 'electric' ? 'electric' : 'steam',
+    scenery: ORIG_SCENERY[String(raw.sceneryTheme)] ?? 'starlit',
+    roofRoute: rt.rooftopRoute === undefined ? true : rt.rooftopRoute === true,
+    cars,
+    items: [],
+    notes: [],
+  };
+  return { t, rooms, unders };
 }

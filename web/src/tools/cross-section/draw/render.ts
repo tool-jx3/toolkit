@@ -5,8 +5,9 @@
  * 樓層標示、區域名、備註 → 外框線 → 紙的老舊 → 圖框與標題欄 → （編輯畫面）選取與隔間的把手。
  */
 import { drawPaperWear } from '@/core/paperWear';
-import { fixtureDef, lightColorOf } from '../model/catalog';
+import { fixtureDef, glowOf } from '../model/catalog';
 import {
+  type Box,
   CEIL_T,
   FLOOR_T,
   interiorOf,
@@ -26,9 +27,9 @@ import {
   type Note,
   type SectionDoc,
   type SelRef,
-  type WallTone,
 } from '../model/types';
 import {
+  type Boxes,
   fixtureShown,
   nameShown,
   notePlace,
@@ -45,6 +46,7 @@ import { alpha, paletteOf } from './palette';
 import { drawRoof } from './roof';
 import { drawGmMark, drawShaft } from './shafts';
 import { drawText, fitText, textWidth, wrapText } from './text';
+import { wallGrain } from './walls';
 
 export type Crop = 'sheet' | 'map' | 'vtt';
 
@@ -62,10 +64,15 @@ export interface SceneOpts {
   crop: Crop;
   transparent?: boolean;
   edit?: EditOverlay;
+  /**
+   * CCFOLIA 房間 ZIP 的場景用（第二批）：祕密區域裡的東西剪在區域的範圍裡（不會畫到隔壁）、
+   * 蓋在祕密區域上的區域外備註照 PL 用不畫——蓋上偽裝的面板之後和 PL 用的圖逐像素相同。
+   */
+  seal?: boolean;
 }
 
 /** 這張圖的範圍（世界座標） */
-export function sceneRect(doc: SectionDoc, L: Layout, crop: Crop): Rect {
+export function sceneRect(doc: SectionDoc, L: { world: Rect }, crop: Crop): Rect {
   return crop === 'sheet' ? sheetRect(L, doc.frame) : { ...L.world };
 }
 
@@ -106,10 +113,10 @@ export function placeFixture(r: Rect, it: Fixture, after: boolean): PlacedFixtur
   return { item: it, x, y: base[def.hang](), scale: fit, w, h, tilt };
 }
 
-function drawRoomFixtures(
+export function drawRoomFixtures(
   k: Kit,
-  doc: SectionDoc,
-  rb: RoomBox,
+  items: readonly Fixture[],
+  rb: Box,
   audience: Audience,
   env: EnvId,
   lights: LightSpot[],
@@ -118,19 +125,18 @@ function drawRoomFixtures(
   const { c, p } = k;
   const m = momentOfEnv(env);
   const after = m === 'after';
-  for (const it of doc.items) {
+  for (const it of items) {
     if (it.room !== rb.room.id || !fixtureShown(it, audience, m)) continue;
     const def = fixtureDef(it.kind);
     const pl = placeFixture(rb, it, after);
     if (!def || !pl) continue;
-    const color = lightColorOf(def, it.variant);
-    if (def.glow && color) {
-      const { radius, lift } = def.glow;
+    const glow = glowOf(def, it.variant);
+    if (glow) {
       lights.push({
         x: pl.x,
-        y: pl.y + pl.scale * lift,
-        r: pl.scale * radius,
-        color,
+        y: pl.y + pl.scale * glow.lift,
+        r: pl.scale * glow.radius,
+        color: glow.tone,
         keep: !!def.backup,
       });
     }
@@ -171,65 +177,8 @@ function drawRoomFixtures(
 
 /* ---------- 區域 ---------- */
 
-/** 內牆的紋路 */
-function wallGrain(c: Ctx, r: Rect, tone: WallTone, color: string): void {
-  c.save();
-  c.beginPath();
-  c.rect(r.x, r.y, r.w, r.h);
-  c.clip();
-  c.beginPath();
-  const rows = (dy: number, offset: number, dx: number) => {
-    let row = 0;
-    for (let y = r.y; y < r.y + r.h; y += dy, row++) {
-      c.moveTo(r.x, y);
-      c.lineTo(r.x + r.w, y);
-      for (let x = r.x + (row % 2) * offset; x < r.x + r.w; x += dx) {
-        c.moveTo(x, y);
-        c.lineTo(x, y + dy);
-      }
-    }
-  };
-  if (tone === 'tile') rows(0.5, 0, 0.5);
-  else if (tone === 'brick') rows(0.32, 0.4, 0.8);
-  else if (tone === 'stone') rows(0.7, 0.75, 1.5);
-  else if (tone === 'concrete') {
-    for (let y = r.y + 1.2; y < r.y + r.h; y += 1.2) {
-      c.moveTo(r.x, y);
-      c.lineTo(r.x + r.w, y);
-    }
-    for (let x = r.x + 2; x < r.x + r.w; x += 2) {
-      c.moveTo(x, r.y);
-      c.lineTo(x, r.y + r.h);
-    }
-  } else if (tone === 'wood')
-    for (let x = r.x + 0.34; x < r.x + r.w; x += 0.34) {
-      c.moveTo(x, r.y);
-      c.lineTo(x, r.y + r.h);
-    }
-  else if (tone === 'metal') {
-    for (let x = r.x + 1.6; x < r.x + r.w; x += 1.6) {
-      c.moveTo(x, r.y);
-      c.lineTo(x, r.y + r.h);
-    }
-  }
-  c.strokeStyle = color;
-  c.lineWidth = 0.02;
-  c.stroke();
-  if (tone === 'metal' || tone === 'concrete') {
-    const step = tone === 'metal' ? 1.6 : 2;
-    c.fillStyle = color;
-    for (let x = r.x + step / 2; x < r.x + r.w; x += step)
-      for (let y = r.y + 0.3; y < r.y + r.h; y += 1.2) {
-        c.beginPath();
-        c.arc(x, y, 0.035, 0, Math.PI * 2);
-        c.fill();
-      }
-  }
-  c.restore();
-}
-
 /** PL 用：地上的祕密區域偽裝成砌石的牆 */
-function drawCamo(k: Kit, r: Rect): void {
+export function drawCamo(k: Kit, r: Rect): void {
   const { c, p } = k;
   c.fillStyle = p.disguise;
   c.fillRect(r.x, r.y, r.w, r.h);
@@ -277,7 +226,7 @@ function drawRoomShell(k: Kit, rb: RoomBox): Rect {
   return inn;
 }
 
-function drawRoomName(k: Kit, rb: RoomBox, gmSecret: boolean): void {
+export function drawRoomName(k: Kit, rb: Box, gmSecret: boolean): void {
   const { c, p } = k;
   const name = rb.room.name.trim();
   if (!name) return;
@@ -309,7 +258,7 @@ export interface NoteShape {
   rect: Rect;
   lines: string[];
   size: number;
-  owner: RoomBox | null;
+  owner: Box | null;
 }
 
 /** 行高（字級的倍數） */
@@ -317,7 +266,7 @@ const NOTE_LINE = 1.28;
 const noteFont = (size: number) => ({ size, weight: 600 });
 
 /** 區域裡放得了備註的範圍：四周留 edge、底下留 foot；區域夠高（4 格以上）時上面讓給區域名稱 */
-function noteArea(owner: RoomBox, edge: number, foot: number): Rect {
+function noteArea(owner: Box, edge: number, foot: number): Rect {
   const head = owner.h >= 4 ? 0.56 : edge;
   return { x: owner.x + edge, y: owner.y + head, w: owner.w - 2 * edge, h: owner.h - head - foot };
 }
@@ -327,7 +276,7 @@ const keepInside = (v: number, lo: number, hi: number, half: number): number =>
   hi - lo <= 2 * half ? (lo + hi) / 2 : clamp(v, lo + half, hi - half);
 
 /** 備註的大小與位置（區域裡的備註收在區域裡、換行） */
-export function noteShape(c: Ctx, L: Layout, n: Note): NoteShape {
+export function noteShape(c: Ctx, L: Boxes, n: Note): NoteShape {
   const { x: px, y: py, owner } = notePlace(L, n);
   const base = clamp(n.size || 0.46, 0.3, 1.2);
   const made = (x: number, y: number, w: number, h: number, lines: string[], size: number) => ({
@@ -376,7 +325,7 @@ export function noteShape(c: Ctx, L: Layout, n: Note): NoteShape {
   );
 }
 
-function drawNote(k: Kit, sh: NoteShape, audience: Audience, selected: boolean): void {
+export function drawNote(k: Kit, sh: NoteShape, audience: Audience, selected: boolean): void {
   const { c, p } = k;
   const n = sh.note;
   const gmMark = n.secret && audience === 'gm';
@@ -439,6 +388,10 @@ function drawNote(k: Kit, sh: NoteShape, audience: Audience, selected: boolean):
   c.restore();
 }
 
+/** CCFOLIA 的場景：區域外的備註蓋在祕密區域上時照 PL 用不畫 */
+export const sealedOut = (L: Boxes, n: Note, m: ReturnType<typeof momentOfEnv>): boolean =>
+  !n.room && !noteShown(L, n, 'player', m);
+
 /* ---------- 隔間的把手 ---------- */
 
 export interface DividerHandle {
@@ -496,9 +449,17 @@ export function drawScene(c: Ctx, doc: SectionDoc, L: Layout, o: SceneOpts): voi
       continue;
     }
     const secret = rb.room.secret;
+    const sealed = !!o.seal && secret;
+    if (sealed) {
+      c.save();
+      c.beginPath();
+      c.rect(rb.x, rb.y, rb.w, rb.h);
+      c.clip();
+    }
     const inn = drawRoomShell(k, rb);
     (secret ? secretInteriors : interiors).push(inn);
-    drawRoomFixtures(k, doc, rb, o.audience, o.env, secret ? hiddenGlows : lights, sel);
+    drawRoomFixtures(k, doc.items, rb, o.audience, o.env, secret ? hiddenGlows : lights, sel);
+    if (sealed) c.restore();
     if (secret && o.audience === 'gm') {
       c.setLineDash([0.26, 0.16]);
       box(k, inn.x + 0.08, inn.y + 0.08, inn.w - 0.16, inn.h - 0.16, null, 0.07, p.gm);
@@ -577,7 +538,7 @@ export function drawScene(c: Ctx, doc: SectionDoc, L: Layout, o: SceneOpts): voi
   for (const { rb, gm } of named) drawRoomName(k, rb, gm);
   const m = momentOfEnv(o.env);
   for (const n of doc.notes) {
-    if (!noteShown(L, n, o.audience, m)) continue;
+    if (!noteShown(L, n, o.audience, m) || (o.seal && sealedOut(L, n, m))) continue;
     drawNote(k, noteShape(c, L, n), o.audience, sel?.kind === 'note' && sel.id === n.id);
   }
   if (o.edit?.handles && o.audience !== 'player') {

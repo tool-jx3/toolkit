@@ -43,6 +43,7 @@ export function skippedText(s: OriginalSkipped): string | undefined {
     s.floors ? S.project.skippedFloors(s.floors) : '',
     s.floorItems ? S.project.skippedFloorItems(s.floorItems) : '',
     s.floorNotes ? S.project.skippedFloorNotes(s.floorNotes) : '',
+    s.cars ? S.project.skippedCars(s.cars) : '',
   ].filter(Boolean);
   return parts.length ? S.project.originalSkipped(parts) : undefined;
 }
@@ -64,8 +65,8 @@ export function openForeign(bytes: Uint8Array): boolean {
     const reason = e instanceof OriginalFileError ? e.message : '';
     notify(S.project.openFailed, 'danger', {
       description:
-        reason === 'train'
-          ? S.project.trainFile
+        reason === 'empty-train'
+          ? S.project.emptyTrainFile
           : reason === 'empty'
             ? S.project.emptyFile
             : undefined,

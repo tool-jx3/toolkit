@@ -3,9 +3,10 @@
  */
 import type { Draft } from 'immer';
 import type { ConfirmOptions, ToastOptions } from '@/ui';
+import { trainBoxes } from '../draw/train';
 import { fixtureDef } from '../model/catalog';
-import { blankDoc } from '../model/factory';
-import { layoutOf, roomAt } from '../model/layout';
+import { blankDoc, blankTrainDoc, ensureTrain } from '../model/factory';
+import { type Box, layoutOf, roomAt } from '../model/layout';
 import {
   addFloor,
   addShaft,
@@ -25,19 +26,43 @@ import {
   uid,
 } from '../model/ops';
 import { type SampleId, sampleDoc } from '../model/samples';
+import { trainLayoutOf } from '../model/trainLayout';
 import {
+  addCar,
+  carRoomAt,
+  findCarRoom,
+  mergeCarRoom,
+  moveCar,
+  placeTrainNote,
+  removeCar,
+  setCarType,
+  setLocoKind,
+  settleTrain,
+  setUnder,
+  splitCarRoom,
+} from '../model/trainOps';
+import {
+  type Arrange,
   CAPS,
+  type Car,
+  type CarRoom,
+  type CarType,
   type EnvId,
   type Fixture,
+  type LocoKind,
   levelTag,
+  MAX_CARS,
+  type Mode,
   type Note,
   RANGES,
   type Room,
   type RoomUse,
+  type Scenery,
   type SectionDoc,
   type SelRef,
   type Shaft,
   type ShaftKind,
+  type Train,
 } from '../model/types';
 import { S } from '../strings';
 import { editor } from './controller';
@@ -67,6 +92,24 @@ export const confirmUi = (o: ConfirmOptions): Promise<boolean> =>
   confirmFn ? confirmFn(o) : Promise.resolve(true);
 
 const edit = (fn: (d: Draft<SectionDoc>) => void): void => useDoc.getState().update(fn);
+
+/** 正在編輯的那一邊的設備與備註（建築：doc；列車：doc.train） */
+export function listsOf(d: SectionDoc): { items: Fixture[]; notes: Note[] };
+export function listsOf(d: Draft<SectionDoc>): { items: Draft<Fixture>[]; notes: Draft<Note>[] };
+export function listsOf(d: SectionDoc | Draft<SectionDoc>) {
+  return d.mode === 'train' && d.train ? d.train : d;
+}
+
+/** 正在編輯的那一邊的區域（建築的區域；列車的車廂裡的區域＋床下的祕密空間） */
+export function boxesOf(doc: SectionDoc): { rooms: readonly Box[] } {
+  return doc.mode === 'train' && doc.train ? trainBoxes(trainLayoutOf(doc.train)) : layoutOf(doc);
+}
+
+/** 列車模式的草稿（沒有列車時不做） */
+const editTrain = (fn: (t: Draft<Train>, d: Draft<SectionDoc>) => void): void =>
+  edit((d) => {
+    if (d.train) fn(d.train, d);
+  });
 
 /* ---------- 工具、檢視 ---------- */
 
@@ -122,6 +165,147 @@ export function findRoom(doc: SectionDoc, id: string): { room: Room; floorId: st
   }
   return null;
 }
+
+/* ---------- 縱向／橫向 ---------- */
+
+/** 切換縱向的建築斷面與橫向的連結車廂（第一次切到橫向時建一列新的列車；一步復原） */
+export function setMode(mode: Mode): void {
+  if (docNow().mode === mode && (mode === 'building' || docNow().train)) return;
+  edit((d) => {
+    d.mode = mode;
+    if (mode === 'train') ensureTrain(d);
+  });
+  setEditor({ sel: null, tool: useEditor.getState().tool === 'place' ? 'place' : 'select' });
+  editor.fitView();
+}
+
+/* ---------- 列車 ---------- */
+
+export function patchTrain(patch: Partial<Pick<Train, 'arrange' | 'scenery' | 'roofRoute'>>): void {
+  editTrain((t) => {
+    Object.assign(t, patch);
+  });
+  if ('arrange' in patch) editor.fitView();
+}
+
+export const setArrange = (arrange: Arrange): void => patchTrain({ arrange });
+export const setScenery = (scenery: Scenery): void => patchTrain({ scenery });
+
+export function setLoco(kind: LocoKind): void {
+  if (docNow().train?.loco === kind) return;
+  editTrain((t) => setLocoKind(t, kind));
+}
+
+export function addCarOf(type: CarType): void {
+  if (locked()) return;
+  if ((docNow().train?.cars.length ?? 0) >= MAX_CARS) {
+    notify(S.msg.carMax, 'warning');
+    return;
+  }
+  let id: string | null = null;
+  editTrain((t) => {
+    id = addCar(t, type)?.id ?? null;
+  });
+  if (id) setEditor({ sel: { kind: 'car', id } });
+  editor.fitView();
+}
+
+export function deleteCar(id: string): void {
+  if (locked()) return;
+  if ((docNow().train?.cars.length ?? 0) <= 1) {
+    notify(S.msg.lastCar, 'warning');
+    return;
+  }
+  editTrain((t) => {
+    removeCar(t, id);
+  });
+  setEditor({ sel: null });
+  editor.fitView();
+}
+
+export function moveCarBy(id: string, dir: -1 | 1): void {
+  if (locked()) return;
+  editTrain((t) => {
+    moveCar(t, id, dir);
+  });
+}
+
+export function changeCarType(id: string, type: CarType): void {
+  editTrain((t) => setCarType(t, id, type));
+}
+
+export function patchCar(
+  id: string,
+  patch: Partial<Pick<Car, 'name' | 'coupler' | 'hatch' | 'underName'>>,
+): void {
+  editTrain((t) => {
+    const car = t.cars.find((c) => c.id === id);
+    if (car) Object.assign(car, patch);
+  });
+}
+
+export const setCarUnder = (id: string, on: boolean): void => editTrain((t) => setUnder(t, id, on));
+
+export function splitCarRooms(carId: string): void {
+  if (locked()) return;
+  const res: { r: ReturnType<typeof splitCarRoom> } = { r: 'narrow' };
+  editTrain((t) => {
+    res.r = splitCarRoom(t, carId);
+  });
+  if (res.r === 'max') notify(S.msg.carRoomMax, 'warning');
+  else if (res.r === 'narrow') notify(S.msg.carRoomNarrow, 'warning');
+}
+
+export function mergeCarRooms(carId: string): void {
+  if (locked()) return;
+  const box = { res: { ok: false, leaked: false } };
+  editTrain((t) => {
+    box.res = mergeCarRoom(t, carId);
+  });
+  if (!box.res.ok) notify(S.msg.roomOne, 'warning');
+  else if (box.res.leaked) notify(S.msg.leaked, 'warning', { duration: 5000 });
+  const sel = useEditor.getState().sel;
+  const t = docNow().train;
+  if (sel?.kind === 'room' && t && !findCarRoom(t, sel.id)) setEditor({ sel: null });
+}
+
+export function patchCarRoom(id: string, patch: Partial<CarRoom>): void {
+  editTrain((t) => {
+    const hit = t.cars.flatMap((c) => c.rooms).find((r) => r.id === id);
+    if (hit) Object.assign(hit, patch);
+  });
+}
+
+export function setCarRoomSecret(id: string, secret: boolean): void {
+  editTrain((t) => {
+    const hit = t.cars.flatMap((c) => c.rooms).find((r) => r.id === id);
+    if (!hit) return;
+    hit.secret = secret;
+    if (secret) delete hit.open;
+  });
+}
+
+export function setRoomOpen(id: string, open: boolean): void {
+  edit((d) => {
+    const rooms = [
+      ...d.building.floors.flatMap((f) => f.rooms),
+      ...(d.train?.cars.flatMap((c) => c.rooms) ?? []),
+    ];
+    const hit = rooms.find((r) => r.id === id);
+    if (!hit) return;
+    if (open && !hit.secret) hit.open = true;
+    else delete hit.open;
+  });
+}
+
+export function clearCarRoomItems(id: string): void {
+  editTrain((t) => {
+    t.items = t.items.filter((it) => it.room !== id);
+  });
+}
+
+/** 改列車之後整理一次（拖曳隔間時用） */
+export const tidyTrain = (t: Draft<Train>): boolean => settleTrain(t);
 
 /* ---------- 樓層、區域 ---------- */
 
@@ -273,12 +457,13 @@ export const changeShaftKind = (id: string, kind: ShaftKind): void =>
 export function placeFixtureAt(x: number, y: number): boolean {
   const doc = docNow();
   const st = useEditor.getState();
-  const hit = roomAt(layoutOf(doc), x, y);
+  const hit =
+    doc.mode === 'train' && doc.train ? carRoomAt(doc.train, x, y) : roomAt(layoutOf(doc), x, y);
   if (!hit) {
     notify(S.msg.placeRoom, 'warning', { duration: 1800 });
     return false;
   }
-  if (doc.items.length >= CAPS.items) {
+  if (listsOf(doc).items.length >= CAPS.items) {
     notify(S.msg.dupLimit, 'warning');
     return false;
   }
@@ -294,7 +479,7 @@ export function placeFixtureAt(x: number, y: number): boolean {
     only: phase === 'auto' ? undefined : phase,
   });
   edit((d) => {
-    d.items.push(it);
+    listsOf(d).items.push(it);
   });
   setEditor({
     sel: { kind: 'item', id: it.id },
@@ -305,7 +490,7 @@ export function placeFixtureAt(x: number, y: number): boolean {
 
 export function patchItem(id: string, patch: Partial<Fixture>): void {
   edit((d) => {
-    const it = d.items.find((v) => v.id === id);
+    const it = listsOf(d).items.find((v) => v.id === id);
     if (!it) return;
     Object.assign(it, patch);
     for (const k of ['only', 'variant', 'upset', 'smashed', 'secret'] as const)
@@ -315,9 +500,9 @@ export function patchItem(id: string, patch: Partial<Fixture>): void {
 
 export function duplicateItem(id: string): void {
   const doc = docNow();
-  const it = doc.items.find((v) => v.id === id);
+  const it = listsOf(doc).items.find((v) => v.id === id);
   if (!it) return;
-  if (doc.items.length >= CAPS.items) {
+  if (listsOf(doc).items.length >= CAPS.items) {
     notify(S.msg.dupLimit, 'warning');
     return;
   }
@@ -327,7 +512,7 @@ export function duplicateItem(id: string): void {
     rx: clamp(it.rx + 0.12, RANGES.rx.min, RANGES.rx.max),
   };
   edit((d) => {
-    d.items.push(copy);
+    listsOf(d).items.push(copy);
   });
   setEditor({ sel: { kind: 'item', id: copy.id } });
 }
@@ -336,7 +521,7 @@ export function duplicateItem(id: string): void {
 
 export function placeNoteAt(x: number, y: number): void {
   const doc = docNow();
-  if (doc.notes.length >= CAPS.notes) {
+  if (listsOf(doc).notes.length >= CAPS.notes) {
     notify(S.msg.noteLimit, 'warning');
     return;
   }
@@ -344,8 +529,13 @@ export function placeNoteAt(x: number, y: number): void {
   const phase = usePrefs.getState().data.phase;
   if (phase === 'before' || phase === 'after') n.only = phase;
   edit((d) => {
-    placeNote(d, n, x, y);
-    d.notes.push(n);
+    if (d.mode === 'train' && d.train) {
+      placeTrainNote(d.train, n, x, y);
+      d.train.notes.push(n);
+    } else {
+      placeNote(d, n, x, y);
+      d.notes.push(n);
+    }
   });
   setEditor({ sel: { kind: 'note', id: n.id }, tool: 'select' });
   /* 屬性欄的文字欄出現後選起來，直接打字就換掉 */
@@ -358,7 +548,7 @@ export function placeNoteAt(x: number, y: number): void {
 
 export function patchNote(id: string, patch: Partial<Note>): void {
   edit((d) => {
-    const n = d.notes.find((v) => v.id === id);
+    const n = listsOf(d).notes.find((v) => v.id === id);
     if (!n) return;
     Object.assign(n, patch);
     for (const k of ['only', 'secret'] as const) if (k in patch && !patch[k]) delete n[k];
@@ -372,11 +562,13 @@ export function deleteSelected(): void {
   if (!sel) return;
   if (sel.kind === 'item')
     edit((d) => {
-      d.items = d.items.filter((v) => v.id !== sel.id);
+      const l = listsOf(d);
+      l.items = l.items.filter((v) => v.id !== sel.id);
     });
   else if (sel.kind === 'note')
     edit((d) => {
-      d.notes = d.notes.filter((v) => v.id !== sel.id);
+      const l = listsOf(d);
+      l.notes = l.notes.filter((v) => v.id !== sel.id);
     });
   else if (sel.kind === 'shaft') deleteShaft(sel.id);
   else return;
@@ -389,7 +581,7 @@ export function nudgeSelected(dx: number, dy: number, big: boolean): void {
   if (!sel) return;
   if (sel.kind === 'item')
     edit((d) => {
-      const it = d.items.find((v) => v.id === sel.id);
+      const it = listsOf(d).items.find((v) => v.id === sel.id);
       if (!it) return;
       const step = big ? 0.05 : 0.01;
       it.rx = Math.round(clamp(it.rx + dx * step, RANGES.rx.min, RANGES.rx.max) * 1000) / 1000;
@@ -397,13 +589,18 @@ export function nudgeSelected(dx: number, dy: number, big: boolean): void {
         it.ry = Math.round(clamp(it.ry + dy * step, RANGES.ry.min, RANGES.ry.max) * 1000) / 1000;
     });
   else if (sel.kind === 'note') {
-    const L = layoutOf(docNow());
-    const n = docNow().notes.find((v) => v.id === sel.id);
+    const L = boxesOf(docNow());
+    const n = listsOf(docNow()).notes.find((v) => v.id === sel.id);
     if (!n) return;
     const owner = n.room ? L.rooms.find((r) => r.room.id === n.room) : null;
     const x = (owner ? owner.x + n.rx * owner.w : n.x) + dx * (big ? 1 : 0.25);
     const y = (owner ? owner.y + n.ry * owner.h : n.y) + dy * (big ? 1 : 0.25);
     edit((d) => {
+      if (d.mode === 'train' && d.train) {
+        const m = d.train.notes.find((v) => v.id === sel.id);
+        if (m) placeTrainNote(d.train, m, x, y);
+        return;
+      }
       const m = d.notes.find((v) => v.id === sel.id);
       if (m) placeNote(d, m, x, y);
     });
@@ -423,6 +620,7 @@ function load(doc: SectionDoc): void {
 }
 
 export const newBlank = (): void => load(blankDoc());
+export const newTrain = (): void => load(blankTrainDoc());
 export const applySample = (id: SampleId): void => load(sampleDoc(id));
 export const loadDoc = load;
 

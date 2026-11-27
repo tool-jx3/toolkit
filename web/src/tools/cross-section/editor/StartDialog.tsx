@@ -1,12 +1,12 @@
 /**
- * 「從哪個舞台開始」：繼續這台電腦上的作業、新的縱向斷面、新的橫向車廂（第二批）、開啟專案檔、四個範例（縮圖）。
- * 換掉之後可以復原。開頁時不自動打開（直接回到自動儲存的作業；編輯列的「範例與新的」打開）。
+ * 「從哪個舞台開始」：繼續這台電腦上的作業、新的縱向斷面、新的橫向車廂（第二批）、開啟專案檔、
+ * 縱向的四個範例與橫向的兩個範例（縮圖）。換掉之後可以復原。開頁時不自動打開（編輯列的「範例與新的」打開）。
  */
 import { FolderOpen, Plus, TrainFront } from 'lucide-react';
 import { type ReactNode, useMemo } from 'react';
 import { Dialog } from '@/ui';
 import { docThumb } from '../draw/thumbs';
-import { SAMPLE_IDS, sampleDoc } from '../model/samples';
+import { SAMPLE_IDS, type SampleId, sampleDoc, TRAIN_SAMPLE_IDS } from '../model/samples';
 import { S } from '../strings';
 import * as act from './actions';
 import { pickAndOpen } from './files';
@@ -55,11 +55,18 @@ function Card({
   );
 }
 
-function Body() {
-  const title = useDoc((s) => s.data.title);
+function Samples({
+  ids,
+  label,
+  testId,
+}: {
+  ids: readonly SampleId[];
+  label: string;
+  testId: string;
+}) {
   const thumbs = useMemo(
     () =>
-      SAMPLE_IDS.map((id) => {
+      ids.map((id) => {
         const d = sampleDoc(id);
         return docThumb(
           d,
@@ -68,8 +75,29 @@ function Body() {
           `sample:${id}`,
         );
       }),
-    [],
+    [ids],
   );
+  return (
+    <section className="flex flex-col gap-2" aria-label={label}>
+      <h3 className="m-0 text-sm font-medium">{label}</h3>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4" data-testid={testId}>
+        {ids.map((id, i) => (
+          <Card
+            key={id}
+            testId={`sample-${id}`}
+            title={S.samples[id].name}
+            desc={S.samples[id].desc}
+            image={thumbs[i]}
+            onClick={() => act.applySample(id)}
+          />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function Body() {
+  const title = useDoc((s) => s.data.title);
   return (
     <div className="flex flex-col gap-4">
       <button
@@ -97,8 +125,7 @@ function Body() {
           title={S.start.train}
           desc={S.start.trainDesc}
           icon={<TrainFront />}
-          onClick={() => undefined}
-          disabled
+          onClick={act.newTrain}
         />
         <Card
           testId="start-open"
@@ -111,21 +138,8 @@ function Body() {
           }}
         />
       </div>
-      <section className="flex flex-col gap-2" aria-label={S.start.samples}>
-        <h3 className="m-0 text-sm font-medium">{S.start.samples}</h3>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4" data-testid="samples">
-          {SAMPLE_IDS.map((id, i) => (
-            <Card
-              key={id}
-              testId={`sample-${id}`}
-              title={S.samples[id].name}
-              desc={S.samples[id].desc}
-              image={thumbs[i]}
-              onClick={() => act.applySample(id)}
-            />
-          ))}
-        </div>
-      </section>
+      <Samples ids={SAMPLE_IDS} label={S.start.samples} testId="samples" />
+      <Samples ids={TRAIN_SAMPLE_IDS} label={S.start.trainSamples} testId="train-samples" />
     </div>
   );
 }

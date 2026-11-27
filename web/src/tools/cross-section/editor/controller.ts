@@ -7,11 +7,15 @@
  * 拖曳用 store 的手勢：拖曳中即時更新，放開才記成一步復原。
  */
 import { ensureDocFonts } from '../draw/export';
-import { dividerHandles, drawScene, noteShape, placeFixture, sceneRect } from '../draw/render';
+import { dividerHandles, noteShape, placeFixture } from '../draw/render';
+import { docRect, drawDoc, planOf } from '../draw/scene';
+import { carDividers, trainBoxes } from '../draw/train';
 import { fixtureDef } from '../model/catalog';
-import { inRect, isGmShaft, type Layout, layoutOf, type Rect } from '../model/layout';
+import { type Box, inRect, isGmShaft, layoutOf, type Rect } from '../model/layout';
 import { clamp, itemRx, moveDivider, placeNote, settle } from '../model/ops';
-import { momentOfEnv, RANGES, type SelRef } from '../model/types';
+import { trainLayoutOf } from '../model/trainLayout';
+import { moveCarDivider, placeTrainNote } from '../model/trainOps';
+import { CAR_H, CAR_W, momentOfEnv, RANGES, type SectionDoc, type SelRef } from '../model/types';
 import { fixtureShown, noteShown, roomLook, shaftShown } from '../model/visibility';
 import { S } from '../strings';
 import * as act from './actions';
@@ -28,10 +32,12 @@ interface Pt {
 
 type Hit =
   | { kind: 'divider'; floorId: string; left: string; right: string }
+  | { kind: 'carDivider'; carId: string; left: string; right: string }
   | { kind: 'item'; id: string }
   | { kind: 'note'; id: string }
   | { kind: 'shaft'; id: string }
-  | { kind: 'room'; id: string };
+  | { kind: 'room'; id: string }
+  | { kind: 'car'; id: string };
 
 type Drag =
   | {
@@ -45,6 +51,7 @@ type Drag =
     }
   | { mode: 'pinch'; dist: number; zoom: number; mid: Pt; ox: number; oy: number }
   | { mode: 'divider'; floorId: string; left: string; right: string }
+  | { mode: 'carDivider'; carId: string; left: string; right: string }
   | { mode: 'item'; id: string; sx: number; sy: number; started: boolean }
   | { mode: 'note'; id: string; sx: number; sy: number; started: boolean; dx: number; dy: number }
   | { mode: 'shaft'; id: string; start: number; x0: number; started: boolean };
@@ -153,7 +160,7 @@ export class SectionController {
     const { w, h } = this.view;
     if (!w || !h) return;
     const doc = docNow();
-    const b = sceneRect(doc, layoutOf(doc), 'sheet');
+    const b = docRect(doc, 'sheet');
     const z = clamp(Math.min(w / (b.w * 1.06), h / (b.h * 1.06)), ZOOM_MIN, ZOOM_MAX);
     this.view.zoom = z;
     this.view.ox = w / 2 - (b.x + b.w / 2) * z;
@@ -196,6 +203,7 @@ export class SectionController {
 
   hitTest(p: Pt): Hit | null {
     const doc = docNow();
+    if (doc.mode === 'train' && doc.train) return this.hitTrain(doc, p);
     const L = layoutOf(doc);
     const { audience } = useEditor.getState();
     const m = momentOfEnv(doc.env);
@@ -240,6 +248,55 @@ export class SectionController {
     for (const r of L.rooms)
       if (roomLook(r, audience) !== 'hidden' && inRect(r, p.x, p.y))
         return { kind: 'room', id: r.room.id };
+    return null;
+  }
+
+  /** 橫向車廂的點選：備註、隔間的把手、設備、區域、床下與車頂（選取那一節） */
+  private hitTrain(doc: SectionDoc, p: Pt): Hit | null {
+    const t = doc.train;
+    if (!t) return null;
+    const T = trainLayoutOf(t);
+    const boxes = trainBoxes(T);
+    const { audience } = useEditor.getState();
+    const m = momentOfEnv(doc.env);
+    const ctx = this.ctx;
+    if (ctx)
+      for (let i = t.notes.length - 1; i >= 0; i--) {
+        const n = t.notes[i];
+        if (!noteShown(boxes, n, audience, m)) continue;
+        if (inRect(noteShape(ctx, boxes, n).rect, p.x, p.y)) return { kind: 'note', id: n.id };
+      }
+    if (audience !== 'player') {
+      const tol = Math.max(0.35, 6 / this.view.zoom);
+      for (const h of carDividers(T))
+        if (Math.abs(p.x - h.x) <= tol && p.y >= h.y0 + 0.4 && p.y <= h.y1 - 0.4)
+          return { kind: 'carDivider', carId: h.carId, left: h.left, right: h.right };
+    }
+    const after = m === 'after';
+    for (let i = t.items.length - 1; i >= 0; i--) {
+      const it = t.items[i];
+      if (!fixtureShown(it, audience, m)) continue;
+      const rb = T.rooms.find((r) => r.room.id === it.room);
+      if (!rb || roomLook(rb, audience) !== 'normal') continue;
+      const pl = placeFixture(rb, it, after);
+      if (
+        pl &&
+        p.x >= pl.x - pl.w / 2 - 0.1 &&
+        p.x <= pl.x + pl.w / 2 + 0.1 &&
+        p.y >= pl.y - pl.h - 0.1 &&
+        p.y <= pl.y + 0.1
+      )
+        return { kind: 'item', id: it.id };
+    }
+    for (const r of T.rooms) if (inRect(r, p.x, p.y)) return { kind: 'room', id: r.room.id };
+    for (const cb of T.cars)
+      if (
+        p.x >= cb.x - 0.4 &&
+        p.x <= cb.x + CAR_W + 0.4 &&
+        p.y >= cb.y - 1.3 &&
+        p.y <= cb.y + CAR_H + 2.2
+      )
+        return { kind: 'car', id: cb.car.id };
     return null;
   }
 
@@ -291,8 +348,8 @@ export class SectionController {
       pan(() => setEditor({ sel: null }));
       return;
     }
-    if (hit.kind === 'room') {
-      pan(() => setEditor({ sel: { kind: 'room', id: hit.id } }));
+    if (hit.kind === 'room' || hit.kind === 'car') {
+      pan(() => setEditor({ sel: { kind: hit.kind, id: hit.id } }));
       return;
     }
     c.setPointerCapture(e.pointerId);
@@ -301,13 +358,18 @@ export class SectionController {
       this.drag = { mode: 'divider', floorId: hit.floorId, left: hit.left, right: hit.right };
       return;
     }
+    if (hit.kind === 'carDivider') {
+      useDoc.beginGesture();
+      this.drag = { mode: 'carDivider', carId: hit.carId, left: hit.left, right: hit.right };
+      return;
+    }
     setEditor({ sel: { kind: hit.kind, id: hit.id } as SelRef });
     if (hit.kind === 'item')
       this.drag = { mode: 'item', id: hit.id, sx: s.x, sy: s.y, started: false };
     else if (hit.kind === 'note') {
       const doc = docNow();
-      const n = doc.notes.find((v) => v.id === hit.id);
-      const sh = n && this.ctx ? noteShape(this.ctx, layoutOf(doc), n) : null;
+      const n = act.listsOf(doc).notes.find((v) => v.id === hit.id);
+      const sh = n && this.ctx ? noteShape(this.ctx, act.boxesOf(doc), n) : null;
       this.drag = {
         mode: 'note',
         id: hit.id,
@@ -376,6 +438,15 @@ export class SectionController {
           if (l && r) moveDivider(l, r, p.x);
         });
         return;
+      case 'carDivider': {
+        const T = docNow().train ? trainLayoutOf(docNow().train!) : null;
+        const cb = T?.cars.find((v) => v.car.id === drag.carId);
+        if (!cb) return;
+        useDoc.getState().update((d) => {
+          if (d.train) moveCarDivider(d.train, drag.carId, drag.left, drag.right, p.x - cb.x);
+        });
+        return;
+      }
       case 'item':
         if (!drag.started) {
           if (Math.hypot(s.x - drag.sx, s.y - drag.sy) < DRAG_SLOP) return;
@@ -391,6 +462,11 @@ export class SectionController {
           useDoc.beginGesture();
         }
         useDoc.getState().update((d) => {
+          if (d.mode === 'train' && d.train) {
+            const n = d.train.notes.find((v) => v.id === drag.id);
+            if (n) placeTrainNote(d.train, n, p.x + drag.dx, p.y + drag.dy);
+            return;
+          }
           const n = d.notes.find((v) => v.id === drag.id);
           if (n) placeNote(d, n, p.x + drag.dx, p.y + drag.dy);
         });
@@ -416,8 +492,10 @@ export class SectionController {
 
   private moveItem(id: string, p: Pt): void {
     const doc = docNow();
-    const it = doc.items.find((v) => v.id === id);
-    const rb = it ? layoutOf(doc).rooms.find((r) => r.room.id === it.room) : null;
+    const it = act.listsOf(doc).items.find((v) => v.id === id);
+    const rb: Box | null | undefined = it
+      ? act.boxesOf(doc).rooms.find((r) => r.room.id === it.room)
+      : null;
     if (!it || !rb) return;
     const rx = clamp(itemRx({ x0: rb.x, x1: rb.x + rb.w }, p.x), RANGES.rx.min, RANGES.rx.max);
     const wall = fixtureDef(it.kind)?.hang === 'wall';
@@ -427,7 +505,7 @@ export class SectionController {
       RANGES.ry.max,
     );
     useDoc.getState().update((d) => {
-      const v = d.items.find((x) => x.id === id);
+      const v = act.listsOf(d).items.find((x) => x.id === id);
       if (!v) return;
       v.rx = Math.round(rx * 1000) / 1000;
       if (wall) v.ry = Math.round(ry * 1000) / 1000;
@@ -469,9 +547,9 @@ export class SectionController {
     else {
       const hit = this.hitTest(this.toWorld(s.x, s.y));
       c.style.cursor =
-        !hit || hit.kind === 'room'
+        !hit || hit.kind === 'room' || hit.kind === 'car'
           ? 'grab'
-          : hit.kind === 'divider' || hit.kind === 'shaft'
+          : hit.kind === 'divider' || hit.kind === 'carDivider' || hit.kind === 'shaft'
             ? 'ew-resize'
             : 'move';
     }
@@ -498,19 +576,24 @@ export class SectionController {
     const cv = this.canvas;
     if (!c || !cv) return;
     const doc = docNow();
-    const L: Layout = layoutOf(doc);
+    const plan = planOf(doc);
     const st = useEditor.getState();
     const { zoom, ox, oy, dpr } = this.view;
     c.setTransform(1, 0, 0, 1, 0, 0);
     c.clearRect(0, 0, cv.width, cv.height);
     c.setTransform(zoom * dpr, 0, 0, zoom * dpr, ox * dpr, oy * dpr);
-    drawScene(c, doc, L, {
-      audience: st.audience,
-      env: doc.env,
-      flood: doc.flood ? doc.floodLevel || RANGES.flood.def : 0,
-      crop: 'sheet',
-      edit: { sel: st.audience === 'player' ? null : st.sel, handles: st.tool === 'select' },
-    });
+    drawDoc(
+      c,
+      doc,
+      {
+        audience: st.audience,
+        env: doc.env,
+        flood: doc.flood ? doc.floodLevel || RANGES.flood.def : 0,
+        crop: 'sheet',
+        edit: { sel: st.audience === 'player' ? null : st.sel, handles: st.tool === 'select' },
+      },
+      plan,
+    );
     cv.dataset.rendered = String(Number(cv.dataset.rendered ?? 0) + 1);
   }
 }

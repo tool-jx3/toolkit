@@ -135,7 +135,8 @@ describe('專案檔', () => {
     expect(new Set(ids).size).toBe(ids.length);
     expect(n.items.some((it) => it.kind === 'ufo')).toBe(false);
     expect(n.items.find((it) => it.id === 'y')).toMatchObject({ rx: 0.95, scale: 1 });
-    expect(n.train).toEqual({ cars: [1] });
+    /* 2026-11-27 第二批：列車照本站的格式讀，認不出來的（一節都沒有）不留 */
+    expect(n.train).toBeUndefined();
   });
 });
 
@@ -350,7 +351,8 @@ describe('原作的作業 JSON', () => {
       ['elevator', 16, 1, -1, 'fallsAfter', false],
       ['duct', 34, 1, -1, 'normal', true],
     ]);
-    expect(doc.items.map((it) => it.kind)).toEqual(['tank', 'window', 'bench']);
+    /* 2026-11-27 第二批：列車專用的設備放在建築裡也讀（餐桌） */
+    expect(doc.items.map((it) => it.kind)).toEqual(['tank', 'window', 'bench', 'diner']);
     expect(doc.items[0]).toMatchObject({ rx: 0.3, scale: 1.2, flip: true, upset: true });
     expect(doc.items[0].only).toBeUndefined();
     expect(doc.items[1]).toMatchObject({ only: 'before', secret: true, smashed: true, ry: 0.4 });
@@ -364,15 +366,19 @@ describe('原作的作業 JSON', () => {
       rx: 0.8,
     });
     expect(doc.notes[0].room).toBe(altar?.id);
+    /* 車廂裡的設備指到不存在的區域（c1r）：認不出來；車廂裡的備註讀進列車 */
     expect(skipped).toEqual({
-      items: 2,
-      notes: 1,
+      items: 1,
+      notes: 0,
       floors: 0,
       floorItems: 0,
       floorNotes: 0,
       width: null,
+      cars: 0,
     });
-    expect(doc.train).toBeUndefined();
+    expect(doc.mode).toBe('building');
+    expect(doc.train?.cars.map((c) => [c.type, c.rooms.length])).toEqual([['loco', 1]]);
+    expect(doc.train?.notes.map((n) => [n.text, n.room])).toEqual([['車', null]]);
   });
 
   it('建築寬換成最接近的可選寬度；重複的樓層、超過 12 層的不讀', () => {
@@ -413,11 +419,16 @@ describe('原作的作業 JSON', () => {
     expect(doc.notes).toHaveLength(0);
   });
 
-  it('橫向車廂的作業檔、沒有樓層的檔案：讀不了（說明原因）', () => {
-    expect(() => fromOriginal({ ...originalFile(), mode: 'horizontal' })).toThrow(
-      OriginalFileError,
-    );
-    expect(() => fromOriginal({ ...originalFile(), mode: 'horizontal' })).toThrow('train');
+  it('橫向車廂的作業檔（2026-11-27 第二批起讀得懂）；沒有車廂的橫向檔、沒有樓層的縱向檔讀不了', () => {
+    const { doc } = fromOriginal({ ...originalFile(), mode: 'horizontal' });
+    expect(doc.mode).toBe('train');
+    expect(doc.building.floors).toHaveLength(2);
+    expect(() =>
+      fromOriginal({ ...originalFile(), mode: 'horizontal', train: { cars: [] } }),
+    ).toThrow(OriginalFileError);
+    expect(() =>
+      fromOriginal({ ...originalFile(), mode: 'horizontal', train: { cars: [] } }),
+    ).toThrow('empty-train');
     const empty = originalFile();
     empty.building.floors = [];
     expect(() => fromOriginal(empty)).toThrow('empty');
